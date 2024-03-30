@@ -1,0 +1,21 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: apm-server-quickstart-apm-http
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: apm-server.localhost
+      http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: apm-server-quickstart-apm-http
+                port:
+                  number: 8200
+            pathType: Prefix
