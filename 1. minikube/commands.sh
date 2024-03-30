@@ -22,6 +22,7 @@ alias kubectl="minikube kubectl --"
 ## From: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
 minikube addons enable ingress
 minikube addons enable metrics-server
+kubectl apply -f kube-dashboard-ingress.yaml
 
 ## Uses this to expose minikube ip as localhost
 minikube tunnel

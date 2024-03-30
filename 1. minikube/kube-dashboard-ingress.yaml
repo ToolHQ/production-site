@@ -1,0 +1,19 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubernetes-dashboard-ingress
+  namespace: kubernetes-dashboard
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k8s.localhost
+      http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: kubernetes-dashboard
+                port:
+                  number: 80
+            pathType: Prefix
