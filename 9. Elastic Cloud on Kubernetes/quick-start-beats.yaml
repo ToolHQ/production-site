@@ -1,4 +1,3 @@
-
 apiVersion: beat.k8s.elastic.co/v1beta1
 kind: Beat
 metadata:
@@ -6,15 +5,11 @@ metadata:
 spec:
   type: filebeat
   version: 8.13.0
-  elasticsearchRef:
-    name: quickstart
-  kibanaRef:
-    name: quickstart
+  # elasticsearchRef:
+  #   name: quickstart
+  # kibanaRef:
+  #   name: quickstart
   config:
-    # filebeat.inputs:
-    # - type: container
-    #   paths:
-    #   - /var/log/containers/*.log
     filebeat:
       autodiscover:
         providers:
@@ -27,8 +22,9 @@ spec:
               paths:
               - /var/log/containers/*${data.kubernetes.container.id}.log
     processors:
-    - add_cloud_metadata: {}
     - add_host_metadata: {}
+    output.logstash:
+      hosts: 'quickstart-ls-beats'
   daemonSet:
     podTemplate:
       spec:
@@ -36,8 +32,15 @@ spec:
         hostNetwork: true
         securityContext:
           runAsUser: 0
+        serviceAccount: elastic-beat-filebeat-quickstart
+        automountServiceAccountToken: true
         containers:
         - name: filebeat
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
           volumeMounts:
           - name: varlogcontainers
             mountPath: /var/log/containers
@@ -55,3 +58,52 @@ spec:
         - name: varlibdockercontainers
           hostPath:
             path: /var/lib/docker/containers
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elastic-beat-filebeat-quickstart
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: elastic-beat-autodiscover-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: elastic-beat-autodiscover
+subjects:
+- kind: ServiceAccount
+  name: elastic-beat-filebeat-quickstart
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: elastic-beat-autodiscover
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - namespaces
+  - events
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["apps"]
+  resources:
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
