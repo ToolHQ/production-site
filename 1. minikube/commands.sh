@@ -9,9 +9,9 @@ chmod +x ./minikube
 # Move the binary to your executable path
 sudo mv ./minikube /usr/local/bin/
 
-minikube start --cpus=4 --memory=7946 --driver=docker
+minikube start --cpus=8 --memory=12000 --driver=docker
 minikube delete
-minikube start --cpus=4 --memory=7946 --driver=docker
+minikube start --cpus=8 --memory=12000 --driver=docker
 minikube kubectl -- get pods -A
 minikube kubectl -- version --client
 minikube dashboard
