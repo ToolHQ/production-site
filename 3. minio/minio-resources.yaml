@@ -7,17 +7,47 @@ metadata:
   name: minio
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-secret
+  namespace: minio
+  labels:
+    app: minio
+type: Opaque
+data:
+  MINIO_ROOT_USER: bWluaW8=
+  MINIO_ROOT_PASSWORD: bWluaW80NTY=
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: minio-pv
+  namespace: minio
+  labels:
+    type: minio
+    app: minio
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/minio
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: minio-pvc
   namespace: minio
 spec:
+  storageClassName: manual
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
-  volumeMode: Filesystem
+  # volumeMode: Filesystem
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -50,7 +80,7 @@ spec:
           claimName: minio-pvc
       containers:
       - name: minio
-        image: quay.io/minio/minio:RELEASE.2024-03-26T22-10-45Z
+        image: quay.io/minio/minio:RELEASE.2024-04-18T19-09-19Z
         command:
         - /bin/bash
         - -c
@@ -58,9 +88,15 @@ spec:
         - minio server /data --console-address :9001
         env:
         - name: MINIO_ROOT_USER
-          value: minio
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: MINIO_ROOT_USER
         - name: MINIO_ROOT_PASSWORD
-          value: minio456
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: MINIO_ROOT_PASSWORD
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 9000

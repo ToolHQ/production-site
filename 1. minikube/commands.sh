@@ -1,28 +1,19 @@
 #!/bin/bash
 # Tested in 2024-03-24
 
+## Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
 ## From: https://github.com/codeedu/wsl2-kubernetes?tab=readme-ov-file
 # Download the latest version of Minikube
-curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-# Make the binary executable
-chmod +x ./minikube
-# Move the binary to your executable path
-sudo mv ./minikube /usr/local/bin/
+ curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
+   && sudo install minikube-linux-amd64 /usr/local/bin/minikube
 
-minikube start --cpus=8 --memory=12000 --driver=docker
 minikube delete
-minikube start --cpus=8 --memory=12000 --driver=docker
-minikube kubectl -- get pods -A
-minikube kubectl -- version --client
-minikube dashboard
-
-## Salvar no ~/.bashrc
-alias kubectl="minikube kubectl --"
-
-## From: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
+minikube start --cpus=12 --memory=16000 --driver=docker --insecure-registry "10.0.0.0/24"
 minikube addons enable ingress
 minikube addons enable metrics-server
-kubectl apply -f kube-dashboard-ingress.yaml
+minikube addons enable dashboard
 
-## Uses this to expose minikube ip as localhost
 minikube tunnel

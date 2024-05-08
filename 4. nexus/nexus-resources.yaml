@@ -5,23 +5,23 @@ metadata:
     kubernetes.io/metadata.name: nexus
     name: nexus
   name: nexus
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: nexus-secret
-  namespace: nexus
-  labels:
-    app: nexus
-type: Opaque
-data:
-  NEXUS_USER: cG9zdGdyZXM=
-  NEXUS_PASSWORD: cGFzc3dvcmRpbml0aWFs
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: nexus-secret
+#   namespace: nexus
+#   labels:
+#     app: nexus
+# type: Opaque
+# data:
+#   NEXUS_USER: cG9zdGdyZXM=
+#   NEXUS_PASSWORD: cGFzc3dvcmRpbml0aWFs
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nexus-volume
+  name: nexus-pv
   namespace: nexus
   labels:
     type: nexus
@@ -38,7 +38,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: nexus-volume-claim
+  name: nexus-pvc
   namespace: nexus
   labels:
     app: nexus
@@ -67,10 +67,14 @@ spec:
     spec:
       containers:
         - name: nexus
-          image: 'sonatype/nexus3:3.66.0'
+          image: 'sonatype/nexus3:3.67.1-java11'
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
+              protocol: TCP
+            - containerPort: 18444
+              protocol: TCP
+            - containerPort: 18445
               protocol: TCP
           volumeMounts:
             - mountPath: /nexus-data
@@ -85,7 +89,7 @@ spec:
       volumes:
         - name: nexusdata
           persistentVolumeClaim:
-            claimName: nexus-volume-claim
+            claimName: nexus-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -101,12 +105,22 @@ spec:
       port: 8081
       targetPort: 8081
       protocol: TCP
+    - name: docker-tcp-port
+      port: 18444
+      targetPort: 18444
+      protocol: TCP
+    - name: docker-tcp-port-https
+      port: 18445
+      targetPort: 18445
+      protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: nexus-ingress
   namespace: nexus
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 400m
 spec:
   rules:
     - host: nexus.localhost
@@ -119,3 +133,21 @@ spec:
                 name: nexus-service
                 port:
                   number: 8081
+    - host: docker-nexus.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nexus-service
+                port:
+                  number: 18444
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubernetes.io/metadata.name: postgres
+    name: postgres
+  name: postgres
