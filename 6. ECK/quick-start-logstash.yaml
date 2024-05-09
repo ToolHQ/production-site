@@ -3,7 +3,8 @@ kind: Logstash
 metadata:
   name: quickstart
 spec:
-  version: 8.13.0
+  version: 8.13.3
+  image: docker-nexus.localhost/repository/docker-repo/logstash:8.13.3-custom.2
   services:
     - name: beats
       service:
@@ -23,12 +24,33 @@ spec:
   podTemplate:
     spec:
       terminationGracePeriodSeconds: 604800
+      imagePullSecrets:
+      - name: regsecret
       containers:
       - name: logstash
+        env:
+        - name: LS_JAVA_OPTS
+          value: -Xms256m -Xmx256m
+        resources:
+          requests:
+            memory: 1Gi
+            cpu: 0.5
+          limits:
+            memory: 2Gi
+            cpu: 2
         volumeMounts:
         - mountPath: /usr/share/logstash/dlq 
-          name: dlq  
+          name: dlq
           readOnly: false
+  volumeClaimTemplates:
+    - metadata:
+        name: dlq 
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1536Mi
 ---
 apiVersion: v1
 kind: Secret
@@ -36,8 +58,8 @@ metadata:
   name: quickstart-config
 stringData:
   logstash.yml: |-
-    pipeline.workers: 4
-    log.level: debug
+    pipeline.workers: 2
+    log.level: info
     queue.drain: true
 ---
 apiVersion: v1
@@ -55,12 +77,155 @@ stringData:
             port => 5044
           }
         }
+        filter {
+          mutate {
+            add_field => {
+              "queue" => "beats"
+            }
+          }
+         
+          ## Custom known back-end applications (json log expected)
+          if ([kubernetes][container][name] =~ "^dnorio-[a-zA-Z]+") {
+            mutate {
+              add_field => {
+                "filter_type" => "custom"
+              }
+            }
+          # Known JSON applications
+          } else if ([kubernetes][container][name] == "filebeat") {
+            json {
+              source => "message"
+              target => "doc"
+              remove_field => ["message"]
+              tag_on_failure => ["parse_error_nonapp_json_data"]
+            }
+            if ([kubernetes][container][name] == "filebeat") {
+              mutate {
+                add_field => { "filter_type" => "filebeat" }
+                rename => { "[doc][log.level]" => "[doc][severity]" }
+                rename => { "[doc][log.origin][file.name]" => "[doc][file]" }
+                rename => { "[doc][@timestamp]" => "[doc][app@timestamp]" }
+                tag_on_failure => "mutate_filebeat_error"
+              }
+            }
+            if ("parse_error_nonapp_json_data" in [tags]) {
+              json_encode {
+                source => "message"
+                target => "[doc][message]"
+                remove_field => ["message"]
+              }
+              if [stream] == "stdout" {
+                mutate {
+                  add_field => {
+                    "[doc][severity]" => "process info"
+                  }
+                }
+              } else {
+                mutate {
+                  add_field => {
+                    "[doc][severity]" => "process error"
+                  }
+                }
+              }
+            }
+          # Known non-JSON applications
+          } else if ([kubernetes][container][name] == "logstash") {
+            if ([kubernetes][container][name] == "logstash") {
+              # [2022-05-23T01:43:27,453][INFO ][logstash.outputs.elasticsearch][main] 
+              grok {
+                patterns_dir => ["/opt/logstash/custom_patterns"]
+                match => { "message" => '\[%{ISO8601:[doc][app@timestamp]}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
+                remove_field => ["message"]
+                tag_on_failure => ["parse_error_nonjson_data"]
+              }
+              mutate {
+                rename => { "new_message" => "message" }
+                add_field => { "filter_type" => "logstash" }
+                lowercase => ["severity"]
+                tag_on_failure => ["mutate_logstash_error"]
+              }
+            }
+            if ("parse_error_nonjson_data" in [tags]) {
+              # default: encode as json and add severity
+              json_encode {
+                source => "message"
+                target => "[doc][message]"
+                remove_field => ["message"]
+              }
+              if [stream] == "stdout" {
+                mutate {
+                  add_field => {
+                    "[doc][severity]" => "process info"
+                  }
+                }
+              } else {
+                mutate {
+                  add_field => {
+                    "[doc][severity]" => "process error"
+                  }
+                }
+              }
+            }
+          } else {
+            mutate {
+              add_field => { "filter_type" => "any" }
+            }
+            json_encode {
+              source => "message"
+              target => "[doc][message]"
+              remove_field => ["message"]
+            }
+            if [stream] == "stdout" {
+              mutate {
+                add_field => {
+                  "[doc][severity]" => "process info"
+                }
+              }
+            } else {
+              mutate {
+                add_field => {
+                  "[doc][severity]" => "process error"
+                }
+              }
+            }
+          }
+          date { match => [
+            "[doc][app@timestamp]",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            # filebeat & elasticsearch
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+            # logstash
+            "yyyy-MM-dd'T'HH:mm:ss,SSS",
+            # kibana
+            "yyyy-MM-dd'T'HH:mm:ss.SSSZZ",
+            # kafka
+            "yyyy-MM-dd HH:mm:ss,SSS",
+            # postgres
+            "yyyy-MM-dd HH:mm:ss.SSS 'UTC'"
+          ] }
+          if [doc] {
+            ruby {
+              code => '
+                event.get("[doc]").each { |k,v|
+                  event.set(k,v)
+                }
+              '
+            }
+            if ("_rubyexception" not in [tags]) {
+              mutate {
+                remove_field => "doc"
+              }
+            }
+          }
+        }
         output {
           elasticsearch {
             hosts => [ "${QS_ES_HOSTS}" ]
             user => "${QS_ES_USER}"
             password => "${QS_ES_PASSWORD}"
             ssl_certificate_authorities => "${QS_ES_SSL_CERTIFICATE_AUTHORITY}"
+            index => "logs-generic-%{[kubernetes][namespace]}-%{[kubernetes][container][name]}-%{+YYYY.MM.dd}"
+            action => "create"
           }
         }
     - pipeline.id: dlq_read
@@ -76,7 +241,9 @@ stringData:
         }
         filter {
           mutate {
-            remove_field => "[geoip][location]"
+            add_field => {
+              "queue" => "dlq_read"
+            }
           }
         }
         output {
@@ -85,5 +252,6 @@ stringData:
             user => "${QS_ES_USER}"
             password => "${QS_ES_PASSWORD}"
             ssl_certificate_authorities => "${QS_ES_SSL_CERTIFICATE_AUTHORITY}"
+            action => "create"
           }
         }

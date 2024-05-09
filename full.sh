@@ -80,4 +80,37 @@ kubectl create secret docker-registry regsecret --docker-server=http://docker-ne
 kubectl create secret docker-registry regsecret --docker-server=http://docker-nexus.localhost/v2/ --docker-username=docker --docker-password=docker123 --docker-email=danieltakasu@gmail.com --namespace postgres
 
 ## Run after manually setup
-kubectl apply -f 6.\ postgres/postgres-resources.yaml
+kubectl apply -f 5.\ postgres/postgres-resources.yaml
+
+## Now lets configure the ECK
+ECK_RESOURCES_FOLDER=6.\ ECK
+kubectl create -f "$ECK_RESOURCES_FOLDER/crds.yaml"
+kubectl apply -f "$ECK_RESOURCES_FOLDER/operator.yaml"
+
+## ElasticSearch
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-es.yaml"
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-es-ingress.yaml"
+### Uses the command bellow to get the password (user is elastic):
+ELASTIC_PASSWORD=$(kubectl get secret quickstart-es-elastic-user -o go-template='{{.data.elastic | base64decode}}')
+echo $ELASTIC_PASSWORD
+ELASTIC_AUTHORIZATION_HEADER="Basic $(echo -n "elastic:$ELASTIC_PASSWORD" | base64)"
+curl -k -X GET https://es.localhost/_cat/templates -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER"
+curl -k -X PUT https://es.localhost/_template/template_1 -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -H 'Content-Type:application/json' -d '{ "index_patterns": ["*"], "order": 0, "settings": { "number_of_shards": 1, "number_of_replicas": 0 } }'
+curl -k -X PUT https://es.localhost/\*/_settings -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -H 'Content-Type:application/json' -d '{ "index.number_of_replicas": 0 }'
+
+## Kibana
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-kibana.yaml"
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-kibana-ingress.yaml"
+
+## APM Server
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-apm-server.yaml"
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-apm-server-ingress.yaml"
+
+## Elastic Agent
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-elastic-agent.yaml"
+
+## Beats
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-beats.yaml"
+
+## Logstash
+kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-logstash.yaml"
