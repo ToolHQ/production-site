@@ -15,12 +15,30 @@ spec:
         providers:
         - type: kubernetes
           node: ${NODE_NAME}
+          cleanup_timeout: 60s
+          add_resource_metadata:
+            # namespace:
+            #   include_labels: ["namespacelabel1"]
+            # node:
+            #   include_labels: ["kubernetes_io/arch", "kubernetes_io/hostname", "kubernetes_io/os"]
+              # include_annotations: ["nodeannotation1"]
+            deployment: true
+            cronjob: true
           hints:
             enabled: true
             default_config:
               type: container
               paths:
               - /var/log/containers/*${data.kubernetes.container.id}.log
+              parsers:
+              - multiline:
+                  type: pattern
+                  pattern: '^\['
+                  negate: true
+                  match: after
+              # json.add_error_key: true
+              json.message_key: message
+              json.ignore_decoding_error: true
     processors:
     - add_host_metadata: {}
     output.logstash:

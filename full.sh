@@ -95,7 +95,7 @@ ELASTIC_PASSWORD=$(kubectl get secret quickstart-es-elastic-user -o go-template=
 echo $ELASTIC_PASSWORD
 ELASTIC_AUTHORIZATION_HEADER="Basic $(echo -n "elastic:$ELASTIC_PASSWORD" | base64)"
 curl -k -X GET https://es.localhost/_cat/templates -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER"
-curl -k -X PUT https://es.localhost/_template/template_1 -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -H 'Content-Type:application/json' -d '{ "index_patterns": ["*"], "order": 0, "settings": { "number_of_shards": 1, "number_of_replicas": 0 } }'
+curl -k -X PUT https://es.localhost/_index_template/template_1 -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -H 'Content-Type:application/json' -d '{ "index_patterns": ["*"], "priority": 600, "data_stream": {}, "template": { "settings": { "number_of_shards": 1, "number_of_replicas": 0 } } }'
 curl -k -X PUT https://es.localhost/\*/_settings -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -H 'Content-Type:application/json' -d '{ "index.number_of_replicas": 0 }'
 
 ## Kibana
