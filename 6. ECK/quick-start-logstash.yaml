@@ -83,151 +83,175 @@ stringData:
               "queue" => "beats"
             }
           }
-         
-          ## Custom known back-end applications (json log expected)
-          if ([kubernetes][container][name] =~ "^dnorio-[a-zA-Z]+") {
-            mutate {
-              add_field => {
-                "filter_type" => "custom"
-              }
-            }
-          # Known JSON applications
-          } else if ([kubernetes][container][name] == "filebeat") {
-            json {
-              source => "message"
-              target => "doc"
-              remove_field => ["message"]
-              tag_on_failure => ["parse_error_nonapp_json_data"]
-            }
-            if ([kubernetes][container][name] == "filebeat") {
-              mutate {
-                add_field => { "filter_type" => "filebeat" }
-                rename => { "[doc][log.level]" => "[doc][severity]" }
-                rename => { "[doc][log.origin][file.name]" => "[doc][file]" }
-                rename => { "[doc][@timestamp]" => "[doc][app@timestamp]" }
-                tag_on_failure => "mutate_filebeat_error"
-              }
-            }
-            if ("parse_error_nonapp_json_data" in [tags]) {
-              json_encode {
-                source => "message"
-                target => "[doc][message]"
-                remove_field => ["message"]
-              }
-              if [stream] == "stdout" {
-                mutate {
-                  add_field => {
-                    "[doc][severity]" => "process info"
-                  }
-                }
-              } else {
-                mutate {
-                  add_field => {
-                    "[doc][severity]" => "process error"
-                  }
-                }
-              }
-            }
-          # Known non-JSON applications
-          } else if ([kubernetes][container][name] == "logstash") {
+          if ("beats_input_codec_plain_applied" in [tags]) { ## Beats json not applied
             if ([kubernetes][container][name] == "logstash") {
-              # [2022-05-23T01:43:27,453][INFO ][logstash.outputs.elasticsearch][main] 
+              # [2022-05-23T01:43:27,453][INFO ][logstash.outputs.elasticsearch][main]      
               grok {
                 patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '\[%{ISO8601:[doc][app@timestamp]}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
-                remove_field => ["message"]
-                tag_on_failure => ["parse_error_nonjson_data"]
+                match => { "message" => '\[%{ISO8601:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
+                tag_on_failure => ["error_non_json", "grok_error_logstash_non_json"]
               }
               mutate {
                 rename => { "new_message" => "message" }
                 add_field => { "filter_type" => "logstash" }
-                lowercase => ["severity"]
-                tag_on_failure => ["mutate_logstash_error"]
+                tag_on_failure => "mutate_error_logstash_non_json"
+              }
+            } else if ([kubernetes][container][name] == "kibana") {
+              # [2024-05-09T15:06:46.557+00:00][INFO ][plugins.securitySolution.endpoint:user-artifact-packager:1.0.0] Last computed manifest not available yet
+              grok {
+                patterns_dir => ["/opt/logstash/custom_patterns"]
+                match => { "message" => '\[%{ISO8601_DOT_FUSE:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
+                tag_on_failure => ["error_non_json", "grok_error_kibana_non_json"]
+              }
+              mutate {
+                rename => { "new_message" => "message" }
+                add_field => { "filter_type" => "kibana" }
+                tag_on_failure => "mutate_error_kibana_non_json"
+              }
+            } else if ([kubernetes][container][name] == "coredns") {
+              # [INFO] 10.244.0.36:33312 - 61962 "AAAA IN quickstart-es-http.default.svc.cluster.local. udp 73 false 1232" NOERROR qr,aa,rd 155 0.000081505s
+              grok {
+                patterns_dir => ["/opt/logstash/custom_patterns"]
+                match => { "message" => '\[%{SEVERITY:severity}\]%{GREEDYDATA:temp_message}' }
+                tag_on_failure => ["error_non_json", "grok_error_coredns_non_json"]
+              }
+              mutate {
+                rename => { "temp_message" => "message" }
+                add_field => { "filter_type" => "coredns" }
+                tag_on_failure => "mutate_error_coredns_non_json"
               }
             }
-            if ("parse_error_nonjson_data" in [tags]) {
-              # default: encode as json and add severity
-              json_encode {
-                source => "message"
-                target => "[doc][message]"
-                remove_field => ["message"]
+            # if ("error_non_json" not in [tags]) {
+            #   mutate {
+            #     remove_field => "[event][original]"
+            #   }
+            # }
+          } else { ## Beats json decoded
+            # Custom parsings
+            if ([kubernetes][container][name] == "filebeat" or [kubernetes][container][name] == "agent" or [kubernetes][container][name] == "apm-server") {
+              mutate {
+                rename => { "[json][@timestamp]" => "app@timestamp" }
+                add_field => { "filter_type" => "%{[kubernetes][container][name]}_json" }
+                rename => { "[json][log.level]" => "severity" }
+                add_field => { "file" => "%{[json][log.origin][file.name]}:%{[json][log.origin][file.line]}" }
+                tag_on_failure => "mutate_error_elastic_json"
               }
-              if [stream] == "stdout" {
-                mutate {
-                  add_field => {
-                    "[doc][severity]" => "process info"
-                  }
-                }
-              } else {
-                mutate {
-                  add_field => {
-                    "[doc][severity]" => "process error"
-                  }
-                }
+              mutate {
+                remove_field => ["[json][log.origin][file.name]", "[json][log.origin][file.line]"]
+                tag_on_failure => "mutate_error_elastic_json"
               }
+            } else if ([kubernetes][container][name] == "elasticsearch") {
+              mutate {
+                rename => { "[json][@timestamp]" => "app@timestamp" }
+                add_field => { "filter_type" => "elasticsearch_json" }
+                rename => { "[json][log.level]" => "severity" }
+                tag_on_failure => "mutate_error_elasticsearch_json"
+              }
+            } else if ([kubernetes][container][name] == "etcd") {
+              mutate {
+                remove_field => ["[json][message]"]
+              }
+              mutate {
+                rename => { "[json][ts]" => "app@timestamp" }
+                rename => { "[json][caller]" => "file" }
+                rename => { "[json][msg]" => "message" }
+                rename => { "[json][level]" => "severity" }
+                add_field => { "filter_type" => "etcd_json" }
+                tag_on_failure => "mutate_error_etcd_json"
+              }
+              # 2024-05-09T18:52:35.881931Z
+              ruby {
+                code => 'event.set("[app@timestamp]", event.get("[app@timestamp]")[0..22])'
+                tag_on_exception => "mutate_error_etcd_timestamp"
+              }
+            } else if ([kubernetes][container][name] == "kibana") {
+              # [2024-05-09T15:06:46.557+00:00][INFO ][plugins.securitySolution.endpoint:user-artifact-packager:1.0.0] Last computed manifest not available yet
+              grok {
+                patterns_dir => ["/opt/logstash/custom_patterns"]
+                match => { "[json][message]" => '\[%{ISO8601_DOT_FUSE:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
+                tag_on_failure => ["error_json", "grok_error_kibana_json"]
+              }
+              mutate {
+                remove_field => ["[json][message]"]
+                rename => { "new_message" => "message" }
+                add_field => { "filter_type" => "kibana_json" }
+                tag_on_failure => "mutate_error_kibana_json"
+              }
+            }
+
+            # Move json properties to root level
+            ruby {
+              code => '
+                event.get("[json]").each { |k,v|
+                  event.set(k,v)
+                }
+              '
+            }
+            # if ("_rubyexception" not in [tags]) {
+            #   mutate {
+            #     remove_field => "json"
+            #   }
+            # }
+          }
+
+          # Coalesce severity by stream channel
+          if ([severity]) {
+            mutate {
+              lowercase => ["severity"]
             }
           } else {
-            mutate {
-              add_field => { "filter_type" => "any" }
-            }
-            json_encode {
-              source => "message"
-              target => "[doc][message]"
-              remove_field => ["message"]
-            }
             if [stream] == "stdout" {
               mutate {
                 add_field => {
-                  "[doc][severity]" => "process info"
+                  "severity" => "process info"
                 }
               }
             } else {
               mutate {
                 add_field => {
-                  "[doc][severity]" => "process error"
+                  "severity" => "process error"
                 }
               }
             }
           }
+
+          # Enforces precised app@timestamp if available
           date { match => [
-            "[doc][app@timestamp]",
+            "[app@timestamp]",
+            ## etcd sliced, nodejs
             "yyyy-MM-dd'T'HH:mm:ss.SSS",
-            # filebeat & elasticsearch
+            # Elastic json: filebeat, elasticsearch, agent, apm-server
             "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
             # logstash
             "yyyy-MM-dd'T'HH:mm:ss,SSS",
             # kibana
             "yyyy-MM-dd'T'HH:mm:ss.SSSZZ",
+            # etc
+            "yyyy-MM-dd'T'HH:mm:ss,SSSSSS",
             # kafka
             "yyyy-MM-dd HH:mm:ss,SSS",
             # postgres
             "yyyy-MM-dd HH:mm:ss.SSS 'UTC'"
           ] }
-          if [doc] {
-            ruby {
-              code => '
-                event.get("[doc]").each { |k,v|
-                  event.set(k,v)
-                }
-              '
-            }
-            if ("_rubyexception" not in [tags]) {
-              mutate {
-                remove_field => "doc"
-              }
-            }
+
+          mutate {
+            replace => { "[data_stream][dataset]" => "%{[kubernetes][container][name]}" }
           }
         }
+
         output {
           elasticsearch {
             hosts => [ "${QS_ES_HOSTS}" ]
             user => "${QS_ES_USER}"
             password => "${QS_ES_PASSWORD}"
             ssl_certificate_authorities => "${QS_ES_SSL_CERTIFICATE_AUTHORITY}"
-            index => "logs-generic-%{[kubernetes][namespace]}-%{[kubernetes][container][name]}-%{+YYYY.MM.dd}"
+            data_stream => true
+            # data_stream_dataset => "%{[kubernetes][container][name]}"
+            # index => "logs-generic-%{[kubernetes][namespace]}-%{[kubernetes][container][name]}-%{+YYYY.MM.dd}"
             action => "create"
           }
         }
+
     - pipeline.id: dlq_read
       dead_letter_queue.enable: false
       config.string: |
