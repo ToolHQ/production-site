@@ -3,5 +3,5 @@ kind: ElasticMapsServer
 metadata:
   name: quickstart
 spec:
-  version: 8.13.0
+  version: 8.13.3
   count: 1
