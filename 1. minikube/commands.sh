@@ -15,5 +15,7 @@ minikube start --cpus=12 --memory=16000 --driver=docker --insecure-registry "10.
 minikube addons enable ingress
 minikube addons enable metrics-server
 minikube addons enable dashboard
-
+kubectl apply -f 1.\ minikube/kube-dashboard-ingress.yaml
+kubectl apply -f 1.\ minikube/ingress-nginx-controller-deployment.yaml
+kubectl apply -f 1.\ minikube/ingress-nginx-controller-configmap.yaml
 minikube tunnel

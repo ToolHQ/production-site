@@ -1,0 +1,19 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+data:
+  hsts: 'false'
+  # use-gzip: 'true'
+  use-geoip: 'false'
+  use-geoip2: 'true'
+  log-format-escape-json: 'true'
+  log-format-upstream: '{"message":"$request $status $request_time $geoip2_city_country_code $geoip2_city_country_name $geoip2_city_geoname_id $geoip2_city $geoip2_latitude $geoip2_longitude $http_user_agent","action":"Request received","http_host":"$host","remote_addr":"$remote_addr","remote_user":"$remote_user","time_local":"$time_local","request":"$request","http_status":"$status","body_bytes_sent":"$body_bytes_sent","http_referer":"$http_referer","http_user_agent":"$http_user_agent","req-id":"$request_id","http_x_forwarded_for":"$http_x_forwarded_for","proxy_host":"$proxy_host","uri":"$uri","request_time":"$request_time","upstream_response_time":"$upstream_response_time","upstream_connect_time":"$upstream_connect_time","estim_city":"$geoip2_city"}'
+  use-forwarded-headers: "true"
+  forwarded-for-header: "X-Forwarded-For"
