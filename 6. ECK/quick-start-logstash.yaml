@@ -150,14 +150,14 @@ stringData:
               # I0509 20:14:26.186104       1 shared_informer.go:320] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::client-ca-file
               ## kube-proxy
               # I0509 20:14:27.376734       1 shared_informer.go:320] Caches are synced for service config
-              ## storage-provisioner
-              # I0509 20:15:06.538039       1 event.go:282] Event(v1.ObjectReference{Kind:"Endpoints", Namespace:"kube-system", Name:"k8s.io-minikube-hostpath", UID:"00d4e583-fb5b-492d-8ad8-4106b0385129", APIVersion:"v1", ResourceVersion:"95277", FieldPath:""}): type: 'Normal' reason: 'LeaderElection' minikube_33e7b30f-9b6f-4245-8baf-b2d670cea124 became leader
-              ## kube-apiserver
-              # I0509 20:14:26.062026       1 controller.go:139] Starting OpenAPI controller
               ## kube-controller-manager
               # I0509 21:53:33.951322       1 replica_set.go:676] "Finished syncing" logger="replicaset-controller" kind="ReplicaSet" key="ingress-nginx/ingress-nginx-controller-69f599888b" duration="5.069868ms"
               ## metrics-server
               # I0509 20:15:23.999251       1 server.go:191] "Failed probe" probe="metric-storage-ready" err="no metrics to serve"
+              ## storage-provisioner
+              # I0509 20:15:06.538039       1 event.go:282] Event(v1.ObjectReference{Kind:"Endpoints", Namespace:"kube-system", Name:"k8s.io-minikube-hostpath", UID:"00d4e583-fb5b-492d-8ad8-4106b0385129", APIVersion:"v1", ResourceVersion:"95277", FieldPath:""}): type: 'Normal' reason: 'LeaderElection' minikube_33e7b30f-9b6f-4245-8baf-b2d670cea124 became leader
+              ## kube-apiserver
+              # I0509 20:14:26.062026       1 controller.go:139] Starting OpenAPI controller
               grok {
                 patterns_dir => ["/opt/logstash/custom_patterns"]
                 match => { "message" => '%{SEVERITY:temp_severity}\d{4} \d{2}:\d{2}:\d{2}\.\d{6} +\d %{GREEDYDATA:file}\]' }
