@@ -187,6 +187,18 @@ stringData:
                   }
                 }
               }
+            } else if ([kubernetes][container][name] == "postgres") {
+              # 2024-05-09 20:19:41.476 UTC [48] LOG: checkpoint complete: wrote 44 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=4.111 s, sync=0.006 s, total=4.126 s; sync files=11, longest=0.004 s, average=0.001 s; distance=261 kB, estimate=261 kB; lsn=0/1531A10, redo lsn=0/15319D8
+              grok {
+                patterns_dir => ["/opt/logstash/custom_patterns"]
+                match => { "message" => '%{DATE_DOT_MILLIS_UTC:app@timestamp} \[\d+\] %{SEVERITY:severity}: +%{GREEDYDATA:new_message}' }
+                tag_on_failure => ["error_non_json", "grok_error_postgres"]
+              }
+              mutate {
+                rename => { "new_message" => "message" }
+                add_field => { "filter_type" => "postgres" }
+                tag_on_failure => "mutate_error_postgres"
+              }
             }
             # if ("error_non_json" not in [tags]) {
             #   mutate {
