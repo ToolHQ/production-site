@@ -5,3 +5,4 @@ DATE_SPACE_COMMA \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}
 ISO8601_NO_MILLIS \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z
 DATE_DOT_MILLIS_UTC \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{3} UTC
 INT_OR_EMPTY \d*
+ANY_WITHOUT_RIGHT_COLCHETES [^\]]+
