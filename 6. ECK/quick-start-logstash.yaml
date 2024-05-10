@@ -4,7 +4,7 @@ metadata:
   name: quickstart
 spec:
   version: 8.13.3
-  image: docker-nexus.localhost/repository/docker-repo/logstash:8.13.3-custom.2
+  image: docker-nexus.localhost/repository/docker-repo/logstash:8.13.3-custom.3
   services:
     - name: beats
       service:
@@ -145,6 +145,7 @@ stringData:
               or [kubernetes][container][name] == "kube-apiserver"
               or [kubernetes][container][name] == "kube-controller-manager"
               or [kubernetes][container][name] == "metrics-server"
+              or [kubernetes][container][name] == "controller"
             ) {
               ## kube-scheduler
               # I0509 20:14:26.186104       1 shared_informer.go:320] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::client-ca-file
@@ -158,9 +159,11 @@ stringData:
               # I0509 20:15:06.538039       1 event.go:282] Event(v1.ObjectReference{Kind:"Endpoints", Namespace:"kube-system", Name:"k8s.io-minikube-hostpath", UID:"00d4e583-fb5b-492d-8ad8-4106b0385129", APIVersion:"v1", ResourceVersion:"95277", FieldPath:""}): type: 'Normal' reason: 'LeaderElection' minikube_33e7b30f-9b6f-4245-8baf-b2d670cea124 became leader
               ## kube-apiserver
               # I0509 20:14:26.062026       1 controller.go:139] Starting OpenAPI controller
+              ## controller (ingress controller, sometimes)
+              # I0510 14:42:30.585503       7 store.go:440] "Found valid IngressClass" ingress="nexus/nexus-ingress" ingressclass="nginx"
               grok {
                 patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '%{SEVERITY:temp_severity}\d{4} \d{2}:\d{2}:\d{2}\.\d{6} +\d %{GREEDYDATA:file}\]' }
+                match => { "message" => '%{SEVERITY:temp_severity}\d{4} \d{2}:\d{2}:\d{2}\.\d{6} +\d %{ANY_WITHOUT_RIGHT_COLCHETES:file}\]' }
                 tag_on_failure => ["grok_error_k8s"]
               }
               mutate {
@@ -216,7 +219,7 @@ stringData:
                 mutate { add_field => { "severity" => "info" } }
               } else if [json][http][response][status] =~ /^3/ {
                 mutate { add_field => { "severity" => "warn" } }
-              } else {
+              } else if ([json][http][response][status]) {
                 mutate { add_field => { "severity" => "error" } }
               }
             } else if ([kubernetes][container][name] == "filebeat" or [kubernetes][container][name] == "agent" or [kubernetes][container][name] == "apm-server") {
