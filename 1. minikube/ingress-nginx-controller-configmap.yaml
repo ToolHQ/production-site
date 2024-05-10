@@ -14,7 +14,7 @@ data:
   use-geoip: 'false'
   use-geoip2: 'true'
   log-format-escape-json: 'true'
-  log-format-upstream: '{"app@timestamp":"$time_iso8601_p1.$millisec","action":"Request received","message":"$request $status $request_time $geoip2_city_country_name - $geoip2_region_code - $geoip2_city ($geoip2_latitude, $geoip2_longitude) $http_user_agent","http":{"host":"$host","remote_addr":"$remote_addr","request":{"request":"$request","method":"$request_method","uri":"$uri","scheme":"$scheme","referer":"$http_referer","user_agent":"$http_user_agent","x_forwarded_for":"$http_x_forwarded_for","body_bytes_sent":"$body_bytes_sent","upstream_response_time":"$upstream_response_time","upstream_connect_time":"$upstream_connect_time"},"response":{"status":"$status"},"elapsed_time":"$request_time","proxy_host":"$proxy_host","country_code":"$geoip2_city_country_code","country_name":"$geoip2_city_country_name","city_id":"$geoip2_city_geoname_id","city_name":"$geoip2_city","latitude":"$geoip2_latitude","longitude":"$geoip2_longitude","region_code":"$geoip2_region_code","region_name":"$geoip2_region_name"},"req-id":"$request_id"}'
+  log-format-upstream: '{"app@timestamp":"$time_iso8601_p1.$millisec","action":"Request received","message":"$request $status $request_time $geoip2_city_country_name - $geoip2_region_code - $geoip2_city ($geoip2_latitude, $geoip2_longitude) $http_user_agent","http":{"host":"$host","remote_addr":"$remote_addr","x_forwarded_for":"$http_x_forwarded_for","request":{"request":"$request","method":"$request_method","uri":"$request_uri","scheme":"$scheme","referer":"$http_referer","user_agent":"$http_user_agent","upstream_response_time":"$upstream_response_time","upstream_connect_time":"$upstream_connect_time"},"response":{"status":$httpStatus,"body_bytes_sent":$httpBodyBytesSent,"content_type":"$sent_http_content_type"},"elapsed_time":$elapsedTime,"proxy":{"host":"$proxy_host","uri":"$uri"},"location":{"lat":$locationLat,"lon":$locationLon},"address":{"country":{"code":"$geoip2_city_country_code","name":"$geoip2_city_country_name"},"city":{"id":"$geoip2_city_geoname_id","name":"$geoip2_city"},"region":{"code":"$geoip2_region_code","name":"$geoip2_region_name"}}},"req-id":"$request_id"}'
   use-forwarded-headers: "true"
   forwarded-for-header: "X-Forwarded-For"
   http-snippet: |
@@ -24,4 +24,24 @@ data:
     }
     map $msec $millisec {
       ~\.([0-9]+)$ $1;
+    }
+    map $geoip2_latitude $locationLat {
+      default "$geoip2_latitude";
+      ""      "null";
+    }
+    map $geoip2_longitude $locationLon {
+      default "$geoip2_longitude";
+      ""      "null";
+    }
+    map $status $httpStatus {
+      default "$status";
+      ""      "null";
+    }
+    map $request_time $elapsedTime {
+      default "$request_time";
+      ""      "null";
+    }
+    map $body_bytes_sent $httpBodyBytesSent {
+      default "$body_bytes_sent";
+      ""      "null";
     }

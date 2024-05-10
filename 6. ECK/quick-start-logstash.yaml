@@ -203,11 +203,11 @@ stringData:
                 tag_on_failure => "mutate_error_postgres"
               }
             }
-            # if ("error_non_json" not in [tags]) {
-            #   mutate {
-            #     remove_field => "[event][original]"
-            #   }
-            # }
+            if ("error_non_json" not in [tags]) {
+              mutate {
+                remove_field => "[event][original]"
+              }
+            }
           } else { ## Beats json decoded
             # Custom parsings
             if ([kubernetes][container][name] == "controller") { # ingress controller
@@ -281,11 +281,11 @@ stringData:
                 }
               '
             }
-            # if ("_rubyexception" not in [tags]) {
-            #   mutate {
-            #     remove_field => "json"
-            #   }
-            # }
+            if ("_rubyexception" not in [tags]) {
+              mutate {
+                remove_field => "json"
+              }
+            }
           }
 
           # Coalesce severity by stream channel
