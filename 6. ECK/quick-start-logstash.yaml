@@ -112,13 +112,31 @@ stringData:
               # [INFO] 10.244.0.36:33312 - 61962 "AAAA IN quickstart-es-http.default.svc.cluster.local. udp 73 false 1232" NOERROR qr,aa,rd 155 0.000081505s
               grok {
                 patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '\[%{SEVERITY:severity}\]%{GREEDYDATA:temp_message}' }
+                match => { "message" => '\[%{SEVERITY:severity}\]%{GREEDYDATA:new_message}' }
                 tag_on_failure => ["error_non_json", "grok_error_coredns_non_json"]
               }
               mutate {
-                rename => { "temp_message" => "message" }
+                rename => { "new_message" => "message" }
                 add_field => { "filter_type" => "coredns" }
                 tag_on_failure => "mutate_error_coredns_non_json"
+              }
+            } else if ([kubernetes][container][name] == "manager") { # elastic operator
+              mutate {
+                rename => { "log.level" => "severity" }
+                add_field => { "filter_type" => "elastic_operator_non_json" }
+                tag_on_failure => "mutate_error_elastic_operator_non_json"
+              }
+            } else if ([kubernetes][container][name] == "nexus") {
+              # 2024-05-10 01:20:00,345+0000 INFO  [quartz-12-thread-20] *SYSTEM org.sonatype.nexus.quartz.internal.task.QuartzTaskInfo - Task 'Storage facet cleanup' [repository.storage-facet-cleanup] state change RUNNING -> WAITING (OK)
+              grok {
+                patterns_dir => ["/opt/logstash/custom_patterns"]
+                match => { "message" => '%{DATE_SPACE_COMMA:app@timestamp}\+0000 +%{SEVERITY:severity} +%{GREEDYDATA:new_message}' }
+                tag_on_failure => ["error_json", "grok_error_nexus_json"]
+              }
+              mutate {
+                rename => { "new_message" => "message" }
+                add_field => { "filter_type" => "nexus_json" }
+                tag_on_failure => "mutate_error_nexus_json"
               }
             }
             # if ("error_non_json" not in [tags]) {
