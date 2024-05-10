@@ -34,6 +34,7 @@ ff02::2 ip6-allrouters
 192.168.49.1    host.minikube.internal
 192.168.49.2    control-plane.minikube.internal
 127.0.0.1 docker-nexus.localhost
+127.0.0.1 my-site.localhost
 END
 
 ## Uses this to expose minikube ip as localhost
@@ -116,3 +117,7 @@ kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-beats.yaml"
 
 ## Logstash
 kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-logstash.yaml"
+
+## Sample application
+
+kubectl apply -f 7.\ application/application-ingress.yaml
