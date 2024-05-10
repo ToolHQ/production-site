@@ -131,12 +131,61 @@ stringData:
               grok {
                 patterns_dir => ["/opt/logstash/custom_patterns"]
                 match => { "message" => '%{DATE_SPACE_COMMA:app@timestamp}\+0000 +%{SEVERITY:severity} +%{GREEDYDATA:new_message}' }
-                tag_on_failure => ["error_json", "grok_error_nexus_json"]
+                tag_on_failure => ["error_non_json", "grok_error_nexus"]
               }
               mutate {
                 rename => { "new_message" => "message" }
-                add_field => { "filter_type" => "nexus_json" }
-                tag_on_failure => "mutate_error_nexus_json"
+                add_field => { "filter_type" => "nexus" }
+                tag_on_failure => "mutate_error_nexus"
+              }
+            } else if (
+              [kubernetes][container][name] == "kube-scheduler"
+              or [kubernetes][container][name] == "kube-proxy"
+              or [kubernetes][container][name] == "storage-provisioner"
+              or [kubernetes][container][name] == "kube-apiserver"
+              or [kubernetes][container][name] == "kube-controller-manager"
+              or [kubernetes][container][name] == "metrics-server"
+            ) {
+              ## kube-scheduler
+              # I0509 20:14:26.186104       1 shared_informer.go:320] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::client-ca-file
+              ## kube-proxy
+              # I0509 20:14:27.376734       1 shared_informer.go:320] Caches are synced for service config
+              ## storage-provisioner
+              # I0509 20:15:06.538039       1 event.go:282] Event(v1.ObjectReference{Kind:"Endpoints", Namespace:"kube-system", Name:"k8s.io-minikube-hostpath", UID:"00d4e583-fb5b-492d-8ad8-4106b0385129", APIVersion:"v1", ResourceVersion:"95277", FieldPath:""}): type: 'Normal' reason: 'LeaderElection' minikube_33e7b30f-9b6f-4245-8baf-b2d670cea124 became leader
+              ## kube-apiserver
+              # I0509 20:14:26.062026       1 controller.go:139] Starting OpenAPI controller
+              ## kube-controller-manager
+              # I0509 21:53:33.951322       1 replica_set.go:676] "Finished syncing" logger="replicaset-controller" kind="ReplicaSet" key="ingress-nginx/ingress-nginx-controller-69f599888b" duration="5.069868ms"
+              ## metrics-server
+              # I0509 20:15:23.999251       1 server.go:191] "Failed probe" probe="metric-storage-ready" err="no metrics to serve"
+              grok {
+                patterns_dir => ["/opt/logstash/custom_patterns"]
+                match => { "message" => '%{SEVERITY:temp_severity}\d{4} \d{2}:\d{2}:\d{2}\.\d{6} +\d %{GREEDYDATA:file}\]' }
+                tag_on_failure => ["grok_error_k8s"]
+              }
+              mutate {
+                add_field => { "filter_type" => "k8s" }
+              }
+              if ("grok_error_k8s" not in [tags]) {
+                if ([temp_severity] == "I") {
+                  mutate {
+                    add_field => { "severity" => "info" }
+                    remove_field => ["temp_severity"]
+                    tag_on_failure => "mutate_error_k8s"
+                  }
+                } else if ([temp_severity] == "W") {
+                  mutate {
+                    add_field => { "severity" => "warn" }
+                    remove_field => ["temp_severity"]
+                    tag_on_failure => "mutate_error_k8s"
+                  }
+                } else if ([temp_severity] == "E") {
+                  mutate {
+                    add_field => { "severity" => "error" }
+                    remove_field => ["temp_severity"]
+                    tag_on_failure => "mutate_error_k8s"
+                  }
+                }
               }
             }
             # if ("error_non_json" not in [tags]) {
@@ -146,7 +195,7 @@ stringData:
             # }
           } else { ## Beats json decoded
             # Custom parsings
-            if ([kubernetes][container][name] == "controller") {
+            if ([kubernetes][container][name] == "controller") { # ingress controller
               mutate {
                 add_field => { "filter_type" => "controller_json" }
                 tag_on_failure => "mutate_error_controller_json"
@@ -258,7 +307,7 @@ stringData:
             "yyyy-MM-dd'T'HH:mm:ss.SSSZZ",
             # etc
             "yyyy-MM-dd'T'HH:mm:ss,SSSSSS",
-            # kafka
+            # kafka, nexus
             "yyyy-MM-dd HH:mm:ss,SSS",
             # postgres
             "yyyy-MM-dd HH:mm:ss.SSS 'UTC'"
