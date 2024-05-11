@@ -215,12 +215,12 @@ stringData:
                 add_field => { "filter_type" => "controller_json" }
                 tag_on_failure => "mutate_error_controller_json"
               }
-              if [json][http][response][status] =~ /^2/ {
-                mutate { add_field => { "severity" => "info" } }
-              } else if [json][http][response][status] =~ /^3/ {
-                mutate { add_field => { "severity" => "warn" } }
-              } else if ([json][http][response][status]) {
+              if [json][http][response][status] >= 300 {
                 mutate { add_field => { "severity" => "error" } }
+              } else if [json][http][response][status] >= 200 {
+                mutate { add_field => { "severity" => "info" } }
+              } else if ([json][http][response][status]) {
+                mutate { add_field => { "severity" => "warn" } }
               }
             } else if ([kubernetes][container][name] == "filebeat" or [kubernetes][container][name] == "agent" or [kubernetes][container][name] == "apm-server") {
               mutate {
