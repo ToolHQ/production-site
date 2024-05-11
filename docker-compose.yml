@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  nginx:
+    container_name: nginx
+    build:
+      context: ./7. application/nginx
+    environment:
+      - STATIC_PROXY_HOST_HEADER=minio.localhost
+      - STATIC_SERVICE=http://minikube
+      - FORCES_IP=true
+    ports:
+      - "8080:8080"
+    networks:
+      - minikube
+
+networks:
+  minikube:
+    external: true
