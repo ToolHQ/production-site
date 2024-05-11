@@ -1,8 +1,6 @@
 # Based on https://github.com/bubelov/nginx-alpine-geoip2/blob/master/Dockerfile
 FROM alpine:3.19.1
 
-# (docker stop testc && docker rm testc) || : && docker build -t test . && docker run --network=minikube -p "3000:8080" -d --name=testc test
-
 ENV MAXMIND_VERSION=1.9.1
 ENV HEADERS_MORE_VERSION=0.37
 ENV NGINX_VERSION=1.26.0
@@ -153,16 +151,18 @@ RUN CONFIGURE_OPTIONS="\
   \
   # forward request and error logs to docker log collector
   && ln -sf /dev/stdout /var/log/nginx/access.log \
-  && ln -sf /dev/stderr /var/log/nginx/error.log
+  && ln -sf /dev/stderr /var/log/nginx/error.log \
+  && rm -rf /tmp/headers-more-nginx-module /tmp/ngx_http_geoip2_module
+
+WORKDIR /etc/nginx
 
 COPY GeoLite2-ASN_${GEOLITE_DATE}.mmdb /usr/share/geoip/GeoLite2-ASN.mmdb
 COPY GeoLite2-City_${GEOLITE_DATE}.mmdb /usr/share/geoip/GeoLite2-City.mmdb
 COPY GeoLite2-Country_${GEOLITE_DATE}.mmdb /usr/share/geoip/GeoLite2-Country.mmdb
 
 COPY ./www /data/www/
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY default.conf /etc/nginx/conf.d/default.conf
-RUN nginx -t
-# RUN echo "127.0.0.1   minio.localhost" | tee -a /etc/hosts
-CMD ["nginx", "-g", "daemon off;"]
+COPY nginx.conf /etc/nginx/nginx.conf.template
+COPY default.conf /etc/nginx/conf.d/default.conf.template
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.sh"]
 
