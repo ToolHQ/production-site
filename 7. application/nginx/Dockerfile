@@ -1,7 +1,7 @@
 # Based on https://github.com/bubelov/nginx-alpine-geoip2/blob/master/Dockerfile
 FROM alpine:3.19.1
 
-# docker stop testc && docker rm testc && docker build -t test . && docker run -d --name=testc test && docker exec -it testc sh
+# (docker stop testc && docker rm testc) || : && docker build -t test . && docker run --network=minikube -p "3000:8080" -d --name=testc test
 
 ENV MAXMIND_VERSION=1.9.1
 ENV HEADERS_MORE_VERSION=0.37
