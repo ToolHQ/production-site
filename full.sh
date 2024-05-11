@@ -119,5 +119,7 @@ kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-beats.yaml"
 kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-logstash.yaml"
 
 ## Sample application
-
-kubectl apply -f 7.\ application/application-ingress.yaml
+cd 7.\ application/nginx
+sh publish.sh
+cd ../..
+kubectl apply -f 7.\ application/nginx/k8s/minikube/my-site-nginx.yaml
