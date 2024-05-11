@@ -9,6 +9,7 @@ services:
       - STATIC_PROXY_HOST_HEADER=minio.localhost
       - STATIC_SERVICE=http://minikube
       - FORCES_IP=true
+      - DNS_RESOLVER=127.0.0.11
     ports:
       - "8080:8080"
     networks:

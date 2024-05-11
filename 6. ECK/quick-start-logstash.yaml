@@ -210,7 +210,7 @@ stringData:
             }
           } else { ## Beats json decoded
             # Custom parsings
-            if ([kubernetes][container][name] == "controller") { # ingress controller
+            if ([kubernetes][container][name] == "controller" or [kubernetes][container][name] == "my-site-nginx") { # ingress controller
               mutate {
                 add_field => { "filter_type" => "controller_json" }
                 tag_on_failure => "mutate_error_controller_json"
