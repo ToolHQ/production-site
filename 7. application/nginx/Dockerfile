@@ -1,3 +1,6 @@
+FROM golang:1.22.3-alpine3.19 AS base
+RUN go install github.com/maxmind/geoipupdate/v7/cmd/geoipupdate@latest
+
 # Based on https://github.com/bubelov/nginx-alpine-geoip2/blob/master/Dockerfile
 FROM alpine:3.19.1
 
@@ -34,8 +37,6 @@ RUN ldconfig || :
 # Todo: Investigate correct installation for --with-http_v3_module, --with-http_image_filter_module=dynamic
 # Discarted: --with-http_xslt_module=dynamic, --with-http_dav_module, --with-http_flv_module, --with-http_random_index_module, --with-http_secure_link_module, --with-http_slice_module, --with-http_perl_module=dynamic, --with-perl_modules_path=path, --with-perl=path, --with-mail=dynamic, --with-mail_ssl_module, --with-google_perftools_module
 # May be discarted in the future if no use: --with-http_addition_module, --with-http_image_filter_module=dynamic, --with-http_mp4_module
-
-# Todo: Investigate missing pkg gnupg1
 
 # Install nginx
 RUN CONFIGURE_OPTIONS="\
@@ -152,10 +153,17 @@ RUN CONFIGURE_OPTIONS="\
   # forward request and error logs to docker log collector
   && ln -sf /dev/stdout /var/log/nginx/access.log \
   && ln -sf /dev/stderr /var/log/nginx/error.log \
+  && ln -sf /dev/stdout /var/log/nginx/geoipupdate.log \
   && rm -rf /tmp/headers-more-nginx-module /tmp/ngx_http_geoip2_module
 
 WORKDIR /etc/nginx
 
+COPY --from=base /go/bin/geoipupdate /usr/local/bin/geoipupdate
+COPY GeoIP.conf /usr/local/etc/GeoIP.conf
+RUN echo "5 * * * * /usr/local/bin/geoipupdate >> /var/log/nginx/geoipupdate.log" > /etc/nginx/GeoIPCron.txt \
+  && /usr/bin/crontab /etc/nginx/GeoIPCron.txt \
+  && /usr/sbin/crond -l 6
+RUN /usr/local/bin/geoipupdate
 COPY GeoLite2-ASN_${GEOLITE_DATE}.mmdb /usr/share/geoip/GeoLite2-ASN.mmdb
 COPY GeoLite2-City_${GEOLITE_DATE}.mmdb /usr/share/geoip/GeoLite2-City.mmdb
 COPY GeoLite2-Country_${GEOLITE_DATE}.mmdb /usr/share/geoip/GeoLite2-Country.mmdb
@@ -165,4 +173,3 @@ COPY nginx.conf /etc/nginx/nginx.conf.template
 COPY default.conf /etc/nginx/conf.d/default.conf.template
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["sh", "/usr/local/bin/entrypoint.sh"]
-
