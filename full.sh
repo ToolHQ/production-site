@@ -72,9 +72,9 @@ docker exec -it minikube bash -c "cat /data/nexus/admin.password"
 
 DOCKER_REGISTRY_HOST=docker-nexus.localhost
 docker login $DOCKER_REGISTRY_HOST
-docker pull node:20.13.0-alpine3.19
-docker tag node:20.13.0-alpine3.19 $DOCKER_REGISTRY_HOST/repository/docker-repo/node:20.13.0-alpine3.19
-docker push $DOCKER_REGISTRY_HOST/repository/docker-repo/node:20.13.0-alpine3.19
+docker pull node:20.13.1-alpine3.19
+docker tag node:20.13.1-alpine3.19 $DOCKER_REGISTRY_HOST/repository/docker-repo/node:20.13.1-alpine3.19
+docker push $DOCKER_REGISTRY_HOST/repository/docker-repo/node:20.13.1-alpine3.19
 docker pull postgres:16.2-alpine3.19
 docker tag postgres:16.2-alpine3.19 $DOCKER_REGISTRY_HOST/repository/docker-repo/postgres:16.2-alpine3.19
 docker push $DOCKER_REGISTRY_HOST/repository/docker-repo/postgres:16.2-alpine3.19
