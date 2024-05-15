@@ -4,9 +4,14 @@
   "main": "script.js",
   "scripts": {
     "build": "tsc && cp -R ./assets/* ./dist",
-    "upload": "aws --endpoint-url http://minio.localhost s3 sync ./dist s3://my-site/static/"
+    "upload": "aws --endpoint-url http://minio.localhost s3 sync ./dist s3://my-site/static/",
+    "build-and-upload": "npm run build && npm run upload",
+    "build-watch": "nodemon --ignore dist --ext ts,css,html,ico --exec npm run build-and-upload"
   },
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "nodemon": "3.1.0"
+  }
 }
