@@ -310,23 +310,25 @@ stringData:
           }
 
           # Enforces precised app@timestamp if available
-          date { match => [
-            "[app@timestamp]",
-            ## etcd sliced, nodejs
-            "yyyy-MM-dd'T'HH:mm:ss.SSS",
-            # Elastic json: filebeat, elasticsearch, agent, apm-server
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-            # logstash
-            "yyyy-MM-dd'T'HH:mm:ss,SSS",
-            # kibana
-            "yyyy-MM-dd'T'HH:mm:ss.SSSZZ",
-            # etc
-            "yyyy-MM-dd'T'HH:mm:ss,SSSSSS",
-            # kafka, nexus
-            "yyyy-MM-dd HH:mm:ss,SSS",
-            # postgres
-            "yyyy-MM-dd HH:mm:ss.SSS 'UTC'"
-          ] }
+          if ([app@timestamp]) {
+            date { match => [
+              "[app@timestamp]",
+              ## etcd sliced, nodejs
+              "yyyy-MM-dd'T'HH:mm:ss.SSS",
+              # Elastic json: filebeat, elasticsearch, agent, apm-server
+              "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+              # logstash
+              "yyyy-MM-dd'T'HH:mm:ss,SSS",
+              # kibana
+              "yyyy-MM-dd'T'HH:mm:ss.SSSZZ",
+              # etc
+              "yyyy-MM-dd'T'HH:mm:ss,SSSSSS",
+              # kafka, nexus
+              "yyyy-MM-dd HH:mm:ss,SSS",
+              # postgres
+              "yyyy-MM-dd HH:mm:ss.SSS 'UTC'"
+            ] }
+          }
 
           mutate {
             replace => { "[data_stream][dataset]" => "%{[kubernetes][container][name]}" }
