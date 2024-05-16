@@ -23,9 +23,7 @@ class Project {
     public description: string,
     public people: number,
     public status: ProjectStatus
-  ) {
-
-  }
+  ) {}
 }
 
 type Listener<T> = (items: T[]) => void;
@@ -37,6 +35,7 @@ class State<T> {
     this.listeners.push(listenerFn);    
   }
 }
+
 class ProjectState extends State<Project> {
   private projects: Project[] = [];
   private static instance: ProjectState;
@@ -49,7 +48,7 @@ class ProjectState extends State<Project> {
     if (this.instance) {
       return this.instance;
     }
-    this.instance = new ProjectState()
+    this.instance = new ProjectState();
     return this.instance;
   }
 
@@ -128,6 +127,7 @@ abstract class Component<T extends HTMLElement, U extends HTMLElement> {
   templateElement: HTMLTemplateElement;
   hostElement: T;
   element: U;
+
   constructor(
     templateId: string,
     hostElementId: string,
@@ -177,8 +177,8 @@ class ProjectItem extends Component<HTMLUListElement, HTMLLIElement> implements 
   }
 
   @autobind
-  dragEndHandler(event: DragEvent): void {
-    console.log('DragEnd', event);
+  dragEndHandler(_: DragEvent): void {
+    console.log('DragEnd');
   }
 
   configure(): void {
@@ -237,7 +237,7 @@ class ProjectList extends Component<HTMLDivElement, HTMLElement> implements Drag
   }
 
   @autobind
-  dragLeaveHandler(event: DragEvent): void {
+  dragLeaveHandler(_: DragEvent): void {
     const listEl = this.element.querySelector('ul')!;
     listEl.classList.remove('droppable');
   }
