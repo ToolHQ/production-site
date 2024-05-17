@@ -3,22 +3,26 @@
   "version": "1.0.0",
   "scripts": {
     "upload": "aws --endpoint-url http://minio.localhost s3 sync --delete ./dist s3://my-site/static/",
-    "ts-build": "tsc && cp -R ./assets/* ./dist",
+    "copy-assets": "cp *.css dist/ && cp *.html dist/ && cp *.ico dist/",
+    "ts-build": "tsc && npm run copy-assets",
     "ts-build-and-upload": "npm run ts-build && npm run upload",
-    "build": "webpack",
-    "build-and-upload": "webpack && cp *.css dist/ && cp *.html dist/ && cp *.ico dist/ && npm run upload",
-    "watch-upload": "nodemon --ignore dist --ext ts,css,html,ico --exec npm run build-and-upload",
+    "build": "webpack --config webpack.config.prod.js",
+    "build-and-upload": "npm run build && npm run copy-assets && npm run upload",
+    "watch-build-and-upload": "nodemon --ignore dist --ext ts,css,html,ico --exec npm run build-and-upload",
     "start": "webpack-dev-server"
   },
   "author": "@dnorio",
   "license": "UNLICENSED",
   "description": "",
   "devDependencies": {
+    "clean-webpack-plugin": "4.0.0",
+    "javascript-obfuscator": "4.1.0",
     "nodemon": "3.1.0",
     "ts-loader": "9.5.1",
     "typescript": "5.4.5",
     "webpack": "5.91.0",
     "webpack-cli": "5.1.4",
-    "webpack-dev-server": "5.0.4"
+    "webpack-dev-server": "5.0.4",
+    "webpack-obfuscator": "3.5.1"
   }
 }
