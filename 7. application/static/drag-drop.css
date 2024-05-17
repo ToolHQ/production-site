@@ -68,6 +68,14 @@ button:active {
   align-items: center;
 }
 
+#in-progress-projects {
+  border-color: #034d07;
+}
+
+#in-progress-projects header {
+  background: #034d07;
+}
+
 #finished-projects {
   border-color: #0044ff;
 }

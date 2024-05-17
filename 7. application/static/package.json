@@ -1,17 +1,17 @@
 {
   "name": "static",
   "version": "1.0.0",
-  "main": "script.js",
   "scripts": {
-    "ts-build": "tsc && cp -R ./assets/* ./dist",
     "upload": "aws --endpoint-url http://minio.localhost s3 sync --delete ./dist s3://my-site/static/",
+    "ts-build": "tsc && cp -R ./assets/* ./dist",
     "ts-build-and-upload": "npm run ts-build && npm run upload",
-    "build-watch": "nodemon --ignore dist --ext ts,css,html,ico --exec npm run build-and-upload",
     "build": "webpack",
-    "build-and-upload": "webpack && cp -R src/ dist/src/ && cp -R assets/* dist/ && npm run upload"
+    "build-and-upload": "webpack && cp *.css dist/ && cp *.html dist/ && cp *.ico dist/ && npm run upload",
+    "watch-upload": "nodemon --ignore dist --ext ts,css,html,ico --exec npm run build-and-upload",
+    "start": "webpack-dev-server"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "@dnorio",
+  "license": "UNLICENSED",
   "description": "",
   "devDependencies": {
     "nodemon": "3.1.0",
