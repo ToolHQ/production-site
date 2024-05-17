@@ -1,9 +1,10 @@
-import { ProjectList } from './components/project-list';
-import { ProjectInput } from './components/project-input';
+import { ProjectList } from './drag-drop/components/project-list';
+import { ProjectInput } from './drag-drop/components/project-input';
 
 try {
   new ProjectInput();
   new ProjectList('active');
+  new ProjectList('in-progress');
   new ProjectList('finished');
 } catch {
   document.addEventListener('DOMContentLoaded', () => {
