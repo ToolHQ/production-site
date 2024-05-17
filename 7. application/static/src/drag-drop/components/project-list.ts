@@ -1,6 +1,6 @@
 import { Component } from './base-component';
 import { autobind } from '../decorators/autobind';
-import { Project, ProjectStatus } from '../models/project';
+import { Project, ProjectStatus, ProjectStringStatus, convertProjectStatus } from '../models/project';
 import { projectState } from '../state/project-state';
 import { DragTarget } from '../models/drag-drop';
 import { ProjectItem } from './project-item';
@@ -10,7 +10,7 @@ export class ProjectList extends Component<HTMLDivElement, HTMLElement> implemen
   private projectListId: string;
   assignedProjects: Project[];
 
-  constructor(private type: 'active' | 'finished') {
+  constructor(private type: ProjectStringStatus) {
     super('project-list', 'app', false, `${type}-projects`);
     this.projectListId = `${type}-projects-list`;
     this.assignedProjects = [];
@@ -24,10 +24,8 @@ export class ProjectList extends Component<HTMLDivElement, HTMLElement> implemen
     this.element.addEventListener('drop', this.dropHandler);
     projectState.addListener((projects) => {
       this.assignedProjects = projects.filter((prj) => {
-        if (this.type === 'active') {
-          return prj.status === ProjectStatus.Active; 
-        }
-        return prj.status === ProjectStatus.Finished;
+        const projectStatus = convertProjectStatus(this.type);
+        return prj.status === projectStatus;
       });
       this.renderProjects();
     })
@@ -45,7 +43,8 @@ export class ProjectList extends Component<HTMLDivElement, HTMLElement> implemen
   @autobind
   dropHandler(event: DragEvent): void {
     const prjId = event.dataTransfer!.getData('text/plain');
-    projectState.moveProject(prjId, this.type === 'active' ? ProjectStatus.Active : ProjectStatus.Finished);
+    const projectStatus = convertProjectStatus(this.type);
+    projectState.moveProject(prjId, projectStatus);
   }
 
   @autobind
