@@ -15,6 +15,7 @@
   "license": "UNLICENSED",
   "description": "",
   "devDependencies": {
+    "@types/google.maps": "3.55.9",
     "clean-webpack-plugin": "4.0.0",
     "javascript-obfuscator": "4.1.0",
     "nodemon": "3.1.0",
@@ -24,5 +25,8 @@
     "webpack-cli": "5.1.4",
     "webpack-dev-server": "5.0.4",
     "webpack-obfuscator": "3.5.1"
+  },
+  "dependencies": {
+    "axios": "1.6.8"
   }
 }
