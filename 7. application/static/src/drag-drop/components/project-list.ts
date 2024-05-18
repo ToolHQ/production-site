@@ -1,6 +1,6 @@
 import { Component } from './base-component';
 import { autobind } from '../decorators/autobind';
-import { Project, ProjectStatus, ProjectStringStatus, convertProjectStatus } from '../models/project';
+import { Project, ProjectStringStatus, convertProjectStatus } from '../models/project';
 import { projectState } from '../state/project-state';
 import { DragTarget } from '../models/drag-drop';
 import { ProjectItem } from './project-item';
@@ -23,10 +23,8 @@ export class ProjectList extends Component<HTMLDivElement, HTMLElement> implemen
     this.element.addEventListener('dragleave', this.dragLeaveHandler);
     this.element.addEventListener('drop', this.dropHandler);
     projectState.addListener((projects) => {
-      this.assignedProjects = projects.filter((prj) => {
-        const projectStatus = convertProjectStatus(this.type);
-        return prj.status === projectStatus;
-      });
+      const projectStatus = convertProjectStatus(this.type);
+      this.assignedProjects = projects.filter((prj) => prj.status === projectStatus);
       this.renderProjects();
     })
   }
@@ -55,7 +53,7 @@ export class ProjectList extends Component<HTMLDivElement, HTMLElement> implemen
 
   renderContent() {
     this.element.querySelector('ul')!.id = this.projectListId;
-    this.element.querySelector('h2')!.textContent = `${this.type.toUpperCase()} PROJECTS`;
+    this.element.querySelector('h2')!.textContent = `${this.type.toUpperCase().replace(/-/g, ' ')} PROJECTS`;
   }
 
   private renderProjects() {
