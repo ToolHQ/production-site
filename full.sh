@@ -123,3 +123,9 @@ cd 7.\ application/nginx
 sh publish.sh
 cd ../..
 kubectl apply -f 7.\ application/nginx/k8s/minikube/my-site-nginx.yaml
+
+
+cd 7.\ application/back-end
+sh publish.sh
+cd ../..
+kubectl apply -f 7.\ application/back-end/k8s/minikube/my-site-back-end.yaml

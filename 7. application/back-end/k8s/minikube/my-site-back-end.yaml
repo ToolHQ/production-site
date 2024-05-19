@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-site-back-end-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-site-back-end
+  template:
+    metadata:
+      labels:
+        app: my-site-back-end
+    spec:
+      imagePullSecrets:
+      - name: regsecret
+      containers:
+        - name: my-site-back-end
+          image: docker-nexus.localhost/repository/docker-repo/my-site-back-end:1.0.0
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              memory: 40Mi
+              cpu: 0.2
+            limits:
+              memory: 256Mi
+              cpu: 0.5
+          env:
+            - name: NODE_ENV
+              value: production
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-site-back-end-service
+spec:
+  selector:
+    app: my-site-back-end
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: my-site-back-end-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-site-back-end-deployment
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
