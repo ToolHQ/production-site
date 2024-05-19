@@ -25,7 +25,7 @@ echo "Initializing with DNS Resolver: $DNS_RESOLVER"
 
 find /etc/nginx -type f -name "*.template" | while read -r template_file; do
   echo "Processing file $template_file"
-  envsubst '$STATIC_SERVICE,$STATIC_PROXY_HOST_HEADER,$SOURCE_IP,$DNS_RESOLVER' < "$template_file" > "${template_file%.template}"
+  envsubst '$STATIC_SERVICE,$BACK_END_SERVICE,$STATIC_PROXY_HOST_HEADER,$SOURCE_IP,$DNS_RESOLVER' < "$template_file" > "${template_file%.template}"
 done
 
 nginx -t
