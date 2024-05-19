@@ -1,41 +1,49 @@
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import path, { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { sync as glob } from 'glob';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default {
-  mode: 'development',
+  mode: 'production',
   target: 'node',
-  entry: './src/app.ts',
-  resolve: {
-    fallback: {
-      url: false
-    }
+  entry: () => {
+    const entries = {};
+    const files = glob('./src/**/*.ts');
+    files.forEach(file => {
+      const name = path.relative('./src', file).replace('.ts', '');
+      console.log(name, file)
+      entries[name] = `./${file}`;
+    });
+    return entries;
   },
-  experiments: {
-    outputModule: true
+  optimization: {
+    removeEmptyChunks: true,
+    usedExports: true,
+    mergeDuplicateChunks: true,
+    providedExports: true,
   },
   output: {
     chunkFormat: 'module',
-    clean: true,
-    filename: 'bundle.js',
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].js',
     library: {
       type: 'module'
     },
-    path: resolve(__dirname, './dist'),
-    publicPath: ''
   },
-  devtool: 'inline-source-map',
+  experiments: {
+    outputModule: true,
+  },
+  resolve: {
+    extensions: ['.ts', '.js'],
+  },
   module: {
     rules: [
       {
-        test: /\.tsx?$/,
+        test: /\.ts$/,
         use: 'ts-loader',
         exclude: /node_modules/,
       },
     ],
-  },
-  resolve: {
-    extensions: ['.ts', '.js'],
   },
 };

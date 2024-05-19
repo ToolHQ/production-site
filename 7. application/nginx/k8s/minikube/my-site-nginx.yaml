@@ -53,6 +53,8 @@ spec:
               value: "$host"
             - name: STATIC_SERVICE
               value: http://minio-service.minio.svc.cluster.local:9000
+            - name: BACK_END_SERVICE
+              value: http://my-site-back-end-service.default.svc.cluster.local
             - name: DNS_RESOLVER
               value: kube-dns.kube-system.svc.cluster.local
 ---
