@@ -15,6 +15,20 @@ services:
     networks:
       - minikube
 
+  back-end:
+    container_name: back-end
+    build:
+      context: ./7. application/back-end
+      args:
+        - NPM_OMIT_DEV=optional
+    command: npm run watch-build-start
+    environment:
+      - NODE_ENV=dev
+    ports:
+      - "3000:3000"
+    networks:
+      - minikube
+
 networks:
   minikube:
     external: true
