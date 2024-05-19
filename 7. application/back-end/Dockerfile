@@ -1,6 +1,5 @@
 FROM docker-nexus.localhost/repository/docker-repo/node:20.13.1-alpine3.19 AS base
-RUN apk add --no-cache --no-progress curl && \
-  npm i typescript webpack webpack-cli ts-loader -g
+RUN apk add --no-cache --no-progress curl
 USER node
 WORKDIR /usr/src/app
 
@@ -17,4 +16,4 @@ COPY --from=intermediate /usr/src/app/node_modules ./node_modules
 COPY --from=intermediate /usr/src/app/dist ./dist
 COPY package*.json tsconfig.json webpack.config.js ./
 COPY --chown=node:node . .
-CMD ["node", "dist/bundle.js"]
+CMD ["node", "dist/app.js"]
