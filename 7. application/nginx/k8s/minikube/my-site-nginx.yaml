@@ -38,7 +38,7 @@ spec:
       - name: regsecret
       containers:
         - name: my-site-nginx
-          image: docker-nexus.localhost/repository/docker-repo/my-site-nginx:1.0.5
+          image: docker-nexus.localhost/repository/docker-repo/my-site-nginx:1.0.7
           ports:
             - containerPort: 8080
           resources:
