@@ -83,7 +83,7 @@ stringData:
               "queue" => "beats"
             }
           }
-          if ("beats_input_codec_plain_applied" in [tags]) { ## Beats json not applied
+          if ("beats_input_codec_plain_applied" in [tags] and [message] and [kubernetes][container][name]) { ## Beats json not applied
             if ([kubernetes][container][name] == "logstash") {
               # [2022-05-23T01:43:27,453][INFO ][logstash.outputs.elasticsearch][main]      
               grok {
@@ -208,7 +208,7 @@ stringData:
                 remove_field => "[event][original]"
               }
             }
-          } else { ## Beats json decoded
+          } else if ([kubernetes][container][name]) { ## Beats json decoded
             # Custom parsings
             if ([kubernetes][container][name] == "controller" or [kubernetes][container][name] == "my-site-nginx") { # ingress controller
               mutate {
@@ -255,7 +255,11 @@ stringData:
               }
               # 2024-05-09T18:52:35.881931Z
               ruby {
-                code => 'event.set("[app@timestamp]", event.get("[app@timestamp]")[0..22])'
+                code => '
+                  if event.get("[app@timestamp]")
+                    event.set("[app@timestamp]", event.get("[app@timestamp]")[0..22])
+                  end
+                '
                 tag_on_exception => "mutate_error_etcd_timestamp"
               }
             } else if ([kubernetes][container][name] == "kibana") {
@@ -276,9 +280,14 @@ stringData:
             # Move json properties to root level
             ruby {
               code => '
-                event.get("[json]").each { |k,v|
-                  event.set(k,v)
-                }
+                json_fields = event.get("[json]")
+                if json_fields.is_a?(Hash)
+                  json_fields.each { |k,v|
+                    if (k != "@timestamp")
+                      event.set(k,v)
+                    end
+                  }
+                end
               '
             }
             if ("_rubyexception" not in [tags]) {
@@ -330,8 +339,10 @@ stringData:
             ] }
           }
 
-          mutate {
-            replace => { "[data_stream][dataset]" => "%{[kubernetes][container][name]}" }
+          if ([data_stream][dataset]) {
+            mutate {
+              replace => { "[data_stream][dataset]" => "%{[kubernetes][container][name]}" }
+            }
           }
         }
 
