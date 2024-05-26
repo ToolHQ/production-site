@@ -61,7 +61,7 @@ docker exec -it minikube bash -c "cat /data/nexus/admin.password"
 ##     - Endpoint URL: http://minio-service.minio.svc.cluster.local:9000
 ##     - Max Connection Pool Size: <leave it empty>
 ##     - Signature Version: <leave it empty>
-##     - Use path-style access: toogle ON
+##     - Use path-style access: toogle on
 ##   Create a new docker repo (hosted) named docker-repo:
 ##     - Toogle Online: true
 ##     - Repository Connectors > HTTP: Toogle and fill with port value "18444"
@@ -129,3 +129,42 @@ cd 7.\ application/back-end
 sh publish.sh
 cd ../..
 kubectl apply -f 7.\ application/back-end/k8s/minikube/my-site-back-end.yaml
+
+
+## Todo: automate
+## Login at minio-console.localhost:
+##   Create a bucket named nexus-npm-repo;
+##   Create a bucket named nexus-npm-proxy;
+##   Create a bucket named nexus-npm-group;
+## Login at nexus.localhost:
+##   Create new blob stores named minio-npm-repo, minio-npm-proxy and minio-npm-group:
+##     - Type: S3
+##     - Name: minio-npm-repo, minio-npm-proxy and minio-npm-group
+##     - Region: us-east-1
+##     - Bucket: nexus-npm-repo, nexus-npm-proxy and nexus-npm-group
+##     - Prefix: <leave it empty>
+##     - Expiration days: -1
+##     - Access Key ID: <previous value from minio step>
+##     - Secret Access Key: <previous value from minio step>
+##     - Encryption Type: None
+##     - KMS Key ID (Optional): <leave it empty>
+##     - Endpoint URL: http://minio-service.minio.svc.cluster.local:9000
+##     - Max Connection Pool Size: <leave it empty>
+##     - Signature Version: <leave it empty>
+##     - Use path-style access: toogle on
+## Login at nexus.localhost:
+##   1. Create a new npm repo (hosted) named npm-repo:
+##       - Toogle Online: true
+##       - Blob store: minio-npm-repo
+##   2. Create a new npm repo (proxy) named npm-proxy:
+##       - Toogle Online: true
+##       - Remote storage: https://registry.npmjs.org
+##       - Blob store: minio-npm-proxy
+##   3. Create a new npm repo (group) named npm-group:
+##       - Toogle Online: true
+##       - Blob store: minio-npm-group
+##       - Adds members in order: minio-npm-repo, minio-npm-proxy
+##   4. At Security > Realms:
+##     - Enable npm Bearer Token Realm.
+
+npm login --scope=@dnorio --registry=http://nexus.localhost/repository/npm-repo
