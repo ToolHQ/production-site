@@ -34,6 +34,7 @@ ff02::2 ip6-allrouters
 192.168.49.1    host.minikube.internal
 192.168.49.2    control-plane.minikube.internal
 127.0.0.1 docker-nexus.localhost
+127.0.0.1 nexus.localhost
 127.0.0.1 my-site.localhost
 END
 
@@ -129,7 +130,7 @@ cd 7.\ application/back-end
 sh publish.sh
 cd ../..
 kubectl apply -f 7.\ application/back-end/k8s/minikube/my-site-back-end.yaml
-
+# kubectl apply -f ./k8s/minikube/my-site-back-end.yaml
 
 ## Todo: automate
 ## Login at minio-console.localhost:
