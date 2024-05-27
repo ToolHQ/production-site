@@ -1,7 +1,9 @@
+import Logger from '@dnorio/logger'
 import express, { Request, Response, NextFunction } from 'express';
 
 import todoRoutes from './routes/todo';
 
+const { logger } = Logger();
 const app = express();
 const port = 3000;
 
@@ -19,5 +21,5 @@ app.use((error: Error, _: Request, res: Response, _2: NextFunction): void => {
 })
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  logger.infoEvent('Server started', { port });
 });
