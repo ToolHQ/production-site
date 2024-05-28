@@ -22,4 +22,5 @@ app.use((error: Error, _: Request, res: Response, _2: NextFunction): void => {
 
 app.listen(port, () => {
   logger.infoEvent('Server started', { port });
+  console.error(Error('teste'));
 });

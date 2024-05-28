@@ -18,11 +18,12 @@ services:
 
   back-end:
     container_name: back-end
+    image: docker-nexus.localhost/repository/docker-repo/my-site-back-end:1.0.2
     build:
       context: ./7. application/back-end
       args:
         - NPM_OMIT_DEV=optional
-    command: npm run watch-build-start
+    command: node --enable-source-maps dist/app.js
     environment:
       - NODE_ENV=dev
     volumes:

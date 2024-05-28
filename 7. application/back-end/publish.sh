@@ -11,8 +11,8 @@ docker buildx use minikubebuilder
 
 # Define Docker tag
 DOCKER_REGISTRY_HOST=docker-nexus.localhost
-DOCKER_TAG=$DOCKER_REGISTRY_HOST/repository/docker-repo/my-site-back-end:1.0.1
+DOCKER_TAG=$DOCKER_REGISTRY_HOST/repository/docker-repo/my-site-back-end:1.0.3
 
 # Build the Docker image using Buildx
 docker buildx build --load --add-host=docker-nexus.localhost:192.168.49.2 --add-host=nexus.localhost:192.168.49.2 -t $DOCKER_TAG .
-docker push $DOCKER_TAG
+# docker push $DOCKER_TAG
