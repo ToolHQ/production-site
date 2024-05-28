@@ -16,4 +16,4 @@ COPY --from=intermediate /usr/src/app/node_modules ./node_modules
 COPY --from=intermediate /usr/src/app/dist ./dist
 COPY .npmrc package*.json tsconfig.json webpack.config.js ./
 COPY --chown=node:node . .
-CMD ["node", "dist/app.js"]
+CMD ["node", "--enable-source-maps", "dist/app.js"]
