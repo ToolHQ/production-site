@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
-import Logger from '@dnorio/logger'
-import HttpClient from '@dnorio/httpclient'
+import Logger from '@dnorio/logger';
+import HttpClient from '@dnorio/httpclient';
 import express, { Request, Response, NextFunction } from 'express';
 
 import todoRoutes from './routes/todo.js';
@@ -15,13 +15,13 @@ app.use('/todos', todoRoutes);
 
 const healthCheck: express.RequestHandler<void> = (_, res, _2) => {
   res.status(200).json({ message: 'Hello World!' });
-}
+};
 
-app.use('/health', healthCheck)
+app.use('/health', healthCheck);
 
 app.use((error: Error, _: Request, res: Response, _2: NextFunction): void => {
   res.status(500).json({ message: error.message });
-})
+});
 
 app.use('/test', async (_, res) => {
   const streamReturn = await httpClient.callHTTP({
@@ -52,11 +52,11 @@ app.use('/test', async (_, res) => {
       'x-powered-by',
       'x-ratelimit-limit',
       'x-ratelimit-remaining',
-      'x-ratelimit-reset'
-    ]
+      'x-ratelimit-reset',
+    ],
   });
   Readable.fromWeb(streamReturn.body!).pipe(res);
-})
+});
 
 app.listen(port, () => {
   logger.infoEvent('Server started', { port });
