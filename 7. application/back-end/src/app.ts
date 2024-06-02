@@ -3,7 +3,7 @@ import Logger from '@dnorio/logger'
 import HttpClient from '@dnorio/httpclient'
 import express, { Request, Response, NextFunction } from 'express';
 
-import todoRoutes from './routes/todo';
+import todoRoutes from './routes/todo.js';
 
 const { logger } = Logger();
 const httpClient = HttpClient();
