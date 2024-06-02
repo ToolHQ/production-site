@@ -4,18 +4,18 @@ import { Todo } from '../models/todo.js';
 
 const TODOS: Todo[] = [];
 
-export const createTodo: RequestHandler = (req, res, _) => {
+export const createTodo: RequestHandler = (req, res) => {
   const { text } = req.body as { text: string };
   const newTodo = new Todo(Math.random().toString(), text);
   TODOS.push(newTodo);
   res.status(201).json({ message: 'Created the todo.', createdTodo: newTodo });
 };
 
-export const getTodos: RequestHandler = (_, res, _2) => {
+export const getTodos: RequestHandler = (_, res) => {
   res.status(200).json({ todos: TODOS });
 };
 
-export const updateTodo: RequestHandler<{ id: string }> = (req, res, _) => {
+export const updateTodo: RequestHandler<{ id: string }> = (req, res) => {
   const {
     params: { id },
   } = req;
@@ -30,7 +30,7 @@ export const updateTodo: RequestHandler<{ id: string }> = (req, res, _) => {
     .json({ message: 'Updated the todo.', updatedTodo: TODOS[todoIndex] });
 };
 
-export const deleteTodo: RequestHandler<{ id: string }> = (req, res, _) => {
+export const deleteTodo: RequestHandler<{ id: string }> = (req, res) => {
   const {
     params: { id },
   } = req;
