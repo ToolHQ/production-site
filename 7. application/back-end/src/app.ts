@@ -24,14 +24,36 @@ app.use((error: Error, _: Request, res: Response, _2: NextFunction): void => {
 })
 
 app.use('/test', async (_, res) => {
-  logger.info('Hello World!');
-  logger.infoDB({ name: 'John', age: 30 }, 'User created');
-  logger.error('Error message');
-  logger.errorEvent('Error 112', Error('new one'));
-
   const streamReturn = await httpClient.callHTTP({
     uri: 'https://jsonplaceholder.typicode.com/todos/1',
-    stream: true
+    stream: true,
+    outputHeadersToHide: [
+      'access-control-allow-credentials',
+      'age',
+      'alt-svc',
+      'cache-control',
+      'cf-cache-status',
+      'cf-ray',
+      'connection',
+      'content-encoding',
+      'content-type',
+      'date',
+      'etag',
+      'expires',
+      'nel',
+      'pragma',
+      'report-to',
+      'reporting-endpoints',
+      'server',
+      'transfer-encoding',
+      'vary',
+      'via',
+      'x-content-type-options',
+      'x-powered-by',
+      'x-ratelimit-limit',
+      'x-ratelimit-remaining',
+      'x-ratelimit-reset'
+    ]
   });
   Readable.fromWeb(streamReturn.body!).pipe(res);
 })
