@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "start": "node --enable-source-maps dist/app.js",
+    "lint": "eslint .",
     "build": "tsc",
     "build-start": "npm run build && npm run start",
     "watch-build-start": "nodemon --ignore dist --ext ts,json --exec npm run build-start"
@@ -17,12 +18,15 @@
     "@types/express": "4.17.21",
     "@types/node": "20.12.12",
     "elastic-apm-node": "4.5.4",
-    "express": "4.19.2",
-    "typescript": "5.4.5"
+    "express": "4.19.2"
   },
   "devDependencies": {
+    "@eslint/js": "9.4.0",
+    "@types/eslint__js": "8.42.3",
+    "eslint": "8.57.0",
     "nodemon": "3.1.0",
-    "prettier": "3.2.5"
+    "typescript": "5.4.5",
+    "typescript-eslint": "7.11.0"
   },
   "sideEffects": false
 }
