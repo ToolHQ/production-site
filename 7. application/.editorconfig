@@ -17,6 +17,6 @@ indent_size = 4
 trim_trailing_whitespace = true
 
 # Match TypeScript files
-[*.ts]
+[*.{js,json,ts,yaml}]
 indent_size = 2
 
