@@ -4,10 +4,10 @@
 kubectl apply -f nexus-resources.yaml
 docker exec -it minikube bash -c "cat /data/nexus/admin.password"
 
-# docker pull node:20.12.2-alpine3.19
-# docker tag node:20.12.2-alpine3.19 docker-nexus.localhost/repository/docker-repo/node:20.12.2-alpine3.19
+# docker pull node:22.2.0-alpine3.20
+# docker tag node:22.2.0-alpine3.20 docker-nexus.localhost/repository/docker-repo/node:22.2.0-alpine3.20
 # docker login docker-nexus.localhost
-docker push docker-nexus.localhost/repository/docker-repo/node:20.12.2-alpine3.19
+docker push docker-nexus.localhost/repository/docker-repo/node:22.2.0-alpine3.20
 docker pull postgres:16.2-alpine3.19
 docker tag postgres:16.2-alpine3.19 docker-nexus.localhost/repository/docker-repo/postgres:16.2-alpine3.19
 docker push docker-nexus.localhost/repository/docker-repo/postgres:16.2-alpine3.19
