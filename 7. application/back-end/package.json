@@ -6,23 +6,19 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "webpack",
-    "start": "node dist/app.js",
+    "start": "node --enable-source-maps dist/app.js",
+    "build": "tsc",
     "build-start": "npm run build && npm run start",
     "watch-build-start": "nodemon --ignore dist --ext ts,json --exec npm run build-start"
   },
   "dependencies": {
-    "@dnorio/httpclient": "0.0.6",
-    "@dnorio/logger": "0.0.6",
+    "@dnorio/httpclient": "0.0.7",
+    "@dnorio/logger": "0.0.7",
     "@types/express": "4.17.21",
     "@types/node": "20.12.12",
     "elastic-apm-node": "4.5.4",
     "express": "4.19.2",
-    "glob": "10.3.15",
-    "ts-loader": "9.5.1",
-    "typescript": "5.4.5",
-    "webpack": "5.91.0",
-    "webpack-cli": "5.1.4"
+    "typescript": "5.4.5"
   },
   "devDependencies": {
     "nodemon": "3.1.0",

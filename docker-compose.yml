@@ -23,7 +23,7 @@ services:
       extra_hosts:
         - docker-nexus.localhost:192.168.49.2
         - nexus.localhost:192.168.49.2
-    command: node --enable-source-maps dist/app.js
+    command: npm run watch-build-start
     environment:
       - NODE_ENV=dev
     volumes:

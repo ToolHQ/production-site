@@ -7,7 +7,7 @@ WORKDIR /usr/src/app
 FROM base AS intermediate
 ARG NPM_OMIT_DEV=dev
 ENV NPM_OMIT_DEV=$NPM_OMIT_DEV
-COPY .npmrc package*.json tsconfig.json webpack.config.js ./
+COPY .npmrc package*.json tsconfig.json ./
 RUN npm ci --omit=optional --omit=peer --omit=$NPM_OMIT_DEV --no-audit --no-fund --verbose
 COPY --chown=node:node . .
 RUN ["npm", "run", "build"]
@@ -15,6 +15,6 @@ RUN ["npm", "run", "build"]
 FROM base
 COPY --from=intermediate /usr/src/app/node_modules ./node_modules
 COPY --from=intermediate /usr/src/app/dist ./dist
-COPY .npmrc package*.json tsconfig.json webpack.config.js ./
+COPY .npmrc package*.json tsconfig.json ./
 COPY --chown=node:node . .
 CMD ["node", "--enable-source-maps", "dist/app.js"]
