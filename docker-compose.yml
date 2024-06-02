@@ -18,11 +18,13 @@ services:
 
   back-end:
     container_name: back-end
-    image: docker-nexus.localhost/repository/docker-repo/my-site-back-end:1.0.2
     build:
       context: ./7. application/back-end
       args:
         - NPM_OMIT_DEV=optional
+      extra_hosts:
+        - docker-nexus.localhost:192.168.49.2
+        - nexus.localhost:192.168.49.2
     command: node --enable-source-maps dist/app.js
     environment:
       - NODE_ENV=dev
