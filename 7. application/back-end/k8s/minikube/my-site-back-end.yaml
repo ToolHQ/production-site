@@ -17,7 +17,8 @@ spec:
       - name: regsecret
       containers:
         - name: my-site-back-end
-          image: docker-nexus.localhost/repository/docker-repo/my-site-back-end:1.0.1
+          image: docker-nexus.localhost/repository/docker-repo/my-site-back-end:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 3000
           resources:
