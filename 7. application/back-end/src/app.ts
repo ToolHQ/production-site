@@ -1,7 +1,10 @@
 import { Readable } from 'node:stream';
-import Logger from '@dnorio/logger';
-import HttpClient from '@dnorio/httpclient';
+
 import express, { Request, Response, NextFunction } from 'express';
+
+import Logger from '@dnorio/logger';
+import { logRequestsConstructor } from '@dnorio/logger/requestLoggerMiddleware';
+import HttpClient from '@dnorio/httpclient';
 
 import todoRoutes from './routes/todo.js';
 
@@ -20,6 +23,7 @@ const healthCheck: express.RequestHandler<void> = (_, res) => {
 
 app.use('/health', healthCheck);
 
+app.use(logRequestsConstructor());
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((error: Error, _: Request, res: Response, _2: NextFunction): void => {
   res.status(500).json({ message: error.message });
