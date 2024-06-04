@@ -10,13 +10,13 @@ spec:
       service:
         spec:
           ports:
-          - port: 5044
-            name: "filebeat"
-            protocol: TCP
+            - port: 5044
+              name: "filebeat"
+              protocol: TCP
   count: 1
   elasticsearchRefs:
-  - name: quickstart
-    clusterName: qs
+    - name: quickstart
+      clusterName: qs
   configRef:
     secretName: quickstart-config
   pipelinesRef:
@@ -25,26 +25,26 @@ spec:
     spec:
       terminationGracePeriodSeconds: 604800
       imagePullSecrets:
-      - name: regsecret
+        - name: regsecret
       containers:
-      - name: logstash
-        env:
-        - name: LS_JAVA_OPTS
-          value: -Xms256m -Xmx256m
-        resources:
-          requests:
-            memory: 1Gi
-            cpu: 0.5
-          limits:
-            memory: 2Gi
-            cpu: 2
-        volumeMounts:
-        - mountPath: /usr/share/logstash/dlq 
-          name: dlq
-          readOnly: false
+        - name: logstash
+          env:
+            - name: LS_JAVA_OPTS
+              value: -Xms256m -Xmx256m
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 0.5
+            limits:
+              memory: 2Gi
+              cpu: 2
+          volumeMounts:
+            - mountPath: /usr/share/logstash/dlq
+              name: dlq
+              readOnly: false
   volumeClaimTemplates:
     - metadata:
-        name: dlq 
+        name: dlq
       spec:
         accessModes:
           - ReadWriteOnce
@@ -203,7 +203,7 @@ stringData:
                 tag_on_failure => "mutate_error_postgres"
               }
             }
-            if ("error_non_json" not in [tags]) {
+            if ("error_non_json" not in [tags] and [event]) {
               mutate {
                 remove_field => "[event][original]"
               }
@@ -215,12 +215,14 @@ stringData:
                 add_field => { "filter_type" => "controller_json" }
                 tag_on_failure => "mutate_error_controller_json"
               }
-              if [json][http][response][status] >= 300 {
-                mutate { add_field => { "severity" => "error" } }
-              } else if [json][http][response][status] >= 200 {
-                mutate { add_field => { "severity" => "info" } }
-              } else if ([json][http][response][status]) {
-                mutate { add_field => { "severity" => "warn" } }
+              if ([json][http][response][status]) {
+                if [json][http][response][status] >= 300 {
+                  mutate { add_field => { "severity" => "error" } }
+                } else if [json][http][response][status] >= 200 {
+                  mutate { add_field => { "severity" => "info" } }
+                } else {
+                  mutate { add_field => { "severity" => "warn" } }
+                }
               }
             } else if ([kubernetes][container][name] == "filebeat" or [kubernetes][container][name] == "agent" or [kubernetes][container][name] == "apm-server") {
               mutate {
