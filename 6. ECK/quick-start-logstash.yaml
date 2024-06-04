@@ -224,7 +224,11 @@ stringData:
                   mutate { add_field => { "severity" => "warn" } }
                 }
               }
-            } else if ([kubernetes][container][name] == "filebeat" or [kubernetes][container][name] == "agent" or [kubernetes][container][name] == "apm-server") {
+            } else if ([kubernetes][container][name] =="my-site-back-end") {
+              mutate {
+                rename => { "[json][event]" => "action" }
+              }
+            }else if ([kubernetes][container][name] == "filebeat" or [kubernetes][container][name] == "agent" or [kubernetes][container][name] == "apm-server") {
               mutate {
                 rename => { "[json][@timestamp]" => "app@timestamp" }
                 add_field => { "filter_type" => "%{[kubernetes][container][name]}_json" }
