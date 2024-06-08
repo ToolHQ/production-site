@@ -7,7 +7,8 @@ import { RequestHandler } from 'express';
 import HttpClient from '@dnorio/httpclient';
 import { getConnection } from '@dnorio/db-wrapper';
 
-import { readFileAsync } from './fs.js';
+import { readFileAsync } from '../services/fs.js';
+import { DatabaseConfigParams } from '../types.js';
 
 const httpClient = HttpClient();
 
@@ -114,9 +115,11 @@ const getDatabaseMetadata = async (
   }));
 };
 
-export const testDatabase: RequestHandler<{
-  connectionName: 'postgres';
-}> = async (req, res, next) => {
+export const testDatabase: RequestHandler<DatabaseConfigParams> = async (
+  req,
+  res,
+  next
+) => {
   try {
     const {
       params: { connectionName },
