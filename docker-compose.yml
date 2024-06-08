@@ -26,6 +26,12 @@ services:
     command: npm run watch-build-start
     environment:
       - NODE_ENV=dev
+      - DB_DNORIO_POSTGRES_SCHEMA=public
+      - DB_DNORIO_POSTGRES_USER=postgres
+      - DB_DNORIO_POSTGRES_PASS=passwordinitial
+      - DB_DNORIO_POSTGRES_HOST=minikube
+      - DB_DNORIO_POSTGRES_DATA_PORT=54322
+      - DB_DNORIO_POSTGRES_DATABASE=postgres
     volumes:
       - ./7. application/back-end/src:/usr/src/app/src
       - ./7. application/back-end/node_modules:/usr/src/app/node_modules
