@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 
 import Logger from '@dnorio/logger';
 import { logRequestsConstructor } from '@dnorio/logger/requestLoggerMiddleware';
+import { setReqIdMiddleware } from '@dnorio/logger/setId';
 
 import { router as todoRoutes } from './routes/todo.js';
 import integrationRoutes from './routes/integration.js';
@@ -10,9 +11,9 @@ const { logger } = Logger();
 const app = express();
 const port = 3000;
 
+app.use(setReqIdMiddleware);
 app.use(express.json());
-
-app.use(logRequestsConstructor({ routesToIgnore: [], logResponseBody: true }));
+app.use(logRequestsConstructor({ routesToIgnore: [], logResponseBody: false }));
 
 app.use('/test', integrationRoutes);
 app.use('/todos', todoRoutes);
