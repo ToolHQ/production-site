@@ -6,7 +6,7 @@ services:
     environment:
       - STATIC_PROXY_HOST_HEADER=minio.localhost
       - STATIC_SERVICE=http://minikube
-      - BACK_END_SERVICE=http://back-end
+      - BACK_END_SERVICE=http://back-end:3000
       - FORCES_IP=true
       - DNS_RESOLVER=127.0.0.11
     ports:

@@ -4,6 +4,6 @@ import { testHttp } from '../controllers/integration.js';
 
 export const router = Router();
 
-router.post('/http', testHttp);
+router.get('/http', testHttp);
 
 export default router;
