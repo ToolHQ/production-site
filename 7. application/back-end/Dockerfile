@@ -15,6 +15,6 @@ RUN ["npm", "run", "build"]
 FROM base
 COPY --from=intermediate /usr/src/app/node_modules ./node_modules
 COPY --from=intermediate /usr/src/app/dist ./dist
-COPY .npmrc package*.json tsconfig.json ./
+COPY resources .npmrc package*.json tsconfig.json ./
 COPY --chown=node:node . .
 CMD ["node", "--enable-source-maps", "dist/app.js"]
