@@ -12,6 +12,8 @@ const port = 3000;
 
 app.use(express.json());
 
+app.use(logRequestsConstructor({ routesToIgnore: [], logResponseBody: true }));
+
 app.use('/test', integrationRoutes);
 app.use('/todos', todoRoutes);
 
@@ -22,10 +24,16 @@ const healthCheck: express.RequestHandler<void> = (_, res) => {
 
 app.use('/health', healthCheck);
 
-app.use(logRequestsConstructor({ routesToIgnore: [], logResponseBody: true }));
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((error: Error, _: Request, res: Response, _2: NextFunction): void => {
+app.use((error: Error, req: Request, res: Response, _2: NextFunction): void => {
+  logger.errorEvent('Server ERROR', {
+    method: req.method,
+    path: req.path,
+    name: error.name,
+    stack: error.stack,
+    message: error.message,
+    cause: error.cause,
+  });
   res.status(500).json({ message: error.message });
 });
 

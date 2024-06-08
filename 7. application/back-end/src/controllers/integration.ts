@@ -1,9 +1,19 @@
+import path, { dirname } from 'node:path';
 import { Readable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 
-import HttpClient from '@dnorio/httpclient';
 import { RequestHandler } from 'express';
 
+import HttpClient from '@dnorio/httpclient';
+import { getConnection } from '@dnorio/db-wrapper';
+
+import { readFileAsync } from './fs.js';
+
 const httpClient = HttpClient();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const cwd = path.resolve(__dirname);
 
 export const testHttp: RequestHandler = async (_req, res) => {
   const streamReturn = await httpClient.callHTTP({
@@ -41,5 +51,78 @@ export const testHttp: RequestHandler = async (_req, res) => {
     Readable.fromWeb(streamReturn.body).pipe(res);
   } else {
     res.end();
+  }
+};
+
+type ColumnMetadata = {
+  position: number;
+  name: string;
+  defaultValue: unknown | null;
+  nullable: boolean;
+  type: string;
+  dataType: string;
+  maxChars: number | null;
+  maxBytes: number | null;
+  numericPrecision: unknown;
+  numericRadix: unknown;
+  numericScale: unknown;
+  dateTimePrecision: unknown;
+  collationCatalog: string | null;
+  collationSchema: string | null;
+  collationName: string | null;
+};
+type DatabaseMetadata<T = ColumnMetadata> = {
+  catalog: string;
+  schema: string;
+  name: string;
+  type: 'BASE TABLE' | 'VIEW';
+  columns: T[];
+  constraints: {
+    name: string;
+    type: 'UNIQUE' | 'PRIMARY KEY' | 'CHECK';
+    clause: string | null;
+    columns: string[];
+  }[];
+};
+
+interface RawDatabaseQueryReturn {
+  rows: DatabaseMetadata<
+    Omit<ColumnMetadata, 'nullable'> & { nullable: string }
+  >[];
+  name: string;
+  date_created: Date;
+}
+
+const getDatabaseMetadata = async (
+  connectionName: 'postgres'
+): Promise<DatabaseMetadata<ColumnMetadata>[]> => {
+  const sql = (
+    await readFileAsync({
+      filePath: path.join(cwd, '../../resources/sql/db_metadata.sql'),
+    })
+  )
+    .toString()
+    .trim();
+  const db = getConnection(connectionName);
+  const result = await db.raw<RawDatabaseQueryReturn>(sql);
+  return result.rows.map(({ columns, ...otherProperties }) => ({
+    ...otherProperties,
+    columns: columns.map(({ nullable, ...otherColumns }) => ({
+      nullable: nullable === 'YES',
+      ...otherColumns,
+    })),
+  }));
+};
+
+export const testDatabase: RequestHandler<{
+  connectionName: 'postgres';
+}> = async (req, res, next) => {
+  try {
+    const {
+      params: { connectionName },
+    } = req;
+    res.json(await getDatabaseMetadata(connectionName));
+  } catch (error) {
+    next(error);
   }
 };
