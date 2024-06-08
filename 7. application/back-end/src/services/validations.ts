@@ -8,7 +8,7 @@ import addFormats from 'ajv-formats';
 import Logger from '@dnorio/logger';
 
 import { RequestHandler } from 'express';
-import { ExportedSchemas } from '../exportedSchemas.js';
+import { ExportedSchemas, SchemaTypes } from '../exportedSchemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -68,7 +68,9 @@ const getSubSchema = (exportedSchemaName: ExportedSchemas): OpenApiSchema => {
   return schema;
 };
 
-export const validateMiddleware = (paramsSchema: ExportedSchemas) => {
+export const validateMiddleware = <T extends keyof SchemaTypes>(
+  paramsSchema: ExportedSchemas
+): RequestHandler<SchemaTypes[T]> => {
   const schema: {
     $schema: 'http://json-schema.org/draft-07/schema#';
     type: 'object';
@@ -89,7 +91,9 @@ export const validateMiddleware = (paramsSchema: ExportedSchemas) => {
     schema.properties.params = subSchema;
     schema.required.push('params');
   }
-  return getValidationMiddleware(schema);
+  return getValidationMiddleware(schema) as unknown as RequestHandler<
+    SchemaTypes[T]
+  >;
 };
 
 export const defaultResponses = {
