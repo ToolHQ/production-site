@@ -2,3 +2,5 @@
 node_modules/
 dist
 .npmrc
+schemas
+src/exportedSchemas.ts

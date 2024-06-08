@@ -8,9 +8,10 @@
   "scripts": {
     "start": "node --enable-source-maps dist/app.js",
     "lint": "eslint .",
-    "build": "tsc",
+    "build": "npm run generate-schema && tsc",
+    "generate-schema": "node generate-schema.js",
     "build-start": "npm run build && npm run start",
-    "watch-build-start": "nodemon --ignore dist --ext ts,json --exec npm run build-start"
+    "watch-build-start": "nodemon --ignore dist --ignore schemas --ignore **/exportedSchemas.ts --ext ts,json --exec npm run build-start"
   },
   "dependencies": {
     "@dnorio/db-wrapper": "0.0.24",
@@ -18,8 +19,11 @@
     "@dnorio/logger": "0.0.21",
     "@types/express": "4.17.21",
     "@types/node": "20.12.12",
+    "ajv": "8.16.0",
+    "ajv-formats": "3.0.1",
     "elastic-apm-node": "4.5.4",
     "express": "4.19.2",
+    "pg": "8.12.0",
     "typescript": "5.4.5"
   },
   "devDependencies": {
@@ -27,7 +31,8 @@
     "@types/eslint__js": "8.42.3",
     "eslint": "8.57.0",
     "nodemon": "3.1.0",
-    "typescript-eslint": "7.11.0"
+    "typescript-eslint": "7.11.0",
+    "typescript-json-schema": "0.63.0"
   },
   "sideEffects": false
 }
