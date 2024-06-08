@@ -7,7 +7,7 @@ import {
   deleteTodo,
 } from '../controllers/todos.js';
 
-const router = Router();
+export const router = Router();
 
 router.post('/', createTodo);
 
@@ -18,4 +18,3 @@ router.patch('/:id', updateTodo);
 router.delete('/:id', deleteTodo);
 
 export default router;
-export { router };
