@@ -28,10 +28,12 @@ for (const type of types) {
   fs.writeFileSync(`schemas/${type}.json`, JSON.stringify(schema, null, 2));
 }
 
-fs.writeFileSync(
-  `src/exportedSchemas.ts`,
-  `export type ExportedSchemas = ${types
-    .map((type) => JSON.stringify(type))
-    .join(' | ')};\n`
-);
+const exportedSchemasTsContent = `import {${types
+  .map((type) => `\n  ${type}`)
+  .join(',')}\n} from './types.js';\nexport type ExportedSchemas = ${types
+  .map((type) => JSON.stringify(type))
+  .join(' | ')};\nexport type SchemaTypes = {${types
+  .map((type) => `\n  ${type}: ${type}`)
+  .join(',')}\n};\n`;
+fs.writeFileSync(`src/exportedSchemas.ts`, exportedSchemasTsContent);
 // console.log('JSON schema generated successfully.\n');
