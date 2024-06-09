@@ -13,7 +13,12 @@ const port = 3000;
 
 app.use(setReqIdMiddleware);
 app.use(express.json());
-app.use(logRequestsConstructor({ routesToIgnore: [], logResponseBody: false }));
+app.use(
+  logRequestsConstructor({
+    routesToIgnore: ['/health'],
+    logResponseBody: false,
+  })
+);
 
 app.use('/test', integrationRoutes);
 app.use('/todos', todoRoutes);
