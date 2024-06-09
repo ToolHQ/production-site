@@ -168,3 +168,7 @@ cd ../..
 ##     - Enable npm Bearer Token Realm.
 
 npm login --scope=@dnorio --registry=http://nexus.localhost/repository/npm-repo
+
+
+## TCP Services
+kubectl port-forward --namespace=postgres deployment/postgres-deployment 54322:5432
