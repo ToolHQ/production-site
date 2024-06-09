@@ -66,10 +66,10 @@ spec:
         app: postgres
     spec:
       imagePullSecrets:
-      - name: regsecret
+        - name: regsecret
       containers:
         - name: postgres
-          image: 'docker-nexus.localhost/repository/docker-repo/postgres:16.2-alpine3.19'
+          image: "docker-nexus.localhost/repository/docker-repo/postgres:16.3-alpine3.20"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
