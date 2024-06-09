@@ -31,6 +31,18 @@ spec:
           env:
             - name: NODE_ENV
               value: production
+            - name: DB_DNORIO_POSTGRES_SCHEMA
+              value: public
+            - name: DB_DNORIO_POSTGRES_USER
+              value: postgres
+            - name: DB_DNORIO_POSTGRES_PASS
+              value: passwordinitial
+            - name: DB_DNORIO_POSTGRES_HOST
+              value: postgres-service.postgres
+            - name: DB_DNORIO_POSTGRES_PORT
+              value: '5432'
+            - name: DB_DNORIO_POSTGRES_DATABASE
+              value: postgres
           livenessProbe:
             httpGet:
               path: /health
