@@ -67,7 +67,7 @@ spec:
     spec:
       containers:
         - name: nexus
-          image: 'sonatype/nexus3:3.68.1-java11'
+          image: "sonatype/nexus3:3.69.0-java11"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
@@ -85,7 +85,7 @@ spec:
           command: ["sh", "-c", "chown -R 200:200 /nexus-data"]
           volumeMounts:
             - name: nexusdata
-              mountPath: /nexus-data      
+              mountPath: /nexus-data
       volumes:
         - name: nexusdata
           persistentVolumeClaim:
