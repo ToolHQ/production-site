@@ -1,5 +1,6 @@
 dist
 node_modules
 .dockerignore
+.env
 Dockerfile
-publish.sh
+deploy.sh

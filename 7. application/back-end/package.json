@@ -6,6 +6,7 @@
   ],
   "type": "module",
   "scripts": {
+    "start-local": "node --env-file=./.env --enable-source-maps dist/app.js",
     "start": "node --enable-source-maps dist/app.js",
     "lint": "eslint .",
     "build": "npm run generate-schema && tsc",
