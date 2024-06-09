@@ -76,9 +76,9 @@ docker login $DOCKER_REGISTRY_HOST
 docker pull node:22.2.0-alpine3.20
 docker tag node:22.2.0-alpine3.20 $DOCKER_REGISTRY_HOST/repository/docker-repo/node:22.2.0-alpine3.20
 docker push $DOCKER_REGISTRY_HOST/repository/docker-repo/node:22.2.0-alpine3.20
-docker pull postgres:16.2-alpine3.19
-docker tag postgres:16.2-alpine3.19 $DOCKER_REGISTRY_HOST/repository/docker-repo/postgres:16.2-alpine3.19
-docker push $DOCKER_REGISTRY_HOST/repository/docker-repo/postgres:16.2-alpine3.19
+docker pull postgres:16.3-alpine3.20
+docker tag postgres:16.3-alpine3.20 $DOCKER_REGISTRY_HOST/repository/docker-repo/postgres:16.3-alpine3.20
+docker push $DOCKER_REGISTRY_HOST/repository/docker-repo/postgres:16.3-alpine3.20
 
 kubectl create secret docker-registry regsecret --docker-server=http://docker-nexus.localhost/v2/ --docker-username=docker --docker-password=docker123 --docker-email=danieltakasu@gmail.com --namespace default
 kubectl create secret docker-registry regsecret --docker-server=http://docker-nexus.localhost/v2/ --docker-username=docker --docker-password=docker123 --docker-email=danieltakasu@gmail.com --namespace postgres
