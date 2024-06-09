@@ -7,6 +7,8 @@ import { RequestHandler } from 'express';
 import HttpClient from '@dnorio/httpclient';
 import { getConnection } from '@dnorio/db-wrapper';
 
+import { rawRequest } from '@dnorio/models-toolhq';
+
 import { readFileAsync } from '../services/fs.js';
 import { DatabaseConfigParams } from '../types.js';
 
@@ -124,7 +126,12 @@ export const testDatabase: RequestHandler<DatabaseConfigParams> = async (
     const {
       params: { connectionName },
     } = req;
-    res.json(await getDatabaseMetadata(connectionName));
+    res.json({
+      total: Object.keys(await getDatabaseMetadata(connectionName)).length,
+      entityData: {
+        tableName: rawRequest.tableName,
+      },
+    });
   } catch (error) {
     next(error);
   }
