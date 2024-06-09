@@ -20,29 +20,30 @@ spec:
         app.kubernetes.io/component: controller
         app.kubernetes.io/instance: ingress-nginx
         app.kubernetes.io/name: ingress-nginx
-        gcp-auth-skip-secret: 'true'
+        gcp-auth-skip-secret: "true"
     spec:
       volumes:
         - name: webhook-cert
           secret:
             secretName: ingress-nginx-admission
             defaultMode: 420
+      hostNetwork: false
       containers:
         - name: controller
           image: >-
             registry.k8s.io/ingress-nginx/controller:v1.10.0@sha256:42b3f0e5d0846876b1791cd3afeb5f1cbbe4259d6f35651dcc1b5c980925379c
           args:
             - /nginx-ingress-controller
-            - '--election-id=ingress-nginx-leader'
-            - '--controller-class=k8s.io/ingress-nginx'
-            - '--watch-ingress-without-class=true'
-            - '--configmap=$(POD_NAMESPACE)/ingress-nginx-controller'
-            - '--tcp-services-configmap=$(POD_NAMESPACE)/tcp-services'
-            - '--udp-services-configmap=$(POD_NAMESPACE)/udp-services'
-            - '--validating-webhook=:8443'
-            - '--validating-webhook-certificate=/usr/local/certificates/cert'
-            - '--validating-webhook-key=/usr/local/certificates/key'
-            - '--maxmind-license-key=[REDACTED_MAXMIND_LICENSE_KEY]'
+            - "--election-id=ingress-nginx-leader"
+            - "--controller-class=k8s.io/ingress-nginx"
+            - "--watch-ingress-without-class=true"
+            - "--configmap=$(POD_NAMESPACE)/ingress-nginx-controller"
+            - "--tcp-services-configmap=$(POD_NAMESPACE)/tcp-services"
+            - "--udp-services-configmap=$(POD_NAMESPACE)/udp-services"
+            - "--validating-webhook=:8443"
+            - "--validating-webhook-certificate=/usr/local/certificates/cert"
+            - "--validating-webhook-key=/usr/local/certificates/key"
+            - "--maxmind-license-key=[REDACTED_MAXMIND_LICENSE_KEY]"
           ports:
             - name: http
               hostPort: 80
@@ -55,6 +56,12 @@ spec:
             - name: webhook
               containerPort: 8443
               protocol: TCP
+              name: redis
+            - containerPort: 6379
+              hostPort: 6379
+              name: postgres
+            - containerPort: 54322
+              hostPort: 54322
           env:
             - name: POD_NAME
               valueFrom:
@@ -117,7 +124,7 @@ spec:
       dnsPolicy: ClusterFirst
       nodeSelector:
         kubernetes.io/os: linux
-        minikube.k8s.io/primary: 'true'
+        minikube.k8s.io/primary: "true"
       serviceAccountName: ingress-nginx
       serviceAccount: ingress-nginx
       securityContext: {}
