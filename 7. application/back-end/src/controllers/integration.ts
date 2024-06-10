@@ -7,10 +7,12 @@ import { RequestHandler } from 'express';
 import HttpClient from '@dnorio/httpclient';
 import { getConnection } from '@dnorio/db-wrapper';
 
-import { rawRequest } from '@dnorio/models-toolhq';
+import { rawRequest, entities } from '@dnorio/models-toolhq';
+
+import { generateDatabaseDDLFromModel } from '@dnorio/models-generator';
 
 import { readFileAsync } from '../services/fs.js';
-import { DatabaseConfigParams } from '../types.js';
+import { DatabaseConfigParams, GenerateMigrationParams } from '../types.js';
 
 const httpClient = HttpClient();
 
@@ -132,6 +134,28 @@ export const testDatabase: RequestHandler<DatabaseConfigParams> = async (
         tableName: rawRequest.tableName,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const executeMigration: RequestHandler<GenerateMigrationParams> = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const {
+      params: { entityName },
+    } = req;
+    const ddl = generateDatabaseDDLFromModel({
+      entity: entities[entityName as keyof typeof entities],
+      options: {
+        ifNotExists: false,
+        generationOptions: {},
+      },
+    });
+    res.send(ddl);
   } catch (error) {
     next(error);
   }
