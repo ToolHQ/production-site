@@ -170,5 +170,8 @@ cd ../..
 npm login --scope=@dnorio --registry=http://nexus.localhost/repository/npm-repo
 
 
-## TCP Services
+## TCP Services & not persistent configurations
+kubectl apply -f 1.\ minikube/ingress-nginx-controller-deployment.yaml
+kubectl apply -f 1.\ minikube/ingress-nginx-controller-configmap.yaml
 kubectl port-forward --namespace=postgres deployment/postgres-deployment 54322:5432
+minikube tunnel
