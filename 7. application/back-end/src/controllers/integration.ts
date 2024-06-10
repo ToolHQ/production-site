@@ -139,6 +139,8 @@ export const testDatabase: RequestHandler<DatabaseConfigParams> = async (
   }
 };
 
+const knownEntities = Object.keys(entities);
+
 export const executeMigration: RequestHandler<GenerateMigrationParams> = async (
   req,
   res,
@@ -148,6 +150,20 @@ export const executeMigration: RequestHandler<GenerateMigrationParams> = async (
     const {
       params: { entityName },
     } = req;
+    if (!knownEntities.includes(entityName)) {
+      res.json({
+        errors: [
+          {
+            instancePath: '/params/entityName',
+            schemaPath: '#/properties/params/properties/entityName',
+            keyword: 'values',
+            params: { allowedValues: knownEntities },
+            message: 'must be equal to values in the array',
+          },
+        ],
+      });
+      return;
+    }
     const ddl = generateDatabaseDDLFromModel({
       entity: entities[entityName as keyof typeof entities],
       options: {
