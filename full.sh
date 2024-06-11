@@ -16,8 +16,7 @@ minikube addons enable ingress
 minikube addons enable metrics-server
 minikube addons enable dashboard
 kubectl apply -f 1.\ minikube/kube-dashboard-ingress.yaml
-kubectl apply -f 1.\ minikube/ingress-nginx-controller-deployment.yaml
-kubectl apply -f 1.\ minikube/ingress-nginx-controller-configmap.yaml
+kubectl apply -f 1.\ minikube/ingress-nginx-controller-resources.yaml
 
 ## Init both minio and nexus for blob storage and images storage
 kubectl apply -f 3.\ minio/minio-resources.yaml
@@ -171,7 +170,6 @@ npm login --scope=@dnorio --registry=http://nexus.localhost/repository/npm-repo
 
 
 ## TCP Services & not persistent configurations
-kubectl apply -f 1.\ minikube/ingress-nginx-controller-deployment.yaml
-kubectl apply -f 1.\ minikube/ingress-nginx-controller-configmap.yaml
+kubectl apply -f 1.\ minikube/ingress-nginx-controller-resources.yaml
 kubectl port-forward --namespace=postgres deployment/postgres-deployment 54322:5432
 minikube tunnel
