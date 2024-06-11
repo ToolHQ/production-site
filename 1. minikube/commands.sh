@@ -16,6 +16,5 @@ minikube addons enable ingress
 minikube addons enable metrics-server
 minikube addons enable dashboard
 kubectl apply -f 1.\ minikube/kube-dashboard-ingress.yaml
-kubectl apply -f 1.\ minikube/ingress-nginx-controller-deployment.yaml
-kubectl apply -f 1.\ minikube/ingress-nginx-controller-configmap.yaml
+kubectl apply -f 1.\ minikube/ingress-nginx-controller-resources.yaml
 minikube tunnel
