@@ -13,6 +13,7 @@ import { getRouter } from '@dnorio/swagger-router';
 
 import { router as todoRoutes } from './routes/todo.js';
 import integrationRoutes from './routes/integration.js';
+import { ValidationMiddlewareHandler } from './services/validations.js';
 
 const { logger } = Logger();
 const app = express();
@@ -434,6 +435,41 @@ type SwaggerSecurityRequirementObject = {
   [key: string]: string[];
 };
 
+type JSONSchema = JSONSchemaPrimitive | JSONSchemaArray | JSONSchemaObject;
+type JSONSchemaPrimitive = {
+  $schema?: string;
+  type: 'string' | 'number' | 'boolean';
+  enum?: string[];
+  const?: string | number | boolean;
+};
+type JSONSchemaArray = {
+  type: 'array';
+  items: JSONSchema;
+  minItems?: number;
+  maxItems?: number;
+};
+type JSONSchemaObject = {
+  type: 'object';
+  properties: {
+    [key: string]: JSONSchema;
+  };
+  required?: string[];
+  additionalProperties?: boolean;
+};
+
+const mapParamsSchemaToParameters: (
+  paramsSchema: JSONSchemaObject
+) => SwaggerParameterObject[] = (paramsSchema) => {
+  const required = paramsSchema.required || [];
+  const properties = paramsSchema.properties || {};
+  return Object.entries(properties).map(([key, property]) => ({
+    name: key,
+    in: 'path',
+    required: required.includes(key),
+    schema: property,
+  })) as SwaggerParameterObject[];
+};
+
 const processRouters = (
   routers: (Omit<Router, 'stack'> & { stack: ExpressLayer[] })[]
 ) => {
@@ -489,12 +525,30 @@ const processRouters = (
           expressLayer.route.methods
         )) {
           if (active) {
+            const pathMethodOperation: SwaggerOperationObject = {};
+            for (const subLayer of expressLayer.route.stack) {
+              if (
+                subLayer.name === 'validationMiddlewareHandler' &&
+                (subLayer.handle as ValidationMiddlewareHandler)
+                  .paramsSchemaName
+              ) {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const paramsSchemaName = (
+                  subLayer.handle as ValidationMiddlewareHandler
+                ).paramsSchemaName!;
+                const paramsSchema = (
+                  subLayer.handle as ValidationMiddlewareHandler
+                ).paramsSchema;
+                pathMethodOperation.description = paramsSchemaName;
+                pathMethodOperation.parameters = mapParamsSchemaToParameters(
+                  paramsSchema as JSONSchemaObject
+                );
+              }
+            }
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             initialSwaggerSetup.paths[swaggerPath]![
               method as SwaggerValidOperations
-            ] = {
-              description: 'lorem ipsum',
-            };
+            ] = pathMethodOperation;
           }
         }
       }
