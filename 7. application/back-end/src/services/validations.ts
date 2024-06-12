@@ -31,9 +31,17 @@ type OpenApiSchema = {
   [key: string]: unknown;
 };
 
+export type ValidationMiddlewareHandler = RequestHandler & {
+  paramsSchemaName?: string;
+  paramsSchema?: { [key: string]: unknown };
+};
 export const getValidationMiddleware = (openApiSchema: OpenApiSchema) => {
   const validate = ajv.compile(openApiSchema);
-  const validationMiddlewareHandler: RequestHandler = (req, res, next) => {
+  const validationMiddlewareHandler: ValidationMiddlewareHandler = (
+    req,
+    res,
+    next
+  ) => {
     const data = {
       params: req.params,
       headers: req.headers,
@@ -91,9 +99,10 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
     schema.properties.params = subSchema;
     schema.required.push('params');
   }
-  return getValidationMiddleware(schema) as unknown as RequestHandler<
-    SchemaTypes[T]
-  >;
+  const validationMiddleware = getValidationMiddleware(schema);
+  validationMiddleware.paramsSchemaName = paramsSchema;
+  validationMiddleware.paramsSchema = schema.properties.params;
+  return validationMiddleware as unknown as RequestHandler<SchemaTypes[T]>;
 };
 
 export const defaultResponses = {
