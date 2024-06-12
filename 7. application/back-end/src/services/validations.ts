@@ -33,7 +33,7 @@ type OpenApiSchema = {
 
 export const getValidationMiddleware = (openApiSchema: OpenApiSchema) => {
   const validate = ajv.compile(openApiSchema);
-  const handler: RequestHandler = (req, res, next) => {
+  const validationMiddlewareHandler: RequestHandler = (req, res, next) => {
     const data = {
       params: req.params,
       headers: req.headers,
@@ -49,7 +49,7 @@ export const getValidationMiddleware = (openApiSchema: OpenApiSchema) => {
       });
     }
   };
-  return handler;
+  return validationMiddlewareHandler;
 };
 
 const cachedSubSchemas = new Map<ExportedSchemas, OpenApiSchema>();
