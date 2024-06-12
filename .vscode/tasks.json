@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "build",
+			"path": "7. application/back-end",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "npm: build - 7. application/back-end",
+			"detail": "npm run generate-schema && tsc"
+		}
+	]
+}
