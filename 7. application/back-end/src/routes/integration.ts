@@ -8,9 +8,9 @@ import {
 import { validateMiddleware } from '../services/validations.js';
 export const router = Router();
 
-router.get('/http', testHttp);
+router.all('/http', testHttp);
 
-router.get(
+router.propfind(
   '/database/:connectionName/metadata',
   validateMiddleware('DatabaseConfigParams'),
   testDatabase
