@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import express, {
+  Express,
   Request,
   Response,
   NextFunction,
@@ -12,6 +13,7 @@ import { logRequestsConstructor } from '@dnorio/logger/requestLoggerMiddleware';
 import { setReqIdMiddleware } from '@dnorio/logger/setId';
 import {
   getRouter,
+  updateSwaggerContent,
   JSONSchemaObject,
   SwaggerParameterObject,
   SwaggerOperationObject,
@@ -58,6 +60,9 @@ type ExpressLayer = {
   regexp: RegExp;
   route?: ExpressRoute;
 };
+type ExpressLayerWithRoute = Omit<ExpressLayer, 'route'> & {
+  route: ExpressRoute;
+};
 
 const mapParamsSchemaToParameters: (
   paramsSchema: JSONSchemaObject
@@ -92,7 +97,43 @@ const addSchemaToLayer = (
   }
 };
 
-const processRouters = (
+const extractPath = (
+  expressLayer: ExpressLayerWithRoute,
+  routeSubPath?: string | null
+): string => {
+  let swaggerPath = expressLayer.route.path;
+  const keys = expressLayer.keys;
+  keys.sort((a, b) => b.offset - a.offset);
+  for (const key of keys) {
+    // Replace the parameter at the specific offset
+    const paramPattern = new RegExp(`:${key.name}(\\([^)]*\\))?`, 'g');
+    swaggerPath = swaggerPath.replace(paramPattern, `{${key.name}}`);
+  }
+  if (swaggerPath === '/') {
+    swaggerPath = '';
+  }
+  if (routeSubPath) {
+    swaggerPath = `${routeSubPath}${swaggerPath}`;
+  }
+  return swaggerPath;
+};
+
+const createSwaggerOperationObject = () => {
+  const pathMethodOperation: SwaggerOperationObject = {
+    parameters: [],
+    responses: {
+      '200': {
+        description: 'Success',
+        content: {
+          'application/json': {},
+        },
+      },
+    },
+  };
+  return pathMethodOperation;
+};
+
+const processExpressStack = (
   stack: ExpressLayer[],
   swaggerSetup: OpenAPIObject = {
     openapi: '3.0.3',
@@ -106,12 +147,12 @@ const processRouters = (
     },
     servers: [
       {
-        url: '/api',
-        description: 'Default',
-      },
-      {
         url: '/',
         description: 'Local',
+      },
+      {
+        url: '/api',
+        description: 'Default',
       },
     ],
     tags: [],
@@ -131,17 +172,10 @@ const processRouters = (
 ) => {
   for (const expressLayer of stack) {
     if (expressLayer.route) {
-      let swaggerPath = expressLayer.route.path;
-      const keys = expressLayer.keys;
-      keys.sort((a, b) => b.offset - a.offset);
-      for (const key of keys) {
-        // Replace the parameter at the specific offset
-        const paramPattern = new RegExp(`:${key.name}(\\([^)]*\\))?`, 'g');
-        swaggerPath = swaggerPath.replace(paramPattern, `{${key.name}}`);
-      }
-      if (routeSubPath) {
-        swaggerPath = `${routeSubPath}${swaggerPath}`;
-      }
+      const swaggerPath = extractPath(
+        expressLayer as ExpressLayerWithRoute,
+        routeSubPath
+      );
       if (!swaggerSetup.paths[swaggerPath]) {
         swaggerSetup.paths[swaggerPath] = {};
       }
@@ -151,9 +185,7 @@ const processRouters = (
         const method = routeMethodsData[0] as ExpressMethodValues;
         const active = routeMethodsData[1] as unknown as boolean;
         if (active) {
-          const pathMethodOperation: SwaggerOperationObject = {
-            parameters: [],
-          };
+          const pathMethodOperation = createSwaggerOperationObject();
           for (const subLayer of expressLayer.route.stack) {
             addSchemaToLayer(subLayer, pathMethodOperation);
           }
@@ -173,17 +205,11 @@ const processRouters = (
         }
       }
     } else if (expressLayer.name === 'router' && expressLayer.handle.stack) {
-      // for (const key of keys) {
-      //   // Replace the parameter at the specific offset
-      //   const paramPattern = new RegExp(`:${key.name}(\\([^)]*\\))?`, 'g');
-      //   swaggerPath = swaggerPath.replace(paramPattern, `{${key.name}}`);
-      // }
-
       const match = expressLayer.regexp
         .toString()
         .match(/^\/\^\\\/(.*?)\\\/\?\(\?=\\\/|\$\)\/i$/);
       //   swaggerPath = swaggerPath.replace(paramPattern, `{${key.name}}`);
-      processRouters(
+      processExpressStack(
         expressLayer.handle.stack,
         swaggerSetup,
         match ? `/${match[1]}` : null
@@ -192,65 +218,44 @@ const processRouters = (
       expressLayer.name !== 'query' &&
       expressLayer.name !== 'expressInit'
     ) {
-      console.log(`Middleware: ${expressLayer.name}`);
+      if (expressLayer.regexp.source !== '^\\/?(?=\\/|$)' || routeSubPath) {
+        const match = expressLayer.regexp
+          .toString()
+          .match(/^\/\^\\\/(.*?)\\\/\?\(\?=\\\/|\$\)\/i$/);
+        let swaggerPath = match && match[1] ? `/${match[1]}` : '';
+        if (routeSubPath) {
+          swaggerPath = `${routeSubPath}${swaggerPath}`;
+        }
+        if (swaggerPath) {
+          if (!swaggerSetup.paths[swaggerPath]) {
+            swaggerSetup.paths[swaggerPath] = {};
+          }
+          const pathMethodOperation = createSwaggerOperationObject();
+          for (const validOperation of swaggerValidOperationsList) {
+            swaggerSetup.paths[swaggerPath]![validOperation] =
+              pathMethodOperation as SwaggerOperationObject;
+          }
+        }
+      }
     }
   }
-  return getRouter({ content: JSON.stringify(swaggerSetup) });
+  return swaggerSetup;
 };
 
-// Function to inspect Express app stack
-export function inspectAppStack(app: { _router: ExpressRoute }) {
-  const stack = app._router.stack;
-
-  for (const layer of stack) {
-    if (layer.route) {
-      const route = layer.route as ExpressRoute;
-      console.log(
-        `Route: ${Object.keys(route.methods).join(',')} ${route.path}`
-      );
-      layer.route.stack.forEach((routeLayer) => {
-        console.log(`  ${routeLayer.method.toUpperCase()} ${route.path}`);
-      });
-    } else if (layer.name === 'router' && layer.handle.stack) {
-      console.log(`Router: ${layer.regexp}`);
-      inspectRouterStack(layer.handle.stack);
-    } else if (layer.name !== 'query' && layer.name !== 'expressInit') {
-      console.log(`Middleware: ${layer.name}`);
-    }
-  }
-}
-
-function inspectRouterStack(stack: ExpressLayer[]) {
-  for (const layer of stack) {
-    if (layer.route) {
-      const route = layer.route as ExpressRoute; // Type assertion
-      // This is a route handler within the router
-      console.log(
-        `  Route: ${Object.keys(route.methods).join(',')} ${route.path}`
-      );
-      route.stack.forEach((routeLayer) => {
-        console.log(`    ${routeLayer.method?.toUpperCase()} ${route.path}`);
-      });
-    } else if (layer.name === 'router' && layer.handle.stack) {
-      // This is a nested router
-      console.log(`  Nested Router: ${layer.regexp}`);
-      inspectRouterStack(layer.handle.stack);
-    } else {
-      // This is middleware within the router
-      console.log(`  Middleware: ${layer.name}`);
-    }
-  }
-}
-
-// inspectAppStack(app);
+const addSwaggerToExpress = (app: Express) => {
+  const swaggerSetup = processExpressStack(app._router.stack);
+  app.use('/swagger-ui', getRouter({ content: JSON.stringify(swaggerSetup) }));
+  const updatedSwaggerSetup = processExpressStack(app._router.stack);
+  updateSwaggerContent(JSON.stringify(updatedSwaggerSetup));
+};
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const healthCheck: express.RequestHandler<void> = (_, res) => {
   res.status(200).json({ message: 'Hello World!' });
 };
 
-app.use('/health', healthCheck);
+app.get('/health', healthCheck);
 
-app.use('/swagger-ui', processRouters(app._router.stack));
+addSwaggerToExpress(app);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((error: Error, req: Request, res: Response, _2: NextFunction): void => {
