@@ -184,10 +184,11 @@ const processExpressStack = (
       const match = expressLayer.regexp
         .toString()
         .match(/^\/\^\\\/(.*?)\\\/\?\(\?=\\\/|\$\)\/i$/);
+      let routerTagName: string | undefined;
       if (match && match[1]) {
-        tagName = `${match[1][0]?.toUpperCase()}${match[1].slice(1)}`;
-        if (!swaggerSetup.tags?.find((tag) => tag.name === tagName)) {
-          swaggerSetup.tags?.push({ name: tagName });
+        routerTagName = `${match[1][0]?.toUpperCase()}${match[1].slice(1)}`;
+        if (!swaggerSetup.tags?.find((tag) => tag.name === routerTagName)) {
+          swaggerSetup.tags?.push({ name: routerTagName });
         }
       }
       //   swaggerPath = swaggerPath.replace(paramPattern, `{${key.name}}`);
@@ -195,7 +196,7 @@ const processExpressStack = (
         expressLayer.handle.stack,
         swaggerSetup,
         match ? `/${match[1]}` : null,
-        tagName
+        routerTagName
       );
     } else if (
       expressLayer.name !== 'query' &&
