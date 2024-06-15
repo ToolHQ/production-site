@@ -90,7 +90,7 @@ const extractPath = (
   return swaggerPath;
 };
 
-const createSwaggerOperationObject = () => {
+const createSwaggerOperationObject = (tagName?: string) => {
   const pathMethodOperation: SwaggerOperationObject = {
     parameters: [],
     responses: {
@@ -102,6 +102,9 @@ const createSwaggerOperationObject = () => {
       },
     },
   };
+  if (tagName) {
+    pathMethodOperation.tags = [tagName];
+  }
   return pathMethodOperation;
 };
 
@@ -140,7 +143,8 @@ const processExpressStack = (
       },
     },
   },
-  routeSubPath?: string | null
+  routeSubPath?: string | null,
+  tagName?: string
 ) => {
   for (const expressLayer of stack) {
     if (expressLayer.route) {
@@ -157,7 +161,7 @@ const processExpressStack = (
         const method = routeMethodsData[0] as ExpressMethodValues;
         const active = routeMethodsData[1] as unknown as boolean;
         if (active) {
-          const pathMethodOperation = createSwaggerOperationObject();
+          const pathMethodOperation = createSwaggerOperationObject(tagName);
           for (const subLayer of expressLayer.route.stack) {
             addSchemaToLayer(subLayer, pathMethodOperation);
           }
@@ -180,11 +184,18 @@ const processExpressStack = (
       const match = expressLayer.regexp
         .toString()
         .match(/^\/\^\\\/(.*?)\\\/\?\(\?=\\\/|\$\)\/i$/);
+      if (match && match[1]) {
+        tagName = `${match[1][0]?.toUpperCase()}${match[1].slice(1)}`;
+        if (!swaggerSetup.tags?.find((tag) => tag.name === tagName)) {
+          swaggerSetup.tags?.push({ name: tagName });
+        }
+      }
       //   swaggerPath = swaggerPath.replace(paramPattern, `{${key.name}}`);
       processExpressStack(
         expressLayer.handle.stack,
         swaggerSetup,
-        match ? `/${match[1]}` : null
+        match ? `/${match[1]}` : null,
+        tagName
       );
     } else if (
       expressLayer.name !== 'query' &&
