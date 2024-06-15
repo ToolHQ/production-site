@@ -52,6 +52,7 @@ export const testHttp: RequestHandler = async (_req, res) => {
       'x-ratelimit-reset',
     ],
   });
+  res.setHeader('Content-Type', 'application/json');
   if (streamReturn.body) {
     Readable.fromWeb(streamReturn.body).pipe(res);
   } else {
