@@ -6,6 +6,7 @@ import { setReqIdMiddleware } from '@dnorio/logger/setId';
 
 import { router as todoRoutes } from './routes/todo.js';
 import integrationRoutes from './routes/integration.js';
+import dbManagerRouter from './routes/db-manager.js';
 import { addSwaggerToExpress } from './services/swagger.js';
 
 const { logger } = Logger();
@@ -23,6 +24,7 @@ app.use(
 
 app.use('/test', integrationRoutes);
 app.use('/todos', todoRoutes);
+app.use('/db-manager', dbManagerRouter);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const healthCheck: express.RequestHandler<void> = (_, res) => {
