@@ -31,6 +31,8 @@ const healthCheck: express.RequestHandler<void> = (_, res) => {
 
 app.get('/health', healthCheck);
 
+app.disable('x-powered-by');
+
 // comments.js
 const commentsRoutes = express.Router({ mergeParams: true });
 commentsRoutes.get('/', (req, res) => {
