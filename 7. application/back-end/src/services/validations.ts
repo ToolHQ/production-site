@@ -9,6 +9,7 @@ import Logger from '@dnorio/logger';
 
 import { RequestHandler } from 'express';
 import { ExportedSchemas, SchemaTypes } from '../exportedSchemas.js';
+import { JSONSchema } from '@dnorio/swagger-router';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,15 +28,13 @@ const ajv = new Ajv({
 });
 addFormats(ajv);
 
-type OpenApiSchema = {
-  [key: string]: unknown;
-};
-
 export type ValidationMiddlewareHandler = RequestHandler & {
   paramsSchemaName?: string;
-  paramsSchema?: { [key: string]: unknown };
+  paramsSchema?: JSONSchema;
+  bodySchemaName?: string;
+  bodySchema?: JSONSchema;
 };
-export const getValidationMiddleware = (openApiSchema: OpenApiSchema) => {
+export const getValidationMiddleware = (openApiSchema: JSONSchema) => {
   const validate = ajv.compile(openApiSchema);
   const validationMiddlewareHandler: ValidationMiddlewareHandler = (
     req,
@@ -60,9 +59,9 @@ export const getValidationMiddleware = (openApiSchema: OpenApiSchema) => {
   return validationMiddlewareHandler;
 };
 
-const cachedSubSchemas = new Map<ExportedSchemas, OpenApiSchema>();
+const cachedSubSchemas = new Map<ExportedSchemas, JSONSchema>();
 
-const getSubSchema = (exportedSchemaName: ExportedSchemas): OpenApiSchema => {
+const getSubSchema = (exportedSchemaName: ExportedSchemas): JSONSchema => {
   const cachedSchema = cachedSubSchemas.get(exportedSchemaName);
   if (cachedSchema) {
     return cachedSchema;
@@ -71,21 +70,21 @@ const getSubSchema = (exportedSchemaName: ExportedSchemas): OpenApiSchema => {
     readFileSync(
       path.join(cwd, `../../schemas/${exportedSchemaName}.json`)
     ).toString('utf-8')
-  ) as OpenApiSchema;
+  ) as JSONSchema;
   cachedSubSchemas.set(exportedSchemaName, schema);
   return schema;
 };
 
 export const validateMiddleware = <T extends keyof SchemaTypes>(
-  paramsSchema: ExportedSchemas
-): RequestHandler<SchemaTypes[T]> => {
+  paramsSchema?: ExportedSchemas,
+  bodySchema?: ExportedSchemas
+): RequestHandler<SchemaTypes[T], SchemaTypes[T], SchemaTypes[T]> => {
   const schema: {
     $schema: 'http://json-schema.org/draft-07/schema#';
     type: 'object';
     properties: {
-      params?: {
-        [key: string]: unknown;
-      };
+      params?: JSONSchema;
+      body?: JSONSchema;
     };
     required: ('params' | 'headers' | 'body' | 'query')[];
   } = {
@@ -99,10 +98,21 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
     schema.properties.params = subSchema;
     schema.required.push('params');
   }
+  if (bodySchema) {
+    const subSchema = getSubSchema(bodySchema);
+    schema.properties.body = subSchema;
+    schema.required.push('body');
+  }
   const validationMiddleware = getValidationMiddleware(schema);
   validationMiddleware.paramsSchemaName = paramsSchema;
   validationMiddleware.paramsSchema = schema.properties.params;
-  return validationMiddleware as unknown as RequestHandler<SchemaTypes[T]>;
+  validationMiddleware.bodySchemaName = bodySchema;
+  validationMiddleware.bodySchema = schema.properties.body;
+  return validationMiddleware as unknown as RequestHandler<
+    SchemaTypes[T],
+    SchemaTypes[T],
+    SchemaTypes[T]
+  >;
 };
 
 export const defaultResponses = {

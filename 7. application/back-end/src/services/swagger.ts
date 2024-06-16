@@ -55,19 +55,29 @@ const addSchemaToLayer = (
   aboveLayer: ExpressLayer,
   routerKeys?: { name: string; optional: boolean; offset: number }[]
 ) => {
-  if (
-    subLayer.name === 'validationMiddlewareHandler' &&
-    (subLayer.handle as ValidationMiddlewareHandler).paramsSchemaName
-  ) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const paramsSchemaName = (subLayer.handle as ValidationMiddlewareHandler)
-      .paramsSchemaName!;
-    const paramsSchema = (subLayer.handle as ValidationMiddlewareHandler)
-      .paramsSchema;
-    pathMethodOperation.description = paramsSchemaName;
-    pathMethodOperation.parameters = mapParamsSchemaToParameters(
-      paramsSchema as JSONSchemaObject
-    );
+  if (subLayer.name === 'validationMiddlewareHandler') {
+    const validationMiddlewareHandler =
+      subLayer.handle as ValidationMiddlewareHandler;
+    if (validationMiddlewareHandler.paramsSchemaName) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const paramsSchemaName = validationMiddlewareHandler.paramsSchemaName!;
+      const paramsSchema = validationMiddlewareHandler.paramsSchema;
+      pathMethodOperation.description = paramsSchemaName;
+      pathMethodOperation.parameters = mapParamsSchemaToParameters(
+        paramsSchema as JSONSchemaObject
+      );
+    }
+    if (validationMiddlewareHandler.bodySchemaName) {
+      const bodySchema = validationMiddlewareHandler.bodySchema;
+      pathMethodOperation.requestBody = {
+        required: true,
+        content: {
+          'application/json': {
+            schema: bodySchema,
+          },
+        },
+      };
+    }
   } else if (!pathMethodOperation.parameters) {
     pathMethodOperation.parameters = [];
     if (routerKeys) {
