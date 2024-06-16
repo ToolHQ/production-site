@@ -6,6 +6,19 @@ import { Todo } from './models/todo';
 export type Empty = Record<string, never>;
 
 /**
+ * Database Manager Router
+ *
+ */
+
+/**
+ * @title Inits manager database
+ * @description Inits a dba database at the instance by connection name. Inits tables for auditing and automate execution of DDLs.
+ */
+export type InitDatabaseParams = {
+  connectionName: 'postgres' | 'oracledb' | 'redshift' | 'mssql';
+};
+
+/**
  * Test router
  */
 
