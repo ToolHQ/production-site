@@ -9,7 +9,7 @@ import Logger from '@dnorio/logger';
 
 import { RequestHandler } from 'express';
 import { ExportedSchemas, SchemaTypes } from '../exportedSchemas.js';
-import { JSONSchema } from '@dnorio/swagger-router';
+import { JSONSchema, SwaggerResponsesObject } from '@dnorio/swagger-router';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,6 +35,7 @@ export type ValidationMiddlewareHandler = RequestHandler & {
   bodySchema?: JSONSchema;
   querySchemaName?: string;
   querySchema?: JSONSchema;
+  responses?: SwaggerResponsesObject;
 };
 export const getValidationMiddleware = (openApiSchema: JSONSchema) => {
   const validate = ajv.compile(openApiSchema);
@@ -80,7 +81,8 @@ const getSubSchema = (exportedSchemaName: ExportedSchemas): JSONSchema => {
 export const validateMiddleware = <T extends keyof SchemaTypes>(
   paramsSchema?: ExportedSchemas,
   bodySchema?: ExportedSchemas,
-  querySchema?: ExportedSchemas
+  querySchema?: ExportedSchemas,
+  responseSchema?: ExportedSchemas
 ): RequestHandler<SchemaTypes[T], SchemaTypes[T], SchemaTypes[T]> => {
   const schema: {
     $schema: 'http://json-schema.org/draft-07/schema#';
@@ -119,6 +121,51 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
   validationMiddleware.bodySchema = schema.properties.body;
   validationMiddleware.querySchemaName = querySchema;
   validationMiddleware.querySchema = schema.properties.query;
+  validationMiddleware.responses = {
+    400: {
+      description: 'Validation Error',
+      content: {
+        'application/json': {
+          schema: {
+            type: 'object',
+            properties: {
+              errors: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    instancePath: { type: 'string' },
+                    schemaPath: { type: 'string' },
+                    keyword: { type: 'string' },
+                    params: {
+                      type: 'object',
+                      properties: {
+                        allowedValue: { type: 'string' },
+                      },
+                      required: [],
+                    },
+                    message: { type: 'string' },
+                  },
+                  required: ['instancePath', 'schemaPath', 'message'],
+                },
+              },
+            },
+            required: ['errors'],
+          },
+        },
+      },
+    },
+  };
+  if (responseSchema) {
+    validationMiddleware.responses[200] = {
+      description: 'Success',
+      content: {
+        'application/json': {
+          schema: getSubSchema(responseSchema),
+        },
+      },
+    };
+  }
   return validationMiddleware as unknown as RequestHandler<
     SchemaTypes[T],
     SchemaTypes[T],
