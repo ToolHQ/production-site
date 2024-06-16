@@ -49,11 +49,29 @@ const mapParamsSchemaToParameters: (
   })) as SwaggerParameterObject[];
 };
 
+const addQuerySchemaToParameters: (
+  querySchema: JSONSchemaObject,
+  parameters?: SwaggerParameterObject[]
+) => SwaggerParameterObject[] = (querySchema, parameters) => {
+  const newParameters = parameters || [];
+  const required = querySchema.required || [];
+  const properties = querySchema.properties || {};
+  return newParameters.concat(
+    Object.entries(properties).map(([key, property]) => ({
+      name: key,
+      in: 'query',
+      required: required.includes(key),
+      schema: property,
+    })) as SwaggerParameterObject[]
+  );
+};
+
 const addSchemaToLayer = (
   subLayer: ExpressLayer,
   pathMethodOperation: SwaggerOperationObject,
   aboveLayer: ExpressLayer,
-  routerKeys?: { name: string; optional: boolean; offset: number }[]
+  routerKeys?: { name: string; optional: boolean; offset: number }[],
+  method?: ExpressMethodValues
 ) => {
   if (subLayer.name === 'validationMiddlewareHandler') {
     const validationMiddlewareHandler =
@@ -67,7 +85,7 @@ const addSchemaToLayer = (
         paramsSchema as JSONSchemaObject
       );
     }
-    if (validationMiddlewareHandler.bodySchemaName) {
+    if (validationMiddlewareHandler.bodySchemaName && method !== 'get') {
       const bodySchema = validationMiddlewareHandler.bodySchema;
       pathMethodOperation.requestBody = {
         required: true,
@@ -77,6 +95,13 @@ const addSchemaToLayer = (
           },
         },
       };
+    }
+    if (validationMiddlewareHandler.querySchemaName) {
+      const querySchema = validationMiddlewareHandler.querySchema;
+      pathMethodOperation.parameters = addQuerySchemaToParameters(
+        querySchema as JSONSchemaObject,
+        pathMethodOperation.parameters as SwaggerParameterObject[]
+      );
     }
   } else if (!pathMethodOperation.parameters) {
     pathMethodOperation.parameters = [];
@@ -215,7 +240,8 @@ const processExpressStack = (
               subLayer,
               pathMethodOperation,
               expressLayer,
-              routerKeys
+              routerKeys,
+              method
             );
           }
           if (method === '_all') {
