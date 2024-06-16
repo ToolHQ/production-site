@@ -1,4 +1,4 @@
-// import { Todo } from './models/todo';
+import { Todo } from './models/todo';
 
 // import { entities } from '@dnorio/models-toolhq';
 // type knownEntities = keyof typeof entities;
@@ -56,7 +56,7 @@ export interface CreateTodoResponseBody {
    * Todo text result
    */
   message: string;
-  createdTodo: { id: string; text: string };
+  createdTodo: Todo;
 }
 
 /**
