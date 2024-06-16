@@ -8,6 +8,14 @@ export interface DatabaseConfigParams {
 }
 
 export type CreateTodoParams = Record<string, never>;
+
+export type Empty = Record<string, never>;
+
+export type GetTodosResponseBody = { todos: { id: string; text: string }[] };
+
+export type GetTodosQuery = {
+  text?: string;
+};
 export interface CreateTodoInputBody {
   text: string;
 }

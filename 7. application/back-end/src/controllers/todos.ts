@@ -6,6 +6,9 @@ import {
   CreateTodoParams,
   CreateTodoResponseBody,
   CreateTodoInputBody,
+  GetTodosResponseBody,
+  GetTodosQuery,
+  Empty,
 } from '../types.js';
 
 const TODOS: Todo[] = [];
@@ -21,7 +24,16 @@ export const createTodo: RequestHandler<
   res.status(201).json({ message: 'Created the todo.', createdTodo: newTodo });
 };
 
-export const getTodos: RequestHandler = (_, res) => {
+export const getTodos: RequestHandler<
+  Empty,
+  GetTodosResponseBody,
+  Empty,
+  GetTodosQuery
+> = (req, res) => {
+  const {
+    query: { text },
+  } = req;
+  console.log(text);
   res.status(200).json({ todos: TODOS });
 };
 
