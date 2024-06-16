@@ -1,5 +1,8 @@
 // import { Todo } from './models/todo';
 
+// import { entities } from '@dnorio/models-toolhq';
+// type knownEntities = keyof typeof entities;
+
 export type Empty = Record<string, never>;
 
 /**
@@ -25,7 +28,7 @@ export interface GenerateMigrationParams {
   /**
    * Entity name
    */
-  entityName: string;
+  entityName: 'rawRequest' | 'rawRequestPartition';
 }
 
 /**
