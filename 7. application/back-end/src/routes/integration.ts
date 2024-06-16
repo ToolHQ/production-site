@@ -18,7 +18,12 @@ router.get(
 
 router.get(
   '/migration/:entityName',
-  validateMiddleware('GenerateMigrationParams'),
+  validateMiddleware(
+    'GenerateMigrationParams',
+    'Empty',
+    'Empty',
+    'GenerateMigrationResponseBody'
+  ),
   executeMigration
 );
 
