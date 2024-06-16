@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 // Settings for the JSON schema generation
 const settings = {
   required: true,
-  uniqueNames: true,
+  // uniqueNames: true,
 };
 
 // Path to the tsconfig file
