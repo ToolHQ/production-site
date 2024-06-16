@@ -40,6 +40,7 @@ export type ValidationMiddlewareHandler = RequestHandler & {
   querySchemaName?: string;
   querySchema?: JSONSchema;
   responses?: SwaggerResponsesObject;
+  schemaDefinitions?: { [key: string]: JSONSchema };
 };
 export const getValidationMiddleware = (openApiSchema: JSONSchema) => {
   const validate = ajv.compile(openApiSchema);
@@ -124,6 +125,7 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
   validationMiddleware.bodySchema = schema.properties.body;
   validationMiddleware.querySchemaName = querySchema;
   validationMiddleware.querySchema = schema.properties.query;
+  validationMiddleware.schemaDefinitions = {};
   validationMiddleware.responses = {
     400: {
       description: 'Validation Error',
@@ -161,6 +163,16 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
   };
   if (responseSchema) {
     const schema = getSubSchema(responseSchema);
+    if (schema.type === 'object') {
+      for (const propertySchema of Object.values(schema.properties)) {
+        if (propertySchema.$ref) {
+          propertySchema.$ref = propertySchema.$ref.replace(
+            '#/definitions/',
+            '#/components/schemas/'
+          ); // Conformance from OpenAPI 2.0 to OpenAPI 3.0 spec
+        }
+      }
+    }
     let statusCode: IANAHttpStatusCode = 200;
     let statusDescription = 'Success';
     const contentType =
@@ -182,6 +194,13 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
         },
       },
     };
+    if (schema.definitions) {
+      // Collect definitions from Responses
+      validationMiddleware.schemaDefinitions = {
+        ...validationMiddleware.schemaDefinitions,
+        ...schema.definitions,
+      };
+    }
   }
   return validationMiddleware as unknown as RequestHandler<
     SchemaTypes[T],
