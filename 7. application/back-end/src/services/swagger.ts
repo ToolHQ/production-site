@@ -70,32 +70,30 @@ const addQuerySchemaToParameters: (
 
 const addSchemaToLayer = (
   subLayer: ExpressLayer,
-  pathMethodOperation: SwaggerOperationObject,
+  op: SwaggerOperationObject,
   aboveLayer: ExpressLayer,
-  routerKeys?: { name: string; optional: boolean; offset: number }[],
-  method?: ExpressMethodValues
+  routerKeys?: { name: string; optional: boolean; offset: number }[]
+  // method?: ExpressMethodValues
 ) => {
   if (subLayer.name === 'validationMiddlewareHandler') {
-    const validationMiddlewareHandler =
-      subLayer.handle as ValidationMiddlewareHandler;
-    if (validationMiddlewareHandler.paramsSchemaName) {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const paramsSchemaName = validationMiddlewareHandler.paramsSchemaName!;
-      const paramsSchema = validationMiddlewareHandler.paramsSchema;
-      pathMethodOperation.description =
-        paramsSchema?.description || paramsSchemaName;
-      if (paramsSchema?.title) {
-        pathMethodOperation.summary = paramsSchema.title;
-      }
-      pathMethodOperation.parameters = mapParamsSchemaToParameters(
+    const handler = subLayer.handle as ValidationMiddlewareHandler;
+    // Process params schema
+    if (handler.paramsSchema && handler.paramsSchemaName !== 'Empty') {
+      const { paramsSchema, paramsSchemaName } = handler;
+      op.description = paramsSchema.description || paramsSchemaName;
+      op.summary = paramsSchema.title;
+      op.parameters = mapParamsSchemaToParameters(
         paramsSchema as JSONSchemaObject
       );
     }
-    if (validationMiddlewareHandler.bodySchemaName && method !== 'get') {
-      const bodySchema = validationMiddlewareHandler.bodySchema;
-      pathMethodOperation.requestBody = {
+    // Process body schema
+    if (handler.bodySchema && handler.bodySchemaName !== 'Empty') {
+      const { bodySchema, bodySchemaName } = handler;
+      op.description = bodySchema.description || bodySchemaName;
+      op.summary = bodySchema.title;
+      op.requestBody = {
         required: true,
-        description: bodySchema?.description,
+        description: bodySchema.description,
         content: {
           'application/json': {
             schema: bodySchema,
@@ -103,21 +101,25 @@ const addSchemaToLayer = (
         },
       };
     }
-    if (validationMiddlewareHandler.querySchemaName) {
-      const querySchema = validationMiddlewareHandler.querySchema;
-      pathMethodOperation.parameters = addQuerySchemaToParameters(
+    // Process query schema
+    if (handler.querySchema && handler.querySchemaName !== 'Empty') {
+      const { querySchema, querySchemaName } = handler;
+      op.description = querySchema.description || querySchemaName;
+      op.summary = querySchema.title;
+      op.parameters = addQuerySchemaToParameters(
         querySchema as JSONSchemaObject,
-        pathMethodOperation.parameters as SwaggerParameterObject[]
+        op.parameters as SwaggerParameterObject[]
       );
     }
-    if (validationMiddlewareHandler.responses) {
-      pathMethodOperation.responses = validationMiddlewareHandler.responses;
+    // Adds responses
+    if (handler.responses) {
+      op.responses = handler.responses;
     }
-  } else if (!pathMethodOperation.parameters) {
-    pathMethodOperation.parameters = [];
+  } else if (!op.parameters) {
+    op.parameters = [];
     if (routerKeys) {
       for (const key of routerKeys) {
-        pathMethodOperation.parameters.push({
+        op.parameters.push({
           name: key.name,
           in: 'path',
           required: !key.optional,
@@ -126,7 +128,7 @@ const addSchemaToLayer = (
       }
     }
     for (const key of aboveLayer.keys) {
-      pathMethodOperation.parameters.push({
+      op.parameters.push({
         name: key.name,
         in: 'path',
         required: !key.optional,
@@ -250,8 +252,8 @@ const processExpressStack = (
               subLayer,
               pathMethodOperation,
               expressLayer,
-              routerKeys,
-              method
+              routerKeys
+              // method
             );
           }
           if (method === '_all') {

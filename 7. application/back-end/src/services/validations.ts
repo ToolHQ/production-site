@@ -9,7 +9,11 @@ import Logger from '@dnorio/logger';
 
 import { RequestHandler } from 'express';
 import { ExportedSchemas, SchemaTypes } from '../exportedSchemas.js';
-import { JSONSchema, SwaggerResponsesObject } from '@dnorio/swagger-router';
+import {
+  IANAHttpStatusCode,
+  JSONSchema,
+  SwaggerResponsesObject,
+} from '@dnorio/swagger-router';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -49,7 +53,6 @@ export const getValidationMiddleware = (openApiSchema: JSONSchema) => {
       headers: req.headers,
       body: req.body,
       query: req.query,
-      // file: req.file,
     };
     if (validate(data)) {
       next();
@@ -157,11 +160,23 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
     },
   };
   if (responseSchema) {
-    validationMiddleware.responses[200] = {
-      description: 'Success',
+    const schema = getSubSchema(responseSchema);
+    let statusCode: IANAHttpStatusCode = 200;
+    let statusDescription = 'Success';
+    const matches = /(?<statusCode>\d{3}) *- *(?<statusDescription>.+)/.exec(
+      String(schema.description)
+    );
+    if (matches?.groups) {
+      const { groups } = matches;
+      statusCode = Number(groups.statusCode) as IANAHttpStatusCode;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      statusDescription = groups.statusDescription!;
+    }
+    validationMiddleware.responses[statusCode] = {
+      description: statusDescription,
       content: {
         'application/json': {
-          schema: getSubSchema(responseSchema),
+          schema,
         },
       },
     };
