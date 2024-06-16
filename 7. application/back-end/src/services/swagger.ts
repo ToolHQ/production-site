@@ -3,7 +3,7 @@ import { Express, RequestHandler } from 'express';
 
 import {
   getRouter,
-  updateSwaggerContent,
+  // updateSwaggerContent,
   JSONSchemaObject,
   SwaggerParameterObject,
   SwaggerOperationObject,
@@ -51,8 +51,15 @@ const mapParamsSchemaToParameters: (
 
 const addSchemaToLayer = (
   subLayer: ExpressLayer,
-  pathMethodOperation: SwaggerOperationObject
+  pathMethodOperation: SwaggerOperationObject,
+  aboveLayer: ExpressLayer
 ) => {
+  console.log(
+    'addSchemaToLayer:',
+    subLayer.name,
+    aboveLayer.keys,
+    aboveLayer.path
+  );
   if (
     subLayer.name === 'validationMiddlewareHandler' &&
     (subLayer.handle as ValidationMiddlewareHandler).paramsSchemaName
@@ -66,6 +73,16 @@ const addSchemaToLayer = (
     pathMethodOperation.parameters = mapParamsSchemaToParameters(
       paramsSchema as JSONSchemaObject
     );
+  } else if (!pathMethodOperation.parameters) {
+    pathMethodOperation.parameters = [];
+    for (const key of aboveLayer.keys) {
+      pathMethodOperation.parameters.push({
+        name: key.name,
+        in: 'path',
+        required: !key.optional,
+        schema: { type: 'string' },
+      });
+    }
   }
 };
 
@@ -87,12 +104,17 @@ const extractPath = (
   if (routeSubPath) {
     swaggerPath = `${routeSubPath}${swaggerPath}`;
   }
+  console.log('extractPath:', {
+    swaggerPath,
+    routeSubPath,
+    regexp: expressLayer.regexp,
+    keys,
+  });
   return swaggerPath;
 };
 
 const createSwaggerOperationObject = (tagName?: string) => {
   const pathMethodOperation: SwaggerOperationObject = {
-    parameters: [],
     responses: {
       '200': {
         description: 'Success',
@@ -106,6 +128,19 @@ const createSwaggerOperationObject = (tagName?: string) => {
     pathMethodOperation.tags = [tagName];
   }
   return pathMethodOperation;
+};
+
+const extractRoutePathRegex = (expressLayer: ExpressLayer) => {
+  const match = expressLayer.regexp
+    .toString()
+    .match(/^\/\^\\\/(.*?)\\\/\?\(\?=\\\/|\$\)\/i$/);
+  const swaggerPath = match && match[1] ? `/${match[1]}` : '';
+  console.log('extractRoutePathRegex:', {
+    swaggerPath,
+    regexp: expressLayer.regexp,
+    keys: expressLayer.keys,
+  });
+  return swaggerPath;
 };
 
 const processExpressStack = (
@@ -163,7 +198,7 @@ const processExpressStack = (
         if (active) {
           const pathMethodOperation = createSwaggerOperationObject(tagName);
           for (const subLayer of expressLayer.route.stack) {
-            addSchemaToLayer(subLayer, pathMethodOperation);
+            addSchemaToLayer(subLayer, pathMethodOperation, expressLayer);
           }
           if (method === '_all') {
             for (const validOperation of swaggerValidOperationsList) {
@@ -181,21 +216,18 @@ const processExpressStack = (
         }
       }
     } else if (expressLayer.name === 'router' && expressLayer.handle.stack) {
-      const match = expressLayer.regexp
-        .toString()
-        .match(/^\/\^\\\/(.*?)\\\/\?\(\?=\\\/|\$\)\/i$/);
+      const routePath = extractRoutePathRegex(expressLayer);
       let routerTagName: string | undefined;
-      if (match && match[1]) {
-        routerTagName = `${match[1][0]?.toUpperCase()}${match[1].slice(1)}`;
+      if (routePath) {
+        routerTagName = `${routePath[1]?.toUpperCase()}${routePath.slice(2)}`;
         if (!swaggerSetup.tags?.find((tag) => tag.name === routerTagName)) {
           swaggerSetup.tags?.push({ name: routerTagName });
         }
       }
-      //   swaggerPath = swaggerPath.replace(paramPattern, `{${key.name}}`);
       processExpressStack(
         expressLayer.handle.stack,
         swaggerSetup,
-        match ? `/${match[1]}` : null,
+        routePath,
         routerTagName
       );
     } else if (
@@ -203,10 +235,7 @@ const processExpressStack = (
       expressLayer.name !== 'expressInit'
     ) {
       if (expressLayer.regexp.source !== '^\\/?(?=\\/|$)' || routeSubPath) {
-        const match = expressLayer.regexp
-          .toString()
-          .match(/^\/\^\\\/(.*?)\\\/\?\(\?=\\\/|\$\)\/i$/);
-        let swaggerPath = match && match[1] ? `/${match[1]}` : '';
+        let swaggerPath = extractRoutePathRegex(expressLayer);
         if (routeSubPath) {
           swaggerPath = `${routeSubPath}${swaggerPath}`;
         }
@@ -229,6 +258,6 @@ const processExpressStack = (
 export const addSwaggerToExpress = (app: Express) => {
   const swaggerSetup = processExpressStack(app._router.stack);
   app.use('/swagger-ui', getRouter({ content: JSON.stringify(swaggerSetup) }));
-  const updatedSwaggerSetup = processExpressStack(app._router.stack);
-  updateSwaggerContent(JSON.stringify(updatedSwaggerSetup));
+  // const updatedSwaggerSetup = processExpressStack(app._router.stack);
+  // updateSwaggerContent(JSON.stringify(updatedSwaggerSetup));
 };

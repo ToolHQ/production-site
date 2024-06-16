@@ -31,6 +31,15 @@ const healthCheck: express.RequestHandler<void> = (_, res) => {
 
 app.get('/health', healthCheck);
 
+// comments.js
+const commentsRoutes = express.Router({ mergeParams: false });
+commentsRoutes.get('/', (req, res) => {
+  console.log(req.params);
+  res.json(req.params);
+});
+
+app.use('/:id/comments', commentsRoutes);
+
 addSwaggerToExpress(app);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
