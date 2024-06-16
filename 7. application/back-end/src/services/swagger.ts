@@ -103,6 +103,9 @@ const addSchemaToLayer = (
         pathMethodOperation.parameters as SwaggerParameterObject[]
       );
     }
+    if (validationMiddlewareHandler.responses) {
+      pathMethodOperation.responses = validationMiddlewareHandler.responses;
+    }
   } else if (!pathMethodOperation.parameters) {
     pathMethodOperation.parameters = [];
     if (routerKeys) {

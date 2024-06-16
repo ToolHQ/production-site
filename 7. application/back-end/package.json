@@ -6,12 +6,14 @@
   ],
   "type": "module",
   "scripts": {
-    "local-start": "node --env-file=./.env --enable-source-maps --inspect-brk=0.0.0.0:9229 dist/app.js",
+    "local-start": "node --env-file=./.env --enable-source-maps --inspect=0.0.0.0:9229 dist/app.js",
     "start": "node --enable-source-maps --inspect=0.0.0.0:9229 dist/app.js",
     "lint": "eslint .",
     "build": "npm run generate-schema && tsc",
     "generate-schema": "node generate-schema.js",
     "build-start": "npm run build && npm run start",
+    "local-build-start": "npm run build && npm run local-start",
+    "local-watch-build-start": "nodemon --ignore dist --ignore schemas --ignore **/exportedSchemas.ts --ext ts,json --exec npm run local-build-start",
     "watch-build-start": "nodemon --ignore dist --ignore schemas --ignore **/exportedSchemas.ts --ext ts,json --exec npm run build-start"
   },
   "dependencies": {
