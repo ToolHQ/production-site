@@ -43,6 +43,7 @@ const mapParamsSchemaToParameters: (
   const properties = paramsSchema.properties || {};
   return Object.entries(properties).map(([key, property]) => ({
     name: key,
+    description: property.description,
     in: 'path',
     required: required.includes(key),
     schema: property,
@@ -59,6 +60,7 @@ const addQuerySchemaToParameters: (
   return newParameters.concat(
     Object.entries(properties).map(([key, property]) => ({
       name: key,
+      description: property.description,
       in: 'query',
       required: required.includes(key),
       schema: property,
@@ -80,7 +82,8 @@ const addSchemaToLayer = (
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const paramsSchemaName = validationMiddlewareHandler.paramsSchemaName!;
       const paramsSchema = validationMiddlewareHandler.paramsSchema;
-      pathMethodOperation.description = paramsSchemaName;
+      pathMethodOperation.description =
+        paramsSchema?.description || paramsSchemaName;
       pathMethodOperation.parameters = mapParamsSchemaToParameters(
         paramsSchema as JSONSchemaObject
       );
@@ -89,6 +92,7 @@ const addSchemaToLayer = (
       const bodySchema = validationMiddlewareHandler.bodySchema;
       pathMethodOperation.requestBody = {
         required: true,
+        description: bodySchema?.description,
         content: {
           'application/json': {
             schema: bodySchema,
