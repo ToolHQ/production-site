@@ -9,9 +9,6 @@ export interface DatabaseConfigParams {
    * db-wrapper connection name
    */
   connectionName: 'postgres';
-  port?: number;
-  isActive?: boolean;
-  options?: string[];
 }
 
 export type CreateTodoParams = Record<string, never>;
