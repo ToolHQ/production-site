@@ -12,7 +12,12 @@ import { rawRequest, entities } from '@dnorio/models-toolhq';
 import { generateDatabaseDDLFromModel } from '@dnorio/models-generator';
 
 import { readFileAsync } from '../services/fs.js';
-import { DatabaseMetadataParams, GenerateMigrationParams } from '../types.js';
+import {
+  DatabaseMetadataParams,
+  Empty,
+  GenerateMigrationParams,
+  GenerateMigrationResponseBody,
+} from '../types.js';
 
 const httpClient = HttpClient();
 
@@ -140,31 +145,16 @@ export const testDatabase: RequestHandler<DatabaseMetadataParams> = async (
   }
 };
 
-const knownEntities = Object.keys(entities);
-
-export const executeMigration: RequestHandler<GenerateMigrationParams> = async (
-  req,
-  res,
-  next
-) => {
+export const executeMigration: RequestHandler<
+  GenerateMigrationParams,
+  GenerateMigrationResponseBody,
+  Empty,
+  Empty
+> = async (req, res, next) => {
   try {
     const {
       params: { entityName },
     } = req;
-    if (!knownEntities.includes(entityName)) {
-      res.json({
-        errors: [
-          {
-            instancePath: '/params/entityName',
-            schemaPath: '#/properties/params/properties/entityName',
-            keyword: 'values',
-            params: { allowedValues: knownEntities },
-            message: 'must be equal to values in the array',
-          },
-        ],
-      });
-      return;
-    }
     const ddl = generateDatabaseDDLFromModel({
       entity: entities[entityName as keyof typeof entities],
       options: {
@@ -172,6 +162,7 @@ export const executeMigration: RequestHandler<GenerateMigrationParams> = async (
         generationOptions: {},
       },
     });
+    res.set('Content-Type', 'text/plain');
     res.send(ddl);
   } catch (error) {
     next(error);
