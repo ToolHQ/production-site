@@ -12,7 +12,7 @@ import { rawRequest, entities } from '@dnorio/models-toolhq';
 import { generateDatabaseDDLFromModel } from '@dnorio/models-generator';
 
 import { readFileAsync } from '../services/fs.js';
-import { DatabaseConfigParams, GenerateMigrationParams } from '../types.js';
+import { DatabaseMetadataParams, GenerateMigrationParams } from '../types.js';
 
 const httpClient = HttpClient();
 
@@ -120,7 +120,7 @@ const getDatabaseMetadata = async (
   }));
 };
 
-export const testDatabase: RequestHandler<DatabaseConfigParams> = async (
+export const testDatabase: RequestHandler<DatabaseMetadataParams> = async (
   req,
   res,
   next

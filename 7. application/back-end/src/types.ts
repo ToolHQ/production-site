@@ -2,11 +2,12 @@
 import { Todo } from './models/todo';
 
 /**
- * Allows to explore configurations at database by connectionName
+ * @title Returns Database Metadata
+ * @description Allows to explore configurations at databases by connection name.
  */
-export interface DatabaseConfigParams {
+export interface DatabaseMetadataParams {
   /**
-   * db-wrapper connection name
+   * Database connection name. Allowed value is only 'postgres'.
    */
   connectionName: 'postgres';
 }

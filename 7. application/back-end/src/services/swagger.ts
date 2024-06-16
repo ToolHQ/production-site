@@ -84,6 +84,9 @@ const addSchemaToLayer = (
       const paramsSchema = validationMiddlewareHandler.paramsSchema;
       pathMethodOperation.description =
         paramsSchema?.description || paramsSchemaName;
+      if (paramsSchema?.title) {
+        pathMethodOperation.summary = paramsSchema.title;
+      }
       pathMethodOperation.parameters = mapParamsSchemaToParameters(
         paramsSchema as JSONSchemaObject
       );
