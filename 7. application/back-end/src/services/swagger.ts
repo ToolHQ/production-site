@@ -72,7 +72,8 @@ const addSchemaToLayer = (
   subLayer: ExpressLayer,
   op: SwaggerOperationObject,
   aboveLayer: ExpressLayer,
-  routerKeys?: { name: string; optional: boolean; offset: number }[]
+  routerKeys?: { name: string; optional: boolean; offset: number }[],
+  swaggerSetup?: OpenAPIObject
   // method?: ExpressMethodValues
 ) => {
   if (subLayer.name === 'validationMiddlewareHandler') {
@@ -114,6 +115,13 @@ const addSchemaToLayer = (
     // Adds responses
     if (handler.responses) {
       op.responses = handler.responses;
+    }
+    // Adds definitions
+    if (handler.schemaDefinitions) {
+      swaggerSetup!.components!.schemas = {
+        ...swaggerSetup?.components?.schemas,
+        ...handler.schemaDefinitions,
+      };
     }
   } else if (!op.parameters) {
     op.parameters = [];
@@ -225,6 +233,7 @@ const processExpressStack = (
           name: 'Authorization',
         },
       },
+      schemas: {},
     },
   },
   routeSubPath?: string | null,
@@ -252,7 +261,8 @@ const processExpressStack = (
               subLayer,
               pathMethodOperation,
               expressLayer,
-              routerKeys
+              routerKeys,
+              swaggerSetup
               // method
             );
           }
