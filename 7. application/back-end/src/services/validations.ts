@@ -33,6 +33,8 @@ export type ValidationMiddlewareHandler = RequestHandler & {
   paramsSchema?: JSONSchema;
   bodySchemaName?: string;
   bodySchema?: JSONSchema;
+  querySchemaName?: string;
+  querySchema?: JSONSchema;
 };
 export const getValidationMiddleware = (openApiSchema: JSONSchema) => {
   const validate = ajv.compile(openApiSchema);
@@ -77,7 +79,8 @@ const getSubSchema = (exportedSchemaName: ExportedSchemas): JSONSchema => {
 
 export const validateMiddleware = <T extends keyof SchemaTypes>(
   paramsSchema?: ExportedSchemas,
-  bodySchema?: ExportedSchemas
+  bodySchema?: ExportedSchemas,
+  querySchema?: ExportedSchemas
 ): RequestHandler<SchemaTypes[T], SchemaTypes[T], SchemaTypes[T]> => {
   const schema: {
     $schema: 'http://json-schema.org/draft-07/schema#';
@@ -85,6 +88,7 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
     properties: {
       params?: JSONSchema;
       body?: JSONSchema;
+      query?: JSONSchema;
     };
     required: ('params' | 'headers' | 'body' | 'query')[];
   } = {
@@ -103,11 +107,18 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
     schema.properties.body = subSchema;
     schema.required.push('body');
   }
+  if (querySchema) {
+    const subSchema = getSubSchema(querySchema);
+    schema.properties.query = subSchema;
+    schema.required.push('query');
+  }
   const validationMiddleware = getValidationMiddleware(schema);
   validationMiddleware.paramsSchemaName = paramsSchema;
   validationMiddleware.paramsSchema = schema.properties.params;
   validationMiddleware.bodySchemaName = bodySchema;
   validationMiddleware.bodySchema = schema.properties.body;
+  validationMiddleware.querySchemaName = querySchema;
+  validationMiddleware.querySchema = schema.properties.query;
   return validationMiddleware as unknown as RequestHandler<
     SchemaTypes[T],
     SchemaTypes[T],

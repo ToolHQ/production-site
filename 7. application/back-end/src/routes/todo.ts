@@ -17,7 +17,11 @@ router.post(
   createTodo
 );
 
-router.get('/', getTodos);
+router.get(
+  '/',
+  validateMiddleware('Empty', 'Empty', 'GetTodosQuery'),
+  getTodos
+);
 
 router.patch('/:id', updateTodo);
 
