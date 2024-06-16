@@ -12,7 +12,7 @@ router.get('/http', testHttp);
 
 router.get(
   '/database/:connectionName/metadata',
-  validateMiddleware('DatabaseConfigParams'),
+  validateMiddleware('DatabaseMetadataParams'),
   testDatabase
 );
 
