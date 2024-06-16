@@ -7,9 +7,15 @@ import {
   deleteTodo,
 } from '../controllers/todos.js';
 
+import { validateMiddleware } from '../services/validations.js';
+
 export const router = Router();
 
-router.post('/', createTodo);
+router.post(
+  '/',
+  validateMiddleware('CreateTodoParams', 'CreateTodoInputBody'),
+  createTodo
+);
 
 router.get('/', getTodos);
 
