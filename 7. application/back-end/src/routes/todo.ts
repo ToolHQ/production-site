@@ -19,7 +19,7 @@ router.post(
 
 router.get(
   '/',
-  validateMiddleware('Empty', 'Empty', 'GetTodosQuery'),
+  validateMiddleware('Empty', 'Empty', 'GetTodosQuery', 'GetTodosResponseBody'),
   getTodos
 );
 
