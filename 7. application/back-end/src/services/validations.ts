@@ -82,6 +82,36 @@ const getSubSchema = (exportedSchemaName: ExportedSchemas): JSONSchema => {
   return schema;
 };
 
+const adjustJSONSchemaRefsToOAS3 = (schema: JSONSchema) => {
+  if (schema.type === 'object') {
+    for (const propertySchema of Object.values(schema.properties)) {
+      if (propertySchema.$ref) {
+        propertySchema.$ref = propertySchema.$ref.replace(
+          '#/definitions/',
+          '#/components/schemas/'
+        ); // Conformance from OpenAPI 2.0 to OpenAPI 3.0 spec
+      } else if (
+        propertySchema.type === 'object' ||
+        propertySchema.type === 'array'
+      ) {
+        adjustJSONSchemaRefsToOAS3(propertySchema);
+      }
+    }
+  } else if (schema.type === 'array') {
+    if (schema.items?.$ref) {
+      schema.items.$ref = schema.items.$ref.replace(
+        '#/definitions/',
+        '#/components/schemas/'
+      );
+    } else if (
+      schema.items &&
+      (schema.items.type === 'object' || schema.items.type === 'array')
+    ) {
+      adjustJSONSchemaRefsToOAS3(schema.items);
+    }
+  }
+};
+
 export const validateMiddleware = <T extends keyof SchemaTypes>(
   paramsSchema?: ExportedSchemas,
   bodySchema?: ExportedSchemas,
@@ -163,16 +193,7 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
   };
   if (responseSchema) {
     const schema = getSubSchema(responseSchema);
-    if (schema.type === 'object') {
-      for (const propertySchema of Object.values(schema.properties)) {
-        if (propertySchema.$ref) {
-          propertySchema.$ref = propertySchema.$ref.replace(
-            '#/definitions/',
-            '#/components/schemas/'
-          ); // Conformance from OpenAPI 2.0 to OpenAPI 3.0 spec
-        }
-      }
-    }
+    adjustJSONSchemaRefsToOAS3(schema);
     let statusCode: IANAHttpStatusCode = 200;
     let statusDescription = 'Success';
     const contentType =
@@ -200,6 +221,7 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
         ...validationMiddleware.schemaDefinitions,
         ...schema.definitions,
       };
+      delete schema.definitions;
     }
   }
   return validationMiddleware as unknown as RequestHandler<

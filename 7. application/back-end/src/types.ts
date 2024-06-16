@@ -71,8 +71,5 @@ export interface GetTodosQuery {
 }
 
 export type GetTodosResponseBody = {
-  todos: {
-    id: string;
-    text: string;
-  }[];
+  todos: Todo[];
 };
