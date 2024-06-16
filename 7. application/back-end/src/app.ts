@@ -33,17 +33,6 @@ app.get('/health', healthCheck);
 
 app.disable('x-powered-by');
 
-// comments.js
-const commentsRoutes = express.Router({ mergeParams: true });
-commentsRoutes.get('/', (req, res) => {
-  res.json(req.params);
-});
-commentsRoutes.get('/teste/:abc', (req, res) => {
-  res.json(req.params);
-});
-
-app.use('/:id/:tier/comments', commentsRoutes);
-
 addSwaggerToExpress(app);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
