@@ -32,13 +32,15 @@ const healthCheck: express.RequestHandler<void> = (_, res) => {
 app.get('/health', healthCheck);
 
 // comments.js
-const commentsRoutes = express.Router({ mergeParams: false });
+const commentsRoutes = express.Router({ mergeParams: true });
 commentsRoutes.get('/', (req, res) => {
-  console.log(req.params);
+  res.json(req.params);
+});
+commentsRoutes.get('/teste/:abc', (req, res) => {
   res.json(req.params);
 });
 
-app.use('/:id/comments', commentsRoutes);
+app.use('/:id/:tier/comments', commentsRoutes);
 
 addSwaggerToExpress(app);
 
