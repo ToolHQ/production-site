@@ -3,7 +3,7 @@ import { Express, RequestHandler } from 'express';
 
 import {
   getRouter,
-  // updateSwaggerContent,
+  updateSwaggerContent,
   JSONSchemaObject,
   SwaggerParameterObject,
   SwaggerOperationObject,
@@ -52,14 +52,9 @@ const mapParamsSchemaToParameters: (
 const addSchemaToLayer = (
   subLayer: ExpressLayer,
   pathMethodOperation: SwaggerOperationObject,
-  aboveLayer: ExpressLayer
+  aboveLayer: ExpressLayer,
+  routerKeys?: { name: string; optional: boolean; offset: number }[]
 ) => {
-  console.log(
-    'addSchemaToLayer:',
-    subLayer.name,
-    aboveLayer.keys,
-    aboveLayer.path
-  );
   if (
     subLayer.name === 'validationMiddlewareHandler' &&
     (subLayer.handle as ValidationMiddlewareHandler).paramsSchemaName
@@ -75,6 +70,16 @@ const addSchemaToLayer = (
     );
   } else if (!pathMethodOperation.parameters) {
     pathMethodOperation.parameters = [];
+    if (routerKeys) {
+      for (const key of routerKeys) {
+        pathMethodOperation.parameters.push({
+          name: key.name,
+          in: 'path',
+          required: !key.optional,
+          schema: { type: 'string' },
+        });
+      }
+    }
     for (const key of aboveLayer.keys) {
       pathMethodOperation.parameters.push({
         name: key.name,
@@ -104,12 +109,6 @@ const extractPath = (
   if (routeSubPath) {
     swaggerPath = `${routeSubPath}${swaggerPath}`;
   }
-  console.log('extractPath:', {
-    swaggerPath,
-    routeSubPath,
-    regexp: expressLayer.regexp,
-    keys,
-  });
   return swaggerPath;
 };
 
@@ -131,15 +130,18 @@ const createSwaggerOperationObject = (tagName?: string) => {
 };
 
 const extractRoutePathRegex = (expressLayer: ExpressLayer) => {
-  const match = expressLayer.regexp
-    .toString()
-    .match(/^\/\^\\\/(.*?)\\\/\?\(\?=\\\/|\$\)\/i$/);
-  const swaggerPath = match && match[1] ? `/${match[1]}` : '';
-  console.log('extractRoutePathRegex:', {
-    swaggerPath,
-    regexp: expressLayer.regexp,
-    keys: expressLayer.keys,
-  });
+  let swaggerPath = expressLayer.regexp.source;
+  const keys = expressLayer.keys;
+  keys.sort((a, b) => a.offset - b.offset);
+  for (const key of keys) {
+    // Replace the non capturing parameter at the specific offset
+    swaggerPath = swaggerPath.replace('(?:([^\\/]+?))', `{${key.name}}`);
+  }
+  swaggerPath = swaggerPath
+    .replace('\\/?', '')
+    .replace('(?=\\/|$)', '')
+    .replace('^\\/', '/')
+    .replaceAll('\\/', '/');
   return swaggerPath;
 };
 
@@ -179,7 +181,8 @@ const processExpressStack = (
     },
   },
   routeSubPath?: string | null,
-  tagName?: string
+  tagName?: string,
+  routerKeys?: { name: string; optional: boolean; offset: number }[]
 ) => {
   for (const expressLayer of stack) {
     if (expressLayer.route) {
@@ -198,7 +201,12 @@ const processExpressStack = (
         if (active) {
           const pathMethodOperation = createSwaggerOperationObject(tagName);
           for (const subLayer of expressLayer.route.stack) {
-            addSchemaToLayer(subLayer, pathMethodOperation, expressLayer);
+            addSchemaToLayer(
+              subLayer,
+              pathMethodOperation,
+              expressLayer,
+              routerKeys
+            );
           }
           if (method === '_all') {
             for (const validOperation of swaggerValidOperationsList) {
@@ -228,7 +236,8 @@ const processExpressStack = (
         expressLayer.handle.stack,
         swaggerSetup,
         routePath,
-        routerTagName
+        routerTagName,
+        expressLayer.keys
       );
     } else if (
       expressLayer.name !== 'query' &&
@@ -258,6 +267,6 @@ const processExpressStack = (
 export const addSwaggerToExpress = (app: Express) => {
   const swaggerSetup = processExpressStack(app._router.stack);
   app.use('/swagger-ui', getRouter({ content: JSON.stringify(swaggerSetup) }));
-  // const updatedSwaggerSetup = processExpressStack(app._router.stack);
-  // updateSwaggerContent(JSON.stringify(updatedSwaggerSetup));
+  const updatedSwaggerSetup = processExpressStack(app._router.stack);
+  updateSwaggerContent(JSON.stringify(updatedSwaggerSetup));
 };
