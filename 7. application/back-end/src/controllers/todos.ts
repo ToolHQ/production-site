@@ -3,7 +3,6 @@ import { RequestHandler } from 'express';
 import { Todo } from '../models/todo.js';
 
 import {
-  CreateTodoParams,
   CreateTodoResponseBody,
   CreateTodoInputBody,
   GetTodosResponseBody,
@@ -14,7 +13,7 @@ import {
 const TODOS: Todo[] = [];
 
 export const createTodo: RequestHandler<
-  CreateTodoParams,
+  Empty,
   CreateTodoResponseBody,
   CreateTodoInputBody
 > = (req, res) => {
