@@ -102,7 +102,7 @@ const adjustJSONSchemaRefsToOAS3 = (schema: JSONSchema) => {
       schema.items.$ref = schema.items.$ref.replace(
         '#/definitions/',
         '#/components/schemas/'
-      );
+      ); // Conformance from OpenAPI 2.0 to OpenAPI 3.0 spec
     } else if (
       schema.items &&
       (schema.items.type === 'object' || schema.items.type === 'array')
