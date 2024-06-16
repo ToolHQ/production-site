@@ -31,6 +31,8 @@ export interface GenerateMigrationParams {
   entityName: 'rawRequest' | 'rawRequestPartition';
 }
 
+export type GenerateMigrationResponseBody = string;
+
 /**
  * Todos router
  */

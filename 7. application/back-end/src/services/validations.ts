@@ -163,6 +163,8 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
     const schema = getSubSchema(responseSchema);
     let statusCode: IANAHttpStatusCode = 200;
     let statusDescription = 'Success';
+    const contentType =
+      schema.type === 'string' ? 'text/plain' : 'application/json';
     const matches = /(?<statusCode>\d{3}) *- *(?<statusDescription>.+)/.exec(
       String(schema.description)
     );
@@ -175,7 +177,7 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
     validationMiddleware.responses[statusCode] = {
       description: statusDescription,
       content: {
-        'application/json': {
+        [contentType]: {
           schema,
         },
       },
