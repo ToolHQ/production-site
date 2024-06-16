@@ -200,6 +200,21 @@ const extractRoutePathRegex = (expressLayer: ExpressLayer) => {
   return swaggerPath;
 };
 
+const capitalize = (pathStr: string) => {
+  const parts = pathStr
+    .slice(1)
+    .replaceAll('-', ' ')
+    .split(' ')
+    .reduce((pv, cv) => {
+      const word = cv.trim();
+      if (word) {
+        pv.push(`${word[0]?.toUpperCase()}${word.slice(1)}`);
+      }
+      return pv;
+    }, [] as string[]);
+  return parts.join(' ');
+};
+
 const processExpressStack = (
   stack: ExpressLayer[],
   swaggerSetup: OpenAPIObject = {
@@ -285,7 +300,7 @@ const processExpressStack = (
       const routePath = extractRoutePathRegex(expressLayer);
       let routerTagName: string | undefined;
       if (routePath) {
-        routerTagName = `${routePath[1]?.toUpperCase()}${routePath.slice(2)}`;
+        routerTagName = capitalize(routePath);
         if (!swaggerSetup.tags?.find((tag) => tag.name === routerTagName)) {
           swaggerSetup.tags?.push({ name: routerTagName });
         }
