@@ -1,5 +1,10 @@
-// import { rawRequest } from '@dnorio/models-toolhq';
-import { Todo } from './models/todo';
+// import { Todo } from './models/todo';
+
+export type Empty = Record<string, never>;
+
+/**
+ * Test router
+ */
 
 /**
  * @title Returns Database Metadata
@@ -12,40 +17,57 @@ export interface DatabaseMetadataParams {
   connectionName: 'postgres';
 }
 
-export type CreateTodoParams = Record<string, never>;
-
-export type Empty = Record<string, never>;
-
-export type GetTodosResponseBody = { todos: { id: string; text: string }[] };
-
-export interface GetTodosQuery {
+/**
+ * @title Generate Migration
+ * @description Returns migration DDL
+ */
+export interface GenerateMigrationParams {
   /**
-   * Todo text description for search
-   * @TJS-type string
+   * Entity name
    */
-  text?: string;
+  entityName: string;
 }
+
+/**
+ * Todos router
+ */
+
+/**
+ * @title Creates a todo item
+ * @description Creates a todo item by text.
+ */
 export interface CreateTodoInputBody {
   /**
    * Todo text description for search
-   * @TJS-type string
    */
   text: string;
 }
 
+/**
+ * @description 201 - Created
+ */
 export interface CreateTodoResponseBody {
   /**
    * Todo text result
-   * @TJS-type string
    */
   message: string;
-  createdTodo: Todo;
+  createdTodo: { id: string; text: string };
 }
 
-export interface GenerateMigrationParams {
+/**
+ * @title Get list of todos
+ * @description Retrieve the todo list by text
+ */
+export interface GetTodosQuery {
   /**
-   * Entity name
-   * @TJS-type string
+   * Todo text description for search.
    */
-  entityName: string;
+  text?: string;
 }
+
+export type GetTodosResponseBody = {
+  todos: {
+    id: string;
+    text: string;
+  }[];
+};

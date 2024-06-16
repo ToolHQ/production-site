@@ -13,7 +13,12 @@ export const router = Router();
 
 router.post(
   '/',
-  validateMiddleware('CreateTodoParams', 'CreateTodoInputBody'),
+  validateMiddleware(
+    'Empty',
+    'CreateTodoInputBody',
+    'Empty',
+    'CreateTodoResponseBody'
+  ),
   createTodo
 );
 
