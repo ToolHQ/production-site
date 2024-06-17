@@ -18,6 +18,17 @@ export type InitDatabaseParams = {
   connectionName: 'postgres' | 'oracledb' | 'redshift' | 'mssql';
 };
 
+export type InitDatabaseBody = {
+  /**
+   * @default null
+   */
+  schema?: string;
+  /**
+   * @default null
+   */
+  database?: string;
+};
+
 /**
  * Test router
  */
