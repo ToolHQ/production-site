@@ -6,7 +6,7 @@ const router = Router();
 
 router.post(
   '/init/:connectionName',
-  validateMiddleware('InitDatabaseParams'),
+  validateMiddleware('InitDatabaseParams', 'InitDatabaseBody'),
   initDatabase
 );
 export default router;
