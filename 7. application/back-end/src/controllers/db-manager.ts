@@ -178,8 +178,8 @@ const createDatabaseUserAndSchemas = async ({
 }) => {
   // const log = logger.infoEvent.bind(this, '#initDatabase');
   const baseForCreation = getCredentialsSchema(connectionName);
-  const database = baseForCreation.database || databaseName;
-  const schema = baseForCreation.schema || schemaName;
+  const database = databaseName || baseForCreation.database;
+  const schema = schemaName || baseForCreation.schema;
   if (!database) {
     throw Error('Database must be provided!');
   }
