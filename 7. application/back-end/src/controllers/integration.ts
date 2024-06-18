@@ -155,8 +155,9 @@ export const executeMigration: RequestHandler<
     const {
       params: { entityName },
     } = req;
+    const entity = entities[entityName as keyof typeof entities];
     const ddl = generateDatabaseDDLFromModel({
-      entity: entities[entityName as keyof typeof entities],
+      entity,
       options: {
         ifNotExists: false,
         generationOptions: {},

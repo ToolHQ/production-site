@@ -7,6 +7,12 @@
       "program": "${workspaceFolder}/7. application/back-end/src/app.ts",
       "preLaunchTask": "npm: build - 7. application/back-end",
       "outFiles": ["${workspaceFolder}/7. application/back-end/dist/**/*.js"]
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to back-end",
+      "outFiles": ["${workspaceFolder}/7. application/back-end/dist/**/*.js"]
     }
   ]
 }
