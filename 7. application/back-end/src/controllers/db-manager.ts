@@ -161,6 +161,21 @@ const createSchema = async ({
   }
 };
 
+const grantUsageSchema = async ({
+  connectionName,
+  schemaName,
+  username,
+}: {
+  connectionName: ConnectionType;
+  schemaName: string;
+  username: string;
+}) => {
+  const log = logger.infoEvent.bind(this, '#grantUsageSchema');
+  const db = getConnection(connectionName);
+  await db.raw(`GRANT USAGE ON SCHEMA ${schemaName} TO ${username}`);
+  log(`Grant usage on schema ${schemaName} to user ${username} done.`);
+};
+
 const createDatabaseUserAndSchemas = async ({
   connectionDefault,
   connectionName,
@@ -195,7 +210,7 @@ const createDatabaseUserAndSchemas = async ({
     password: baseForCreation.password,
     isSuper: isSuper || temporarySuper,
   });
-  createSchema({
+  await createSchema({
     connectionName,
     schemaName: schema,
   });
@@ -207,6 +222,11 @@ const createDatabaseUserAndSchemas = async ({
       isSuper: false,
     });
   }
+  await grantUsageSchema({
+    connectionName,
+    schemaName: schema,
+    username: baseForCreation.user,
+  });
 };
 
 /**
