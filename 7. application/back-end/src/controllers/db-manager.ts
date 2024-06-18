@@ -156,7 +156,7 @@ const createSchema = async ({
   } else {
     log(`Schema ${schemaName} does not exist.`);
     const db = getConnection(connectionName);
-    await db.raw(`CREATE SCHEMA ${schemaName}`);
+    await db.raw(`CREATE SCHEMA ??`, [schemaName]);
     log(`Schema ${schemaName} created.`);
   }
 };
@@ -172,7 +172,7 @@ const grantUsageSchema = async ({
 }) => {
   const log = logger.infoEvent.bind(this, '#grantUsageSchema');
   const db = getConnection(connectionName);
-  await db.raw(`GRANT USAGE ON SCHEMA ${schemaName} TO ${username}`);
+  await db.raw(`GRANT USAGE ON SCHEMA ?? TO ${username}`, [schemaName]);
   log(`Grant usage on schema ${schemaName} to user ${username} done.`);
 };
 
