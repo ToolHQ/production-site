@@ -52,7 +52,7 @@ export interface GenerateMigrationParams {
   /**
    * Entity name
    */
-  entityName: 'rawRequest' | 'rawRequestPartition';
+  entityName: 'rawRequest' | 'rawRequestPartition' | 'ddlAuditLog';
 }
 
 export type GenerateMigrationResponseBody = string;
