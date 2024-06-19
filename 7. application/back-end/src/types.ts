@@ -27,6 +27,10 @@ export type InitDatabaseBody = {
    * @default null
    */
   database?: string;
+  /**
+   * @default false
+   */
+  reset?: boolean;
 };
 
 /**
