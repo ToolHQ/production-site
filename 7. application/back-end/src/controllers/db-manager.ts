@@ -7,7 +7,10 @@ import {
 } from '@dnorio/db-wrapper';
 import Logger from '@dnorio/logger';
 
-import { Empty, InitDatabaseBody, InitDatabaseParams } from '../types';
+import { entities } from '@dnorio/models-toolhq';
+import { generateDatabaseDDLFromModel } from '@dnorio/models-generator';
+
+import { Empty, InitDatabaseBody, InitDatabaseParams } from '../types.js';
 
 const { logger } = Logger();
 
@@ -229,6 +232,36 @@ const createDatabaseUserAndSchemas = async ({
   });
 };
 
+type EntityName = keyof typeof entities;
+type ExcludePartition<T extends string> = T extends `${string}Partition`
+  ? never
+  : T;
+
+type FilteredEntityName = ExcludePartition<EntityName>;
+
+const createTableWithPartitions = async (
+  connectionName: ConnectionType,
+  entityName: FilteredEntityName
+) => {
+  const db = getConnection(connectionName);
+  const ddl = generateDatabaseDDLFromModel({
+    entity: entities[entityName],
+    options: {
+      ifNotExists: true,
+      generationOptions: {},
+    },
+  });
+  await db.raw(ddl);
+  const ddlPartitions = generateDatabaseDDLFromModel({
+    entity: entities[`${entityName}Partition`],
+    options: {
+      ifNotExists: true,
+      generationOptions: {},
+    },
+  });
+  await db.raw(ddlPartitions);
+};
+
 /**
  * Inits creation of the dba database and audit structure at the provided instance.
  */
@@ -260,6 +293,8 @@ const executeInitDatabase = async ({
     schemaName: schema,
     temporarySuper: true,
   });
+
+  await createTableWithPartitions('postgres_dba', 'ddlAuditLog');
 };
 
 export const initDatabase: RequestHandler<
