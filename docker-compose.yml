@@ -37,6 +37,17 @@ services:
     networks:
       - minikube
 
+  pg:
+    container_name: pg
+    build:
+      context: ./5. postgres
+    networks:
+      - minikube
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - PG_HOST=postgres
+
 networks:
   minikube:
     external: true
