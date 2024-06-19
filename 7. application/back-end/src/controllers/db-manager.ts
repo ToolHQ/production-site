@@ -179,13 +179,85 @@ const grantUsageSchema = async ({
   log(`Grant usage on schema ${schemaName} to user ${username} done.`);
 };
 
-const createDatabaseUserAndSchemas = async ({
+type PostgresExtension =
+  | 'adminpack'
+  | 'amcheck'
+  | 'autoinc'
+  | 'bloom'
+  | 'bool_plperl'
+  | 'bool_plperlu'
+  | 'btree_gin'
+  | 'btree_gist'
+  | 'citext'
+  | 'cube'
+  | 'dblink'
+  | 'dict_int'
+  | 'dict_xsyn'
+  | 'earthdistance'
+  | 'file_fdw'
+  | 'fuzzystrmatch'
+  | 'hstore'
+  | 'hstore_plperl'
+  | 'hstore_plperlu'
+  | 'hstore_plpython3u'
+  | 'insert_username'
+  | 'intagg'
+  | 'intarray'
+  | 'isn'
+  | 'jsonb_plperl'
+  | 'jsonb_plperlu'
+  | 'jsonb_plpython3u'
+  | 'lo'
+  | 'ltree'
+  | 'ltree_plpython3u'
+  | 'moddatetime'
+  | 'old_snapshot'
+  | 'pageinspect'
+  | 'pg_buffercache'
+  | 'pg_freespacemap'
+  | 'pg_prewarm'
+  | 'pg_stat_statements'
+  | 'pg_surgery'
+  | 'pg_trgm'
+  | 'pg_visibility'
+  | 'pg_walinspect'
+  | 'pgcrypto'
+  | 'pgrowlocks'
+  | 'pgstattuple'
+  | 'plperl'
+  | 'plperlu'
+  | 'plpgsql'
+  | 'plpython3u'
+  | 'pltcl'
+  | 'pltclu'
+  | 'postgres_fdw'
+  | 'refint'
+  | 'seg'
+  | 'sslinfo'
+  | 'tablefunc'
+  | 'tcn'
+  | 'tsm_system_rows'
+  | 'tsm_system_time'
+  | 'unaccent'
+  | 'uuid-ossp'
+  | 'xml2';
+
+const enableExtension = async (
+  connectionName: ConnectionType,
+  extensionName: PostgresExtension
+) => {
+  const db = getConnection(connectionName);
+  await db.raw(`CREATE EXTENSION IF NOT EXISTS ??`, [extensionName]);
+};
+
+const createDatabaseUserAndSchemasAndExtensions = async ({
   connectionDefault,
   connectionName,
   databaseName,
   schemaName,
   isSuper,
   temporarySuper,
+  extensions,
 }: {
   connectionDefault: ConnectionType;
   connectionName: ConnectionType;
@@ -193,6 +265,7 @@ const createDatabaseUserAndSchemas = async ({
   schemaName?: string;
   isSuper?: boolean;
   temporarySuper?: boolean;
+  extensions?: PostgresExtension[];
 }) => {
   // const log = logger.infoEvent.bind(this, '#initDatabase');
   const baseForCreation = getCredentialsSchema(connectionName);
@@ -217,6 +290,12 @@ const createDatabaseUserAndSchemas = async ({
     connectionName,
     schemaName: schema,
   });
+  if (extensions?.length) {
+    for (const extension of extensions) {
+      await enableExtension(connectionName, extension);
+    }
+  }
+  // Revoke super user
   if (temporarySuper) {
     await createDBUser({
       connectionName: connectionDefault,
@@ -279,19 +358,21 @@ const executeInitDatabase = async ({
   // const log = logger.infoEvent.bind(this, '#executeInitDatabase');
 
   // Creates dba database using connectionDefault
-  await createDatabaseUserAndSchemas({
+  await createDatabaseUserAndSchemasAndExtensions({
     connectionDefault,
     connectionName: 'postgres_dba',
     isSuper: true,
+    extensions: ['dblink'],
   });
 
   // Creates target database
-  await createDatabaseUserAndSchemas({
+  await createDatabaseUserAndSchemasAndExtensions({
     connectionDefault,
     connectionName,
     databaseName: database,
     schemaName: schema,
     temporarySuper: true,
+    extensions: ['dblink'],
   });
 
   await createTableWithPartitions('postgres_dba', 'ddlAuditLog');
