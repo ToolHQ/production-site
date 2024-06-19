@@ -1,0 +1,4 @@
+.dockerignore
+Dockerfile
+upgrade.yaml
+run_upgrade.sh
