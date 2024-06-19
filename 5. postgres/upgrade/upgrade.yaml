@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pg-upgrade
+  namespace: postgres
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsUser: 1000  # postgres user ID
+        runAsGroup: 1000 # postgres group ID
+      containers:
+        - name: pg-upgrade
+          image: docker-nexus.localhost/repository/docker-repo/pg_upgrade:1.0.2
+          volumeMounts:
+            - name: postgresdata16
+              mountPath: /var/lib/postgresql/16/data
+              subPath: data16
+            - name: postgresdata17
+              mountPath: /var/lib/postgresql/17/data
+              subPath: data17
+        volumes:
+          - name: postgresdata16
+            persistentVolumeClaim:
+              claimName: postgres-volume-claim
+          - name: postgresdata17
+            persistentVolumeClaim:
+              claimName: postgres-volume-claim
+      restartPolicy: Never
