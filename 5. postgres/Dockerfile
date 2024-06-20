@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM postgres:17beta1-alpine3.20
+FROM postgres:16.3-alpine3.20
+# FROM postgres:17beta1-alpine3.20
 
 RUN apk update && \
   apk add --no-cache --virtual .build-deps \
