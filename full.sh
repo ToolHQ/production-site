@@ -34,6 +34,7 @@ ff02::2 ip6-allrouters
 192.168.49.2    control-plane.minikube.internal
 127.0.0.1 docker-nexus.localhost
 127.0.0.1 nexus.localhost
+127.0.0.1 postgres.localhost
 127.0.0.1 my-site.localhost
 END
 
