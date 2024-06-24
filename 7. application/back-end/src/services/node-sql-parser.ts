@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { parseQuery } from '@dnorio/pg-query-binding';
 import Logger from '@dnorio/logger';
 
@@ -195,7 +196,7 @@ const DDLStatements = [
   'VALUES', // compute a set of rows
 ];
 
-const queries: { name: string; description: string; query: string | null }[] = [
+const queries: { name: string; description: string; query: string }[] = [
   {
     name: 'ABORT',
     description: 'Abort the current transaction',
@@ -1184,12 +1185,103 @@ if (missingQueriesForTest.length > 0) {
   logger.infoEvent('missingQueriesForTest', missingQueriesForTest);
 }
 
+const statementTypeCount: Map<string, number> = new Map();
+const statementTypeQueries: Map<string, unknown[]> = new Map();
+
 export const validateQueries = () => {
   for (const query of queries) {
     if (query.query) {
       try {
-        parseQuery(query.query);
-        // console.log(parsed.statementsList);
+        const parsed = parseQuery(query.query);
+        let statementType = parsed.statementsList[0]!;
+        if (statementType === 'TransactionStmt') {
+          const kind = parsed.result.stmts[0].stmt.TransactionStmt.kind;
+          statementType += `/${kind}`;
+        } else if (statementType === 'RenameStmt') {
+          const kind = parsed.result.stmts[0].stmt.RenameStmt.renameType;
+          statementType += `/${kind}`;
+        } else if (statementType === 'AlterOwnerStmt') {
+          const kind = parsed.result.stmts[0].stmt.AlterOwnerStmt.objectType;
+          statementType += `/${kind}`;
+        } else if (statementType === 'AlterTableStmt') {
+          const kind = parsed.result.stmts[0].stmt.AlterTableStmt.objtype;
+          const subCommands = [
+            ...new Set(
+              parsed.result.stmts[0].stmt.AlterTableStmt.cmds.map(
+                (cmd: { AlterTableCmd: { subtype: string } }) =>
+                  cmd.AlterTableCmd.subtype
+              )
+            ),
+          ]
+            .sort()
+            .join(',');
+          statementType += `/${kind}/(${subCommands})`;
+        } else if (statementType === 'VacuumStmt') {
+          const vacuum = parsed.result.stmts[0].stmt.VacuumStmt.is_vacuumcmd
+            ? 'VACUUM'
+            : 'OTHER';
+          const options = [
+            ...new Set(
+              parsed.result.stmts[0].stmt.VacuumStmt.options?.map(
+                (option: { DefElem: { defname: string } }) =>
+                  option.DefElem.defname
+              )
+            ),
+          ]
+            .sort()
+            .join(',');
+          statementType += `/${vacuum}/(${options})`;
+        } else if (statementType === 'DefineStmt') {
+          const kind = parsed.result.stmts[0].stmt.DefineStmt.kind;
+          statementType += `/${kind}`;
+        } else if (statementType === 'CreateRoleStmt') {
+          const kind = parsed.result.stmts[0].stmt.CreateRoleStmt.stmt_type;
+          statementType += `/${kind}`;
+        } else if (statementType === 'DropStmt') {
+          const kind = parsed.result.stmts[0].stmt.DropStmt.removeType;
+          statementType += `/${kind}`;
+        } else if (statementType === 'DropRoleStmt') {
+          const baseQuery = query.query.split(' ').filter(Boolean).join(' ');
+          let roleType = 'any';
+          if (baseQuery.includes('DROP GROUP')) {
+            roleType = 'group';
+          } else if (baseQuery.includes('DROP ROLE')) {
+            roleType = 'role';
+          } else if (baseQuery.includes('DROP USER')) {
+            roleType = 'user';
+          }
+          statementType += `/${roleType}`;
+        } else if (statementType === 'VariableSetStmt') {
+          const kind = parsed.result.stmts[0].stmt.VariableSetStmt.kind;
+          const name = parsed.result.stmts[0].stmt.VariableSetStmt.name;
+          statementType += `/${kind}/(${name})`;
+        } else if (statementType === 'SelectStmt') {
+          const selectStmt = parsed.result.stmts[0].stmt.SelectStmt;
+          if (selectStmt.intoClause) {
+            statementType += '/into';
+          } else if (selectStmt.valuesLists) {
+            statementType += '/values';
+          }
+        }
+
+        if (!statementTypeCount.has(statementType)) {
+          statementTypeCount.set(statementType, 0);
+          statementTypeQueries.set(statementType, [
+            { query: query.name, parsed },
+          ]);
+        } else {
+          statementTypeCount.set(
+            statementType,
+            statementTypeCount.get(statementType)! + 1
+          );
+
+          statementTypeQueries.set(
+            statementType,
+            statementTypeQueries
+              .get(statementType)!
+              .concat({ query: query.name, parsed })
+          );
+        }
       } catch (error: unknown) {
         const err = error as Error & {
           funcname: string;
@@ -1207,6 +1299,21 @@ export const validateQueries = () => {
         });
         throw err;
       }
+    }
+  }
+  for (const [statementType, count] of statementTypeCount) {
+    if (count > 1) {
+      const queries = statementTypeQueries.get(statementType)!;
+      type NewType = {
+        query: string;
+      };
+      logger.infoEvent(
+        'Ambigous statementTypeCount',
+        statementType,
+        queries.map((q) => {
+          return (q as NewType).query;
+        })
+      );
     }
   }
 };
