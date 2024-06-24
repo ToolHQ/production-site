@@ -8,6 +8,7 @@ import { router as todoRoutes } from './routes/todo.js';
 import integrationRoutes from './routes/integration.js';
 import dbManagerRouter from './routes/db-manager.js';
 import { addSwaggerToExpress } from './services/swagger.js';
+import { validateQueries } from './services/node-sql-parser.js';
 
 const { logger } = Logger();
 const app = express();
@@ -52,4 +53,5 @@ app.use((error: Error, req: Request, res: Response, _2: NextFunction): void => {
 
 app.listen(port, () => {
   logger.infoEvent('Server started', { port });
+  validateQueries();
 });
