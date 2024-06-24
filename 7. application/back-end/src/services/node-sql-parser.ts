@@ -1197,6 +1197,36 @@ export const validateQueries = () => {
         if (statementType === 'TransactionStmt') {
           const kind = parsed.result.stmts[0].stmt.TransactionStmt.kind;
           statementType += `/${kind}`;
+          if (kind === 'TRANS_STMT_ROLLBACK') {
+            const baseQuery = query.query.split(' ').filter(Boolean).join(' ');
+            let subType = 'rollback';
+            if (baseQuery.includes('ABORT')) {
+              subType = 'abort';
+            }
+            statementType += `/${subType}`;
+          } else if (kind === 'TRANS_STMT_COMMIT') {
+            const baseQuery = query.query.split(' ').filter(Boolean).join(' ');
+            let subType = 'commit';
+            if (baseQuery.includes('END')) {
+              subType = 'end';
+            }
+            statementType += `/${subType}`;
+          }
+        } else if (statementType === 'AlterObjectSchemaStmt') {
+          const kind =
+            parsed.result.stmts[0].stmt.AlterObjectSchemaStmt.objectType;
+          statementType += `/${kind}`;
+        } else if (statementType === 'AlterRoleStmt') {
+          const baseQuery = query.query.split(' ').filter(Boolean).join(' ');
+          let roleType = 'any';
+          if (baseQuery.includes('ALTER GROUP')) {
+            roleType = 'group';
+          } else if (baseQuery.includes('ALTER ROLE')) {
+            roleType = 'role';
+          } else if (baseQuery.includes('ALTER USER')) {
+            roleType = 'user';
+          }
+          statementType += `/${roleType}`;
         } else if (statementType === 'RenameStmt') {
           const kind = parsed.result.stmts[0].stmt.RenameStmt.renameType;
           statementType += `/${kind}`;
@@ -1265,7 +1295,7 @@ export const validateQueries = () => {
         }
 
         if (!statementTypeCount.has(statementType)) {
-          statementTypeCount.set(statementType, 0);
+          statementTypeCount.set(statementType, 1);
           statementTypeQueries.set(statementType, [
             { query: query.name, parsed },
           ]);
@@ -1282,6 +1312,7 @@ export const validateQueries = () => {
               .concat({ query: query.name, parsed })
           );
         }
+        console.log(`${query.name}: ${statementType}`);
       } catch (error: unknown) {
         const err = error as Error & {
           funcname: string;
@@ -1310,10 +1341,17 @@ export const validateQueries = () => {
       logger.infoEvent(
         'Ambigous statementTypeCount',
         statementType,
-        queries.map((q) => {
+        queries.map((q, index) => {
+          if (index === 0 || index === 1 || index === 2) {
+            console.log(
+              `${(q as { query: string }).query}: ${statementType}`,
+              JSON.stringify((q as { parsed: unknown }).parsed, null, 2)
+            );
+          }
           return (q as NewType).query;
         })
       );
     }
   }
+  logger.infoEvent('types', [...statementTypeCount.entries()]);
 };
