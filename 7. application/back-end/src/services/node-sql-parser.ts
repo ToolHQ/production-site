@@ -167,8 +167,7 @@ const DDLStatements = [
   'REASSIGN OWNED', // change the ownership of database objects owned by a database role
   'REFRESH MATERIALIZED VIEW', // replace the contents of a materialized view
   'REINDEX', // rebuild indexes
-  'RELEASE', // release a previously acquired lock (????????)
-  'RELEASE SAVEPOINT', // release a previously defined savepoint
+  'RELEASE', // release a previously defined savepoint
   'RESET', // restore the value of a run-time parameter to the default value
   'REVOKE', // remove access privileges
   'ROLLBACK', // abort the current transaction
@@ -516,7 +515,7 @@ GRANT SELECT ON TABLES TO PUBLIC;`,
   {
     name: 'CREATE EXTENSION',
     description: 'Install an extension',
-    query: 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";',
+    query: 'CREATE EXTENSION "uuid-ossp";',
   },
   {
     name: 'CREATE FOREIGN DATA WRAPPER',
@@ -548,7 +547,8 @@ GRANT SELECT ON TABLES TO PUBLIC;`,
   {
     name: 'CREATE LANGUAGE',
     description: 'Define a new procedural language',
-    query: 'CREATE LANGUAGE plpythonu;',
+    query:
+      'CREATE LANGUAGE plpythonu HANDLER call_handler VALIDATOR valfunction;',
   },
   {
     name: 'CREATE MATERIALIZED VIEW',
@@ -1037,11 +1037,6 @@ WHEN NOT MATCHED THEN INSERT (id, col1) VALUES (source_table.id, source_table.co
   },
   {
     name: 'RELEASE',
-    description: 'Release a previously acquired lock',
-    query: 'RELEASE my_lock;',
-  },
-  {
-    name: 'RELEASE SAVEPOINT',
     description: 'Release a previously defined savepoint',
     query: 'RELEASE SAVEPOINT my_savepoint;',
   },
@@ -1292,6 +1287,25 @@ export const validateQueries = () => {
           } else if (selectStmt.valuesLists) {
             statementType += '/values';
           }
+        } else if (statementType === 'CreateFunctionStmt') {
+          const type = parsed.result.stmts[0].stmt.CreateFunctionStmt
+            .is_procedure
+            ? 'procedure'
+            : 'function';
+          statementType += `/${type}`;
+        } else if (statementType === 'CreateTableAsStmt') {
+          const type = parsed.result.stmts[0].stmt.CreateTableAsStmt.objtype;
+          statementType += `/${type}`;
+        } else if (statementType === 'FetchStmt') {
+          const type = parsed.result.stmts[0].stmt.FetchStmt.ismove
+            ? 'move'
+            : 'fetch';
+          statementType += `/${type}`;
+        } else if (statementType === 'GrantStmt') {
+          const type = parsed.result.stmts[0].stmt.GrantStmt.is_grant
+            ? 'grant'
+            : 'revoke';
+          statementType += `/${type}`;
         }
 
         if (!statementTypeCount.has(statementType)) {
@@ -1312,7 +1326,7 @@ export const validateQueries = () => {
               .concat({ query: query.name, parsed })
           );
         }
-        console.log(`${query.name}: ${statementType}`);
+        // console.log(`${query.name}: ${statementType}`);
       } catch (error: unknown) {
         const err = error as Error & {
           funcname: string;
@@ -1341,17 +1355,17 @@ export const validateQueries = () => {
       logger.infoEvent(
         'Ambigous statementTypeCount',
         statementType,
-        queries.map((q, index) => {
-          if (index === 0 || index === 1 || index === 2) {
-            console.log(
-              `${(q as { query: string }).query}: ${statementType}`,
-              JSON.stringify((q as { parsed: unknown }).parsed, null, 2)
-            );
-          }
+        queries.map((q) => {
+          // if (index === 0 || index === 1 || index === 2) {
+          // console.log(
+          //   `${(q as { query: string }).query}: ${statementType}`,
+          //   JSON.stringify((q as { parsed: unknown }).parsed, null, 2)
+          // );
+          // }
           return (q as NewType).query;
         })
       );
     }
   }
-  logger.infoEvent('types', [...statementTypeCount.entries()]);
+  // logger.infoEvent('types', [...statementTypeCount.entries()]);
 };
