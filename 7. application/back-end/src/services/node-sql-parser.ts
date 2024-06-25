@@ -1183,6 +1183,144 @@ if (missingQueriesForTest.length > 0) {
 const statementTypeCount: Map<string, number> = new Map();
 const statementTypeQueries: Map<string, unknown[]> = new Map();
 
+export const extractQueryMetadata = (query: string) => {
+  try {
+    const parsed = parseQuery(query);
+    let statementType = parsed.statementsList[0]!;
+    if (statementType === 'TransactionStmt') {
+      const kind = parsed.result.stmts[0].stmt.TransactionStmt.kind;
+      statementType += `/${kind}`;
+      if (kind === 'TRANS_STMT_ROLLBACK') {
+        const baseQuery = query.split(' ').filter(Boolean).join(' ');
+        let subType = 'rollback';
+        if (baseQuery.includes('ABORT')) {
+          subType = 'abort';
+        }
+        statementType += `/${subType}`;
+      } else if (kind === 'TRANS_STMT_COMMIT') {
+        const baseQuery = query.split(' ').filter(Boolean).join(' ');
+        let subType = 'commit';
+        if (baseQuery.includes('END')) {
+          subType = 'end';
+        }
+        statementType += `/${subType}`;
+      }
+    } else if (statementType === 'AlterObjectSchemaStmt') {
+      const kind = parsed.result.stmts[0].stmt.AlterObjectSchemaStmt.objectType;
+      statementType += `/${kind}`;
+    } else if (statementType === 'AlterRoleStmt') {
+      const baseQuery = query.split(' ').filter(Boolean).join(' ');
+      let roleType = 'any';
+      if (baseQuery.includes('ALTER GROUP')) {
+        roleType = 'group';
+      } else if (baseQuery.includes('ALTER ROLE')) {
+        roleType = 'role';
+      } else if (baseQuery.includes('ALTER USER')) {
+        roleType = 'user';
+      }
+      statementType += `/${roleType}`;
+    } else if (statementType === 'RenameStmt') {
+      const kind = parsed.result.stmts[0].stmt.RenameStmt.renameType;
+      statementType += `/${kind}`;
+    } else if (statementType === 'AlterOwnerStmt') {
+      const kind = parsed.result.stmts[0].stmt.AlterOwnerStmt.objectType;
+      statementType += `/${kind}`;
+    } else if (statementType === 'AlterTableStmt') {
+      const kind = parsed.result.stmts[0].stmt.AlterTableStmt.objtype;
+      const subCommands = [
+        ...new Set(
+          parsed.result.stmts[0].stmt.AlterTableStmt.cmds.map(
+            (cmd: { AlterTableCmd: { subtype: string } }) =>
+              cmd.AlterTableCmd.subtype
+          )
+        ),
+      ]
+        .sort()
+        .join(',');
+      statementType += `/${kind}/(${subCommands})`;
+    } else if (statementType === 'VacuumStmt') {
+      const vacuum = parsed.result.stmts[0].stmt.VacuumStmt.is_vacuumcmd
+        ? 'VACUUM'
+        : 'OTHER';
+      const options = [
+        ...new Set(
+          parsed.result.stmts[0].stmt.VacuumStmt.options?.map(
+            (option: { DefElem: { defname: string } }) => option.DefElem.defname
+          )
+        ),
+      ]
+        .sort()
+        .join(',');
+      statementType += `/${vacuum}/(${options})`;
+    } else if (statementType === 'DefineStmt') {
+      const kind = parsed.result.stmts[0].stmt.DefineStmt.kind;
+      statementType += `/${kind}`;
+    } else if (statementType === 'CreateRoleStmt') {
+      const kind = parsed.result.stmts[0].stmt.CreateRoleStmt.stmt_type;
+      statementType += `/${kind}`;
+    } else if (statementType === 'DropStmt') {
+      const kind = parsed.result.stmts[0].stmt.DropStmt.removeType;
+      statementType += `/${kind}`;
+    } else if (statementType === 'DropRoleStmt') {
+      const baseQuery = query.split(' ').filter(Boolean).join(' ');
+      let roleType = 'any';
+      if (baseQuery.includes('DROP GROUP')) {
+        roleType = 'group';
+      } else if (baseQuery.includes('DROP ROLE')) {
+        roleType = 'role';
+      } else if (baseQuery.includes('DROP USER')) {
+        roleType = 'user';
+      }
+      statementType += `/${roleType}`;
+    } else if (statementType === 'VariableSetStmt') {
+      const kind = parsed.result.stmts[0].stmt.VariableSetStmt.kind;
+      const name = parsed.result.stmts[0].stmt.VariableSetStmt.name;
+      statementType += `/${kind}/(${name})`;
+    } else if (statementType === 'SelectStmt') {
+      const selectStmt = parsed.result.stmts[0].stmt.SelectStmt;
+      if (selectStmt.intoClause) {
+        statementType += '/into';
+      } else if (selectStmt.valuesLists) {
+        statementType += '/values';
+      }
+    } else if (statementType === 'CreateFunctionStmt') {
+      const type = parsed.result.stmts[0].stmt.CreateFunctionStmt.is_procedure
+        ? 'procedure'
+        : 'function';
+      statementType += `/${type}`;
+    } else if (statementType === 'CreateTableAsStmt') {
+      const type = parsed.result.stmts[0].stmt.CreateTableAsStmt.objtype;
+      statementType += `/${type}`;
+    } else if (statementType === 'FetchStmt') {
+      const type = parsed.result.stmts[0].stmt.FetchStmt.ismove
+        ? 'move'
+        : 'fetch';
+      statementType += `/${type}`;
+    } else if (statementType === 'GrantStmt') {
+      const type = parsed.result.stmts[0].stmt.GrantStmt.is_grant
+        ? 'grant'
+        : 'revoke';
+      statementType += `/${type}`;
+    }
+  } catch (error: unknown) {
+    const err = error as Error & {
+      funcname: string;
+      filename: string;
+      lineno: number;
+      cursorpos: number;
+    };
+    logger.errorEvent('queryParseError', {
+      query,
+      message: err.message,
+      funcname: err.funcname,
+      filename: err.filename,
+      lineno: err.lineno,
+      cursorpos: err.cursorpos,
+    });
+    throw err;
+  }
+};
+
 export const validateQueries = () => {
   for (const query of queries) {
     if (query.query) {
