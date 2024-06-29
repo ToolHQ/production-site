@@ -1,3 +1,5 @@
+// import { PostgresStmts } from '@dnorio/pg-query-binding';
+
 import { Todo } from './models/todo';
 
 // import { entities } from '@dnorio/models-toolhq';
@@ -64,6 +66,21 @@ export interface GenerateMigrationParams {
 }
 
 export type GenerateMigrationResponseBody = string;
+
+export type GetQueryMetadataBody = {
+  query: string;
+};
+
+export type GetQueryMetadataResponseBody = {
+  version: number | null;
+  statements: {
+    stmtKind?: string | null | undefined;
+    stmtSyntax?: string | null | undefined;
+    stmtSubCommands?: string[] | null | undefined;
+    stmt: string;
+    stmtObject: unknown;
+  }[];
+};
 
 /**
  * Todos router
