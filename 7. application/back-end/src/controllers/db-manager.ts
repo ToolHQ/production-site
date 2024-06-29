@@ -10,7 +10,15 @@ import Logger from '@dnorio/logger';
 import { entities } from '@dnorio/models-toolhq';
 import { generateDatabaseDDLFromModel } from '@dnorio/models-generator';
 
-import { Empty, InitDatabaseBody, InitDatabaseParams } from '../types.js';
+import {
+  Empty,
+  GetQueryMetadataBody,
+  GetQueryMetadataResponseBody,
+  InitDatabaseBody,
+  InitDatabaseParams,
+} from '../types.js';
+
+import { extractQueryMetadata } from '../services/node-sql-parser.js';
 
 const { logger } = Logger();
 
@@ -395,6 +403,19 @@ export const initDatabase: RequestHandler<
       schema,
     });
     res.json({});
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getQueryMetadata: RequestHandler<
+  Empty,
+  GetQueryMetadataResponseBody,
+  GetQueryMetadataBody
+> = async (req, res, next) => {
+  try {
+    const result = extractQueryMetadata(req.body.query);
+    res.json(result);
   } catch (error) {
     next(error);
   }
