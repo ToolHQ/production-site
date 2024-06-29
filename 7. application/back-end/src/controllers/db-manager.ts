@@ -408,6 +408,8 @@ export const initDatabase: RequestHandler<
   }
 };
 
+type MakeOptional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
 export const getQueryMetadata: RequestHandler<
   Empty,
   GetQueryMetadataResponseBody,
@@ -415,6 +417,21 @@ export const getQueryMetadata: RequestHandler<
 > = async (req, res, next) => {
   try {
     const result = extractQueryMetadata(req.body.query);
+    if (req.body.omitStatementObject) {
+      const { statements } = result;
+      const newStatements = statements as MakeOptional<
+        (typeof statements)[number],
+        'stmtObject'
+      >[];
+      for (const statement of newStatements) {
+        delete statement?.stmtObject;
+      }
+      res.json({
+        version: result.version,
+        statements: newStatements,
+      });
+      return;
+    }
     res.json(result);
   } catch (error) {
     next(error);
