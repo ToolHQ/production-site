@@ -69,6 +69,10 @@ export type GenerateMigrationResponseBody = string;
 
 export type GetQueryMetadataBody = {
   query: string;
+  /**
+   * @default false
+   */
+  omitStatementObject?: boolean;
 };
 
 export type GetQueryMetadataResponseBody = {
@@ -78,7 +82,7 @@ export type GetQueryMetadataResponseBody = {
     stmtSyntax?: string | null | undefined;
     stmtSubCommands?: string[] | null | undefined;
     stmt: string;
-    stmtObject: unknown;
+    stmtObject?: unknown;
   }[];
 };
 
