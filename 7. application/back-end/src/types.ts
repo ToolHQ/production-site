@@ -22,11 +22,11 @@ export type InitDatabaseParams = {
 
 export type InitDatabaseBody = {
   /**
-   * @default null
+   * @default
    */
   schema?: string;
   /**
-   * @default null
+   * @default
    */
   database?: string;
   /**
