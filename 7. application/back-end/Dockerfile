@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 FROM node:22.2.0-alpine3.20 AS base
-RUN apk add --no-cache --no-progress curl
+RUN apk add --no-cache --no-progress curl git make python3 g++
 USER node
 WORKDIR /usr/src/app
 
