@@ -455,24 +455,16 @@ export const getQueryMetadata: RequestHandler<
 };
 
 // SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1
-// DROP DATABASE \"dba\"
-// CREATE DATABASE \"dba\"
 // SELECT 1 FROM pg_roles WHERE rolname='svc_dba'
 // CREATE ROLE svc_xpto WITH LOGIN PASSWORD 'xpto'
 // ALTER ROLE svc_dba WITH SUPERUSER
 // SELECT 1 AS one FROM information_schema.schemata WHERE schema_name = $1 LIMIT 1
-// CREATE SCHEMA \"dba_audit\"
-// CREATE EXTENSION IF NOT EXISTS \"dblink\"
 // GRANT USAGE ON SCHEMA \"dba_audit\" TO svc_dba
 // SELECT 1 ONE FROM pg_database WHERE datname = $1 LIMIT 1
 // SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1
-// DROP DATABASE \"toolhq\"
-// CREATE DATABASE \"toolhq\"
 // "SELECT 1 FROM pg_roles WHERE rolname='svc_toolhq'
 // ALTER ROLE svc_toolhq WITH SUPERUSER
 // SELECT 1 AS one FROM information_schema.schemata WHERE schema_name = $1 LIMIT 1
-// CREATE SCHEMA \"toolhq\"
-// CREATE EXTENSION IF NOT EXISTS \"dblink\"
 // SELECT 1 FROM pg_roles WHERE rolname='svc_toolhq'
 // ALTER ROLE svc_toolhq WITH NOSUPERUSER
 // GRANT USAGE ON SCHEMA \"toolhq\" TO svc_toolhq
