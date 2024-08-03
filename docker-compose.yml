@@ -23,6 +23,7 @@ services:
       extra_hosts:
         - docker-nexus.localhost:192.168.49.2
         - nexus.localhost:192.168.49.2
+        - minio.localhost:192.168.49.2
     command: npm run watch-build-start
     env_file:
       - ./7. application/back-end/.env
@@ -36,6 +37,10 @@ services:
       - 9229:9229
     networks:
       - minikube
+    extra_hosts:
+      - nexus.localhost:192.168.49.2
+      - minio.localhost:192.168.49.2
+    
 
   pg:
     container_name: pg
