@@ -36,6 +36,8 @@ ff02::2 ip6-allrouters
 127.0.0.1 nexus.localhost
 127.0.0.1 postgres.localhost
 127.0.0.1 my-site.localhost
+127.0.0.1 minio.localhost
+127.0.0.1 minio-console.localhost
 END
 
 ## Uses this to expose minikube ip as localhost
