@@ -12,6 +12,8 @@ import { generateDatabaseDDLFromModel } from '@dnorio/models-generator';
 
 import {
   Empty,
+  ExecuteQueriesPlainText,
+  ExecuteQueriesResponseBody,
   GetQueryMetadataBody,
   GetQueryMetadataResponseBody,
   InitDatabaseBody,
@@ -449,6 +451,31 @@ export const getQueryMetadata: RequestHandler<
       return;
     }
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const executeQueries: RequestHandler<
+  Empty,
+  ExecuteQueriesResponseBody,
+  ExecuteQueriesPlainText
+> = async (req, res, next) => {
+  try {
+    const { body: sql } = req;
+    const auditRows = extractQueryMetadata(sql).statements.map((stmt) => ({
+      stmt: stmt.stmt,
+      stmtKind: stmt.stmtKind,
+      stmtSyntax: stmt.stmtSyntax,
+      stmtSubCommands: stmt.stmtSubCommands,
+      stmtTarget: stmt.stmtTarget,
+      stmtOptions: stmt.stmtOptions,
+      sql,
+      stmtObject: stmt.stmtObject,
+    }));
+    const db = getConnection('postgres_default');
+    const { rows } = await db.raw(sql);
+    res.json({ auditRows, rows });
   } catch (error) {
     next(error);
   }

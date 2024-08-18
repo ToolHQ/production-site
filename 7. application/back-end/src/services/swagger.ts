@@ -11,6 +11,8 @@ import {
   swaggerValidOperationsList,
   OpenAPIObject,
   ExpressMethodValues,
+  SwaggerMediaTypeObject,
+  JSONSchemaString,
 } from '@dnorio/swagger-router';
 
 import { ValidationMiddlewareHandler } from './validations.js';
@@ -90,16 +92,25 @@ const addSchemaToLayer = (
     // Process body schema
     if (handler.bodySchema && handler.bodySchemaName !== 'Empty') {
       const { bodySchema, bodySchemaName } = handler;
+      const content: { [key: string]: SwaggerMediaTypeObject } =
+        bodySchemaName?.endsWith('PlainText')
+          ? {
+              'text/plain': {
+                schema: bodySchema,
+                example: (bodySchema as JSONSchemaString).examples![0],
+              },
+            }
+          : {
+              'application/json': {
+                schema: bodySchema,
+              },
+            };
       op.description = bodySchema.description || bodySchemaName;
       op.summary = bodySchema.title;
       op.requestBody = {
         required: true,
         description: bodySchema.description,
-        content: {
-          'application/json': {
-            schema: bodySchema,
-          },
-        },
+        content,
       };
     }
     // Process query schema
