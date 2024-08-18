@@ -70,7 +70,7 @@ export type GenerateMigrationResponseBody = string;
 export type GetQueryMetadataBody = {
   query: string;
   /**
-   * @default false
+   * @default true
    */
   omitStatementObject?: boolean;
 };
@@ -84,6 +84,54 @@ export type GetQueryMetadataResponseBody = {
     stmt: string;
     stmtObject?: unknown;
   }[];
+};
+
+/**
+ * @title Executes plain SQL
+ * @description Allows to diagnostics pre parser and execution.
+ */
+export type ExecuteQueriesPlainText = `select
+  tables.table_catalog "catalog",
+  tables.table_schema "schema",
+  tables.table_name "name",
+  tables.table_type "type",
+  array_agg(json_build_object(
+	'position', columns.ordinal_position,
+	'name', columns.column_name,
+	'defaultValue', columns.column_default,
+	'nullable', columns.is_nullable,
+	'type', columns.udt_name,
+	'dataType', columns.data_type,
+	'maxChars', columns.character_maximum_length,
+	'maxBytes', columns.character_octet_length,
+	'numericPrecision', columns.numeric_precision,
+	'numericRadix', columns.numeric_precision_radix,
+	'numericScale', columns.numeric_scale,
+	'dateTimePrecision', columns.datetime_precision,
+	'collationCatalog', columns.collation_catalog,
+	'collationSchema', columns.collation_schema,
+	'collationName', columns.collation_name
+  ) order by columns.ordinal_position) "columns"
+from information_schema.tables
+left join information_schema.columns on
+  columns.table_catalog = tables.table_catalog and
+  columns.table_schema = tables.table_schema and
+  columns.table_name = tables.table_name
+group by
+  tables.table_catalog,
+  tables.table_schema,
+  tables.table_name,
+  tables.table_type
+order by
+  tables.table_catalog,
+  tables.table_schema,
+  tables.table_name,
+  tables.table_type
+limit 5;`;
+
+export type ExecuteQueriesResponseBody = {
+  auditRows: unknown;
+  rows: unknown;
 };
 
 /**

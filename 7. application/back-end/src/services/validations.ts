@@ -12,6 +12,7 @@ import { ExportedSchemas, SchemaTypes } from '../exportedSchemas.js';
 import {
   IANAHttpStatusCode,
   JSONSchema,
+  JSONSchemaString,
   SwaggerResponsesObject,
 } from '@dnorio/swagger-router';
 
@@ -123,7 +124,7 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
     type: 'object';
     properties: {
       params?: JSONSchema;
-      body?: JSONSchema;
+      body?: JSONSchema | JSONSchemaString;
       query?: JSONSchema;
     };
     required: ('params' | 'headers' | 'body' | 'query')[];
@@ -140,7 +141,15 @@ export const validateMiddleware = <T extends keyof SchemaTypes>(
   }
   if (bodySchema) {
     const subSchema = getSubSchema(bodySchema);
-    schema.properties.body = subSchema;
+    const finalBodySchema: JSONSchema | JSONSchemaString = bodySchema?.endsWith(
+      'PlainText'
+    )
+      ? {
+          type: 'string',
+          examples: [(subSchema as JSONSchemaString).const as string],
+        }
+      : subSchema;
+    schema.properties.body = finalBodySchema;
     schema.required.push('body');
   }
   if (querySchema) {
