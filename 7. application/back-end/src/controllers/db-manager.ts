@@ -470,8 +470,8 @@ export const executeQueries: RequestHandler<
       stmtSubCommands: stmt.stmtSubCommands,
       stmtTarget: stmt.stmtTarget,
       stmtOptions: stmt.stmtOptions,
-      sql,
-      stmtObject: stmt.stmtObject,
+      sql: '<omitted>',
+      stmtObject: '<omitted>',
     }));
     const db = getConnection('postgres_default');
     const { rows } = await db.raw(sql);
