@@ -130,6 +130,8 @@ order by
 limit 5;`;
 
 export type ExecuteQueriesResponseBody = {
+  auditElapsedTime: number;
+  queryElapsedTime: number;
   auditRows: unknown;
   rows: unknown;
 };
