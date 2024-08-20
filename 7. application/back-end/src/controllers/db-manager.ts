@@ -21,6 +21,7 @@ import {
 } from '../types.js';
 
 import { extractQueryMetadata } from '../services/node-sql-parser.js';
+import { computeElapsedTimeMsFromHrTimes } from '../services/timer.js';
 
 const { logger } = Logger();
 
@@ -463,6 +464,7 @@ export const executeQueries: RequestHandler<
 > = async (req, res, next) => {
   try {
     const { body: sql } = req;
+    const auditStartTime = process.hrtime();
     const auditRows = extractQueryMetadata(sql).statements.map((stmt) => ({
       stmt: stmt.stmt,
       stmtKind: stmt.stmtKind,
@@ -473,9 +475,23 @@ export const executeQueries: RequestHandler<
       sql: '<omitted>',
       stmtObject: '<omitted>',
     }));
+    const auditElapsedTime = computeElapsedTimeMsFromHrTimes(
+      process.hrtime(),
+      auditStartTime
+    );
     const db = getConnection('postgres_default');
+    const queryStartTime = process.hrtime();
     const { rows } = await db.raw(sql);
-    res.json({ auditRows, rows });
+    const queryElapsedTime = computeElapsedTimeMsFromHrTimes(
+      process.hrtime(),
+      queryStartTime
+    );
+    res.json({
+      auditElapsedTime,
+      queryElapsedTime,
+      auditRows,
+      rows,
+    });
   } catch (error) {
     next(error);
   }
