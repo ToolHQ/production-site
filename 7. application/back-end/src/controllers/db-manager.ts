@@ -20,8 +20,11 @@ import {
   InitDatabaseParams,
 } from '../types.js';
 
-import { extractQueryMetadata } from '../services/node-sql-parser.js';
-import { computeElapsedTimeMsFromHrTimes } from '../services/timer.js';
+import {
+  extractQueryMetadata,
+  PostgresExtension,
+} from '../services/node-sql-parser.js';
+import { executeQuery } from '../services/db-manager.js';
 
 const { logger } = Logger();
 
@@ -198,69 +201,6 @@ const grantUsageSchema = async ({
   await db.raw(`GRANT USAGE ON SCHEMA ?? TO ${username}`, [schemaName]);
   log(`Grant usage on schema ${schemaName} to user ${username} done.`);
 };
-
-type PostgresExtension =
-  | 'adminpack'
-  | 'amcheck'
-  | 'autoinc'
-  | 'bloom'
-  | 'bool_plperl'
-  | 'bool_plperlu'
-  | 'btree_gin'
-  | 'btree_gist'
-  | 'citext'
-  | 'cube'
-  | 'dblink'
-  | 'dict_int'
-  | 'dict_xsyn'
-  | 'earthdistance'
-  | 'file_fdw'
-  | 'fuzzystrmatch'
-  | 'hstore'
-  | 'hstore_plperl'
-  | 'hstore_plperlu'
-  | 'hstore_plpython3u'
-  | 'insert_username'
-  | 'intagg'
-  | 'intarray'
-  | 'isn'
-  | 'jsonb_plperl'
-  | 'jsonb_plperlu'
-  | 'jsonb_plpython3u'
-  | 'lo'
-  | 'ltree'
-  | 'ltree_plpython3u'
-  | 'moddatetime'
-  | 'old_snapshot'
-  | 'pageinspect'
-  | 'pg_buffercache'
-  | 'pg_freespacemap'
-  | 'pg_prewarm'
-  | 'pg_stat_statements'
-  | 'pg_surgery'
-  | 'pg_trgm'
-  | 'pg_visibility'
-  | 'pg_walinspect'
-  | 'pgcrypto'
-  | 'pgrowlocks'
-  | 'pgstattuple'
-  | 'plperl'
-  | 'plperlu'
-  | 'plpgsql'
-  | 'plpython3u'
-  | 'pltcl'
-  | 'pltclu'
-  | 'postgres_fdw'
-  | 'refint'
-  | 'seg'
-  | 'sslinfo'
-  | 'tablefunc'
-  | 'tcn'
-  | 'tsm_system_rows'
-  | 'tsm_system_time'
-  | 'unaccent'
-  | 'uuid-ossp'
-  | 'xml2';
 
 const enableExtension = async (
   connectionName: ConnectionType,
@@ -464,34 +404,8 @@ export const executeQueries: RequestHandler<
 > = async (req, res, next) => {
   try {
     const { body: sql } = req;
-    const auditStartTime = process.hrtime();
-    const auditRows = extractQueryMetadata(sql).statements.map((stmt) => ({
-      stmt: stmt.stmt,
-      stmtKind: stmt.stmtKind,
-      stmtSyntax: stmt.stmtSyntax,
-      stmtSubCommands: stmt.stmtSubCommands,
-      stmtTarget: stmt.stmtTarget,
-      stmtOptions: stmt.stmtOptions,
-      sql: '<omitted>',
-      stmtObject: '<omitted>',
-    }));
-    const auditElapsedTime = computeElapsedTimeMsFromHrTimes(
-      process.hrtime(),
-      auditStartTime
-    );
-    const db = getConnection('postgres_default');
-    const queryStartTime = process.hrtime();
-    const { rows } = await db.raw(sql);
-    const queryElapsedTime = computeElapsedTimeMsFromHrTimes(
-      process.hrtime(),
-      queryStartTime
-    );
-    res.json({
-      auditElapsedTime,
-      queryElapsedTime,
-      auditRows,
-      rows,
-    });
+    const result = await executeQuery(sql);
+    res.json(result);
   } catch (error) {
     next(error);
   }
