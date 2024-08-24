@@ -382,9 +382,14 @@ export const executeQuery = async (
     process.hrtime(),
     queryStartTime
   );
+  const totalElapsedTime = computeElapsedTimeMsFromHrTimes(
+    process.hrtime(),
+    auditStartTime
+  );
   return {
     auditElapsedTime,
     queryElapsedTime,
+    totalElapsedTime,
     auditRows,
     rows,
   };

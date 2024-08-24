@@ -132,6 +132,7 @@ limit 5;`;
 export type ExecuteQueriesResponseBody = {
   auditElapsedTime: number;
   queryElapsedTime: number;
+  totalElapsedTime: number;
   auditRows: unknown;
   rows: unknown;
 };
