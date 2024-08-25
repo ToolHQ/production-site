@@ -10,7 +10,12 @@ const router = Router();
 
 router.post(
   '/init/:connectionName',
-  validateMiddleware('InitDatabaseParams', 'InitDatabaseBody'),
+  validateMiddleware(
+    'InitDatabaseParams',
+    'InitDatabaseBody',
+    'Empty',
+    'InitDatabaseResponseBody'
+  ),
   initDatabase
 );
 

@@ -7,18 +7,19 @@ import {
   GetQueryMetadataBody,
   GetQueryMetadataResponseBody,
   InitDatabaseBody,
+  InitDatabaseResponseBody,
   InitDatabaseParams,
 } from '../types.js';
 
 import {
   executeInitDatabase,
   executeGetQueryMetadata,
-  executeQuery,
+  executeRawQuery,
 } from '../services/db-manager.js';
 
 export const initDatabase: RequestHandler<
   InitDatabaseParams,
-  Empty,
+  InitDatabaseResponseBody,
   InitDatabaseBody
 > = async (req, res, next) => {
   try {
@@ -26,14 +27,14 @@ export const initDatabase: RequestHandler<
       params: { connectionName },
       body: { schema, database, reset },
     } = req;
-    await executeInitDatabase({
+    const auditRows = await executeInitDatabase({
       connectionDefault: 'postgres_default',
       connectionName,
       database,
       schema,
       dropDatabaseIfExists: reset,
     });
-    res.json({});
+    res.json({ auditRows });
   } catch (error) {
     next(error);
   }
@@ -62,7 +63,7 @@ export const executeQueries: RequestHandler<
 > = async (req, res, next) => {
   try {
     const { body: sql } = req;
-    const result = await executeQuery(sql);
+    const result = await executeRawQuery(sql);
     res.json(result);
   } catch (error) {
     next(error);
