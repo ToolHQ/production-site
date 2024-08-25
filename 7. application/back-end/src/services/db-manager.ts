@@ -69,35 +69,47 @@ export const doesDatabaseExists = async (
   return Boolean(rows.length);
 };
 
-export const doesSchemaExist = async (
-  schemaName: string,
-  connectionName: ConnectionType
-) => {
-  const db = getConnection(connectionName);
-  const { rows } = await db.raw<{ rows: { one: number }[] }>(
-    `SELECT 1 AS one FROM information_schema.schemata WHERE schema_name = ? LIMIT 1`,
-    [schemaName]
-  );
-  return Boolean(rows.length);
-};
-
 export const terminateDatabaseConnections = async (
   databaseName: string,
-  connectionName: ConnectionType
+  connectionName: ConnectionType,
+  auditRowsCollection?: unknown[]
 ) => {
-  const db = getConnection(connectionName);
-  await db.raw(
-    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ?`,
-    [databaseName]
+  await executeQuery(
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`,
+    [databaseName],
+    {
+      connection: connectionName,
+      auditRowsCollection,
+    }
   );
 };
 
 export const dropDatabase = async (
   databaseName: string,
-  connectionName: ConnectionType
+  connectionName: ConnectionType,
+  auditRowsCollection?: unknown[]
 ) => {
-  const db = getConnection(connectionName);
-  await db.raw(`DROP DATABASE ??`, [databaseName]);
+  await executeQuery(`DROP DATABASE ${databaseName}`, [], {
+    // TODO: Fix bindings
+    connection: connectionName,
+    auditRowsCollection,
+  });
+};
+
+export const doesSchemaExist = async (
+  schemaName: string,
+  connectionName: ConnectionType,
+  auditRowsCollection?: unknown[]
+) => {
+  const rows = await executeQuery<{ one: number }[]>(
+    `SELECT 1 AS one FROM information_schema.schemata WHERE schema_name = $1 LIMIT 1`,
+    [schemaName],
+    {
+      connection: connectionName,
+      auditRowsCollection,
+    }
+  );
+  return Boolean(rows.length);
 };
 
 export const createDatabase = async (
@@ -116,16 +128,24 @@ export const createDatabase = async (
     log(`Database ${databaseName} exists.`);
     if (dropDatabaseIfExists) {
       log(`Database ${databaseName} will be dropped.`);
-      await terminateDatabaseConnections(databaseName, connectionName);
-      await dropDatabase(databaseName, connectionName);
-      const db = getConnection(connectionName);
-      await db.raw(`CREATE DATABASE ??`, [databaseName]);
+      await terminateDatabaseConnections(
+        databaseName,
+        connectionName,
+        auditRowsCollection
+      );
+      await dropDatabase(databaseName, connectionName, auditRowsCollection);
+      await executeQuery(`CREATE DATABASE ${databaseName}`, [], {
+        connection: connectionName,
+        auditRowsCollection,
+      }); // TODO: Fix bindings
       log(`Database ${databaseName} created.`);
     }
   } else {
     log(`Database ${databaseName} does not exist.`);
-    const db = getConnection(connectionName);
-    await db.raw(`CREATE DATABASE ??`, [databaseName]);
+    await executeQuery(`CREATE DATABASE ${databaseName}`, [], {
+      connection: connectionName,
+      auditRowsCollection,
+    }); // TODO: Fix bindings
     log(`Database ${databaseName} created.`);
   }
 };
@@ -135,34 +155,46 @@ const createDBUser = async ({
   username,
   password,
   isSuper,
+  auditRowsCollection,
 }: {
   connectionName: ConnectionType;
   username: string;
   password: string;
   isSuper?: boolean;
+  auditRowsCollection?: unknown[];
 }) => {
   const log = logger.infoEvent.bind(this, '#createDBUser');
 
-  const db = getConnection(connectionName, { logs: true });
-
   // Check if the user exists
-  const { rows } = await db.raw(
-    `SELECT 1 FROM pg_roles WHERE rolname='${username}'`
+  const rows = await executeQuery<{ '1': 1 }[]>(
+    `SELECT 1 FROM pg_roles WHERE rolname=$1`,
+    [username],
+    { connection: connectionName, auditRowsCollection }
   );
   const userExists = Boolean(rows.length);
 
   if (!userExists) {
     // Create a new role
-    await db.raw(`CREATE ROLE ${username} WITH LOGIN PASSWORD '${password}'`);
+    await executeQuery(
+      `CREATE ROLE ${username} WITH LOGIN PASSWORD '${password}'`,
+      [],
+      { connection: connectionName, auditRowsCollection }
+    );
     log(`User ${username} created.`);
   }
   if (isSuper) {
     // Grant superuser privileges
-    await db.raw(`ALTER ROLE ${username} WITH SUPERUSER`);
+    await executeQuery(`ALTER ROLE ${username} WITH SUPERUSER`, [], {
+      connection: connectionName,
+      auditRowsCollection,
+    });
     log(`User ${username} granted superuser privileges.`);
   } else {
     // Revoke superuser privileges
-    await db.raw(`ALTER ROLE ${username} WITH NOSUPERUSER`);
+    await executeQuery(`ALTER ROLE ${username} WITH NOSUPERUSER`, [], {
+      connection: connectionName,
+      auditRowsCollection,
+    });
     log(`User ${username} granted without superuser privileges.`);
   }
 };
@@ -170,18 +202,26 @@ const createDBUser = async ({
 const createSchema = async ({
   connectionName,
   schemaName,
+  auditRowsCollection,
 }: {
   connectionName: ConnectionType;
   schemaName: string;
+  auditRowsCollection?: unknown[];
 }) => {
   const log = logger.infoEvent.bind(this, '#createSchema');
-  const schemaExists = await doesSchemaExist(schemaName, connectionName);
+  const schemaExists = await doesSchemaExist(
+    schemaName,
+    connectionName,
+    auditRowsCollection
+  );
   if (schemaExists) {
     log(`Schema ${schemaName} exists.`);
   } else {
     log(`Schema ${schemaName} does not exist.`);
-    const db = getConnection(connectionName);
-    await db.raw(`CREATE SCHEMA ??`, [schemaName]);
+    await executeQuery(`CREATE SCHEMA ${schemaName}`, [], {
+      connection: connectionName,
+      auditRowsCollection,
+    });
     log(`Schema ${schemaName} created.`);
   }
 };
@@ -190,23 +230,30 @@ const grantUsageSchema = async ({
   connectionName,
   schemaName,
   username,
+  auditRowsCollection,
 }: {
   connectionName: ConnectionType;
   schemaName: string;
   username: string;
+  auditRowsCollection?: unknown[];
 }) => {
   const log = logger.infoEvent.bind(this, '#grantUsageSchema');
-  const db = getConnection(connectionName);
-  await db.raw(`GRANT USAGE ON SCHEMA ?? TO ${username}`, [schemaName]);
+  await executeQuery(`GRANT USAGE ON SCHEMA ${schemaName} TO ${username}`, [], {
+    connection: connectionName,
+    auditRowsCollection,
+  });
   log(`Grant usage on schema ${schemaName} to user ${username} done.`);
 };
 
 const enableExtension = async (
   connectionName: ConnectionType,
-  extensionName: PostgresExtension
+  extensionName: PostgresExtension,
+  auditRowsCollection?: unknown[]
 ) => {
-  const db = getConnection(connectionName);
-  await db.raw(`CREATE EXTENSION IF NOT EXISTS ??`, [extensionName]);
+  await executeQuery(`CREATE EXTENSION IF NOT EXISTS ${extensionName}`, [], {
+    connection: connectionName,
+    auditRowsCollection,
+  });
 };
 
 const createDatabaseUserAndSchemasAndExtensions = async ({
@@ -253,14 +300,16 @@ const createDatabaseUserAndSchemasAndExtensions = async ({
     username: baseForCreation.user,
     password: baseForCreation.password,
     isSuper: isSuper || temporarySuper,
+    auditRowsCollection,
   });
   await createSchema({
     connectionName,
     schemaName: schema,
+    auditRowsCollection,
   });
   if (extensions?.length) {
     for (const extension of extensions) {
-      await enableExtension(connectionName, extension);
+      await enableExtension(connectionName, extension, auditRowsCollection);
     }
   }
   // Revoke super user
@@ -270,12 +319,14 @@ const createDatabaseUserAndSchemasAndExtensions = async ({
       username: baseForCreation.user,
       password: baseForCreation.password,
       isSuper: false,
+      auditRowsCollection,
     });
   }
   await grantUsageSchema({
     connectionName,
     schemaName: schema,
     username: baseForCreation.user,
+    auditRowsCollection,
   });
 };
 
@@ -288,9 +339,9 @@ type FilteredEntityName = ExcludePartition<EntityName>;
 
 const createTableWithPartitions = async (
   connectionName: ConnectionType,
-  entityName: FilteredEntityName
+  entityName: FilteredEntityName,
+  auditRowsCollection?: unknown[]
 ) => {
-  const db = getConnection(connectionName);
   const ddl = generateDatabaseDDLFromModel({
     entity: entities[entityName],
     options: {
@@ -298,7 +349,10 @@ const createTableWithPartitions = async (
       generationOptions: {},
     },
   });
-  await db.raw(ddl);
+  await executeQuery(ddl, [], {
+    connection: connectionName,
+    auditRowsCollection,
+  });
   const ddlPartitions = generateDatabaseDDLFromModel({
     entity: entities[`${entityName}Partition`],
     options: {
@@ -306,7 +360,10 @@ const createTableWithPartitions = async (
       generationOptions: {},
     },
   });
-  await db.raw(ddlPartitions);
+  await executeQuery(ddlPartitions, [], {
+    connection: connectionName,
+    auditRowsCollection,
+  });
 };
 
 type MakeOptional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
@@ -374,7 +431,11 @@ export const executeInitDatabase = async ({
     auditRowsCollection,
   });
 
-  await createTableWithPartitions('postgres_dba', 'ddlAuditLog');
+  await createTableWithPartitions(
+    'postgres_dba',
+    'ddlAuditLog',
+    auditRowsCollection
+  );
 
   return auditRowsCollection;
 };
@@ -525,13 +586,6 @@ export const executeQuery = async <T>(
     );
   }
   return rows as T;
-  // return {
-  //   auditElapsedTime,
-  //   queryElapsedTime,
-  //   totalElapsedTime,
-  //   auditRows,
-  //   rows: rows as T,
-  // };
 };
 
 export const executeRawQuery = async (rawSql: string) => {
