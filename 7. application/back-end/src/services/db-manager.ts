@@ -55,12 +55,16 @@ const getCredentialsSchema = (connectionName: ConnectionType) => {
 
 export const doesDatabaseExists = async (
   databaseName: string,
-  connectionName: ConnectionType
+  connectionName: ConnectionType,
+  auditRowsCollection?: unknown[]
 ) => {
-  const db = getConnection(connectionName);
-  const { rows } = await db.raw<{ rows: { one: number }[] }>(
-    `SELECT 1 ONE FROM pg_database WHERE datname = ? LIMIT 1`,
-    [databaseName]
+  const rows = await executeQuery<{ one: number }[]>(
+    `SELECT 1 ONE FROM pg_database WHERE datname = $1 LIMIT 1`,
+    [databaseName],
+    {
+      connection: connectionName,
+      auditRowsCollection,
+    }
   );
   return Boolean(rows.length);
 };
@@ -99,10 +103,15 @@ export const dropDatabase = async (
 export const createDatabase = async (
   databaseName: string,
   connectionName: ConnectionType,
-  dropDatabaseIfExists?: boolean
+  dropDatabaseIfExists?: boolean,
+  auditRowsCollection?: unknown[]
 ) => {
   const log = logger.infoEvent.bind(this, '#createDatabase');
-  const dbExists = await doesDatabaseExists(databaseName, connectionName);
+  const dbExists = await doesDatabaseExists(
+    databaseName,
+    connectionName,
+    auditRowsCollection
+  );
   if (dbExists) {
     log(`Database ${databaseName} exists.`);
     if (dropDatabaseIfExists) {
@@ -209,6 +218,7 @@ const createDatabaseUserAndSchemasAndExtensions = async ({
   temporarySuper,
   extensions,
   dropDatabaseIfExists,
+  auditRowsCollection,
 }: {
   connectionDefault: ConnectionType;
   connectionName: ConnectionType;
@@ -218,6 +228,7 @@ const createDatabaseUserAndSchemasAndExtensions = async ({
   temporarySuper?: boolean;
   extensions?: PostgresExtension[];
   dropDatabaseIfExists?: boolean;
+  auditRowsCollection?: unknown[];
 }) => {
   // const log = logger.infoEvent.bind(this, '#initDatabase');
   const baseForCreation = getCredentialsSchema(connectionName);
@@ -230,7 +241,12 @@ const createDatabaseUserAndSchemasAndExtensions = async ({
     throw Error('Schema must be provided!');
   }
 
-  await createDatabase(database, connectionDefault, dropDatabaseIfExists);
+  await createDatabase(
+    database,
+    connectionDefault,
+    dropDatabaseIfExists,
+    auditRowsCollection
+  );
 
   await createDBUser({
     connectionName: connectionDefault,
@@ -333,6 +349,7 @@ export const executeInitDatabase = async ({
   schema?: string;
   dropDatabaseIfExists?: boolean;
 }) => {
+  const auditRowsCollection: unknown[] = [];
   // const log = logger.infoEvent.bind(this, '#executeInitDatabase');
 
   // Creates dba database using connectionDefault
@@ -342,6 +359,7 @@ export const executeInitDatabase = async ({
     isSuper: true,
     extensions: ['dblink'],
     dropDatabaseIfExists,
+    auditRowsCollection,
   });
 
   // Creates target database
@@ -353,9 +371,12 @@ export const executeInitDatabase = async ({
     temporarySuper: true,
     extensions: ['dblink'],
     dropDatabaseIfExists,
+    auditRowsCollection,
   });
 
   await createTableWithPartitions('postgres_dba', 'ddlAuditLog');
+
+  return auditRowsCollection;
 };
 
 const parseSQLWithHints = (input: string) => {
@@ -417,13 +438,22 @@ const replacePlaceholdersAtPositions = (
 /**
  * Executes the provided SQL query at the provided connection, returning the audit and query metadata and the query results.
  */
-export const executeQuery = async (
-  rawSql: string,
-  connection: ConnectionType = 'postgres_default',
-  returnRawData: boolean = false
+export const executeQuery = async <T>(
+  sql: string,
+  bindings: string[],
+  options: {
+    connection?: ConnectionType;
+    returnRawData?: boolean;
+    auditRowsCollection?: unknown[];
+  } = {
+    connection: 'postgres_default',
+    returnRawData: true,
+  }
 ) => {
+  // Set default values for options
+  const { connection = 'postgres_default', returnRawData = true } = options;
+
   const auditStartTime = process.hrtime();
-  const { sql, bindings } = parseSQLWithHints(rawSql);
   const auditRows = extractQueryMetadata(sql).statements.map((stmt) => ({
     stmt: stmt.stmt,
     stmtKind: stmt.stmtKind,
@@ -484,11 +514,35 @@ export const executeQuery = async (
     process.hrtime(),
     auditStartTime
   );
+  if (options.auditRowsCollection) {
+    options.auditRowsCollection.push(
+      ...auditRows.map((row) => ({
+        auditElapsedTime,
+        queryElapsedTime,
+        totalElapsedTime,
+        ...row,
+      }))
+    );
+  }
+  return rows as T;
+  // return {
+  //   auditElapsedTime,
+  //   queryElapsedTime,
+  //   totalElapsedTime,
+  //   auditRows,
+  //   rows: rows as T,
+  // };
+};
+
+export const executeRawQuery = async (rawSql: string) => {
+  const { sql, bindings } = parseSQLWithHints(rawSql);
+  const auditRowsCollection: unknown[] = [];
+  const rows = await executeQuery(sql, bindings, {
+    returnRawData: false,
+    auditRowsCollection,
+  });
   return {
-    auditElapsedTime,
-    queryElapsedTime,
-    totalElapsedTime,
-    auditRows,
+    auditRows: auditRowsCollection,
     rows,
   };
 };

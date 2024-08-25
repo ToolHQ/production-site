@@ -35,6 +35,9 @@ export type InitDatabaseBody = {
   reset?: boolean;
 };
 
+export type InitDatabaseResponseBody = {
+  auditRows: unknown[];
+};
 /**
  * Test router
  */
@@ -97,9 +100,6 @@ SELECT 1 ONE FROM pg_database WHERE datname = $1 LIMIT 1
 dba`;
 
 export type ExecuteQueriesResponseBody = {
-  auditElapsedTime: number;
-  queryElapsedTime: number;
-  totalElapsedTime: number;
   auditRows: unknown;
   rows: unknown;
 };
