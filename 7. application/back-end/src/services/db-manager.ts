@@ -18,6 +18,8 @@ import {
 import { ParsedSelectOptions } from '@dnorio/pg-query-binding';
 const { logger } = Logger();
 
+import { ddlAuditLog } from '@dnorio/models-toolhq';
+import { randomUUID } from 'crypto';
 // import { rawRequest } from '@dnorio/models-toolhq';
 
 const getCredentialsSchema = (connectionName: ConnectionType) => {
@@ -437,6 +439,8 @@ export const executeInitDatabase = async ({
     auditRowsCollection
   );
 
+  await auditRows(auditRowsCollection as AuditRow[]);
+
   return auditRowsCollection;
 };
 
@@ -523,7 +527,7 @@ export const executeQuery = async <T>(
     stmtTarget: stmt.stmtTarget,
     stmtOptions: stmt.stmtOptions,
     sql: returnRawData ? sql : '<omitted>',
-    bindings: returnRawData ? bindings : '<omitted>',
+    bindings: returnRawData ? bindings : [],
     stmtObject: returnRawData ? stmt.stmtObject : '<omitted>',
   }));
   const auditElapsedTime = computeElapsedTimeMsFromHrTimes(
@@ -564,6 +568,7 @@ export const executeQuery = async <T>(
     finalBindings = bindingsPerPosition;
   }
   const queryStartTime = process.hrtime();
+  const executionTime = new Date();
   const { rows } = bindings.length
     ? await db.raw(finalSql, finalBindings)
     : await db.raw(finalSql);
@@ -581,11 +586,53 @@ export const executeQuery = async <T>(
         auditElapsedTime,
         queryElapsedTime,
         totalElapsedTime,
+        executionTime,
         ...row,
       }))
     );
   }
   return rows as T;
+};
+
+type AuditRow = {
+  operationType: string;
+  sql: string;
+  bindings: string[];
+  stmt: string; // PostgresStmt
+  stmtKind: string;
+  stmtSyntax: string;
+  stmtSubCommands: string[];
+  stmtTarget: string;
+  stmtOptions: unknown;
+  executionTime: Date;
+  totalElapsedTime: number;
+};
+
+const auditRows = async (auditRows: AuditRow[]) => {
+  const db = getConnection('postgres_dba', { logs: false });
+  const submissionId = randomUUID();
+  await db('dba_audit.tb_ddl_audit_log').insert(
+    auditRows.map((auditRow) =>
+      ddlAuditLog.mapToDbObject({
+        operationType: 'SELECT',
+        sql: auditRow.sql,
+        // sqlBindings: auditRow.bindings,
+        stmt: auditRow.stmt,
+        stmtKind: auditRow.stmtKind,
+        stmtSyntax: auditRow.stmtSyntax,
+        stmtSubCommands: auditRow.stmtSubCommands,
+        stmtTarget: auditRow.stmtTarget,
+        stmtOptions: auditRow.stmtOptions,
+        submissionId,
+        executedBy: 'db-manager',
+        executionTime: auditRow.executionTime,
+        status: 'success',
+        // errorMessage: null,
+        // rowsAffected: 0,
+        elapsedTime: auditRow.totalElapsedTime,
+      })
+    )
+  );
 };
 
 export const executeRawQuery = async (rawSql: string) => {
@@ -595,6 +642,7 @@ export const executeRawQuery = async (rawSql: string) => {
     returnRawData: false,
     auditRowsCollection,
   });
+  await auditRows(auditRowsCollection as AuditRow[]);
   return {
     auditRows: auditRowsCollection,
     rows,
