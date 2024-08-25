@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { getConnection, ConnectionType } from '@dnorio/db-wrapper';
 
 import { computeElapsedTimeMsFromHrTimes } from './timer.js';
@@ -9,18 +10,21 @@ import { ParsedSelectOptions } from '@dnorio/pg-query-binding';
 import { ddlAuditLog } from '@dnorio/models-toolhq';
 import { randomUUID } from 'crypto';
 
-type AuditRow = {
+export type AuditRow = {
   operationType: string;
+  submissionId: string;
   sql: string;
   bindings: string[];
   stmt: string; // PostgresStmt
-  stmtKind: string;
-  stmtSyntax: string;
-  stmtSubCommands: string[];
-  stmtTarget: string;
+  stmtKind?: string | null;
+  stmtSyntax?: string | null;
+  stmtSubCommands?: string[] | null;
+  stmtTarget?: string | null;
   stmtOptions: unknown;
-  executionTime: Date;
+  executionAt: Date;
   totalElapsedTime: number;
+  auditElapsedTime: number;
+  queryElapsedTime: number;
 };
 
 /**
@@ -61,26 +65,27 @@ const replacePlaceholdersAtPositions = (
 
 export const saveAuditRows = async (auditRows: AuditRow[]) => {
   const db = getConnection('postgres_dba', { logs: false });
-  const submissionId = randomUUID();
   await db('dba_audit.tb_ddl_audit_log').insert(
     auditRows.map((auditRow) =>
       ddlAuditLog.mapToDbObject({
         operationType: 'SELECT',
         sql: auditRow.sql,
-        // sqlBindings: auditRow.bindings,
         stmt: auditRow.stmt,
-        stmtKind: auditRow.stmtKind,
-        stmtSyntax: auditRow.stmtSyntax,
-        stmtSubCommands: auditRow.stmtSubCommands,
-        stmtTarget: auditRow.stmtTarget,
+        stmtKind: auditRow.stmtKind!,
+        stmtTarget: auditRow.stmtTarget!,
+        stmtSyntax: auditRow.stmtSyntax!,
+        stmtSubCommands: auditRow.stmtSubCommands!,
         stmtOptions: auditRow.stmtOptions,
-        submissionId,
+        // sqlBindings: auditRow.bindings,
+        submissionId: auditRow.submissionId,
         executedBy: 'db-manager',
-        executionTime: auditRow.executionTime,
+        executionTime: auditRow.executionAt,
         status: 'success',
         // errorMessage: null,
         // rowsAffected: 0,
-        elapsedTime: auditRow.totalElapsedTime,
+        // auditElapsedTime: auditRow.auditElapsedTime,
+        // queryElapsedTime: auditRow.queryElapsedTime,
+        elapsedTime: auditRow.totalElapsedTime / 1000,
       })
     )
   );
@@ -95,33 +100,40 @@ export const executeQuery = async <T>(
   bindings: string[],
   options: {
     connection?: ConnectionType;
-    returnRawData?: boolean;
-    auditRowsCollection?: unknown[];
+    auditRowsCollection?: AuditRow[];
+    logs?: boolean;
   } = {
     connection: 'postgres_default',
-    returnRawData: true,
+    logs: true,
   }
 ) => {
   // Set default values for options
-  const { connection = 'postgres_default', returnRawData = true } = options;
+  const { connection = 'postgres_default', logs = true } = options;
 
   const auditStartTime = process.hrtime();
-  const auditRows = extractQueryMetadata(sql).statements.map((stmt) => ({
+  const submissionId = randomUUID();
+
+  const auditRows: Omit<
+    AuditRow,
+    'executionAt' | 'totalElapsedTime' | 'auditElapsedTime' | 'queryElapsedTime'
+  >[] = extractQueryMetadata(sql).statements.map((stmt) => ({
     stmt: stmt.stmt,
+    operationType: 'SELECT',
     stmtKind: stmt.stmtKind,
     stmtSyntax: stmt.stmtSyntax,
     stmtSubCommands: stmt.stmtSubCommands,
     stmtTarget: stmt.stmtTarget,
     stmtOptions: stmt.stmtOptions,
-    sql: returnRawData ? sql : '<omitted>',
-    bindings: returnRawData ? bindings : [],
-    stmtObject: returnRawData ? stmt.stmtObject : '<omitted>',
+    submissionId,
+    sql,
+    bindings,
+    stmtObject: stmt.stmtObject,
   }));
   const auditElapsedTime = computeElapsedTimeMsFromHrTimes(
     process.hrtime(),
     auditStartTime
   );
-  const db = getConnection(connection);
+  const db = getConnection(connection, { logs });
   let finalSql = sql;
   let finalBindings: string[] = bindings;
   if (bindings.length) {
@@ -155,7 +167,7 @@ export const executeQuery = async <T>(
     finalBindings = bindingsPerPosition;
   }
   const queryStartTime = process.hrtime();
-  const executionTime = new Date();
+  const executionAt = new Date();
   const { rows } = bindings.length
     ? await db.raw(finalSql, finalBindings)
     : await db.raw(finalSql);
@@ -167,17 +179,17 @@ export const executeQuery = async <T>(
     process.hrtime(),
     auditStartTime
   );
-  const auditRowsWithExecutionTime = auditRows.map((row) => ({
+  const auditRowsWithExecutionTime: AuditRow[] = auditRows.map((row) => ({
+    ...row,
+    executionAt,
+    totalElapsedTime,
     auditElapsedTime,
     queryElapsedTime,
-    totalElapsedTime,
-    executionTime,
-    ...row,
   }));
   if (options.auditRowsCollection) {
     options.auditRowsCollection.push(...auditRowsWithExecutionTime);
   } else {
-    await saveAuditRows(auditRowsWithExecutionTime as unknown as AuditRow[]);
+    await saveAuditRows(auditRowsWithExecutionTime);
   }
   return rows as T;
 };
