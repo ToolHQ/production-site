@@ -11,7 +11,7 @@ import {
 
 const { logger } = Logger();
 
-import { executeQuery, saveAuditRows } from './execute-query.js';
+import { executeQuery, saveAuditRows, AuditRow } from './execute-query.js';
 
 const getCredentialsSchema = (connectionName: ConnectionType) => {
   const { connection, client } = getDbConnsOpts()[connectionName];
@@ -49,7 +49,7 @@ const getCredentialsSchema = (connectionName: ConnectionType) => {
 export const doesDatabaseExists = async (
   databaseName: string,
   connectionName: ConnectionType,
-  auditRowsCollection?: unknown[]
+  auditRowsCollection?: AuditRow[]
 ) => {
   const rows = await executeQuery<{ one: number }[]>(
     `SELECT 1 ONE FROM pg_database WHERE datname = $1 LIMIT 1`,
@@ -65,7 +65,7 @@ export const doesDatabaseExists = async (
 export const terminateDatabaseConnections = async (
   databaseName: string,
   connectionName: ConnectionType,
-  auditRowsCollection?: unknown[]
+  auditRowsCollection?: AuditRow[]
 ) => {
   await executeQuery(
     `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1`,
@@ -80,7 +80,7 @@ export const terminateDatabaseConnections = async (
 export const dropDatabase = async (
   databaseName: string,
   connectionName: ConnectionType,
-  auditRowsCollection?: unknown[]
+  auditRowsCollection?: AuditRow[]
 ) => {
   await executeQuery(`DROP DATABASE ${databaseName}`, [], {
     // TODO: Fix bindings
@@ -92,7 +92,7 @@ export const dropDatabase = async (
 export const doesSchemaExist = async (
   schemaName: string,
   connectionName: ConnectionType,
-  auditRowsCollection?: unknown[]
+  auditRowsCollection?: AuditRow[]
 ) => {
   const rows = await executeQuery<{ one: number }[]>(
     `SELECT 1 AS one FROM information_schema.schemata WHERE schema_name = $1 LIMIT 1`,
@@ -109,7 +109,7 @@ export const createDatabase = async (
   databaseName: string,
   connectionName: ConnectionType,
   dropDatabaseIfExists?: boolean,
-  auditRowsCollection?: unknown[]
+  auditRowsCollection?: AuditRow[]
 ) => {
   const log = logger.infoEvent.bind(this, '#createDatabase');
   const dbExists = await doesDatabaseExists(
@@ -154,7 +154,7 @@ const createDBUser = async ({
   username: string;
   password: string;
   isSuper?: boolean;
-  auditRowsCollection?: unknown[];
+  auditRowsCollection?: AuditRow[];
 }) => {
   const log = logger.infoEvent.bind(this, '#createDBUser');
 
@@ -199,7 +199,7 @@ const createSchema = async ({
 }: {
   connectionName: ConnectionType;
   schemaName: string;
-  auditRowsCollection?: unknown[];
+  auditRowsCollection?: AuditRow[];
 }) => {
   const log = logger.infoEvent.bind(this, '#createSchema');
   const schemaExists = await doesSchemaExist(
@@ -228,7 +228,7 @@ const grantUsageSchema = async ({
   connectionName: ConnectionType;
   schemaName: string;
   username: string;
-  auditRowsCollection?: unknown[];
+  auditRowsCollection?: AuditRow[];
 }) => {
   const log = logger.infoEvent.bind(this, '#grantUsageSchema');
   await executeQuery(`GRANT USAGE ON SCHEMA ${schemaName} TO ${username}`, [], {
@@ -241,7 +241,7 @@ const grantUsageSchema = async ({
 const enableExtension = async (
   connectionName: ConnectionType,
   extensionName: PostgresExtension,
-  auditRowsCollection?: unknown[]
+  auditRowsCollection?: AuditRow[]
 ) => {
   await executeQuery(`CREATE EXTENSION IF NOT EXISTS ${extensionName}`, [], {
     connection: connectionName,
@@ -268,7 +268,7 @@ const createDatabaseUserAndSchemasAndExtensions = async ({
   temporarySuper?: boolean;
   extensions?: PostgresExtension[];
   dropDatabaseIfExists?: boolean;
-  auditRowsCollection?: unknown[];
+  auditRowsCollection?: AuditRow[];
 }) => {
   // const log = logger.infoEvent.bind(this, '#initDatabase');
   const baseForCreation = getCredentialsSchema(connectionName);
@@ -333,7 +333,7 @@ type FilteredEntityName = ExcludePartition<EntityName>;
 const createTableWithPartitions = async (
   connectionName: ConnectionType,
   entityName: FilteredEntityName,
-  auditRowsCollection?: unknown[]
+  auditRowsCollection?: AuditRow[]
 ) => {
   const ddl = generateDatabaseDDLFromModel({
     entity: entities[entityName],
@@ -399,7 +399,7 @@ export const executeInitDatabase = async ({
   schema?: string;
   dropDatabaseIfExists?: boolean;
 }) => {
-  const auditRowsCollection: unknown[] = [];
+  const auditRowsCollection: AuditRow[] = [];
   // const log = logger.infoEvent.bind(this, '#executeInitDatabase');
 
   // Creates dba database using connectionDefault
@@ -455,30 +455,23 @@ const parseSQLWithHints = (input: string) => {
   return { sql, bindings };
 };
 
-type AuditRow = {
-  operationType: string;
-  sql: string;
-  bindings: string[];
-  stmt: string; // PostgresStmt
-  stmtKind: string;
-  stmtSyntax: string;
-  stmtSubCommands: string[];
-  stmtTarget: string;
-  stmtOptions: unknown;
-  executionTime: Date;
-  totalElapsedTime: number;
-};
-
 export const executeRawQuery = async (rawSql: string) => {
   const { sql, bindings } = parseSQLWithHints(rawSql);
-  const auditRowsCollection: unknown[] = [];
+  const auditRowsCollection: AuditRow[] = [];
   const rows = await executeQuery(sql, bindings, {
-    returnRawData: false,
     auditRowsCollection,
   });
-  await saveAuditRows(auditRowsCollection as AuditRow[]);
+  await saveAuditRows(auditRowsCollection);
+  const auditRowsCollectionWithOmittions = auditRowsCollection.map(
+    (auditRow) => ({
+      ...auditRow,
+      sql: '<omitted>',
+      bindings: [],
+      stmtObject: '<omitted>',
+    })
+  );
   return {
-    auditRows: auditRowsCollection,
+    auditRows: auditRowsCollectionWithOmittions,
     rows,
   };
 };
