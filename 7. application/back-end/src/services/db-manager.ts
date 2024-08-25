@@ -15,6 +15,7 @@ import {
   PostgresExtension,
 } from '../services/node-sql-parser.js';
 
+import { ParsedSelectOptions } from '@dnorio/pg-query-binding';
 const { logger } = Logger();
 
 // import { rawRequest } from '@dnorio/models-toolhq';
@@ -315,6 +316,7 @@ export const executeGetQueryMetadata = (
   }
   return result;
 };
+
 /**
  * Inits creation of the dba database and audit structure at the provided instance.
  */
@@ -356,11 +358,72 @@ export const executeInitDatabase = async ({
   await createTableWithPartitions('postgres_dba', 'ddlAuditLog');
 };
 
-export const executeQuery = async (
+const parseSQLWithHints = (input: string) => {
+  const sections = input.split(/-- (SQL|BINDINGS)\n/i);
+
+  // Extract the sections
+  const sqlIndex = sections.indexOf('SQL');
+  const bindingsIndex = sections.indexOf('BINDINGS');
+
+  const sql: string =
+    sqlIndex !== -1 ? sections[sqlIndex + 1]?.trim() || input : input;
+  const bindings: string[] =
+    bindingsIndex !== -1
+      ? sections?.[bindingsIndex + 1]
+          ?.trim()
+          .split('\n')
+          .map((b) => b.trim()) || []
+      : [];
+
+  return { sql, bindings };
+};
+
+/**
+ * Safely replaces PostgreSQL-style $1, $2 placeholders with ? placeholders
+ * at the exact positions specified in the positions array.
+ *
+ * @param {string} sql - The SQL query containing $1, $2, etc. placeholders.
+ * @param {number[]} paramsRefs - An array of character positions where each $ placeholder occurs.
+ * @param {string[]} bindings - An array of bindings to replace the placeholders with.
+ * @returns {{ transformedSql: string; bindingsPerPosition: string[] }} - The transformed SQL query and the bindings in the correct order.
+ */
+const replacePlaceholdersAtPositions = (
   sql: string,
-  connection: ConnectionType = 'postgres_default'
+  paramsRefs: { location: number; i: number }[],
+  bindings: string[]
+): { transformedSql: string; bindingsPerPosition: string[] } => {
+  // Sort positions in descending order to avoid shifting issues when replacing
+  const sortedParamsRefs = paramsRefs.sort((a, b) => b.location - a.location);
+
+  let transformedSql = sql;
+  const bindingsPerPosition: string[] = [];
+
+  for (const parsedParam of sortedParamsRefs) {
+    // Safely replace the exact placeholder at the position with ?
+    transformedSql = `${transformedSql.slice(
+      0,
+      parsedParam.location
+    )}?${transformedSql.slice(parsedParam.location + 2)}`;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    bindingsPerPosition.unshift(bindings[parsedParam.i - 1]!);
+  }
+
+  return {
+    transformedSql,
+    bindingsPerPosition,
+  };
+};
+
+/**
+ * Executes the provided SQL query at the provided connection, returning the audit and query metadata and the query results.
+ */
+export const executeQuery = async (
+  rawSql: string,
+  connection: ConnectionType = 'postgres_default',
+  returnRawData: boolean = false
 ) => {
   const auditStartTime = process.hrtime();
+  const { sql, bindings } = parseSQLWithHints(rawSql);
   const auditRows = extractQueryMetadata(sql).statements.map((stmt) => ({
     stmt: stmt.stmt,
     stmtKind: stmt.stmtKind,
@@ -368,16 +431,51 @@ export const executeQuery = async (
     stmtSubCommands: stmt.stmtSubCommands,
     stmtTarget: stmt.stmtTarget,
     stmtOptions: stmt.stmtOptions,
-    sql: '<omitted>',
-    stmtObject: '<omitted>',
+    sql: returnRawData ? sql : '<omitted>',
+    bindings: returnRawData ? bindings : '<omitted>',
+    stmtObject: returnRawData ? stmt.stmtObject : '<omitted>',
   }));
   const auditElapsedTime = computeElapsedTimeMsFromHrTimes(
     process.hrtime(),
     auditStartTime
   );
   const db = getConnection(connection);
+  let finalSql = sql;
+  let finalBindings: string[] = bindings;
+  if (bindings.length) {
+    let paramsRefs: { location: number; i: number }[] = auditRows.reduce(
+      (pv, cv) => {
+        if ((cv?.stmtOptions as ParsedSelectOptions)?.parsedRefs?.param) {
+          return pv.concat(
+            (cv.stmtOptions as ParsedSelectOptions).parsedRefs.param
+          );
+        }
+        return pv;
+      },
+      [] as { location: number; i: number }[]
+    );
+    if (paramsRefs.length === 0) {
+      paramsRefs = sql.split('').reduce((pv, cv, i) => {
+        if (cv === '$') {
+          pv.push({
+            location: i,
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            i: parseInt(sql[i + 1]!, 10),
+          });
+        }
+        return pv;
+      }, [] as { location: number; i: number }[]);
+    }
+
+    const { transformedSql, bindingsPerPosition } =
+      replacePlaceholdersAtPositions(sql, paramsRefs, bindings);
+    finalSql = transformedSql;
+    finalBindings = bindingsPerPosition;
+  }
   const queryStartTime = process.hrtime();
-  const { rows } = await db.raw(sql);
+  const { rows } = bindings.length
+    ? await db.raw(finalSql, finalBindings)
+    : await db.raw(finalSql);
   const queryElapsedTime = computeElapsedTimeMsFromHrTimes(
     process.hrtime(),
     queryStartTime
@@ -395,13 +493,14 @@ export const executeQuery = async (
   };
 };
 
+// SELECT 1 ONE FROM pg_database WHERE datname = $1 LIMIT 1
+
 // SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1
 // SELECT 1 FROM pg_roles WHERE rolname='svc_dba'
 // CREATE ROLE svc_xpto WITH LOGIN PASSWORD 'xpto'
 // ALTER ROLE svc_dba WITH SUPERUSER
 // SELECT 1 AS one FROM information_schema.schemata WHERE schema_name = $1 LIMIT 1
 // GRANT USAGE ON SCHEMA \"dba_audit\" TO svc_dba
-// SELECT 1 ONE FROM pg_database WHERE datname = $1 LIMIT 1
 // SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1
 // "SELECT 1 FROM pg_roles WHERE rolname='svc_toolhq'
 // ALTER ROLE svc_toolhq WITH SUPERUSER
