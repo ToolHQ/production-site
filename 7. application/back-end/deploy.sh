@@ -11,6 +11,7 @@
 
 ## Clean build
 npm cache clean -f && rm -rf node_modules/ && NODE_TLS_REJECT_UNAUTHORIZED=0 npm i
+npm run build
 
 # Define Docker tag
 DOCKER_REGISTRY_HOST=docker-nexus.localhost
