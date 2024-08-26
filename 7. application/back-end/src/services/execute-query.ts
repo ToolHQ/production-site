@@ -14,6 +14,7 @@ export type AuditRow = {
   operationType: string;
   submissionId: string;
   sql: string;
+  sqlPosition: number;
   bindings: string[];
   stmt: string; // PostgresStmt
   stmtKind?: string | null;
@@ -68,24 +69,25 @@ export const saveAuditRows = async (auditRows: AuditRow[]) => {
   await db('dba_audit.tb_ddl_audit_log').insert(
     auditRows.map((auditRow) =>
       ddlAuditLog.mapToDbObject({
-        operationType: 'SELECT',
+        operationType: auditRow.operationType,
         sql: auditRow.sql,
+        sqlPosition: auditRow.sqlPosition,
         stmt: auditRow.stmt,
         stmtKind: auditRow.stmtKind!,
         stmtTarget: auditRow.stmtTarget!,
         stmtSyntax: auditRow.stmtSyntax!,
         stmtSubCommands: auditRow.stmtSubCommands!,
         stmtOptions: auditRow.stmtOptions,
-        // sqlBindings: auditRow.bindings,
+        sqlBindings: auditRow.bindings,
         submissionId: auditRow.submissionId,
         executedBy: 'db-manager',
-        executionTime: auditRow.executionAt,
+        executionAt: auditRow.executionAt,
         status: 'success',
         // errorMessage: null,
         // rowsAffected: 0,
-        // auditElapsedTime: auditRow.auditElapsedTime,
-        // queryElapsedTime: auditRow.queryElapsedTime,
         elapsedTime: auditRow.totalElapsedTime / 1000,
+        auditElapsedTime: auditRow.auditElapsedTime / 1000,
+        queryElapsedTime: auditRow.queryElapsedTime / 1000,
       })
     )
   );
@@ -116,16 +118,17 @@ export const executeQuery = async <T>(
   const auditRows: Omit<
     AuditRow,
     'executionAt' | 'totalElapsedTime' | 'auditElapsedTime' | 'queryElapsedTime'
-  >[] = extractQueryMetadata(sql).statements.map((stmt) => ({
+  >[] = extractQueryMetadata(sql).statements.map((stmt, sqlPosition) => ({
+    operationType: stmt.operationType || 'UNKNOWN',
+    sql,
+    sqlPosition,
     stmt: stmt.stmt,
-    operationType: 'SELECT',
     stmtKind: stmt.stmtKind,
     stmtSyntax: stmt.stmtSyntax,
     stmtSubCommands: stmt.stmtSubCommands,
     stmtTarget: stmt.stmtTarget,
     stmtOptions: stmt.stmtOptions,
     submissionId,
-    sql,
     bindings,
     stmtObject: stmt.stmtObject,
   }));
