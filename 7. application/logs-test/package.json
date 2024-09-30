@@ -4,7 +4,8 @@
   "main": "mock-data.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "mock-data": "node --env-file=.env ./mock-data.js"
+    "mock-data": "node --env-file=.env ./mock-data.js",
+    "collect-data": "node --env-file=.env ./collect-data.js"
   },
   "author": "",
   "license": "ISC",
