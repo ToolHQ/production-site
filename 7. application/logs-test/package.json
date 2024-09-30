@@ -1,0 +1,16 @@
+{
+  "name": "logs-test",
+  "version": "1.0.0",
+  "main": "mock-data.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "mock-data": "node --env-file=.env ./mock-data.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@elastic/elasticsearch": "8.15.0",
+    "@faker-js/faker": "9.0.3"
+  }
+}
