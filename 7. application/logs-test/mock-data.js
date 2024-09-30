@@ -76,7 +76,8 @@ function generateLogEntry() {
 
 async function populateData() {
   const bulkSize = 1000; // How many records per bulk request
-  const totalRecords = 10000000; // 10 million records
+  // const totalRecords = 10000000; // 10 million records
+  const totalRecords = 100000; // 100k records
   const totalBatches = totalRecords / bulkSize; // Total number of bulk requests (each containing bulkSize records)
   let progressPercentage = 0; // To track the progress percentage
 
