@@ -105,8 +105,9 @@ const addSchemaToLayer = (
                 schema: bodySchema,
               },
             };
-      op.description = bodySchema.description || bodySchemaName;
-      op.summary = bodySchema.title;
+      op.description =
+        op.description || bodySchema.description || bodySchemaName;
+      op.summary = op.summary || bodySchema.title;
       op.requestBody = {
         required: true,
         description: bodySchema.description,
