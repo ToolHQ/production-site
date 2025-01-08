@@ -69,7 +69,7 @@ spec:
         - name: regsecret
       containers:
         - name: postgres
-          image: "docker-nexus.localhost/repository/docker-repo/postgres:16.3-alpine3.20-1.0.6"
+          image: "docker-nexus.localhost/repository/docker-repo/postgres:16.6-alpine3.21-1.0.1"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
@@ -89,6 +89,8 @@ spec:
                   key: POSTGRES_PASSWORD
             - name: PG_HOST
               value: postgres
+            - name: POSTGRES_LISTEN_ADDRESSES
+              value: "*"
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
               name: postgresdata

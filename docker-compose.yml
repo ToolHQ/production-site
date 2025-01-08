@@ -29,6 +29,7 @@ services:
       - ./7. application/back-end/.env
     environment:
       - DB_DNORIO_POSTGRES_HOST=minikube
+      - DB_DNORIO_POSTGRES_PORT=54322
     volumes:
       - ./7. application/back-end/src:/usr/src/app/src
       - ./7. application/back-end/node_modules:/usr/src/app/node_modules
@@ -40,6 +41,7 @@ services:
     extra_hosts:
       - nexus.localhost:192.168.49.2
       - minio.localhost:192.168.49.2
+      - minikube:192.168.49.2
     
 
   pg:

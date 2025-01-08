@@ -31,18 +31,28 @@ spec:
           env:
             - name: NODE_ENV
               value: production
-            - name: DB_DNORIO_POSTGRES_SCHEMA
-              value: public
-            - name: DB_DNORIO_POSTGRES_USER
+            - name: DB_DNORIO_POSTGRES_DEFAULT_DATABASE
               value: postgres
-            - name: DB_DNORIO_POSTGRES_PASS
+            - name: DB_DNORIO_POSTGRES_DEFAULT_SCHEMA
+              value: public
+            - name: DB_DNORIO_POSTGRES_DEFAULT_USER
+              value: postgres
+            - name: DB_DNORIO_POSTGRES_DEFAULT_PASS
               value: passwordinitial
+            - name: DB_DNORIO_POSTGRES_DBA_DATABASE
+              value: dba
+            - name: DB_DNORIO_POSTGRES_DBA_SCHEMA
+              value: dba_audit
+            - name: DB_DNORIO_POSTGRES_DBA_USER
+              value: svc_dba
+            - name: DB_DNORIO_POSTGRES_DBA_PASS
+              value: svc_dba_pwd
             - name: DB_DNORIO_POSTGRES_HOST
               value: postgres-service.postgres
             - name: DB_DNORIO_POSTGRES_PORT
               value: '5432'
-            - name: DB_DNORIO_POSTGRES_DATABASE
-              value: postgres
+            - name: LOGGER_DEBUG_PATHS
+              value: '*@dnorio/db-wrapper/src/index.ts'
           livenessProbe:
             httpGet:
               path: /health
