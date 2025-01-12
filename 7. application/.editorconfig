@@ -20,3 +20,11 @@ trim_trailing_whitespace = true
 [*.{js,json,ts,yaml}]
 indent_size = 2
 
+# Exceção para o arquivo torrc
+[tor/torrc]
+charset = latin1
+indent_style = none
+end_of_line = none
+trim_trailing_whitespace = false
+insert_final_newline = false
+

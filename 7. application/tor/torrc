@@ -1,0 +1,61 @@
+# Porta Socks5 onde o Tor escuta as conexões. 
+# Valor padrão: 9050
+SocksPort 0.0.0.0:9050  # Permitir conexões externas na porta 9050
+
+# Porta de controle para interagir com o Tor via um controlador (ex.: Stem).
+# Valor padrão: Desativado
+ControlPort 9051  # Porta de controle ativada para comunicação
+
+# Não permitir que este servidor funcione como relay
+ClientOnly 1
+
+# Ativar autenticação baseada em cookies para proteger o ControlPort.
+# Valor padrão: Desativado
+CookieAuthentication 1  # Habilitar autenticação para evitar acessos não autorizados
+CookieAuthFile /var/lib/tor/control_auth_cookie  # Caminho do arquivo de autenticação
+
+# Definir os países permitidos para nós de saída.
+# Valor padrão: Não especificado (qualquer nó pode ser usado)
+ExitNodes {us},{de},{nl}  # Nós de saída limitados aos EUA, Alemanha e Holanda
+
+# Garante que somente nós especificados em ExitNodes sejam usados.
+# Valor padrão: 0 (não estrito)
+StrictNodes 1  # Força o uso dos nós especificados acima
+
+# Excluir países conhecidos por nós maliciosos ou censurados.
+# Valor padrão: Não especificado (nenhum país é excluído)
+ExcludeNodes {cn},{ru},{kp},{ir},{sy}  # Evitar nós nesses países
+ExcludeExitNodes {cn},{ru},{kp},{ir},{sy}  # Evitar nós de saída nesses países
+
+# Política de saída que bloqueia conexões para a internet pública.
+# Valor padrão: "accept *:*" (permite todas as conexões)
+ExitPolicy reject *:*  # Bloquear todos os nós de saída (somente .onion permitido)
+
+# Banda máxima permitida para o cliente Tor.
+# Valor padrão: Ilimitado (usa toda a largura de banda disponível)
+BandwidthRate 5 MB  # Limita o uso da largura de banda a 5 MB/s
+BandwidthBurst 10 MB  # Permite picos de até 10 MB/s
+
+# Número de Entry Guards usados para reduzir o risco de ataques de correlação.
+# Valor padrão: 3
+NumEntryGuards 3  # Configura 3 guard nodes (entrada)
+
+# Tempo máximo antes de descartar circuitos inativos.
+# Valor padrão: 60 segundos
+CircuitBuildTimeout 10  # Timeout reduzido para 10 segundos
+
+# Intervalo para criar um novo circuito (em segundos).
+# Valor padrão: 120 segundos
+NewCircuitPeriod 30  # Cria novos circuitos a cada 30 segundos
+
+# Tempo máximo que um circuito pode ser reutilizado.
+# Valor padrão: 10 minutos (600 segundos)
+MaxCircuitDirtiness 600  # Circuitos trocados após 10 minutos
+
+# Garantir que relays em sub-redes próximas não sejam usados.
+# Valor padrão: 1 (habilitado)
+EnforceDistinctSubnets 1  # Evitar tráfego em nós da mesma sub-rede
+
+# Ativar logs para monitorar o status do Tor.
+# Valor padrão: "notice stdout"
+Log notice stdout  # Registra logs importantes no terminal
