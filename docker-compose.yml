@@ -13,6 +13,14 @@ services:
       - "8080:8080"
     networks:
       - minikube
+    deploy:
+      resources:
+        limits:
+          memory: 16M
+          cpus: '0.4'
+        reservations:
+          memory: 8M
+          cpus: '0.1'
 
   back-end:
     container_name: back-end
@@ -42,7 +50,14 @@ services:
       - nexus.localhost:192.168.49.2
       - minio.localhost:192.168.49.2
       - minikube:192.168.49.2
-    
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 50M
+          cpus: '0.2'
 
   pg:
     container_name: pg

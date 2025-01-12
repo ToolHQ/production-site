@@ -47,6 +47,14 @@ spec:
               value: svc_dba
             - name: DB_DNORIO_POSTGRES_DBA_PASS
               value: svc_dba_pwd
+            - name: DB_DNORIO_POSTGRES_DATABASE
+              value: toolhq
+            - name: DB_DNORIO_POSTGRES_SCHEMA
+              value: toolhq
+            - name: DB_DNORIO_POSTGRES_USER
+              value: svc_toolhq
+            - name: DB_DNORIO_POSTGRES_PASS
+              value: svc_toolhq_pwd
             - name: DB_DNORIO_POSTGRES_HOST
               value: postgres-service.postgres
             - name: DB_DNORIO_POSTGRES_PORT
