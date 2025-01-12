@@ -59,6 +59,26 @@ services:
           memory: 50M
           cpus: '0.2'
 
+  tor:
+    container_name: tor
+    build:
+      context: ./7. application/tor
+    ports:
+      - "9050:9050"
+    networks:
+      - minikube
+    volumes:
+      - ./7. application/tor/torrc:/etc/tor/torrc:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+
   pg:
     container_name: pg
     build:
