@@ -1,10 +1,13 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import path, { dirname } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import { RequestHandler } from 'express';
 
-import HttpClient from '@dnorio/httpclient';
+import { SocksProxyAgent } from 'socks-proxy-agent';
+
+import HttpClient from '@dnorio/httpclient/native';
 import { getConnection } from '@dnorio/db-wrapper';
 
 import { rawRequest, entities } from '@dnorio/models-toolhq';
@@ -19,44 +22,84 @@ import {
   GenerateMigrationResponseBody,
 } from '../types.js';
 
-const httpClient = HttpClient();
+const TOR_SERVICE = process.env.TOR_SERVICE || 'tor';
+const TOR_PORT = process.env.TOR_PORT || '9050';
+const proxyUrl = `socks5://${TOR_SERVICE}:${TOR_PORT}`;
+
+const agent = new SocksProxyAgent(proxyUrl);
+
+const httpClient = HttpClient({
+  httpAgent: agent,
+  httpsAgent: agent,
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const cwd = path.resolve(__dirname);
 
+const samplePayloads: Map<
+  string,
+  {
+    uri: string;
+    stream: true;
+    outputHeadersToHide?: string[];
+  }
+> = new Map([
+  [
+    'jsonPayload',
+    {
+      uri: 'https://jsonplaceholder.typicode.com/todos/1',
+      stream: true,
+      outputHeadersToHide: [
+        'access-control-allow-credentials',
+        'age',
+        'alt-svc',
+        'cache-control',
+        'cf-cache-status',
+        'cf-ray',
+        'connection',
+        'content-encoding',
+        'content-type',
+        'date',
+        'etag',
+        'expires',
+        'nel',
+        'pragma',
+        'report-to',
+        'reporting-endpoints',
+        'server',
+        'transfer-encoding',
+        'vary',
+        'via',
+        'x-content-type-options',
+        'x-powered-by',
+        'x-ratelimit-limit',
+        'x-ratelimit-remaining',
+        'x-ratelimit-reset',
+      ],
+    },
+  ],
+  [
+    'myIpIo',
+    {
+      uri: 'https://api.my-ip.io/v2/ip.json',
+      stream: true,
+    },
+  ],
+]);
+
+const defaultPayload = samplePayloads.get('myIpIo');
+
+const payload: {
+  uri: string;
+  stream: true;
+  outputHeadersToHide?: string[];
+} = process.env.TEST_PAYLOAD
+  ? samplePayloads.get(process.env.TEST_PAYLOAD)!
+  : defaultPayload!;
+
 export const testHttp: RequestHandler = async (_req, res) => {
-  const streamReturn = await httpClient.callHTTP({
-    uri: 'https://jsonplaceholder.typicode.com/todos/1',
-    stream: true,
-    outputHeadersToHide: [
-      'access-control-allow-credentials',
-      'age',
-      'alt-svc',
-      'cache-control',
-      'cf-cache-status',
-      'cf-ray',
-      'connection',
-      'content-encoding',
-      'content-type',
-      'date',
-      'etag',
-      'expires',
-      'nel',
-      'pragma',
-      'report-to',
-      'reporting-endpoints',
-      'server',
-      'transfer-encoding',
-      'vary',
-      'via',
-      'x-content-type-options',
-      'x-powered-by',
-      'x-ratelimit-limit',
-      'x-ratelimit-remaining',
-      'x-ratelimit-reset',
-    ],
-  });
+  const streamReturn = await httpClient.callHTTP(payload);
   res.setHeader('Content-Type', 'application/json');
   if (streamReturn.body) {
     Readable.fromWeb(streamReturn.body).pipe(res);
