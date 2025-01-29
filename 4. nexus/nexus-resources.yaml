@@ -120,7 +120,7 @@ metadata:
   name: nexus-ingress
   namespace: nexus
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: 400m
+    nginx.ingress.kubernetes.io/proxy-body-size: 800m
 spec:
   rules:
     - host: nexus.localhost

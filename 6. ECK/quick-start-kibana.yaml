@@ -3,11 +3,11 @@ kind: Kibana
 metadata:
   name: quickstart
 spec:
-  version: 8.13.3
+  version: 8.17.1
   count: 1
   elasticsearchRef:
     name: quickstart
   config:
     xpack.fleet.packages:
-    - name: apm
-      version: latest
+      - name: apm
+        version: latest

@@ -83,10 +83,10 @@ spec:
             httpGet:
               path: /health
               port: 3000
-            initialDelaySeconds: 60
-            periodSeconds: 10
+            initialDelaySeconds: 5
+            periodSeconds: 3
             timeoutSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 5
             successThreshold: 1
 ---
 apiVersion: v1
