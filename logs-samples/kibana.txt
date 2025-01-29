@@ -1,0 +1,98 @@
+[2025-01-28T12:38:18.804+00:00][INFO ][plugins-system.preboot] Setting up [1] plugins: [interactiveSetup]
+[2025-01-28T12:38:18.846+00:00][WARN ][config.deprecation] The default mechanism for Reporting privileges will work differently in future versions, which will affect the behavior of this cluster. Set "xpack.reporting.roles.enabled" to "false" to adopt the future behavior before upgrading.
+[2025-01-28T12:38:19.104+00:00][INFO ][plugins-system.standard] Setting up [170] plugins: [devTools,translations,share,searchConnectors,screenshotMode,usageCollection,telemetryCollectionManager,telemetryCollectionXpack,kibanaUsageCollection,contentManagement,cloud,taskManager,newsfeed,savedObjectsFinder,noDataPage,monitoringCollection,licensing,productDocBase,mapsEms,globalSearch,globalSearchProviders,features,guidedOnboarding,banners,licenseApiGuard,customBranding,ftrApis,fieldsMetadata,fieldFormats,expressions,screenshotting,dataViews,esUiShared,entitiesDataAccess,customIntegrations,home,searchprofiler,painlessLab,management,spaces,security,telemetry,licenseManagement,snapshotRestore,lists,files,encryptedSavedObjects,entityManager,eventLog,actions,observabilityAIAssistant,notifications,inference,llmTasks,cloudDataMigration,aiAssistantManagementSelection,advancedSettings,grokdebugger,console,searchNotebooks,bfetch,data,savedObjectsTagging,globalSearchBar,savedObjectsManagement,unifiedSearch,navigation,graph,embeddable,uiActionsEnhanced,savedSearch,presentationUtil,expressionShape,expressionRevealImage,expressionRepeatImage,expressionMetric,expressionImage,controls,alerting,logsDataAccess,fileUpload,ingestPipelines,ecsDataQualityDashboard,dataViewFieldEditor,dataViewManagement,charts,watcher,visualizations,visTypeXy,visTypeVislib,visTypeVega,visTypeTimeseries,visTypeTimelion,visTypeTagcloud,visTypeTable,visTypeMetric,visTypeMarkdown,visTypeHeatmap,inputControlVis,expressionTagcloud,expressionPartitionVis,visTypePie,expressionMetricVis,expressionLegacyMetricVis,expressionHeatmap,expressionGauge,visTypeGauge,eventAnnotation,expressionXY,lens,maps,dataVisualizer,dashboard,triggersActionsUi,transform,stackConnectors,integrationAssistant,stackAlerts,ruleRegistry,cases,timelines,sessionView,kubernetesSecurity,threatIntelligence,observabilityAiAssistantManagement,metricsDataAccess,logsShared,upgradeAssistant,inventory,aiops,discover,reporting,canvas,ml,searchPlayground,searchInferenceEndpoints,searchAssistant,elasticAssistant,logsExplorer,fleet,osquery,indexManagement,rollup,remoteClusters,crossClusterReplication,indexLifecycleManagement,esql,enterpriseSearch,datasetQuality,dataQuality,cloudSecurityPosture,cloudDefend,securitySolution,securitySolutionEss,observability,uptime,slo,synthetics,observabilityLogsExplorer,observabilityOnboarding,observabilityAIAssistantApp,discoverEnhanced,links,dashboardEnhanced,apmDataAccess,infra,monitoring,logstash,apm,ux]
+[2025-01-28T12:38:19.355+00:00][INFO ][plugins.taskManager] TaskManager is identified by the Kibana UUID: 57d12208-697d-458f-9ccb-aef1c04d603b
+[2025-01-28T12:38:19.671+00:00][INFO ][custom-branding-service] CustomBrandingService registering plugin: customBranding
+[2025-01-28T12:38:20.185+00:00][WARN ][plugins.screenshotting.config] Chromium sandbox provides an additional layer of protection, but is not supported for Linux Ubuntu 20.04 OS. Automatically setting 'xpack.screenshotting.browser.chromium.disableSandbox: true'.
+[2025-01-28T12:38:20.341+00:00][INFO ][plugins.security.config] Hashed 'xpack.security.encryptionKey' for this instance: 0aW24/2qGQodFaciDXf5XP41RvLkN+6knGXxtydYQII=
+[2025-01-28T12:38:20.374+00:00][INFO ][plugins.security.config] Hashed 'xpack.security.encryptionKey' for this instance: 0aW24/2qGQodFaciDXf5XP41RvLkN+6knGXxtydYQII=
+[2025-01-28T12:38:20.507+00:00][INFO ][plugins.encryptedSavedObjects] Hashed 'xpack.encryptedSavedObjects.encryptionKey' for this instance: yjXDULS7xmOcA7fmTeeYJRIghjNW8HJpQO38FrgReWI=
+[2025-01-28T12:38:20.658+00:00][INFO ][plugins.notifications] Email Service Error: Email connector not specified.
+[2025-01-28T12:38:21.130+00:00][INFO ][plugins.alerting] using indexes and aliases for persisting alerts
+[2025-01-28T12:38:22.589+00:00][INFO ][plugins.reporting.config] Hashed 'xpack.reporting.encryptionKey' for this instance: pFAOz1RKzuF3NNoiSTuJc9Un4yoE35Yb+eNBbvfBzvs=
+[2025-01-28T12:38:23.842+00:00][INFO ][plugins.cloudSecurityPosture] Registered task successfully [Task: cloud_security_posture-stats_task]
+[2025-01-28T12:38:25.233+00:00][INFO ][plugins.securitySolution.endpoint:user-artifact-packager:1.0.0] Registering endpoint:user-artifact-packager task with timeout of [20m], interval of [60s] and policy update batch size of [25]
+[2025-01-28T12:38:25.234+00:00][INFO ][plugins.securitySolution.endpoint:complete-external-response-actions] Registering task [endpoint:complete-external-response-actions] with timeout of [5m] and run interval of [60s]
+[2025-01-28T12:38:26.534+00:00][INFO ][elasticsearch-service] Successfully connected to Elasticsearch after waiting for 0 milliseconds
+[2025-01-28T12:38:26.597+00:00][INFO ][savedobjects-service] Waiting until all Elasticsearch nodes are compatible with Kibana before starting saved objects migrations...
+[2025-01-28T12:38:26.598+00:00][INFO ][savedobjects-service] Starting saved objects migrations
+[2025-01-28T12:38:26.676+00:00][INFO ][savedobjects-service] [.kibana] INIT -> WAIT_FOR_YELLOW_SOURCE. took: 44ms.
+[2025-01-28T12:38:26.680+00:00][INFO ][savedobjects-service] [.kibana_usage_counters] INIT -> CREATE_NEW_TARGET. took: 46ms.
+[2025-01-28T12:38:26.686+00:00][INFO ][savedobjects-service] [.kibana] WAIT_FOR_YELLOW_SOURCE -> UPDATE_SOURCE_MAPPINGS_PROPERTIES. took: 10ms.
+[2025-01-28T12:38:26.688+00:00][INFO ][savedobjects-service] [.kibana] UPDATE_SOURCE_MAPPINGS_PROPERTIES -> OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT. took: 2ms.
+[2025-01-28T12:38:26.703+00:00][ERROR][savedobjects-service] [.kibana_usage_counters] Unexpected Elasticsearch ResponseError: statusCode: 400, method: PUT, url: /.kibana_usage_counters_8.17.1_001?wait_for_active_shards=all&timeout=300s error: [illegal_argument_exception]: cannot create index with name [.kibana_usage_counters_8.17.1_001], because it matches with template [template_1] that creates data streams only, use create data stream api instead,
+[2025-01-28T12:38:26.704+00:00][INFO ][root] Kibana is shutting down
+[2025-01-28T12:38:26.705+00:00][FATAL][root] Reason: Unable to complete saved object migrations for the [.kibana_usage_counters] index. Please check the health of your Elasticsearch cluster and try again. Unexpected Elasticsearch ResponseError: statusCode: 400, method: PUT, url: /.kibana_usage_counters_8.17.1_001?wait_for_active_shards=all&timeout=300s error: [illegal_argument_exception]: cannot create index with name [.kibana_usage_counters_8.17.1_001], because it matches with template [template_1] that creates data streams only, use create data stream api instead,
+Error: Unable to complete saved object migrations for the [.kibana_usage_counters] index. Please check the health of your Elasticsearch cluster and try again. Unexpected Elasticsearch ResponseError: statusCode: 400, method: PUT, url: /.kibana_usage_counters_8.17.1_001?wait_for_active_shards=all&timeout=300s error: [illegal_argument_exception]: cannot create index with name [.kibana_usage_counters_8.17.1_001], because it matches with template [template_1] that creates data streams only, use create data stream api instead,
+    at migrationStateActionMachine (/usr/share/kibana/node_modules/@kbn/core-saved-objects-migration-server-internal/src/migrations_state_action_machine.js:118:13)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Promise.all (index 1)
+    at SavedObjectsService.start (/usr/share/kibana/node_modules/@kbn/core-saved-objects-server-internal/src/saved_objects_service.js:199:7)
+    at Server.start (/usr/share/kibana/node_modules/@kbn/core-root-server-internal/src/server.js:393:31)
+    at Root.start (/usr/share/kibana/node_modules/@kbn/core-root-server-internal/src/root/index.js:66:14)
+    at bootstrap (/usr/share/kibana/node_modules/@kbn/core-root-server-internal/src/bootstrap.js:119:5)
+    at Command.<anonymous> (/usr/share/kibana/src/cli/serve/serve.js:234:5)
+[2025-01-28T12:38:26.717+00:00][INFO ][savedobjects-service] [.kibana] OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT -> OUTDATED_DOCUMENTS_SEARCH_READ. took: 29ms.
+[2025-01-28T12:38:26.723+00:00][INFO ][savedobjects-service] [.kibana_task_manager] INIT -> WAIT_FOR_YELLOW_SOURCE. took: 85ms.
+[2025-01-28T12:38:26.726+00:00][INFO ][savedobjects-service] [.kibana_ingest] INIT -> WAIT_FOR_YELLOW_SOURCE. took: 68ms.
+[2025-01-28T12:38:26.729+00:00][INFO ][savedobjects-service] [.kibana_security_solution] INIT -> WAIT_FOR_YELLOW_SOURCE. took: 81ms.
+[2025-01-28T12:38:26.732+00:00][INFO ][savedobjects-service] [.kibana_analytics] INIT -> WAIT_FOR_YELLOW_SOURCE. took: 89ms.
+[2025-01-28T12:38:26.734+00:00][INFO ][savedobjects-service] [.kibana_task_manager] WAIT_FOR_YELLOW_SOURCE -> UPDATE_SOURCE_MAPPINGS_PROPERTIES. took: 11ms.
+[2025-01-28T12:38:26.734+00:00][INFO ][savedobjects-service] [.kibana_task_manager] UPDATE_SOURCE_MAPPINGS_PROPERTIES -> OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT. took: 0ms.
+[2025-01-28T12:38:26.736+00:00][INFO ][savedobjects-service] [.kibana_security_solution] WAIT_FOR_YELLOW_SOURCE -> UPDATE_SOURCE_MAPPINGS_PROPERTIES. took: 7ms.
+[2025-01-28T12:38:26.737+00:00][INFO ][savedobjects-service] [.kibana_security_solution] UPDATE_SOURCE_MAPPINGS_PROPERTIES -> OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT. took: 1ms.
+[2025-01-28T12:38:26.739+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] INIT -> WAIT_FOR_YELLOW_SOURCE. took: 85ms.
+[2025-01-28T12:38:26.741+00:00][INFO ][savedobjects-service] [.kibana_ingest] WAIT_FOR_YELLOW_SOURCE -> UPDATE_SOURCE_MAPPINGS_PROPERTIES. took: 15ms.
+[2025-01-28T12:38:26.743+00:00][INFO ][savedobjects-service] [.kibana_ingest] UPDATE_SOURCE_MAPPINGS_PROPERTIES -> OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT. took: 2ms.
+[2025-01-28T12:38:26.745+00:00][INFO ][savedobjects-service] [.kibana_security_solution] OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT -> OUTDATED_DOCUMENTS_SEARCH_READ. took: 8ms.
+[2025-01-28T12:38:26.748+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] WAIT_FOR_YELLOW_SOURCE -> UPDATE_SOURCE_MAPPINGS_PROPERTIES. took: 9ms.
+[2025-01-28T12:38:26.748+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] UPDATE_SOURCE_MAPPINGS_PROPERTIES -> OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT. took: 0ms.
+[2025-01-28T12:38:26.751+00:00][INFO ][savedobjects-service] [.kibana_task_manager] OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT -> OUTDATED_DOCUMENTS_SEARCH_READ. took: 17ms.
+[2025-01-28T12:38:26.753+00:00][INFO ][savedobjects-service] [.kibana_analytics] WAIT_FOR_YELLOW_SOURCE -> UPDATE_SOURCE_MAPPINGS_PROPERTIES. took: 21ms.
+[2025-01-28T12:38:26.754+00:00][INFO ][savedobjects-service] [.kibana_analytics] UPDATE_SOURCE_MAPPINGS_PROPERTIES -> OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT. took: 1ms.
+[2025-01-28T12:38:26.762+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT -> OUTDATED_DOCUMENTS_SEARCH_READ. took: 14ms.
+[2025-01-28T12:38:26.765+00:00][INFO ][savedobjects-service] [.kibana_ingest] OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT -> OUTDATED_DOCUMENTS_SEARCH_READ. took: 22ms.
+[2025-01-28T12:38:26.768+00:00][INFO ][savedobjects-service] [.kibana] OUTDATED_DOCUMENTS_SEARCH_READ -> OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT. took: 51ms.
+[2025-01-28T12:38:26.770+00:00][INFO ][savedobjects-service] [.kibana_analytics] OUTDATED_DOCUMENTS_SEARCH_OPEN_PIT -> OUTDATED_DOCUMENTS_SEARCH_READ. took: 16ms.
+[2025-01-28T12:38:26.772+00:00][INFO ][savedobjects-service] [.kibana_security_solution] OUTDATED_DOCUMENTS_SEARCH_READ -> OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT. took: 27ms.
+[2025-01-28T12:38:26.774+00:00][INFO ][savedobjects-service] [.kibana_task_manager] OUTDATED_DOCUMENTS_SEARCH_READ -> OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT. took: 23ms.
+[2025-01-28T12:38:26.776+00:00][INFO ][savedobjects-service] [.kibana] OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT -> CHECK_TARGET_MAPPINGS. took: 8ms.
+[2025-01-28T12:38:26.777+00:00][INFO ][savedobjects-service] [.kibana] There are no changes in the mappings of any of the SO types, skipping UPDATE_TARGET_MAPPINGS steps.
+[2025-01-28T12:38:26.777+00:00][INFO ][savedobjects-service] [.kibana] CHECK_TARGET_MAPPINGS -> CHECK_VERSION_INDEX_READY_ACTIONS. took: 1ms.
+[2025-01-28T12:38:26.777+00:00][INFO ][savedobjects-service] [.kibana] CHECK_VERSION_INDEX_READY_ACTIONS -> DONE. took: 0ms.
+[2025-01-28T12:38:26.778+00:00][INFO ][savedobjects-service] [.kibana] Migration completed after 145ms
+[2025-01-28T12:38:26.786+00:00][INFO ][savedobjects-service] [.kibana_task_manager] OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT -> CHECK_TARGET_MAPPINGS. took: 12ms.
+[2025-01-28T12:38:26.787+00:00][INFO ][savedobjects-service] [.kibana_task_manager] There are no changes in the mappings of any of the SO types, skipping UPDATE_TARGET_MAPPINGS steps.
+[2025-01-28T12:38:26.788+00:00][INFO ][savedobjects-service] [.kibana_task_manager] CHECK_TARGET_MAPPINGS -> CHECK_VERSION_INDEX_READY_ACTIONS. took: 1ms.
+[2025-01-28T12:38:26.788+00:00][INFO ][savedobjects-service] [.kibana_task_manager] CHECK_VERSION_INDEX_READY_ACTIONS -> DONE. took: 1ms.
+[2025-01-28T12:38:26.788+00:00][INFO ][savedobjects-service] [.kibana_task_manager] Migration completed after 150ms
+[2025-01-28T12:38:26.790+00:00][INFO ][savedobjects-service] [.kibana_security_solution] OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT -> CHECK_TARGET_MAPPINGS. took: 18ms.
+[2025-01-28T12:38:26.791+00:00][INFO ][savedobjects-service] [.kibana_security_solution] There are no changes in the mappings of any of the SO types, skipping UPDATE_TARGET_MAPPINGS steps.
+[2025-01-28T12:38:26.791+00:00][INFO ][savedobjects-service] [.kibana_security_solution] CHECK_TARGET_MAPPINGS -> CHECK_VERSION_INDEX_READY_ACTIONS. took: 0ms.
+[2025-01-28T12:38:26.791+00:00][INFO ][savedobjects-service] [.kibana_security_solution] CHECK_VERSION_INDEX_READY_ACTIONS -> DONE. took: 1ms.
+[2025-01-28T12:38:26.792+00:00][INFO ][savedobjects-service] [.kibana_security_solution] Migration completed after 144ms
+[2025-01-28T12:38:26.793+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] OUTDATED_DOCUMENTS_SEARCH_READ -> OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT. took: 31ms.
+[2025-01-28T12:38:26.796+00:00][INFO ][savedobjects-service] [.kibana_ingest] OUTDATED_DOCUMENTS_SEARCH_READ -> OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT. took: 31ms.
+[2025-01-28T12:38:26.801+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT -> CHECK_TARGET_MAPPINGS. took: 8ms.
+[2025-01-28T12:38:26.802+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] There are no changes in the mappings of any of the SO types, skipping UPDATE_TARGET_MAPPINGS steps.
+[2025-01-28T12:38:26.802+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] CHECK_TARGET_MAPPINGS -> CHECK_VERSION_INDEX_READY_ACTIONS. took: 1ms.
+[2025-01-28T12:38:26.803+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] CHECK_VERSION_INDEX_READY_ACTIONS -> DONE. took: 1ms.
+[2025-01-28T12:38:26.803+00:00][INFO ][savedobjects-service] [.kibana_alerting_cases] Migration completed after 149ms
+[2025-01-28T12:38:26.805+00:00][INFO ][savedobjects-service] [.kibana_ingest] OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT -> CHECK_TARGET_MAPPINGS. took: 9ms.
+[2025-01-28T12:38:26.806+00:00][INFO ][savedobjects-service] [.kibana_ingest] There are no changes in the mappings of any of the SO types, skipping UPDATE_TARGET_MAPPINGS steps.
+[2025-01-28T12:38:26.806+00:00][INFO ][savedobjects-service] [.kibana_ingest] CHECK_TARGET_MAPPINGS -> CHECK_VERSION_INDEX_READY_ACTIONS. took: 1ms.
+[2025-01-28T12:38:26.806+00:00][INFO ][savedobjects-service] [.kibana_ingest] CHECK_VERSION_INDEX_READY_ACTIONS -> DONE. took: 0ms.
+[2025-01-28T12:38:26.806+00:00][INFO ][savedobjects-service] [.kibana_ingest] Migration completed after 148ms
+[2025-01-28T12:38:26.807+00:00][INFO ][savedobjects-service] [.kibana_analytics] OUTDATED_DOCUMENTS_SEARCH_READ -> OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT. took: 37ms.
+[2025-01-28T12:38:26.815+00:00][INFO ][savedobjects-service] [.kibana_analytics] OUTDATED_DOCUMENTS_SEARCH_CLOSE_PIT -> CHECK_TARGET_MAPPINGS. took: 8ms.
+[2025-01-28T12:38:26.816+00:00][INFO ][savedobjects-service] [.kibana_analytics] There are no changes in the mappings of any of the SO types, skipping UPDATE_TARGET_MAPPINGS steps.
+[2025-01-28T12:38:26.816+00:00][INFO ][savedobjects-service] [.kibana_analytics] CHECK_TARGET_MAPPINGS -> CHECK_VERSION_INDEX_READY_ACTIONS. took: 1ms.
+[2025-01-28T12:38:26.816+00:00][INFO ][savedobjects-service] [.kibana_analytics] CHECK_VERSION_INDEX_READY_ACTIONS -> DONE. took: 0ms.
+[2025-01-28T12:38:26.816+00:00][INFO ][savedobjects-service] [.kibana_analytics] Migration completed after 173ms
+[2025-01-28T12:38:27.682+00:00][INFO ][plugins.screenshotting.chromium] Browser executable: /usr/share/kibana/node_modules/@kbn/screenshotting-plugin/chromium/headless_shell-linux_x64/headless_shell
+[2025-01-28T12:38:30.757+00:00][INFO ][plugins-system.preboot] Stopping all plugins.
+[2025-01-28T12:38:30.757+00:00][INFO ][plugins-system.preboot] All plugins stopped.
+[2025-01-28T12:38:30.758+00:00][INFO ][plugins-system.standard] Stopping all plugins.
+[2025-01-28T12:38:30.759+00:00][INFO ][plugins.monitoring.monitoring.kibana-monitoring] Monitoring stats collection is stopped
+[2025-01-28T12:38:30.764+00:00][INFO ][plugins-system.standard] All plugins stopped.
+ FATAL  Error: Unable to complete saved object migrations for the [.kibana_usage_counters] index. Please check the health of your Elasticsearch cluster and try again. Unexpected Elasticsearch ResponseError: statusCode: 400, method: PUT, url: /.kibana_usage_counters_8.17.1_001?wait_for_active_shards=all&timeout=300s error: [illegal_argument_exception]: cannot create index with name [.kibana_usage_counters_8.17.1_001], because it matches with template [template_1] that creates data streams only, use create data stream api instead,

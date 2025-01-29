@@ -3,8 +3,8 @@ kind: Logstash
 metadata:
   name: quickstart
 spec:
-  version: 8.13.3
-  image: docker-nexus.localhost/repository/docker-repo/logstash:8.13.3-custom.3
+  version: 8.17.1
+  image: docker-nexus.localhost/repository/docker-repo/logstash:8.17.1-custom.3
   services:
     - name: beats
       service:
