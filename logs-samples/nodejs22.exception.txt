@@ -1,0 +1,23 @@
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+SocksClientError: getaddrinfo ENOTFOUND tor
+    at SocksClient.closeSocket (/usr/src/app/node_modules/socks/src/client/socksclient.ts:499:26)
+    at SocksClient.onErrorHandler (/usr/src/app/node_modules/socks/src/client/socksclient.ts:467:10)
+    at Socket.onError (/usr/src/app/node_modules/socks/src/client/socksclient.ts:306:41)
+    at Object.onceWrapper (node:events:639:26)
+    at Socket.emit (node:events:524:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  options: {
+    proxy: { host: 'tor', port: 9050, type: 5 },
+    destination: { host: '23.88.33.229', port: 443 },
+    command: 'connect',
+    timeout: undefined,
+    socket_options: undefined
+  }
+}
+
+Node.js v22.13.0
