@@ -24,7 +24,7 @@ spec:
               id: ${data.kubernetes.container.id}
               paths:
                 - /var/log/containers/*${data.kubernetes.container.id}.log
-              multiline.pattern: "^[[:space:]]|^[[:alpha:]]Error|^}$|^Node\\.js|^\\[|^$"
+              multiline.pattern: "^[[:space:]]|^[[:alpha:]]+Error|^}$|^Node\\.js|^\\[|^$"
               multiline.negate: false
               multiline.match: after
               json.default: true
