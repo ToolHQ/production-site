@@ -24,11 +24,40 @@ spec:
               id: ${data.kubernetes.container.id}
               paths:
                 - /var/log/containers/*${data.kubernetes.container.id}.log
-              multiline.pattern: "^[[:space:]]|^[[:alpha:]]+Error|^}$|^Node\\.js|^\\[|^$"
-              multiline.negate: false
-              multiline.match: after
               json.default: true
               json.message_key: message
+            templates:
+              # Node.js Applications
+              - condition:
+                  equals:
+                    kubernetes.labels.app: "my-site-back-end"
+                config:
+                  - type: container
+                    paths:
+                      - /var/log/containers/*${data.kubernetes.container.id}.log
+                    multiline.pattern: "^[[:space:]]|^[[:alpha:]]+Error|^}$|^Node\\.js|^\\[|^$"
+                    multiline.negate: false
+                    multiline.match: after
+              # Kibana Logs (Multiline for Kibana Errors)
+              - condition:
+                  equals:
+                    kubernetes.container.name: "kibana"
+                config:
+                  - type: container
+                    paths:
+                      - /var/log/containers/*${data.kubernetes.container.id}.log
+                    multiline.pattern: "^[\\d{4}-\\d{2}-\\d{2}T.*?] [(INFO|WARN|ERROR|FATAL)]"
+                    multiline.negate: true
+                    multiline.match: after
+              # CoreDNS Logs (Single-line, No Multiline Processing)
+              - condition:
+                  equals:
+                    kubernetes.container.name: "coredns"
+                config:
+                  - type: container
+                    paths:
+                      - /var/log/containers/*${data.kubernetes.container.id}.log
+                    # No multiline rules applied for CoreDNS
     processors:
       - add_host_metadata: {}
     output.logstash:
