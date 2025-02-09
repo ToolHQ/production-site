@@ -1,0 +1,381 @@
+{
+  "_index": ".ds-logs-generic-default-2025.01.29-000007",
+  "_id": "fupqxpQBk5Tq83UyBXoX",
+  "_version": 1,
+  "_source": {
+    "filter_type": "k8s",
+    "agent": {
+      "name": "minikube",
+      "version": "8.17.1",
+      "id": "4a3a3283-bd0b-4d45-8835-c4ea846b1ce0",
+      "type": "filebeat",
+      "ephemeral_id": "70fb7fa4-1ca9-4229-85ea-3f75483a41b2"
+    },
+    "host": {
+      "architecture": "x86_64",
+      "mac": [
+        "02-42-25-7C-7D-E2",
+        "02-42-C0-A8-31-02",
+        "02-58-B6-C2-BC-38",
+        "06-3E-E7-50-7A-5D",
+        "26-AD-29-4D-25-D0",
+        "3A-E3-7B-CE-B9-FD",
+        "3E-7A-22-85-8E-4C",
+        "3E-B0-A2-22-0A-0E",
+        "4E-66-F0-27-3A-BD",
+        "56-B7-57-9C-D9-21",
+        "86-15-E9-FD-B8-5A",
+        "86-D5-DD-D9-7A-B7",
+        "8E-F3-AC-DA-51-32",
+        "AE-07-C4-96-60-5B",
+        "B6-C4-65-94-56-55",
+        "C2-35-55-FB-E2-72",
+        "CA-6A-7F-7B-EB-DC",
+        "E6-13-3C-40-61-A4",
+        "F2-BC-F6-68-BD-EF",
+        "F2-FC-76-49-1E-11"
+      ],
+      "containerized": true,
+      "ip": [
+        "172.17.0.1",
+        "10.244.0.1",
+        "fe80::c035:55ff:fefb:e272",
+        "fe80::3c7a:22ff:fe85:8e4c",
+        "fe80::3cb0:a2ff:fe22:a0e",
+        "fe80::38e3:7bff:fece:b9fd",
+        "fe80::43e:e7ff:fe50:7a5d",
+        "192.168.49.2",
+        "fe80::f0bc:f6ff:fe68:bdef",
+        "fe80::b4c4:65ff:fe94:5655",
+        "fe80::84d5:ddff:fed9:7ab7",
+        "fe80::e413:3cff:fe40:61a4",
+        "fe80::24ad:29ff:fe4d:25d0",
+        "fe80::58:b6ff:fec2:bc38",
+        "fe80::4c66:f0ff:fe27:3abd",
+        "fe80::c86a:7fff:fe7b:ebdc",
+        "fe80::8415:e9ff:fefd:b85a",
+        "fe80::f0fc:76ff:fe49:1e11",
+        "fe80::54b7:57ff:fe9c:d921",
+        "fe80::8cf3:acff:feda:5132",
+        "fe80::ac07:c4ff:fe96:605b"
+      ],
+      "name": "minikube",
+      "os": {
+        "platform": "ubuntu",
+        "kernel": "5.15.167.4-microsoft-standard-WSL2",
+        "name": "Ubuntu",
+        "version": "20.04.6 LTS (Focal Fossa)",
+        "family": "debian",
+        "codename": "focal",
+        "type": "linux"
+      },
+      "hostname": "minikube"
+    },
+    "log": {
+      "offset": 35221,
+      "file": {
+        "path": "/var/log/containers/kube-apiserver-minikube_kube-system_kube-apiserver-759b19cf6d679aa238db0a6b90fceb465ba85a080482c2c1d083c104e014ccf2.log"
+      }
+    },
+    "@timestamp": "2025-02-02T11:26:38.241Z",
+    "@version": "1",
+    "event": {},
+    "kubernetes": {
+      "labels": {
+        "component": "kube-apiserver",
+        "tier": "control-plane"
+      },
+      "node": {
+        "name": "minikube",
+        "labels": {
+          "beta_kubernetes_io/os": "linux",
+          "beta_kubernetes_io/arch": "amd64",
+          "minikube_k8s_io/primary": "true",
+          "minikube_k8s_io/version": "v1.33.0",
+          "node-role_kubernetes_io/control-plane": "",
+          "minikube_k8s_io/name": "minikube",
+          "kubernetes_io/arch": "amd64",
+          "kubernetes_io/os": "linux",
+          "minikube_k8s_io/commit": "86fc9d54fca63f295d8737c8eacdbb7987e89c67",
+          "node_kubernetes_io/exclude-from-external-load-balancers": "",
+          "minikube_k8s_io/updated_at": "2024_05_08T17_12_18_0700",
+          "kubernetes_io/hostname": "minikube"
+        },
+        "hostname": "minikube",
+        "uid": "8efbe990-23af-4f14-ad53-e23d256f9a05"
+      },
+      "namespace_labels": {
+        "kubernetes_io/metadata_name": "kube-system"
+      },
+      "pod": {
+        "name": "kube-apiserver-minikube",
+        "ip": "192.168.49.2",
+        "uid": "46869057-6aac-4778-9cc8-5ca1f5948449"
+      },
+      "namespace": "kube-system",
+      "namespace_uid": "71da65b1-a9e0-4419-be0c-19b9bd016824",
+      "container": {
+        "name": "kube-apiserver"
+      }
+    },
+    "queue": "beats",
+    "severity": "process error",
+    "container": {
+      "id": "759b19cf6d679aa238db0a6b90fceb465ba85a080482c2c1d083c104e014ccf2",
+      "image": {
+        "name": "registry.k8s.io/kube-apiserver:v1.30.0"
+      },
+      "runtime": "docker"
+    },
+    "message": ", Header: map[Content-Type:[text/plain; charset=utf-8] X-Content-Type-Options:[nosniff]]",
+    "ecs": {
+      "version": "8.0.0"
+    },
+    "stream": "stderr",
+    "tags": ["beats_input_codec_plain_applied", "grok_error_k8s"],
+    "input": {
+      "type": "container"
+    },
+    "json": {},
+    "data_stream": {
+      "type": "logs",
+      "dataset": "generic",
+      "namespace": "default"
+    }
+  },
+  "fields": {
+    "agent.version.keyword": ["8.17.1"],
+    "kubernetes.node.uid": ["8efbe990-23af-4f14-ad53-e23d256f9a05"],
+    "kubernetes.namespace_uid.keyword": [
+      "71da65b1-a9e0-4419-be0c-19b9bd016824"
+    ],
+    "host.name.keyword": ["minikube"],
+    "kubernetes.namespace_uid": ["71da65b1-a9e0-4419-be0c-19b9bd016824"],
+    "host.hostname": ["minikube"],
+    "host.mac": [
+      "02-42-25-7C-7D-E2",
+      "02-42-C0-A8-31-02",
+      "02-58-B6-C2-BC-38",
+      "06-3E-E7-50-7A-5D",
+      "26-AD-29-4D-25-D0",
+      "3A-E3-7B-CE-B9-FD",
+      "3E-7A-22-85-8E-4C",
+      "3E-B0-A2-22-0A-0E",
+      "4E-66-F0-27-3A-BD",
+      "56-B7-57-9C-D9-21",
+      "86-15-E9-FD-B8-5A",
+      "86-D5-DD-D9-7A-B7",
+      "8E-F3-AC-DA-51-32",
+      "AE-07-C4-96-60-5B",
+      "B6-C4-65-94-56-55",
+      "C2-35-55-FB-E2-72",
+      "CA-6A-7F-7B-EB-DC",
+      "E6-13-3C-40-61-A4",
+      "F2-BC-F6-68-BD-EF",
+      "F2-FC-76-49-1E-11"
+    ],
+    "kubernetes.node.labels.kubernetes_io/os": ["linux"],
+    "container.id": [
+      "759b19cf6d679aa238db0a6b90fceb465ba85a080482c2c1d083c104e014ccf2"
+    ],
+    "data_stream.namespace.keyword": ["default"],
+    "kubernetes.labels.component.keyword": ["kube-apiserver"],
+    "container.image.name": ["registry.k8s.io/kube-apiserver:v1.30.0"],
+    "kubernetes.container.name.keyword": ["kube-apiserver"],
+    "host.os.version": ["20.04.6 LTS (Focal Fossa)"],
+    "kubernetes.node.labels.beta_kubernetes_io/os": ["linux"],
+    "kubernetes.pod.name.keyword": ["kube-apiserver-minikube"],
+    "agent.name": ["minikube"],
+    "host.os.type": ["linux"],
+    "kubernetes.node.labels.kubernetes_io/hostname.keyword": ["minikube"],
+    "agent.id.keyword": ["4a3a3283-bd0b-4d45-8835-c4ea846b1ce0"],
+    "input.type": ["container"],
+    "kubernetes.node.uid.keyword": ["8efbe990-23af-4f14-ad53-e23d256f9a05"],
+    "kubernetes.node.labels.minikube_k8s_io/commit": [
+      "86fc9d54fca63f295d8737c8eacdbb7987e89c67"
+    ],
+    "tags": ["beats_input_codec_plain_applied", "grok_error_k8s"],
+    "host.architecture": ["x86_64"],
+    "agent.id": ["4a3a3283-bd0b-4d45-8835-c4ea846b1ce0"],
+    "host.containerized": [true],
+    "kubernetes.node.labels.node-role_kubernetes_io/control-plane": [""],
+    "kubernetes.labels.tier.keyword": ["control-plane"],
+    "input.type.keyword": ["container"],
+    "stream.keyword": ["stderr"],
+    "kubernetes.node.hostname": ["minikube"],
+    "data_stream.dataset.keyword": ["generic"],
+    "tags.keyword": ["beats_input_codec_plain_applied", "grok_error_k8s"],
+    "kubernetes.node.labels.minikube_k8s_io/updated_at": [
+      "2024_05_08T17_12_18_0700"
+    ],
+    "kubernetes.node.hostname.keyword": ["minikube"],
+    "host.ip": [
+      "172.17.0.1",
+      "10.244.0.1",
+      "fe80::c035:55ff:fefb:e272",
+      "fe80::3c7a:22ff:fe85:8e4c",
+      "fe80::3cb0:a2ff:fe22:a0e",
+      "fe80::38e3:7bff:fece:b9fd",
+      "fe80::43e:e7ff:fe50:7a5d",
+      "192.168.49.2",
+      "fe80::f0bc:f6ff:fe68:bdef",
+      "fe80::b4c4:65ff:fe94:5655",
+      "fe80::84d5:ddff:fed9:7ab7",
+      "fe80::e413:3cff:fe40:61a4",
+      "fe80::24ad:29ff:fe4d:25d0",
+      "fe80::58:b6ff:fec2:bc38",
+      "fe80::4c66:f0ff:fe27:3abd",
+      "fe80::c86a:7fff:fe7b:ebdc",
+      "fe80::8415:e9ff:fefd:b85a",
+      "fe80::f0fc:76ff:fe49:1e11",
+      "fe80::54b7:57ff:fe9c:d921",
+      "fe80::8cf3:acff:feda:5132",
+      "fe80::ac07:c4ff:fe96:605b"
+    ],
+    "kubernetes.node.labels.minikube_k8s_io/name.keyword": ["minikube"],
+    "agent.type": ["filebeat"],
+    "host.os.kernel.keyword": ["5.15.167.4-microsoft-standard-WSL2"],
+    "filter_type": ["k8s"],
+    "stream": ["stderr"],
+    "data_stream.type.keyword": ["logs"],
+    "container.image.name.keyword": ["registry.k8s.io/kube-apiserver:v1.30.0"],
+    "agent.type.keyword": ["filebeat"],
+    "kubernetes.pod.ip": ["192.168.49.2"],
+    "agent.ephemeral_id.keyword": ["70fb7fa4-1ca9-4229-85ea-3f75483a41b2"],
+    "kubernetes.container.name": ["kube-apiserver"],
+    "agent.name.keyword": ["minikube"],
+    "kubernetes.node.labels.beta_kubernetes_io/arch.keyword": ["amd64"],
+    "host.os.codename": ["focal"],
+    "kubernetes.labels.tier": ["control-plane"],
+    "kubernetes.node.labels.beta_kubernetes_io/arch": ["amd64"],
+    "@timestamp": ["2025-02-02T11:26:38.241Z"],
+    "kubernetes.pod.uid.keyword": ["46869057-6aac-4778-9cc8-5ca1f5948449"],
+    "container.runtime.keyword": ["docker"],
+    "host.os.platform": ["ubuntu"],
+    "data_stream.dataset": ["generic"],
+    "log.file.path": [
+      "/var/log/containers/kube-apiserver-minikube_kube-system_kube-apiserver-759b19cf6d679aa238db0a6b90fceb465ba85a080482c2c1d083c104e014ccf2.log"
+    ],
+    "agent.ephemeral_id": ["70fb7fa4-1ca9-4229-85ea-3f75483a41b2"],
+    "kubernetes.node.labels.kubernetes_io/arch": ["amd64"],
+    "kubernetes.node.labels.minikube_k8s_io/version": ["v1.33.0"],
+    "queue": ["beats"],
+    "host.architecture.keyword": ["x86_64"],
+    "filter_type.keyword": ["k8s"],
+    "severity.keyword": ["process error"],
+    "kubernetes.node.labels.kubernetes_io/os.keyword": ["linux"],
+    "ecs.version.keyword": ["8.0.0"],
+    "host.ip.keyword": [
+      "172.17.0.1",
+      "10.244.0.1",
+      "fe80::c035:55ff:fefb:e272",
+      "fe80::3c7a:22ff:fe85:8e4c",
+      "fe80::3cb0:a2ff:fe22:a0e",
+      "fe80::38e3:7bff:fece:b9fd",
+      "fe80::43e:e7ff:fe50:7a5d",
+      "192.168.49.2",
+      "fe80::f0bc:f6ff:fe68:bdef",
+      "fe80::b4c4:65ff:fe94:5655",
+      "fe80::84d5:ddff:fed9:7ab7",
+      "fe80::e413:3cff:fe40:61a4",
+      "fe80::24ad:29ff:fe4d:25d0",
+      "fe80::58:b6ff:fec2:bc38",
+      "fe80::4c66:f0ff:fe27:3abd",
+      "fe80::c86a:7fff:fe7b:ebdc",
+      "fe80::8415:e9ff:fefd:b85a",
+      "fe80::f0fc:76ff:fe49:1e11",
+      "fe80::54b7:57ff:fe9c:d921",
+      "fe80::8cf3:acff:feda:5132",
+      "fe80::ac07:c4ff:fe96:605b"
+    ],
+    "kubernetes.namespace": ["kube-system"],
+    "host.os.name": ["Ubuntu"],
+    "host.name": ["minikube"],
+    "host.os.version.keyword": ["20.04.6 LTS (Focal Fossa)"],
+    "kubernetes.node.labels.node-role_kubernetes_io/control-plane.keyword": [
+      ""
+    ],
+    "@version.keyword": ["1"],
+    "log.offset": [35221],
+    "data_stream.type": ["logs"],
+    "queue.keyword": ["beats"],
+    "container.runtime": ["docker"],
+    "kubernetes.node.labels.minikube_k8s_io/updated_at.keyword": [
+      "2024_05_08T17_12_18_0700"
+    ],
+    "ecs.version": ["8.0.0"],
+    "message.keyword": [
+      ", Header: map[Content-Type:[text/plain; charset=utf-8] X-Content-Type-Options:[nosniff]]"
+    ],
+    "host.hostname.keyword": ["minikube"],
+    "agent.version": ["8.17.1"],
+    "kubernetes.namespace.keyword": ["kube-system"],
+    "host.os.family": ["debian"],
+    "kubernetes.node.name": ["minikube"],
+    "kubernetes.node.name.keyword": ["minikube"],
+    "kubernetes.pod.uid": ["46869057-6aac-4778-9cc8-5ca1f5948449"],
+    "kubernetes.node.labels.minikube_k8s_io/primary.keyword": ["true"],
+    "host.os.kernel": ["5.15.167.4-microsoft-standard-WSL2"],
+    "kubernetes.node.labels.kubernetes_io/arch.keyword": ["amd64"],
+    "@version": ["1"],
+    "host.os.name.keyword": ["Ubuntu"],
+    "kubernetes.pod.name": ["kube-apiserver-minikube"],
+    "log.file.path.keyword": [
+      "/var/log/containers/kube-apiserver-minikube_kube-system_kube-apiserver-759b19cf6d679aa238db0a6b90fceb465ba85a080482c2c1d083c104e014ccf2.log"
+    ],
+    "severity": ["process error"],
+    "host.os.codename.keyword": ["focal"],
+    "host.mac.keyword": [
+      "02-42-25-7C-7D-E2",
+      "02-42-C0-A8-31-02",
+      "02-58-B6-C2-BC-38",
+      "06-3E-E7-50-7A-5D",
+      "26-AD-29-4D-25-D0",
+      "3A-E3-7B-CE-B9-FD",
+      "3E-7A-22-85-8E-4C",
+      "3E-B0-A2-22-0A-0E",
+      "4E-66-F0-27-3A-BD",
+      "56-B7-57-9C-D9-21",
+      "86-15-E9-FD-B8-5A",
+      "86-D5-DD-D9-7A-B7",
+      "8E-F3-AC-DA-51-32",
+      "AE-07-C4-96-60-5B",
+      "B6-C4-65-94-56-55",
+      "C2-35-55-FB-E2-72",
+      "CA-6A-7F-7B-EB-DC",
+      "E6-13-3C-40-61-A4",
+      "F2-BC-F6-68-BD-EF",
+      "F2-FC-76-49-1E-11"
+    ],
+    "data_stream.namespace": ["default"],
+    "kubernetes.node.labels.minikube_k8s_io/commit.keyword": [
+      "86fc9d54fca63f295d8737c8eacdbb7987e89c67"
+    ],
+    "kubernetes.namespace_labels.kubernetes_io/metadata_name": ["kube-system"],
+    "kubernetes.node.labels.minikube_k8s_io/primary": ["true"],
+    "message": [
+      ", Header: map[Content-Type:[text/plain; charset=utf-8] X-Content-Type-Options:[nosniff]]"
+    ],
+    "kubernetes.node.labels.minikube_k8s_io/name": ["minikube"],
+    "kubernetes.node.labels.kubernetes_io/hostname": ["minikube"],
+    "host.os.family.keyword": ["debian"],
+    "kubernetes.labels.component": ["kube-apiserver"],
+    "host.os.type.keyword": ["linux"],
+    "host.os.platform.keyword": ["ubuntu"],
+    "kubernetes.namespace_labels.kubernetes_io/metadata_name.keyword": [
+      "kube-system"
+    ],
+    "kubernetes.node.labels.node_kubernetes_io/exclude-from-external-load-balancers.keyword": [
+      ""
+    ],
+    "kubernetes.node.labels.minikube_k8s_io/version.keyword": ["v1.33.0"],
+    "container.id.keyword": [
+      "759b19cf6d679aa238db0a6b90fceb465ba85a080482c2c1d083c104e014ccf2"
+    ],
+    "kubernetes.node.labels.beta_kubernetes_io/os.keyword": ["linux"],
+    "kubernetes.node.labels.node_kubernetes_io/exclude-from-external-load-balancers": [
+      ""
+    ],
+    "kubernetes.pod.ip.keyword": ["192.168.49.2"]
+  }
+}
