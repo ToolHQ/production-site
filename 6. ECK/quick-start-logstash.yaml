@@ -83,6 +83,78 @@ stringData:
               "queue" => "beats"
             }
           }
+          # Remove unused fields and redundant fields
+          mutate {
+            # remove_field => "[@timestamp]"                                                                      # Essential for time-based log searches.	                   Keep - Core field for indexing logs in Elasticsearch.
+            remove_field => "[@version]"                                                                          # Logstash: Default field added by Logstash, usually "1".    Optional - Can be removed unless multi-version logs need tracking.
+            # remove_field => "[message]"                                                                         # The actual log message content.	                           Keep - The most important part of the log.
+            # remove_field => "[ecs][version]"                                                                    # Indicates the Elastic Common Schema (ECS) version.	       Keep - Helps ensure logs remain compatible with ECS updates.
+            remove_field => "[log][offset]"                                                                       # Beats: Byte offset for file-based logs.                    Optional - Useful for tracking log ingestion positions, but remove if unnecessary.
+            # remove_field => "[log][file][path]"                                                                 # Beats: Path to the log file on the host.	                 Keep - Useful for tracing logs back to their origin.
+            # remove_field => "[input][type]"                                                                     # Beats: Identifies the log input type.	                     Keep - Helps distinguish sources (e.g., container, file).
+            # remove_field => "[stream]"                                                                          # Docker: Distinguishes between stdout and stderr.           Keep - Can be used to infer severity (errors vs. normal output).
+            # remove_field => "[severity]"                                                                        # Custom Fabricated: Log severity (info, warn, error).	     Keep (Important for filtering logs).
+            # remove_field => "[tags]                                                                             # Custom Fabricated: Metadata (e.g., grok_error_k8s).	       Keep (Useful for log processing errors).
+            # remove_field => "[queue]                                                                            # Custom Fabricated: Log pipeline name (beats, dlq_read).    Keep (Useful for routing/debugging logs).
+            # remove_field => "[filter_type]                                                                      # Custom Fabricated: Custom field defining the log type.	   Keep (Important for structured log filtering).
+            remove_field => "[kubernetes][node][name]"                                                            # K8S: Name of the Kubernetes node.                          Optional - Identifies where the pod is running. In Minikube or Bare-Metal Clusters it is the same as host.name.
+            remove_field => "[kubernetes][node][uid]"                                                             # K8S: Unique ID of the node.	                               Optional (Keep if debugging node replacement issues).
+            remove_field => "[kubernetes][node][hostname]"                                                        # K8S: Hostname of the node.	                               Optional (Only needed in cloud environments).
+            remove_field => "[kubernetes][node][labels][minikube_k8s_io/version]"	                                # K8S: Minikube version.                                     Remove (Not useful in production).
+            remove_field => "[kubernetes][node][labels][node_kubernetes_io/exclude-from-external-load-balancers]"	#	K8S: Excludes node from external load balancers.	         Remove (Only relevant in special networking setups).
+            remove_field => "[kubernetes][node][labels][beta_kubernetes_io/arch]"	                                #	K8S: Node architecture (amd64, arm64).	                   Remove (Redundant with host.architecture).
+            remove_field => "[kubernetes][node][labels][minikube_k8s_io/commit]"	                                #	K8S: Minikube commit ID.	                                 Remove (Minikube-specific, not needed).
+            remove_field => "[kubernetes][node][labels][minikube_k8s_io/name]"	                                  #	K8S: Minikube node name.               	                   Remove (Minikube-specific).
+            remove_field => "[kubernetes][node][labels][minikube_k8s_io/primary]"                                 #	K8S: Marks primary Minikube node.	                         Remove (Not useful for logs).
+            remove_field => "[kubernetes][node][labels][kubernetes_io/os]"	                                      #	K8S: Node OS.                                              Remove (Redundant with host.os.platform).
+            remove_field => "[kubernetes][node][labels][beta_kubernetes_io/os]"	                                  #	K8S: Legacy node OS label.                                 Remove (Deprecated).
+            remove_field => "[kubernetes][node][labels][minikube_k8s_io/updated_at]"	                            #	K8S: Minikube update timestamp.	                           Remove (Only relevant to Minikube).
+            remove_field => "[kubernetes][node][labels][kubernetes_io/hostname]"	                                #	K8S: Kubernetes node hostname.                             Remove (Redundant with kubernetes.node.name).
+            remove_field => "[kubernetes][node][labels][kubernetes_io/arch]"                                      #	K8S: Node architecture (amd64, arm64).                     Remove (Redundant with host.architecture).
+            remove_field => "[kubernetes][node][labels][node-role_kubernetes_io/control-plane]"	                  #	K8S: Indicates if node is control-plane.                   Remove (Only needed for infrastructure monitoring).
+            remove_field => "[kubernetes][labels][app_kubernetes_io/name]"                                        #	K8S: Application name.                                     Remove (Redundant, always same value for ingress-nginx).
+            remove_field => "[kubernetes][labels][app_kubernetes_io/component]"                                   #	K8S: Application component (e.g., controller).             Optional (Keep if filtering logs by component role).
+            remove_field => "[kubernetes][labels][pod-template-hash]"                                             #	K8S: Tracks which ReplicaSet a pod belongs to.             Remove (Not useful for daily debugging).
+            remove_field => "[kubernetes][labels][gcp-auth-skip-secret]"                                          #	K8S: Indicates if GCP auth secret is skipped.              Remove (Only relevant in GKE).
+            remove_field => "[kubernetes][labels][app_kubernetes_io/instance]"                                    # K8S: Identifies the instance of the application.           Remove (Unnecessary, same value as name).
+            remove_field => "[kubernetes][namespace_labels][app_kubernetes_io/instance]"                          # K8S: Instance of the application.                          Remove (No extra value, already redundant).
+            remove_field => "[kubernetes][namespace_labels][kubernetes_io/metadata_name]"                         # K8S: Namespace metadata.                                   Remove (Redundant with kubernetes.namespace).
+            remove_field => "[kubernetes][namespace_labels][app_kubernetes_io/name]"                              # K8S: Application name in namespace.                        Remove (No extra value, already redundant).
+            # remove_field => "[kubernetes][namespace]"	                                                          # K8S: Namespace the pod belongs to.	                       Keep - Essential for multi-namespace clusters.
+            remove_field => "[kubernetes][namespace_uid]"                                                         # K8S: Unique ID of the namespace.	                         Remove - Usually redundant unless tracking dynamic namespaces.
+            remove_field => "[kubernetes][replicaset][name]"                                                      # K8S: ReplicaSet managing the pod.	                         Optional - Helps with scaling/debugging but may not be necessary.
+            # remove_field => "[kubernetes][pod][name]"                                                           # K8S: Identifies which pod generated the log.	             Keep - Crucial for tracing logs back to applications.
+            remove_field => "[kubernetes][pod][ip]"                                                               # K8S: IP address of the pod.	                               Optional - Useful for network debugging but can be removed if unnecessary.
+            remove_field => "[kubernetes][pod][uid]"                                                              # K8S: Unique identifier of the pod.                         Optional - Keep for debugging pod restarts, remove if pod.name is enough.
+            # remove_field => "[kubernetes][container][name]"                                                     # K8S: Name of the container within the pod.                 Keep - Needed for multi-container pods and essential for easier rules.
+            # remove_field => "[container][image][name]"                                                          # Container: Name of the container image.	                   Keep (Useful for tracking image versions).
+            # remove_field => "[container][id]"                                                                   # Container: Unique container ID.                            Keep (Useful for debugging container restarts).
+            remove_field => "[container][runtime]"                                                                # Container: Runtime (docker, containerd).                   Optional (Keep if multiple runtimes are used).
+            remove_field => "[host][mac]"	                                                                        # Host: MAC addresses.                                       Remove (Unnecessary in most cases).
+            remove_field => "[host][hostname]"                                                                    # Host: Hostname of the system.                              Optional (Keep in cloud environments).
+            # remove_field => "[host][architecture]"                                                              # Host: CPU architecture.                                    Keep (Useful for identifying CPU architecture issues).
+            # remove_field => "[host][name]"                                                                      # Host: Hostname of the node.	                               Keep (Useful for tracing logs back to a node).
+            remove_field => "[host][os][name]"                                                                    # Host: OS name.                                             Remove (Redundant with host.os.platform).
+            remove_field => "[host][os][kernel]"                                                                  # Host: Kernel version.                                      Optional (Useful for debugging OS-level issues).
+            remove_field => "[host][os][codename]"                                                                # Host: OS codename.                                         Remove (Not useful for logs).
+            # remove_field => "[host][os][platform]"                                                              # Host: OS platform.                                         Keep (Useful for filtering logs by OS).
+            remove_field => "[host][os][version]"                                                                 # Host: OS version.                                          Remove (Usually not needed).
+            remove_field => "[host][os][family]"                                                                  # Host: OS family (debian, rhel).                            Remove (Redundant).
+            remove_field => "[host][os][type]"                                                                    # Host: OS type (linux, windows).                            Remove (Not useful).
+            remove_field => "[host][containerized]"                                                               # Host: Indicates if running in a container.                 Remove (Redundant in Kubernetes).
+            remove_field => "[host][ip]"                                                                          # Host: IP addresses.                                        Remove (Not needed in Kubernetes logs).
+            remove_field => "[agent][name]"                                                                       # Agent: Name of the agent sending logs.                     Optional (Keep for tracking multi-agent environments).
+            remove_field => "[agent][id]"                                                                         # Agent: Unique identifier for the agent instance.           Remove. Not useful unless tracking multiple agents.
+            remove_field => "[agent][version]"                                                                    # Agent: Version of the agent (e.g., 8.17.1).                Remove. Only needed for debugging ingestion compatibility issues.
+            remove_field => "[agent][ephemeral_id]"                                                               # Agent: Temporary ID for the agent (changes on restart).    Remove (Not useful for log correlation).
+            remove_field => "[agent][type]"                                                                       # Agent: Type of agent (e.g., filebeat).	                   Remove. Always filebeat, no value in keeping it.
+            # remove_field => "[data_stream][type]"                                                               # Data stream: Type of data stream (e.g., logs).             Keep (Helps categorize logs).
+            # remove_field => "[data_stream][dataset]"                                                            # Data stream: Dataset name (e.g., generic).                 Keep (Useful for log classification).
+            # remove_field => "[data_stream][namespace]"                                                          # Data stream: Namespace within the dataset (e.g., default). Keep (Useful for organizing logs).
+
+            # remove_field => "[kubernetes][labels][component]"
+            # remove_field => "[kubernetes][labels][tier]"
+          }
           if ("beats_input_codec_plain_applied" in [tags] and [message] and [kubernetes][container][name]) { ## Beats json not applied
             if ([kubernetes][container][name] == "logstash") {
               # [2022-05-23T01:43:27,453][INFO ][logstash.outputs.elasticsearch][main]      

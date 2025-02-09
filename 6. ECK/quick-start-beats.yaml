@@ -14,22 +14,17 @@ spec:
           - type: kubernetes
             node: ${NODE_NAME}
             cleanup_timeout: 60s
-            # add_resource_metadata:
-            #   node:
-            #     include_labels:
-            #       [
-            #         "kubernetes_io/arch",
-            #         "kubernetes_io/hostname",
-            #         "kubernetes_io/os",
-            #         "minikube_k8s_io/version",
-            #       ]
+            add_host_metadata:
+              enabled: true
+            add_cloud_metadata:
+              enabled: true
             hints.enabled: true
             hints.default_config:
               type: container
               id: ${data.kubernetes.container.id}
               paths:
                 - /var/log/containers/*${data.kubernetes.container.id}.log
-              multiline.pattern: "^[[:space:]]|^SocksClientError|^}$|^Node\\.js|^\\[|^$"
+              multiline.pattern: "^[[:space:]]|^[[:alpha:]]Error|^}$|^Node\\.js|^\\[|^$"
               multiline.negate: false
               multiline.match: after
               json.default: true
