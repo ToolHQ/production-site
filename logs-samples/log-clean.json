@@ -1,0 +1,125 @@
+{
+  "_index": ".ds-logs-generic-default-2025.01.29-000007",
+  "_id": "qyvZ7JQBsck6JvdleRzk",
+  "_version": 1,
+  "_ignored": ["message.keyword"],
+  "_source": {
+    "stream": "stdout",
+    "input": {
+      "type": "container"
+    },
+    "container": {
+      "id": "68e2462dfaba4e82753a7dd5b71454961fae24493c82dc814e6bd64dee4d61b9",
+      "image": {
+        "name": "registry.k8s.io/ingress-nginx/controller:v1.10.1@sha256:e24f39d3eed6bcc239a56f20098878845f62baa34b9f2be2fd2c38ce9fb0f29e"
+      }
+    },
+    "kubernetes": {
+      "container": {
+        "name": "controller"
+      },
+      "pod": {
+        "name": "ingress-nginx-controller-8595695c57-656hk"
+      },
+      "namespace_labels": {},
+      "replicaset": {},
+      "node": {
+        "labels": {}
+      },
+      "namespace": "ingress-nginx",
+      "labels": {}
+    },
+    "@timestamp": "2025-02-09T22:34:20.924Z",
+    "agent": {},
+    "severity": "process info",
+    "message": "10.244.0.1 - - [09/Feb/2025:22:34:20 +0000] \"GET /internal/security/me HTTP/2.0\" 200 382 \"https://kb.localhost/app/discover\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36\" 446 0.016 [default-quickstart-kb-http-5601] [] 10.244.5.204:5601 382 0.016 200 c580b6d38c39cf7a15672c659aef2a0d",
+    "host": {
+      "architecture": "x86_64",
+      "name": "minikube",
+      "os": {
+        "platform": "ubuntu"
+      }
+    },
+    "ecs": {
+      "version": "8.0.0"
+    },
+    "json": {},
+    "event": {},
+    "filter_type": "k8s",
+    "queue": "beats",
+    "log": {
+      "file": {
+        "path": "/var/log/containers/ingress-nginx-controller-8595695c57-656hk_ingress-nginx_controller-68e2462dfaba4e82753a7dd5b71454961fae24493c82dc814e6bd64dee4d61b9.log"
+      }
+    },
+    "tags": ["beats_input_codec_plain_applied", "grok_error_k8s"],
+    "data_stream": {
+      "type": "logs",
+      "dataset": "generic",
+      "namespace": "default"
+    }
+  },
+  "fields": {
+    "host.architecture.keyword": ["x86_64"],
+    "input.type.keyword": ["container"],
+    "stream.keyword": ["stdout"],
+    "host.name.keyword": ["minikube"],
+    "data_stream.dataset.keyword": ["generic"],
+    "tags.keyword": ["beats_input_codec_plain_applied", "grok_error_k8s"],
+    "container.id": [
+      "68e2462dfaba4e82753a7dd5b71454961fae24493c82dc814e6bd64dee4d61b9"
+    ],
+    "filter_type.keyword": ["k8s"],
+    "severity.keyword": ["process info"],
+    "data_stream.namespace.keyword": ["default"],
+    "ecs.version.keyword": ["8.0.0"],
+    "container.image.name": [
+      "registry.k8s.io/ingress-nginx/controller:v1.10.1@sha256:e24f39d3eed6bcc239a56f20098878845f62baa34b9f2be2fd2c38ce9fb0f29e"
+    ],
+    "kubernetes.container.name.keyword": ["controller"],
+    "filter_type": ["k8s"],
+    "stream": ["stdout"],
+    "data_stream.type.keyword": ["logs"],
+    "kubernetes.namespace": ["ingress-nginx"],
+    "kubernetes.pod.name.keyword": [
+      "ingress-nginx-controller-8595695c57-656hk"
+    ],
+    "kubernetes.pod.name": ["ingress-nginx-controller-8595695c57-656hk"],
+    "container.image.name.keyword": [
+      "registry.k8s.io/ingress-nginx/controller:v1.10.1@sha256:e24f39d3eed6bcc239a56f20098878845f62baa34b9f2be2fd2c38ce9fb0f29e"
+    ],
+    "host.name": ["minikube"],
+    "log.file.path.keyword": [
+      "/var/log/containers/ingress-nginx-controller-8595695c57-656hk_ingress-nginx_controller-68e2462dfaba4e82753a7dd5b71454961fae24493c82dc814e6bd64dee4d61b9.log"
+    ],
+    "severity": ["process info"],
+    "kubernetes.container.name": ["controller"],
+    "data_stream.namespace": ["default"],
+    "input.type": ["container"],
+    "message": [
+      "10.244.0.1 - - [09/Feb/2025:22:34:20 +0000] \"GET /internal/security/me HTTP/2.0\" 200 382 \"https://kb.localhost/app/discover\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36\" 446 0.016 [default-quickstart-kb-http-5601] [] 10.244.5.204:5601 382 0.016 200 c580b6d38c39cf7a15672c659aef2a0d"
+    ],
+    "data_stream.type": ["logs"],
+    "tags": ["beats_input_codec_plain_applied", "grok_error_k8s"],
+    "host.architecture": ["x86_64"],
+    "queue.keyword": ["beats"],
+    "@timestamp": ["2025-02-09T22:34:20.924Z"],
+    "ecs.version": ["8.0.0"],
+    "host.os.platform": ["ubuntu"],
+    "host.os.platform.keyword": ["ubuntu"],
+    "data_stream.dataset": ["generic"],
+    "log.file.path": [
+      "/var/log/containers/ingress-nginx-controller-8595695c57-656hk_ingress-nginx_controller-68e2462dfaba4e82753a7dd5b71454961fae24493c82dc814e6bd64dee4d61b9.log"
+    ],
+    "container.id.keyword": [
+      "68e2462dfaba4e82753a7dd5b71454961fae24493c82dc814e6bd64dee4d61b9"
+    ],
+    "kubernetes.namespace.keyword": ["ingress-nginx"],
+    "queue": ["beats"]
+  },
+  "ignored_field_values": {
+    "message.keyword": [
+      "10.244.0.1 - - [09/Feb/2025:22:34:20 +0000] \"GET /internal/security/me HTTP/2.0\" 200 382 \"https://kb.localhost/app/discover\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36\" 446 0.016 [default-quickstart-kb-http-5601] [] 10.244.5.204:5601 382 0.016 200 c580b6d38c39cf7a15672c659aef2a0d"
+    ]
+  }
+}
