@@ -30,7 +30,7 @@ spec:
         - name: logstash
           env:
             - name: LS_JAVA_OPTS
-              value: -Xms256m -Xmx256m
+              value: -Xms512m -Xmx512m
           resources:
             requests:
               memory: 1Gi
@@ -83,301 +83,312 @@ stringData:
               "queue" => "beats"
             }
           }
-          # Remove unused fields and redundant fields
-          mutate {
-            # remove_field => "[@timestamp]"                                                                      # Essential for time-based log searches.	                              Keep - Core field for indexing logs in Elasticsearch.
-            remove_field => "[@version]"                                                                          # Logstash: Default field added by Logstash, usually "1".               Optional - Can be removed unless multi-version logs need tracking.
-            # remove_field => "[message]"                                                                         # The actual log message content.	                                      Keep - The most important part of the log.
-            # remove_field => "[ecs][version]"                                                                    # Indicates the Elastic Common Schema (ECS) version.	                  Keep - Helps ensure logs remain compatible with ECS updates.
-            remove_field => "[log][offset]"                                                                       # Beats: Byte offset for file-based logs.                               Optional - Useful for tracking log ingestion positions, but remove if unnecessary.
-            # remove_field => "[log][flags]"                                                                      # Beats: Indicates special log conditions (e.g., multiline, truncated). Optional (Keep if handling multiline logs, remove otherwise).
-            # remove_field => "[log][file][path]"                                                                 # Beats: Path to the log file on the host.	                            Keep - Useful for tracing logs back to their origin.
-            # remove_field => "[input][type]"                                                                     # Beats: Identifies the log input type.	                                Keep - Helps distinguish sources (e.g., container, file).
-            # remove_field => "[stream]"                                                                          # Docker: Distinguishes between stdout and stderr.                      Keep - Can be used to infer severity (errors vs. normal output).
-            # remove_field => "[severity]"                                                                        # Custom Fabricated: Log severity (info, warn, error).	                Keep (Important for filtering logs).
-            # remove_field => "[tags]                                                                             # Custom Fabricated: Metadata (e.g., grok_error_k8s).	                  Keep (Useful for log processing errors).
-            # remove_field => "[queue]                                                                            # Custom Fabricated: Log pipeline name (beats, dlq_read).               Keep (Useful for routing/debugging logs).
-            # remove_field => "[filter_type]                                                                      # Custom Fabricated: Custom field defining the log type.	              Keep (Important for structured log filtering).
-            remove_field => "[kubernetes][node][name]"                                                            # K8S: Name of the Kubernetes node.                                     Optional - Identifies where the pod is running. In Minikube or Bare-Metal Clusters it is the same as host.name.
-            remove_field => "[kubernetes][node][uid]"                                                             # K8S: Unique ID of the node.	                                          Optional (Keep if debugging node replacement issues).
-            remove_field => "[kubernetes][node][hostname]"                                                        # K8S: Hostname of the node.	                                          Optional (Only needed in cloud environments).
-            remove_field => "[kubernetes][node][labels][minikube_k8s_io/version]"	                                # K8S: Minikube version.                                                Remove (Not useful in production).
-            remove_field => "[kubernetes][node][labels][node_kubernetes_io/exclude-from-external-load-balancers]"	#	K8S: Excludes node from external load balancers.	                    Remove (Only relevant in special networking setups).
-            remove_field => "[kubernetes][node][labels][beta_kubernetes_io/arch]"	                                #	K8S: Node architecture (amd64, arm64).	                              Remove (Redundant with host.architecture).
-            remove_field => "[kubernetes][node][labels][minikube_k8s_io/commit]"	                                #	K8S: Minikube commit ID.	                                            Remove (Minikube-specific, not needed).
-            remove_field => "[kubernetes][node][labels][minikube_k8s_io/name]"	                                  #	K8S: Minikube node name.               	                              Remove (Minikube-specific).
-            remove_field => "[kubernetes][node][labels][minikube_k8s_io/primary]"                                 #	K8S: Marks primary Minikube node.	                                    Remove (Not useful for logs).
-            remove_field => "[kubernetes][node][labels][kubernetes_io/os]"	                                      #	K8S: Node OS.                                                         Remove (Redundant with host.os.platform).
-            remove_field => "[kubernetes][node][labels][beta_kubernetes_io/os]"	                                  #	K8S: Legacy node OS label.                                            Remove (Deprecated).
-            remove_field => "[kubernetes][node][labels][minikube_k8s_io/updated_at]"	                            #	K8S: Minikube update timestamp.	                                      Remove (Only relevant to Minikube).
-            remove_field => "[kubernetes][node][labels][kubernetes_io/hostname]"	                                #	K8S: Kubernetes node hostname.                                        Remove (Redundant with kubernetes.node.name).
-            remove_field => "[kubernetes][node][labels][kubernetes_io/arch]"                                      #	K8S: Node architecture (amd64, arm64).                                Remove (Redundant with host.architecture).
-            remove_field => "[kubernetes][node][labels][node-role_kubernetes_io/control-plane]"	                  #	K8S: Indicates if node is control-plane.                              Remove (Only needed for infrastructure monitoring).
-            remove_field => "[kubernetes][labels][app_kubernetes_io/name]"                                        #	K8S: Application name.                                                Remove (Redundant, always same value for ingress-nginx).
-            remove_field => "[kubernetes][labels][app_kubernetes_io/component]"                                   #	K8S: Application component (e.g., controller).                        Optional (Keep if filtering logs by component role).
-            remove_field => "[kubernetes][labels][pod-template-hash]"                                             #	K8S: Tracks which ReplicaSet a pod belongs to.                        Remove (Not useful for daily debugging).
-            remove_field => "[kubernetes][labels][gcp-auth-skip-secret]"                                          #	K8S: Indicates if GCP auth secret is skipped.                         Remove (Only relevant in GKE).
-            remove_field => "[kubernetes][labels][app_kubernetes_io/instance]"                                    # K8S: Identifies the instance of the application.                      Remove (Unnecessary, same value as name).
-            remove_field => "[kubernetes][namespace_labels][app_kubernetes_io/instance]"                          # K8S: Instance of the application.                                     Remove (No extra value, already redundant).
-            remove_field => "[kubernetes][namespace_labels][kubernetes_io/metadata_name]"                         # K8S: Namespace metadata.                                              Remove (Redundant with kubernetes.namespace).
-            remove_field => "[kubernetes][namespace_labels][app_kubernetes_io/name]"                              # K8S: Application name in namespace.                                   Remove (No extra value, already redundant).
-            # remove_field => "[kubernetes][namespace]"	                                                          # K8S: Namespace the pod belongs to.	                                  Keep - Essential for multi-namespace clusters.
-            remove_field => "[kubernetes][namespace_uid]"                                                         # K8S: Unique ID of the namespace.	                                    Remove - Usually redundant unless tracking dynamic namespaces.
-            remove_field => "[kubernetes][replicaset][name]"                                                      # K8S: ReplicaSet managing the pod.	                                    Optional - Helps with scaling/debugging but may not be necessary.
-            # remove_field => "[kubernetes][pod][name]"                                                           # K8S: Identifies which pod generated the log.	                        Keep - Crucial for tracing logs back to applications.
-            remove_field => "[kubernetes][pod][ip]"                                                               # K8S: IP address of the pod.	                                          Optional - Useful for network debugging but can be removed if unnecessary.
-            remove_field => "[kubernetes][pod][uid]"                                                              # K8S: Unique identifier of the pod.                                    Optional - Keep for debugging pod restarts, remove if pod.name is enough.
-            # remove_field => "[kubernetes][container][name]"                                                     # K8S: Name of the container within the pod.                            Keep - Needed for multi-container pods and essential for easier rules.
-            # remove_field => "[container][image][name]"                                                          # Container: Name of the container image.	                              Keep (Useful for tracking image versions).
-            # remove_field => "[container][id]"                                                                   # Container: Unique container ID.                                       Keep (Useful for debugging container restarts).
-            remove_field => "[container][runtime]"                                                                # Container: Runtime (docker, containerd).                              Optional (Keep if multiple runtimes are used).
-            remove_field => "[host][mac]"	                                                                        # Host: MAC addresses.                                                  Remove (Unnecessary in most cases).
-            remove_field => "[host][hostname]"                                                                    # Host: Hostname of the system.                                         Optional (Keep in cloud environments).
-            # remove_field => "[host][architecture]"                                                              # Host: CPU architecture.                                               Keep (Useful for identifying CPU architecture issues).
-            # remove_field => "[host][name]"                                                                      # Host: Hostname of the node.	                                          Keep (Useful for tracing logs back to a node).
-            remove_field => "[host][os][name]"                                                                    # Host: OS name.                                                        Remove (Redundant with host.os.platform).
-            remove_field => "[host][os][kernel]"                                                                  # Host: Kernel version.                                                 Optional (Useful for debugging OS-level issues).
-            remove_field => "[host][os][codename]"                                                                # Host: OS codename.                                                    Remove (Not useful for logs).
-            # remove_field => "[host][os][platform]"                                                              # Host: OS platform.                                                    Keep (Useful for filtering logs by OS).
-            remove_field => "[host][os][version]"                                                                 # Host: OS version.                                                     Remove (Usually not needed).
-            remove_field => "[host][os][family]"                                                                  # Host: OS family (debian, rhel).                                       Remove (Redundant).
-            remove_field => "[host][os][type]"                                                                    # Host: OS type (linux, windows).                                       Remove (Not useful).
-            remove_field => "[host][containerized]"                                                               # Host: Indicates if running in a container.                            Remove (Redundant in Kubernetes).
-            remove_field => "[host][ip]"                                                                          # Host: IP addresses.                                                   Remove (Not needed in Kubernetes logs).
-            remove_field => "[agent][name]"                                                                       # Agent: Name of the agent sending logs.                                Optional (Keep for tracking multi-agent environments).
-            remove_field => "[agent][id]"                                                                         # Agent: Unique identifier for the agent instance.                      Remove. Not useful unless tracking multiple agents.
-            remove_field => "[agent][version]"                                                                    # Agent: Version of the agent (e.g., 8.17.1).                           Remove. Only needed for debugging ingestion compatibility issues.
-            remove_field => "[agent][ephemeral_id]"                                                               # Agent: Temporary ID for the agent (changes on restart).               Remove (Not useful for log correlation).
-            remove_field => "[agent][type]"                                                                       # Agent: Type of agent (e.g., filebeat).	                              Remove. Always filebeat, no value in keeping it.
-            # remove_field => "[data_stream][type]"                                                               # Data stream: Type of data stream (e.g., logs).                        Keep (Helps categorize logs).
-            # remove_field => "[data_stream][dataset]"                                                            # Data stream: Dataset name (e.g., generic).                            Keep (Useful for log classification).
-            # remove_field => "[data_stream][namespace]"                                                          # Data stream: Namespace within the dataset (e.g., default).            Keep (Useful for organizing logs).
-            remove_field => "[kubernetes][namespace_labels][addonmanager_kubernetes_io/mode]"                     # Kubernetes Addon Manager mode (Reconcile/EnsureExists).	              Remove (Only relevant for add-on management, not for logs).
-            remove_field => "[kubernetes][namespace_labels][kubernetes_io/minikube-addons]"                       # Tracks enabled Minikube add-ons (e.g., Kubernetes Dashboard).         Remove (Only relevant for Minikube system logs).
-            remove_field => "[kubernetes][labels][k8s-app]"                                                       # Identifies Kubernetes system components (e.g., CoreDNS, Ingress).     Remove (Redundant unless debugging system logs).
-            # remove_field => "[kubernetes][labels][component]"
-            # remove_field => "[kubernetes][labels][tier]"
-          }
-          if ("beats_input_codec_plain_applied" in [tags] and [message] and [kubernetes][container][name]) { ## Beats json not applied
-            if ([kubernetes][container][name] == "logstash") {
-              # [2022-05-23T01:43:27,453][INFO ][logstash.outputs.elasticsearch][main]      
-              grok {
-                patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '\[%{ISO8601:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
-                tag_on_failure => ["error_non_json", "grok_error_logstash_non_json"]
-              }
-              mutate {
-                rename => { "new_message" => "message" }
-                add_field => { "filter_type" => "logstash" }
-                tag_on_failure => "mutate_error_logstash_non_json"
-              }
-            } else if ([kubernetes][container][name] == "kibana") {
-              # [2024-05-09T15:06:46.557+00:00][INFO ][plugins.securitySolution.endpoint:user-artifact-packager:1.0.0] Last computed manifest not available yet
-              grok {
-                patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '\[%{ISO8601_DOT_FUSE:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
-                tag_on_failure => ["error_non_json", "grok_error_kibana_non_json"]
-              }
-              mutate {
-                rename => { "new_message" => "message" }
-                add_field => { "filter_type" => "kibana" }
-                tag_on_failure => "mutate_error_kibana_non_json"
-              }
-            } else if ([kubernetes][container][name] == "coredns") {
-              # [INFO] 10.244.0.36:33312 - 61962 "AAAA IN quickstart-es-http.default.svc.cluster.local. udp 73 false 1232" NOERROR qr,aa,rd 155 0.000081505s
-              grok {
-                patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '\[%{SEVERITY:severity}\]%{GREEDYDATA:new_message}' }
-                tag_on_failure => ["error_non_json", "grok_error_coredns_non_json"]
-              }
-              mutate {
-                rename => { "new_message" => "message" }
-                add_field => { "filter_type" => "coredns" }
-                tag_on_failure => "mutate_error_coredns_non_json"
-              }
-            } else if ([kubernetes][container][name] == "manager") { # elastic operator
-              mutate {
-                rename => { "log.level" => "severity" }
-                add_field => { "filter_type" => "elastic_operator_non_json" }
-                tag_on_failure => "mutate_error_elastic_operator_non_json"
-              }
-            } else if ([kubernetes][container][name] == "nexus") {
-              # 2024-05-10 01:20:00,345+0000 INFO  [quartz-12-thread-20] *SYSTEM org.sonatype.nexus.quartz.internal.task.QuartzTaskInfo - Task 'Storage facet cleanup' [repository.storage-facet-cleanup] state change RUNNING -> WAITING (OK)
-              grok {
-                patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '%{DATE_SPACE_COMMA:app@timestamp}\+0000 +%{SEVERITY:severity} +%{GREEDYDATA:new_message}' }
-                tag_on_failure => ["error_non_json", "grok_error_nexus"]
-              }
-              mutate {
-                rename => { "new_message" => "message" }
-                add_field => { "filter_type" => "nexus" }
-                tag_on_failure => "mutate_error_nexus"
-              }
-            } else if (
-              [kubernetes][container][name] == "kube-scheduler"
-              or [kubernetes][container][name] == "kube-proxy"
-              or [kubernetes][container][name] == "storage-provisioner"
-              or [kubernetes][container][name] == "kube-apiserver"
-              or [kubernetes][container][name] == "kube-controller-manager"
-              or [kubernetes][container][name] == "metrics-server"
-              or [kubernetes][container][name] == "controller"
-            ) {
-              ## kube-scheduler
-              # I0509 20:14:26.186104       1 shared_informer.go:320] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::client-ca-file
-              ## kube-proxy
-              # I0509 20:14:27.376734       1 shared_informer.go:320] Caches are synced for service config
-              ## kube-controller-manager
-              # I0509 21:53:33.951322       1 replica_set.go:676] "Finished syncing" logger="replicaset-controller" kind="ReplicaSet" key="ingress-nginx/ingress-nginx-controller-69f599888b" duration="5.069868ms"
-              ## metrics-server
-              # I0509 20:15:23.999251       1 server.go:191] "Failed probe" probe="metric-storage-ready" err="no metrics to serve"
-              ## storage-provisioner
-              # I0509 20:15:06.538039       1 event.go:282] Event(v1.ObjectReference{Kind:"Endpoints", Namespace:"kube-system", Name:"k8s.io-minikube-hostpath", UID:"00d4e583-fb5b-492d-8ad8-4106b0385129", APIVersion:"v1", ResourceVersion:"95277", FieldPath:""}): type: 'Normal' reason: 'LeaderElection' minikube_33e7b30f-9b6f-4245-8baf-b2d670cea124 became leader
-              ## kube-apiserver
-              # I0509 20:14:26.062026       1 controller.go:139] Starting OpenAPI controller
-              ## controller (ingress controller, sometimes)
-              # I0510 14:42:30.585503       7 store.go:440] "Found valid IngressClass" ingress="nexus/nexus-ingress" ingressclass="nginx"
-              grok {
-                patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '%{SEVERITY:temp_severity}\d{4} \d{2}:\d{2}:\d{2}\.\d{6} +\d %{ANY_WITHOUT_RIGHT_COLCHETES:file}\]' }
-                tag_on_failure => ["grok_error_k8s"]
-              }
-              mutate {
-                add_field => { "filter_type" => "k8s" }
-              }
-              if ("grok_error_k8s" not in [tags]) {
-                if ([temp_severity] == "I") {
-                  mutate {
-                    add_field => { "severity" => "info" }
-                    remove_field => ["temp_severity"]
-                    tag_on_failure => "mutate_error_k8s"
-                  }
-                } else if ([temp_severity] == "W") {
-                  mutate {
-                    add_field => { "severity" => "warn" }
-                    remove_field => ["temp_severity"]
-                    tag_on_failure => "mutate_error_k8s"
-                  }
-                } else if ([temp_severity] == "E") {
-                  mutate {
-                    add_field => { "severity" => "error" }
-                    remove_field => ["temp_severity"]
-                    tag_on_failure => "mutate_error_k8s"
+          if ([kubernetes][container][name]) {
+            # Remove unused fields and redundant fields
+            mutate {
+              # remove_field => "[@timestamp]"                                                                      # Essential for time-based log searches.	                              Keep - Core field for indexing logs in Elasticsearch.
+              remove_field => "[@version]"                                                                          # Logstash: Default field added by Logstash, usually "1".               Optional - Can be removed unless multi-version logs need tracking.
+              # remove_field => "[message]"                                                                         # The actual log message content.	                                      Keep - The most important part of the log.
+              # remove_field => "[ecs][version]"                                                                    # Indicates the Elastic Common Schema (ECS) version.	                  Keep - Helps ensure logs remain compatible with ECS updates.
+              remove_field => "[log][offset]"                                                                       # Beats: Byte offset for file-based logs.                               Optional - Useful for tracking log ingestion positions, but remove if unnecessary.
+              # remove_field => "[log][flags]"                                                                      # Beats: Indicates special log conditions (e.g., multiline, truncated). Optional (Keep if handling multiline logs, remove otherwise).
+              # remove_field => "[log][file][path]"                                                                 # Beats: Path to the log file on the host.	                            Keep - Useful for tracing logs back to their origin.
+              # remove_field => "[input][type]"                                                                     # Beats: Identifies the log input type.	                                Keep - Helps distinguish sources (e.g., container, file).
+              # remove_field => "[stream]"                                                                          # Docker: Distinguishes between stdout and stderr.                      Keep - Can be used to infer severity (errors vs. normal output).
+              # remove_field => "[severity]"                                                                        # Custom Fabricated: Log severity (info, warn, error).	                Keep (Important for filtering logs).
+              # remove_field => "[tags]                                                                             # Custom Fabricated: Metadata (e.g., grok_error_k8s).	                  Keep (Useful for log processing errors).
+              # remove_field => "[queue]                                                                            # Custom Fabricated: Log pipeline name (beats, dlq_read).               Keep (Useful for routing/debugging logs).
+              # remove_field => "[filter_type]                                                                      # Custom Fabricated: Custom field defining the log type.	              Keep (Important for structured log filtering).
+              remove_field => "[kubernetes][node][name]"                                                            # K8S: Name of the Kubernetes node.                                     Optional - Identifies where the pod is running. In Minikube or Bare-Metal Clusters it is the same as host.name.
+              remove_field => "[kubernetes][node][uid]"                                                             # K8S: Unique ID of the node.	                                          Optional (Keep if debugging node replacement issues).
+              remove_field => "[kubernetes][node][hostname]"                                                        # K8S: Hostname of the node.	                                          Optional (Only needed in cloud environments).
+              remove_field => "[kubernetes][node][labels][minikube_k8s_io/version]"	                                # K8S: Minikube version.                                                Remove (Not useful in production).
+              remove_field => "[kubernetes][node][labels][node_kubernetes_io/exclude-from-external-load-balancers]"	#	K8S: Excludes node from external load balancers.	                    Remove (Only relevant in special networking setups).
+              remove_field => "[kubernetes][node][labels][beta_kubernetes_io/arch]"	                                #	K8S: Node architecture (amd64, arm64).	                              Remove (Redundant with host.architecture).
+              remove_field => "[kubernetes][node][labels][minikube_k8s_io/commit]"	                                #	K8S: Minikube commit ID.	                                            Remove (Minikube-specific, not needed).
+              remove_field => "[kubernetes][node][labels][minikube_k8s_io/name]"	                                  #	K8S: Minikube node name.               	                              Remove (Minikube-specific).
+              remove_field => "[kubernetes][node][labels][minikube_k8s_io/primary]"                                 #	K8S: Marks primary Minikube node.	                                    Remove (Not useful for logs).
+              remove_field => "[kubernetes][node][labels][kubernetes_io/os]"	                                      #	K8S: Node OS.                                                         Remove (Redundant with host.os.platform).
+              remove_field => "[kubernetes][node][labels][beta_kubernetes_io/os]"	                                  #	K8S: Legacy node OS label.                                            Remove (Deprecated).
+              remove_field => "[kubernetes][node][labels][minikube_k8s_io/updated_at]"	                            #	K8S: Minikube update timestamp.	                                      Remove (Only relevant to Minikube).
+              remove_field => "[kubernetes][node][labels][kubernetes_io/hostname]"	                                #	K8S: Kubernetes node hostname.                                        Remove (Redundant with kubernetes.node.name).
+              remove_field => "[kubernetes][node][labels][kubernetes_io/arch]"                                      #	K8S: Node architecture (amd64, arm64).                                Remove (Redundant with host.architecture).
+              remove_field => "[kubernetes][node][labels][node-role_kubernetes_io/control-plane]"	                  #	K8S: Indicates if node is control-plane.                              Remove (Only needed for infrastructure monitoring).
+              remove_field => "[kubernetes][labels][app_kubernetes_io/name]"                                        #	K8S: Application name.                                                Remove (Redundant, always same value for ingress-nginx).
+              remove_field => "[kubernetes][labels][app_kubernetes_io/component]"                                   #	K8S: Application component (e.g., controller).                        Optional (Keep if filtering logs by component role).
+              remove_field => "[kubernetes][labels][pod-template-hash]"                                             #	K8S: Tracks which ReplicaSet a pod belongs to.                        Remove (Not useful for daily debugging).
+              # remove_field => "[kubernetes][labels][gcp-auth-skip-secret]"                                        #	K8S: Indicates if GCP auth secret is skipped.                         Remove (Only relevant in GKE).
+              remove_field => "[kubernetes][labels][app_kubernetes_io/instance]"                                    # K8S: Identifies the instance of the application.                      Remove (Unnecessary, same value as name).
+              remove_field => "[kubernetes][namespace_labels][app_kubernetes_io/instance]"                          # K8S: Instance of the application.                                     Remove (No extra value, already redundant).
+              remove_field => "[kubernetes][namespace_labels][kubernetes_io/metadata_name]"                         # K8S: Namespace metadata.                                              Remove (Redundant with kubernetes.namespace).
+              remove_field => "[kubernetes][namespace_labels][app_kubernetes_io/name]"                              # K8S: Application name in namespace.                                   Remove (No extra value, already redundant).
+              # remove_field => "[kubernetes][namespace]"	                                                          # K8S: Namespace the pod belongs to.	                                  Keep - Essential for multi-namespace clusters.
+              remove_field => "[kubernetes][namespace_uid]"                                                         # K8S: Unique ID of the namespace.	                                    Remove - Usually redundant unless tracking dynamic namespaces.
+              remove_field => "[kubernetes][replicaset][name]"                                                      # K8S: ReplicaSet managing the pod.	                                    Optional - Helps with scaling/debugging but may not be necessary.
+              # remove_field => "[kubernetes][pod][name]"                                                           # K8S: Identifies which pod generated the log.	                        Keep - Crucial for tracing logs back to applications.
+              remove_field => "[kubernetes][pod][ip]"                                                               # K8S: IP address of the pod.	                                          Optional - Useful for network debugging but can be removed if unnecessary.
+              remove_field => "[kubernetes][pod][uid]"                                                              # K8S: Unique identifier of the pod.                                    Optional - Keep for debugging pod restarts, remove if pod.name is enough.
+              # remove_field => "[kubernetes][container][name]"                                                     # K8S: Name of the container within the pod.                            Keep - Needed for multi-container pods and essential for easier rules.
+              # remove_field => "[container][image][name]"                                                          # Container: Name of the container image.	                              Keep (Useful for tracking image versions).
+              # remove_field => "[container][id]"                                                                   # Container: Unique container ID.                                       Keep (Useful for debugging container restarts).
+              remove_field => "[container][runtime]"                                                                # Container: Runtime (docker, containerd).                              Optional (Keep if multiple runtimes are used).
+              remove_field => "[host][mac]"	                                                                        # Host: MAC addresses.                                                  Remove (Unnecessary in most cases).
+              remove_field => "[host][hostname]"                                                                    # Host: Hostname of the system.                                         Optional (Keep in cloud environments).
+              # remove_field => "[host][architecture]"                                                              # Host: CPU architecture.                                               Keep (Useful for identifying CPU architecture issues).
+              # remove_field => "[host][name]"                                                                      # Host: Hostname of the node.	                                          Keep (Useful for tracing logs back to a node).
+              remove_field => "[host][os][name]"                                                                    # Host: OS name.                                                        Remove (Redundant with host.os.platform).
+              remove_field => "[host][os][kernel]"                                                                  # Host: Kernel version.                                                 Optional (Useful for debugging OS-level issues).
+              remove_field => "[host][os][codename]"                                                                # Host: OS codename.                                                    Remove (Not useful for logs).
+              # remove_field => "[host][os][platform]"                                                              # Host: OS platform.                                                    Keep (Useful for filtering logs by OS).
+              remove_field => "[host][os][version]"                                                                 # Host: OS version.                                                     Remove (Usually not needed).
+              remove_field => "[host][os][family]"                                                                  # Host: OS family (debian, rhel).                                       Remove (Redundant).
+              remove_field => "[host][os][type]"                                                                    # Host: OS type (linux, windows).                                       Remove (Not useful).
+              remove_field => "[host][containerized]"                                                               # Host: Indicates if running in a container.                            Remove (Redundant in Kubernetes).
+              remove_field => "[host][ip]"                                                                          # Host: IP addresses.                                                   Remove (Not needed in Kubernetes logs).
+              remove_field => "[agent][name]"                                                                       # Agent: Name of the agent sending logs.                                Optional (Keep for tracking multi-agent environments).
+              remove_field => "[agent][id]"                                                                         # Agent: Unique identifier for the agent instance.                      Remove. Not useful unless tracking multiple agents.
+              remove_field => "[agent][version]"                                                                    # Agent: Version of the agent (e.g., 8.17.1).                           Remove. Only needed for debugging ingestion compatibility issues.
+              remove_field => "[agent][ephemeral_id]"                                                               # Agent: Temporary ID for the agent (changes on restart).               Remove (Not useful for log correlation).
+              remove_field => "[agent][type]"                                                                       # Agent: Type of agent (e.g., filebeat).	                              Remove. Always filebeat, no value in keeping it.
+              # remove_field => "[data_stream][type]"                                                               # Data stream: Type of data stream (e.g., logs).                        Keep (Helps categorize logs).
+              # remove_field => "[data_stream][dataset]"                                                            # Data stream: Dataset name (e.g., generic).                            Keep (Useful for log classification).
+              # remove_field => "[data_stream][namespace]"                                                          # Data stream: Namespace within the dataset (e.g., default).            Keep (Useful for organizing logs).
+              remove_field => "[kubernetes][namespace_labels][addonmanager_kubernetes_io/mode]"                     # Kubernetes Addon Manager mode (Reconcile/EnsureExists).	              Remove (Only relevant for add-on management, not for logs).
+              remove_field => "[kubernetes][namespace_labels][kubernetes_io/minikube-addons]"                       # Tracks enabled Minikube add-ons (e.g., Kubernetes Dashboard).         Remove (Only relevant for Minikube system logs).
+              remove_field => "[kubernetes][labels][k8s-app]"                                                       # Identifies Kubernetes system components (e.g., CoreDNS, Ingress).     Remove (Redundant unless debugging system logs).
+              # remove_field => "[kubernetes][labels][component]"
+              # remove_field => "[kubernetes][labels][tier]"
+              remove_field => ["event.original"]                                                                    # Original log message before parsing.                                  Remove (Not useful after parsing).
+            }
+            ## Beats json not applied
+            if (![json]) {
+              if ([kubernetes][container][name] == "logstash") {
+                # [2022-05-23T01:43:27,453][INFO ][logstash.outputs.elasticsearch][main]      
+                grok {
+                  patterns_dir => ["/opt/logstash/custom_patterns"]
+                  match => { "message" => '\[%{ISO8601:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
+                  tag_on_failure => ["error_non_json", "grok_error_logstash_non_json"]
+                }
+                mutate {
+                  rename => { "new_message" => "message" }
+                  add_field => { "filter_type" => "logstash" }
+                  tag_on_failure => "mutate_error_logstash_non_json"
+                }
+              } else if ([kubernetes][container][name] == "kibana") {
+                # [2024-05-09T15:06:46.557+00:00][INFO ][plugins.securitySolution.endpoint:user-artifact-packager:1.0.0] Last computed manifest not available yet
+                grok {
+                  patterns_dir => ["/opt/logstash/custom_patterns"]
+                  match => { "message" => '\[%{ISO8601_DOT_FUSE:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
+                  tag_on_failure => ["error_non_json", "grok_error_kibana_non_json"]
+                }
+                mutate {
+                  rename => { "new_message" => "message" }
+                  add_field => { "filter_type" => "kibana" }
+                  tag_on_failure => "mutate_error_kibana_non_json"
+                }
+              } else if ([kubernetes][container][name] == "coredns") {
+                # [INFO] 10.244.0.36:33312 - 61962 "AAAA IN quickstart-es-http.default.svc.cluster.local. udp 73 false 1232" NOERROR qr,aa,rd 155 0.000081505s
+                grok {
+                  patterns_dir => ["/opt/logstash/custom_patterns"]
+                  match => { "message" => '\[%{SEVERITY:severity}\]%{GREEDYDATA:new_message}' }
+                  tag_on_failure => ["error_non_json", "grok_error_coredns_non_json"]
+                }
+                mutate {
+                  rename => { "new_message" => "message" }
+                  add_field => { "filter_type" => "coredns" }
+                  tag_on_failure => "mutate_error_coredns_non_json"
+                }
+              } else if ([kubernetes][container][name] == "manager") { # elastic operator
+                mutate {
+                  rename => { "log.level" => "severity" }
+                  add_field => { "filter_type" => "elastic_operator_non_json" }
+                  tag_on_failure => "mutate_error_elastic_operator_non_json"
+                }
+              } else if ([kubernetes][container][name] == "nexus") {
+                ## drop for now
+                drop { }
+                # # 2024-05-10 01:20:00,345+0000 INFO  [quartz-12-thread-20] *SYSTEM org.sonatype.nexus.quartz.internal.task.QuartzTaskInfo - Task 'Storage facet cleanup' [repository.storage-facet-cleanup] state change RUNNING -> WAITING (OK)
+                # grok {
+                #   patterns_dir => ["/opt/logstash/custom_patterns"]
+                #   match => { "message" => '%{DATE_SPACE_COMMA:app@timestamp}\+0000 +%{SEVERITY:severity} +%{GREEDYDATA:new_message}' }
+                #   tag_on_failure => ["error_non_json", "grok_error_nexus"]
+                # }
+                # mutate {
+                #   gsub => [ "app@timestamp", ",", "." ] 
+                #   rename => { "new_message" => "message" }
+                #   add_field => { "filter_type" => "nexus" }
+                #   tag_on_failure => "mutate_error_nexus"
+                # }
+              } else if (
+                [kubernetes][container][name] == "kube-scheduler"
+                or [kubernetes][container][name] == "kube-proxy"
+                or [kubernetes][container][name] == "storage-provisioner"
+                or [kubernetes][container][name] == "kube-apiserver"
+                or [kubernetes][container][name] == "kube-controller-manager"
+                or [kubernetes][container][name] == "metrics-server"
+                or [kubernetes][container][name] == "controller"
+              ) {
+                ## kube-scheduler
+                # I0509 20:14:26.186104       1 shared_informer.go:320] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::client-ca-file
+                ## kube-proxy
+                # I0509 20:14:27.376734       1 shared_informer.go:320] Caches are synced for service config
+                ## kube-controller-manager
+                # I0509 21:53:33.951322       1 replica_set.go:676] "Finished syncing" logger="replicaset-controller" kind="ReplicaSet" key="ingress-nginx/ingress-nginx-controller-69f599888b" duration="5.069868ms"
+                ## metrics-server
+                # I0509 20:15:23.999251       1 server.go:191] "Failed probe" probe="metric-storage-ready" err="no metrics to serve"
+                ## storage-provisioner
+                # I0509 20:15:06.538039       1 event.go:282] Event(v1.ObjectReference{Kind:"Endpoints", Namespace:"kube-system", Name:"k8s.io-minikube-hostpath", UID:"00d4e583-fb5b-492d-8ad8-4106b0385129", APIVersion:"v1", ResourceVersion:"95277", FieldPath:""}): type: 'Normal' reason: 'LeaderElection' minikube_33e7b30f-9b6f-4245-8baf-b2d670cea124 became leader
+                ## kube-apiserver
+                # I0509 20:14:26.062026       1 controller.go:139] Starting OpenAPI controller
+                ## controller (ingress controller, sometimes)
+                # I0510 14:42:30.585503       7 store.go:440] "Found valid IngressClass" ingress="nexus/nexus-ingress" ingressclass="nginx"
+                grok {
+                  patterns_dir => ["/opt/logstash/custom_patterns"]
+                  match => { "message" => '%{SEVERITY:temp_severity}\d{4} \d{2}:\d{2}:\d{2}\.\d{6} +\d %{ANY_WITHOUT_RIGHT_COLCHETES:file}\]' }
+                  tag_on_failure => ["grok_error_k8s"]
+                }
+                mutate {
+                  add_field => { "filter_type" => "k8s" }
+                }
+                if ("grok_error_k8s" not in [tags]) {
+                  if ([temp_severity] == "I") {
+                    mutate {
+                      add_field => { "severity" => "info" }
+                      remove_field => ["temp_severity"]
+                      tag_on_failure => "mutate_error_k8s"
+                    }
+                  } else if ([temp_severity] == "W") {
+                    mutate {
+                      add_field => { "severity" => "warn" }
+                      remove_field => ["temp_severity"]
+                      tag_on_failure => "mutate_error_k8s"
+                    }
+                  } else if ([temp_severity] == "E") {
+                    mutate {
+                      add_field => { "severity" => "error" }
+                      remove_field => ["temp_severity"]
+                      tag_on_failure => "mutate_error_k8s"
+                    }
                   }
                 }
-              }
-            } else if ([kubernetes][container][name] == "postgres") {
-              # 2024-05-09 20:19:41.476 UTC [48] LOG: checkpoint complete: wrote 44 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=4.111 s, sync=0.006 s, total=4.126 s; sync files=11, longest=0.004 s, average=0.001 s; distance=261 kB, estimate=261 kB; lsn=0/1531A10, redo lsn=0/15319D8
-              grok {
-                patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "message" => '%{DATE_DOT_MILLIS_UTC:app@timestamp} \[\d+\] %{SEVERITY:severity}: +%{GREEDYDATA:new_message}' }
-                tag_on_failure => ["error_non_json", "grok_error_postgres"]
-              }
-              mutate {
-                rename => { "new_message" => "message" }
-                add_field => { "filter_type" => "postgres" }
-                tag_on_failure => "mutate_error_postgres"
-              }
-            }
-            if ("error_non_json" not in [tags] and [event]) {
-              mutate {
-                remove_field => "[event][original]"
-              }
-            }
-          } else if ([kubernetes][container][name]) { ## Beats json decoded
-            # Custom parsings
-            if ([kubernetes][container][name] == "controller" or [kubernetes][container][name] == "my-site-nginx") { # ingress controller
-              mutate {
-                add_field => { "filter_type" => "controller_json" }
-                tag_on_failure => "mutate_error_controller_json"
-              }
-              if ([json][http][response][status]) {
-                if [json][http][response][status] >= 300 {
-                  mutate { add_field => { "severity" => "error" } }
-                } else if [json][http][response][status] >= 200 {
-                  mutate { add_field => { "severity" => "info" } }
-                } else {
-                  mutate { add_field => { "severity" => "warn" } }
+              } else if ([kubernetes][container][name] == "postgres") {
+                # 2024-05-09 20:19:41.476 UTC [48] LOG: checkpoint complete: wrote 44 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=4.111 s, sync=0.006 s, total=4.126 s; sync files=11, longest=0.004 s, average=0.001 s; distance=261 kB, estimate=261 kB; lsn=0/1531A10, redo lsn=0/15319D8
+                grok {
+                  patterns_dir => ["/opt/logstash/custom_patterns"]
+                  match => { "message" => '%{DATE_DOT_MILLIS_UTC:app@timestamp} \[\d+\] %{SEVERITY:severity}: +%{GREEDYDATA:new_message}' }
+                  tag_on_failure => ["error_non_json", "grok_error_postgres"]
+                }
+                mutate {
+                  rename => { "new_message" => "message" }
+                  add_field => { "filter_type" => "postgres" }
+                  tag_on_failure => "mutate_error_postgres"
                 }
               }
-            } else if ([kubernetes][container][name] =="my-site-back-end") {
-              mutate {
-                rename => { "[json][event]" => "action" }
+              if ("error_non_json" not in [tags] and [event]) {
+                mutate {
+                  remove_field => "[event][original]"
+                }
               }
-            }else if ([kubernetes][container][name] == "filebeat" or [kubernetes][container][name] == "agent" or [kubernetes][container][name] == "apm-server") {
-              mutate {
-                rename => { "[json][@timestamp]" => "app@timestamp" }
-                add_field => { "filter_type" => "%{[kubernetes][container][name]}_json" }
-                rename => { "[json][log.level]" => "severity" }
-                add_field => { "file" => "%{[json][log.origin][file.name]}:%{[json][log.origin][file.line]}" }
-                tag_on_failure => "mutate_error_elastic_json"
+            } else { ## Beats json decoded
+              # Custom parsings
+              if ([kubernetes][container][name] == "controller" or [kubernetes][container][name] == "my-site-nginx") { # ingress controller
+                mutate {
+                  add_field => { "filter_type" => "controller_json" }
+                  tag_on_failure => "mutate_error_controller_json"
+                }
+                if ([json][http][response][status]) {
+                  if [json][http][response][status] >= 300 {
+                    mutate { add_field => { "severity" => "error" } }
+                  } else if [json][http][response][status] >= 200 {
+                    mutate { add_field => { "severity" => "info" } }
+                  } else {
+                    mutate { add_field => { "severity" => "warn" } }
+                  }
+                }
+              } else if ([kubernetes][container][name] =="my-site-back-end") {
+                mutate {
+                  rename => { "[json][event]" => "action" }
+                }
+              } else if ([kubernetes][container][name] == "filebeat" or [kubernetes][container][name] == "agent" or [kubernetes][container][name] == "apm-server") {
+                if ([kubernetes][container][name] == "filebeat") {
+                  # {"log.level":"warn","@timestamp":"2025-02-12T00:56:10.007Z","log.logger":"cfgwarn","log.origin":{"function":"github.com/elastic/beats/v7/filebeat/input/log.NewInput.func1","file.name":"log/input.go","file.line":92},"message":"DEPRECATED: Log input. Use Filestream input instead.","service.name":"filebeat","ecs.version":"1.6.0"}
+                  if [message] =~ /DEPRECATED: Log input/ {
+                    drop { }
+                  }
+                }
+                mutate {
+                  rename => { "[json][@timestamp]" => "app@timestamp" }
+                  add_field => { "filter_type" => "%{[kubernetes][container][name]}_json" }
+                  rename => { "[json][log.level]" => "severity" }
+                  add_field => { "file" => "%{[json][log.origin][file.name]}:%{[json][log.origin][file.line]}" }
+                  tag_on_failure => "mutate_error_elastic_json"
+                }
+                mutate {
+                  remove_field => ["[json][log.origin][file.name]", "[json][log.origin][file.line]"]
+                  tag_on_failure => "mutate_error_elastic_json"
+                }
+              } else if ([kubernetes][container][name] == "elasticsearch") {
+                mutate {
+                  rename => { "[json][@timestamp]" => "app@timestamp" }
+                  add_field => { "filter_type" => "elasticsearch_json" }
+                  rename => { "[json][log.level]" => "severity" }
+                  tag_on_failure => "mutate_error_elasticsearch_json"
+                }
+              } else if ([kubernetes][container][name] == "etcd") {
+                mutate {
+                  remove_field => ["[json][message]"]
+                }
+                mutate {
+                  rename => { "[json][ts]" => "app@timestamp" }
+                  rename => { "[json][caller]" => "file" }
+                  rename => { "[json][msg]" => "message" }
+                  rename => { "[json][level]" => "severity" }
+                  add_field => { "filter_type" => "etcd_json" }
+                  tag_on_failure => "mutate_error_etcd_json"
+                }
+                # 2024-05-09T18:52:35.881931Z
+                # ruby {
+                #   code => '
+                #     if event.get("[app@timestamp]")
+                #       event.set("[app@timestamp]", event.get("[app@timestamp]")[0..22])
+                #     end
+                #   '
+                #   tag_on_exception => "mutate_error_etcd_timestamp"
+                # }
+              } else if ([kubernetes][container][name] == "kibana") {
+                # [2024-05-09T15:06:46.557+00:00][INFO ][plugins.securitySolution.endpoint:user-artifact-packager:1.0.0] Last computed manifest not available yet
+                grok {
+                  patterns_dir => ["/opt/logstash/custom_patterns"]
+                  match => { "[json][message]" => '\[%{ISO8601_DOT_FUSE:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
+                  tag_on_failure => ["error_json", "grok_error_kibana_json"]
+                }
+                mutate {
+                  remove_field => ["[json][message]"]
+                  rename => { "new_message" => "message" }
+                  add_field => { "filter_type" => "kibana_json" }
+                  tag_on_failure => "mutate_error_kibana_json"
+                }
               }
-              mutate {
-                remove_field => ["[json][log.origin][file.name]", "[json][log.origin][file.line]"]
-                tag_on_failure => "mutate_error_elastic_json"
-              }
-            } else if ([kubernetes][container][name] == "elasticsearch") {
-              mutate {
-                rename => { "[json][@timestamp]" => "app@timestamp" }
-                add_field => { "filter_type" => "elasticsearch_json" }
-                rename => { "[json][log.level]" => "severity" }
-                tag_on_failure => "mutate_error_elasticsearch_json"
-              }
-            } else if ([kubernetes][container][name] == "etcd") {
-              mutate {
-                remove_field => ["[json][message]"]
-              }
-              mutate {
-                rename => { "[json][ts]" => "app@timestamp" }
-                rename => { "[json][caller]" => "file" }
-                rename => { "[json][msg]" => "message" }
-                rename => { "[json][level]" => "severity" }
-                add_field => { "filter_type" => "etcd_json" }
-                tag_on_failure => "mutate_error_etcd_json"
-              }
-              # 2024-05-09T18:52:35.881931Z
+              ## Move json properties to root level
               ruby {
                 code => '
-                  if event.get("[app@timestamp]")
-                    event.set("[app@timestamp]", event.get("[app@timestamp]")[0..22])
+                  json_fields = event.get("[json]")
+                  if json_fields.is_a?(Hash)
+                    json_fields.each { |k,v|
+                      if (k != "@timestamp")
+                        event.set(k,v)
+                      end
+                    }
                   end
                 '
-                tag_on_exception => "mutate_error_etcd_timestamp"
               }
-            } else if ([kubernetes][container][name] == "kibana") {
-              # [2024-05-09T15:06:46.557+00:00][INFO ][plugins.securitySolution.endpoint:user-artifact-packager:1.0.0] Last computed manifest not available yet
-              grok {
-                patterns_dir => ["/opt/logstash/custom_patterns"]
-                match => { "[json][message]" => '\[%{ISO8601_DOT_FUSE:app@timestamp}\]\[%{SEVERITY:severity} *\]%{GREEDYDATA:new_message}' }
-                tag_on_failure => ["error_json", "grok_error_kibana_json"]
-              }
-              mutate {
-                remove_field => ["[json][message]"]
-                rename => { "new_message" => "message" }
-                add_field => { "filter_type" => "kibana_json" }
-                tag_on_failure => "mutate_error_kibana_json"
-              }
-            }
-
-            # Move json properties to root level
-            ruby {
-              code => '
-                json_fields = event.get("[json]")
-                if json_fields.is_a?(Hash)
-                  json_fields.each { |k,v|
-                    if (k != "@timestamp")
-                      event.set(k,v)
-                    end
-                  }
-                end
-              '
-            }
-            if ("_rubyexception" not in [tags]) {
-              mutate {
-                remove_field => "json"
+              if ("_rubyexception" not in [tags]) {
+                mutate {
+                  remove_field => "json"
+                }
               }
             }
           }
-
           # Coalesce severity by stream channel
           if ([severity]) {
             mutate {
@@ -398,7 +409,6 @@ stringData:
               }
             }
           }
-
           # Enforces precised app@timestamp if available
           if ([app@timestamp]) {
             date { match => [
@@ -419,7 +429,6 @@ stringData:
               "yyyy-MM-dd HH:mm:ss.SSS 'UTC'"
             ] }
           }
-
           if ([data_stream][dataset]) {
             mutate {
               replace => { "[data_stream][dataset]" => "%{[kubernetes][container][name]}" }
@@ -433,7 +442,8 @@ stringData:
             user => "${QS_ES_USER}"
             password => "${QS_ES_PASSWORD}"
             ssl_certificate_authorities => "${QS_ES_SSL_CERTIFICATE_AUTHORITY}"
-            data_stream => true
+            data_stream => "true"
+            data_stream_auto_routing => "true"
             # data_stream_dataset => "%{[kubernetes][container][name]}"
             # index => "logs-generic-%{[kubernetes][namespace]}-%{[kubernetes][container][name]}-%{+YYYY.MM.dd}"
             action => "create"
@@ -457,13 +467,21 @@ stringData:
               "queue" => "dlq_read"
             }
           }
+          if ([data_stream][dataset]) {
+            mutate {
+              replace => { "[data_stream][dataset]" => "%{[kubernetes][container][name]}_dlq" }
+            }
+          }
         }
+
         output {
           elasticsearch {
             hosts => [ "${QS_ES_HOSTS}" ]
             user => "${QS_ES_USER}"
             password => "${QS_ES_PASSWORD}"
             ssl_certificate_authorities => "${QS_ES_SSL_CERTIFICATE_AUTHORITY}"
+            data_stream => "true"
+            data_stream_auto_routing => "true"
             action => "create"
           }
         }
