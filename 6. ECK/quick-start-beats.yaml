@@ -6,62 +6,87 @@ spec:
   type: filebeat
   version: 8.17.1
   config:
+    setup.ilm.enabled: false
+    setup.template.enabled: false
+    setup.template.overwrite: false
+    setup.kibana.enabled: false
+    setup.ilm.check_exists: false
+    setup.dashboards.enabled: false
+    setup.template.settings:
+      index.default_pipeline: ""
+      index.final_pipeline: ""
     filebeat:
+      modules: []
       logging.level: debug
-      logging.selectors: ["*"]
+      logging.selectors: ["*", "reader_json", "input"]
       autodiscover:
         providers:
           - type: kubernetes
             node: ${NODE_NAME}
             cleanup_timeout: 60s
-            add_host_metadata:
-              enabled: true
-            add_cloud_metadata:
-              enabled: true
-            hints.enabled: true
-            hints.default_config:
-              type: container
-              id: ${data.kubernetes.container.id}
-              paths:
-                - /var/log/containers/*${data.kubernetes.container.id}.log
-              json.default: true
-              json.message_key: message
+            hints.enabled: false
             templates:
-              # Node.js Applications
+              # Node.js Applications (Back-End)
               - condition:
-                  equals:
+                  contains:
                     kubernetes.labels.app: "my-site-back-end"
                 config:
                   - type: container
+                    id: "my-site-back-end-logs-${data.kubernetes.pod.name:-unknown-pod}-${data.kubernetes.container.id:-unknown-container}"
                     paths:
                       - /var/log/containers/*${data.kubernetes.container.id}.log
-                    multiline.pattern: "^[[:space:]]|^[[:alpha:]]+Error|^}$|^Node\\.js|^\\[|^$"
-                    multiline.negate: false
-                    multiline.match: after
-              # Kibana Logs (Multiline for Kibana Errors)
-              - condition:
-                  equals:
-                    kubernetes.container.name: "kibana"
-                config:
-                  - type: container
-                    paths:
-                      - /var/log/containers/*${data.kubernetes.container.id}.log
-                    multiline.pattern: "^[\\d{4}-\\d{2}-\\d{2}T.*?] [(INFO|WARN|ERROR|FATAL)]"
-                    multiline.negate: true
-                    multiline.match: after
-              # CoreDNS Logs (Single-line, No Multiline Processing)
-              - condition:
-                  equals:
-                    kubernetes.container.name: "coredns"
-                config:
-                  - type: container
-                    paths:
-                      - /var/log/containers/*${data.kubernetes.container.id}.log
-                    # No multiline rules applied for CoreDNS
+                    multiline:
+                      pattern: "^[[:space:]]|^[[:alpha:]]+Error|^}$|^Node\\.js|^\\[|^$"
+                      negate: false
+                      match: after
+                      when:
+                        not.regexp:
+                          message: '^\{'
+              # # Kibana Logs (Multiline for Kibana Errors)
+              # - condition:
+              #     equals:
+              #       kubernetes.container.name: "kibana"
+              #   config:
+              #     - type: container
+              #       paths:
+              #         - /var/log/containers/*${data.kubernetes.container.id}.log
+              #       multiline.pattern: "^[\\d{4}-\\d{2}-\\d{2}T.*?] [(INFO|WARN|ERROR|FATAL)]"
+              #       multiline.negate: true
+              #       multiline.match: after
+              # # CoreDNS Logs (Single-line, No Multiline Processing)
+              # - condition:
+              #     equals:
+              #       kubernetes.container.name: "coredns"
+              #   config:
+              #     - type: container
+              #       paths:
+              #         - /var/log/containers/*${data.kubernetes.container.id}.log
+              #       # No multiline rules applied for CoreDNS
     processors:
       - add_host_metadata: {}
+      - drop_event:
+          when:
+            not:
+              equals:
+                kubernetes.container.name: "my-site-back-end"
+      - decode_json_fields:
+          fields: ["message"]
+          process_array: false
+          max_depth: 1
+          target: "json"
+          overwrite_keys: true
+          expand_keys: false
+          add_error_key: true
+          when:
+            regexp:
+              message: '^\{'
     output.logstash:
       hosts: "quickstart-ls-beats"
+    output.elasticsearch:
+      enabled: false
+    # output.console:
+    #   enabled: true
+    #   pretty: false
   daemonSet:
     podTemplate:
       spec:
