@@ -61,6 +61,10 @@ spec:
               value: '5432'
             - name: LOGGER_DEBUG_PATHS
               value: '*@dnorio/db-wrapper/src/index.ts'
+            - name: TOR_SERVICE
+              value: torproxy-service.default.svc.cluster.local
+            - name: TOR_PORT
+              value: '9050'
           livenessProbe:
             httpGet:
               path: /health
@@ -118,10 +122,10 @@ spec:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 60
+          averageUtilization: 90
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 90
