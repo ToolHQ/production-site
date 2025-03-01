@@ -23,38 +23,35 @@ spec:
             - containerPort: 9050
           resources:
             requests:
-              memory: 72Mi
-              cpu: 0.3
+              memory: 120Mi
+              cpu: 0.4
             limits:
               memory: 256Mi
               cpu: 0.6
-          # livenessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: 9050
-          #   initialDelaySeconds: 5
-          #   periodSeconds: 10
-          #   timeoutSeconds: 3
-          #   failureThreshold: 3
-          #   successThreshold: 1
-          # readinessProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: 9050
-          #   initialDelaySeconds: 10
-          #   periodSeconds: 5
-          #   timeoutSeconds: 3
-          #   failureThreshold: 3
-          #   successThreshold: 1
-          # startupProbe:
-          #   httpGet:
-          #     path: /health
-          #     port: 9050
-          #   initialDelaySeconds: 5
-          #   periodSeconds: 3
-          #   timeoutSeconds: 5
-          #   failureThreshold: 5
-          #   successThreshold: 1
+          livenessProbe:
+            tcpSocket:
+              port: 9050
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            tcpSocket:
+              port: 9050
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          startupProbe:
+            tcpSocket:
+              port: 9050
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+            successThreshold: 1
 ---
 apiVersion: v1
 kind: Service
