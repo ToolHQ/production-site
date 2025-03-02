@@ -11,3 +11,5 @@ spec:
     xpack.fleet.packages:
       - name: apm
         version: latest
+      - name: elastic_agent
+        version: latest
