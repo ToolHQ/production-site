@@ -100,9 +100,12 @@ kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-es-ingress.yaml"
 ELASTIC_PASSWORD=$(kubectl get secret quickstart-es-elastic-user -o go-template='{{.data.elastic | base64decode}}')
 echo $ELASTIC_PASSWORD
 ELASTIC_AUTHORIZATION_HEADER="Basic $(echo -n "elastic:$ELASTIC_PASSWORD" | base64)"
-curl -k -X GET https://es.localhost/_cat/templates -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER"
-curl -k -X PUT https://es.localhost/_index_template/template_1 -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -H 'Content-Type:application/json' -d '{ "index_patterns": ["logs-*", "metrics-*"], "priority": 600, "data_stream": {}, "template": { "settings": { "number_of_shards": 1, "number_of_replicas": 0 } } }'
-curl -k -X PUT https://es.localhost/\*/_settings -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -H 'Content-Type:application/json' -d '{ "index.number_of_replicas": 0 }'
+curl -k -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -X GET https://es.localhost/_cat/templates
+curl -k -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -X PUT https://es.localhost/_index_template/template_1 -H 'Content-Type:application/json' -d '{ "index_patterns": ["logs-*", "metrics-*"], "priority": 600, "data_stream": {}, "template": { "settings": { "number_of_shards": 1, "number_of_replicas": 0 } } }'
+curl -k -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -X PUT https://es.localhost/\*/_settings -H 'Content-Type:application/json' -d '{ "index.number_of_replicas": 0 }'
+# curl -k -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -X DELETE "https://es.localhost/.ds-metrics-apm.internal-default-2025.03.02-000001"
+# curl -k -H "Authorization:$ELASTIC_AUTHORIZATION_HEADER" -X PUT -H "Content-Type: application/json" -d '{ "index_patterns": ["metrics-apm.internal-default*"], "template": { "mappings": { "properties": { "@timestamp": { "type": "date" },"metricset.samples.value": { "type": "long" } } } } }' -k "https://es.localhost/_index_template/metrics-apm.internal-default"
+
 
 ## Kibana
 kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-kibana.yaml"

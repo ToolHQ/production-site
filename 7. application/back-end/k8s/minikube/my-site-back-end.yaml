@@ -65,6 +65,15 @@ spec:
               value: torproxy-service.default.svc.cluster.local
             - name: TOR_PORT
               value: '9050'
+            - name: APM_SERVER_URL
+              value: https://apm-server-quickstart-apm-http.default.svc.cluster.local:8200
+            - name: ELASTIC_APM_LOG_LEVEL
+              value: debug
+            - name: APM_SERVER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: apm-server-quickstart-apm-token
+                  key: secret-token
           livenessProbe:
             httpGet:
               path: /health
