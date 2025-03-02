@@ -4,7 +4,7 @@ metadata:
   name: apm-server-quickstart
   namespace: default
 spec:
-  version: 8.13.3
+  version: 8.17.1
   count: 1
   elasticsearchRef:
     name: quickstart

@@ -1,3 +1,4 @@
+import './apm.js';
 import express, { Request, Response, NextFunction } from 'express';
 
 import Logger from '@dnorio/logger';
@@ -11,6 +12,7 @@ import { addSwaggerToExpress } from './services/swagger.js';
 import { validateQueries } from './services/node-sql-parser.js';
 
 const { logger } = Logger();
+
 const app = express();
 const port = 3000;
 
