@@ -17,7 +17,7 @@ spec:
         - name: regsecret
       containers:
         - name: my-site-back-end
-          image: docker-nexus.localhost/repository/docker-repo/my-site-back-end:1741050963
+          image: docker-nexus.localhost/repository/docker-repo/my-site-back-end:1741088593
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
@@ -65,15 +65,15 @@ spec:
               value: torproxy-service.default.svc.cluster.local
             - name: TOR_PORT
               value: '9050'
-            - name: APM_SERVER_URL
-              value: https://apm-server-quickstart-apm-http.default.svc.cluster.local:8200
             - name: ELASTIC_APM_LOG_LEVEL
-              value: debug
-            - name: APM_SERVER_TOKEN
+              value: info
+            - name: ELASTIC_APM_SERVER_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: apm-server-quickstart-apm-token
                   key: secret-token
+            - name: ELASTIC_APM_SERVER_URL
+              value: https://apm-server-quickstart-apm-http.default.svc.cluster.local:8200
           livenessProbe:
             httpGet:
               path: /health
