@@ -25,40 +25,40 @@ if (process.env.ELASTIC_APM_SERVER_TOKEN) {
     transactionMaxSpans: 1000, // Default: 500
     spanCompressionEnabled: false, // Default: true
     ignoreUrls: ['/health'],
+    instrument: true,
+    disableInstrumentations: [],
   });
 
   // Add APM transaction ID to logs
   Logger.addWrapper((obj: Record<string, unknown>) => {
     const idsObj = apm.currentTransaction ? apm.currentTransaction.ids : null;
-    if (!idsObj) {
-      return obj;
+    if (idsObj) {
+      obj.apm = idsObj;
     }
-    obj = {
-      ...obj,
-      apm: idsObj,
-    };
     return obj;
   });
 
   type KnexPoolMetrics = {
-    free: number;
-    pending: number;
     used: number;
-    max: number;
+    free: number;
+    pendingAcquires: number;
+    pendingCreates: number;
     min: number;
+    max: number;
   };
 
-  const getKnexPoolMetrics = (knex: Knex): KnexPoolMetrics => {
-    return {
-      free: knex.client.pool.numFree(), // Available connections
-      pending: knex.client.pool.numPendingAcquires(), // Pending requests
-      used: knex.client.pool.numUsed(), // Connections in use
-      max: knex.client.pool.max, // Max connections allowed
-      min: knex.client.pool.min, // Min connections allowed
-    };
-  };
+  const getKnexPoolMetrics = (knex: Knex): KnexPoolMetrics => ({
+    used: knex.client.pool.numUsed(), // Active connections
+    free: knex.client.pool.numFree(), // Idle connections
+    pendingAcquires: knex.client.pool.numPendingAcquires(), // Waiting for a connection
+    pendingCreates: knex.client.pool.numPendingCreates(), // New connections being created
+    min: knex.client.pool.min, // Min connections allowed
+    max: knex.client.pool.max, // Max connections allowed
+  });
 
   const knexConns = new Map<string, KnexPoolMetrics>();
+  // const { setListener } = await import('@dnorio/db-wrapper');
+
   setListener({
     event: 'start',
     listener: (db: Knex) => {
@@ -67,37 +67,39 @@ if (process.env.ELASTIC_APM_SERVER_TOKEN) {
         const poolMetrics = getKnexPoolMetrics(db);
         knexConns.set(key, poolMetrics);
         apm.registerMetric(
-          'knex.pool.free',
-          { module: 'knex', connectionKey: key },
-          () => {
-            const free = knexConns.get(key)?.free;
-            return free;
-          }
-        );
-        apm.registerMetric(
           'knex.pool.used',
           { module: 'knex', connectionKey: key },
           () => knexConns.get(key)?.used
         );
         apm.registerMetric(
-          'knex.pool.pending',
+          'knex.pool.free',
           { module: 'knex', connectionKey: key },
-          () => knexConns.get(key)?.pending
+          () => knexConns.get(key)?.free
         );
         apm.registerMetric(
-          'knex.pool.max',
+          'knex.pool.pendingAcquires',
           { module: 'knex', connectionKey: key },
-          () => knexConns.get(key)?.max
+          () => knexConns.get(key)?.pendingAcquires
+        );
+        apm.registerMetric(
+          'knex.pool.pendingCreates',
+          { module: 'knex', connectionKey: key },
+          () => knexConns.get(key)?.pendingCreates
         );
         apm.registerMetric(
           'knex.pool.min',
           { module: 'knex', connectionKey: key },
           () => knexConns.get(key)?.min
         );
+        apm.registerMetric(
+          'knex.pool.max',
+          { module: 'knex', connectionKey: key },
+          () => knexConns.get(key)?.max
+        );
         setInterval(() => {
           const poolMetrics = getKnexPoolMetrics(db);
           knexConns.set(key, poolMetrics);
-          logger.infoEvent('KnexPoolMetricsToAPM', { poolMetrics, key });
+          logger.debugEvent('KnexPoolMetricsToAPM', { poolMetrics, key });
         }, 5000);
       }
     },
