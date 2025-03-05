@@ -20,4 +20,4 @@ COPY --from=intermediate /usr/src/app/node_modules ./node_modules
 COPY --from=intermediate /usr/src/app/dist ./dist
 COPY resources schemas .npmrc package*.json tsconfig.json ./
 COPY --chown=node:node . .
-CMD ["node", "--enable-source-maps", "dist/app.js"]
+CMD ["node", "--enable-source-maps", "--experimental-loader=elastic-apm-node/loader.mjs", "dist/app.js"]
