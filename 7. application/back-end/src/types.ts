@@ -65,7 +65,11 @@ export interface GenerateMigrationParams {
     | 'rawRequest'
     | 'rawRequestPartition'
     | 'ddlAuditLog'
-    | 'ddlAuditLogPartition';
+    | 'ddlAuditLogPartition'
+    | 'loginAudit'
+    | 'loginAuditPartition'
+    | 'userProfile'
+    | 'userProfilePartition';
 }
 
 export type GenerateMigrationResponseBody = string;

@@ -17,7 +17,7 @@ spec:
         - name: regsecret
       containers:
         - name: my-site-py-back-end
-          image: docker-nexus.localhost/repository/docker-repo/my-site-py-back-end:1741131505
+          image: docker-nexus.localhost/repository/docker-repo/my-site-py-back-end:1741258461
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
@@ -39,6 +39,22 @@ spec:
               value: /api/py
             - name: PYDEVD_DISABLE_FILE_VALIDATION
               value: "1"
+            - name: DB_DNORIO_POSTGRES_HOST
+              value: postgres-service.postgres
+            - name: DB_DNORIO_POSTGRES_DATABASE
+              value: toolhq
+            - name: DB_DNORIO_POSTGRES_SCHEMA
+              value: toolhq
+            - name: DB_DNORIO_POSTGRES_USER
+              value: svc_toolhq
+            - name: DB_DNORIO_POSTGRES_PASS
+              value: svc_toolhq_pwd
+            - name: MINIO_ENDPOINT
+              value: minio.localhost
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
+            - name: PARQUET_S3_BUCKET
+              value: toolhq-archived-data
           livenessProbe:
             httpGet:
               path: /health
