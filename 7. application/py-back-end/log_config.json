@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "json": {
+      "()": "app.libs.logger.UvicornJSONLogFormatter"
+    }
+  },
+  "handlers": {
+    "default": {
+      "formatter": "json",
+      "class": "logging.StreamHandler"
+    }
+  },
+  "loggers": {
+    "uvicorn": {
+      "handlers": ["default"],
+      "level": "INFO",
+      "propagate": false
+    },
+    "uvicorn.access": {
+      "handlers": ["default"],
+      "level": "INFO",
+      "propagate": false
+    }
+  }
+}
