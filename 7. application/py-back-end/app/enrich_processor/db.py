@@ -46,7 +46,7 @@ def simple_pre_consult_user_data():
     search_path_env="DB_DNORIO_POSTGRES_SCHEMA"
   )
   extract_query = '''select
-  tb_user_profile.user_profile_id as "userProfileId",
+  tb_user_profile.id as "userProfileId",
   tb_user_profile.user_login as "userLogin",
   tb_user_profile.user_name as "userName",
   tb_user_profile.access_profile as "accessProfile",
@@ -79,7 +79,7 @@ def pre_consult_user_data (reference_date: datetime):
   )
   extract_query = '''with "base_user_data" as (
   select
-    tb_user_profile.user_profile_id as "userProfileId",
+    tb_user_profile.id as "userProfileId",
     tb_user_profile.user_login as "userLogin",
     tb_user_profile.user_name as "userName",
     tb_user_profile.access_profile as "accessProfile",
@@ -95,7 +95,7 @@ select
   array_agg(
     json_build_object(
       'loginAt', "tb_login_audit"."created_at",
-      'jti', "tb_login_audit"."login_audit_id"
+      'jti', "tb_login_audit"."id"
     )
   ) "possibleLoginsForCurrentPeriod"
 from "base_user_data"
