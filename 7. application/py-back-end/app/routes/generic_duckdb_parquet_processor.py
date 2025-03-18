@@ -96,3 +96,10 @@ def sync_process_generic_raw_parquet_generator(
 ):
   # Download parquet file(s) from S3 if not already downloaded
   local_file_paths = download_files_from_s3(parquet_paths)
+
+  if not local_file_paths:
+    logger.error({ "step": "files download step", "message": "No file downloaded" })
+    yield '{"total": 0, "result": []}'
+    return
+
+  logger.info({ "step":  })
