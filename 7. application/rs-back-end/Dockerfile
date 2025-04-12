@@ -1,0 +1,11 @@
+FROM rust:1.86-alpine as builder
+RUN apk add --no-cache musl-dev gcc
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+COPY --from=builder /app/target/release/rust-api /usr/local/bin/app
+EXPOSE 3000
+CMD ["app"]
