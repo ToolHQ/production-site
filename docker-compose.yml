@@ -60,6 +60,40 @@ services:
           memory: 50M
           cpus: '0.2'
 
+  back-end-rs:
+    container_name: back-end-rs
+    image: back_end_rs
+    build:
+      context: ./7. application/rs-back-end
+    volumes:
+      - ./7. application/rs-back-end/app:/app/app
+      - $HOME/.aws:/root/.aws
+    ports:
+      - 3002:3000
+      - 9232:5678
+    env_file:
+      - ./7. application/rs-back-end/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - minikube
+    extra_hosts:
+      - nexus.localhost:192.168.49.2
+      - minio.localhost:192.168.49.2
+      - minikube:192.168.49.2
+    deploy:
+      resources:
+        limits:
+          memory: 16M
+          cpus: '0.4'
+        reservations:
+          memory: 8M
+          cpus: '0.1'
+
   back-end-py-metrics:
     container_name: back-end-py-metrics
     image: back_end_py_metrics
