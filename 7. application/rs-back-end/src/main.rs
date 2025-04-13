@@ -60,7 +60,7 @@ async fn main() {
     let logger = JsonLogger::new();
     let request_logger_config = RequestLoggerConfig {
         routes_to_ignore: vec!["/health".to_string()],
-        log_response_body: false,
+        log_response_body: true,
     };
     // rust_api::set_listener(|event, ctx| {
     //     let logger = JsonLogger::new(); // or inject file/line explicitly

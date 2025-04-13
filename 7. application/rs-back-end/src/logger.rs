@@ -35,13 +35,13 @@ impl JsonLogger {
         self.log("info", message, extra);
     }
 
-    pub fn warn(&self, message: &str, extra: Option<Value>) {
-        self.log("warn", message, extra);
-    }
+    // pub fn warn(&self, message: &str, extra: Option<Value>) {
+    //     self.log("warn", message, extra);
+    // }
 
-    pub fn error(&self, message: &str, extra: Option<Value>) {
-        self.log("error", message, extra);
-    }
+    // pub fn error(&self, message: &str, extra: Option<Value>) {
+    //     self.log("error", message, extra);
+    // }
 
     fn log(&self, severity: &str, message: &str, extra: Option<Value>) {
         let mut log_obj = IndexMap::new();
