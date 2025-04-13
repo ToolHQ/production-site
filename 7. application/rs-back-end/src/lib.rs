@@ -7,6 +7,7 @@ use sqlx::{Row, Column};
 use crate::config::{DbConfig};
 use crate::state::get_or_init_pool;
 use crate::context::try_with_context;
+use crate::logger::JsonLogger;
 use std::time::Instant;
 
 type Listener = Arc<Mutex<dyn Fn(String, Option<Value>) + Send + Sync>>;
@@ -20,6 +21,7 @@ pub mod config;
 pub mod state;
 pub mod stream;
 pub mod context;
+pub mod logger;
 
 pub fn set_listener(f: impl Fn(String, Option<Value>) + Send + Sync + 'static) {
     LISTENER.lock().unwrap().replace(Arc::new(Mutex::new(f)));
@@ -29,6 +31,7 @@ pub fn set_wrap_query_handler(f: impl Fn(&str) -> String + Send + Sync + 'static
     WRAP_QUERY_HANDLER.lock().unwrap().replace(Arc::new(Mutex::new(f)));
 }
 
+#[track_caller]
 pub async fn query(
     sql: &str,
     bindings: Option<Value>, // Optional: you can pass values here for logging
@@ -59,28 +62,32 @@ pub async fn query(
         result.push(map);
     }
 
+    let bindings_clone = bindings.clone();
+
+    let ctx = try_with_context(|ctx| {
+        json!({
+            "sql": wrapped_sql,
+            "bindings": bindings_clone.clone().unwrap_or(json!(null)),
+            "elapsedTime": format!("{:.3}ms", elapsed_ms),
+            "req-id": ctx.req_id.clone().unwrap_or_default(),
+            "session-id": ctx.session_id.clone().unwrap_or_default()
+        })
+    }).unwrap_or_else(|| {
+        json!({
+            "sql": wrapped_sql,
+            "bindings": bindings.clone().unwrap_or(json!(null)),
+            "elapsedTime": format!("{:.3}ms", elapsed_ms),
+            "req-id": null,
+            "session-id": null
+        })
+    });
+
+    let location = std::panic::Location::caller();
+    let logger = JsonLogger::from_location(location.file(), location.line());
+    logger.info("DB QUERY", Some(ctx.clone()));
+
     if let Some(listener) = LISTENER.lock().unwrap().as_ref() {
-        let bindings_clone = bindings.clone();
-
-        let ctx = try_with_context(|ctx| {
-            json!({
-                "sql": wrapped_sql,
-                "bindings": bindings_clone.clone().unwrap_or(json!(null)),
-                "elapsedTime": format!("{:.3}ms", elapsed_ms),
-                "req-id": ctx.req_id.clone().unwrap_or_default(),
-                "session-id": ctx.session_id.clone().unwrap_or_default()
-            })
-        }).unwrap_or_else(|| {
-            json!({
-                "sql": wrapped_sql,
-                "bindings": bindings.clone().unwrap_or(json!(null)),
-                "elapsedTime": format!("{:.3}ms", elapsed_ms),
-                "req-id": null,
-                "session-id": null
-            })
-        });
-
-        listener.lock().unwrap()("query:done".to_string(), Some(ctx));
+        listener.lock().unwrap()("DB QUERY".to_string(), Some(ctx));
     }
 
     Ok(result)
