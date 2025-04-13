@@ -7,7 +7,7 @@ mod context;
 
 use crate::logger::JsonLogger;
 use crate::middleware::RequestLoggerLayer;
-use crate::context::{RequestContext, with_context};
+use crate::context::{with_context};
 
 async fn hello_world() -> &'static str {
     with_context(|ctx| {
