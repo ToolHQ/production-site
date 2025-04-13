@@ -79,6 +79,9 @@ services:
       - 9232:5678
     env_file:
       - ./7. application/rs-back-end/.env
+    environment:
+      - DB_HOST=minikube
+      - DB_PORT=54322
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s

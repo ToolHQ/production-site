@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 
 use axum::{routing::get, Router, Json};
 use serde::Serialize;
+use serde_json::json;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -9,6 +10,7 @@ mod logger;
 mod middleware;
 mod context;
 
+use rust_api::query;
 use crate::logger::JsonLogger;
 use crate::middleware::{RequestLoggerConfig, RequestLoggerLayer};
 use crate::context::{with_context};
@@ -39,10 +41,23 @@ async fn health() -> Json<HealthResponse> {
 #[openapi(paths(health), components(schemas(HealthResponse)))]
 struct ApiDoc;
 
+async fn db_test_handler() -> Json<serde_json::Value> {
+    match query("SELECT JSONB_BUILD_OBJECT('t', 1 + 1) as result").await {
+        Ok(rows) => {
+            if let Some(row) = rows.get(0) {
+                Json(json!({ "result": row }))
+            } else {
+                Json(json!({ "error": "No rows returned" }))
+            }
+        }
+        Err(err) => Json(json!({ "error": err.to_string() })),
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let logger = JsonLogger::new();
-    let requestLoggerConfig = RequestLoggerConfig {
+    let request_logger_config = RequestLoggerConfig {
         routes_to_ignore: vec!["/health".to_string()],
         log_response_body: false,
     };
@@ -50,8 +65,13 @@ async fn main() {
     let app = Router::new()
         .route("/", get(hello_world))
         .route("/health", get(health))
+        .route("/db-test", get(db_test_handler))
+        .route("/env", get(|| async {
+            let vars: std::collections::HashMap<String, String> = std::env::vars().collect();
+            Json(serde_json::to_value(vars).unwrap())
+        }))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
-        .layer(RequestLoggerLayer::new(logger.clone(), requestLoggerConfig));
+        .layer(RequestLoggerLayer::new(logger.clone(), request_logger_config));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("🚀 Server running at http://{}/", addr);
