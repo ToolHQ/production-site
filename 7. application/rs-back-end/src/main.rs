@@ -42,7 +42,8 @@ async fn health() -> Json<HealthResponse> {
 struct ApiDoc;
 
 async fn db_test_handler() -> Json<serde_json::Value> {
-    match query("SELECT JSONB_BUILD_OBJECT('t', 1 + 1) as result").await {
+    let bindings = json!({});
+    match query("SELECT JSONB_BUILD_OBJECT('t', 1 + 1) as result", Some(bindings)).await {
         Ok(rows) => {
             if let Some(row) = rows.get(0) {
                 Json(json!({ "result": row }))
@@ -61,6 +62,10 @@ async fn main() {
         routes_to_ignore: vec!["/health".to_string()],
         log_response_body: false,
     };
+    rust_api::set_listener(|event, ctx| {
+        let logger = JsonLogger::new(); // or inject file/line explicitly
+        logger.info(&event, ctx);
+    });
 
     let app = Router::new()
         .route("/", get(hello_world))
