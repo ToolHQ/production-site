@@ -6,6 +6,6 @@ RUN cargo build --release
 
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates curl
-COPY --from=builder /app/target/release/rust-api /usr/local/bin/app
+COPY --from=builder /app/target/release/rust_api /usr/local/bin/app
 EXPOSE 3000
 CMD ["app"]
