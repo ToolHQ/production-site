@@ -10,7 +10,9 @@ use uuid::Uuid;
 use crate::context::{set_context_async, RequestContext};
 use crate::logger::JsonLogger;
 
-#[derive(Clone)] // ✅ Required so the layer can be reused
+use serde_json::json; // ✅ Fixes json! macro not found
+
+#[derive(Clone)]
 pub struct RequestLoggerLayer {
     logger: JsonLogger,
 }
@@ -59,24 +61,50 @@ where
         let start_time = Instant::now();
         let mut inner = self.inner.clone();
 
+        let headers = req.headers().clone();
+        let user_agent = headers.get("user-agent")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("-")
+            .to_string();
+
+        let ip = headers
+            .get("x-forwarded-for")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("::1")
+            .to_string();
+
         let ctx = RequestContext::new(Some(req_id.clone()), None);
 
         Box::pin(set_context_async(ctx, move || async move {
+
             let result = inner.call(req).await;
-            let duration = start_time.elapsed().as_millis();
+            let duration = start_time.elapsed().as_secs_f64() * 1000.0;
 
             let status = result
                 .as_ref()
                 .map(|res| res.status())
                 .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
 
-            logger.info("request_log", Some(serde_json::json!({
-                "req_id": req_id,
+
+            let message_obj = json!({
                 "method": method.as_str(),
-                "path": path,
-                "status": status.as_u16(),
-                "duration_ms": duration
-            })));
+                "rawPath": path,
+                "url": path,
+                "statusCode": status.as_u16(),
+                "responseTime": format!("{:.3}ms", duration),
+                "bodyLength": 0,
+                "userAgent": user_agent,
+                "ipAddress": ip
+            });
+
+            logger.info(
+                "Request received",
+                Some(json!({
+                    "req-id": req_id,
+                    "event": "Request received",
+                    "message": message_obj.to_string()
+                }))
+            );
 
             result
         }))
