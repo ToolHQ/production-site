@@ -22,6 +22,15 @@ impl JsonLogger {
         }
     }
 
+    pub fn from_location(file: &'static str, line: u32) -> Self {
+        let environment = env::var("RUST_ENV").unwrap_or_else(|_| "dev".into());
+        Self {
+            environment,
+            file,
+            line,
+        }
+    }
+
     pub fn info(&self, message: &str, extra: Option<Value>) {
         self.log("info", message, extra);
     }
