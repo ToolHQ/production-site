@@ -51,6 +51,10 @@ spec:
               value: svc_toolhq_pwd
             - name: MINIO_ENDPOINT
               value: minio.localhost
+            - name: MINIO_ACCESS_KEY
+              value: XvnHgD3ZJjLq4WPdU1xI
+            - name: MINIO_SECRET_KEY
+              value: p3WC3shSYHmn0OMkimapWphxOfAfYsMKba7O68JK
             - name: AWS_DEFAULT_REGION
               value: us-east-1
             - name: PARQUET_S3_BUCKET
@@ -105,7 +109,7 @@ spec:
     kind: Deployment
     name: my-site-py-back-end-deployment
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 1
   metrics:
     - type: Resource
       resource:
