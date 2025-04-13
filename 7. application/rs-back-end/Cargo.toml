@@ -12,7 +12,7 @@ dashmap = "5"
 futures = "0.3"
 http-body-util = "0.1"
 indexmap = "2"
-multipart = "0.18"
+multipart = "0.18.0"
 once_cell = "1.19"
 polars = { version = "0.37", features = ["parquet", "lazy", "json"] }
 serde = { version = "1.0.219", features = ["derive"] }
