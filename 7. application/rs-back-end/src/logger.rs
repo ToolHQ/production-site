@@ -22,6 +22,7 @@ impl JsonLogger {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_location(file: &'static str, line: u32) -> Self {
         let environment = env::var("RUST_ENV").unwrap_or_else(|_| "dev".into());
         Self {
@@ -35,13 +36,15 @@ impl JsonLogger {
         self.log("info", message, extra);
     }
 
-    // pub fn warn(&self, message: &str, extra: Option<Value>) {
-    //     self.log("warn", message, extra);
-    // }
+    #[allow(dead_code)]
+    pub fn warn(&self, message: &str, extra: Option<Value>) {
+        self.log("warn", message, extra);
+    }
 
-    // pub fn error(&self, message: &str, extra: Option<Value>) {
-    //     self.log("error", message, extra);
-    // }
+    #[allow(dead_code)]
+    pub fn error(&self, message: &str, extra: Option<Value>) {
+        self.log("error", message, extra);
+    }
 
     fn log(&self, severity: &str, message: &str, extra: Option<Value>) {
         let mut log_obj = IndexMap::new();

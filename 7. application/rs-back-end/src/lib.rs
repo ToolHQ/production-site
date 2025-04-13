@@ -31,7 +31,6 @@ pub fn set_wrap_query_handler(f: impl Fn(&str) -> String + Send + Sync + 'static
     WRAP_QUERY_HANDLER.lock().unwrap().replace(Arc::new(Mutex::new(f)));
 }
 
-#[track_caller]
 pub async fn query(
     sql: &str,
     bindings: Option<Value>, // Optional: you can pass values here for logging
