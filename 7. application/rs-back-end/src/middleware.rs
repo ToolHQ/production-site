@@ -2,8 +2,9 @@ use std::convert::Infallible;
 use std::task::{Context, Poll};
 use std::time::Instant;
 
-use axum::body::Body;
-use axum::http::{Request, Response, StatusCode};
+use axum::body::{Body};
+use axum::http::{Request, Response};
+use http_body_util::BodyExt;
 use tower::{Layer, Service};
 use uuid::Uuid;
 
@@ -81,12 +82,25 @@ where
 
         Box::pin(set_context_async(ctx, move || async move {
             let result = inner.call(req).await;
+            let mut response = result.expect("Request handler failed");
             let duration = start_time.elapsed().as_secs_f64() * 1000.0;
 
-            let status = result
-                .as_ref()
-                .map(|res| res.status())
-                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            let body_length = if config.log_response_body {
+                match response.body_mut().collect().await {
+                    Ok(collected) => {
+                        let bytes = collected.to_bytes();
+                        let len = bytes.len();
+                        *response.body_mut() = Body::from(bytes);
+                        len
+                    }
+                    Err(_) => 0,
+                }
+            } else {
+                0
+            };
+
+            let status = response
+                .status();
 
             let user_agent = headers.get("user-agent")
                 .and_then(|v| v.to_str().ok())
@@ -104,7 +118,7 @@ where
                 "url": path,
                 "statusCode": status.as_u16(),
                 "responseTime": format!("{:.3}ms", duration),
-                "bodyLength": 0,
+                "bodyLength": body_length,
                 "userAgent": user_agent,
                 "ipAddress": ip
             });
@@ -118,7 +132,8 @@ where
                 }))
             );
 
-            result
+            Ok(response)
         }))
+
     }
 }
