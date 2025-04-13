@@ -45,6 +45,12 @@ services:
     ports:
       - 3000:3000
       - 9229:9229
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks:
       - minikube
     extra_hosts:
@@ -54,10 +60,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 1536M
           cpus: '0.5'
         reservations:
-          memory: 50M
+          memory: 1024M
           cpus: '0.2'
 
   back-end-rs:
