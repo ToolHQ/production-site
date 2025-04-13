@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use axum::{routing::get, Router, Json};
+use axum::{routing::get, routing::post, Router, Json};
 use serde::Serialize;
 use serde_json::json;
 use utoipa::{OpenApi, ToSchema};
@@ -9,11 +9,14 @@ use utoipa_swagger_ui::SwaggerUi;
 mod logger;
 mod middleware;
 mod context;
+mod parquet_handler;
 
 use rust_api::query;
 use crate::logger::JsonLogger;
 use crate::middleware::{RequestLoggerConfig, RequestLoggerLayer};
 use crate::context::{with_context};
+use crate::parquet_handler::{UploadForm, JsonRowResponse, upload_and_stream_parquet};
+use crate::parquet_handler::__path_upload_and_stream_parquet;
 
 #[utoipa::path(
     get,
@@ -108,17 +111,21 @@ struct EnvResponse {
         hello_world,
         health,
         db_test_handler,
-        env
+        env,
+        upload_and_stream_parquet,
     ),
     components(schemas(
         HealthResponse,
         DbTestResponse,
         ErrorResponse,
-        EnvResponse
+        EnvResponse,
+        UploadForm,
+        JsonRowResponse
     )),
     tags(
         (name = "General", description = "General endpoints"),
-        (name = "Database", description = "PostgreSQL / Redshift testing")
+        (name = "Database", description = "PostgreSQL / Redshift testing"),
+        (name = "Parquet", description = "Parquet upload and JSON streaming")
     )
 )]
 struct ApiDoc;
@@ -136,6 +143,7 @@ async fn main() {
         .route("/health", get(health))
         .route("/db-test", get(db_test_handler))
         .route("/env", get(env))
+        .route("/upload-parquet", post(upload_and_stream_parquet))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(RequestLoggerLayer::new(logger.clone(), request_logger_config));
 

@@ -3,3 +3,4 @@ k8s
 .env
 .gitignore
 Dockerfile
+target
