@@ -20,13 +20,13 @@ impl RequestContext {
         }
     }
 
-    pub fn insert(&mut self, key: &str, value: &str) {
-        self.additional.insert(key.to_string(), value.to_string());
-    }
+    // pub fn insert(&mut self, key: &str, value: &str) {
+    //     self.additional.insert(key.to_string(), value.to_string());
+    // }
 
-    pub fn get(&self, key: &str) -> Option<&String> {
-        self.additional.get(key)
-    }
+    // pub fn get(&self, key: &str) -> Option<&String> {
+    //     self.additional.get(key)
+    // }
 }
 
 task_local! {
