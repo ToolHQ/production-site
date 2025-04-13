@@ -10,7 +10,7 @@ mod middleware;
 mod context;
 
 use crate::logger::JsonLogger;
-use crate::middleware::RequestLoggerLayer;
+use crate::middleware::{RequestLoggerConfig, RequestLoggerLayer};
 use crate::context::{with_context};
 
 async fn hello_world() -> &'static str {
@@ -42,12 +42,16 @@ struct ApiDoc;
 #[tokio::main]
 async fn main() {
     let logger = JsonLogger::new();
+    let requestLoggerConfig = RequestLoggerConfig {
+        routes_to_ignore: vec!["/health".to_string()],
+        log_response_body: false,
+    };
 
     let app = Router::new()
         .route("/", get(hello_world))
         .route("/health", get(health))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
-        .layer(RequestLoggerLayer::new(logger.clone()));
+        .layer(RequestLoggerLayer::new(logger.clone(), requestLoggerConfig));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("🚀 Server running at http://{}/", addr);
