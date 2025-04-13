@@ -62,10 +62,10 @@ async fn main() {
         routes_to_ignore: vec!["/health".to_string()],
         log_response_body: false,
     };
-    rust_api::set_listener(|event, ctx| {
-        let logger = JsonLogger::new(); // or inject file/line explicitly
-        logger.info(&event, ctx);
-    });
+    // rust_api::set_listener(|event, ctx| {
+    //     let logger = JsonLogger::new(); // or inject file/line explicitly
+    //     logger.info(&event, ctx);
+    // });
 
     let app = Router::new()
         .route("/", get(hello_world))
