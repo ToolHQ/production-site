@@ -15,6 +15,12 @@ use crate::logger::JsonLogger;
 use crate::middleware::{RequestLoggerConfig, RequestLoggerLayer};
 use crate::context::{with_context};
 
+#[utoipa::path(
+    get,
+    path = "/",
+    tag = "General",
+    responses((status = 200, description = "Hello World"))
+)]
 async fn hello_world() -> &'static str {
     with_context(|ctx| {
         println!("🧠 ctx: req_id={}, session_id={:?}", ctx.req_id.clone().unwrap_or_default(), ctx.session_id);
@@ -22,14 +28,21 @@ async fn hello_world() -> &'static str {
     "Hello, world!"
 }
 
-#[derive(Serialize, ToSchema)]
-struct HealthResponse {
-    status: &'static str,
+#[utoipa::path(
+    get,
+    path = "/env",
+    tag = "General",
+    responses((status = 200, description = "Environment variables", body = EnvResponse))
+)]
+async fn env() -> Json<serde_json::Value> {
+    let vars: std::collections::HashMap<String, String> = std::env::vars().collect();
+    Json(serde_json::to_value(vars).unwrap())
 }
 
 #[utoipa::path(
     get,
     path = "/health",
+    tag = "General",
     responses((status = 200, description = "API is healthy", body = HealthResponse))
 )]
 async fn health() -> Json<HealthResponse> {
@@ -37,10 +50,15 @@ async fn health() -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok" })
 }
 
-#[derive(OpenApi)]
-#[openapi(paths(health), components(schemas(HealthResponse)))]
-struct ApiDoc;
-
+#[utoipa::path(
+    get,
+    path = "/db-test",
+    tag = "Database",
+    responses(
+        (status = 200, description = "Test DB query", body = DbTestResponse),
+        (status = 500, description = "Query error", body = ErrorResponse)
+    )
+)]
 async fn db_test_handler() -> Json<serde_json::Value> {
     let bindings = json!({});
     match query("SELECT JSONB_BUILD_OBJECT('t', 1 + 1) as result", Some(bindings)).await {
@@ -55,6 +73,56 @@ async fn db_test_handler() -> Json<serde_json::Value> {
     }
 }
 
+#[derive(Serialize, ToSchema)]
+struct HealthResponse {
+    status: &'static str,
+}
+
+#[derive(Serialize, ToSchema)]
+struct DbTestResponse {
+    result: serde_json::Value,
+}
+
+#[derive(Serialize, ToSchema)]
+struct ErrorResponse {
+    error: String,
+}
+
+#[derive(Serialize, ToSchema)]
+struct EnvResponse {
+    #[schema(value_type = Object)]
+    env: serde_json::Value,
+}
+
+#[derive(OpenApi)]
+#[openapi(
+    info(
+        title = "Rust API",
+        version = "1.0.0",
+        description = "A simple Rust API with Axum"
+    ),
+    servers(
+        (url = "http://localhost:3002", description = "Local server")
+    ),
+    paths(
+        hello_world,
+        health,
+        db_test_handler,
+        env
+    ),
+    components(schemas(
+        HealthResponse,
+        DbTestResponse,
+        ErrorResponse,
+        EnvResponse
+    )),
+    tags(
+        (name = "General", description = "General endpoints"),
+        (name = "Database", description = "PostgreSQL / Redshift testing")
+    )
+)]
+struct ApiDoc;
+
 #[tokio::main]
 async fn main() {
     let logger = JsonLogger::new();
@@ -67,10 +135,7 @@ async fn main() {
         .route("/", get(hello_world))
         .route("/health", get(health))
         .route("/db-test", get(db_test_handler))
-        .route("/env", get(|| async {
-            let vars: std::collections::HashMap<String, String> = std::env::vars().collect();
-            Json(serde_json::to_value(vars).unwrap())
-        }))
+        .route("/env", get(env))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(RequestLoggerLayer::new(logger.clone(), request_logger_config));
 
