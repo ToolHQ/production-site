@@ -124,7 +124,7 @@ spec:
     kind: Deployment
     name: my-site-back-end-deployment
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 1
   metrics:
     - type: Resource
       resource:
