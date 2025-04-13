@@ -5,7 +5,13 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7.9"
-tokio = { version = "1.44.2", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+futures = "0.3"
+indexmap = "2"
 serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.44.2", features = ["full"] }
+tower = "0.4"
+uuid = { version = "1", features = ["v4"] }
 utoipa = { version = "4.2.3", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "5.0.0", features = ["axum"] }
