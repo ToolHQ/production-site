@@ -20,7 +20,8 @@ use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
 pub struct UploadForm {
-    /// The file to upload
+    /// Dummy field just to make Swagger render multipart/form-data
+    #[allow(dead_code)]
     #[schema(format = Binary)]
     file: String,
 }
