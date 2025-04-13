@@ -20,13 +20,15 @@ impl RequestContext {
         }
     }
 
-    // pub fn insert(&mut self, key: &str, value: &str) {
-    //     self.additional.insert(key.to_string(), value.to_string());
-    // }
+    #[allow(dead_code)]
+    pub fn insert(&mut self, key: &str, value: &str) {
+        self.additional.insert(key.to_string(), value.to_string());
+    }
 
-    // pub fn get(&self, key: &str) -> Option<&String> {
-    //     self.additional.get(key)
-    // }
+    #[allow(dead_code)]
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.additional.get(key)
+    }
 }
 
 task_local! {
@@ -49,6 +51,7 @@ where
     CTX.with(|cell| f(cell.borrow().clone()))
 }
 
+#[allow(dead_code)]
 pub fn try_with_context<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(Arc<RequestContext>) -> R,
