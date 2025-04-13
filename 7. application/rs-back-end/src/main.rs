@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use axum::{routing::get, routing::post, Router, Json};
+use axum::extract::DefaultBodyLimit;
 use serde::Serialize;
 use serde_json::json;
 use utoipa::{OpenApi, ToSchema};
@@ -144,6 +145,7 @@ async fn main() {
         .route("/db-test", get(db_test_handler))
         .route("/env", get(env))
         .route("/upload-parquet", post(upload_and_stream_parquet))
+       .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(RequestLoggerLayer::new(logger.clone(), request_logger_config));
 
