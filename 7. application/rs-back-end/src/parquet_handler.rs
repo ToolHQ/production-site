@@ -2,19 +2,16 @@ use std::io::BufReader;
 
 use axum::{
     extract::Multipart,
-    response::IntoResponse,
-    response::Response,
     http::{header, StatusCode},
+    response::{IntoResponse, Response},
 };
+use bytes::Bytes;
+use futures::TryStreamExt;
 use http_body::Frame;
 use http_body_util::StreamBody;
-use futures::TryStreamExt;
-
-use bytes::Bytes;
 use polars::prelude::*;
-use polars::prelude::AnyValue;
-use serde::{Serialize, Deserialize};
-use serde_json::{Value};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tempfile::NamedTempFile;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -53,18 +50,22 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoRes
         std::io::copy(&mut data.as_ref(), &mut temp_file).unwrap();
     }
 
-    let (tx, rx) = mpsc::channel::<Result<bytes::Bytes, std::io::Error>>(1);
+    let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(1);
+
     tokio::spawn(async move {
         let _ = tx.send(Ok(Bytes::from_static(b"["))).await;
 
         let file = std::fs::File::open(temp_file.path()).unwrap();
         let reader = ParquetReader::new(BufReader::new(file));
         let df = reader.finish().unwrap();
+        let height = df.height();
+        let column_names = df.get_column_names().to_vec(); // clone para soltar df depois
 
-        for i in 0..df.height() {
-            let row = df.get_row(i).unwrap(); // Polars row
-            let mut map = serde_json::Map::new();
-            for (name, val) in df.get_column_names().iter().zip(row.0.iter()) {
+        for i in 0..height {
+            let row = df.get_row(i).unwrap();
+
+            let mut map = serde_json::Map::with_capacity(column_names.len());
+            for (name, val) in column_names.iter().zip(row.0.iter()) {
                 let value = match val {
                     AnyValue::Null => Value::Null,
                     AnyValue::Boolean(b) => Value::from(*b),
@@ -77,8 +78,7 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoRes
                 map.insert(name.to_string(), value);
             }
 
-            let json_str = serde_json::to_vec(&Value::Object(map)).unwrap();
-            let json_line = String::from_utf8(json_str).unwrap(); // ✅ agora é String
+            let json_line = serde_json::to_string(&Value::Object(map)).unwrap();
             let line = if i == 0 {
                 json_line
             } else {
@@ -87,11 +87,11 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoRes
             tx.send(Ok(Bytes::from(line))).await.unwrap();
         }
 
+        drop(df); // solta memória do dataframe
         let _ = tx.send(Ok(Bytes::from_static(b"]"))).await;
-        // drop(df); // força desalocação
-        drop(df);
+        drop(temp_file); // solta arquivo
     });
-    // Response::new(StreamBody::new(ReceiverStream::new(rx).map_ok(Frame::data)))
+
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
