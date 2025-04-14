@@ -55,9 +55,10 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoRes
     tokio::spawn(async move {
         let _ = tx.send(Ok(Bytes::from_static(b"["))).await;
 
-        let file = std::fs::File::open(temp_file.path()).unwrap();
-        let reader = ParquetReader::new(BufReader::new(file));
-        let df = reader.finish().unwrap();
+        let lf = LazyFrame::scan_parquet(temp_file.path().to_str().unwrap(), Default::default())
+            .unwrap();
+
+        let df = lf.collect().unwrap();
         let height = df.height();
         let column_names = df.get_column_names().to_vec(); // clone para soltar df depois
 
@@ -87,9 +88,9 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoRes
             tx.send(Ok(Bytes::from(line))).await.unwrap();
         }
 
-        drop(df); // solta memória do dataframe
+        drop(df);
         let _ = tx.send(Ok(Bytes::from_static(b"]"))).await;
-        drop(temp_file); // solta arquivo
+        drop(temp_file);
     });
 
     Response::builder()
