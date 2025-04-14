@@ -87,7 +87,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 60s
+      start_period: 5s
     networks:
       - minikube
     extra_hosts:
@@ -97,10 +97,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 16M
+          memory: 512M
           cpus: '0.4'
         reservations:
-          memory: 8M
+          memory: 64M
           cpus: '0.1'
 
   back-end-py-metrics:
