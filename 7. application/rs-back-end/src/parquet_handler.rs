@@ -1,20 +1,28 @@
 use axum::{
     extract::Multipart,
-    http::{header, StatusCode},
+    http::{header},
     response::{IntoResponse, Response},
 };
 use bytes::Bytes;
 use futures::TryStreamExt;
 use http_body::Frame;
 use http_body_util::StreamBody;
-use polars::prelude::{LazyFrame, AnyValue};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-// use tempfile::NamedTempFile;
+use serde_json::{Map, Value};
+use std::{
+    fs::File,
+};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio::io::AsyncWriteExt;
+
 use utoipa::ToSchema;
+
+use arrow2::{
+    array::{Utf8Array, PrimitiveArray},
+    datatypes::{DataType},
+};
+use arrow2::io::parquet::read::{read_metadata as read_parquet_metadata, infer_schema, FileReader};
 
 #[derive(Deserialize, ToSchema)]
 pub struct UploadForm {
@@ -42,64 +50,74 @@ pub struct JsonRowResponse {
     tag = "Parquet"
 )]
 pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoResponse {
-    let temp_path = std::env::temp_dir().join(format!("upload_{}.parquet", uuid::Uuid::new_v4()));
-    let mut temp_file = tokio::fs::File::create(&temp_path).await.unwrap();
+    let mut temp_path = std::env::temp_dir();
+    temp_path.push(format!(".tmp{}.parquet", uuid::Uuid::new_v4()));
 
-    while let Some(mut field) = multipart.next_field().await.unwrap() {
-        while let Ok(Some(chunk)) = field.chunk().await {
-            temp_file.write_all(&chunk).await.unwrap();
-        }
+    let mut parquet_file = tokio::fs::File::create(&temp_path).await.unwrap();
+    while let Some(field) = multipart.next_field().await.unwrap() {
+        let chunk = field.bytes().await.unwrap();
+        parquet_file.write_all(&chunk).await.unwrap();
     }
+    parquet_file.flush().await.unwrap();
 
-    temp_file.flush().await.unwrap();
+    let file = File::open(&temp_path).unwrap();
+    let metadata = read_parquet_metadata(&mut file.try_clone().unwrap()).unwrap();
+    let schema = infer_schema(&metadata).unwrap();
+    let row_groups = metadata.row_groups.clone();
+    let projection = None;
 
-    let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(1);
+    let reader = FileReader::new(file, row_groups, schema.clone(), projection, None, None);
+    let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(8);
 
     tokio::spawn(async move {
-        let _ = tx.send(Ok(Bytes::from_static(b"["))).await;
+        let mut first = true;
+        let _ = tx.send(Ok(Bytes::from("["))).await;
 
-        let lf = LazyFrame::scan_parquet(temp_path.as_path().to_str().unwrap(), Default::default())
-            .unwrap();
+        for maybe_batch in reader {
+            let batch = maybe_batch.unwrap();
+            let columns = batch.columns();
+            let names = schema.fields.iter().map(|f| f.name.as_str()).collect::<Vec<_>>();
 
-        let df = lf.collect().unwrap();
-        let height = df.height();
-        let column_names = df.get_column_names().to_vec(); // clone para soltar df depois
-
-        for i in 0..height {
-            let row = df.get_row(i).unwrap();
-
-            let mut map = serde_json::Map::with_capacity(column_names.len());
-            for (name, val) in column_names.iter().zip(row.0.iter()) {
-                let value = match val {
-                    AnyValue::Null => Value::Null,
-                    AnyValue::Boolean(b) => Value::from(*b),
-                    AnyValue::Int32(i) => Value::from(*i),
-                    AnyValue::Int64(i) => Value::from(*i),
-                    AnyValue::Float64(f) => Value::from(*f),
-                    AnyValue::String(s) => Value::from(*s),
-                    _ => Value::String(val.to_string()),
+            for row_idx in 0..batch.len() {
+                let mut map = Map::new();
+                for (col_idx, col) in columns.iter().enumerate() {
+                    let name = names
+                        .get(col_idx)
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| format!("col_{}", col_idx));
+                    let value = match schema.fields[col_idx].data_type {
+                        DataType::Utf8 => {
+                            let arr = col.as_any().downcast_ref::<Utf8Array<i32>>().unwrap();
+                            Value::from(arr.value(row_idx))
+                        }
+                        DataType::Int32 => {
+                            let arr = col.as_any().downcast_ref::<PrimitiveArray<i32>>().unwrap();
+                            Value::from(arr.value(row_idx))
+                        }
+                        _ => Value::Null,
+                    };
+                    map.insert(name, value);
+                }
+                let json = Value::Object(map).to_string();
+                let line = if first {
+                    first = false;
+                    json
+                } else {
+                    format!(",{}", json)
                 };
-                map.insert(name.to_string(), value);
+                if tx.send(Ok(Bytes::from(line))).await.is_err() {
+                    return;
+                }
             }
-
-            let json_line = serde_json::to_string(&Value::Object(map)).unwrap();
-            let line = if i == 0 {
-                json_line
-            } else {
-                format!(",{}", json_line)
-            };
-            tx.send(Ok(Bytes::from(line))).await.unwrap();
         }
 
-        drop(df);
-        let _ = tx.send(Ok(Bytes::from_static(b"]"))).await;
-        drop(temp_file);
+        let _ = tx.send(Ok(Bytes::from("]"))).await;
         let _ = tokio::fs::remove_file(&temp_path).await;
     });
 
+    let body = StreamBody::new(ReceiverStream::new(rx).map_ok(Frame::data));
     Response::builder()
-        .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
-        .body(StreamBody::new(ReceiverStream::new(rx).map_ok(Frame::data)))
+        .body(body)
         .unwrap()
 }
