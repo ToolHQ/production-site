@@ -11,6 +11,7 @@ mod logger;
 mod middleware;
 mod context;
 mod parquet_handler;
+mod parquet_convert;
 
 use rust_api::query;
 use crate::logger::JsonLogger;
@@ -18,6 +19,8 @@ use crate::middleware::{RequestLoggerConfig, RequestLoggerLayer};
 use crate::context::{with_context};
 use crate::parquet_handler::{UploadForm, JsonRowResponse, upload_and_stream_parquet};
 use crate::parquet_handler::__path_upload_and_stream_parquet;
+use crate::parquet_convert::__path_convert_parquet_into_arrow;
+use crate::parquet_convert::convert_parquet_into_arrow;
 
 #[utoipa::path(
     get,
@@ -114,6 +117,7 @@ struct EnvResponse {
         db_test_handler,
         env,
         upload_and_stream_parquet,
+        convert_parquet_into_arrow
     ),
     components(schemas(
         HealthResponse,
@@ -145,7 +149,9 @@ async fn main() {
         .route("/db-test", get(db_test_handler))
         .route("/env", get(env))
         .route("/upload-parquet", post(upload_and_stream_parquet))
-       .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
+        .route("/convert-parquet-into-arrow", post(convert_parquet_into_arrow))
+        // .merge(convert_router())
+        .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .layer(RequestLoggerLayer::new(logger.clone(), request_logger_config));
 
