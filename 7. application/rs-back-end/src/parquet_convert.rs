@@ -1,8 +1,6 @@
 use axum::{
   extract::Multipart,
   response::Response,
-  routing::post,
-  Router,
 };
 use std::{
   fs::File,
@@ -79,8 +77,4 @@ pub async fn convert_parquet_into_arrow(mut multipart: Multipart) -> Result<Resp
     .header(header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", file_name.replace(".parquet", ".arrow")))
     .body(body)
     .unwrap())
-}
-
-pub fn convert_router() -> Router {
-  Router::new().route("/convert-parquet-into-arrow", post(convert_parquet_into_arrow))
 }
