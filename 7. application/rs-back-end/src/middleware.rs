@@ -123,14 +123,25 @@ where
                 "ipAddress": ip
             });
 
-            logger.info(
-                "Request received",
-                Some(json!({
-                    "req-id": req_id,
-                    "event": "Request received",
-                    "message": message_obj.to_string()
-                }))
-            );
+            if status.is_success() {
+                logger.info(
+                    "Request received",
+                    Some(json!({
+                        "req-id": req_id,
+                        "event": "Request received",
+                        "message": message_obj.to_string()
+                    }))
+                );
+            } else {
+                logger.error(
+                    "Request received",
+                    Some(json!({
+                        "req-id": req_id,
+                        "event": "Request received",
+                        "message": message_obj.to_string()
+                    }))
+                );
+            }
 
             Ok(response)
         }))
