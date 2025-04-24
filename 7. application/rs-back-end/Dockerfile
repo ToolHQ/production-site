@@ -36,4 +36,5 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/rust_api /usr/local/bin/
-CMD ["heaptrack", "/usr/local/bin/rust_api"]
+# CMD ["heaptrack", "/usr/local/bin/rust_api"]
+CMD ["/usr/local/bin/rust_api"]
