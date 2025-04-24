@@ -29,6 +29,11 @@ COPY . .
 RUN cargo build --release
 
 FROM debian:bullseye-slim
-RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    heaptrack \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/target/release/rust_api /usr/local/bin/
-CMD ["/usr/local/bin/rust_api"]
+CMD ["heaptrack", "/usr/local/bin/rust_api"]

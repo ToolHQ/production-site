@@ -6,7 +6,7 @@ use std::{
   fs::File,
   io::{Seek, SeekFrom, Write},
 };
-use tempfile::{NamedTempFile, Builder};
+use tempfile::{NamedTempFile};
 use parquet2::read::read_metadata;
 use serde::{Deserialize};
 use serde_json::json;
