@@ -12,6 +12,7 @@ mod middleware;
 mod context;
 mod parquet_handler;
 mod parquet_convert;
+mod heaptrack_report;
 
 use rust_api::query;
 use crate::logger::JsonLogger;
@@ -153,6 +154,7 @@ async fn main() {
         // .merge(convert_router())
         .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
+        .merge(heaptrack_report::heaptrack_router())
         .layer(RequestLoggerLayer::new(logger.clone(), request_logger_config));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
