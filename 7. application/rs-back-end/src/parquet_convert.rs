@@ -1,5 +1,5 @@
 use axum::{
-  body::Body,
+  body::{Body},
   http::{StatusCode, header},
   extract::Multipart,
   response::Response,
@@ -27,18 +27,18 @@ use crate::logger::JsonLogger;
 
 #[derive(Deserialize, ToSchema)]
 pub struct UploadForm {
-    #[allow(dead_code)]
-    #[schema(format = Binary)]
-    file: String,
+  #[allow(dead_code)]
+  #[schema(format = Binary)]
+  file: String,
 }
 
 #[utoipa::path(
   post,
   path = "/convert-parquet-into-arrow",
   request_body(
-      description = "Upload a Parquet file to convert to Arrow IPC format",
-      content = UploadForm,
-      content_type = "multipart/form-data",
+    description = "Upload a Parquet file to convert to Arrow IPC format",
+    content = UploadForm,
+    content_type = "multipart/form-data",
   ),
   responses(
     (status = 200, description = "Arrow IPC file", content_type = "application/vnd.apache.arrow.file")
@@ -165,9 +165,9 @@ pub async fn convert_parquet_into_arrow(mut multipart: Multipart) -> Result<Resp
   post,
   path = "/convert-arrow-into-ndjson",
   request_body(
-      description = "Upload an Arrow IPC file to convert into JSON",
-      content = UploadForm,
-      content_type = "multipart/form-data",
+    description = "Upload an Arrow IPC file to convert into JSON",
+    content = UploadForm,
+    content_type = "multipart/form-data",
   ),
   responses(
     (status = 200, description = "JSON file", content_type = "application/x-ndjson")
@@ -175,43 +175,48 @@ pub async fn convert_parquet_into_arrow(mut multipart: Multipart) -> Result<Resp
   tag = "Parquet"
 )]
 pub async fn convert_arrow_into_ndjson(mut multipart: Multipart) -> Result<Response, StatusCode> {
+  let logger = JsonLogger::new();
   let Some(field) = multipart.next_field().await.map_err(|e| {
-    JsonLogger::new().error(&format!("Error getting multipart field: {:?}", e), None);
+    logger.error(&format!("Error getting multipart field: {:?}", e), None);
     StatusCode::BAD_REQUEST
   })? else {
-    JsonLogger::new().error("No file field found in multipart upload.", None);
+    logger.error("No file field found in multipart upload.", None);
     return Err(StatusCode::BAD_REQUEST);
   };
+  // end-of-life: multipart
 
   let file_name = field.file_name().unwrap_or("data.arrow").to_string();
   let temp_arrow_path = std::env::temp_dir().join(format!("upload-{}.arrow", uuid::Uuid::new_v4()));
   let mut file = File::create(&temp_arrow_path).map_err(|e| {
-    JsonLogger::new().error(&format!("Create temp file failed: {:?}", e), None);
+    logger.error(&format!("Create temp file failed: {:?}", e), None);
     StatusCode::INTERNAL_SERVER_ERROR
   })?;
-  let mut field_stream = field.into_stream();
+  let mut field_stream = field.into_stream(); // end-of-life: field
 
   while let Some(chunk) = field_stream.next().await {
     let data = chunk.map_err(|e| {
-      JsonLogger::new().error(&format!("Error reading chunk: {:?}", e), None);
+      logger.error(&format!("Error reading chunk: {:?}", e), None);
       StatusCode::INTERNAL_SERVER_ERROR
     })?;
     file.write_all(&data).map_err(|e| {
-      JsonLogger::new().error(&format!("Error writing chunk: {:?}", e), None);
+      logger.error(&format!("Error writing chunk: {:?}", e), None);
       StatusCode::INTERNAL_SERVER_ERROR
     })?;
   }
 
   drop(file);
 
+  logger.info(&format!("Local arrow file written: {:?}", &file_name), None);
+
   let arrow_reader = File::open(&temp_arrow_path).map_err(|e| {
-    JsonLogger::new().error(&format!("Error opening Arrow file: {:?}", e), None);
+    logger.error(&format!("Error opening Arrow file: {:?}", e), None);
     StatusCode::INTERNAL_SERVER_ERROR
   })?;
+  drop(temp_arrow_path);
 
   let mut reader = BufReader::new(arrow_reader);
   let metadata = read_file_metadata(&mut reader).map_err(|e| {
-    JsonLogger::new().error(&format!("Metadata error: {:?}", e), None);
+    logger.error(&format!("Metadata error: {:?}", e), None);
     StatusCode::INTERNAL_SERVER_ERROR
   })?;
 
@@ -220,59 +225,80 @@ pub async fn convert_arrow_into_ndjson(mut multipart: Multipart) -> Result<Respo
 
   let temp_json_path = std::env::temp_dir().join(format!("converted-{}.ndjson", uuid::Uuid::new_v4()));
   let mut writer = File::create(&temp_json_path).map_err(|e| {
-    JsonLogger::new().error(&format!("Create JSON file failed: {:?}", e), None);
+    logger.error(&format!("Create JSON file failed: {:?}", e), None);
     StatusCode::INTERNAL_SERVER_ERROR
   })?;
 
   for maybe_batch in file_reader {
     let batch = maybe_batch.map_err(|e| {
-      JsonLogger::new().error(&format!("Read batch error: {:?}", e), None);
+      logger.error(&format!("Read batch error: {:?}", e), None);
       StatusCode::INTERNAL_SERVER_ERROR
     })?;
+    let num_rows = batch.len();
+    let step = 512;
 
-    for row_index in 0..batch.len() {
-      let mut map = serde_json::Map::new();
-
-      for (col_index, field) in schema.fields.iter().enumerate() {
-        // JsonLogger::new().info(&format!("Column {col_index}: {:?}", field.data_type()), None);
-        let column = &batch.columns()[col_index];
-        let value = column.as_any()
-          .downcast_ref::<arrow2::array::Utf8Array<i32>>()
-          .map(|arr| arr.value(row_index).into())
-          .or_else(|| {
-            column
-              .as_any()
-              .downcast_ref::<arrow2::array::Int64Array>()
-              .map(|arr| arr.value(row_index).into())
-          })
-          .or_else(|| {
-            column
-              .as_any()
-              .downcast_ref::<arrow2::array::BooleanArray>()
-              .map(|arr| arr.value(row_index).into())
-          });
-
-        if let Some(v) = value {
-          map.insert(field.name.clone(), v);
+    for offset in (0..num_rows).step_by(step) {
+      let len = (offset + step).min(num_rows) - offset;
+      let sliced = Chunk::<Box<dyn Array>>::new(
+        batch
+          .columns()
+          .iter()
+          .map(|col| col.as_ref().sliced(offset, len))
+          .collect::<Vec<_>>(),
+      );
+      // now iterate `sliced` instead of `batch`
+      // logger.info(&format!("Batch sliced length: {:?}", sliced.len()), None);
+      for row_index in 0..sliced.len() {
+        let mut map = serde_json::Map::new();
+        for (col_index, field) in schema.fields.iter().enumerate() {
+          // logger.info(&format!("Column {col_index}: {:?}", field.data_type()), None);
+          let column = &sliced.columns()[col_index];
+          let value: serde_json::Value = if let Some(arr) = column.as_any().downcast_ref::<arrow2::array::Utf8Array<i32>>() {
+              arr.value(row_index).into()
+            } else if let Some(arr) = column.as_any().downcast_ref::<arrow2::array::Int64Array>() {
+              arr.value(row_index).into()
+            } else if let Some(arr) = column.as_any().downcast_ref::<arrow2::array::Int32Array>() {
+              arr.value(row_index).into()
+            } else if let Some(arr) = column.as_any().downcast_ref::<arrow2::array::Int16Array>() {
+              arr.value(row_index).into()
+            } else if let Some(arr) = column.as_any().downcast_ref::<arrow2::array::Float64Array>() {
+              arr.value(row_index).into()
+            } else if let Some(arr) = column.as_any().downcast_ref::<arrow2::array::Float32Array>() {
+              arr.value(row_index).into()
+            } else if let Some(arr) = column.as_any().downcast_ref::<arrow2::array::BooleanArray>() {
+              arr.value(row_index).into()
+            } else {
+              serde_json::Value::Null
+            };
+          map.insert(field.name.clone(), value);
         }
+        let json = serde_json::Value::Object(map);
+          writeln!(writer, "{}", json.to_string()).map_err(|e| {
+          logger.error(&format!("Write line error: {:?}", e), None);
+          StatusCode::INTERNAL_SERVER_ERROR
+        })?;
       }
-
-      let json = serde_json::Value::Object(map);
-      writeln!(writer, "{}", json.to_string()).map_err(|e| {
-        JsonLogger::new().error(&format!("Write line error: {:?}", e), None);
-        StatusCode::INTERNAL_SERVER_ERROR
-      })?;
+      writer.flush().ok(); // optional
+      drop(sliced);
     }
+    drop(batch);
   }
 
-  drop(writer);
-
-  let final_reader = tokio::fs::File::open(&temp_json_path).await.map_err(|e| {
-    JsonLogger::new().error(&format!("Open NDJSON for stream failed: {:?}", e), None);
+  writer.flush().map_err(|e| {
+    logger.error(&format!("Final flush NDJSON failed: {:?}", e), None);
     StatusCode::INTERNAL_SERVER_ERROR
   })?;
+  drop(writer);
 
-  let stream = ReaderStream::new(final_reader);
+  logger.info(&format!("Local ndjson file written: {:?}", &file_name), None);
+  tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+  // Spike will begin after here
+
+  let file = tokio::fs::File::open(&temp_json_path).await.map_err(|e| {
+    logger.error(&format!("Open NDJSON for stream failed: {:?}", e), None);
+    StatusCode::INTERNAL_SERVER_ERROR
+  })?;
+  let stream = ReaderStream::new(file);
   let body = Body::from_stream(stream);
 
   Ok(Response::builder()
