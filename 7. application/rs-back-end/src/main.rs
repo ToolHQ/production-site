@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use axum::{
+    extract::DefaultBodyLimit,
     middleware::{Next, from_fn},
     response::Response,
     body::Body,
@@ -176,6 +177,7 @@ async fn main() {
         .route("/upload-parquet", post(upload_and_stream_parquet))
         .route("/convert-parquet-into-arrow", post(convert_parquet_into_arrow))
         .route("/convert-arrow-into-ndjson", post(convert_arrow_into_ndjson))
+        .layer(DefaultBodyLimit::max(100 * 1024 * 1024))
         .route_layer(
             ServiceBuilder::new()
                 .layer(from_fn(log_413))
