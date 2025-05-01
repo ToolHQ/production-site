@@ -234,6 +234,7 @@ pub async fn convert_arrow_into_ndjson(mut multipart: Multipart) -> Result<Respo
       let mut map = serde_json::Map::new();
 
       for (col_index, field) in schema.fields.iter().enumerate() {
+        // JsonLogger::new().info(&format!("Column {col_index}: {:?}", field.data_type()), None);
         let column = &batch.columns()[col_index];
         let value = column.as_any()
           .downcast_ref::<arrow2::array::Utf8Array<i32>>()
