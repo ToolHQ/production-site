@@ -1,7 +1,14 @@
 use std::net::SocketAddr;
 
-use axum::{routing::get, routing::post, Router, Json};
-use axum::extract::DefaultBodyLimit;
+use axum::{
+    middleware::{Next, from_fn},
+    response::Response,
+    body::Body,
+    http::{Request, StatusCode},
+    Json,
+    routing::{get, post},
+    Router
+};
 use serde::Serialize;
 use serde_json::json;
 use utoipa::{OpenApi, ToSchema};
@@ -18,10 +25,27 @@ use rust_api::query;
 use crate::logger::JsonLogger;
 use crate::middleware::{RequestLoggerConfig, RequestLoggerLayer};
 use crate::context::{with_context};
+
 use crate::parquet_handler::{UploadForm, JsonRowResponse, upload_and_stream_parquet};
 use crate::parquet_handler::__path_upload_and_stream_parquet;
+
 use crate::parquet_convert::__path_convert_parquet_into_arrow;
 use crate::parquet_convert::convert_parquet_into_arrow;
+use crate::parquet_convert::__path_convert_arrow_into_ndjson;
+use crate::parquet_convert::convert_arrow_into_ndjson;
+
+use tower_http::limit::RequestBodyLimitLayer;
+use tower::{ServiceBuilder};
+
+const MAX_BYTES: usize = 50 * 1024 * 1024;
+
+async fn log_413(req: Request<Body>, next: Next) -> Response {
+    let res = next.run(req).await;
+    if res.status() == StatusCode::PAYLOAD_TOO_LARGE {
+        JsonLogger::new().error("Request payload too large", None);
+    }
+    res
+}
 
 #[utoipa::path(
     get,
@@ -54,7 +78,6 @@ async fn env() -> Json<serde_json::Value> {
     responses((status = 200, description = "API is healthy", body = HealthResponse))
 )]
 async fn health() -> Json<HealthResponse> {
-    // JsonLogger::new().info("Health check endpoint hit", None);
     Json(HealthResponse { status: "ok" })
 }
 
@@ -118,7 +141,8 @@ struct EnvResponse {
         db_test_handler,
         env,
         upload_and_stream_parquet,
-        convert_parquet_into_arrow
+        convert_parquet_into_arrow,
+        convert_arrow_into_ndjson,
     ),
     components(schemas(
         HealthResponse,
@@ -151,8 +175,12 @@ async fn main() {
         .route("/env", get(env))
         .route("/upload-parquet", post(upload_and_stream_parquet))
         .route("/convert-parquet-into-arrow", post(convert_parquet_into_arrow))
-        // .merge(convert_router())
-        .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
+        .route("/convert-arrow-into-ndjson", post(convert_arrow_into_ndjson))
+        .route_layer(
+            ServiceBuilder::new()
+                .layer(from_fn(log_413))
+                .layer(RequestBodyLimitLayer::new(MAX_BYTES))
+        )
         .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .merge(heaptrack_report::heaptrack_router())
         .layer(RequestLoggerLayer::new(logger.clone(), request_logger_config));
