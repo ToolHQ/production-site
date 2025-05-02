@@ -103,6 +103,44 @@ services:
           memory: 64M
           cpus: '0.1'
 
+  back-end-rs-zero:
+    container_name: back-end-rs-zero
+    image: back_end_rs_zero
+    build:
+      context: ./7. application/rs-back-end/zero
+      dockerfile: Dockerfile
+    volumes:
+      - ./7. application/rs-back-end/data:/app/data
+      # - $HOME/.aws:/root/.aws
+    ports:
+      - 3003:3000
+      - 9233:5678
+    # env_file:
+    #   - ./7. application/rs-back-end/.env
+    # environment:
+    #   - DB_HOST=minikube
+    #   - DB_PORT=54322
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - minikube
+    extra_hosts:
+      - nexus.localhost:192.168.49.2
+      - minio.localhost:192.168.49.2
+      - minikube:192.168.49.2
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.4'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
   back-end-py-metrics:
     container_name: back-end-py-metrics
     image: back_end_py_metrics
