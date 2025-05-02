@@ -46,7 +46,9 @@ fn handle_client(mut stream: TcpStream) {
     println!("Request: {}", String::from_utf8_lossy(&buffer));
     if buffer.starts_with(b"GET /health") {
         let response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nHello, world!";
-        let _ = stream.write(response.as_bytes());
+        if let Err(e) = stream.write_all(response.as_bytes()) {
+            eprintln!("Failed to write (/health): {e}");
+        }
         close_connection(stream);
         return;
     }
@@ -57,7 +59,7 @@ fn handle_client(mut stream: TcpStream) {
                 b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nContent-Disposition: attachment; filename=\"file.ndjson\"\r\n\r\n",
             );
             let mut line = String::new();
-            let mut reader = BufReader::new(file);
+            let mut reader = BufReader::with_capacity(1024 * 10, file);
             loop {
                 line.clear();
                 let bytes = reader.read_line(&mut line).unwrap_or(0);
@@ -67,13 +69,13 @@ fn handle_client(mut stream: TcpStream) {
                 let _ = stream.write_all(line.as_bytes());
                 let _ = stream.flush();
             }
-            close_connection(stream);
+            drop(line);
+            drop(reader);
         } else {
             let _ = stream.write_all(b"HTTP/1.1 500 Internal Server Error\r\n\r\nFile not found");
-            close_connection(stream);
         }
     } else {
         let _ = stream.write_all(b"HTTP/1.1 404 Not Found\r\n\r\nRoute not found");
-        close_connection(stream);
     }
+    close_connection(stream);
 }
