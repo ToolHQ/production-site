@@ -4,10 +4,10 @@
 		{
 			"type": "npm",
 			"script": "build",
-			"path": "7. application/back-end",
+			"path": "apps/back-end",
 			"group": "build",
 			"problemMatcher": [],
-			"label": "npm: build - 7. application/back-end",
+			"label": "npm: build - apps/back-end",
 			"detail": "npm run generate-schema && tsc"
 		}
 	]
