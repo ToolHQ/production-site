@@ -2,7 +2,7 @@ services:
   nginx:
     container_name: nginx
     build:
-      context: ./7. application/nginx
+      context: ./apps/nginx
     environment:
       - STATIC_PROXY_HOST_HEADER=minio.localhost
       - STATIC_SERVICE=http://minikube
@@ -26,7 +26,7 @@ services:
   back-end:
     container_name: back-end
     build:
-      context: ./7. application/back-end
+      context: ./apps/back-end
       args:
         - NPM_OMIT_DEV=optional
       extra_hosts:
@@ -35,13 +35,13 @@ services:
         - minio.localhost:192.168.49.2
     command: npm run watch-build-start
     env_file:
-      - ./7. application/back-end/.env
+      - ./apps/back-end/.env
     environment:
       - DB_DNORIO_POSTGRES_HOST=minikube
       - DB_DNORIO_POSTGRES_PORT=54322
     volumes:
-      - ./7. application/back-end/src:/usr/src/app/src
-      - ./7. application/back-end/node_modules:/usr/src/app/node_modules
+      - ./apps/back-end/src:/usr/src/app/src
+      - ./apps/back-end/node_modules:/usr/src/app/node_modules
     ports:
       - 3000:3000
       - 9229:9229
@@ -70,15 +70,15 @@ services:
     container_name: back-end-rs
     image: back_end_rs
     build:
-      context: ./7. application/rs-back-end
+      context: ./apps/rs-back-end
     volumes:
-      - ./7. application/rs-back-end/app:/app/app
+      - ./apps/rs-back-end/app:/app/app
       - $HOME/.aws:/root/.aws
     ports:
       - 3002:3000
       - 9232:5678
     env_file:
-      - ./7. application/rs-back-end/.env
+      - ./apps/rs-back-end/.env
     environment:
       - DB_HOST=minikube
       - DB_PORT=54322
@@ -107,16 +107,16 @@ services:
     container_name: back-end-rs-zero
     image: back_end_rs_zero
     build:
-      context: ./7. application/rs-back-end/zero
+      context: ./apps/rs-back-end/zero
       dockerfile: Dockerfile
     volumes:
-      - ./7. application/rs-back-end/data:/app/data
+      - ./apps/rs-back-end/data:/app/data
       # - $HOME/.aws:/root/.aws
     ports:
       - 3003:3000
       - 9233:5678
     # env_file:
-    #   - ./7. application/rs-back-end/.env
+    #   - ./apps/rs-back-end/.env
     # environment:
     #   - DB_HOST=minikube
     #   - DB_PORT=54322
@@ -145,17 +145,17 @@ services:
     container_name: back-end-py-metrics
     image: back_end_py_metrics
     build:
-      context: ./7. application/py-back-end
+      context: ./apps/py-back-end
     # command: ["uvicorn", "app.main:app", "--reload", "--no-access-log", "--host", "0.0.0.0", "--port", "3000", "--no-server-header", "--log-config", "log_config.json"]
     command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "app.main:app", "--reload", "--no-access-log", "--host", "0.0.0.0", "--port", "3000", "--log-config", "log_config.json"]
     volumes:
-      - ./7. application/py-back-end/app:/app/app
+      - ./apps/py-back-end/app:/app/app
       - $HOME/.aws:/root/.aws
     ports:
       - 3001:3000
       - 9230:5678
     env_file:
-      - ./7. application/py-back-end/.env
+      - ./apps/py-back-end/.env
     environment:
       - DB_DNORIO_POSTGRES_HOST=minikube
       - DB_DNORIO_POSTGRES_PORT=54322
@@ -183,13 +183,13 @@ services:
   tor:
     container_name: tor
     build:
-      context: ./7. application/tor
+      context: ./apps/tor
     ports:
       - "9050:9050"
     networks:
       - minikube
     volumes:
-      - ./7. application/tor/torrc:/etc/tor/torrc:ro
+      - ./apps/tor/torrc:/etc/tor/torrc:ro
     deploy:
       resources:
         limits:
