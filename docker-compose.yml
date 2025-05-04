@@ -66,19 +66,19 @@ services:
           memory: 1024M
           cpus: '0.2'
 
-  back-end-rs:
-    container_name: back-end-rs
-    image: back_end_rs
+  back-end-rs-axum:
+    container_name: back-end-rs-axum
+    image: back_end_rs-axum
     build:
-      context: ./apps/rs-back-end
+      context: ./apps/rs-axum-back-end
     volumes:
-      - ./apps/rs-back-end/app:/app/app
+      - ./apps/rs-axum-back-end/app:/app/app
       - $HOME/.aws:/root/.aws
     ports:
       - 3002:3000
       - 9232:5678
     env_file:
-      - ./apps/rs-back-end/.env
+      - ./apps/rs-axum-back-end/.env
     environment:
       - DB_HOST=minikube
       - DB_PORT=54322
@@ -103,20 +103,20 @@ services:
           memory: 64M
           cpus: '0.1'
 
-  back-end-rs-zero:
-    container_name: back-end-rs-zero
-    image: back_end_rs_zero
+  back-end-rs-vanilla:
+    container_name: back-end-rs-vanilla
+    image: back_end_rs_vanilla
     build:
-      context: ./apps/rs-back-end/zero
+      context: ./apps/rs-vanilla/back-end
       dockerfile: Dockerfile
     volumes:
-      - ./apps/rs-back-end/data:/app/data
+      - ./apps/rs-vanilla-back-end/data:/app/data
       # - $HOME/.aws:/root/.aws
     ports:
       - 3003:3000
       - 9233:5678
     # env_file:
-    #   - ./apps/rs-back-end/.env
+    #   - ./apps/rs-vanilla/back-end/.env
     # environment:
     #   - DB_HOST=minikube
     #   - DB_PORT=54322

@@ -12,5 +12,5 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/zero_rust_api /usr/local/bin/
-CMD ["/usr/local/bin/zero_rust_api"]
+COPY --from=builder /app/target/release/vanilla_rust_api /usr/local/bin/
+CMD ["/usr/local/bin/vanilla_rust_api"]
