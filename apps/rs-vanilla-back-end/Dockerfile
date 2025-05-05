@@ -1,4 +1,4 @@
-FROM rust:1.86-slim-bullseye as builder
+FROM rust:1.86-slim-bookworm as builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs
@@ -7,7 +7,7 @@ RUN rm -r src
 COPY . .
 RUN cargo build --release
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
