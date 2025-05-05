@@ -68,7 +68,7 @@ services:
 
   back-end-rs-axum:
     container_name: back-end-rs-axum
-    image: back_end_rs-axum
+    image: back_end_rs_axum
     build:
       context: ./apps/rs-axum-back-end
     volumes:
@@ -107,7 +107,7 @@ services:
     container_name: back-end-rs-vanilla
     image: back_end_rs_vanilla
     build:
-      context: ./apps/rs-vanilla/back-end
+      context: ./apps/rs-vanilla-back-end
       dockerfile: Dockerfile
     volumes:
       - ./apps/rs-vanilla-back-end/data:/app/data
@@ -116,7 +116,7 @@ services:
       - 3003:3000
       - 9233:5678
     # env_file:
-    #   - ./apps/rs-vanilla/back-end/.env
+    #   - ./apps/rs-vanilla-back-end/.env
     # environment:
     #   - DB_HOST=minikube
     #   - DB_PORT=54322
