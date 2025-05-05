@@ -4,30 +4,29 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 fn main() {
-    // Spawn the server
-    // std::thread::spawn(|| {
-    let listener = TcpListener::bind("0.0.0.0:3000").expect("Failed to bind");
+    std::thread::spawn(|| {
+        let listener = TcpListener::bind("0.0.0.0:3000").expect("Failed to bind");
 
-    println!("🟢 Listening on http://0.0.0.0:3000");
+        println!("🟢 Listening on http://0.0.0.0:3000");
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                thread::spawn(|| {
-                    handle_client(stream);
-                });
-            }
-            Err(e) => {
-                eprintln!("Connection failed: {}", e);
+        for stream in listener.incoming() {
+            match stream {
+                Ok(stream) => {
+                    thread::spawn(|| {
+                        handle_client(stream);
+                    });
+                }
+                Err(e) => {
+                    eprintln!("Connection failed: {}", e);
+                }
             }
         }
-    }
-    // });
+    });
 
-    // Keep the main thread alive
-    // loop {
-    //     std::thread::park();
-    // }
+    loop {
+        // std::thread::sleep(std::time::Duration::from_secs(1));
+        std::thread::park();
+    }
 }
 
 fn close_connection(stream: TcpStream) {
