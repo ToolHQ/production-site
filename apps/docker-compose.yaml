@@ -2,7 +2,7 @@ services:
   nginx:
     container_name: nginx
     build:
-      context: ./apps/nginx
+      context: ./nginx
     environment:
       - STATIC_PROXY_HOST_HEADER=minio.localhost
       - STATIC_SERVICE=http://minikube
@@ -26,7 +26,7 @@ services:
   back-end:
     container_name: back-end
     build:
-      context: ./apps/back-end
+      context: ./back-end
       args:
         - NPM_OMIT_DEV=optional
       extra_hosts:
@@ -35,13 +35,13 @@ services:
         - minio.localhost:192.168.49.2
     command: npm run watch-build-start
     env_file:
-      - ./apps/back-end/.env
+      - ./back-end/.env
     environment:
       - DB_DNORIO_POSTGRES_HOST=minikube
       - DB_DNORIO_POSTGRES_PORT=54322
     volumes:
-      - ./apps/back-end/src:/usr/src/app/src
-      - ./apps/back-end/node_modules:/usr/src/app/node_modules
+      - ./back-end/src:/usr/src/app/src
+      - ./back-end/node_modules:/usr/src/app/node_modules
     ports:
       - 3000:3000
       - 9229:9229
@@ -70,15 +70,15 @@ services:
     container_name: back-end-rs-axum
     image: back_end_rs_axum
     build:
-      context: ./apps/rs-axum-back-end
+      context: ./rs-axum-back-end
     volumes:
-      - ./apps/rs-axum-back-end/app:/app/app
+      - ./rs-axum-back-end/app:/app/app
       - $HOME/.aws:/root/.aws
     ports:
       - 3002:3000
       - 9232:5678
     env_file:
-      - ./apps/rs-axum-back-end/.env
+      - ./rs-axum-back-end/.env
     environment:
       - DB_HOST=minikube
       - DB_PORT=54322
@@ -107,22 +107,22 @@ services:
     container_name: back-end-rs-vanilla
     image: back_end_rs_vanilla
     build:
-      context: ./apps/rs-vanilla-back-end
+      context: ./rs-vanilla-back-end
       dockerfile: Dockerfile
     volumes:
-      - ./apps/rs-vanilla-back-end/data:/app/data
+      - ./data:/app/data
       # - $HOME/.aws:/root/.aws
     ports:
       - 3003:3000
       - 9233:5678
     # env_file:
-    #   - ./apps/rs-vanilla-back-end/.env
+    #   - ./rs-vanilla-back-end/.env
     # environment:
     #   - DB_HOST=minikube
     #   - DB_PORT=54322
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 10s
+      interval: 1s
       timeout: 5s
       retries: 3
       start_period: 5s
@@ -135,7 +135,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
           cpus: '0.4'
         reservations:
           memory: 64M
@@ -145,17 +145,17 @@ services:
     container_name: back-end-py-metrics
     image: back_end_py_metrics
     build:
-      context: ./apps/py-back-end
+      context: ./py-back-end
     # command: ["uvicorn", "app.main:app", "--reload", "--no-access-log", "--host", "0.0.0.0", "--port", "3000", "--no-server-header", "--log-config", "log_config.json"]
     command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "app.main:app", "--reload", "--no-access-log", "--host", "0.0.0.0", "--port", "3000", "--log-config", "log_config.json"]
     volumes:
-      - ./apps/py-back-end/app:/app/app
+      - ./py-back-end/app:/app/app
       - $HOME/.aws:/root/.aws
     ports:
       - 3001:3000
       - 9230:5678
     env_file:
-      - ./apps/py-back-end/.env
+      - ./py-back-end/.env
     environment:
       - DB_DNORIO_POSTGRES_HOST=minikube
       - DB_DNORIO_POSTGRES_PORT=54322
@@ -183,13 +183,13 @@ services:
   tor:
     container_name: tor
     build:
-      context: ./apps/tor
+      context: ./tor
     ports:
       - "9050:9050"
     networks:
       - minikube
     volumes:
-      - ./apps/tor/torrc:/etc/tor/torrc:ro
+      - ./tor/torrc:/etc/tor/torrc:ro
     deploy:
       resources:
         limits:
@@ -200,16 +200,16 @@ services:
           cpus: '0.1'
 
 
-  pg:
-    container_name: pg
-    build:
-      context: ./5. postgres
-    networks:
-      - minikube
-    environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=admin
-      - PG_HOST=postgres
+  # pg:
+  #   container_name: pg
+  #   build:
+  #     context: ./5. postgres
+  #   networks:
+  #     - minikube
+  #   environment:
+  #     - POSTGRES_USER=admin
+  #     - POSTGRES_PASSWORD=admin
+  #     - PG_HOST=postgres
 
 networks:
   minikube:
