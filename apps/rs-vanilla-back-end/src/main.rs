@@ -1,31 +1,60 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
+const MAX_CONCURRENT_CONNECTIONS: usize = 100;
+
+struct Semaphore {
+    count: Mutex<usize>,
+    condvar: Condvar,
+}
+
+impl Semaphore {
+    fn new(limit: usize) -> Self {
+        Self {
+            count: Mutex::new(limit),
+            condvar: Condvar::new(),
+        }
+    }
+
+    fn acquire(&self) {
+        let mut count = self.count.lock().unwrap();
+        while *count == 0 {
+            count = self.condvar.wait(count).unwrap();
+        }
+        *count -= 1;
+    }
+
+    fn release(&self) {
+        let mut count = self.count.lock().unwrap();
+        *count += 1;
+        self.condvar.notify_one();
+    }
+}
+
 fn main() {
-    std::thread::spawn(|| {
+    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS));
         let listener = TcpListener::bind("0.0.0.0:3000").expect("Failed to bind");
 
         println!("🟢 Listening on http://0.0.0.0:3000");
 
         for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    thread::spawn(|| {
-                        handle_client(stream);
-                    });
-                }
+        let stream = match stream {
+            Ok(s) => s,
                 Err(e) => {
                     eprintln!("Connection failed: {}", e);
-                }
-            }
+                continue;
         }
-    });
+        };
 
-    loop {
-        // std::thread::sleep(std::time::Duration::from_secs(1));
-        std::thread::park();
+        let sem = semaphore.clone();
+        thread::spawn(move || {
+            sem.acquire();
+            handle_client(stream);
+            sem.release();
+        });
     }
 }
 
