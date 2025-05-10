@@ -147,8 +147,7 @@ fn handle_client(mut stream: TcpStream) {
 
         // Handles GET /health
         if http_method.eq_ignore_ascii_case("GET") && http_path == "/health" {
-            let response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
-            let _ = stream.write_all(response.as_bytes());
+            let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
             if connection_header.eq_ignore_ascii_case("close") {
                 close_connection(stream);
                 break;
