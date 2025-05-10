@@ -48,14 +48,12 @@ fn handle_client(mut stream: TcpStream) {
             Ok(n) if n == 0 => {
                 // EOF: client closed connection cleanly
                 close_connection(stream);
-                drop(buf_reader);
                 return;
             }
             Ok(n) => n,
             Err(e) => {
                 eprintln!("Failed to read from {}: {}", peer_addr, e);
                 close_connection(stream);
-                drop(buf_reader);
                 return;
             }
         };
@@ -78,7 +76,6 @@ fn handle_client(mut stream: TcpStream) {
                 .write_all(b"HTTP/1.1 505 HTTP Version Not Supported\r\nContent-Length: 0\r\n\r\n");
             eprintln!("Unsupported HTTP version: {}", http_version);
             close_connection(stream);
-            drop(buf_reader);
             return;
         }
 
@@ -92,14 +89,12 @@ fn handle_client(mut stream: TcpStream) {
                 Ok(n) if n == 0 => {
                     // EOF: client closed connection cleanly
                     close_connection(stream);
-                    drop(buf_reader);
                     return;
                 }
                 Ok(n) => n,
                 Err(e) => {
                     eprintln!("Failed to read from {}: {}", peer_addr, e);
                     close_connection(stream);
-                    drop(buf_reader);
                     return;
                 }
             };
