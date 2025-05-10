@@ -1,4 +1,6 @@
 k8s
+data
+target
 .dockerignore
 .env
 .gitignore
