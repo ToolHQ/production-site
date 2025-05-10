@@ -208,6 +208,4 @@ fn handle_client(mut stream: TcpStream) {
             break;
         }
     }
-
-    drop(buf_reader);
 }
