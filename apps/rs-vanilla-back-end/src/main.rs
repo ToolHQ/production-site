@@ -36,17 +36,17 @@ impl Semaphore {
 
 fn main() {
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS));
-        let listener = TcpListener::bind("0.0.0.0:3000").expect("Failed to bind");
+    let listener = TcpListener::bind("0.0.0.0:3000").expect("Failed to bind");
 
-        println!("🟢 Listening on http://0.0.0.0:3000");
+    println!("🟢 Listening on http://0.0.0.0:3000");
 
-        for stream in listener.incoming() {
+    for stream in listener.incoming() {
         let stream = match stream {
             Ok(s) => s,
-                Err(e) => {
-                    eprintln!("Connection failed: {}", e);
+            Err(e) => {
+                eprintln!("Connection failed: {}", e);
                 continue;
-        }
+            }
         };
 
         let sem = semaphore.clone();
@@ -65,12 +65,23 @@ fn close_connection(stream: TcpStream) {
 }
 
 fn handle_client(mut stream: TcpStream) {
-    let peer_addr = stream.peer_addr().unwrap();
-    let mut buf_reader = BufReader::new(stream.try_clone().unwrap());
+    let peer_addr = match stream.peer_addr() {
+        Ok(addr) => addr,
+        Err(_) => return,
+    };
+
+    let mut buf_reader = match stream.try_clone() {
+        Ok(s) => BufReader::new(s),
+        Err(e) => {
+            eprintln!("Failed to clone stream: {}", e);
+            close_connection(stream);
+            return;
+        }
+    };
 
     // Loop to support request pipelining
     loop {
-        let mut request_line = String::new();
+        let mut request_line = String::with_capacity(1024);
 
         // Read just the first line of the request to get method, path, and version
         let mut bytes_read = match buf_reader.read_line(&mut request_line) {
@@ -167,23 +178,23 @@ fn handle_client(mut stream: TcpStream) {
                 let _ = stream.write_all(
                     b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nContent-Disposition: attachment; filename=\"file.ndjson\"\r\n\r\n",
                 );
-                let mut line = String::new();
-                let mut reader = BufReader::with_capacity(1024 * 10, file);
-                loop {
-                    line.clear();
-                    let bytes = reader.read_line(&mut line).unwrap_or(0);
-                    if bytes == 0 {
-                        break;
+
+                {
+                    let mut reader = BufReader::with_capacity(1024 * 10, file);
+                    let mut line = String::new();
+                    while reader.read_line(&mut line).unwrap_or(0) > 0 {
+                        let _ = stream.write_all(line.as_bytes());
+                        let _ = stream.flush();
+                        line.clear();
                     }
-                    let _ = stream.write_all(line.as_bytes());
-                    let _ = stream.flush();
                 }
-                drop(line);
-                drop(reader);
+
+                close_connection(stream);
                 return;
             } else {
                 let _ =
                     stream.write_all(b"HTTP/1.1 500 Internal Server Error\r\n\r\nFile not found");
+                close_connection(stream);
                 return;
             }
         }
