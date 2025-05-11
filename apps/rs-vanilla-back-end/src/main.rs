@@ -1,16 +1,43 @@
+use core::panic::Location;
+mod logger;
 mod semaphore;
+mod time;
 mod web;
+use logger::Logger;
 use semaphore::Semaphore;
+use serde_json::{json, Map, Value};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
+use std::panic;
 use std::sync::Arc;
 use std::thread;
+use time::get_current_time_utc_string;
 use web::{protocol::HttpVersion, request::HttpRequest, utils::read_http_request};
-
 const MAX_CONCURRENT_CONNECTIONS: usize = 100;
 
 fn main() {
+  let logger = Logger::new();
+  let _ = panic::catch_unwind(|| {
+    let time = get_current_time_utc_string();
+    logger.info(format!("🟢 Starting server at {}", time).as_str());
+    // println!("🟢 Starting server at {}", time);
+
+    let location = Location::caller();
+    let file = location.file();
+    let line = location.line();
+    println!("File: {}, Line: {}", file, line);
+    let mut obj = Map::new(); // This is indexmap under the hood with "preserve_order"
+    obj.insert("z".into(), json!(3));
+    obj.insert("b".into(), json!(2));
+    obj.insert("a".into(), json!(1));
+    obj.insert("a".into(), json!(3));
+    obj.insert("z".into(), json!(5));
+
+    let value = Value::Object(obj);
+    println!("{}", serde_json::to_string_pretty(&value).unwrap());
+  });
+
   let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS));
   let listener = TcpListener::bind("0.0.0.0:3000").expect("Failed to bind");
 
