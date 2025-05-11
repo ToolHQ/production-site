@@ -1,49 +1,14 @@
+mod semaphore;
+mod web;
+use semaphore::Semaphore;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::Arc;
 use std::thread;
+use web::{protocol::HttpVersion, request::HttpRequest, utils::read_http_request};
 
 const MAX_CONCURRENT_CONNECTIONS: usize = 100;
-
-struct Semaphore {
-  count: Mutex<usize>,
-  condvar: Condvar,
-}
-
-impl Semaphore {
-  fn new(limit: usize) -> Self {
-    Self {
-      count: Mutex::new(limit),
-      condvar: Condvar::new(),
-    }
-  }
-
-  fn acquire(&self) {
-    // let thread_id = std::thread::current().id();
-    let mut count = self.count.lock().unwrap();
-    while *count == 0 {
-      // println!("[{thread_id:?}] 🚫 Semaphore full. Waiting...");
-      count = self.condvar.wait(count).unwrap();
-    }
-    *count -= 1;
-    // println!(
-    // "[{thread_id:?}] ✅ Acquired semaphore. Remaining: {}",
-    //     *count
-    // );
-  }
-
-  fn release(&self) {
-    // let thread_id = std::thread::current().id();
-    let mut count = self.count.lock().unwrap();
-    *count += 1;
-    // println!(
-    //     "[{thread_id:?}] 🔓 Released semaphore. Remaining: {}",
-    //     *count
-    // );
-    self.condvar.notify_one();
-  }
-}
 
 fn main() {
   let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS));
@@ -92,99 +57,22 @@ fn handle_client(mut stream: TcpStream) {
 
   // Loop to support request pipelining
   loop {
-    let mut request_line = String::with_capacity(1024);
-
-    // Read just the first line of the request to get method, path, and version
-    let mut bytes_read = match buf_reader.read_line(&mut request_line) {
-      Ok(n) if n == 0 => {
-        // EOF: client closed connection cleanly
-        close_connection(stream);
-        return;
-      }
-      Ok(n) => n,
-      Err(e) => {
-        eprintln!("Failed to read from {}: {}", peer_addr, e);
-        close_connection(stream);
-        return;
-      }
+    let Some(http_request) = read_http_request(&mut stream, &mut buf_reader, peer_addr) else {
+      return;
     };
 
-    let first_line_parts: Vec<&str> = request_line.split_whitespace().collect();
-    if first_line_parts.len() != 3 {
-      // TODO: Support HTTP/0.9
-      let _ = stream.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
-      eprintln!("Invalid request line: {}", request_line);
-      close_connection(stream);
-      return;
-    }
-    let http_method = first_line_parts[0].to_string();
-    let http_path = first_line_parts[1].to_string();
-    let http_version = first_line_parts[2].to_string();
-
-    if http_version != "HTTP/1.1" {
-      // TODO: Support HTTP/1.0 and HTTP/2 and HTTP/3
-      let _ =
-        stream.write_all(b"HTTP/1.1 505 HTTP Version Not Supported\r\nContent-Length: 0\r\n\r\n");
-      eprintln!("Unsupported HTTP version: {}", http_version);
-      close_connection(stream);
-      return;
-    }
-
-    // Headers of interest
-    let mut connection_header = "keep-alive".to_string();
-
-    // Read line by line to get the headers using O(1) memory
-    loop {
-      request_line.clear();
-      bytes_read += match buf_reader.read_line(&mut request_line) {
-        Ok(n) if n == 0 => {
-          // EOF: client closed connection cleanly
-          close_connection(stream);
-          return;
-        }
-        Ok(n) => n,
-        Err(e) => {
-          eprintln!("Failed to read from {}: {}", peer_addr, e);
-          close_connection(stream);
-          return;
-        }
-      };
-
-      let request_line_trimmed = request_line.trim_end();
-      // When \r\n\r\n is reached, the headers are done
-      if request_line_trimmed.is_empty() {
-        break;
-      }
-
-      if let Some((header_name, header_value)) = request_line_trimmed.split_once(':') {
-        let header_name = header_name.trim();
-        let header_value = header_value.trim();
-        if header_name.eq_ignore_ascii_case("Connection") {
-          connection_header = header_value.to_string();
-        }
-      } else {
-        eprintln!("Invalid header: {}", request_line_trimmed);
-      }
-    }
-
     // Handles GET /health
-    if http_method.eq_ignore_ascii_case("GET") && http_path == "/health" {
+    if http_request.is_strict_match("GET", "/health") {
       let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
-      if connection_header.eq_ignore_ascii_case("close") {
+      if !http_request.should_keep_alive() {
         close_connection(stream);
         break;
       }
       continue;
     }
 
-    // Logs request
-    println!(
-      "Request Received: {} {} from {}. Bytes read: {}. Connection: {}",
-      http_method, http_path, peer_addr, bytes_read, connection_header
-    );
-
     // Handles GET /ndjson
-    if http_method.eq_ignore_ascii_case("GET") && http_path == "/ndjson" {
+    if http_request.is_strict_match("GET", "/ndjson") {
       if let Ok(file) = File::open("/app/data/flights-1m.ndjson") {
         let _ = stream.write_all(
                     b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nContent-Disposition: attachment; filename=\"file.ndjson\"\r\n\r\n",
@@ -199,7 +87,18 @@ fn handle_client(mut stream: TcpStream) {
             line.clear();
           }
         }
-
+        // Logs request
+        println!(
+          "Request Received: {} {} from {}. Bytes read: {}. Connection: {}",
+          http_request.method,
+          http_request.path,
+          http_request.peer_addr,
+          http_request.bytes_read,
+          http_request
+            .headers
+            .get("connection")
+            .unwrap_or(&"".to_string())
+        );
         close_connection(stream);
         return;
       } else {
@@ -209,10 +108,16 @@ fn handle_client(mut stream: TcpStream) {
       }
     }
 
+    let connection_header = http_request
+      .headers
+      .get("connection")
+      .unwrap_or(&"close".to_string())
+      .to_string();
+
     // Send 404 as default
     let response_body = format!(
       "You requested {} {}\nFrom {} (bytes read: {})\n",
-      http_method, http_path, peer_addr, bytes_read
+      http_request.method, http_request.path, http_request.peer_addr, http_request.bytes_read
     );
     let response = format!(
             "HTTP/1.1 404 Not Found\r\nContent-Length: {}\r\nConnection: {}\r\nContent-Type: text/plain\r\n\r\n{}",
@@ -220,10 +125,23 @@ fn handle_client(mut stream: TcpStream) {
             connection_header,
             response_body
         );
-    println!("Response {}", response_body);
     let _ = stream.write_all(response.as_bytes());
 
-    if connection_header.eq_ignore_ascii_case("close") {
+    // Logs request
+    println!(
+      "Request Received: {} {} from {}. Bytes read: {}. Connection: {} -> {}",
+      http_request.method,
+      http_request.path,
+      http_request.peer_addr,
+      http_request.bytes_read,
+      http_request
+        .headers
+        .get("connection")
+        .unwrap_or(&"".to_string()),
+      response_body
+    );
+
+    if !http_request.should_keep_alive() {
       // If the connection header is "close", close the connection
       close_connection(stream);
       break;
