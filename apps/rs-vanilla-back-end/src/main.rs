@@ -20,7 +20,8 @@ fn main() {
   let listener = TcpListener::bind(format!("0.0.0.0:{}", SERVER_PORT)).expect("Failed to bind");
 
   let bytes_alloc_per_request = std::mem::size_of::<HttpRequest>();
-  log_info!(
+  log_action_info!(
+    "Server Start",
     format!("🟢 Starting server at {}", time).as_str(),
     &json_map! {
         server_start_time: time,
@@ -34,8 +35,9 @@ fn main() {
     let stream = match stream {
       Ok(s) => s,
       Err(e) => {
-        log_error!(
-          format!("Connection failed: {}", e).as_str(),
+        log_action_error!(
+          "Connection failed",
+          format!("❌ Connection failed: {}", e).as_str(),
           &json_map! {
               error: e.to_string(),
           }

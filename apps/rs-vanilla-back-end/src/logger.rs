@@ -43,7 +43,6 @@ impl Logger {
   }
 
   #[track_caller]
-  #[allow(dead_code)]
   pub fn error(&self, message: &str, extra: Option<&Map<String, Value>>) {
     self.log(Severity::Error, message, extra);
   }
