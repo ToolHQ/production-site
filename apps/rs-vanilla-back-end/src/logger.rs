@@ -94,7 +94,7 @@ impl Logger {
     log_obj.insert("message".into(), message.into());
 
     if let Some(obj) = extra {
-      log_obj.extend(obj.iter().map(|(k, v)| (k.clone(), v.clone())));
+      log_obj.extend(obj.clone());
     }
 
     match severity {
@@ -152,9 +152,7 @@ macro_rules! log_action_info {
   ($action:expr, $msg:expr, $extra:expr) => {{
     let mut _map = ::serde_json::Map::new();
     _map.insert("action".into(), ::serde_json::json!($action));
-    if let Some(user_map) = Some($extra) {
-      _map.extend(user_map.iter().map(|(k, v)| (k.clone(), v.clone())));
-    }
+    _map.extend($extra.clone());
     $crate::logger::get_logger().info($msg, Some(&_map));
   }};
   ($action:expr, $msg:expr) => {{
@@ -191,9 +189,7 @@ macro_rules! log_action_error {
   ($action:expr, $msg:expr, $extra:expr) => {{
     let mut _map = ::serde_json::Map::new();
     _map.insert("action".into(), ::serde_json::json!($action));
-    if let Some(user_map) = Some($extra) {
-      _map.extend(user_map.iter().map(|(k, v)| (k.clone(), v.clone())));
-    }
+    _map.extend($extra.clone());
     $crate::logger::get_logger().error($msg, Some(&_map));
   }};
   ($action:expr, $msg:expr) => {{
@@ -230,9 +226,7 @@ macro_rules! log_action_warn {
   ($action:expr, $msg:expr, $extra:expr) => {{
     let mut _map = ::serde_json::Map::new();
     _map.insert("action".into(), ::serde_json::json!($action));
-    if let Some(user_map) = Some($extra) {
-      _map.extend(user_map.iter().map(|(k, v)| (k.clone(), v.clone())));
-    }
+    _map.extend($extra.clone());
     $crate::logger::get_logger().warn($msg, Some(&_map));
   }};
   ($action:expr, $msg:expr) => {{
@@ -269,9 +263,7 @@ macro_rules! log_action_debug {
   ($action:expr, $msg:expr, $extra:expr) => {{
     let mut _map = ::serde_json::Map::new();
     _map.insert("action".into(), ::serde_json::json!($action));
-    if let Some(user_map) = Some($extra) {
-      _map.extend(user_map.iter().map(|(k, v)| (k.clone(), v.clone())));
-    }
+    _map.extend($extra.clone());
     $crate::logger::get_logger().debug($msg, Some(&_map));
   }};
   ($action:expr, $msg:expr) => {{
