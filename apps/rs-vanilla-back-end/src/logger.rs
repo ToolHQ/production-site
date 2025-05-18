@@ -38,24 +38,24 @@ impl Logger {
   }
 
   #[track_caller]
-  pub fn info(&self, message: &str, extra: Option<&Map<String, Value>>) {
-    self.log(Severity::Info, message, extra);
+  pub fn info(&self, message: impl AsRef<str>, extra: Option<&Map<String, Value>>) {
+    self.log(Severity::Info, message.as_ref(), extra);
   }
 
   #[track_caller]
-  pub fn error(&self, message: &str, extra: Option<&Map<String, Value>>) {
-    self.log(Severity::Error, message, extra);
-  }
-
-  #[track_caller]
-  #[allow(dead_code)]
-  pub fn warn(&self, message: &str, extra: Option<&Map<String, Value>>) {
-    self.log(Severity::Warn, message, extra);
+  pub fn error(&self, message: impl AsRef<str>, extra: Option<&Map<String, Value>>) {
+    self.log(Severity::Error, message.as_ref(), extra);
   }
 
   #[track_caller]
   #[allow(dead_code)]
-  pub fn debug(&self, message: &str, extra: Option<&Map<String, Value>>) {
+  pub fn warn(&self, message: impl AsRef<str>, extra: Option<&Map<String, Value>>) {
+    self.log(Severity::Warn, message.as_ref(), extra);
+  }
+
+  #[track_caller]
+  #[allow(dead_code)]
+  pub fn debug(&self, message: impl AsRef<str>, extra: Option<&Map<String, Value>>) {
     let location = Location::caller();
     let file_path = location.file();
     // Fast O(1) match against allowed debug paths
@@ -65,7 +65,7 @@ impl Logger {
     {
       return;
     }
-    self.log(Severity::Debug, message, extra);
+    self.log(Severity::Debug, message.as_ref(), extra);
   }
 
   #[track_caller]
@@ -112,10 +112,26 @@ pub fn get_logger() -> &'static Logger {
   LOGGER.get_or_init(Logger::new)
 }
 
-// === Macro ===
+// === Macros ===
+
+#[macro_export]
+macro_rules! json_map {
+  ( $( $key:ident : $val:expr ),* $(,)? ) => {{
+    let mut map = ::serde_json::Map::new();
+    $(
+      map.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+    )*
+    map
+  }};
+}
 
 #[macro_export]
 macro_rules! log_info {
+  ($msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+    let mut _map = ::serde_json::Map::new();
+    $( _map.insert(stringify!($key).to_string(), ::serde_json::json!($val)); )*
+    $crate::logger::get_logger().info($msg, Some(&_map));
+  }};
   ($msg:expr $(, $extra:expr)? ) => {
     crate::logger::get_logger().info($msg, log_info!(@opt $($extra)?))
   };
@@ -125,23 +141,36 @@ macro_rules! log_info {
 
 #[macro_export]
 macro_rules! log_action_info {
-  ($action:expr, $msg:expr $(, $extra:expr)? ) => {{
+  ($action:expr, $msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
     let mut _extra = ::serde_json::Map::new();
     _extra.insert("action".into(), ::serde_json::json!($action));
-
-    if let Some(user_extra) = log_action_info!(@opt $($extra)?) {
-      _extra.extend(user_extra.iter().map(|(k, v)| (k.clone(), v.clone())));
-    }
-
-    crate::logger::get_logger().info($msg, Some(&_extra));
+    $(
+      _extra.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+    )*
+    $crate::logger::get_logger().info($msg, Some(&_extra));
   }};
-
-  (@opt) => { None };
-  (@opt $e:expr) => { Some($e) };
+  ($action:expr, $msg:expr, $extra:expr) => {{
+    let mut _map = ::serde_json::Map::new();
+    _map.insert("action".into(), ::serde_json::json!($action));
+    if let Some(user_map) = Some($extra) {
+      _map.extend(user_map.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    $crate::logger::get_logger().info($msg, Some(&_map));
+  }};
+  ($action:expr, $msg:expr) => {{
+    let mut _extra = ::serde_json::Map::new();
+    _extra.insert("action".into(), ::serde_json::json!($action));
+    $crate::logger::get_logger().info($msg, Some(&_extra));
+  }};
 }
 
 #[macro_export]
 macro_rules! log_error {
+  ($msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+    let mut _map = ::serde_json::Map::new();
+    $( _map.insert(stringify!($key).to_string(), ::serde_json::json!($val)); )*
+    $crate::logger::get_logger().error($msg, Some(&_map));
+  }};
   ($msg:expr $(, $extra:expr)? ) => {
     crate::logger::get_logger().error($msg, log_error!(@opt $($extra)?))
   };
@@ -151,23 +180,36 @@ macro_rules! log_error {
 
 #[macro_export]
 macro_rules! log_action_error {
-  ($action:expr, $msg:expr $(, $extra:expr)? ) => {{
+  ($action:expr, $msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
     let mut _extra = ::serde_json::Map::new();
     _extra.insert("action".into(), ::serde_json::json!($action));
-
-    if let Some(user_extra) = log_action_error!(@opt $($extra)?) {
-      _extra.extend(user_extra.iter().map(|(k, v)| (k.clone(), v.clone())));
-    }
-
-    crate::logger::get_logger().error($msg, Some(&_extra));
+    $(
+      _extra.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+    )*
+    $crate::logger::get_logger().error($msg, Some(&_extra));
   }};
-
-  (@opt) => { None };
-  (@opt $e:expr) => { Some($e) };
+  ($action:expr, $msg:expr, $extra:expr) => {{
+    let mut _map = ::serde_json::Map::new();
+    _map.insert("action".into(), ::serde_json::json!($action));
+    if let Some(user_map) = Some($extra) {
+      _map.extend(user_map.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    $crate::logger::get_logger().error($msg, Some(&_map));
+  }};
+  ($action:expr, $msg:expr) => {{
+    let mut _extra = ::serde_json::Map::new();
+    _extra.insert("action".into(), ::serde_json::json!($action));
+    $crate::logger::get_logger().error($msg, Some(&_extra));
+  }};
 }
 
 #[macro_export]
 macro_rules! log_warn {
+  ($msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+    let mut _map = ::serde_json::Map::new();
+    $( _map.insert(stringify!($key).to_string(), ::serde_json::json!($val)); )*
+    $crate::logger::get_logger().warn($msg, Some(&_map));
+  }};
   ($msg:expr $(, $extra:expr)? ) => {
     crate::logger::get_logger().warn($msg, log_warn!(@opt $($extra)?))
   };
@@ -177,23 +219,36 @@ macro_rules! log_warn {
 
 #[macro_export]
 macro_rules! log_action_warn {
-  ($action:expr, $msg:expr $(, $extra:expr)? ) => {{
+  ($action:expr, $msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
     let mut _extra = ::serde_json::Map::new();
     _extra.insert("action".into(), ::serde_json::json!($action));
-
-    if let Some(user_extra) = log_action_warn!(@opt $($extra)?) {
-      _extra.extend(user_extra.iter().map(|(k, v)| (k.clone(), v.clone())));
-    }
-
-    crate::logger::get_logger().warn($msg, Some(&_extra));
+    $(
+      _extra.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+    )*
+    $crate::logger::get_logger().warn($msg, Some(&_extra));
   }};
-
-  (@opt) => { None };
-  (@opt $e:expr) => { Some($e) };
+  ($action:expr, $msg:expr, $extra:expr) => {{
+    let mut _map = ::serde_json::Map::new();
+    _map.insert("action".into(), ::serde_json::json!($action));
+    if let Some(user_map) = Some($extra) {
+      _map.extend(user_map.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    $crate::logger::get_logger().warn($msg, Some(&_map));
+  }};
+  ($action:expr, $msg:expr) => {{
+    let mut _extra = ::serde_json::Map::new();
+    _extra.insert("action".into(), ::serde_json::json!($action));
+    $crate::logger::get_logger().warn($msg, Some(&_extra));
+  }};
 }
 
 #[macro_export]
 macro_rules! log_debug {
+  ($msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+    let mut _map = ::serde_json::Map::new();
+    $( _map.insert(stringify!($key).to_string(), ::serde_json::json!($val)); )*
+    $crate::logger::get_logger().debug($msg, Some(&_map));
+  }};
   ($msg:expr $(, $extra:expr)? ) => {
     crate::logger::get_logger().debug($msg, log_debug!(@opt $($extra)?))
   };
@@ -203,17 +258,25 @@ macro_rules! log_debug {
 
 #[macro_export]
 macro_rules! log_action_debug {
-  ($action:expr, $msg:expr $(, $extra:expr)? ) => {{
+  ($action:expr, $msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
     let mut _extra = ::serde_json::Map::new();
     _extra.insert("action".into(), ::serde_json::json!($action));
-
-    if let Some(user_extra) = log_action_debug!(@opt $($extra)?) {
-      _extra.extend(user_extra.iter().map(|(k, v)| (k.clone(), v.clone())));
-    }
-
-    crate::logger::get_logger().debug($msg, Some(&_extra));
+    $(
+      _extra.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+    )*
+    $crate::logger::get_logger().debug($msg, Some(&_extra));
   }};
-
-  (@opt) => { None };
-  (@opt $e:expr) => { Some($e) };
+  ($action:expr, $msg:expr, $extra:expr) => {{
+    let mut _map = ::serde_json::Map::new();
+    _map.insert("action".into(), ::serde_json::json!($action));
+    if let Some(user_map) = Some($extra) {
+      _map.extend(user_map.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    $crate::logger::get_logger().debug($msg, Some(&_map));
+  }};
+  ($action:expr, $msg:expr) => {{
+    let mut _extra = ::serde_json::Map::new();
+    _extra.insert("action".into(), ::serde_json::json!($action));
+    $crate::logger::get_logger().debug($msg, Some(&_extra));
+  }};
 }

@@ -1,4 +1,3 @@
-mod json_utils;
 mod logger;
 mod semaphore;
 mod time;
@@ -20,16 +19,23 @@ fn main() {
   let listener = TcpListener::bind(format!("0.0.0.0:{}", SERVER_PORT)).expect("Failed to bind");
 
   let bytes_alloc_per_request = std::mem::size_of::<HttpRequest>();
-  log_action_info!(
-    "Server Start",
-    format!("🟢 Starting server at {}", time).as_str(),
+  log_info!(
+    "Teste with extra data",
     &json_map! {
-        server_start_time: time,
-        server_port: SERVER_PORT,
-        bytes_alloc_per_request: bytes_alloc_per_request,
-        max_concurrency_connections: MAX_CONCURRENT_CONNECTIONS,
+      a: 'a'
     }
   );
+  log_info!("Teste with extra data more compact", {
+    a: 'a'
+  });
+  log_info!("Teste without extra data");
+  // log_action_info!("Test action", "Test action message");
+  log_action_info!("Server Start", format!("🟢 Starting server at {}", time).as_str(), {
+    server_start_time: time,
+    server_port: SERVER_PORT,
+    bytes_alloc_per_request: bytes_alloc_per_request,
+    max_concurrency_connections: MAX_CONCURRENT_CONNECTIONS,
+  });
 
   for stream in listener.incoming() {
     let stream = match stream {
@@ -37,8 +43,8 @@ fn main() {
       Err(e) => {
         log_action_error!(
           "Connection failed",
-          format!("❌ Connection failed: {}", e).as_str(),
-          &json_map! {
+          format!("❌ Connection failed: {}", e),
+          {
               error: e.to_string(),
           }
         );
@@ -122,7 +128,7 @@ fn handle_client(mut stream: TcpStream) {
         log_action_info!(
           "Request Received",
           format!("{} {}", http_request.method, http_request.path).as_str(),
-          &json_map! {
+          {
             http_method: http_request.method,
             http_path: http_request.path,
             http_peer_addr: http_request.peer_addr,
