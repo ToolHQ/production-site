@@ -1,11 +1,17 @@
 use chrono::Utc;
 use serde_json::{Map, Value};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::panic::Location;
 use std::sync::OnceLock;
 
 static ENVIRONMENT: OnceLock<String> = OnceLock::new();
 static LOGGER_DEBUG_PATHS: OnceLock<HashSet<String>> = OnceLock::new();
+
+thread_local! {
+  static REQUEST_CONTEXT: RefCell<HashMap<&'static str, String>> = RefCell::new(HashMap::new());
+}
 
 fn get_environment() -> &'static str {
   ENVIRONMENT.get_or_init(|| std::env::var("RUNTIME_ENV").unwrap_or_else(|_| "dev".to_string()))
@@ -18,6 +24,28 @@ fn get_logger_debug_paths() -> &'static HashSet<String> {
       .split(',')
       .filter(|s| !s.trim().is_empty())
       .map(|s| s.trim().to_string())
+      .collect()
+  })
+}
+
+pub fn set_request_context(key: &'static str, value: impl Into<String>) {
+  REQUEST_CONTEXT.with(|ctx| {
+    ctx.borrow_mut().insert(key, value.into());
+  });
+}
+
+pub fn clear_request_context() {
+  REQUEST_CONTEXT.with(|ctx| {
+    ctx.borrow_mut().clear();
+  });
+}
+
+pub fn get_request_context() -> serde_json::Map<String, serde_json::Value> {
+  REQUEST_CONTEXT.with(|ctx| {
+    ctx
+      .borrow()
+      .iter()
+      .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
       .collect()
   })
 }
@@ -92,6 +120,10 @@ impl Logger {
       format!("{}:{}", location.file(), location.line()).into(),
     );
     log_obj.insert("message".into(), message.into());
+
+    for (k, v) in get_request_context() {
+      log_obj.insert(k, v);
+    }
 
     if let Some(obj) = extra {
       log_obj.extend(obj.clone());

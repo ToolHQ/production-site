@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum HttpVersion {
   Http09,
   Http10,
@@ -22,7 +22,29 @@ impl HttpVersion {
     }
   }
 
-  //   pub fn requires_host(&self) -> bool {
-  //     matches!(self, HttpVersion::Http11)
-  //   }
+  pub fn get_default(&self) -> String {
+    match self {
+      HttpVersion::Http09 => "HTTP/0.9".to_string(),
+      HttpVersion::Http10 => "HTTP/1.0".to_string(),
+      HttpVersion::Http11 => "HTTP/1.1".to_string(),
+    }
+  }
+}
+#[derive(Clone, Copy)]
+pub enum HttpStatusCode {
+  Ok = 200,
+  #[allow(dead_code)]
+  BadRequest = 400,
+  NotFound = 404,
+  InternalServerError = 500,
+}
+impl HttpStatusCode {
+  pub fn to_string(&self) -> String {
+    match self {
+      HttpStatusCode::Ok => "OK".to_string(),
+      HttpStatusCode::BadRequest => "Bad Request".to_string(),
+      HttpStatusCode::NotFound => "Not Found".to_string(),
+      HttpStatusCode::InternalServerError => "Internal Server Error".to_string(),
+    }
+  }
 }
