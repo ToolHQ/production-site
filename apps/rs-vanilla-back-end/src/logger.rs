@@ -115,21 +115,31 @@ pub fn get_logger() -> &'static Logger {
 // === Macros ===
 
 #[macro_export]
+macro_rules! __key_to_string {
+  ($key:ident) => {
+    stringify!($key).to_string()
+  };
+  ($key:literal) => {
+    $key.to_string()
+  };
+}
+
+#[macro_export]
 macro_rules! json_map {
-  ( $( $key:ident : $val:expr ),* $(,)? ) => {{
-    let mut map = ::serde_json::Map::new();
+  ( $( $key:tt : $val:expr ),* $(,)? ) => {{
+    let mut _map = ::serde_json::Map::new();
     $(
-      map.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+      _map.insert($crate::__key_to_string!($key), ::serde_json::json!($val));
     )*
-    map
+    _map
   }};
 }
 
 #[macro_export]
 macro_rules! log_info {
-  ($msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+  ($msg:expr, { $( $key:tt : $val:expr ),* $(,)? }) => {{
     let mut _map = ::serde_json::Map::new();
-    $( _map.insert(stringify!($key).to_string(), ::serde_json::json!($val)); )*
+    $( _map.insert($crate::__key_to_string!($key), ::serde_json::json!($val)); )*
     $crate::logger::get_logger().info($msg, Some(&_map));
   }};
   ($msg:expr $(, $extra:expr)? ) => {
@@ -141,11 +151,11 @@ macro_rules! log_info {
 
 #[macro_export]
 macro_rules! log_action_info {
-  ($action:expr, $msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+  ($action:expr, $msg:expr, { $( $key:tt : $val:expr ),* $(,)? }) => {{
     let mut _extra = ::serde_json::Map::new();
     _extra.insert("action".into(), ::serde_json::json!($action));
     $(
-      _extra.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+      _extra.insert($crate::__key_to_string!($key), ::serde_json::json!($val));
     )*
     $crate::logger::get_logger().info($msg, Some(&_extra));
   }};
@@ -164,9 +174,9 @@ macro_rules! log_action_info {
 
 #[macro_export]
 macro_rules! log_error {
-  ($msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+  ($msg:expr, { $( $key:tt : $val:expr ),* $(,)? }) => {{
     let mut _map = ::serde_json::Map::new();
-    $( _map.insert(stringify!($key).to_string(), ::serde_json::json!($val)); )*
+    $( _map.insert($crate::__key_to_string!($key), ::serde_json::json!($val)); )*
     $crate::logger::get_logger().error($msg, Some(&_map));
   }};
   ($msg:expr $(, $extra:expr)? ) => {
@@ -178,11 +188,11 @@ macro_rules! log_error {
 
 #[macro_export]
 macro_rules! log_action_error {
-  ($action:expr, $msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+  ($action:expr, $msg:expr, { $( $key:tt : $val:expr ),* $(,)? }) => {{
     let mut _extra = ::serde_json::Map::new();
     _extra.insert("action".into(), ::serde_json::json!($action));
     $(
-      _extra.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+      _extra.insert($crate::__key_to_string!($key), ::serde_json::json!($val));
     )*
     $crate::logger::get_logger().error($msg, Some(&_extra));
   }};
@@ -201,9 +211,9 @@ macro_rules! log_action_error {
 
 #[macro_export]
 macro_rules! log_warn {
-  ($msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+  ($msg:expr, { $( $key:tt : $val:expr ),* $(,)? }) => {{
     let mut _map = ::serde_json::Map::new();
-    $( _map.insert(stringify!($key).to_string(), ::serde_json::json!($val)); )*
+    $( _map.insert($crate::__key_to_string!($key), ::serde_json::json!($val)); )*
     $crate::logger::get_logger().warn($msg, Some(&_map));
   }};
   ($msg:expr $(, $extra:expr)? ) => {
@@ -215,11 +225,11 @@ macro_rules! log_warn {
 
 #[macro_export]
 macro_rules! log_action_warn {
-  ($action:expr, $msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+  ($action:expr, $msg:expr, { $( $key:tt : $val:expr ),* $(,)? }) => {{
     let mut _extra = ::serde_json::Map::new();
     _extra.insert("action".into(), ::serde_json::json!($action));
     $(
-      _extra.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+      _extra.insert($crate::__key_to_string!($key), ::serde_json::json!($val));
     )*
     $crate::logger::get_logger().warn($msg, Some(&_extra));
   }};
@@ -238,9 +248,9 @@ macro_rules! log_action_warn {
 
 #[macro_export]
 macro_rules! log_debug {
-  ($msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+  ($msg:expr, { $( $key:tt : $val:expr ),* $(,)? }) => {{
     let mut _map = ::serde_json::Map::new();
-    $( _map.insert(stringify!($key).to_string(), ::serde_json::json!($val)); )*
+    $( _map.insert($crate::__key_to_string!($key), ::serde_json::json!($val)); )*
     $crate::logger::get_logger().debug($msg, Some(&_map));
   }};
   ($msg:expr $(, $extra:expr)? ) => {
@@ -252,11 +262,11 @@ macro_rules! log_debug {
 
 #[macro_export]
 macro_rules! log_action_debug {
-  ($action:expr, $msg:expr, { $( $key:ident : $val:expr ),* $(,)? }) => {{
+  ($action:expr, $msg:expr, { $( $key:tt : $val:expr ),* $(,)? }) => {{
     let mut _extra = ::serde_json::Map::new();
     _extra.insert("action".into(), ::serde_json::json!($action));
     $(
-      _extra.insert(stringify!($key).to_string(), ::serde_json::json!($val));
+      _extra.insert($crate::__key_to_string!($key), ::serde_json::json!($val));
     )*
     $crate::logger::get_logger().debug($msg, Some(&_extra));
   }};
