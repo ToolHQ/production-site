@@ -22,7 +22,8 @@ fn main() {
   log_info!(
     "Teste with extra data",
     &json_map! {
-      a: 'a'
+      a: "abc",
+      "req-id": 123
     }
   );
   log_info!("Teste with extra data more compact", {
@@ -169,7 +170,7 @@ fn handle_client(mut stream: TcpStream) {
       "Request Received",
       format!("{} {}", http_request.method, http_request.path).as_str(),
       &json_map! {
-        http_method: http_request.method,
+        "http_method": http_request.method,
         http_path: http_request.path,
         http_peer_addr: http_request.peer_addr,
         bytes_read: http_request.bytes_read,
