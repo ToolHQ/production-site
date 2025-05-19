@@ -2,14 +2,18 @@ mod logger;
 mod semaphore;
 mod time;
 mod web;
+use logger::{clear_request_context, set_request_context};
 use semaphore::Semaphore;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
 use time::get_current_time_utc_string;
-use web::{protocol::HttpVersion, request::HttpRequest, utils::read_http_request};
+use web::protocol::HttpStatusCode;
+use web::{
+  protocol::HttpVersion, request::HttpRequest, request::HttpResponse, utils::read_http_request,
+};
 const MAX_CONCURRENT_CONNECTIONS: usize = 100;
 const SERVER_PORT: u16 = 3000;
 
@@ -73,6 +77,37 @@ fn close_connection(stream: TcpStream) {
   }
 }
 
+fn handle_http_health_check(_: &HttpRequest, http_response: &mut HttpResponse) -> Option<()> {
+  http_response.set_status_code(HttpStatusCode::Ok);
+  http_response.set_header("Content-Length", "0");
+  return None;
+}
+
+fn handle_ndjson_request(_: &HttpRequest, http_response: &mut HttpResponse) -> Option<()> {
+  if let Ok(file) = File::open("/app/data/flights-1m.ndjson") {
+    http_response.set_header("Content-Type", "application/x-ndjson");
+    http_response.set_header(
+      "Content-Disposition",
+      "attachment; filename=\"file.ndjson\"",
+    );
+    {
+      let mut reader = BufReader::with_capacity(1024 * 10, file);
+      let mut line = String::new();
+      while reader.read_line(&mut line).unwrap_or(0) > 0 {
+        let _ = http_response.write_all(line.as_bytes());
+        let _ = http_response.flush();
+        line.clear();
+      }
+    }
+    return None;
+  } else {
+    http_response.set_status_code(HttpStatusCode::InternalServerError);
+    http_response.set_header("Content-Type", "text/plain");
+    let _ = http_response.write_all(b"File not found");
+    return None;
+  }
+}
+
 fn handle_client(mut stream: TcpStream) {
   let peer_addr = match stream.peer_addr() {
     Ok(addr) => addr,
@@ -95,13 +130,50 @@ fn handle_client(mut stream: TcpStream) {
 
   // Loop to support request pipelining
   loop {
+    // Inits req-id
+    let req_id = get_current_time_utc_string();
+    set_request_context("req-id", req_id.as_str());
+
     let Some(http_request) = read_http_request(&mut stream, &mut buf_reader, peer_addr) else {
       return;
     };
-
     // Handles GET /health
     if http_request.is_strict_match("GET", "/health") {
-      let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
+      let mut http_response = HttpResponse::new(http_request.version, stream.try_clone().unwrap());
+      handle_http_health_check(&http_request, &mut http_response);
+      if !http_response.headers_sent {
+        http_response.send_headers();
+      }
+      let ok = http_response.status_code as u16 == 200;
+      // Logs request
+      if ok {
+        if http_request.path != "/health" {
+          log_action_info!(
+            "Request Received",
+            format!("{} {}", http_request.method, http_request.path).as_str(),
+            {
+              http_method: http_request.method,
+              http_path: http_request.path,
+              http_peer_addr: http_request.peer_addr,
+              bytes_read: http_request.bytes_read,
+              http_status_code: http_response.status_code as u16,
+            }
+          );
+        }
+      } else {
+        log_action_error!(
+          "Request Received",
+          format!("{} {}", http_request.method, http_request.path).as_str(),
+          {
+            http_method: http_request.method,
+            http_path: http_request.path,
+            http_peer_addr: http_request.peer_addr,
+            bytes_read: http_request.bytes_read,
+            http_status_code: http_response.status_code as u16,
+          }
+        );
+      }
+      clear_request_context();
       if !http_request.should_keep_alive() {
         close_connection(stream);
         break;
@@ -111,21 +183,14 @@ fn handle_client(mut stream: TcpStream) {
 
     // Handles GET /ndjson
     if http_request.is_strict_match("GET", "/ndjson") {
-      if let Ok(file) = File::open("/app/data/flights-1m.ndjson") {
-        let _ = stream.write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nContent-Disposition: attachment; filename=\"file.ndjson\"\r\n\r\n",
-                );
-
-        {
-          let mut reader = BufReader::with_capacity(1024 * 10, file);
-          let mut line = String::new();
-          while reader.read_line(&mut line).unwrap_or(0) > 0 {
-            let _ = stream.write_all(line.as_bytes());
-            let _ = stream.flush();
-            line.clear();
-          }
-        }
-        // Logs request
+      let mut http_response = HttpResponse::new(http_request.version, stream.try_clone().unwrap());
+      handle_ndjson_request(&http_request, &mut http_response);
+      if !http_response.headers_sent {
+        http_response.send_headers();
+      }
+      let ok = http_response.status_code as u16 == 200;
+      // Logs request
+      if ok {
         log_action_info!(
           "Request Received",
           format!("{} {}", http_request.method, http_request.path).as_str(),
@@ -134,48 +199,46 @@ fn handle_client(mut stream: TcpStream) {
             http_path: http_request.path,
             http_peer_addr: http_request.peer_addr,
             bytes_read: http_request.bytes_read,
-            http_header_connection: http_request.headers.get("connection").unwrap_or(&"".to_string()),
+            http_status_code: http_response.status_code.to_string(),
+            http_status_code: http_response.status_code as u16,
           }
         );
-        close_connection(stream);
-        return;
       } else {
-        let _ = stream.write_all(b"HTTP/1.1 500 Internal Server Error\r\n\r\nFile not found");
-        close_connection(stream);
-        return;
+        log_action_error!(
+          "Request Received",
+          format!("{} {}", http_request.method, http_request.path).as_str(),
+          {
+            http_method: http_request.method,
+            http_path: http_request.path,
+            http_peer_addr: http_request.peer_addr,
+            bytes_read: http_request.bytes_read,
+            http_status_code: http_response.status_code.to_string(),
+            http_status_code: http_response.status_code as u16,
+          }
+        );
       }
+      clear_request_context();
+      if !http_request.should_keep_alive() {
+        close_connection(stream);
+        break;
+      }
+      continue;
     }
 
-    let connection_header = http_request
-      .headers
-      .get("connection")
-      .unwrap_or(&"close".to_string())
-      .to_string();
-
     // Send 404 as default
-    let response_body = format!(
-      "You requested {} {}\nFrom {} (bytes read: {})\n",
-      http_request.method, http_request.path, http_request.peer_addr, http_request.bytes_read
-    );
-    let response = format!(
-            "HTTP/1.1 404 Not Found\r\nContent-Length: {}\r\nConnection: {}\r\nContent-Type: text/plain\r\n\r\n{}",
-            response_body.len(),
-            connection_header,
-            response_body
-        );
-    let _ = stream.write_all(response.as_bytes());
+    let mut http_response = HttpResponse::new(http_request.version, stream.try_clone().unwrap());
+    http_response.set_status_code(HttpStatusCode::NotFound);
+    http_response.send_headers();
 
     // Logs request
     log_action_error!(
       "Request Received",
       format!("{} {}", http_request.method, http_request.path).as_str(),
-      &json_map! {
+      {
         "http_method": http_request.method,
         http_path: http_request.path,
         http_peer_addr: http_request.peer_addr,
         bytes_read: http_request.bytes_read,
-        http_header_connection: connection_header,
-        response_body: response_body,
       }
     );
 
