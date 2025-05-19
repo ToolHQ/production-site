@@ -10,6 +10,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
 use time::get_current_time_utc_string;
+use uuid::Uuid;
 use web::protocol::HttpStatusCode;
 use web::{
   protocol::HttpVersion, request::HttpRequest, request::HttpResponse, utils::read_http_request,
@@ -131,7 +132,9 @@ fn handle_client(mut stream: TcpStream) {
   // Loop to support request pipelining
   loop {
     // Inits req-id
-    let req_id = get_current_time_utc_string();
+    let req_id = Uuid::new_v4().to_string();
+    // Measure response time
+    let start_time = std::time::Instant::now();
     set_request_context("req-id", req_id.as_str());
 
     let Some(http_request) = read_http_request(&mut stream, &mut buf_reader, peer_addr) else {
@@ -145,6 +148,9 @@ fn handle_client(mut stream: TcpStream) {
         http_response.send_headers();
       }
       let ok = http_response.status_code as u16 == 200;
+      let elapsed_time = start_time.elapsed();
+      let elapsed_time_ms = elapsed_time.as_millis();
+      let elapsed_time_str = format!("{}ms", elapsed_time_ms);
       // Logs request
       if ok {
         if http_request.path != "/health" {
@@ -157,6 +163,7 @@ fn handle_client(mut stream: TcpStream) {
               http_peer_addr: http_request.peer_addr,
               bytes_read: http_request.bytes_read,
               http_status_code: http_response.status_code as u16,
+              elapsed_time: elapsed_time_str.as_str(),
             }
           );
         }
@@ -170,6 +177,7 @@ fn handle_client(mut stream: TcpStream) {
             http_peer_addr: http_request.peer_addr,
             bytes_read: http_request.bytes_read,
             http_status_code: http_response.status_code as u16,
+            elapsed_time: elapsed_time_str.as_str(),
           }
         );
       }
@@ -189,6 +197,9 @@ fn handle_client(mut stream: TcpStream) {
         http_response.send_headers();
       }
       let ok = http_response.status_code as u16 == 200;
+      let elapsed_time = start_time.elapsed();
+      let elapsed_time_ms = elapsed_time.as_millis();
+      let elapsed_time_str = format!("{}ms", elapsed_time_ms);
       // Logs request
       if ok {
         log_action_info!(
@@ -199,8 +210,8 @@ fn handle_client(mut stream: TcpStream) {
             http_path: http_request.path,
             http_peer_addr: http_request.peer_addr,
             bytes_read: http_request.bytes_read,
-            http_status_code: http_response.status_code.to_string(),
             http_status_code: http_response.status_code as u16,
+            elapsed_time: elapsed_time_str.as_str(),
           }
         );
       } else {
@@ -212,17 +223,14 @@ fn handle_client(mut stream: TcpStream) {
             http_path: http_request.path,
             http_peer_addr: http_request.peer_addr,
             bytes_read: http_request.bytes_read,
-            http_status_code: http_response.status_code.to_string(),
             http_status_code: http_response.status_code as u16,
+            elapsed_time: elapsed_time_str.as_str(),
           }
         );
       }
       clear_request_context();
-      if !http_request.should_keep_alive() {
-        close_connection(stream);
-        break;
-      }
-      continue;
+      close_connection(stream);
+      break;
     }
 
     // Send 404 as default
@@ -231,6 +239,9 @@ fn handle_client(mut stream: TcpStream) {
     http_response.send_headers();
 
     // Logs request
+    // let elapsed_time = start_time.elapsed();
+    // let elapsed_time_ms = elapsed_time.as_millis();
+    // let elapsed_time_str = format!("{}ms", elapsed_time_ms);
     log_action_error!(
       "Request Received",
       format!("{} {}", http_request.method, http_request.path).as_str(),
@@ -239,6 +250,8 @@ fn handle_client(mut stream: TcpStream) {
         http_path: http_request.path,
         http_peer_addr: http_request.peer_addr,
         bytes_read: http_request.bytes_read,
+        http_status_code: http_response.status_code as u16,
+        // elapsed_time: elapsed_time_str.as_str(),
       }
     );
 
