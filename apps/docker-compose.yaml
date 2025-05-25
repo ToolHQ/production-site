@@ -23,6 +23,52 @@ services:
           memory: 8M
           cpus: '0.1'
 
+
+  kafka:
+    image: kafka
+    hostname: kafka
+    container_name: kafka
+    build:
+      context: ./kafka
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    environment:
+      KAFKA_KRAFT_MODE: "true"
+      CLUSTER_ID: "c5c6a30b-8236-4c11-a50f-e15f77e900e0"
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENERS: "PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+
+  kafbat:
+    hostname: kafbat
+    container_name: kafbat
+    image: ghcr.io/kafbat/kafka-ui:76c8d98
+    ports:
+      - 8080:8080
+    volumes:
+      - ./kafbat-config.yaml:/etc/kafbat/kafbat-config.yaml:ro
+    environment:
+      KAFBAT_CONFIG_PATH: /etc/kafbat/kafbat-config.yaml
+      LOG_LEVEL: debug
+      KAFKA_CLUSTERS_0_NAME: kraft-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
+
+  kafka-client:
+    image: confluentinc/cp-kafka:7.9.1
+    command: sleep infinity
+    # docker exec -it apps-kafka-client-1 kafka-topics --bootstrap-server kafka:9092 --list
+    # docker exec -it apps-kafka-client-1 kafka-topics --bootstrap-server kafka:9092 --create --topic test --partitions 1 --replication-factor 1
+
   back-end:
     container_name: back-end
     build:
@@ -214,3 +260,6 @@ services:
 networks:
   minikube:
     external: true
+
+volumes:
+  kafka-data:
