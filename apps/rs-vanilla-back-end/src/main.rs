@@ -22,20 +22,8 @@ fn main() {
   let time = get_current_time_utc_string();
   let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS));
   let listener = TcpListener::bind(format!("0.0.0.0:{}", SERVER_PORT)).expect("Failed to bind");
-
   let bytes_alloc_per_request = std::mem::size_of::<HttpRequest>();
-  log_info!(
-    "Teste with extra data",
-    &json_map! {
-      a: "abc",
-      "req-id": 123
-    }
-  );
-  log_info!("Teste with extra data more compact", {
-    a: 'a'
-  });
-  log_info!("Teste without extra data");
-  // log_action_info!("Test action", "Test action message");
+
   log_action_info!("Server Start", format!("🟢 Starting server at {}", time).as_str(), {
     server_start_time: time,
     server_port: SERVER_PORT,
@@ -140,10 +128,18 @@ fn handle_client(mut stream: TcpStream) {
     let Some(http_request) = read_http_request(&mut stream, &mut buf_reader, peer_addr) else {
       return;
     };
-    // Handles GET /health
-    if http_request.is_strict_match("GET", "/health") {
-      let mut http_response = HttpResponse::new(http_request.version, stream.try_clone().unwrap());
-      handle_http_health_check(&http_request, &mut http_response);
+
+    let mut http_response = HttpResponse::new(http_request.version, stream.try_clone().unwrap());
+
+    if http_request.is_strict_match("GET", "/health")
+      || http_request.is_strict_match("GET", "/ndjson")
+    {
+      if http_request.is_strict_match("GET", "/health") {
+        handle_http_health_check(&http_request, &mut http_response);
+      } else if http_request.is_strict_match("GET", "/ndjson") {
+        handle_ndjson_request(&http_request, &mut http_response);
+      }
+      let should_force_close_connection = http_request.is_strict_match("GET", "/ndjson");
       if !http_response.headers_sent {
         http_response.send_headers();
       }
@@ -181,84 +177,35 @@ fn handle_client(mut stream: TcpStream) {
           }
         );
       }
+
       clear_request_context();
+      if !http_request.should_keep_alive() || should_force_close_connection {
+        close_connection(stream);
+        break;
+      }
+    } else {
+      // Send 404 as default
+      http_response.set_status_code(HttpStatusCode::NotFound);
+      http_response.send_headers();
+      let elapsed_time = start_time.elapsed();
+      let elapsed_time_ms = elapsed_time.as_millis();
+      let elapsed_time_str = format!("{}ms", elapsed_time_ms);
+      log_action_error!(
+        "Request Received",
+        format!("{} {}", http_request.method, http_request.path).as_str(),
+        {
+          "http_method": http_request.method,
+          http_path: http_request.path,
+          http_peer_addr: http_request.peer_addr,
+          bytes_read: http_request.bytes_read,
+          http_status_code: http_response.status_code as u16,
+          elapsed_time: elapsed_time_str.as_str()
+        }
+      );
       if !http_request.should_keep_alive() {
         close_connection(stream);
         break;
       }
-      continue;
-    }
-
-    // Handles GET /ndjson
-    if http_request.is_strict_match("GET", "/ndjson") {
-      let mut http_response = HttpResponse::new(http_request.version, stream.try_clone().unwrap());
-      handle_ndjson_request(&http_request, &mut http_response);
-      if !http_response.headers_sent {
-        http_response.send_headers();
-      }
-      let ok = http_response.status_code as u16 == 200;
-      let elapsed_time = start_time.elapsed();
-      let elapsed_time_ms = elapsed_time.as_millis();
-      let elapsed_time_str = format!("{}ms", elapsed_time_ms);
-      // Logs request
-      if ok {
-        log_action_info!(
-          "Request Received",
-          format!("{} {}", http_request.method, http_request.path).as_str(),
-          {
-            http_method: http_request.method,
-            http_path: http_request.path,
-            http_peer_addr: http_request.peer_addr,
-            bytes_read: http_request.bytes_read,
-            http_status_code: http_response.status_code as u16,
-            elapsed_time: elapsed_time_str.as_str(),
-          }
-        );
-      } else {
-        log_action_error!(
-          "Request Received",
-          format!("{} {}", http_request.method, http_request.path).as_str(),
-          {
-            http_method: http_request.method,
-            http_path: http_request.path,
-            http_peer_addr: http_request.peer_addr,
-            bytes_read: http_request.bytes_read,
-            http_status_code: http_response.status_code as u16,
-            elapsed_time: elapsed_time_str.as_str(),
-          }
-        );
-      }
-      clear_request_context();
-      close_connection(stream);
-      break;
-    }
-
-    // Send 404 as default
-    let mut http_response = HttpResponse::new(http_request.version, stream.try_clone().unwrap());
-    http_response.set_status_code(HttpStatusCode::NotFound);
-    http_response.send_headers();
-
-    // Logs request
-    // let elapsed_time = start_time.elapsed();
-    // let elapsed_time_ms = elapsed_time.as_millis();
-    // let elapsed_time_str = format!("{}ms", elapsed_time_ms);
-    log_action_error!(
-      "Request Received",
-      format!("{} {}", http_request.method, http_request.path).as_str(),
-      {
-        "http_method": http_request.method,
-        http_path: http_request.path,
-        http_peer_addr: http_request.peer_addr,
-        bytes_read: http_request.bytes_read,
-        http_status_code: http_response.status_code as u16,
-        // elapsed_time: elapsed_time_str.as_str(),
-      }
-    );
-
-    if !http_request.should_keep_alive() {
-      // If the connection header is "close", close the connection
-      close_connection(stream);
-      break;
     }
   }
 }
