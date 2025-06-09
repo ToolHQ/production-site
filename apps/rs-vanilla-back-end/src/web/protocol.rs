@@ -36,6 +36,7 @@ pub enum HttpStatusCode {
   #[allow(dead_code)]
   BadRequest = 400,
   NotFound = 404,
+  #[allow(dead_code)]
   InternalServerError = 500,
 }
 impl HttpStatusCode {
@@ -45,6 +46,33 @@ impl HttpStatusCode {
       HttpStatusCode::BadRequest => "Bad Request".to_string(),
       HttpStatusCode::NotFound => "Not Found".to_string(),
       HttpStatusCode::InternalServerError => "Internal Server Error".to_string(),
+    }
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HttpMethod {
+  Get,
+  Post,
+  Put,
+  Delete,
+  Head,
+  Options,
+  Patch,
+  Invalid,
+}
+
+impl HttpMethod {
+  pub fn from_str(method: &str) -> Self {
+    match method {
+      "GET" => HttpMethod::Get,
+      "POST" => HttpMethod::Post,
+      "PUT" => HttpMethod::Put,
+      "DELETE" => HttpMethod::Delete,
+      "HEAD" => HttpMethod::Head,
+      "OPTIONS" => HttpMethod::Options,
+      "PATCH" => HttpMethod::Patch,
+      _ => HttpMethod::Invalid,
     }
   }
 }

@@ -17,6 +17,7 @@ pub struct HttpResponse {
   pub status_code: HttpStatusCode,
   version: HttpVersion,
   pub headers_sent: bool,
+  pub should_force_close_connection: bool,
   headers: HashMap<String, String>,
   stream: TcpStream,
 }
@@ -27,6 +28,7 @@ impl HttpResponse {
       status_code: HttpStatusCode::Ok,
       version,
       headers_sent: false,
+      should_force_close_connection: false,
       headers: HashMap::new(),
       stream,
     }
@@ -87,17 +89,5 @@ impl HttpRequest {
       return conn.eq_ignore_ascii_case("keep-alive");
     }
     self.version.default_keep_alive()
-  }
-
-  //   pub fn is_valid(&self) -> bool {
-  //     if self.version.requires_host() {
-  //       self.headers.contains_key("host")
-  //     } else {
-  //       true
-  //     }
-  //   }
-
-  pub fn is_strict_match(&self, method: &str, path: &str) -> bool {
-    self.method.eq_ignore_ascii_case(method) && self.path == path
   }
 }
