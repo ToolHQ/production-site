@@ -313,3 +313,37 @@ For a clean rebuild:
   ./setup_k8s_cluster.sh reset_cluster
 
 NOTE
+
+# ---------------------------------------------------------------
+# 📝 Generate Markdown cluster health report
+# ---------------------------------------------------------------
+REPORT="cluster_report_$(date +%Y%m%d_%H%M%S).md"
+echo "# Kubernetes Cluster Report — $(date)" > "$REPORT"
+echo "" >> "$REPORT"
+echo "## 🧭 Control Plane: $MASTER_NODE" >> "$REPORT"
+echo "" >> "$REPORT"
+
+{
+  echo "### 🖥️ Nodes"
+  echo '```'
+  ssh ubuntu@"$MASTER_NODE" kubectl get nodes -o wide
+  echo '```'
+  echo ""
+  echo "### 📦 System Pods (kube-system)"
+  echo '```'
+  ssh ubuntu@"$MASTER_NODE" kubectl get pods -n kube-system -o wide
+  echo '```'
+  echo ""
+  echo "### 🌐 Flannel Daemons"
+  echo '```'
+  ssh ubuntu@"$MASTER_NODE" kubectl get pods -n kube-flannel -o wide 2>/dev/null || echo "Flannel runs in kube-system namespace"
+  ssh ubuntu@"$MASTER_NODE" kubectl get pods -n kube-system -l app=flannel -o wide
+  echo '```'
+  echo ""
+  echo "### 🧾 Versions"
+  echo '```'
+  ssh ubuntu@"$MASTER_NODE" kubectl version --short
+  echo '```'
+} >> "$REPORT"
+
+echo "✅ Markdown report saved: $REPORT"
