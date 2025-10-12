@@ -128,7 +128,18 @@ tune_sysctl() {
     echo -e "net.bridge.bridge-nf-call-iptables = 1\nnet.ipv4.ip_forward = 1" \
       | sudo tee /etc/sysctl.d/k8s.conf
     sudo sysctl --system
+    # Enforce rp_filter and mtu_probing after vendor sysctls (avoid OCI race)
+    sudo tee /etc/sysctl.d/99-k8s-rpfilter.conf >/dev/null <<'EOF'
+net.ipv4.conf.all.rp_filter=0
+net.ipv4.conf.default.rp_filter=0
+net.ipv4.tcp_mtu_probing=1
+EOF
+    sudo sysctl --system
 
+    # Temporary rules to allow kubelet port (10250) during bootstrap
+    echo "🔧 Allowing kubelet traffic until Calico sets routes..."
+    sudo iptables -t raw -I PREROUTING -p tcp --dport 10250 -j ACCEPT
+    sudo iptables -t raw -I OUTPUT -p tcp --sport 10250 -j ACCEPT
     # Disable swap now and persistently (idempotent if already off)
     sudo swapoff -a
     sudo sed -i "/[[:space:]]swap[[:space:]]/s/^/#/" /etc/fstab
@@ -156,14 +167,24 @@ verify_cluster() {
       echo "⚠️  CoreDNS deployment missing"
     fi
     echo "------------------------------------------------------------"
-    echo "🌉 Verifying cluster networking (Flannel)..."
-    if kubectl get pods -n kube-flannel &>/dev/null; then
-      kubectl get pods -n kube-flannel -o wide
-    else
-      echo "ℹ️  kube-flannel namespace not found (might be embedded in kube-system)"
-      kubectl get pods -n kube-system | grep flannel || echo "⚠️  Flannel pods not detected"
-    fi
+    echo "🌉 Verifying cluster networking (Calico)..."
+    echo "📦 Calico pods (should all be Running, in kube-system):"
+    kubectl get pods -n kube-system -l k8s-app=calico-node -o wide || echo "⚠️ Unable to list calico-node pods"
+    echo ""
+    echo "🧠 Calico node rollout status:"
+    kubectl rollout status ds/calico-node -n kube-system --timeout=120s || echo "⚠️ Calico node rollout incomplete"
+
     echo "------------------------------------------------------------"
+    if kubectl get nodes | grep -q "NotReady"; then
+      echo "❌ Some nodes are NotReady — cluster setup incomplete."
+      exit 1
+    fi
+
+    if kubectl get pods -n kube-system -l k8s-app=calico-node | grep -v STATUS | grep -qv Running; then
+      echo "⚠️  Calico pods not all running — verify with 'kubectl describe pod -n kube-system -l k8s-app=calico-node'"
+      exit 1
+    fi
+
     echo "✅ Verification completed."
 EOF
   echo ""
@@ -180,7 +201,7 @@ init_master() {
     sudo kubeadm reset -f || true
     sudo kubeadm init \
       --kubernetes-version=v1.34.1 \
-      --pod-network-cidr=10.244.0.0/16 \
+      --pod-network-cidr=192.168.0.0/16 \
       --apiserver-advertise-address=$(hostname -I | awk "{print \$1}") \
       --ignore-preflight-errors=NumCPU | tee /tmp/kubeinit.log
 
@@ -192,8 +213,59 @@ init_master() {
     echo "⏳ Waiting for API server to report health..."
     until curl -ks https://localhost:6443/healthz | grep -q "^ok$"; do sleep 5; done
 
-    # Apply Flannel (use explicit kubeconfig just in case)
-    kubectl --kubeconfig=$HOME/.kube/config apply -f https://raw.githubusercontent.com/flannel-io/flannel/v0.25.1/Documentation/kube-flannel.yml
+    echo "⏳ Waiting for kube-system pods to be ready (CoreDNS)..."
+    kubectl --kubeconfig=$HOME/.kube/config wait \
+      --for=condition=Ready pod -l k8s-app=kube-dns -n kube-system \
+      --timeout=120s || echo "⚠️ kube-dns not ready, continuing anyway"
+
+    # Fetch Calico manifest locally (avoid transient fetch issues)
+    CALICO_MANIFEST=/tmp/calico.yaml
+    echo "📦 Downloading Calico manifest..."
+    curl -fsSL -o "$CALICO_MANIFEST" \
+      https://raw.githubusercontent.com/projectcalico/calico/v3.29.6/manifests/calico.yaml
+
+    echo "📦 Installing Calico CNI..."
+    kubectl --kubeconfig=$HOME/.kube/config apply -f "$CALICO_MANIFEST"
+    echo "⏳ Waiting for Calico pods (kube-system)..."
+    kubectl --kubeconfig=$HOME/.kube/config rollout status ds/calico-node -n kube-system --timeout=300s || echo "⚠️ Calico node rollout incomplete"
+
+    echo "🔧 Applying OCI Calico IPPool configuration (disable VXLAN/IPIP)..."
+    cat <<'YAML' | kubectl apply -f - || echo "⚠️ Failed to apply OCI IPPool override"
+apiVersion: crd.projectcalico.org/v1
+kind: IPPool
+metadata:
+  name: default-ipv4-ippool
+spec:
+  cidr: 192.168.0.0/16
+  natOutgoing: true
+  disabled: false
+  nodeSelector: all()
+  vxlanMode: Never
+  ipipMode: Never
+YAML
+
+    echo "🔁 Restarting Calico DaemonSet for OCI compatibility..."
+    kubectl -n kube-system rollout restart ds/calico-node || true
+
+    echo "⏳ Waiting for Calico nodes to become Ready (OCI network mode)..."
+    for i in {1..20}; do
+      if kubectl get pods -n kube-system -l k8s-app=calico-node | grep -q '1/1'; then
+        echo "✅ All Calico nodes Ready."
+        break
+      fi
+      echo "   ↻ waiting ($i/20)..."
+      sleep 10
+    done
+
+    echo "🛠️  Adding temporary host routes to ensure kubelet reachability..."
+    local_ip="\$(hostname -I | awk '{print \$1}')"
+    node_ips="\$(kubectl get nodes -o wide --no-headers 2>/dev/null | awk '{print \$6}' | grep -v \"^\$\" | sort -u)"
+    for ip in \$node_ips; do
+      [ "\$ip" = "\$local_ip" ] && continue
+      sudo ip route replace "\$ip/32" via 10.0.1.1 dev enp0s6 2>/dev/null || true
+    done
+
+    kubectl --kubeconfig=$HOME/.kube/config rollout status ds/calico-node -n kube-system --timeout=300s || echo "⚠️ Calico node rollout incomplete"
   '
   # fresh join command
   # no prefixing here — use raw ssh so the file is clean
@@ -334,15 +406,14 @@ echo "" >> "$REPORT"
   ssh ubuntu@"$MASTER_NODE" kubectl get pods -n kube-system -o wide
   echo '```'
   echo ""
-  echo "### 🌐 Flannel Daemons"
+  echo "### 🌐 Calico Daemons"
   echo '```'
-  ssh ubuntu@"$MASTER_NODE" kubectl get pods -n kube-flannel -o wide 2>/dev/null || echo "Flannel runs in kube-system namespace"
-  ssh ubuntu@"$MASTER_NODE" kubectl get pods -n kube-system -l app=flannel -o wide
+  ssh ubuntu@"$MASTER_NODE" kubectl get pods -n kube-system -l k8s-app=calico-node -o wide 2>/dev/null || true
   echo '```'
   echo ""
   echo "### 🧾 Versions"
   echo '```'
-  ssh ubuntu@"$MASTER_NODE" kubectl version --short
+  ssh ubuntu@"$MASTER_NODE" kubectl version --client=true
   echo '```'
 } >> "$REPORT"
 
