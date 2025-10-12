@@ -11,7 +11,7 @@ KUBE_OCI="$HOME/.kube/oci-config"
 KUBE_MINI="$HOME/.kube/config"
 LOCAL_PORT=6443
 TUNNEL_PID_FILE="/tmp/oci_tunnel.pid"
-
+LOG_FILE="$HOME/.k8s-oci-history.log"
 # ────────────────────────────────────────────────
 # Colors & helpers
 # ────────────────────────────────────────────────
@@ -21,6 +21,7 @@ C_GREEN='\033[1;32m'
 C_RED='\033[1;31m'
 C_YELLOW='\033[1;33m'
 C_CYAN='\033[1;36m'
+C_GRAY='\033[0;90m'
 
 line() { echo -e "${C_BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"; }
 log()  { echo -e "${C_CYAN}$1${C_RESET}"; }
@@ -82,28 +83,59 @@ connect_oci() {
   log "🛠️  Adjusting kubeconfig for localhost + insecure TLS..."
   sed -i 's#10\.0\.1\.100:6443#127.0.0.1:6443#g' "$KUBE_OCI"
   sed -i 's#insecure-skip-tls-verify: false#insecure-skip-tls-verify: true#g' "$KUBE_OCI"
-
   export KUBECONFIG="$KUBE_OCI"
 
-  log "🔎 Verifying connectivity..."
-  if kubectl cluster-info &>/dev/null; then
-    ok "Connected to OCI cluster. Entering interactive mode..."
-    kubectl get nodes -o wide
-
-    line
-    echo -e "${C_CYAN}💬 Type any kubectl / helm / bash command below (type 'exit' to quit):${C_RESET}"
-    line
-    while true; do
-      read -rp "oci-cluster> " cmd
-      [[ "$cmd" == "exit" ]] && break
-      [[ -z "$cmd" ]] && continue
-      bash -c "$cmd"
-    done
-    line
-    warn "Leaving OCI shell..."
-  else
-    err "Failed to connect. Verify tunnel and kubeconfig."
+  # 🧠 Ensure kubeconfig has valid server entry
+  if ! grep -q "server: https://127.0.0.1:6443" "$KUBE_OCI"; then
+    sed -i 's#server: ""#server: https://127.0.0.1:6443#g' "$KUBE_OCI"
+    log "🔧 Fixed empty server entry in kubeconfig"
   fi
+
+  log "🔧 kubeconfig now points to:       server: https://127.0.0.1:6443"
+  log "🔎 Verifying connectivity..."
+
+  # Retry loop for slow tunnel startup
+  success=false
+  for i in {1..5}; do
+    if kubectl cluster-info >/dev/null 2>&1; then
+      success=true
+      break
+    else
+      warn "Attempt $i/5: waiting for API to respond..."
+      sleep 2
+    fi
+  done
+
+  if [ "$success" != true ]; then
+    err "❌ ❌ Failed to connect. Verify SSH tunnel PID $SSH_TUNNEL_PID and kubeconfig path $KUBE_OCI"
+    stop_tunnel
+    return 1
+  fi
+
+  ok "Connected to OCI cluster. Entering interactive mode..."
+  kubectl get nodes -o wide
+
+  line
+  echo -e "${C_CYAN}💬 Type any kubectl / helm / bash command below (type 'exit' to quit):${C_RESET}"
+  line
+  echo -e "${C_GRAY}(Logging to $LOG_FILE)${C_RESET}\n"
+
+  # Graceful cleanup if interrupted
+  trap 'warn "Leaving OCI shell..."; stop_tunnel; exit 0' INT TERM
+
+  while true; do
+    read -rp "$(echo -e "${C_GREEN}[OCI]${C_RESET} > ")" cmd
+    [[ "$cmd" == "exit" ]] && break
+    [[ -z "$cmd" ]] && continue
+
+    echo -e "\n--- $(date '+%Y-%m-%d %H:%M:%S') | CMD: $cmd ---" >> "$LOG_FILE"
+    bash -c "$cmd" 2>&1 | tee -a "$LOG_FILE"
+  done
+
+  trap - INT TERM
+  line
+  warn "Leaving OCI shell..."
+  stop_tunnel
 }
 
 connect_minikube() {
@@ -112,6 +144,17 @@ connect_minikube() {
   if kubectl cluster-info &>/dev/null; then
     ok "Connected to Minikube."
     kubectl get nodes -o wide
+    echo -e "\n${C_GRAY}(Logging to $LOG_FILE)${C_RESET}\n"
+    while true; do
+      read -rp "$(echo -e "${C_YELLOW}[Mini]${C_RESET} > ")" cmd
+      [[ "$cmd" == "exit" ]] && break
+      [[ -z "$cmd" ]] && continue
+
+      echo -e "\n--- $(date '+%Y-%m-%d %H:%M:%S') | CMD: $cmd ---" >> "$LOG_FILE"
+      bash -c "$cmd" 2>&1 | tee -a "$LOG_FILE"
+    done
+    line
+    warn "Leaving Minikube shell..."
   else
     err "Minikube not running. Start it with: minikube start"
   fi

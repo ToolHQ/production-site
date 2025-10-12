@@ -1,39 +1,53 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ---------------------------------------------------------------
-# 🧭 Configuration
-# ---------------------------------------------------------------
-MASTER_NODE="oci-k8s-master"
+# ────────────────────────────────────────────────
+# Configuration
+# ────────────────────────────────────────────────
 DASHBOARD_VERSION="${1:-v2.7.0}"
 NAMESPACE="kubernetes-dashboard"
+KUBECONFIG="$HOME/.kube/oci-config"
 
-# ---------------------------------------------------------------
-# 🧩 Helpers
-# ---------------------------------------------------------------
-run_remote() {
-  local host="$1"
-  local cmd="$2"
-  echo -e "\033[36m[$host]\033[0m → $cmd"
-  ssh -o StrictHostKeyChecking=no ubuntu@"$host" "bash -c '$cmd'"
-}
+# ────────────────────────────────────────────────
+# Functions
+# ────────────────────────────────────────────────
+log()  { echo -e "\033[36m$1\033[0m"; }
+ok()   { echo -e "\033[32m✅ $1\033[0m"; }
+warn() { echo -e "\033[33m⚠️  $1\033[0m"; }
 
-# ---------------------------------------------------------------
-# 🚀 Deploy Kubernetes Dashboard
-# ---------------------------------------------------------------
-echo "📊 Deploying Kubernetes Dashboard $DASHBOARD_VERSION on $MASTER_NODE..."
+# ────────────────────────────────────────────────
+# 1️⃣  Verify connection
+# ────────────────────────────────────────────────
+log "🔍 Verifying cluster connectivity..."
+if kubectl --kubeconfig="$KUBECONFIG" version --client=true &>/dev/null; then
+  ok "Connected to cluster."
+else
+  echo "❌ Failed to authenticate with cluster. Run ./connect_oci_cluster.sh first."
+  exit 1
+fi
 
-run_remote "$MASTER_NODE" "
-  set -euo pipefail
+# ────────────────────────────────────────────────
+# 2️⃣  Create namespace if missing
+# ────────────────────────────────────────────────
+if ! kubectl --kubeconfig="$KUBECONFIG" get ns "$NAMESPACE" >/dev/null 2>&1; then
+  kubectl --kubeconfig="$KUBECONFIG" create namespace "$NAMESPACE"
+  ok "Namespace $NAMESPACE created."
+else
+  warn "Namespace $NAMESPACE already exists."
+fi
 
-  echo '🔍 Checking cluster connectivity...'
-  kubectl get nodes >/dev/null
+# ────────────────────────────────────────────────
+# 3️⃣  Deploy dashboard
+# ────────────────────────────────────────────────
+log "📦 Applying Kubernetes Dashboard manifests ($DASHBOARD_VERSION)..."
+kubectl --kubeconfig="$KUBECONFIG" apply -f \
+  "https://raw.githubusercontent.com/kubernetes/dashboard/${DASHBOARD_VERSION}/aio/deploy/recommended.yaml" \
+  --namespace "$NAMESPACE" --validate=false
 
-  echo '📦 Applying Dashboard manifests...'
-  kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/$DASHBOARD_VERSION/aio/deploy/recommended.yaml --validate=false
-
-  echo '👤 Creating admin service account and binding...'
-  cat <<EOF | kubectl apply -f -
+# ────────────────────────────────────────────────
+# 4️⃣  Create admin user + role binding (idempotent)
+# ────────────────────────────────────────────────
+cat <<EOF | kubectl --kubeconfig="$KUBECONFIG" apply -f -
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -54,23 +68,30 @@ subjects:
   namespace: ${NAMESPACE}
 EOF
 
-  echo '🔑 Generating login token...'
-  kubectl -n ${NAMESPACE} create token admin-user > /tmp/dashboard_token.txt
+ok "Admin service account and binding ensured."
 
-  echo '✅ Dashboard deployed!'
-  echo 'Token saved at /tmp/dashboard_token.txt'
-  echo 'You can retrieve it anytime with:'
-  echo '  kubectl -n ${NAMESPACE} create token admin-user'
+# ────────────────────────────────────────────────
+# 5️⃣  Wait until dashboard service is ready
+# ────────────────────────────────────────────────
+log "⏳ Waiting for Dashboard pods to be ready..."
+kubectl --kubeconfig="$KUBECONFIG" -n "$NAMESPACE" rollout status deploy/kubernetes-dashboard --timeout=120s || true
 
-  echo '🌐 To access the dashboard securely, run this from your local machine:'
-  echo '  ssh -L 8443:localhost:8443 ubuntu@${MASTER_NODE}'
-  echo '  kubectl -n ${NAMESPACE} port-forward service/kubernetes-dashboard 8443:443'
-  echo 'Then open: https://localhost:8443'
-"
+# ────────────────────────────────────────────────
+# 6️⃣  Print login token
+# ────────────────────────────────────────────────
+TOKEN=$(kubectl --kubeconfig="$KUBECONFIG" -n "$NAMESPACE" create token admin-user)
+ok "Token generated (valid ~1h):"
+echo "$TOKEN"
 
-# ---------------------------------------------------------------
-# ✅ Summary
-# ---------------------------------------------------------------
-echo ""
-echo "✅ Dashboard deployment triggered successfully on ${MASTER_NODE}."
-echo "   You can re-run this script anytime to update or redeploy the dashboard."
+# ────────────────────────────────────────────────
+# 7️⃣  Access instructions
+# ────────────────────────────────────────────────
+cat <<EOF
+
+🌐 Access Dashboard:
+  kubectl -n ${NAMESPACE} port-forward service/kubernetes-dashboard 8443:443
+  https://localhost:8443
+
+Use the token above for login.
+
+EOF
