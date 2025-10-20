@@ -21,7 +21,7 @@ fi
 
 MASTER_NODE="${NODES[0]}"
 K8S_VERSION="1.34.1"
-POD_CIDR="192.168.0.0/16"   # Cilium native routing CIDR (no overlay)
+POD_CIDR="192.168.0.0/16"   # Pod CIDR; Cilium runs in VXLAN overlay
 SERVICE_CIDR="10.96.0.0/12" # kubeadm default
 CILIUM_VERSION="1.18.2"     # exact
 CILIUM_CLI_VERSION="0.18.7"
@@ -67,6 +67,7 @@ ensure_apiserver_open() {
     # 2) If needed, inject --bind-address=0.0.0.0 into the static pod manifest
     if [ "${NEED_BIND:-0}" -eq 1 ]; then
       echo "📝 Patching /etc/kubernetes/manifests/kube-apiserver.yaml with --bind-address=0.0.0.0"
+      sudo sed -i '/--bind-address=0\.0\.0\.0/d' /etc/kubernetes/manifests/kube-apiserver.yaml
       sudo sed -i '"'"'/\- kube-apiserver/a\    - --bind-address=0.0.0.0'"'"' /etc/kubernetes/manifests/kube-apiserver.yaml
       echo "⏳ Waiting for apiserver to restart…"
       sleep 8
@@ -173,13 +174,14 @@ tune_sysctl() {
   run_remote "$h" '
     echo br_netfilter | sudo tee /etc/modules-load.d/br_netfilter.conf
     sudo modprobe br_netfilter || true
+    DEF_IF=$(ip route show default | awk '"'"'{print $5; exit}'"'"'); : "${DEF_IF:=enp0s6}"
     sudo tee /etc/sysctl.d/99-k8s.conf >/dev/null <<EOF
 net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 net.ipv4.tcp_mtu_probing = 1
 net.ipv4.conf.all.rp_filter = 0
 net.ipv4.conf.default.rp_filter = 0
-net.ipv4.conf.enp0s6.rp_filter = 0
+net.ipv4.conf.${DEF_IF}.rp_filter = 0
 fs.inotify.max_user_watches = 1048576
 fs.inotify.max_user_instances = 1024
 EOF
@@ -584,10 +586,10 @@ prepare_node() {
   ensure_kubelet_open "$h"
   install_containerd "$h"
   install_k8s_pkgs "$h"
-  oci_net_doctor "$h"
   cleanup_cni_deep "$h"
   purge_old_calico "$h"
   purge_old_cilium "$h"
+  oci_net_doctor "$h"
   verify_no_cilium_links "$h"
   run_remote "$h" 'ip -o link | grep -E "cilium_(host|net|vxlan)" || echo "✅ no cilium links"'
 }
@@ -615,7 +617,8 @@ for n in "${NODES[@]}"; do
 done
 
 cilium_install_master
-deploy_netshoot_daemonset
+# only if DEBUG=1
+[ "${DEBUG:-0}" = "1" ] && deploy_netshoot_daemonset
 matrix_checks
 verify_cluster
 
