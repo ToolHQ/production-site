@@ -527,6 +527,17 @@ deploy_kubedash() {
   '
 }
 
+print_kubedash_url() {
+  local h="$MASTER_NODE"
+  run_remote "$h" '
+    NODE_PORT=$(kubectl -n kubernetes-dashboard get svc kubernetes-dashboard -o jsonpath="{.spec.ports[0].nodePort}")
+    NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[?(@.type==\"ExternalIP\")].address}")
+    [ -z "$NODE_IP" ] && NODE_IP=$(hostname -I | awk "{print \$1}")
+    echo "🌐 Dashboard URL: https://$NODE_IP:$NODE_PORT"
+    echo "Use the token printed above to log in."
+  '
+}
+
 matrix_checks() {
   echo "🧪 Inter-node & inter-pod connectivity matrix"
   run_remote "$MASTER_NODE" '
@@ -655,6 +666,7 @@ cilium_install_master
 [ "${DEBUG:-0}" = "1" ] && deploy_netshoot_daemonset
 if [ "${ENABLE_DASHBOARD:-false}" = "true" ]; then
   deploy_kubedash
+  print_kubedash_url
 fi
 matrix_checks
 verify_cluster
