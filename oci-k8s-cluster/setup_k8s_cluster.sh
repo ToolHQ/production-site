@@ -155,6 +155,19 @@ install_k8s_pkgs() {
   "
 }
 
+cleanup_lxd() {
+  local h=$1
+  run_remote "$h" '
+    echo "🧹 Removing LXD/LXC remnants..."
+    sudo systemctl stop snap.lxd.daemon lxd lxcfs 2>/dev/null || true
+    sudo snap remove lxd 2>/dev/null || true
+    ip link show lxdbr0 >/dev/null 2>&1 && sudo ip link del lxdbr0 || true
+    ip -o link | awk -F": " "/^(lxc|lxcb|lxd)/{print \$2}" | cut -d@ -f1 | \
+      xargs -r -I{} sudo ip link del {} 2>/dev/null || true
+    ip rule | awk "/lxd|lxc/ {system(\"sudo ip rule del \" \$0)}" || true
+  '
+}
+
 tune_sysctl() {
   local h=$1
   run_remote "$h" '
@@ -166,6 +179,7 @@ net.ipv4.ip_forward = 1
 net.ipv4.tcp_mtu_probing = 1
 net.ipv4.conf.all.rp_filter = 0
 net.ipv4.conf.default.rp_filter = 0
+net.ipv4.conf.enp0s6.rp_filter = 0
 fs.inotify.max_user_watches = 1048576
 fs.inotify.max_user_instances = 1024
 EOF
@@ -175,6 +189,28 @@ EOF
     done
     sudo swapoff -a
     sudo sed -i "/[[:space:]]swap[[:space:]]/s/^/#/" /etc/fstab
+  '
+}
+
+ensure_kubelet_open() {
+  local h=$1
+  run_remote "$h" '
+    # iptables: allow kubelet
+    if command -v iptables >/dev/null 2>&1; then
+      if ! sudo iptables -C INPUT -p tcp --dport 10250 -j ACCEPT 2>/dev/null; then
+        echo "🔓 Allowing TCP/10250 in iptables (INPUT)…"
+        sudo iptables -I INPUT 1 -p tcp --dport 10250 -j ACCEPT || true
+      fi
+      if ! sudo iptables -C INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null; then
+        sudo iptables -I INPUT 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || true
+      fi
+    fi
+    # nft fallback (accept policy) — safe/idempotent
+    if command -v nft >/dev/null 2>&1; then
+      sudo nft add table inet filter 2>/dev/null || true
+      sudo nft add chain inet filter input "{ type filter hook input priority 0; policy accept; }" 2>/dev/null \
+        || sudo nft chain inet filter input "{ policy accept; }"
+    fi
   '
 }
 
@@ -208,30 +244,32 @@ purge_old_cilium() {
   local h=$1
   run_remote "$h" '
     set -euo pipefail
-    # 0) Best-effort uninstall if a previous install exists
-    kubectl -n kube-system get ds/cilium >/dev/null 2>&1 && cilium uninstall --wait || true
+    echo "🧹 Purging old Cilium state..."
+
+    # 0) Try uninstalling via CLI if possible
+    kubectl -n kube-system get ds cilium >/dev/null 2>&1 && cilium uninstall --wait || true
     kubectl -n kube-system delete cm cilium-config >/dev/null 2>&1 || true
     kubectl -n kube-system delete sa,clusterrole,clusterrolebinding -l k8s-app=cilium >/dev/null 2>&1 || true
 
-    # 1) Unmount BPF and Cilium cgroup mounts BEFORE deleting dirs
+    # 1) Unmount BPF and Cilium cgroup mounts
     mountpoint -q /sys/fs/bpf && sudo umount -l /sys/fs/bpf || true
     mountpoint -q /var/run/cilium/cgroupv2 && sudo umount -l /var/run/cilium/cgroupv2 || true
 
-    # 2) Remove leftover Cilium netdevices if present
+    # 2) Delete leftover links
     for dev in cilium_host cilium_net cilium_vxlan; do
       ip link show "$dev" >/dev/null 2>&1 && sudo ip link del "$dev" || true
     done
 
-    # 3) Clean CILIUM-* chains (filter & nat) if they exist
+    # 3) Clean iptables CILIUM-* chains
     for table in filter nat; do
-      sudo iptables -t "$table" -S 2>/dev/null | awk '"'"'/^-N CILIUM/{print $2}'"'"' | \
+      sudo iptables -t "$table" -S 2>/dev/null | awk "/^-N CILIUM/ {print \$2}" | \
       while read -r CH; do
         sudo iptables -t "$table" -F "$CH" 2>/dev/null || true
         sudo iptables -t "$table" -X "$CH" 2>/dev/null || true
       done
     done
 
-    # 4) Finally remove on-disk state
+    # 4) Delete on-disk state
     sudo rm -rf /var/run/cilium /var/lib/cilium
   '
 }
@@ -329,6 +367,18 @@ install_cilium_cli() {
   "
 }
 
+verify_no_cilium_links() {
+  local h=$1
+  run_remote "$h" '
+    if ip -o link | grep -qE "cilium_(host|net|vxlan)"; then
+      echo "❌ lingering cilium links"; ip -o link | grep cilium_;
+      exit 1;
+    else
+      echo "✅ no cilium links";
+    fi
+  '
+}
+
 cilium_install_master() {
   install_cilium_cli "$MASTER_NODE"
   run_remote_stream "$MASTER_NODE" "
@@ -345,7 +395,6 @@ cilium_install_master() {
       --set kubeProxyReplacement=false \
       --set ipam.mode=kubernetes \
       --set rollOutCiliumPods=true \
-      --set devices=enp0s6 \
       --set mtu=1450
 
     echo '⏳ Waiting for Cilium DaemonSet…'
@@ -516,13 +565,16 @@ echo "⚙️  Preparing nodes (safe sequential mode)…"
 for n in "${NODES[@]}"; do
   echo "——— $n ———"
   update_node "$n"
+  cleanup_lxd "$n"
   tune_sysctl "$n"
+  ensure_kubelet_open "$n"
   install_containerd "$n"
   install_k8s_pkgs "$n"
   oci_net_doctor "$n"
   cleanup_cni_deep "$n"
   purge_old_calico "$n"
   purge_old_cilium "$n"
+  verify_no_cilium_links "$n"
   run_remote "$n" 'ip -o link | grep -E "cilium_(host|net|vxlan)" || echo "✅ no cilium links"'
 done
 echo "✅ Prep + deep cleanup done."
