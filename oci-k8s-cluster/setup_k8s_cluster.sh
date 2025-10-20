@@ -197,21 +197,19 @@ EOF
 ensure_kubelet_open() {
   local h=$1
   run_remote "$h" '
-    # iptables: allow kubelet
-    if command -v iptables >/dev/null 2>&1; then
-      if ! sudo iptables -C INPUT -p tcp --dport 10250 -j ACCEPT 2>/dev/null; then
-        echo "🔓 Allowing TCP/10250 in iptables (INPUT)…"
-        sudo iptables -I INPUT 1 -p tcp --dport 10250 -j ACCEPT || true
-      fi
-      if ! sudo iptables -C INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null; then
-        sudo iptables -I INPUT 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT || true
-      fi
+    echo "🔓 Ensuring kubelet listens on all interfaces (0.0.0.0)…"
+    KUBELET_CONF="/var/lib/kubelet/config.yaml"
+    if [ -f "$KUBELET_CONF" ]; then
+      sudo sed -i "s/^address:.*/address: 0.0.0.0/" "$KUBELET_CONF" || true
+      sudo systemctl restart kubelet || true
+    else
+      echo "⚠️ kubelet config.yaml not found yet (will be created by kubeadm join)."
     fi
-    # nft fallback (accept policy) — safe/idempotent
-    if command -v nft >/dev/null 2>&1; then
-      sudo nft add table inet filter 2>/dev/null || true
-      sudo nft add chain inet filter input "{ type filter hook input priority 0; policy accept; }" 2>/dev/null \
-        || sudo nft chain inet filter input "{ policy accept; }"
+
+    # open the port via iptables just in case host firewall blocks it
+    if command -v iptables >/dev/null 2>&1; then
+      sudo iptables -C INPUT -p tcp --dport 10250 -j ACCEPT 2>/dev/null ||
+        sudo iptables -I INPUT 1 -p tcp --dport 10250 -j ACCEPT
     fi
   '
 }
@@ -436,6 +434,9 @@ prejoin_matrix_to_master() {
       ping -c1 -W2 ${master_ip} >/dev/null && echo '✅ ICMP OK' || echo '⚠️  ICMP blocked'
     "
   done
+}
+
+postjoin_matrix_to_master() {
   echo "🔎 Checking reachability from master to each worker's kubelet (10250)…"
   for w in "${NODES[@]:1}"; do
     worker_ip=$(ssh "$w" "hostname -I | awk '{print \$1}'")
@@ -492,6 +493,38 @@ spec:
 YAML
     kubectl -n kube-system rollout status ds/netshoot --timeout=120s
   "
+}
+
+deploy_kubedash() {
+  local h="$MASTER_NODE"
+  echo "🧭 Deploying Kubernetes Dashboard…"
+  run_remote_stream "$h" '
+    set -e
+    echo "📦 Applying dashboard manifests..."
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+
+    echo "🔐 Creating admin-user and binding if missing..."
+    kubectl -n kubernetes-dashboard get sa admin-user >/dev/null 2>&1 || \
+      kubectl -n kubernetes-dashboard create serviceaccount admin-user
+
+    kubectl get clusterrolebinding admin-user-binding >/dev/null 2>&1 || \
+      kubectl create clusterrolebinding admin-user-binding \
+        --clusterrole=cluster-admin \
+        --serviceaccount=kubernetes-dashboard:admin-user
+
+    echo "⚙️  Switching dashboard service to NodePort…"
+    kubectl -n kubernetes-dashboard patch svc kubernetes-dashboard \
+      -p "{\"spec\":{\"type\":\"NodePort\"}}" || true
+
+    echo "⏳ Waiting for dashboard pod to become ready..."
+    kubectl -n kubernetes-dashboard rollout status deploy kubernetes-dashboard --timeout=120s || true
+
+    echo "🔑 Admin token (valid 24h):"
+    kubectl -n kubernetes-dashboard create token admin-user --duration=24h || true
+
+    echo "🌐 Access URLs:"
+    kubectl -n kubernetes-dashboard get svc kubernetes-dashboard -o wide
+  '
 }
 
 matrix_checks() {
@@ -610,6 +643,7 @@ init_master
 ensure_apiserver_open "$MASTER_NODE"
 prejoin_matrix_to_master
 join_workers
+postjoin_matrix_to_master
 
 echo "🔒 Holding kube packages…"
 for n in "${NODES[@]}"; do
@@ -619,6 +653,9 @@ done
 cilium_install_master
 # only if DEBUG=1
 [ "${DEBUG:-0}" = "1" ] && deploy_netshoot_daemonset
+if [ "${ENABLE_DASHBOARD:-false}" = "true" ]; then
+  deploy_kubedash
+fi
 matrix_checks
 verify_cluster
 
