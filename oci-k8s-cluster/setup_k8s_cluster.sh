@@ -390,12 +390,23 @@ cilium_install_master() {
   # Install Cilium (direct routing, kube-proxy partial, BPF MASQ) + hard wait
   run_remote_stream "$MASTER_NODE" "
     set -euo pipefail
+
+    # Compute datapath MTU = NIC MTU - VXLAN overhead (~50B). Clamp to sane range.
+    DEF_IF=\$(ip route show default | awk '{print \$5; exit}')
+    : \"\${DEF_IF:=enp0s6}\"
+    IF_MTU=\$(ip link show \"\$DEF_IF\" | awk '/mtu/ {print \$5}')
+    : \"\${IF_MTU:=1500}\"
+    DP_MTU=\$(( IF_MTU - 50 ))
+    if [ \"\$DP_MTU\" -lt 1300 ]; then DP_MTU=1300; fi
+    if [ \"\$DP_MTU\" -gt 8900 ]; then DP_MTU=8900; fi
+    echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
+
     cilium install --version v${CILIUM_VERSION} \
       --set tunnelProtocol=vxlan \
       --set kubeProxyReplacement=false \
       --set ipam.mode=kubernetes \
       --set rollOutCiliumPods=true \
-      --set mtu=1450
+      --set mtu=\$DP_MTU
 
     echo '⏳ Waiting for Cilium DaemonSet…'
     if ! kubectl -n kube-system rollout status ds/cilium --timeout=10m; then
@@ -431,13 +442,22 @@ prejoin_matrix_to_master() {
 }
 
 join_workers() {
-  local join_cmd; read -r join_cmd < join_cmd.sh
-  echo "🔗 Joining workers…"
+  local join_cmd
+  join_cmd="$(cat ./join_cmd.sh)"
   for w in "${NODES[@]:1}"; do
-    run_remote "$w" "
-      sudo kubeadm reset -f || true
-      sudo ${join_cmd} --ignore-preflight-errors=NumCPU
-    "
+    echo "🔗 Joining $w..."
+    for attempt in 1 2 3; do
+      if run_remote_stream "$w" "sudo $join_cmd --ignore-preflight-errors=NumCPU"; then
+        echo "✅ $w joined successfully"
+        break
+      fi
+      if [ "$attempt" -eq 3 ]; then
+        echo "❌ $w failed to join after 3 attempts"
+        exit 1
+      fi
+      echo "⚠️  $w join failed (attempt $attempt). Retrying in 5s…"
+      sleep 5
+    done
   done
 }
 
@@ -556,6 +576,22 @@ reset_cluster() {
   for n in "${NODES[@]}"; do run_remote "$n" 'test -f /tmp/reset_done && echo "✅ reset ok" || echo "❌ reset pending"'; done
 }
 
+prepare_node() {
+  local h=$1
+  update_node "$h"
+  cleanup_lxd "$h"
+  tune_sysctl "$h"
+  ensure_kubelet_open "$h"
+  install_containerd "$h"
+  install_k8s_pkgs "$h"
+  oci_net_doctor "$h"
+  cleanup_cni_deep "$h"
+  purge_old_calico "$h"
+  purge_old_cilium "$h"
+  verify_no_cilium_links "$h"
+  run_remote "$h" 'ip -o link | grep -E "cilium_(host|net|vxlan)" || echo "✅ no cilium links"'
+}
+
 # === MAIN ======================================================
 case "${1:-}" in
   reset) reset_cluster; exit 0 ;;
@@ -564,18 +600,7 @@ esac
 echo "⚙️  Preparing nodes (safe sequential mode)…"
 for n in "${NODES[@]}"; do
   echo "——— $n ———"
-  update_node "$n"
-  cleanup_lxd "$n"
-  tune_sysctl "$n"
-  ensure_kubelet_open "$n"
-  install_containerd "$n"
-  install_k8s_pkgs "$n"
-  oci_net_doctor "$n"
-  cleanup_cni_deep "$n"
-  purge_old_calico "$n"
-  purge_old_cilium "$n"
-  verify_no_cilium_links "$n"
-  run_remote "$n" 'ip -o link | grep -E "cilium_(host|net|vxlan)" || echo "✅ no cilium links"'
+  prepare_node "$n"
 done
 echo "✅ Prep + deep cleanup done."
 
