@@ -495,36 +495,77 @@ YAML
   "
 }
 
+fix_metrics_server_port() {
+  run_remote_stream "$MASTER_NODE" 'bash -eu -o pipefail <<'"'"'EOF'"'"'
+echo "🔧 Forcing metrics-server to use port 4443 and fixing probes…"
+kubectl -n kube-system patch deployment metrics-server --type=json -p="[{
+  \"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/ports\",
+  \"value\":[{\"containerPort\":4443,\"name\":\"https\",\"protocol\":\"TCP\"}]
+},{
+  \"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/livenessProbe/httpGet/port\",\"value\":4443
+},{
+  \"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/readinessProbe/httpGet/port\",\"value\":4443
+},{
+  \"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",
+  \"value\":[
+    \"--cert-dir=/tmp\",
+    \"--secure-port=4443\",
+    \"--kubelet-insecure-tls\",
+    \"--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname\",
+    \"--metric-resolution=15s\"
+  ]
+}]"
+kubectl -n kube-system rollout restart deploy metrics-server
+kubectl -n kube-system rollout status deploy metrics-server --timeout=180s || true
+echo "✅ metrics-server running securely on 4443."
+EOF'
+}
+
 deploy_kubedash() {
   local h="$MASTER_NODE"
-  echo "🧭 Deploying Kubernetes Dashboard…"
-  run_remote_stream "$h" '
-    set -e
-    echo "📦 Applying dashboard manifests..."
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+  echo "🧭 Deploying Kubernetes Dashboard (v7.13.0 via Helm)…"
+  run_remote_stream "$h" 'bash -eu -o pipefail <<'"'"'EOF'"'"'
+# install helm if missing
+if ! command -v helm >/dev/null 2>&1; then
+  echo "📦 Installing helm (lightweight binary)..."
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+fi
 
-    echo "🔐 Creating admin-user and binding if missing..."
-    kubectl -n kubernetes-dashboard get sa admin-user >/dev/null 2>&1 || \
-      kubectl -n kubernetes-dashboard create serviceaccount admin-user
+# add repo and install dashboard
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+helm repo update
 
-    kubectl get clusterrolebinding admin-user-binding >/dev/null 2>&1 || \
-      kubectl create clusterrolebinding admin-user-binding \
-        --clusterrole=cluster-admin \
-        --serviceaccount=kubernetes-dashboard:admin-user
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --namespace kubernetes-dashboard --create-namespace \
+  --version 7.13.0 \
+  --set service.type=NodePort \
+  --set service.nodePort=31201 \
+  --set kong.proxy.http.containerPort=8443 \
+   --set service.targetPort=8443 \
+  --set metricsScraper.enabled=true
 
-    echo "⚙️  Switching dashboard service to NodePort…"
-    kubectl -n kubernetes-dashboard patch svc kubernetes-dashboard \
-      -p "{\"spec\":{\"type\":\"NodePort\"}}" || true
+# metrics-server (for graphs)
+if ! kubectl -n kube-system get deploy metrics-server >/dev/null 2>&1; then
+  echo "📊 Installing metrics-server..."
+  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+fi
 
-    echo "⏳ Waiting for dashboard pod to become ready..."
-    kubectl -n kubernetes-dashboard rollout status deploy kubernetes-dashboard --timeout=120s || true
+# admin-user + binding
+kubectl -n kubernetes-dashboard get sa admin-user >/dev/null 2>&1 || \
+  kubectl -n kubernetes-dashboard create serviceaccount admin-user
+kubectl get clusterrolebinding admin-user-binding >/dev/null 2>&1 || \
+  kubectl create clusterrolebinding admin-user-binding \
+    --clusterrole=cluster-admin \
+    --serviceaccount=kubernetes-dashboard:admin-user
 
-    echo "🔑 Admin token (valid 24h):"
-    kubectl -n kubernetes-dashboard create token admin-user --duration=24h || true
+echo "⏳ Waiting for rollout..."
+kubectl -n kubernetes-dashboard rollout status deploy kubernetes-dashboard --timeout=180s || true
 
-    echo "🌐 Access URLs:"
-    kubectl -n kubernetes-dashboard get svc kubernetes-dashboard -o wide
-  '
+echo "🔑 Admin token (valid 24h):"
+kubectl -n kubernetes-dashboard create token admin-user --duration=24h || true
+
+echo "✅ Kubernetes Dashboard v7.13.0 deployed successfully (via Helm)."
+EOF'
 }
 
 print_kubedash_url() {
@@ -537,6 +578,67 @@ print_kubedash_url() {
     echo "Use the token printed above to log in."
   '
 }
+
+print_kubedash_tunnel_hint() {
+  local h="$MASTER_NODE"
+  run_remote_stream "$h" 'bash -eu -o pipefail <<'"'"'EOF'"'"'
+ns=kubernetes-dashboard
+
+echo "🔎 Detecting Kubernetes Dashboard service..."
+if kubectl -n "$ns" get svc kubernetes-dashboard-kong-proxy >/dev/null 2>&1; then
+  SVC=kubernetes-dashboard-kong-proxy
+elif kubectl -n "$ns" get svc kubernetes-dashboard >/dev/null 2>&1; then
+  SVC=kubernetes-dashboard
+else
+  echo "❌ No dashboard service found in namespace $ns."
+  exit 1
+fi
+
+TYPE=$(kubectl -n "$ns" get svc "$SVC" -o jsonpath="{.spec.type}")
+if [ "$TYPE" = "ClusterIP" ]; then
+  echo "⚙️  Service $SVC is ClusterIP → converting to NodePort..."
+  kubectl -n "$ns" patch svc "$SVC" -p "{\"spec\":{\"type\":\"NodePort\"}}" >/dev/null
+  sleep 2
+fi
+
+NODE_PORT=$(kubectl -n "$ns" get svc "$SVC" -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")
+[ -z "$NODE_PORT" ] && NODE_PORT=$(kubectl -n "$ns" get svc "$SVC" -o jsonpath="{.spec.ports[0].nodePort}")
+
+POD=$(kubectl -n "$ns" get pods -o jsonpath="{.items[?(@.status.phase==\"Running\")].metadata.name}" | awk "NR==1{print \$1}")
+if [ -z "$POD" ]; then
+  echo "⚠️  No running dashboard pod found — try again later."
+  exit 2
+fi
+
+NODE=$(kubectl -n "$ns" get pod "$POD" -o jsonpath="{.spec.nodeName}")
+NODE_IP=$(kubectl get node "$NODE" -o jsonpath="{.status.addresses[?(@.type==\"InternalIP\")].address}")
+MASTER_PUB=$(curl -s ifconfig.me || hostname -I | awk "{print \$1}")
+
+echo "🧠 Dashboard pod: $POD on node $NODE ($NODE_IP)"
+echo "🌐 NodePort: $NODE_PORT"
+
+# Quick connectivity test from master to node
+if timeout 3 bash -lc "nc -zvw2 $NODE_IP $NODE_PORT" >/dev/null 2>&1; then
+  echo "✅ Node $NODE_IP:$NODE_PORT reachable from master."
+else
+  echo "⚠️  Node $NODE_IP:$NODE_PORT not reachable from master."
+  echo "   • Verify OCI security list allows TCP/30000-32767 within VCN"
+  echo "   • Verify node firewall (iptables/nft) accepts INPUT for that port"
+fi
+
+cat <<HINT
+
+🔐 To access the Kubernetes Dashboard securely from your workstation:
+
+  ssh -i \$SSH_KEY -L 8443:${NODE_IP}:${NODE_PORT} ubuntu@${MASTER_PUB}
+
+Then open: https://localhost:8443/#/login
+Paste the token displayed earlier.
+
+HINT
+EOF'
+}
+
 
 matrix_checks() {
   echo "🧪 Inter-node & inter-pod connectivity matrix"
@@ -666,7 +768,9 @@ cilium_install_master
 [ "${DEBUG:-0}" = "1" ] && deploy_netshoot_daemonset
 if [ "${ENABLE_DASHBOARD:-false}" = "true" ]; then
   deploy_kubedash
+  fix_metrics_server_port
   print_kubedash_url
+  print_kubedash_tunnel_hint
 fi
 matrix_checks
 verify_cluster
