@@ -54,6 +54,11 @@ ensure_apiserver_open() {
   local h=$1
   run_remote_stream "$h" '
     set -e
+    # quick fast-path
+    if curl -sk --max-time 1 https://127.0.0.1:6443/healthz | grep -q "^ok$"; then
+      echo "✅ kube-apiserver already healthy"
+      exit 0
+    fi
 
     # 1) Confirm apiserver is listening
     echo "🔎 Checking kube-apiserver listening sockets…"
@@ -113,10 +118,13 @@ ensure_apiserver_open() {
 update_node() {
   local h=$1
   run_remote "$h" '
-    sudo apt-get update -y
+    echo "🔧 Refreshing package metadata…"
+    if [ $(find /var/lib/apt/lists -type f -mmin -120 2>/dev/null | wc -l) -eq 0 ]; then
+      sudo apt-get -qq update
+    fi
     sudo apt-mark unhold kubeadm kubelet kubectl >/dev/null 2>&1 || true
-    sudo apt-get -o Dpkg::Options::="--force-confold" -y upgrade || true
-    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release jq iproute2 iputils-ping traceroute arptables ebtables nftables conntrack
+    sudo apt-get -qq -o Dpkg::Options::="--force-confold" -y upgrade || true
+    sudo apt-get -qq -y --no-install-recommends install apt-transport-https ca-certificates curl gnupg lsb-release jq iproute2 iputils-ping traceroute arptables ebtables nftables conntrack
   '
 }
 
@@ -407,6 +415,12 @@ cilium_install_master() {
   run_remote_stream "$MASTER_NODE" "
     set -e
     if kubectl -n kube-system get ds cilium >/dev/null 2>&1; then
+      curv=\$(cilium version --client | awk '/cilium/ {print \$2}')
+      if [ \"\$curv\" = \"v${CILIUM_VERSION}\" ]; then
+        echo '✅ Cilium v${CILIUM_VERSION} already present — skipping reinstall.'
+        exit 0
+      fi
+      echo '♻️  Reinstalling to refresh Cilium components...'
       cilium uninstall --wait >/dev/null 2>&1 || true
     fi
   "
@@ -590,7 +604,7 @@ kubectl -n kube-system patch deployment metrics-server --type=json -p="[{
   ]
 }]"
 kubectl -n kube-system rollout restart deploy metrics-server
-kubectl -n kube-system rollout status deploy metrics-server --timeout=180s || true
+kubectl -n kube-system rollout status deploy metrics-server --timeout=120s || true
 echo "✅ metrics-server running securely on 4443."
 EOF'
 }
@@ -606,8 +620,10 @@ if ! command -v helm >/dev/null 2>&1; then
 fi
 
 # add repo and install dashboard
-helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
-helm repo update
+if ! helm repo list | grep -q kubernetes-dashboard; then
+  helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+fi
+helm repo update -q || true
 
 helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
   --namespace kubernetes-dashboard --create-namespace \
@@ -633,7 +649,7 @@ kubectl get clusterrolebinding admin-user-binding >/dev/null 2>&1 || \
     --serviceaccount=kubernetes-dashboard:admin-user
 
 echo "⏳ Waiting for rollout..."
-kubectl -n kubernetes-dashboard rollout status deploy kubernetes-dashboard --timeout=180s || true
+kubectl -n kubernetes-dashboard rollout status deploy kubernetes-dashboard --timeout=120s || true
 
 echo "🔑 Admin token (valid 24h):"
 kubectl -n kubernetes-dashboard create token admin-user --duration=24h || true
