@@ -681,6 +681,16 @@ print_kubedash_url() {
   '
 }
 
+# Kill any local 8443 dashboard tunnel (keeps your port hygiene clean)
+kill_kubedash_tunnel() {
+  if command -v lsof >/dev/null 2>&1; then
+    pid=$(lsof -t -iTCP:8443 -sTCP:LISTEN 2>/dev/null || true)
+    [ -n "$pid" ] && kill "$pid" && echo "🧹 Closed local 8443 listener (pid $pid)."
+  else
+    pkill -f 'ssh.*-L.*8443:.*:.*' 2>/dev/null && echo "🧹 Closed existing ssh -L 8443 tunnel(s)."
+  fi
+}
+
 print_kubedash_tunnel_hint() {
   local h="$MASTER_NODE"
   run_remote_stream "$h" 'bash -eu -o pipefail <<'"'"'EOF'"'"'
@@ -760,15 +770,11 @@ EOF'
       fi
     ' 2>/dev/null
   )
-
   if [ -n "$node_ip" ] && [ -n "$node_port" ]; then
     echo "🔌  Attempting to open local SSH tunnel to Dashboard..."
-    # Prefer a precise listener check to avoid false positives
-    if ! command -v lsof >/dev/null 2>&1 || ! lsof -iTCP:8443 -sTCP:LISTEN >/dev/null 2>&1; then
-      # Use the same public endpoint as shown in the manual hint for consistency
-      # Resolve MASTER_PUB via the remote (fallback to the alias if not available)
-      MASTER_PUB=$(ssh -n -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=3 "$MASTER_NODE" 'curl -s ifconfig.me || hostname -I | awk "{print \$1}"' 2>/dev/null || echo "$MASTER_NODE")
-      nohup ssh -i "$SSH_KEY" -f -n -L 8443:${node_ip}:${node_port} "ubuntu@${MASTER_PUB}" sleep 3600 >/dev/null 2>&1 \
+    kill_kubedash_tunnel
+    if ! pgrep -f "ssh.*-L.*8443:${node_ip}:${node_port}" >/dev/null 2>&1; then
+      nohup ssh -i "$SSH_KEY" -f -n -L 8443:${node_ip}:${node_port} "ubuntu@${MASTER_NODE}" sleep 3600 >/dev/null 2>&1 \
         && echo "✅ Tunnel established: https://localhost:8443" \
         || echo "⚠️  Tunnel failed — please open manually."
     else
@@ -776,16 +782,6 @@ EOF'
     fi
   else
     echo "⚠️  Could not detect node IP or NodePort from master — skipping auto tunnel."
-  fi
-}
-
-# Kill any local 8443 dashboard tunnel (keeps your port hygiene clean)
-kill_kubedash_tunnel() {
-  if command -v lsof >/dev/null 2>&1; then
-    pid=$(lsof -t -iTCP:8443 -sTCP:LISTEN 2>/dev/null || true)
-    [ -n "$pid" ] && kill "$pid" && echo "🧹 Closed local 8443 listener (pid $pid)."
-  else
-    pkill -f 'ssh.*-L.*8443:.*:.*' 2>/dev/null && echo "🧹 Closed existing ssh -L 8443 tunnel(s)."
   fi
 }
 
