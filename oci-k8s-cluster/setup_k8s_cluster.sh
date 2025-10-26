@@ -762,46 +762,128 @@ prepare_node() {
   verify_no_cilium_links "$h"
   run_remote "$h" 'ip -o link | grep -E "cilium_(host|net|vxlan)" || echo "✅ no cilium links"'
 }
+# --- Phase timing helpers (no bash -c; call real functions) ----
+PHASE_TIMINGS=()
+
+measure_phase() {
+  local phase_name="$1"; shift
+  local start=$SECONDS
+  "$@"        # call the function and args directly in the SAME shell
+  local end=$SECONDS
+  PHASE_TIMINGS+=("$phase_name:$((end-start))")
+}
+
+print_phase_timings() {
+  echo
+  echo "⏱ Phase timings:"
+  for entry in "${PHASE_TIMINGS[@]}"; do
+    local name=${entry%%:*}
+    local secs=${entry##*:}
+    printf "   %-36s %02dm%02ds\n" "$name" $((secs/60)) $((secs%60))
+  done
+}
+
 
 # === MAIN ======================================================
 case "${1:-}" in
   reset) reset_cluster; exit 0 ;;
 esac
 
-echo "⚙️  Preparing nodes (safe sequential mode)…"
-for n in "${NODES[@]}"; do
-  echo "——— $n ———"
-  prepare_node "$n"
-done
-echo "✅ Prep + deep cleanup done."
+# --- Phase wrappers (group multi-steps without bash -c) --------
+phase_prepare_nodes() {
+  echo "⚙️  Preparing nodes (safe sequential mode)…"
+  for n in "${NODES[@]}"; do
+    echo "——— $n ———"
+    prepare_node "$n"
+  done
+  echo "✅ Prep + deep cleanup done."
+}
 
-init_master
-ensure_apiserver_open "$MASTER_NODE"
-prejoin_matrix_to_master
-join_workers
-postjoin_matrix_to_master
+phase_hold_kube_packages() {
+  echo "🔒 Holding kube packages…"
+  for n in "${NODES[@]}"; do
+    run_remote "$n" "sudo apt-mark hold kubelet kubeadm kubectl >/dev/null && ver=\$(kubelet --version) && echo \"[$n] held at \$ver\""
+  done
+}
 
-echo "🔒 Holding kube packages…"
-for n in "${NODES[@]}"; do
-  run_remote "$n" "sudo apt-mark hold kubelet kubeadm kubectl >/dev/null && ver=\$(kubelet --version) && echo \"[$n] held at \$ver\""
-done
-
-cilium_install_master
-
-# only if DEBUG=1
-[ "${DEBUG:-0}" = "1" ] && deploy_netshoot_daemonset
-
-if [ "${ENABLE_DASHBOARD:-false}" = "true" ] || [ -z "${DISABLE_DASHBOARD:-}" ]; then
+phase_dashboard_deploy() {
   deploy_kubedash
   fix_metrics_server_port
   print_kubedash_url
   print_kubedash_tunnel_hint
+}
+
+# --- Phase timing helpers (no bash -c; call real functions) ----
+PHASE_TIMINGS=()
+
+measure_phase() {
+  local phase_name="$1"; shift
+  local start=$SECONDS
+  "$@"        # call the function and args directly in the SAME shell
+  local end=$SECONDS
+  PHASE_TIMINGS+=("$phase_name:$((end-start))")
+}
+
+print_phase_timings() {
+  echo
+  echo "⏱ Phase timings:"
+  for entry in "${PHASE_TIMINGS[@]}"; do
+    local name=${entry%%:*}
+    local secs=${entry##*:}
+    printf "   %-36s %02dm%02ds\n" "$name" $((secs/60)) $((secs%60))
+  done
+}
+
+# --- Phase wrappers (group multi-steps without bash -c) --------
+phase_prepare_nodes() {
+  echo "⚙️  Preparing nodes (safe sequential mode)…"
+  for n in "${NODES[@]}"; do
+    echo "——— $n ———"
+    prepare_node "$n"
+  done
+  echo "✅ Prep + deep cleanup done."
+}
+
+phase_hold_kube_packages() {
+  echo "🔒 Holding kube packages…"
+  for n in "${NODES[@]}"; do
+    run_remote "$n" "sudo apt-mark hold kubelet kubeadm kubectl >/dev/null && ver=\$(kubelet --version) && echo \"[$n] held at \$ver\""
+  done
+}
+
+phase_dashboard_deploy() {
+  deploy_kubedash
+  fix_metrics_server_port
+  print_kubedash_url
+  print_kubedash_tunnel_hint
+}
+
+# --- PHASES -----------------------------------------------------
+measure_phase "prepare nodes"                phase_prepare_nodes
+measure_phase "init master"                  init_master
+measure_phase "ensure apiserver open"        ensure_apiserver_open "$MASTER_NODE"
+measure_phase "prejoin matrix"               prejoin_matrix_to_master
+measure_phase "join workers"                 join_workers
+measure_phase "postjoin matrix"              postjoin_matrix_to_master
+measure_phase "hold kube packages"           phase_hold_kube_packages
+measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
+
+# only if DEBUG=1
+if [ "${DEBUG:-0}" = "1" ]; then
+  measure_phase "netshoot daemonset"         deploy_netshoot_daemonset
+fi
+
+if [ "${ENABLE_DASHBOARD:-false}" = "true" ] || [ -z "${DISABLE_DASHBOARD:-}" ]; then
+  measure_phase "dashboard deploy"           phase_dashboard_deploy
 else
   echo "🚫 Skipping Kubernetes Dashboard installation (DISABLE_DASHBOARD set)"
 fi
 
-matrix_checks
-verify_cluster
+measure_phase "matrix checks"                matrix_checks
+measure_phase "verify cluster"               verify_cluster
+
+# --- SUMMARY ----------------------------------------------------
+print_phase_timings
 
 SCRIPT_END=$(date +%s)
 ELAPSED=$((SCRIPT_END - SCRIPT_START))
