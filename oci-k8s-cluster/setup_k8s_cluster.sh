@@ -26,6 +26,7 @@ POD_CIDR="192.168.0.0/16"   # Pod CIDR; Cilium runs in VXLAN overlay
 SERVICE_CIDR="10.96.0.0/12" # kubeadm default
 CILIUM_VERSION="1.18.2"     # exact
 CILIUM_CLI_VERSION="0.18.7"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/oci-ssh-key-2025-06-19.key}"
 
 # === Helpers ====================================================
 log_node() { 
@@ -727,6 +728,40 @@ Paste the token displayed earlier.
 
 HINT
 EOF'
+
+  # --- Local automatic tunnel (after remote block) ---
+  local node_ip node_port
+  read -r node_ip node_port < <(
+    ssh -n -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=3 "$MASTER_NODE" '
+      ns=kubernetes-dashboard
+      svc=""
+      if kubectl -n "$ns" get svc kubernetes-dashboard-kong-proxy >/dev/null 2>&1; then
+        svc=kubernetes-dashboard-kong-proxy
+      elif kubectl -n "$ns" get svc kubernetes-dashboard >/dev/null 2>&1; then
+        svc=kubernetes-dashboard
+      fi
+      if [ -n "$svc" ]; then
+        pod=$(kubectl -n "$ns" get pods -o jsonpath="{.items[?(@.status.phase==\"Running\")].metadata.name}" | awk "NR==1{print \$1}")
+        node=$(kubectl -n "$ns" get pod "$pod" -o jsonpath="{.spec.nodeName}")
+        ip=$(kubectl get node "$node" -o jsonpath="{.status.addresses[?(@.type==\"InternalIP\")].address}")
+        port=$(kubectl -n "$ns" get svc "$svc" -o jsonpath="{.spec.ports[0].nodePort}")
+        echo "$ip $port"
+      fi
+    ' 2>/dev/null
+  )
+
+  if [ -n "$node_ip" ] && [ -n "$node_port" ]; then
+    echo "🔌  Attempting to open local SSH tunnel to Dashboard..."
+    if ! pgrep -f "ssh.*-L.*8443:${node_ip}:${node_port}" >/dev/null 2>&1; then
+      nohup ssh -i "$SSH_KEY" -f -n -L 8443:${node_ip}:${node_port} "ubuntu@${MASTER_NODE}" sleep 3600 >/dev/null 2>&1 \
+        && echo "✅ Tunnel established: https://localhost:8443" \
+        || echo "⚠️  Tunnel failed — please open manually."
+    else
+      echo "✅ Tunnel already running."
+    fi
+  else
+    echo "⚠️  Could not detect node IP or NodePort from master — skipping auto tunnel."
+  fi
 }
 
 
