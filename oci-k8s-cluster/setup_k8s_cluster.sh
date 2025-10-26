@@ -24,9 +24,12 @@ WORKER_NODES=("${NODES[@]:1}")
 K8S_VERSION="1.34.1"
 POD_CIDR="192.168.0.0/16"   # Pod CIDR; Cilium runs in VXLAN overlay
 SERVICE_CIDR="10.96.0.0/12" # kubeadm default
-CILIUM_VERSION="1.18.2"     # exact
+CILIUM_VERSION="1.18.3"     # exact
 CILIUM_CLI_VERSION="0.18.7"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/oci-ssh-key-2025-06-19.key}"
+
+# RUN_REMOTE_CAPTURE_RESULT variable
+RUN_REMOTE_CAPTURE_RESULT=""
 
 # === Helpers ====================================================
 log_node() { 
@@ -49,7 +52,27 @@ run_remote_stream() {
   ssh -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
       -n -T "$node" "$@" 2>&1 | while IFS= read -r line; do echo "[$node] $line"; done
 }
+run_remote_capture() {
+  local node=$1; shift
+  local cmd="$*"
 
+  log_node "$node" "→ $cmd"
+
+  # Capture both output and exit code
+  local output
+  output=$(ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              -n -T "$node" "$cmd" 2>&1)
+  local status=$?
+
+  # Prefix each output line for readability
+  if [[ -n "$output" ]]; then
+    echo "$output" | sed "s/^/[$node] /"
+  fi
+
+  # Return result via global or echo
+  RUN_REMOTE_CAPTURE_RESULT="$output"   # for later access
+  return $status
+}
 # === API server openness (master) ============================================
 ensure_apiserver_open() {
   local h=$1
@@ -416,7 +439,7 @@ cilium_install_master() {
   run_remote_stream "$MASTER_NODE" "
     set -e
     if kubectl -n kube-system get ds cilium >/dev/null 2>&1; then
-      curv=\$(cilium version --client | awk '/cilium/ {print \$2}')
+      curv=\$(cilium version --client | awk '/stable/ {print \$4}')
       if [ \"\$curv\" = \"v${CILIUM_VERSION}\" ]; then
         echo '✅ Cilium v${CILIUM_VERSION} already present — skipping reinstall.'
         exit 0
@@ -467,12 +490,23 @@ cilium_install_master() {
       if [ \"\$DP_MTU\" -gt 8900 ]; then DP_MTU=8900; fi
       echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
 
-      cilium install --version v${CILIUM_VERSION} \
-        --set tunnelProtocol=vxlan \
-        --set kubeProxyReplacement=false \
-        --set ipam.mode=kubernetes \
-        --set rollOutCiliumPods=true \
-        --set mtu=\$DP_MTU
+      if kubectl -n kube-system get ds cilium >/dev/null 2>&1; then
+        echo "♻️  Cilium already installed.. Upgrading if needed..."
+        cilium upgrade install --version v${CILIUM_VERSION} \
+          --set tunnelProtocol=vxlan \
+          --set kubeProxyReplacement=false \
+          --set ipam.mode=kubernetes \
+          --set rollOutCiliumPods=true \
+          --set mtu=\$DP_MTU
+      else
+        echo "🚀 Installing Cilium afresh..."
+        cilium install --version v${CILIUM_VERSION} \
+          --set tunnelProtocol=vxlan \
+          --set kubeProxyReplacement=false \
+          --set ipam.mode=kubernetes \
+          --set rollOutCiliumPods=true \
+          --set mtu=\$DP_MTU
+      fi
     fi
 
     echo '⏳ Waiting for Cilium DaemonSet…'
@@ -518,20 +552,26 @@ join_workers() {
   local failed=()
   for w in "${WORKER_NODES[@]}"; do
     (
-      local join_cmd
-      join_cmd="$(cat ./join_cmd.sh)"
-      for attempt in 1 2 3; do
-        if run_remote_stream "$w" "sudo $join_cmd --ignore-preflight-errors=NumCPU"; then
-          echo "✅ $w joined successfully"
-          break
-        fi
-        if [ "$attempt" -eq 3 ]; then
-          echo "❌ $w failed to join after 3 attempts"
-          exit 1
-        fi
-        echo "⚠️  $w join failed (attempt $attempt). Retrying in 5s…"
-        sleep 5
-      done
+      ## We must strip out the oci- prefix when checking node names
+      local n="${w#oci-}"
+      if ! run_remote_capture "$MASTER_NODE" "kubectl get node $n" >/dev/null 2>&1; then
+        local join_cmd
+        join_cmd="$(cat ./join_cmd.sh)"
+        for attempt in 1 2 3; do
+          if run_remote_stream "$w" "sudo $join_cmd --ignore-preflight-errors=NumCPU"; then
+            echo "✅ $w joined successfully"
+            break
+          fi
+          if [ "$attempt" -eq 3 ]; then
+            echo "❌ $w failed to join after 3 attempts"
+            exit 1
+          fi
+          echo "⚠️  $w join failed (attempt $attempt). Retrying in 5s…"
+          sleep 5
+        done
+      else
+        echo "✅ $n ($w) already joined."
+      fi
     ) &> >(sed "s/^/[$n] /") &   # background each node, prefix logs
     pids+=($!)
   done
@@ -901,10 +941,18 @@ prepare_node() {
   tune_sysctl "$h"
   ensure_kubelet_open "$h"
   install_containerd "$h"
-  install_k8s_pkgs "$h"
-  cleanup_cni_deep "$h"
-  purge_old_calico "$h"
-  purge_old_cilium "$h"
+  run_remote_capture "$h" "kubelet --version 2>/dev/null || echo none"
+  remote_ver="$RUN_REMOTE_CAPTURE_RESULT"
+  if [[ "$remote_ver" != *"$K8S_VERSION"* ]]; then
+    install_k8s_pkgs "$h"
+  else
+    echo "✅ $h already on K8s $K8S_VERSION"
+  fi
+  if [ "${FORCE_CLEANUP:-false}" = "true" ]; then
+    cleanup_cni_deep "$h"
+    purge_old_calico "$h"
+    purge_old_cilium "$h"
+  fi
   oci_net_doctor "$h"
   verify_no_cilium_links "$h"
   run_remote "$h" 'ip -o link | grep -E "cilium_(host|net|vxlan)" || echo "✅ no cilium links"'
@@ -954,7 +1002,12 @@ phase_hold_kube_packages() {
 }
 
 phase_dashboard_deploy() {
-  deploy_kubedash
+  if ! run_remote_capture "$MASTER_NODE" "kubectl -n kubernetes-dashboard get deploy kubernetes-dashboard >/dev/null 2>&1"; then
+    echo "⏭️  Kubernetes Dashboard already deployed — skipping."
+  else 
+    echo "🚀 Deploying Kubernetes Dashboard…"
+    deploy_kubedash
+  fi
   fix_metrics_server_port
   print_kubedash_url
   print_kubedash_tunnel_hint
@@ -1031,7 +1084,11 @@ phase_dashboard_deploy() {
 
 # --- PHASES -----------------------------------------------------
 measure_phase "prepare nodes"                phase_prepare_nodes
-measure_phase "init master"                  init_master
+if run_remote_capture "$MASTER_NODE" "kubectl get nodes >/dev/null 2>&1"; then
+  echo "✅ Cluster already initialized — skipping kubeadm init."
+else
+  measure_phase "init master"                  init_master
+fi
 measure_phase "ensure apiserver open"        ensure_apiserver_open "$MASTER_NODE"
 measure_phase "prejoin matrix"               prejoin_matrix_to_master
 measure_phase "join workers"                 join_workers
