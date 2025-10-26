@@ -386,6 +386,17 @@ verify_no_cilium_links() {
   '
 }
 
+verify_node_podcidrs() {
+  # all nodes must have .spec.podCIDR allocated for native routing
+  missing=$(kubectl get nodes -o go-template='{{range .items}}{{if not .spec.podCIDR}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}')
+  if [ -n "$missing" ]; then
+    echo "❌ Some nodes do not have a PodCIDR allocated (controller-manager not allocating):"
+    echo "$missing" | sed 's/^/   - /'
+    echo "➡️  Ensure kube-controller-manager runs with --allocate-node-cidrs=true and --cluster-cidr=${POD_CIDR}"
+    exit 1
+  fi
+}
+
 cilium_install_master() {
   install_cilium_cli "$MASTER_NODE"
 
@@ -399,30 +410,47 @@ cilium_install_master() {
     fi
   "
 
+  if [ "$tunnel_mode" = "direct" ]; then
+    echo "🔧 Verifying all nodes have PodCIDRs allocated (required for direct routing)..."
+    verify_node_podcidrs
+  fi
+
   run_remote_stream "$MASTER_NODE" "
     set -euo pipefail
-
-    DEF_IF=\$(ip route show default | awk '{print \$5; exit}')
-    : \"\${DEF_IF:=enp0s6}\"
-    IF_MTU=\$(ip link show \"\$DEF_IF\" | awk '/mtu/ {print \$5}')
-    : \"\${IF_MTU:=1500}\"
-    DP_MTU=\$(( IF_MTU - 50 ))
-    if [ \"\$DP_MTU\" -lt 1300 ]; then DP_MTU=1300; fi
-    if [ \"\$DP_MTU\" -gt 8900 ]; then DP_MTU=8900; fi
-    echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
 
     TUNNEL_MODE=${tunnel_mode}
     if [ \"\$TUNNEL_MODE\" = \"direct\" ]; then
       echo \"🚀 Installing Cilium in DIRECT-ROUTING mode\"
+
+      DEF_IF=\$(ip route show default | awk '{print \$5; exit}')
+      : \"\${DEF_IF:=enp0s6}\"
+      IF_MTU=\$(ip link show \"\$DEF_IF\" | awk '/mtu/ {print \$5}')
+      : \"\${IF_MTU:=1500}\"
+      DP_MTU=\$IF_MTU    # native routing: no tunnel overhead
+      echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
+
       cilium install --version v${CILIUM_VERSION} \
-        --set tunnel=disabled \
+        --set routingMode=direct \
         --set autoDirectNodeRoutes=true \
-        --set kubeProxyReplacement=partial \
+        --set kubeProxyReplacement=true \
         --set ipam.mode=kubernetes \
         --set rollOutCiliumPods=true \
-        --set mtu=\$DP_MTU
+        --set mtu=\$DP_MTU \
+        --set bpf.masquerade=true \
+        --set enableIPv4Masquerade=true \
+        --set ipv4NativeRoutingCIDR=\"${POD_CIDR}\"
     else
       echo \"🌐 Installing Cilium in VXLAN mode (default)\"
+
+      DEF_IF=\$(ip route show default | awk '{print \$5; exit}')
+      : \"\${DEF_IF:=enp0s6}\"
+      IF_MTU=\$(ip link show \"\$DEF_IF\" | awk '/mtu/ {print \$5}')
+      : \"\${IF_MTU:=1500}\"
+      DP_MTU=\$(( IF_MTU - 50 ))
+      if [ \"\$DP_MTU\" -lt 1300 ]; then DP_MTU=1300; fi
+      if [ \"\$DP_MTU\" -gt 8900 ]; then DP_MTU=8900; fi
+      echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
+
       cilium install --version v${CILIUM_VERSION} \
         --set tunnelProtocol=vxlan \
         --set kubeProxyReplacement=false \
@@ -836,12 +864,36 @@ print_phase_timings() {
 
 # --- Phase wrappers (group multi-steps without bash -c) --------
 phase_prepare_nodes() {
-  echo "⚙️  Preparing nodes (safe sequential mode)…"
+  echo "⚙️  Preparing nodes (parallel mode)…"
+
+  local pids=()
+  local failed=()
+
   for n in "${NODES[@]}"; do
-    echo "——— $n ———"
-    prepare_node "$n"
+    (
+      echo "——— $n ———"
+      prepare_node "$n" \
+        && echo "[$n] ✅ done" \
+        || echo "[$n] ❌ failed"
+    ) &> >(sed "s/^/[$n] /") &   # background each, prefix logs
+    pids+=($!)
   done
-  echo "✅ Prep + deep cleanup done."
+
+  # Wait for all and collect status
+  for i in "${!pids[@]}"; do
+    pid=${pids[$i]}
+    n=${NODES[$i]}
+    if ! wait "$pid"; then
+      failed+=("$n")
+    fi
+  done
+
+  if [ ${#failed[@]} -gt 0 ]; then
+    echo "❌ Some node preparations failed: ${failed[*]}"
+    return 1
+  fi
+
+  echo "✅ Prep + deep cleanup done (parallel)."
 }
 
 phase_hold_kube_packages() {
