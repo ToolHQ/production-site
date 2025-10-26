@@ -662,7 +662,18 @@ EOF'
 print_kubedash_url() {
   local h="$MASTER_NODE"
   run_remote "$h" '
-    NODE_PORT=$(kubectl -n kubernetes-dashboard get svc kubernetes-dashboard -o jsonpath="{.spec.ports[0].nodePort}")
+    ns=kubernetes-dashboard
+    # pick the actual SVC that exists, preferring kong-proxy if present
+    if kubectl -n "$ns" get svc kubernetes-dashboard-kong-proxy >/dev/null 2>&1; then
+      SVC=kubernetes-dashboard-kong-proxy
+    elif kubectl -n "$ns" get svc kubernetes-dashboard >/dev/null 2>&1; then
+      SVC=kubernetes-dashboard
+    else
+      echo "❌ No dashboard service found in namespace $ns."
+      exit 1
+    fi
+    NODE_PORT=$(kubectl -n "$ns" get svc "$SVC" -o jsonpath="{.spec.ports[?(@.port==443)].nodePort}")
+    [ -z "$NODE_PORT" ] && NODE_PORT=$(kubectl -n "$ns" get svc "$SVC" -o jsonpath="{.spec.ports[0].nodePort}")
     NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[?(@.type==\"ExternalIP\")].address}")
     [ -z "$NODE_IP" ] && NODE_IP=$(hostname -I | awk "{print \$1}")
     echo "🌐 Dashboard URL: https://$NODE_IP:$NODE_PORT"
@@ -752,8 +763,12 @@ EOF'
 
   if [ -n "$node_ip" ] && [ -n "$node_port" ]; then
     echo "🔌  Attempting to open local SSH tunnel to Dashboard..."
-    if ! pgrep -f "ssh.*-L.*8443:${node_ip}:${node_port}" >/dev/null 2>&1; then
-      nohup ssh -i "$SSH_KEY" -f -n -L 8443:${node_ip}:${node_port} "ubuntu@${MASTER_NODE}" sleep 3600 >/dev/null 2>&1 \
+    # Prefer a precise listener check to avoid false positives
+    if ! command -v lsof >/dev/null 2>&1 || ! lsof -iTCP:8443 -sTCP:LISTEN >/dev/null 2>&1; then
+      # Use the same public endpoint as shown in the manual hint for consistency
+      # Resolve MASTER_PUB via the remote (fallback to the alias if not available)
+      MASTER_PUB=$(ssh -n -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=3 "$MASTER_NODE" 'curl -s ifconfig.me || hostname -I | awk "{print \$1}"' 2>/dev/null || echo "$MASTER_NODE")
+      nohup ssh -i "$SSH_KEY" -f -n -L 8443:${node_ip}:${node_port} "ubuntu@${MASTER_PUB}" sleep 3600 >/dev/null 2>&1 \
         && echo "✅ Tunnel established: https://localhost:8443" \
         || echo "⚠️  Tunnel failed — please open manually."
     else
@@ -764,9 +779,43 @@ EOF'
   fi
 }
 
+# Kill any local 8443 dashboard tunnel (keeps your port hygiene clean)
+kill_kubedash_tunnel() {
+  if command -v lsof >/dev/null 2>&1; then
+    pid=$(lsof -t -iTCP:8443 -sTCP:LISTEN 2>/dev/null || true)
+    [ -n "$pid" ] && kill "$pid" && echo "🧹 Closed local 8443 listener (pid $pid)."
+  else
+    pkill -f 'ssh.*-L.*8443:.*:.*' 2>/dev/null && echo "🧹 Closed existing ssh -L 8443 tunnel(s)."
+  fi
+}
 
 matrix_checks() {
   echo "🧪 Inter-node & inter-pod connectivity matrix"
+  # Ensure a tiny DS for network probing exists (idempotent)
+  run_remote "$MASTER_NODE" '
+    kubectl -n kube-system get ds netshoot >/dev/null 2>&1 || \
+    kubectl -n kube-system apply -f - <<"YAML"
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: netshoot
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels: { app: netshoot }
+  template:
+    metadata:
+      labels: { app: netshoot }
+    spec:
+      containers:
+      - name: netshoot
+        image: nicolaka/netshoot
+        command: ["sleep","infinity"]
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN","NET_RAW"]
+YAML
+  '
   run_remote "$MASTER_NODE" '
     set -e
     nodes=($(kubectl get nodes -o jsonpath="{.items[*].status.addresses[?(@.type==\"InternalIP\")].address}"))
