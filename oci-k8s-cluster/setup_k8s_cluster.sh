@@ -20,6 +20,7 @@ else
 fi
 
 MASTER_NODE="${NODES[0]}"
+WORKER_NODES=("${NODES[@]:1}")
 K8S_VERSION="1.34.1"
 POD_CIDR="192.168.0.0/16"   # Pod CIDR; Cilium runs in VXLAN overlay
 SERVICE_CIDR="10.96.0.0/12" # kubeadm default
@@ -496,23 +497,45 @@ postjoin_matrix_to_master() {
 }
 
 join_workers() {
-  local join_cmd
-  join_cmd="$(cat ./join_cmd.sh)"
-  for w in "${NODES[@]:1}"; do
-    echo "🔗 Joining $w..."
-    for attempt in 1 2 3; do
-      if run_remote_stream "$w" "sudo $join_cmd --ignore-preflight-errors=NumCPU"; then
-        echo "✅ $w joined successfully"
-        break
-      fi
-      if [ "$attempt" -eq 3 ]; then
-        echo "❌ $w failed to join after 3 attempts"
-        exit 1
-      fi
-      echo "⚠️  $w join failed (attempt $attempt). Retrying in 5s…"
-      sleep 5
-    done
+  log_node "controller" "🔗 Joining worker nodes (parallel mode)…"
+
+  local pids=()
+  local failed=()
+  for w in "${WORKER_NODES[@]}"; do
+    (
+      local join_cmd
+      join_cmd="$(cat ./join_cmd.sh)"
+      for attempt in 1 2 3; do
+        if run_remote_stream "$w" "sudo $join_cmd --ignore-preflight-errors=NumCPU"; then
+          echo "✅ $w joined successfully"
+          break
+        fi
+        if [ "$attempt" -eq 3 ]; then
+          echo "❌ $w failed to join after 3 attempts"
+          exit 1
+        fi
+        echo "⚠️  $w join failed (attempt $attempt). Retrying in 5s…"
+        sleep 5
+      done
+    ) &> >(sed "s/^/[$n] /") &   # background each node, prefix logs
+    pids+=($!)
   done
+
+  # Wait for all and collect status
+  for i in "${!pids[@]}"; do
+    pid=${pids[$i]}
+    n=${WORKER_NODES[$i]}
+    if ! wait "$pid"; then
+      failed+=("$n")
+    fi
+  done
+
+  if [ ${#failed[@]} -gt 0 ]; then
+    log_node "controller" "❌ Some worker joins failed: ${failed[*]}"
+    return 1
+  fi
+
+  log_node "controller" "✅ All workers joined successfully (parallel)."
 }
 
 # === Post-setup: inter-node/pod connectivity matrix ============
