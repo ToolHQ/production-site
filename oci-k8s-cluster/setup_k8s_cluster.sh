@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------
 # OCI A1.Flex ARM Kubernetes cluster bootstrapper (Cilium edition)
-# Version: v2.0 (Cilium 1.18.2, direct routing, deep CNI cleanup)
+# Version: v2.0 (Cilium 1.18.2, vxlan or direct routing, deep CNI cleanup)
 # ---------------------------------------------------------------
-
+SCRIPT_START=$(date +%s)
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 LOGFILE="setup_k8s_cluster_$(date +%Y%m%d_%H%M%S).log"
@@ -27,7 +27,14 @@ CILIUM_VERSION="1.18.2"     # exact
 CILIUM_CLI_VERSION="0.18.7"
 
 # === Helpers ====================================================
-log_node() { printf "\033[1;36m[%s]\033[0m %s\n" "$1" "$2"; }
+log_node() { 
+  # $1 = node name, $2+ = message
+  local node="$1"
+  shift
+  local ts
+  ts=$(date '+%Y-%m-%d %H:%M:%S')
+  printf "\033[90m[%s]\033[0m \033[1;36m[%s]\033[0m %s\n" "$ts" "$node" "$*"
+}
 run_remote() {
   local node=$1; shift
   log_node "$node" "→ $*"
@@ -381,17 +388,20 @@ verify_no_cilium_links() {
 
 cilium_install_master() {
   install_cilium_cli "$MASTER_NODE"
+
+  # propagate CILIUM_MODE into the remote shell
+  local tunnel_mode="${CILIUM_MODE:-vxlan}"
+
   run_remote_stream "$MASTER_NODE" "
     set -e
     if kubectl -n kube-system get ds cilium >/dev/null 2>&1; then
       cilium uninstall --wait >/dev/null 2>&1 || true
     fi
   "
-  # Install Cilium (direct routing, kube-proxy partial, BPF MASQ) + hard wait
+
   run_remote_stream "$MASTER_NODE" "
     set -euo pipefail
 
-    # Compute datapath MTU = NIC MTU - VXLAN overhead (~50B). Clamp to sane range.
     DEF_IF=\$(ip route show default | awk '{print \$5; exit}')
     : \"\${DEF_IF:=enp0s6}\"
     IF_MTU=\$(ip link show \"\$DEF_IF\" | awk '/mtu/ {print \$5}')
@@ -401,12 +411,25 @@ cilium_install_master() {
     if [ \"\$DP_MTU\" -gt 8900 ]; then DP_MTU=8900; fi
     echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
 
-    cilium install --version v${CILIUM_VERSION} \
-      --set tunnelProtocol=vxlan \
-      --set kubeProxyReplacement=false \
-      --set ipam.mode=kubernetes \
-      --set rollOutCiliumPods=true \
-      --set mtu=\$DP_MTU
+    TUNNEL_MODE=${tunnel_mode}
+    if [ \"\$TUNNEL_MODE\" = \"direct\" ]; then
+      echo \"🚀 Installing Cilium in DIRECT-ROUTING mode\"
+      cilium install --version v${CILIUM_VERSION} \
+        --set tunnel=disabled \
+        --set autoDirectNodeRoutes=true \
+        --set kubeProxyReplacement=partial \
+        --set ipam.mode=kubernetes \
+        --set rollOutCiliumPods=true \
+        --set mtu=\$DP_MTU
+    else
+      echo \"🌐 Installing Cilium in VXLAN mode (default)\"
+      cilium install --version v${CILIUM_VERSION} \
+        --set tunnelProtocol=vxlan \
+        --set kubeProxyReplacement=false \
+        --set ipam.mode=kubernetes \
+        --set rollOutCiliumPods=true \
+        --set mtu=\$DP_MTU
+    fi
 
     echo '⏳ Waiting for Cilium DaemonSet…'
     if ! kubectl -n kube-system rollout status ds/cilium --timeout=10m; then
@@ -764,16 +787,28 @@ for n in "${NODES[@]}"; do
 done
 
 cilium_install_master
+
 # only if DEBUG=1
 [ "${DEBUG:-0}" = "1" ] && deploy_netshoot_daemonset
-if [ "${ENABLE_DASHBOARD:-false}" = "true" ]; then
+
+if [ "${ENABLE_DASHBOARD:-false}" = "true" ] || [ -z "${DISABLE_DASHBOARD:-}" ]; then
   deploy_kubedash
   fix_metrics_server_port
   print_kubedash_url
   print_kubedash_tunnel_hint
+else
+  echo "🚫 Skipping Kubernetes Dashboard installation (DISABLE_DASHBOARD set)"
 fi
+
 matrix_checks
 verify_cluster
+
+SCRIPT_END=$(date +%s)
+ELAPSED=$((SCRIPT_END - SCRIPT_START))
+printf "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+printf "🏁  Total installation time: %02dh:%02dm:%02ds\n" \
+  $((ELAPSED/3600)) $(((ELAPSED%3600)/60)) $((ELAPSED%60))
+printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
 
 cat <<'TIP'
 
