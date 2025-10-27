@@ -8,7 +8,8 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
 export DEBIAN_FRONTEND=noninteractive
-LOGFILE="setup_k8s_cluster_$(date +%Y%m%d_%H%M%S).log"
+LOGFILE="../logs/setup_k8s_cluster_$(date +%Y%m%d_%H%M%S).log"
+REPORT="../logs/cluster_report_$(date +%Y%m%d_%H%M%S).md"
 exec > >(tee -a "$LOGFILE") 2>&1
 
 SCRIPT_START=$(date +%s)
@@ -324,8 +325,8 @@ init_master() {
 
   # Save join command
   ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$MASTER_NODE" \
-    'kubeadm token create --print-join-command' | tr -d '\r' > join_cmd.sh
-  echo "✅ Join command saved to $(pwd)/join_cmd.sh"
+    'kubeadm token create --print-join-command' | tr -d '\r' > ../tmp/join_cmd.sh
+  echo "✅ Join command saved to $(pwd)/../tmp/join_cmd.sh"
 }
 
 # === Cilium CLI & install ======================================
@@ -496,7 +497,7 @@ join_workers() {
       local n="${w#oci-}"
       if ! run_remote_capture "$MASTER_NODE" "kubectl get node $n" >/dev/null 2>&1; then
         local join_cmd
-        join_cmd="$(cat ./join_cmd.sh)"
+        join_cmd="$(cat ../tmp/join_cmd.sh)"
         for attempt in 1 2 3; do
           if run_remote_stream "$w" "sudo $join_cmd --ignore-preflight-errors=NumCPU"; then
             echo "✅ $w joined successfully"
@@ -844,7 +845,6 @@ verify_cluster() {
     echo "✅ Cluster looks healthy."
 EOF
 
-  REPORT="cluster_report_$(date +%Y%m%d_%H%M%S).md"
   {
     echo "# Kubernetes Cluster Report — $(date)"
     echo "## Control Plane: $MASTER_NODE"
