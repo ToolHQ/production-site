@@ -6,7 +6,10 @@ set -euo pipefail
 # ────────────────────────────────────────────────
 if grep -q 'Host oci-k8s-' ~/.ssh/config; then
   mapfile -t NODES < <(grep -E '^Host oci-k8s-' ~/.ssh/config | awk '{print $2}')
-  echo "🔍 Auto-detected nodes: ${NODES[*]}"
+  echo "🔍 Auto-detected nodes:"
+  for n in "${NODES[@]}"; do
+    echo "   • $n"
+  done
 else
   echo "⚠️  No oci-k8s-* hosts found; using defaults."
   NODES=(oci-k8s-master oci-k8s-node-1 oci-k8s-node-2)
@@ -63,4 +66,13 @@ run_remote_capture() {
   # Return result via global or echo
   RUN_REMOTE_CAPTURE_RESULT="$output"   # for later access
   return $status
+}
+
+scp_to_remote() {
+  local node="$1"
+  local src="$2"
+  local dest="$3"
+  scp -r -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+      "$src" "$node:$dest"
+  log_node "$node" "📤 Copied $src to $dest"
 }

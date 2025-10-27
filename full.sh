@@ -19,8 +19,8 @@ kubectl apply -f 1.\ minikube/kube-dashboard-ingress.yaml
 kubectl apply -f 1.\ minikube/ingress-nginx-controller-resources.yaml
 
 ## Init both minio and nexus for blob storage and images storage
-kubectl apply -f 3.\ minio/minio-resources.yaml
-kubectl apply -f 4.\ nexus/nexus-resources.yaml
+kubectl apply -f ./components/minio/minio-resources.yaml
+kubectl apply -f ./components/nexus/nexus-resources.yaml
 mkdir -p ~/.minikube/files/etc
 tee ~/.minikube/files/etc/hosts << END
 127.0.0.1       localhost
