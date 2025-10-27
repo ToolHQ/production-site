@@ -2,54 +2,22 @@ mod logger;
 mod semaphore;
 mod time;
 mod web;
+mod web_handlers;
 use logger::{clear_request_context, set_request_context};
 use semaphore::Semaphore;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
 use time::get_current_time_utc_string;
 use uuid::Uuid;
-use web::protocol::HttpStatusCode;
 use web::{
   protocol::HttpVersion, request::HttpRequest, request::HttpResponse, router::Router,
   utils::read_http_request,
 };
+use web_handlers::{handle_http_health_check, handle_ndjson_request};
 const MAX_CONCURRENT_CONNECTIONS: usize = 100;
 const SERVER_PORT: u16 = 3000;
-
-fn handle_http_health_check(_: &HttpRequest, http_response: &mut HttpResponse) -> Option<()> {
-  http_response.set_status_code(HttpStatusCode::Ok);
-  http_response.set_header("Content-Length", "0");
-  return None;
-}
-
-fn handle_ndjson_request(_: &HttpRequest, http_response: &mut HttpResponse) -> Option<()> {
-  if let Ok(file) = File::open("/app/data/flights-1m.ndjson") {
-    http_response.set_header("Content-Type", "application/x-ndjson");
-    http_response.set_header(
-      "Content-Disposition",
-      "attachment; filename=\"file.ndjson\"",
-    );
-    {
-      let mut reader = BufReader::with_capacity(1024 * 10, file);
-      let mut line = String::new();
-      while reader.read_line(&mut line).unwrap_or(0) > 0 {
-        let _ = http_response.write_all(line.as_bytes());
-        let _ = http_response.flush();
-        line.clear();
-      }
-    }
-    http_response.should_force_close_connection = true;
-    return None;
-  } else {
-    http_response.set_status_code(HttpStatusCode::NotFound);
-    http_response.set_header("Content-Type", "text/plain");
-    let _ = http_response.write_all(b"File not found");
-    return None;
-  }
-}
 
 fn main() {
   let time = get_current_time_utc_string();
