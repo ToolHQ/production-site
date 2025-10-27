@@ -984,35 +984,6 @@ case "${1:-}" in
   reset) reset_cluster; exit 0 ;;
 esac
 
-# --- Phase wrappers (group multi-steps without bash -c) --------
-phase_prepare_nodes() {
-  echo "⚙️  Preparing nodes (safe sequential mode)…"
-  for n in "${NODES[@]}"; do
-    echo "——— $n ———"
-    prepare_node "$n"
-  done
-  echo "✅ Prep + deep cleanup done."
-}
-
-phase_hold_kube_packages() {
-  echo "🔒 Holding kube packages…"
-  for n in "${NODES[@]}"; do
-    run_remote "$n" "sudo apt-mark hold kubelet kubeadm kubectl >/dev/null && ver=\$(kubelet --version) && echo \"[$n] held at \$ver\""
-  done
-}
-
-phase_dashboard_deploy() {
-  if ! run_remote_capture "$MASTER_NODE" "kubectl -n kubernetes-dashboard get deploy kubernetes-dashboard >/dev/null 2>&1"; then
-    echo "⏭️  Kubernetes Dashboard already deployed — skipping."
-  else 
-    echo "🚀 Deploying Kubernetes Dashboard…"
-    deploy_kubedash
-  fi
-  fix_metrics_server_port
-  print_kubedash_url
-  print_kubedash_tunnel_hint
-}
-
 # --- Phase timing helpers (no bash -c; call real functions) ----
 PHASE_TIMINGS=()
 
@@ -1069,15 +1040,52 @@ phase_prepare_nodes() {
 }
 
 phase_hold_kube_packages() {
-  echo "🔒 Holding kube packages…"
+  echo "🔒 Holding kube packages (parallel mode)…"
+  local pids=()
+  local failed=()
+
   for n in "${NODES[@]}"; do
-    run_remote "$n" "sudo apt-mark hold kubelet kubeadm kubectl >/dev/null && ver=\$(kubelet --version) && echo \"[$n] held at \$ver\""
+    (
+      if run_remote "$n" "sudo apt-mark hold kubelet kubeadm kubectl >/dev/null"; then
+        ver=$(run_remote_capture "$n" "kubelet --version")
+        echo "[$n] ✅ held at $ver"
+      else
+        echo "[$n] ❌ hold failed"
+        exit 1
+      fi
+    ) &> >(sed "s/^/[$n] /") &   # background each, prefix logs
+    pids+=($!)
   done
+  # Wait for all and collect status
+  for i in "${!pids[@]}"; do
+    pid=${pids[$i]}
+    n=${NODES[$i]}
+    if ! wait "$pid"; then
+      failed+=("$n")
+    fi
+  done
+
+  if [ ${#failed[@]} -gt 0 ]; then
+    echo "❌ Some kube package holds failed: ${failed[*]}"
+    return 1
+  fi
+
+  echo "✅ Kube package hold done (parallel)."
 }
 
 phase_dashboard_deploy() {
-  deploy_kubedash
-  fix_metrics_server_port
+  if ! run_remote_capture "$MASTER_NODE" "kubectl -n kubernetes-dashboard get deploy kubernetes-dashboard >/dev/null 2>&1"; then
+    echo "⏭️  Kubernetes Dashboard already deployed — skipping."
+  else 
+    echo "🚀 Deploying Kubernetes Dashboard…"
+    deploy_kubedash
+  fi
+  if ! run_remote_capture "$MASTER_NODE" "kubectl -n kube-system get deploy metrics-server >/dev/null 2>&1"; then
+    echo "⏭️  metrics-server already deployed — skipping."
+  else 
+    echo "🚀 Fixing metrics-server port…"
+    fix_metrics_server_port
+  fi
   print_kubedash_url
   print_kubedash_tunnel_hint
 }
