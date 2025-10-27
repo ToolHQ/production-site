@@ -58,28 +58,63 @@ deploy_component() {
   local src="$COMPONENTS_DIR/$name"
 
   log_node "$MASTER_NODE" "🚀 Deploying component '$name'"
-  run_remote "$MASTER_NODE" "mkdir -p '$REMOTE_BASE/$name' && rm -rf '$REMOTE_BASE/$name/*'"
+
+  # ensure clean remote dir
+  run_remote "$MASTER_NODE" "mkdir -p '$REMOTE_BASE/$name' && rm -rf '$REMOTE_BASE/$name'/*"
   scp_to_remote "$MASTER_NODE" "$src" "$REMOTE_BASE/"
 
-  run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail <<'EOF'
-cd '$REMOTE_BASE/$name'
+  # build and execute remote script using our helpers
+  run_remote_stream "$MASTER_NODE" "bash --norc --noprofile -eu -o pipefail -c 'cat > /tmp/deploy_component.sh && bash --norc --noprofile /tmp/deploy_component.sh && rm -f /tmp/deploy_component.sh'" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo '📁 Working in:' \$(pwd)
+cd "$REMOTE_BASE/$name"
+echo "📁 Working in: \$(pwd)"
+
 if [ -f ./commands.sh ]; then
-  echo '▶ Running commands.sh...'
+  echo "▶ Running commands.sh..."
   chmod +x ./commands.sh
-  ./commands.sh || echo '⚠️ commands.sh exited non-zero.'
+  ./commands.sh || echo "⚠️ commands.sh exited non-zero."
 fi
 
 if ls *.yaml >/dev/null 2>&1; then
-  echo '⚙️ Applying YAML manifests...'
-  kubectl apply -f . || echo '⚠️ Some manifests failed to apply.'
+  echo "⚙️ Applying YAML manifests..."
+  kubectl apply -f . || echo "⚠️ Some manifests failed to apply."
+
+  echo
+  echo "🔍 Detecting created objects..."
+  ns=\$(grep -h 'namespace:' *.yaml | awk '{print \$2}' | sort -u | head -n1)
+  ns=\${ns:-default}
+  echo "📦 Using namespace: \$ns"
+  echo
+
+  echo "🌐 Ingresses configured:"
+  if kubectl -n "\$ns" get ingress -o json >/tmp/ing.json 2>/dev/null; then
+    jq -r '
+      if (.items|length)==0 then
+        "  (none)"
+      else
+        .items[] |
+          (.metadata.name // "no-name") as \$name |
+          (.spec.rules // [])[]? |
+          "  • " + (.host // "no-host") +
+          " [" + \$name + "] -> " +
+          ((.http.paths[]?.backend.service.name // "?") + ":" +
+           ((.http.paths[]?.backend.service.port.number // "?")|tostring))
+      end' /tmp/ing.json || echo "  (jq not installed)"
+  else
+    echo "  (none)"
+  fi
+
+  echo
+  echo "🧩 Service ports exposed:"
+  kubectl -n "\$ns" get svc -o custom-columns=NAME:.metadata.name,TYPE:.spec.type,PORTS:.spec.ports[*].port --no-headers 2>/dev/null | awk '{print "  • "\$1" ("\$2") -> "\$3}' || echo "  (none)"
 else
-  echo 'ℹ️ No YAML manifests found.'
+  echo "ℹ️ No YAML manifests found."
 fi
 
-echo '✅ Component $name deployment complete.'
-EOF"
+echo "✅ Component $name deployment complete."
+EOF
 }
 
 # ────────────────────────────────────────────────

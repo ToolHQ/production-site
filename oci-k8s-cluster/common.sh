@@ -43,8 +43,17 @@ run_remote() {
 run_remote_stream() {
   local node=$1; shift
   log_node "$node" "▶ (streamed) $*"
-  ssh -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-      -n -T "$node" "$@" 2>&1 | while IFS= read -r line; do echo "[$node] $line"; done
+
+  # Detect if stdin is connected to a terminal or a pipe/heredoc
+  if [ -t 0 ]; then
+    # stdin is a terminal → no heredoc/pipeline → safe to use -n
+    ssh -n -T -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        "$node" "$@" 2>&1 | while IFS= read -r line; do echo "[$node] $line"; done
+  else
+    # stdin is piped (heredoc or pipe) → must read from stdin
+    ssh -T -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        "$node" "$@" 2>&1 | while IFS= read -r line; do echo "[$node] $line"; done
+  fi
 }
 run_remote_capture() {
   local node=$1; shift
