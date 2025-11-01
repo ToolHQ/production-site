@@ -59,143 +59,265 @@ prompt_components() {
 }
 
 # ────────────────────────────────────────────────
+# Detect namespace from YAMLs inside a remote component directory
+detect_namespace() {
+  local component="$1"
+  local detected_ns
+
+  detected_ns=$(
+    run_remote "$MASTER_NODE" "grep -m1 'namespace:' /home/ubuntu/deployments/$component/*.yaml 2>/dev/null | awk '{print \$2}'" |
+      sed -E 's/.*]//' |                      # remove leading [oci-k8s-master] or timestamps
+      grep -E '^[A-Za-z0-9._-]+$' |          # keep only valid names
+      tail -n 1 | tr -d '\r[:space:]'        # cleanup CRs and spaces
+  )
+
+  if [[ -z "$detected_ns" ]]; then
+    detected_ns="$component"
+  fi
+
+  echo "$detected_ns"
+}
+
+# Apply manifests remotely (Step 2)
+apply_component_manifests() {
+  local component="$1"
+  log_node "$MASTER_NODE" "📦 Applying manifests for component '$component'"
+
+  run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
+cd /home/ubuntu/deployments/$component
+if [ -f commands.sh ]; then
+  chmod +x commands.sh
+  echo "▶ Running custom commands.sh for $component..."
+  ./commands.sh
+else
+  echo "▶ Applying YAML manifests in $component..."
+  kubectl apply -f .
+fi
+RMT
+}
+
+# Step 3-A: Inspect services and capture structured data
+inspect_services() {
+  local ns="$1"
+  run_remote "$MASTER_NODE" "kubectl -n $ns get svc -o json" 2>/dev/null
+}
+
+# Step 3-B: Inspect ingresses and capture structured data
+inspect_ingresses() {
+  local ns="$1"
+  run_remote "$MASTER_NODE" "kubectl -n $ns get ingress -o json" 2>/dev/null
+}
+
+# Step 3: Display + assign results to local variables
+inspect_component_resources() {
+  local ns="$1"
+  log_node "$MASTER_NODE" "🔍 Collecting resources in namespace '$ns'"
+
+  run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
+echo "📦 Deployments:"
+kubectl -n "$ns" get deploy -o wide 2>/dev/null || echo "  (none)"
+echo
+echo "🧩 Services:"
+kubectl -n "$ns" get svc -o wide 2>/dev/null || echo "  (none)"
+echo
+echo "🌐 Ingresses:"
+kubectl -n "$ns" get ingress -o wide 2>/dev/null || echo "  (none)"
+RMT
+}
+
+prepare_tunnel_targets() {
+  local ns="$1"
+  local services_json="$2"
+  local ingresses_json="$3"
+  local node_ip="${MASTER_NODE_IP:-10.0.1.100}"
+
+  echo "🔧 Preparing tunnel targets for namespace '$ns'"
+
+  # Use global scope arrays (not local) to persist values
+  service_tunnels=()
+  ingress_tunnels=()
+
+  # --- Parse Services ---
+  if jq -e . >/dev/null 2>&1 <<<"$services_json"; then
+    local svc_count
+    svc_count=$(jq '.items | length' <<<"$services_json")
+    if (( svc_count > 0 )); then
+      echo "🧩 Found $svc_count service(s):"
+      # Use process substitution to avoid subshell scoping issue
+      while IFS=$'\t' read -r svc_name svc_type svc_ports svc_nodeports; do
+        [[ -z "$svc_name" || -z "$svc_ports" ]] && continue
+        echo "   • $svc_name ($svc_type) ports: $svc_ports ${svc_nodeports:+/ nodePorts:$svc_nodeports}"
+        IFS=',' read -ra ports <<<"$svc_ports"
+        for p in "${ports[@]}"; do
+          [[ "$p" =~ ^[0-9]+$ ]] || continue
+          service_tunnels+=( "${p}:${node_ip}:${p}" )
+        done
+      done < <(
+        jq -r '
+          .items[] |
+          .metadata.name as $name |
+          .spec.type as $type |
+          ([.spec.ports[]? | .port] | map(tostring) | join(",")) as $ports |
+          ([.spec.ports[]? | .nodePort // empty] | map(tostring) | join(",")) as $nodes |
+          [$name, $type, $ports, $nodes] | @tsv
+        ' <<<"$services_json"
+      )
+    fi
+  fi
+
+  # --- Parse Ingresses ---
+  if jq -e . >/dev/null 2>&1 <<<"$ingresses_json"; then
+    local ing_count
+    ing_count=$(jq '.items | length' <<<"$ingresses_json")
+    if (( ing_count > 0 )); then
+      echo "🌐 Found $ing_count ingress(es):"
+      while IFS=$'\t' read -r ing_name ing_hosts ing_port; do
+        [[ -z "$ing_name" || -z "$ing_port" ]] && continue
+        echo "   • $ing_name host(s): $ing_hosts port:$ing_port"
+        ingress_tunnels+=( "8080:${node_ip}:${ing_port}" )
+      done < <(
+        jq -r '
+          .items[] |
+          .metadata.name as $name |
+          ( [ .spec.rules[].host ] | join(",") ) as $hosts |
+          ( .spec.rules[].http.paths[].backend.service.port.number // 80 ) as $port |
+          [$name, $hosts, ($port|tostring)] | @tsv
+        ' <<<"$ingresses_json"
+      )
+    fi
+  fi
+
+  # Export arrays for use in establish_tunnels()
+  export service_tunnels ingress_tunnels
+}
+
+# Step 4: Establish tunnels automatically
+establish_tunnels() {
+  local namespace="$1"
+  local tunnels=("${service_tunnels[@]}" "${ingress_tunnels[@]}")
+  local ssh_key="${SSH_KEY}"
+  local master_ip="${MASTER_PUBLIC_IP}"
+  local pid
+
+  # declare associative array early to avoid unbound-variable errors
+  declare -A used_ports=()
+
+  echo "🔌 Establishing SSH tunnels for namespace '$namespace'…"
+
+  if ((${#tunnels[@]} == 0)); then
+    echo "⚠️  No tunnel targets detected for '$namespace'."
+    return 0
+  fi
+
+  for t in "${tunnels[@]}"; do
+    IFS=':' read -r lport rhost rport <<<"$t"
+    [[ -z "$lport" || -z "$rport" ]] && continue
+
+    # Skip reserved Dashboard port
+    if [[ "$lport" -eq 8443 ]]; then
+      echo "🛡️  Skipping reserved port 8443 (Dashboard tunnel)"
+      continue
+    fi
+
+    # Find next free port if needed
+    while lsof -iTCP:"$lport" -sTCP:LISTEN -t >/dev/null 2>&1 || [[ -n "${used_ports[$lport]:-}" ]]; do
+      ((lport++))
+    done
+    used_ports["$lport"]=1
+
+    echo "🔗  Forwarding localhost:$lport → $rhost:$rport"
+    ssh -f -N -i "$ssh_key" \
+        -L "${lport}:${rhost}:${rport}" \
+        -o StrictHostKeyChecking=no -o ConnectTimeout=3 \
+        "ubuntu@${master_ip}" >/dev/null 2>&1 &
+    pid=$!
+
+    if ps -p "$pid" >/dev/null 2>&1; then
+      echo "✅ Tunnel established (pid $pid) → localhost:$lport → $rhost:$rport"
+    else
+      echo "❌ Failed to establish tunnel for $rhost:$rport"
+    fi
+  done
+
+  echo "🧭 Active localhost forwards:"
+  for p in "${!used_ports[@]}"; do
+    local scheme="http"
+    # Guess HTTPS ports
+    if [[ "$p" -eq 443 || "$p" -eq 8443 || ( "$p" -ge 9443 && "$p" -lt 9500 ) ]]; then
+      scheme="https"
+    fi
+    echo "   • ${scheme}://localhost:${p}"
+  done
+}
+
 # Deploy a single component
 deploy_component() {
-  local name="$1"
-  local src="$COMPONENTS_DIR/$name"
+  local component="$1"
+  local ns=""
+  local ingress_backends=""
+  local nodeports=""
 
-  log_node "$MASTER_NODE" "🚀 Deploying component '$name'"
+  log_node "$MASTER_NODE" "🚀 Deploying component '$component'"
+  run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
+mkdir -p '/home/ubuntu/deployments/$component' && rm -rf '/home/ubuntu/deployments/$component'/*
+RMT
 
-  # ensure clean remote dir
-  run_remote "$MASTER_NODE" "mkdir -p '$REMOTE_BASE/$name' && rm -rf '$REMOTE_BASE/$name'/*"
-  scp_to_remote "$MASTER_NODE" "$src" "$REMOTE_BASE/"
+  scp_to_remote "$MASTER_NODE" "./../components/$component" "/home/ubuntu/deployments/"
 
-  # capture namespace (ignore remote prefixes)
-  ns=$(
-    run_remote_stream "$MASTER_NODE" \
-      "bash --norc --noprofile -eu -o pipefail -c 'cat > /tmp/deploy_component.sh && bash --norc --noprofile /tmp/deploy_component.sh && rm -f /tmp/deploy_component.sh'" <<EOF \
-    | tee /tmp/deploy_${name}.log \
-    | sed -E 's/^\[[^]]+\] //' \
-    | awk '/📦 Using namespace:/ {print $NF}' \
-    | tail -n1
-  #!/usr/bin/env bash
-  set -euo pipefail
-  
-  cd "$REMOTE_BASE/$name"
-  echo "📁 Working in: \$(pwd)"
-  
-  if [ -f ./commands.sh ]; then
-    echo "▶ Running commands.sh..."
-    chmod +x ./commands.sh
-    ./commands.sh || echo "⚠️ commands.sh exited non-zero."
-  fi
-  
-  if ls *.yaml >/dev/null 2>&1; then
-    echo "⚙️ Applying YAML manifests..."
-    kubectl apply -f . || echo "⚠️ Some manifests failed to apply."
-  
-    echo
-    echo "🔍 Detecting created objects..."
-    ns=\$(grep -h 'namespace:' *.yaml | awk '{print \$2}' | sort -u | head -n1)
-    ns=\${ns:-default}
-    echo "📦 Using namespace: \$ns"
-    echo
-  
-    echo "🌐 Ingresses configured:"
-    if kubectl -n "\$ns" get ingress -o json >/tmp/ing.json 2>/dev/null; then
-      jq -r '
-        if (.items|length)==0 then
-          "  (none)"
-        else
-          .items[] |
-            (.metadata.name // "no-name") as \$name |
-            (.spec.rules // [])[]? |
-            "  • " + (.host // "no-host") +
-            " [" + \$name + "] -> " +
-            ((.http.paths[]?.backend.service.name // "?") + ":" +
-             ((.http.paths[]?.backend.service.port.number // "?")|tostring))
-        end' /tmp/ing.json || echo "  (jq not installed)"
-    else
-      echo "  (none)"
-    fi
-  
-    echo
-    echo "🧩 Service ports exposed:"
-    kubectl -n "\$ns" get svc -o custom-columns=NAME:.metadata.name,TYPE:.spec.type,PORTS:.spec.ports[*].port --no-headers 2>/dev/null | awk '{print "  • "\$1" ("\$2") -> "\$3}' || echo "  (none)"
-  else
-    echo "ℹ️ No YAML manifests found."
-  fi
-  
-  echo "✅ Component $name deployment complete."
-EOF
-)
-
+  # 1. Detect the namespace used by the component YAMLs.
+  ns=$(detect_namespace "$component")
   echo "🧠 [debug] detected namespace='$ns'"
 
-echo
-echo "🔌 Tunnel setup (namespace: $ns):"
+  # 2. Apply manifests remotely.
+  apply_component_manifests "$component"
 
-if [[ "$TUNNEL_MODE" != "off" && -n "$ns" ]]; then
-  echo "🔍 Detecting ingresses and services remotely..."
-  
-  # Run checks visibly (streamed)
-  run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
-ns="$ns"
-echo
-echo "📡 Checking ingresses..."
-kubectl -n "\$ns" get ingress -o wide || echo "  (no ingresses found)"
+  # 3. Display + capture resource info
+  inspect_component_resources "$ns"
+  services_json=$(inspect_services "$ns")
+  ingresses_json=$(inspect_ingresses "$ns")
+  # --- Sanitize remote JSON ---
+  # Remove lines that don't start with '{' or '[' and drop bracketed log prefixes
+  services_json_clean="$(echo "$services_json" | sed -E 's/^\[[^]]*\]\s*//g' | awk '/^[ \t]*[{[]/{p=1} p' | tr -d '\r')"
+  ingresses_json_clean="$(echo "$ingresses_json" | sed -E 's/^\[[^]]*\]\s*//g' | awk '/^[ \t]*[{[]/{p=1} p' | tr -d '\r')"
 
-echo
-echo "📡 Checking services..."
-kubectl -n "\$ns" get svc -o wide || echo "  (no services found)"
-RMT
+  # --- Improved debug summary ---
+  if command -v jq >/dev/null 2>&1 \
+     && jq -e . >/dev/null 2>&1 <<<"$services_json_clean" \
+     && jq -e . >/dev/null 2>&1 <<<"$ingresses_json_clean"; then
 
-  echo
-  echo "🔍 Extracting ingress backends for namespace '$ns'..."
+    svc_count=$(jq '.items | length' <<<"$services_json_clean")
+    ing_count=$(jq '.items | length' <<<"$ingresses_json_clean")
+    svc_names=$(jq -r '.items[].metadata.name' <<<"$services_json_clean" | head -n 3 | paste -sd, -)
+    ing_names=$(jq -r '.items[].metadata.name' <<<"$ingresses_json_clean" | head -n 3 | paste -sd, -)
 
-  ingress_backends=$(
-    run_remote "$MASTER_NODE" "bash -eu -o pipefail" <<RMT 2>&1 \
-    | sed -E 's/^\[[^]]+\] //' \
-    | grep -E '^[a-zA-Z0-9._-]+:[0-9]+$' \
-    | tr -d '\r'
-ns="$ns"
-set -x
-echo "💾 Dumping ingress JSON for debugging..."
-kubectl -n "\$ns" get ingress -o json | tee /tmp/ingress_\$ns.json | jq '.items | length'
-
-echo "🔎 Extracting backends via jq..."
-kubectl -n "\$ns" get ingress -o json 2>/dev/null | jq -r '
-  .items[]? | .spec.rules[]?.http.paths[]? |
-  (.backend.service.name + ":" + ((.backend.service.port.number|tostring)//""))' || true
-set +x
-RMT
-  ) || true
-
-  echo
-  echo "🧠 [debug] ingress_backends captured (raw):"
-  echo "$ingress_backends"
-  echo
-
-  echo
-  if [[ -n "$ingress_backends" ]]; then
-    echo "🌐 Ingress backend targets detected:"
-    while IFS=: read -r svc port; do
-      [[ -z "$svc" || -z "$port" ]] && continue
-      echo "  • $svc:$port"
-      if [[ "$TUNNEL_MODE" == "auto" ]]; then
-        kill_local_tunnel "$port"
-        ssh -f -i "$SSH_KEY" -L "$port:10.0.1.100:$port" "ubuntu@$MASTER_PUBLIC_IP" -N \
-          && echo "    ✅ Tunnel established: https://localhost:$port/"
-      else
-        echo "    💡 Suggestion: ssh -i \$SSH_KEY -L $port:10.0.1.100:$port ubuntu@$MASTER_PUBLIC_IP -N"
-      fi
-    done <<<"$ingress_backends"
+    echo "🧠 [debug] Services ($svc_count): ${svc_names:-none}"
+    echo "🧠 [debug] Ingresses ($ing_count): ${ing_names:-none}"
   else
-    echo "  (no ingress backends detected)"
+    echo "🧠 [debug] JSON malformed or jq unavailable."
+    echo "🧠 [debug] Raw lengths — services: ${#services_json_clean}B, ingresses: ${#ingresses_json_clean}B"
   fi
-else
-  echo "  ⚠️ No namespace detected; skipping tunnel setup."
-fi
+  # Prepare tunnel targets
+  prepare_tunnel_targets "$ns" "$services_json_clean" "$ingresses_json_clean"
+  echo "🧠 [debug] service_tunnels: ${#service_tunnels[@]} (${service_tunnels[*]:-none})"
+  echo "🧠 [debug] ingress_tunnels: ${#ingress_tunnels[@]} (${ingress_tunnels[*]:-none})"
+
+  # 4. Prepare tunnel setup.
+  establish_tunnels "$ns"
+  #    - Before creating any tunnel, close existing ones on overlapping local ports (kill_local_tunnel).
+  #    - Ensure MASTER_PUBLIC_IP is available for ssh -L.
+  #    - If ingress_backends exist:
+  #         • For each backend, forward local port:<clusterIP>:<port>.
+  #         • Log each established tunnel.
+  #    - Else, if nodeports exist:
+  #         • Detect one node’s InternalIP.
+  #         • Forward <nodePort> to localhost:<nodePort>.
+  #         • Log each established tunnel.
+
+  # 5. Final logging and summary.
+  #    - Print a clean summary:
+  #         "✅ Component '$component' deployed in namespace '$ns'."
+  #         "🌐 Forwarded ingress backends:" or "🌐 Forwarded NodePorts:"
+  #    - Ensure output is concise and clear.
 }
 
 # ────────────────────────────────────────────────
