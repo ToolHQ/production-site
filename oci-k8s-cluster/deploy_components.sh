@@ -143,23 +143,33 @@ prepare_tunnel_targets() {
     svc_count=$(jq '.items | length' <<<"$services_json")
     if (( svc_count > 0 )); then
       echo "🧩 Found $svc_count service(s):"
-      # Use process substitution to avoid subshell scoping issue
       while IFS=$'\t' read -r svc_name svc_type svc_ports svc_nodeports; do
         [[ -z "$svc_name" || -z "$svc_ports" ]] && continue
-        echo "   • $svc_name ($svc_type) ports: $svc_ports ${svc_nodeports:+/ nodePorts:$svc_nodeports}"
-        IFS=',' read -ra ports <<<"$svc_ports"
-        for p in "${ports[@]}"; do
-          [[ "$p" =~ ^[0-9]+$ ]] || continue
-          service_tunnels+=( "${p}:${node_ip}:${p}" )
-        done
+        echo "   • $svc_name ($svc_type) ports: $svc_ports${svc_nodeports:+ / nodePorts:$svc_nodeports}"
+
+        # --- Use NodePorts if available and service type is NodePort ---
+        if [[ "$svc_type" == "NodePort" && -n "$svc_nodeports" ]]; then
+          IFS=',' read -ra np_ports <<<"$svc_nodeports"
+          for np in "${np_ports[@]}"; do
+            [[ "$np" =~ ^[0-9]+$ ]] || continue
+            service_tunnels+=( "${np}:${node_ip}:${np}" )
+          done
+        else
+          IFS=',' read -ra ports <<<"$svc_ports"
+          for p in "${ports[@]}"; do
+            [[ "$p" =~ ^[0-9]+$ ]] || continue
+            service_tunnels+=( "${p}:${node_ip}:${p}" )
+          done
+        fi
       done < <(
         jq -r '
-          .items[] |
-          .metadata.name as $name |
-          .spec.type as $type |
-          ([.spec.ports[]? | .port] | map(tostring) | join(",")) as $ports |
-          ([.spec.ports[]? | .nodePort // empty] | map(tostring) | join(",")) as $nodes |
-          [$name, $type, $ports, $nodes] | @tsv
+          .items[]
+          | .metadata.name as $name
+          | .spec.type as $type
+          | ([.spec.ports[]? | .port] | map(tostring) | join(",")) as $ports
+          | ([.spec.ports[]? | .nodePort // empty] | map(tostring) | join(",")) as $nodes
+          | [$name, $type, $ports, $nodes]
+          | @tsv
         ' <<<"$services_json"
       )
     fi
@@ -177,19 +187,20 @@ prepare_tunnel_targets() {
         ingress_tunnels+=( "8080:${node_ip}:${ing_port}" )
       done < <(
         jq -r '
-          .items[] |
-          .metadata.name as $name |
-          ( [ .spec.rules[].host ] | join(",") ) as $hosts |
-          ( .spec.rules[].http.paths[].backend.service.port.number // 80 ) as $port |
-          [$name, $hosts, ($port|tostring)] | @tsv
+          .items[]
+          | .metadata.name as $name
+          | ([.spec.rules[].host] | join(",")) as $hosts
+          | (.spec.rules[].http.paths[].backend.service.port.number // 80) as $port
+          | [$name, $hosts, ($port|tostring)]
+          | @tsv
         ' <<<"$ingresses_json"
       )
     fi
   fi
 
-  # Export arrays for use in establish_tunnels()
   export service_tunnels ingress_tunnels
 }
+
 
 # Step 4: Establish tunnels automatically
 establish_tunnels() {
