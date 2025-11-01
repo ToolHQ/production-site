@@ -396,7 +396,9 @@ cilium_install_master() {
   fi
 
   run_remote_stream "$MASTER_NODE" "
+    # Be explicit and verbose during install; DO NOT let cilium CLI block/wait.
     set -euo pipefail
+    set -x
 
     TUNNEL_MODE=${tunnel_mode}
     if [ \"\$TUNNEL_MODE\" = \"direct\" ]; then
@@ -410,6 +412,7 @@ cilium_install_master() {
       echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
 
       cilium install --version v${CILIUM_VERSION} \
+        --wait=false \
         --set routingMode=direct \
         --set autoDirectNodeRoutes=true \
         --set kubeProxyReplacement=true \
@@ -432,16 +435,20 @@ cilium_install_master() {
       echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
 
       if kubectl -n kube-system get ds cilium >/dev/null 2>&1; then
-        echo "♻️  Cilium already installed.. Upgrading if needed..."
+        echo \"♻️  Cilium already installed.. Upgrading if needed...\"
+        # NOTE: make upgrade non-blocking; we will wait below with kubectl.
         cilium upgrade install --version v${CILIUM_VERSION} \
+          --wait=false \
           --set tunnelProtocol=vxlan \
           --set kubeProxyReplacement=false \
           --set ipam.mode=kubernetes \
           --set rollOutCiliumPods=true \
           --set mtu=\$DP_MTU
       else
-        echo "🚀 Installing Cilium afresh..."
+        echo \"🚀 Installing Cilium afresh...\"
+        # NOTE: make install non-blocking; we will wait below with kubectl.
         cilium install --version v${CILIUM_VERSION} \
+          --wait=false \
           --set tunnelProtocol=vxlan \
           --set kubeProxyReplacement=false \
           --set ipam.mode=kubernetes \
@@ -450,6 +457,7 @@ cilium_install_master() {
       fi
     fi
 
+    set +x
     echo '⏳ Waiting for Cilium DaemonSet…'
     if ! kubectl -n kube-system rollout status ds/cilium --timeout=10m; then
       echo '❌ Cilium rollout timed out — dumping quick diagnostics'
@@ -461,6 +469,35 @@ cilium_install_master() {
     cilium status --wait --wait-duration=5m
     echo '✅ Cilium installed (v${CILIUM_VERSION})'
   "
+}
+
+# === Optional: Ingress Controller ===========================================
+install_ingress_controller() {
+  echo "🌐 Installing NGINX Ingress Controller..."
+  run_remote_stream "$MASTER_NODE" 'bash -eu -o pipefail <<'"'"'EOF'"'"'
+# If ingress-nginx already exists, skip
+if kubectl -n ingress-nginx get deploy ingress-nginx-controller >/dev/null 2>&1; then
+  echo "✅ NGINX Ingress Controller already installed — skipping."
+  exit 0
+fi
+
+echo "📦 Applying official NGINX Ingress manifest..."
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+
+echo "⏳ Waiting for ingress-nginx controller to become ready..."
+kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=5m || true
+
+echo "✅ NGINX Ingress Controller deployed (namespace: ingress-nginx)"
+EOF'
+}
+
+# === Optional ingress phase =========================================================
+phase_ingress_controller() {
+  if [ "${ENABLE_INGRESS:-true}" = "true" ]; then
+    measure_phase "nginx ingress install" install_ingress_controller
+  else
+    echo "🚫 Skipping Ingress Controller installation (ENABLE_INGRESS=false)"
+  fi
 }
 
 # === Workers: pre-join reachability checks + join ==============
@@ -662,16 +699,6 @@ print_kubedash_url() {
   '
 }
 
-# Kill any local 8443 dashboard tunnel (keeps your port hygiene clean)
-kill_kubedash_tunnel() {
-  if command -v lsof >/dev/null 2>&1; then
-    pid=$(lsof -t -iTCP:8443 -sTCP:LISTEN 2>/dev/null || true)
-    [ -n "$pid" ] && kill "$pid" && echo "🧹 Closed local 8443 listener (pid $pid)."
-  else
-    pkill -f 'ssh.*-L.*8443:.*:.*' 2>/dev/null && echo "🧹 Closed existing ssh -L 8443 tunnel(s)."
-  fi
-}
-
 print_kubedash_tunnel_hint() {
   local h="$MASTER_NODE"
   run_remote_stream "$h" 'bash -eu -o pipefail <<'"'"'EOF'"'"'
@@ -707,10 +734,12 @@ NODE=$(kubectl -n "$ns" get pod "$POD" -o jsonpath="{.spec.nodeName}")
 NODE_IP=$(kubectl get node "$NODE" -o jsonpath="{.status.addresses[?(@.type==\"InternalIP\")].address}")
 MASTER_PUB=$(curl -s ifconfig.me || hostname -I | awk "{print \$1}")
 
+# Fetch the admin-user token inline
+TOKEN=$(kubectl -n "$ns" create token admin-user --duration=24h 2>/dev/null || true)
+
 echo "🧠 Dashboard pod: $POD on node $NODE ($NODE_IP)"
 echo "🌐 NodePort: $NODE_PORT"
 
-# Quick connectivity test from master to node
 if timeout 3 bash -lc "nc -zvw2 $NODE_IP $NODE_PORT" >/dev/null 2>&1; then
   echo "✅ Node $NODE_IP:$NODE_PORT reachable from master."
 else
@@ -726,7 +755,9 @@ cat <<HINT
   ssh -i \$SSH_KEY -L 8443:${NODE_IP}:${NODE_PORT} ubuntu@${MASTER_PUB}
 
 Then open: https://localhost:8443/#/login
-Paste the token displayed earlier.
+Paste this token below 👇
+
+🪶  Token: ${TOKEN}
 
 HINT
 EOF'
@@ -753,7 +784,7 @@ EOF'
   )
   if [ -n "$node_ip" ] && [ -n "$node_port" ]; then
     echo "🔌  Attempting to open local SSH tunnel to Dashboard..."
-    kill_kubedash_tunnel
+    kill_local_tunnel 8443
     if ! pgrep -f "ssh.*-L.*8443:${node_ip}:${node_port}" >/dev/null 2>&1; then
       nohup ssh -i "$SSH_KEY" -f -n -L 8443:${node_ip}:${node_port} "ubuntu@${MASTER_NODE}" sleep 3600 >/dev/null 2>&1 \
         && echo "✅ Tunnel established: https://localhost:8443" \
@@ -1043,6 +1074,7 @@ measure_phase "join workers"                 join_workers
 measure_phase "postjoin matrix"              postjoin_matrix_to_master
 measure_phase "hold kube packages"           phase_hold_kube_packages
 measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
+measure_phase "ingress controller"          phase_ingress_controller
 
 # only if DEBUG=1
 if [ "${DEBUG:-0}" = "1" ]; then
