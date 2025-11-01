@@ -15,6 +15,7 @@ else
   NODES=(oci-k8s-master oci-k8s-node-1 oci-k8s-node-2)
 fi
 
+MASTER_PUBLIC_IP="150.136.34.254"
 MASTER_NODE="${NODES[0]}"
 WORKER_NODES=("${NODES[@]:1}")
 K8S_VERSION="1.34.1"
@@ -84,4 +85,24 @@ scp_to_remote() {
   scp -r -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
       "$src" "$node:$dest"
   log_node "$node" "📤 Copied $src to $dest"
+}
+
+# Kill any local SSH tunnel listening on a given port
+# Usage: kill_local_tunnel <port>
+kill_local_tunnel() {
+  local port="$1"
+  if [[ -z "$port" ]]; then
+    echo "⚠️  No port provided to kill_local_tunnel"
+    return 1
+  fi
+
+  if command -v lsof >/dev/null 2>&1; then
+    local pid
+    pid=$(lsof -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+    if [[ -n "$pid" ]]; then
+      kill "$pid" && echo "🧹 Closed local listener on port $port (pid $pid)."
+    fi
+  else
+    pkill -f "ssh.*-L.*${port}:.*:.*" 2>/dev/null && echo "🧹 Closed ssh tunnel(s) on port $port."
+  fi
 }
