@@ -628,6 +628,21 @@ echo "✅ metrics-server running securely on 4443."
 EOF'
 }
 
+# Returns 0 if the Dashboard deployment exists, 1 otherwise
+dashboard_exists() {
+  # 1) Namespace present?
+  run_remote_capture "$MASTER_NODE" "timeout 5 kubectl get ns kubernetes-dashboard -o jsonpath='{.metadata.name}' 2>/dev/null || true"
+  ns=$(printf '%s' "$RUN_REMOTE_CAPTURE_RESULT" | tr -d ' \t\r\n')
+  if [[ "$ns" != "kubernetes-dashboard" ]]; then
+    return 1
+  fi
+
+  # 2) Deployment present?
+  run_remote_capture "$MASTER_NODE" "timeout 5 kubectl -n kubernetes-dashboard get deploy kubernetes-dashboard -o jsonpath='{.metadata.name}' 2>/dev/null || true"
+  dep=$(printf '%s' "$RUN_REMOTE_CAPTURE_RESULT" | tr -d ' \t\r\n')
+  [[ "$dep" == "kubernetes-dashboard" ]]
+}
+
 deploy_kubedash() {
   local h="$MASTER_NODE"
   echo "🧭 Deploying Kubernetes Dashboard (v7.13.0 via Helm)…"
@@ -667,13 +682,29 @@ kubectl get clusterrolebinding admin-user-binding >/dev/null 2>&1 || \
     --clusterrole=cluster-admin \
     --serviceaccount=kubernetes-dashboard:admin-user
 
-echo "⏳ Waiting for rollout..."
-kubectl -n kubernetes-dashboard rollout status deploy kubernetes-dashboard --timeout=120s || true
+for d in web api auth kong metrics-scraper; do
+  echo "⏳ Waiting for rollout of kubernetes-dashboard-$d..."
+  kubectl -n kubernetes-dashboard rollout status deploy "kubernetes-dashboard-$d" \
+    --timeout=30s || true
+done
 
 echo "🔑 Admin token (valid 24h):"
-kubectl -n kubernetes-dashboard create token admin-user --duration=24h || true
-
+kubectl -n kubernetes-dashboard create token admin-user --audience=kubernetes-dashboard --duration=24h || true
+echo "💡 Tip: If you see 'Invalid credentials provided', clear browser cookies or use an incognito tab."
 echo "✅ Kubernetes Dashboard v7.13.0 deployed successfully (via Helm)."
+EOF'
+}
+
+ensure_dashboard_admin_token() {
+  run_remote_stream "$MASTER_NODE" 'bash -eu -o pipefail <<EOF
+kubectl create ns kubernetes-dashboard --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n kubernetes-dashboard create sa admin-user --dry-run=client -o yaml | kubectl apply -f -
+kubectl create clusterrolebinding admin-user-binding \
+  --clusterrole=cluster-admin \
+  --serviceaccount=kubernetes-dashboard:admin-user \
+  --dry-run=client -o yaml | kubectl apply -f -
+echo "🔑 New token:"
+kubectl -n kubernetes-dashboard create token admin-user --audience=kubernetes-dashboard --duration=24h 2>/dev/null | tee /tmp/dashboard_token.txt
 EOF'
 }
 
@@ -735,7 +766,7 @@ NODE_IP=$(kubectl get node "$NODE" -o jsonpath="{.status.addresses[?(@.type==\"I
 MASTER_PUB=$(curl -s ifconfig.me || hostname -I | awk "{print \$1}")
 
 # Fetch the admin-user token inline
-TOKEN=$(kubectl -n "$ns" create token admin-user --duration=24h 2>/dev/null || true)
+TOKEN=$(kubectl -n "$ns" create token admin-user --audience=kubernetes-dashboard --duration=24h 2>/dev/null || true)
 
 echo "🧠 Dashboard pod: $POD on node $NODE ($NODE_IP)"
 echo "🌐 NodePort: $NODE_PORT"
@@ -1045,12 +1076,20 @@ phase_hold_kube_packages() {
 }
 
 phase_dashboard_deploy() {
-  if ! run_remote_capture "$MASTER_NODE" "kubectl -n kubernetes-dashboard get deploy kubernetes-dashboard >/dev/null 2>&1"; then
-    echo "⏭️  Kubernetes Dashboard already deployed — skipping."
-  else 
-    echo "🚀 Deploying Kubernetes Dashboard…"
+  if [[ "${FORCE_DASHBOARD:-false}" == "true" ]]; then
+    echo "🚀 (Force) Redeploying Kubernetes Dashboard due to FORCE_DASHBOARD flag…"
     deploy_kubedash
+  else
+    run_remote_capture "$MASTER_NODE" "kubectl -n kubernetes-dashboard get deploy kubernetes-dashboard --no-headers 2>/dev/null || true"
+    if dashboard_exists; then
+      echo "⏭️  Kubernetes Dashboard already deployed — skipping."
+    else 
+      echo "🚀 Deploying Kubernetes Dashboard…"
+      deploy_kubedash
+    fi
   fi
+
+  ensure_dashboard_admin_token
   if ! run_remote_capture "$MASTER_NODE" "kubectl -n kube-system get deploy metrics-server >/dev/null 2>&1"; then
     echo "⏭️  metrics-server already deployed — skipping."
   else 
