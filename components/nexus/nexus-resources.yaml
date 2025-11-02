@@ -67,7 +67,7 @@ spec:
     spec:
       containers:
         - name: nexus
-          image: "sonatype/nexus3:3.69.0-java11"
+          image: "sonatype/nexus3:3.85.0-java17-alpine"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
@@ -104,14 +104,17 @@ spec:
     - name: tcp-port
       port: 8081
       targetPort: 8081
+      nodePort: 31081 # Explicit NodePort for the Nexus UI
       protocol: TCP
     - name: docker-tcp-port
       port: 18444
       targetPort: 18444
+      nodePort: 31444 # Explicit NodePort for Docker HTTP
       protocol: TCP
     - name: docker-tcp-port-https
       port: 18445
       targetPort: 18445
+      nodePort: 31445 # Explicit NodePort for Docker HTTPS
       protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
