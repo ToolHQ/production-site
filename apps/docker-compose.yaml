@@ -249,7 +249,7 @@ services:
   # pg:
   #   container_name: pg
   #   build:
-  #     context: ./5. postgres
+  #     context: ./components/postgres
   #   networks:
   #     - minikube
   #   environment:

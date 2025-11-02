@@ -921,6 +921,55 @@ EOF
   echo "✅ Markdown report saved: $REPORT"
 }
 
+install_local_path_provisioner() {
+  echo "📦 Installing Local Path Provisioner for dynamic PVCs..."
+  run_remote_stream "$MASTER_NODE" 'bash -eu -o pipefail <<'"'"'EOF'"'"'
+if kubectl -n local-path-storage get deploy local-path-provisioner >/dev/null 2>&1; then
+  echo "✅ Local Path Provisioner already installed — skipping."
+else
+  echo "🚀 Deploying Local Path Provisioner..."
+  kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
+  echo "⏳ Waiting for Local Path Provisioner to become ready..."
+  kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
+  echo "✅ Local Path Provisioner installed."
+fi
+EOF'
+
+  for n in "${NODES[@]}"; do
+    run_remote "$n" '
+      echo "🔧 Ensuring /opt/local-path-provisioner exists..."
+      if [ ! -d /opt/local-path-provisioner ]; then
+        sudo mkdir -p /opt/local-path-provisioner
+        sudo chown 1000:1000 /opt/local-path-provisioner
+        echo "✅ Created /opt/local-path-provisioner on $(hostname)"
+      else
+        echo "✅ /opt/local-path-provisioner already exists on $(hostname)"
+      fi
+
+      echo "🔧 Enabling shared mount propagation (rshared) on / and /var..."
+      sudo mount --make-rshared /
+      sudo mount --make-rshared /var
+
+      echo "🔧 Ensuring kubelet MountFlags=shared..."
+      sudo mkdir -p /etc/systemd/system/kubelet.service.d
+      if ! grep -q "MountFlags=shared" /etc/systemd/system/kubelet.service.d/override.conf 2>/dev/null; then
+        echo "[Service]
+MountFlags=shared" | sudo tee /etc/systemd/system/kubelet.service.d/override.conf >/dev/null
+        echo "✅ Added MountFlags=shared override"
+      else
+        echo "✅ MountFlags=shared already configured"
+      fi
+
+      echo "🔄 Reloading kubelet and containerd..."
+      sudo systemctl daemon-reexec
+      sudo systemctl daemon-reload
+      sudo systemctl restart containerd
+      sudo systemctl restart kubelet
+      echo "✅ Kubelet and containerd restarted on $(hostname)"
+    '
+  done
+}
+
 # === Reset all nodes (detached) ================================
 reset_cluster() {
   echo "🧹 Resetting all nodes…"
@@ -1117,6 +1166,7 @@ measure_phase "join workers"                 join_workers
 measure_phase "postjoin matrix"              postjoin_matrix_to_master
 measure_phase "hold kube packages"           phase_hold_kube_packages
 measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
+measure_phase "install local-path-provisioner" install_local_path_provisioner
 measure_phase "ingress controller"          phase_ingress_controller
 
 # only if DEBUG=1

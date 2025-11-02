@@ -1,9 +1,6 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  labels:
-    kubernetes.io/metadata.name: postgres
-    name: postgres
   name: postgres
 ---
 apiVersion: v1
@@ -19,23 +16,6 @@ data:
   POSTGRES_PASSWORD: cGFzc3dvcmRpbml0aWFs
 ---
 apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: postgres-volume
-  namespace: postgres
-  labels:
-    type: local
-    app: postgres
-spec:
-  storageClassName: manual
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteMany
-  hostPath:
-    path: /data/postgresql
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-volume-claim
@@ -43,9 +23,9 @@ metadata:
   labels:
     app: postgres
 spec:
-  storageClassName: manual
+  storageClassName: local-path # ✅ uses dynamic local-path storage
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi
@@ -55,6 +35,8 @@ kind: Deployment
 metadata:
   name: postgres-deployment
   namespace: postgres
+  labels:
+    app: postgres
 spec:
   replicas: 1
   selector:
@@ -64,12 +46,12 @@ spec:
     metadata:
       labels:
         app: postgres
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/postgres: unconfined
     spec:
-      imagePullSecrets:
-        - name: regsecret
       containers:
         - name: postgres
-          image: "docker-nexus.localhost/repository/docker-repo/postgres:16.6-alpine3.21-1.0.1"
+          image: registry.local:31444/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
@@ -92,24 +74,39 @@ spec:
             - name: POSTGRES_LISTEN_ADDRESSES
               value: "*"
           volumeMounts:
-            - mountPath: /var/lib/postgresql/data
-              name: postgresdata
+            - name: postgresdata
+              mountPath: /var/lib/postgresql/data
+              mountPropagation: HostToContainer
+          readinessProbe: # ✅ adds safe startup check
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 20
+            periodSeconds: 20
       volumes:
         - name: postgresdata
           persistentVolumeClaim:
             claimName: postgres-volume-claim
+      restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: postgres-service
   namespace: postgres
+  labels:
+    app: postgres
 spec:
+  type: NodePort
   selector:
     app: postgres
-  type: NodePort
   ports:
     - name: tcp-port
       port: 5432
       targetPort: 5432
+      nodePort: 31432
       protocol: TCP
