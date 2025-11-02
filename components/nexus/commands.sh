@@ -3,7 +3,7 @@
 ## From: https://www.digitalocean.com/community/tutorials/how-to-deploy-postgres-to-kubernetes-cluster
 kubectl apply -f nexus-resources.yaml
 # docker exec -it minikube bash -c "cat /data/nexus/admin.password"
-kubectl -n nexus exec -it $(kubectl -n nexus get pod -l app=nexus -o name) -- sh -c "cat /nexus-data/admin.password"
+# kubectl -n nexus exec -it $(kubectl -n nexus get pod -l app=nexus -o name) -- sh -c "cat /nexus-data/admin.password"
 # docker pull node:22.2.0-alpine3.20
 # docker tag node:22.2.0-alpine3.20 docker-nexus.localhost/repository/docker-repo/node:22.2.0-alpine3.20
 # docker login docker-nexus.localhost
