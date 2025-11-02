@@ -78,9 +78,41 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: minio-pvc
+      nodeSelector:
+        kubernetes.io/hostname: k8s-master
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
+        - name: object-browser
+          image: openmaxio-object-browser:1.1.0
+          imagePullPolicy: Never
+          env:
+            - name: BROWSER_ENDPOINT
+              value: "http://localhost:9000"
+            - name: BROWSER_ACCESS_KEY
+              value: 1GPKUnZroHykGLfvZNjD
+            - name: BROWSER_SECRET_KEY
+              value: I1QtddzvJ5iA9M8DcP7copb6tDfBU7l0oWGPANkl
+            - name: CONSOLE_PBKDF_PASSPHRASE
+              value: SECRET
+            - name: CONSOLE_PBKDF_SALT
+              value: SECRET
+            - name: CONSOLE_MINIO_SERVER
+              value: http://localhost:9000
+          ports:
+            - containerPort: 9090
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
         - name: minio
           image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+          # image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
           command:
             - /bin/bash
             - -c
@@ -126,6 +158,10 @@ spec:
       port: 9000
       targetPort: 9000
       nodePort: 30900
+    - name: browser
+      port: 8080
+      targetPort: 9090
+      nodePort: 30080
     - name: console
       port: 9001
       targetPort: 9001
@@ -151,6 +187,16 @@ spec:
                 name: minio-service
                 port:
                   number: 9000
+            pathType: Prefix
+    - host: minio-browser.localhost
+      http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: minio-service
+                port:
+                  number: 8080
             pathType: Prefix
     - host: minio-console.localhost
       http:

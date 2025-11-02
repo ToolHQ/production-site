@@ -682,6 +682,10 @@ kubectl get clusterrolebinding admin-user-binding >/dev/null 2>&1 || \
     --clusterrole=cluster-admin \
     --serviceaccount=kubernetes-dashboard:admin-user
 
+kubectl -n kubernetes-dashboard patch deploy kubernetes-dashboard-auth \
+  --type=json \
+  -p="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/args\",\"value\":[\"-v=6\",\"--alsologtostderr\"]}]"
+
 for d in web api auth kong metrics-scraper; do
   echo "⏳ Waiting for rollout of kubernetes-dashboard-$d..."
   kubectl -n kubernetes-dashboard rollout status deploy "kubernetes-dashboard-$d" \
@@ -689,7 +693,7 @@ for d in web api auth kong metrics-scraper; do
 done
 
 echo "🔑 Admin token (valid 24h):"
-kubectl -n kubernetes-dashboard create token admin-user --audience=kubernetes-dashboard --duration=24h || true
+kubectl -n kubernetes-dashboard create token admin-user --duration=24h || true
 echo "💡 Tip: If you see 'Invalid credentials provided', clear browser cookies or use an incognito tab."
 echo "✅ Kubernetes Dashboard v7.13.0 deployed successfully (via Helm)."
 EOF'
@@ -704,7 +708,7 @@ kubectl create clusterrolebinding admin-user-binding \
   --serviceaccount=kubernetes-dashboard:admin-user \
   --dry-run=client -o yaml | kubectl apply -f -
 echo "🔑 New token:"
-kubectl -n kubernetes-dashboard create token admin-user --audience=kubernetes-dashboard --duration=24h 2>/dev/null | tee /tmp/dashboard_token.txt
+kubectl -n kubernetes-dashboard create token admin-user --duration=24h 2>/dev/null | tee /tmp/dashboard_token.txt
 EOF'
 }
 
@@ -766,7 +770,7 @@ NODE_IP=$(kubectl get node "$NODE" -o jsonpath="{.status.addresses[?(@.type==\"I
 MASTER_PUB=$(curl -s ifconfig.me || hostname -I | awk "{print \$1}")
 
 # Fetch the admin-user token inline
-TOKEN=$(kubectl -n "$ns" create token admin-user --audience=kubernetes-dashboard --duration=24h 2>/dev/null || true)
+TOKEN=$(kubectl -n "$ns" create token admin-user --duration=24h 2>/dev/null || true)
 
 echo "🧠 Dashboard pod: $POD on node $NODE ($NODE_IP)"
 echo "🌐 NodePort: $NODE_PORT"
