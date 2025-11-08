@@ -79,7 +79,6 @@ spec:
           volumeMounts:
             - name: postgresdata
               mountPath: /var/lib/postgresql/data
-              mountPropagation: HostToContainer
           readinessProbe:  # ✅ adds safe startup check
             exec:
               command: ["pg_isready", "-U", "postgres"]
