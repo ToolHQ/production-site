@@ -115,6 +115,15 @@ install_containerd() {
     sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
     # pin pause image to match kubeadm recommendation
     sudo sed -i \"s|^[[:space:]]*sandbox_image = \\\".*\\\"|    sandbox_image = \\\"registry.k8s.io/pause:3.10.1\\\"|\" /etc/containerd/config.toml
+    
+    # ✅ Enable mount propagation for CSI volumes (required for Longhorn)
+    # This ensures containerd runtime properly handles volume mount propagation
+    if ! grep -q 'default_runtime_name = \"runc\"' /etc/containerd/config.toml; then
+      echo '🔧 Configuring containerd runtime for CSI support...'
+      # Add runtime configuration after the [plugins.\"io.containerd.grpc.v1.cri\".containerd] section
+      sudo sed -i '/\\[plugins\\.\"io\\.containerd\\.grpc\\.v1\\.cri\"\\.containerd\\]/a\\    default_runtime_name = \"runc\"' /etc/containerd/config.toml
+    fi
+    
     sudo systemctl enable --now containerd
     sudo systemctl restart containerd || true
     sudo systemctl restart kubelet || true
@@ -989,6 +998,24 @@ install_longhorn() {
       echo "🔧 Enabling shared mount propagation (rshared) on / and /var..."
       sudo mount --make-rshared /
       sudo mount --make-rshared /var
+      
+      # ✅ Make mount propagation persistent across reboots
+      echo "🔧 Making mount propagation persistent..."
+      if ! grep -q "make-rshared" /etc/rc.local 2>/dev/null; then
+        # Create rc.local if it doesn'"'"'t exist
+        if [ ! -f /etc/rc.local ]; then
+          echo "#!/bin/bash" | sudo tee /etc/rc.local >/dev/null
+          sudo chmod +x /etc/rc.local
+        fi
+        # Add mount propagation commands before exit 0
+        sudo sed -i "/^exit 0/d" /etc/rc.local 2>/dev/null || true
+        echo "mount --make-rshared /
+mount --make-rshared /var
+exit 0" | sudo tee -a /etc/rc.local >/dev/null
+        echo "✅ Added mount propagation to rc.local"
+      else
+        echo "✅ Mount propagation persistence already configured"
+      fi
       
       echo "🔧 Ensuring kubelet MountFlags=shared..."
       sudo mkdir -p /etc/systemd/system/kubelet.service.d
