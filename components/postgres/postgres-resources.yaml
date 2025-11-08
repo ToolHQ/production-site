@@ -79,6 +79,7 @@ spec:
           volumeMounts:
             - name: postgresdata
               mountPath: /var/lib/postgresql/data
+              subPath: pgdata
           readinessProbe:  # ✅ adds safe startup check
             exec:
               command: ["pg_isready", "-U", "postgres"]
