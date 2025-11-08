@@ -1282,5 +1282,11 @@ cat <<'TIP'
     cilium install ... --set mtu=1500
   (or lower if your OCI path MTU requires)
 
-Done. Enjoy your clean Cilium-powered cluster. 🚀
+📦 Storage Provisioner:
+- Default: Longhorn (distributed block storage with replication)
+- To use local-path-provisioner instead:
+    STORAGE_PROVISIONER=local-path ./setup_k8s_cluster.sh
+- Longhorn UI: kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80
+
+Done. Enjoy your clean Cilium-powered cluster with Longhorn storage. 🚀
 TIP
