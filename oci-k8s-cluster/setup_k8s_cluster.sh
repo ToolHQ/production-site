@@ -970,6 +970,85 @@ MountFlags=shared" | sudo tee /etc/systemd/system/kubelet.service.d/override.con
   done
 }
 
+install_longhorn() {
+  echo "📦 Installing Longhorn for distributed block storage..."
+  
+  # Install prerequisites on all nodes
+  for n in "${NODES[@]}"; do
+    run_remote "$n" '
+      echo "🔧 Installing Longhorn prerequisites on $(hostname)..."
+      
+      # Install required packages
+      sudo apt-get update -qq
+      sudo apt-get install -y -qq open-iscsi nfs-common jq
+      
+      # Enable and start open-iscsi service
+      sudo systemctl enable --now iscsid
+      sudo systemctl restart iscsid
+      
+      echo "🔧 Enabling shared mount propagation (rshared) on / and /var..."
+      sudo mount --make-rshared /
+      sudo mount --make-rshared /var
+      
+      echo "🔧 Ensuring kubelet MountFlags=shared..."
+      sudo mkdir -p /etc/systemd/system/kubelet.service.d
+      if ! grep -q "MountFlags=shared" /etc/systemd/system/kubelet.service.d/override.conf 2>/dev/null; then
+        echo "[Service]
+MountFlags=shared" | sudo tee /etc/systemd/system/kubelet.service.d/override.conf >/dev/null
+        echo "✅ Added MountFlags=shared override"
+      else
+        echo "✅ MountFlags=shared already configured"
+      fi
+      
+      echo "🔄 Reloading kubelet and containerd..."
+      sudo systemctl daemon-reexec
+      sudo systemctl daemon-reload
+      sudo systemctl restart containerd
+      sudo systemctl restart kubelet
+      echo "✅ Prerequisites installed on $(hostname)"
+    '
+  done
+  
+  # Install Longhorn on the cluster
+  run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail <<'EOF'
+if kubectl -n longhorn-system get deploy longhorn-driver-deployer >/dev/null 2>&1; then
+  echo '✅ Longhorn already installed — skipping.'
+else
+  echo '🚀 Deploying Longhorn v${LONGHORN_VERSION}...'
+  kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v${LONGHORN_VERSION}/deploy/longhorn.yaml
+  
+  echo '⏳ Waiting for Longhorn system to become ready...'
+  kubectl -n longhorn-system rollout status deploy/longhorn-driver-deployer --timeout=5m || true
+  kubectl -n longhorn-system rollout status deploy/longhorn-ui --timeout=5m || true
+  
+  echo '⏳ Waiting for Longhorn to be fully operational...'
+  sleep 10
+  
+  # Wait for daemonsets to be ready
+  kubectl -n longhorn-system rollout status ds/longhorn-manager --timeout=5m || true
+  
+  echo '✅ Longhorn v${LONGHORN_VERSION} installed successfully.'
+  echo '💡 Longhorn UI can be accessed via: kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80'
+fi
+EOF
+"
+}
+
+install_storage_provisioner() {
+  if [ "${STORAGE_PROVISIONER}" = "local-path" ]; then
+    echo "📦 Using Local Path Provisioner (STORAGE_PROVISIONER=local-path)"
+    install_local_path_provisioner
+  elif [ "${STORAGE_PROVISIONER}" = "longhorn" ]; then
+    echo "📦 Using Longhorn (STORAGE_PROVISIONER=longhorn)"
+    install_longhorn
+  else
+    echo "⚠️  Unknown STORAGE_PROVISIONER value: ${STORAGE_PROVISIONER}"
+    echo "   Valid options: 'longhorn' (default) or 'local-path'"
+    echo "   Defaulting to Longhorn..."
+    install_longhorn
+  fi
+}
+
 # === Reset all nodes (detached) ================================
 reset_cluster() {
   echo "🧹 Resetting all nodes…"
@@ -1166,7 +1245,7 @@ measure_phase "join workers"                 join_workers
 measure_phase "postjoin matrix"              postjoin_matrix_to_master
 measure_phase "hold kube packages"           phase_hold_kube_packages
 measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
-measure_phase "install local-path-provisioner" install_local_path_provisioner
+measure_phase "install storage provisioner (${STORAGE_PROVISIONER})" install_storage_provisioner
 measure_phase "ingress controller"          phase_ingress_controller
 
 # only if DEBUG=1
@@ -1203,5 +1282,11 @@ cat <<'TIP'
     cilium install ... --set mtu=1500
   (or lower if your OCI path MTU requires)
 
-Done. Enjoy your clean Cilium-powered cluster. 🚀
+📦 Storage Provisioner:
+- Default: Longhorn (distributed block storage with replication)
+- To use local-path-provisioner instead:
+    STORAGE_PROVISIONER=local-path ./setup_k8s_cluster.sh
+- Longhorn UI: kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80
+
+Done. Enjoy your clean Cilium-powered cluster with Longhorn storage. 🚀
 TIP
