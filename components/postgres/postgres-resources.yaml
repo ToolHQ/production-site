@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -23,7 +24,7 @@ metadata:
   labels:
     app: postgres
 spec:
-  storageClassName: local-path # ✅ uses dynamic local-path storage
+  storageClassName: longhorn # ✅ uses distributed Longhorn storage for HA
   accessModes:
     - ReadWriteOnce
   resources:
@@ -51,7 +52,9 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: registry.local:31444/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
+          # PostgreSQL 18.0 on Alpine Linux 3.22
+          image: >-
+            registry.local:31444/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
@@ -73,10 +76,11 @@ spec:
               value: postgres
             - name: POSTGRES_LISTEN_ADDRESSES
               value: "*"
+            - name: PGDATA
+              value: /var/lib/postgresql/18/docker
           volumeMounts:
             - name: postgresdata
-              mountPath: /var/lib/postgresql/data
-              mountPropagation: HostToContainer
+              mountPath: /var/lib/postgresql
           readinessProbe: # ✅ adds safe startup check
             exec:
               command: ["pg_isready", "-U", "postgres"]
