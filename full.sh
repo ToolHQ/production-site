@@ -86,10 +86,10 @@ kubectl create secret docker-registry regsecret --docker-server=http://docker-ne
 kubectl create secret docker-registry regsecret --docker-server=http://docker-nexus.localhost/v2/ --docker-username=docker --docker-password=docker123 --docker-email=danieltakasu@gmail.com --namespace postgres
 
 ## Run after manually setup
-kubectl apply -f 5.\ postgres/postgres-resources.yaml
+kubectl apply -f components/postgres/postgres-resources.yaml
 
 ## Now lets configure the ECK
-ECK_RESOURCES_FOLDER=6.\ ECK
+ECK_RESOURCES_FOLDER=components/ECK
 kubectl create -f "$ECK_RESOURCES_FOLDER/crds.yaml"
 kubectl apply -f "$ECK_RESOURCES_FOLDER/operator.yaml"
 

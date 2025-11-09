@@ -4,7 +4,7 @@ kubectl apply -f 1.\ minikube/ingress-nginx-controller-resources.yaml
 kubectl port-forward --namespace=postgres deployment/postgres-deployment 54322:5432
 minikube tunnel
 
-ECK_RESOURCES_FOLDER=6.\ ECK
+ECK_RESOURCES_FOLDER=components/ECK
 kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-beats.yaml"
 kubectl apply -f "$ECK_RESOURCES_FOLDER/quick-start-logstash.yaml"
 
