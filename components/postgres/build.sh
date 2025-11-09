@@ -1,9 +1,9 @@
 #! /bin/bash
 DOCKER_REGISTRY_HOST=127.0.0.1
 PORT=${PORT:-31444}
-DOCKER_TAG=$DOCKER_REGISTRY_HOST:$PORT/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
-docker build . -t $DOCKER_TAG
-docker push $DOCKER_TAG
+# DOCKER_TAG=$DOCKER_REGISTRY_HOST:$PORT/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
+# docker build . -t $DOCKER_TAG
+# docker push $DOCKER_TAG
 kubectl apply -f ./postgres-resources.yaml
 
 # http://localhost:31444/
