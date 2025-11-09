@@ -36,7 +36,9 @@ if kubectl -n postgres get deployment postgres-deployment >/dev/null 2>&1; then
     echo "⚠️  Existing PostgreSQL deployment found."
     
     # Check for stuck pods or volume attachment issues
-    stuck_pods=$(kubectl -n postgres get pods -l app=postgres --field-selector=status.phase!=Running,status.phase!=Succeeded 2>/dev/null | grep -c "postgres" || echo "0")
+    stuck_pods=$(kubectl -n postgres get pods -l app=postgres --field-selector=status.phase!=Running,status.phase!=Succeeded 2>/dev/null | grep -c "postgres" 2>/dev/null || echo "0")
+    stuck_pods=$(echo "$stuck_pods" | tr -d '\n\r' | grep -o '[0-9]*' | head -1)
+    stuck_pods=${stuck_pods:-0}
     
     if [ "$stuck_pods" -gt 0 ]; then
         echo "⚠️  Found $stuck_pods stuck pod(s). This may cause Multi-Attach errors."
