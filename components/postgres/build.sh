@@ -1,9 +1,28 @@
-#! /bin/bash
-DOCKER_REGISTRY_HOST=127.0.0.1
+#!/bin/bash
+set -euo pipefail
+
+DOCKER_REGISTRY_HOST=${DOCKER_REGISTRY_HOST:-127.0.0.1}
 PORT=${PORT:-31444}
-# DOCKER_TAG=$DOCKER_REGISTRY_HOST:$PORT/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
-# docker build . -t $DOCKER_TAG
-# docker push $DOCKER_TAG
+DOCKER_TAG="$DOCKER_REGISTRY_HOST:$PORT/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0"
+
+# Prefer rootless buildkit socket if present
+BK_SOCK="${BK_SOCK:-/home/ubuntu/.local/share/buildkit/buildkitd.sock}"
+
+if [ -S "$BK_SOCK" ]; then
+  echo "🚀 Building via buildctl @ $BK_SOCK"
+  buildctl --addr "unix://$BK_SOCK" build \
+    --frontend=dockerfile.v0 \
+    --local context=. \
+    --local dockerfile=. \
+    --output type=image,name="$DOCKER_TAG",push=true
+else
+  echo "ℹ️ buildkit socket not found at $BK_SOCK — falling back to docker buildx"
+  docker buildx build . \
+    --platform linux/amd64,linux/arm64 \
+    -t "$DOCKER_TAG" \
+    --push
+fi
+
 kubectl apply -f ./postgres-resources.yaml
 
 # http://localhost:31444/
