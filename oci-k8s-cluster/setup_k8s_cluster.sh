@@ -316,20 +316,22 @@ EOF'
 ###############################################################################
 bk_write_rootless_launcher() {
   local h="$1"
-  echo "[$h] STEP 7: generating rootless BuildKit launcher..."
+  echo "[$h] STEP 7: generating systemd user service for BuildKit..."
   run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
 set -euo pipefail
-cat > /home/ubuntu/start-buildkitd.sh << 'LAUNCHER'
-#!/bin/bash
-set -euo pipefail
 
-UID=\$(id -u ubuntu)
-export XDG_RUNTIME_DIR=/run/user/\$UID
-mkdir -p "\$XDG_RUNTIME_DIR" "\$XDG_RUNTIME_DIR/buildkit"
-chmod 700 "\$XDG_RUNTIME_DIR" "\$XDG_RUNTIME_DIR/buildkit"
-chown -R ubuntu:ubuntu "\$XDG_RUNTIME_DIR"
+# Create systemd user service directory
+mkdir -p /home/ubuntu/.config/systemd/user
 
-exec /usr/local/bin/rootlesskit \
+# Write the systemd service unit
+cat > /home/ubuntu/.config/systemd/user/buildkit.service << 'SERVICE'
+[Unit]
+Description=BuildKit (Rootless)
+Documentation=https://github.com/moby/buildkit
+
+[Service]
+Environment="PATH=/home/ubuntu/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/local/bin/rootlesskit \
   --net=slirp4netns \
   --disable-host-loopback \
   --propagation=rslave \
@@ -340,9 +342,19 @@ exec /usr/local/bin/rootlesskit \
     --addr unix:///home/ubuntu/.local/share/buildkit/buildkitd.sock \
     --oci-worker-no-process-sandbox \
     --config /home/ubuntu/.config/buildkit/buildkitd.toml
-LAUNCHER
-sudo chown ubuntu:ubuntu /home/ubuntu/start-buildkitd.sh
-sudo chmod 0755 /home/ubuntu/start-buildkitd.sh
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+SERVICE
+
+chown ubuntu:ubuntu /home/ubuntu/.config/systemd/user/buildkit.service
+chmod 0644 /home/ubuntu/.config/systemd/user/buildkit.service
+
+echo '✅ Systemd service unit created'
 EOF"
 }
 ###############################################################################
@@ -350,18 +362,41 @@ EOF"
 ###############################################################################
 bk_start_rootless_buildkit() {
   local h="$1"
-  echo "[$h] STEP 8: starting rootless BuildKit daemon..."
+  echo "[$h] STEP 8: enabling and starting BuildKit systemd user service..."
   run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
 set -euo pipefail
+
+# Ensure XDG_RUNTIME_DIR exists and has correct ownership
 UID=\$(id -u ubuntu)
 export XDG_RUNTIME_DIR=/run/user/\$UID
-sudo mkdir -p "\$XDG_RUNTIME_DIR"; sudo chown ubuntu:ubuntu "\$XDG_RUNTIME_DIR"; sudo chmod 700 "\$XDG_RUNTIME_DIR"
+sudo mkdir -p "\$XDG_RUNTIME_DIR"
+sudo chown ubuntu:ubuntu "\$XDG_RUNTIME_DIR"
+sudo chmod 700 "\$XDG_RUNTIME_DIR"
 
-# background launch as ubuntu (no systemd dependency)
+# Enable linger so user services persist
+sudo loginctl enable-linger ubuntu || true
+
+# Reload systemd user daemon and enable BuildKit service as ubuntu user
 sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
-  nohup /home/ubuntu/start-buildkitd.sh > /home/ubuntu/buildkitd.log 2>&1 &
+  systemctl --user daemon-reload
 
-echo '✅ BuildKit launched (nohup)'; sleep 1
+sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+  systemctl --user enable buildkit.service
+
+# Stop any existing buildkit service
+sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+  systemctl --user stop buildkit.service 2>/dev/null || true
+
+# Start the buildkit service
+sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+  systemctl --user start buildkit.service
+
+# Check service status
+echo '🔍 Checking BuildKit service status...'
+sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+  systemctl --user status buildkit.service --no-pager --lines=10 || true
+
+echo '✅ BuildKit systemd user service started'
 EOF"
 }
 ###############################################################################
@@ -373,11 +408,43 @@ bk_wait_socket() {
   run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
 set -euo pipefail
 SOCK=/home/ubuntu/.local/share/buildkit/buildkitd.sock
-for i in {1..15}; do
-  [ -S "\$SOCK" ] && { echo '✅ BuildKit socket detected'; exit 0; }
-  echo '⏳ Waiting for BuildKit socket...'; sleep 2
+UID=\$(id -u ubuntu)
+export XDG_RUNTIME_DIR=/run/user/\$UID
+
+echo '⏳ Waiting for BuildKit socket to appear...'
+for i in {1..30}; do
+  if [ -S "\$SOCK" ]; then
+    echo '✅ BuildKit socket detected at '\$SOCK
+    
+    # Verify we can connect to it
+    if timeout 5 /home/ubuntu/bin/buildctl --addr unix://\$SOCK debug workers >/dev/null 2>&1; then
+      echo '✅ BuildKit daemon is responding'
+      exit 0
+    else
+      echo '⚠️  Socket exists but daemon not responding yet, waiting...'
+    fi
+  fi
+  
+  # Show service status on first iteration and every 10 iterations
+  if [ \$i -eq 1 ] || [ \$((i % 10)) -eq 0 ]; then
+    echo "🔍 Iteration \$i: Checking service status..."
+    sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+      systemctl --user status buildkit.service --no-pager --lines=5 || true
+  fi
+  
+  sleep 2
 done
-echo '❌ BuildKit failed to create socket'; exit 1
+
+echo '❌ BuildKit socket did not appear after 60 seconds'
+echo '📋 Final service status:'
+sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+  systemctl --user status buildkit.service --no-pager --lines=20 || true
+
+echo '📋 Service journal (last 50 lines):'
+sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+  journalctl --user -u buildkit.service -n 50 --no-pager || true
+
+exit 1
 EOF"
 }
 ###############################################################################

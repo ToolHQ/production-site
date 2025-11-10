@@ -8,6 +8,43 @@ DOCKER_TAG="$DOCKER_REGISTRY_HOST:$PORT/repository/docker-repo/postgres:18.0-alp
 # Prefer rootless buildkit socket if present
 BK_SOCK="${BK_SOCK:-/home/ubuntu/.local/share/buildkit/buildkitd.sock}"
 
+# Helper function to ensure BuildKit is running
+ensure_buildkit_running() {
+  local uid
+  uid=$(id -u)
+  export XDG_RUNTIME_DIR="/run/user/$uid"
+  
+  # Check if BuildKit service is active
+  if systemctl --user is-active --quiet buildkit.service 2>/dev/null; then
+    echo "✅ BuildKit service is running"
+    return 0
+  fi
+  
+  echo "⚠️  BuildKit service not running, attempting to start..."
+  
+  # Try to start the service
+  if systemctl --user start buildkit.service 2>/dev/null; then
+    echo "✅ BuildKit service started"
+    
+    # Wait for socket to appear
+    for i in {1..15}; do
+      if [ -S "$BK_SOCK" ]; then
+        echo "✅ BuildKit socket available"
+        return 0
+      fi
+      echo "⏳ Waiting for BuildKit socket... ($i/15)"
+      sleep 2
+    done
+    
+    echo "❌ BuildKit socket did not appear"
+    return 1
+  else
+    echo "❌ Failed to start BuildKit service"
+    return 1
+  fi
+}
+
+# Try to use BuildKit if available
 if [ -S "$BK_SOCK" ]; then
   echo "🚀 Building via buildctl @ $BK_SOCK"
   buildctl --addr "unix://$BK_SOCK" build \
@@ -15,12 +52,24 @@ if [ -S "$BK_SOCK" ]; then
     --local context=. \
     --local dockerfile=. \
     --output type=image,name="$DOCKER_TAG",push=true
+elif ensure_buildkit_running; then
+  echo "🚀 Building via buildctl @ $BK_SOCK (after service start)"
+  buildctl --addr "unix://$BK_SOCK" build \
+    --frontend=dockerfile.v0 \
+    --local context=. \
+    --local dockerfile=. \
+    --output type=image,name="$DOCKER_TAG",push=true
 else
-  echo "ℹ️ buildkit socket not found at $BK_SOCK — falling back to docker buildx"
-  docker buildx build . \
-    --platform linux/amd64,linux/arm64 \
-    -t "$DOCKER_TAG" \
-    --push
+  echo "ℹ️ buildkit not available — falling back to docker buildx"
+  if command -v docker >/dev/null 2>&1; then
+    docker buildx build . \
+      --platform linux/amd64,linux/arm64 \
+      -t "$DOCKER_TAG" \
+      --push
+  else
+    echo "❌ Neither BuildKit nor Docker is available for building images"
+    exit 1
+  fi
 fi
 
 kubectl apply -f ./postgres-resources.yaml
