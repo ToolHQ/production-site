@@ -367,8 +367,8 @@ bk_start_rootless_buildkit() {
 set -euo pipefail
 
 # Ensure XDG_RUNTIME_DIR exists and has correct ownership
-UID=\$(id -u ubuntu)
-export XDG_RUNTIME_DIR=/run/user/\$UID
+USER_UID=\$(id -u ubuntu)
+export XDG_RUNTIME_DIR=/run/user/\$USER_UID
 sudo mkdir -p "\$XDG_RUNTIME_DIR"
 sudo chown ubuntu:ubuntu "\$XDG_RUNTIME_DIR"
 sudo chmod 700 "\$XDG_RUNTIME_DIR"
@@ -408,8 +408,8 @@ bk_wait_socket() {
   run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
 set -euo pipefail
 SOCK=/home/ubuntu/.local/share/buildkit/buildkitd.sock
-UID=\$(id -u ubuntu)
-export XDG_RUNTIME_DIR=/run/user/\$UID
+USER_UID=\$(id -u ubuntu)
+export XDG_RUNTIME_DIR=/run/user/\$USER_UID
 
 echo '⏳ Waiting for BuildKit socket to appear...'
 for i in {1..30}; do
