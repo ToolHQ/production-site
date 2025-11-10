@@ -363,15 +363,15 @@ EOF"
 bk_start_rootless_buildkit() {
   local h="$1"
   echo "[$h] STEP 8: enabling and starting BuildKit systemd user service..."
-  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
+  run_remote_stream "$h" 'bash -euxo pipefail <<'\''EOF'\''
 set -euo pipefail
 
 # Ensure XDG_RUNTIME_DIR exists and has correct ownership
-USER_UID=\$(id -u ubuntu)
-export XDG_RUNTIME_DIR=/run/user/\$USER_UID
-sudo mkdir -p "\$XDG_RUNTIME_DIR"
-sudo chown ubuntu:ubuntu "\$XDG_RUNTIME_DIR"
-sudo chmod 700 "\$XDG_RUNTIME_DIR"
+USER_UID=$(id -u ubuntu)
+export XDG_RUNTIME_DIR=/run/user/$USER_UID
+sudo mkdir -p "$XDG_RUNTIME_DIR"
+sudo chown ubuntu:ubuntu "$XDG_RUNTIME_DIR"
+sudo chmod 700 "$XDG_RUNTIME_DIR"
 
 # Enable linger so user services persist
 sudo loginctl enable-linger ubuntu || true
@@ -381,31 +381,46 @@ sleep 2
 
 # Use machinectl to execute systemd commands in user context
 # This ensures proper DBUS and systemd user session access
-echo '🔄 Reloading systemd user daemon...'
-sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user daemon-reload" || \
-  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/\$USER_UID; systemctl --user daemon-reload"
+echo "🔄 Reloading systemd user daemon..."
+if command -v machinectl >/dev/null 2>&1; then
+  sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user daemon-reload"
+else
+  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/$USER_UID; systemctl --user daemon-reload"
+fi
 
-echo '⚙️  Enabling BuildKit service...'
-sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user enable buildkit.service" || \
-  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/\$USER_UID; systemctl --user enable buildkit.service"
+echo "⚙️  Enabling BuildKit service..."
+if command -v machinectl >/dev/null 2>&1; then
+  sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user enable buildkit.service"
+else
+  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/$USER_UID; systemctl --user enable buildkit.service"
+fi
 
 # Stop any existing buildkit service
-echo '🛑 Stopping any existing BuildKit service...'
-sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user stop buildkit.service" 2>/dev/null || \
-  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/\$USER_UID; systemctl --user stop buildkit.service" 2>/dev/null || true
+echo "🛑 Stopping any existing BuildKit service..."
+if command -v machinectl >/dev/null 2>&1; then
+  sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user stop buildkit.service" 2>/dev/null || true
+else
+  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/$USER_UID; systemctl --user stop buildkit.service" 2>/dev/null || true
+fi
 
 # Start the buildkit service
-echo '🚀 Starting BuildKit service...'
-sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user start buildkit.service" || \
-  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/\$USER_UID; systemctl --user start buildkit.service"
+echo "🚀 Starting BuildKit service..."
+if command -v machinectl >/dev/null 2>&1; then
+  sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user start buildkit.service"
+else
+  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/$USER_UID; systemctl --user start buildkit.service"
+fi
 
 # Check service status
-echo '🔍 Checking BuildKit service status...'
-sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user status buildkit.service --no-pager --lines=10" || \
-  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/\$USER_UID; systemctl --user status buildkit.service --no-pager --lines=10" || true
+echo "🔍 Checking BuildKit service status..."
+if command -v machinectl >/dev/null 2>&1; then
+  sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user status buildkit.service --no-pager --lines=10" || true
+else
+  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/$USER_UID; systemctl --user status buildkit.service --no-pager --lines=10" || true
+fi
 
-echo '✅ BuildKit systemd user service started'
-EOF"
+echo "✅ BuildKit systemd user service started"
+EOF'
 }
 ###############################################################################
 # 9. WAIT FOR SOCKET
@@ -413,47 +428,56 @@ EOF"
 bk_wait_socket() {
   local h="$1"
   echo "[$h] STEP 9: waiting for BuildKit socket..."
-  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
+  run_remote_stream "$h" 'bash -euxo pipefail <<'\''EOF'\''
 set -euo pipefail
 SOCK=/home/ubuntu/.local/share/buildkit/buildkitd.sock
-USER_UID=\$(id -u ubuntu)
-export XDG_RUNTIME_DIR=/run/user/\$USER_UID
+USER_UID=$(id -u ubuntu)
+export XDG_RUNTIME_DIR=/run/user/$USER_UID
 
-echo '⏳ Waiting for BuildKit socket to appear...'
+echo "⏳ Waiting for BuildKit socket to appear..."
 for i in {1..30}; do
-  if [ -S "\$SOCK" ]; then
-    echo '✅ BuildKit socket detected at '\$SOCK
+  if [ -S "$SOCK" ]; then
+    echo "✅ BuildKit socket detected at $SOCK"
     
     # Verify we can connect to it
-    if timeout 5 /home/ubuntu/bin/buildctl --addr unix://\$SOCK debug workers >/dev/null 2>&1; then
-      echo '✅ BuildKit daemon is responding'
+    if timeout 5 /home/ubuntu/bin/buildctl --addr unix://$SOCK debug workers >/dev/null 2>&1; then
+      echo "✅ BuildKit daemon is responding"
       exit 0
     else
-      echo '⚠️  Socket exists but daemon not responding yet, waiting...'
+      echo "⚠️  Socket exists but daemon not responding yet, waiting..."
     fi
   fi
   
   # Show service status on first iteration and every 10 iterations
-  if [ \$i -eq 1 ] || [ \$((i % 10)) -eq 0 ]; then
-    echo "🔍 Iteration \$i: Checking service status..."
-    sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user status buildkit.service --no-pager --lines=5" 2>/dev/null || \
-      sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/\$USER_UID; systemctl --user status buildkit.service --no-pager --lines=5" 2>/dev/null || true
+  if [ $i -eq 1 ] || [ $((i % 10)) -eq 0 ]; then
+    echo "🔍 Iteration $i: Checking service status..."
+    if command -v machinectl >/dev/null 2>&1; then
+      sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user status buildkit.service --no-pager --lines=5" 2>/dev/null || true
+    else
+      sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/$USER_UID; systemctl --user status buildkit.service --no-pager --lines=5" 2>/dev/null || true
+    fi
   fi
   
   sleep 2
 done
 
-echo '❌ BuildKit socket did not appear after 60 seconds'
-echo '📋 Final service status:'
-sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user status buildkit.service --no-pager --lines=20" 2>/dev/null || \
-  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/\$USER_UID; systemctl --user status buildkit.service --no-pager --lines=20" 2>/dev/null || true
+echo "❌ BuildKit socket did not appear after 60 seconds"
+echo "📋 Final service status:"
+if command -v machinectl >/dev/null 2>&1; then
+  sudo machinectl shell ubuntu@ /bin/bash -c "systemctl --user status buildkit.service --no-pager --lines=20" 2>/dev/null || true
+else
+  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/$USER_UID; systemctl --user status buildkit.service --no-pager --lines=20" 2>/dev/null || true
+fi
 
-echo '📋 Service journal (last 50 lines):'
-sudo machinectl shell ubuntu@ /bin/bash -c "journalctl --user -u buildkit.service -n 50 --no-pager" 2>/dev/null || \
-  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/\$USER_UID; journalctl --user -u buildkit.service -n 50 --no-pager" 2>/dev/null || true
+echo "📋 Service journal (last 50 lines):"
+if command -v machinectl >/dev/null 2>&1; then
+  sudo machinectl shell ubuntu@ /bin/bash -c "journalctl --user -u buildkit.service -n 50 --no-pager" 2>/dev/null || true
+else
+  sudo -i -u ubuntu bash -c "export XDG_RUNTIME_DIR=/run/user/$USER_UID; journalctl --user -u buildkit.service -n 50 --no-pager" 2>/dev/null || true
+fi
 
 exit 1
-EOF"
+EOF'
 }
 ###############################################################################
 # 10. ORCHESTRATOR — install_buildkitd
