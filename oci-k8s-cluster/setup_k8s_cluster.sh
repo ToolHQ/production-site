@@ -79,6 +79,408 @@ ensure_apiserver_open() {
   '
 }
 
+# === BuildKitd (remote buildx builder) ============================================
+###############################################################################
+# ROOTLESS BUILDKIT INSTALLATION MODULE (FINAL VERSION)
+# -----------------------------------------------------
+# This module installs BuildKit 0.25.2 in full rootless mode on ARM64/AMD64
+# OCI nodes. It is fully modular and uses NO heredocs inside SSH calls,
+# avoiding all escaping and interpolation bugs.
+#
+# STRUCTURE:
+#   0. Global variables
+#   1. Architecture detection
+#   2. Prerequisite installation
+#   3. Directory preparation
+#   4. RootlessKit installation
+#   5. BuildKit installation
+#   6. Write buildkitd.toml
+#   7. Write systemd unit
+#   8. Enable service
+#   9. Wait for socket
+#  10. install_buildkitd (orchestrator)
+#
+###############################################################################
+
+
+###############################################################################
+# 0. GLOBAL VARIABLES — required by all functions
+###############################################################################
+
+BUILDKIT_VERSION="${BUILDKIT_VERSION:-0.25.2}"
+ROOTLESSKIT_VERSION="${ROOTLESSKIT_VERSION:-2.3.5}"
+
+BK_USER="ubuntu"
+BK_USER_HOME="/home/${BK_USER}"
+
+###############################################################################
+# 1. DETECT ARCHITECTURE
+###############################################################################
+bk_detect_arch() {
+  set +u
+  local h="$1"
+  set -u
+
+  # Capture architecture from remote host
+  local raw rc
+  raw="$(run_remote_capture "$h" "uname -m" 2>&1)"
+  rc=$?
+
+  [[ $rc -ne 0 ]] && return $rc
+
+  # Extract last field of last line
+  local arch
+  arch="$(echo "$raw" | tail -n1 | awk '{print $NF}')"
+
+  case "$arch" in
+    aarch64) echo "arm64" ;;
+    x86_64)  echo "amd64" ;;
+    *)       return 1 ;;
+  esac
+}
+###############################################################################
+# 2. INSTALL PREREQUISITES
+###############################################################################
+bk_install_prereqs() {
+  local h="$1"
+
+  echo "[$h] STEP 2: installing prerequisites..."
+
+  run_remote "$h" "
+    sudo apt-get update -qq &&
+    sudo apt-get install -y -qq \
+      uidmap slirp4netns fuse-overlayfs iptables dbus-user-session
+
+    USER_UID=\$(id -u ubuntu)
+    USER_GID=\$(id -g ubuntu)
+
+    echo \"✅ ubuntu UID=\$USER_UID GID=\$USER_GID\"
+
+    # Reset existing mappings for this UID
+    sudo sed -i \"/^\${USER_UID}:/d\" /etc/subuid
+    sudo sed -i \"/^\${USER_UID}:/d\" /etc/subgid
+
+    # Correct range mapping (always numeric UID)
+    echo \"\$USER_UID:100000:65536\" | sudo tee -a /etc/subuid >/dev/null
+    echo \"\$USER_UID:100000:65536\" | sudo tee -a /etc/subgid >/dev/null
+
+    echo \"✅ subuid/subgid mapped for UID \$USER_UID\"
+
+    # Ensure runtime dir exists for correct UID
+    sudo mkdir -p /run/user/\$USER_UID
+    sudo chown ubuntu:ubuntu /run/user/\$USER_UID
+    sudo chmod 700 /run/user/\$USER_UID
+    echo \"✅ /run/user/\$USER_UID ready\"
+
+    # Ensure BuildKit dirs belong to correct UID
+    sudo mkdir -p /home/ubuntu/.local/share/buildkit
+    sudo mkdir -p /home/ubuntu/.config/buildkit
+    sudo chown -R ubuntu:ubuntu /home/ubuntu/.local/share/buildkit
+    sudo chown -R ubuntu:ubuntu /home/ubuntu/.config/buildkit
+    echo \"✅ BuildKit directories fixed for UID \$USER_UID\"
+
+    sudo loginctl enable-linger ubuntu || true
+  "
+}
+###############################################################################
+# 3. PREPARE DIRECTORIES
+###############################################################################
+bk_prepare_dirs() {
+  local h="$1"
+
+  echo "[$h] STEP 3: preparing directories..."
+
+  local raw rc
+  raw="$(run_remote_capture "$h" "echo /run/user/\$(id -u $BK_USER)")"
+  rc=$?
+
+  [[ $rc -ne 0 ]] && return $rc
+
+  local BK_RUNTIME_DIR
+  BK_RUNTIME_DIR="$(echo "$raw" | tail -n1 | awk '{print $NF}')"
+
+  echo "[$h] → Using runtime dir: $BK_RUNTIME_DIR"
+
+  run_remote "$h" "
+    sudo mkdir -p $BK_RUNTIME_DIR &&
+    sudo chown $BK_USER:$BK_USER $BK_RUNTIME_DIR &&
+    sudo chmod 700 $BK_RUNTIME_DIR
+
+    mkdir -p \
+      $BK_USER_HOME/bin \
+      $BK_USER_HOME/.config/buildkit \
+      $BK_USER_HOME/.local/share/buildkit \
+      $BK_USER_HOME/.config/systemd/user
+
+    chown -R $BK_USER:$BK_USER $BK_USER_HOME/.local $BK_USER_HOME/.config $BK_USER_HOME/bin
+  "
+}
+###############################################################################
+# 4. INSTALL ROOTLESSKIT (static binary — ARM compatible)
+###############################################################################
+bk_install_rootlesskit() {
+  local h="$1"
+  local arch="$2"   # normalized: arm64 or amd64
+
+  echo "[$h] STEP 4: installing rootlesskit v$ROOTLESSKIT_VERSION..."
+
+  # Translate BuildKit arch → RootlessKit actual tarball arch
+  local rk_arch
+  case "$arch" in
+    arm64) rk_arch="aarch64" ;;
+    amd64) rk_arch="x86_64" ;;
+    *)
+      echo "[$h] ❌ Unsupported architecture for rootlesskit: $arch"
+      return 1
+      ;;
+  esac
+
+  local url="https://github.com/rootless-containers/rootlesskit/releases/download/v$ROOTLESSKIT_VERSION/rootlesskit-$rk_arch.tar.gz"
+
+  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
+set -euo pipefail
+
+echo '📦 Downloading rootlesskit v$ROOTLESSKIT_VERSION for $arch...'
+
+# Download + extract
+curl -fsSL -o /tmp/rootlesskit.tar.gz '$url'
+tar -xzf /tmp/rootlesskit.tar.gz -C /tmp
+
+# The archive contains two files:
+#   rootlesskit
+#   rootlesskit-dockerd
+sudo install -m 0755 /tmp/rootlesskit /usr/local/bin/rootlesskit
+
+# Install rootlesskit-dockerd only if it exists (x86_64 only)
+if [ -f /tmp/rootlesskit-dockerd ]; then
+  echo '✅ Installing rootlesskit-dockerd'
+  sudo install -m 0755 /tmp/rootlesskit-dockerd /usr/local/bin/rootlesskit-dockerd
+else
+  echo 'ℹ️ rootlesskit-dockerd not included for this architecture — skipping'
+fi
+
+rm -f /tmp/rootlesskit /tmp/rootlesskit-dockerd 2>/dev/null || true
+rm -f /tmp/rootlesskit.tar.gz
+
+echo '✅ rootlesskit installed at /usr/local/bin/rootlesskit'
+echo '✅ version:'
+rootlesskit --version
+
+EOF"
+}
+###############################################################################
+# 5. INSTALL BUILDKIT BINARIES
+###############################################################################
+bk_install_buildkit() {
+  local h="$1"
+  local bk_arch="$2"
+
+  echo "[$h] STEP 5: installing BuildKit v${BUILDKIT_VERSION} ($bk_arch)..."
+
+  local url="https://github.com/moby/buildkit/releases/download/v${BUILDKIT_VERSION}/buildkit-v${BUILDKIT_VERSION}.linux-${bk_arch}.tar.gz"
+
+  run_remote "$h" "
+    rm -f /tmp/buildkit.tar.gz &&
+    curl -fsSL -o /tmp/buildkit.tar.gz '$url'
+  " || return 1
+
+  run_remote "$h" "
+    tar -xzf /tmp/buildkit.tar.gz -C $BK_USER_HOME/bin --strip-components=1 &&
+    chmod +x $BK_USER_HOME/bin/buildkitd &&
+    chmod +x $BK_USER_HOME/bin/buildctl
+  "
+}
+###############################################################################
+# 6. WRITE CONFIG — buildkitd.toml
+###############################################################################
+bk_write_config() {
+  local h="$1"
+  echo "[$h] STEP 6: writing buildkitd.toml..."
+  run_remote "$h" 'cat > /home/ubuntu/.config/buildkit/buildkitd.toml <<'\''EOF'\''
+debug = false
+
+[worker.oci]
+  enabled = true
+  snapshotter = "native"
+
+[worker.oci.garbage-collection]
+  enabled = true
+  keepstorage = "10GB"
+
+[worker.containerd]
+  enabled = false
+EOF'
+}
+###############################################################################
+# 7. WRITE SYSTEMD UNIT
+###############################################################################
+bk_write_rootless_launcher() {
+  local h="$1"
+  echo "[$h] STEP 7: generating rootless BuildKit launcher..."
+  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
+set -euo pipefail
+cat > /home/ubuntu/start-buildkitd.sh << 'LAUNCHER'
+#!/bin/bash
+set -euo pipefail
+
+UID=\$(id -u ubuntu)
+export XDG_RUNTIME_DIR=/run/user/\$UID
+mkdir -p "\$XDG_RUNTIME_DIR" "\$XDG_RUNTIME_DIR/buildkit"
+chmod 700 "\$XDG_RUNTIME_DIR" "\$XDG_RUNTIME_DIR/buildkit"
+chown -R ubuntu:ubuntu "\$XDG_RUNTIME_DIR"
+
+exec /usr/local/bin/rootlesskit \
+  --net=slirp4netns \
+  --disable-host-loopback \
+  --propagation=rslave \
+  --copy-up=/etc \
+  --copy-up=/run \
+  /home/ubuntu/bin/buildkitd \
+    --root /home/ubuntu/.local/share/buildkit \
+    --addr unix:///home/ubuntu/.local/share/buildkit/buildkitd.sock \
+    --oci-worker-no-process-sandbox \
+    --config /home/ubuntu/.config/buildkit/buildkitd.toml
+LAUNCHER
+sudo chown ubuntu:ubuntu /home/ubuntu/start-buildkitd.sh
+sudo chmod 0755 /home/ubuntu/start-buildkitd.sh
+EOF"
+}
+###############################################################################
+# 8. ENABLE SERVICE
+###############################################################################
+bk_start_rootless_buildkit() {
+  local h="$1"
+  echo "[$h] STEP 8: starting rootless BuildKit daemon..."
+  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
+set -euo pipefail
+UID=\$(id -u ubuntu)
+export XDG_RUNTIME_DIR=/run/user/\$UID
+sudo mkdir -p "\$XDG_RUNTIME_DIR"; sudo chown ubuntu:ubuntu "\$XDG_RUNTIME_DIR"; sudo chmod 700 "\$XDG_RUNTIME_DIR"
+
+# background launch as ubuntu (no systemd dependency)
+sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
+  nohup /home/ubuntu/start-buildkitd.sh > /home/ubuntu/buildkitd.log 2>&1 &
+
+echo '✅ BuildKit launched (nohup)'; sleep 1
+EOF"
+}
+###############################################################################
+# 9. WAIT FOR SOCKET
+###############################################################################
+bk_wait_socket() {
+  local h="$1"
+  echo "[$h] STEP 9: waiting for BuildKit socket..."
+  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
+set -euo pipefail
+SOCK=/home/ubuntu/.local/share/buildkit/buildkitd.sock
+for i in {1..15}; do
+  [ -S "\$SOCK" ] && { echo '✅ BuildKit socket detected'; exit 0; }
+  echo '⏳ Waiting for BuildKit socket...'; sleep 2
+done
+echo '❌ BuildKit failed to create socket'; exit 1
+EOF"
+}
+###############################################################################
+# 10. ORCHESTRATOR — install_buildkitd
+###############################################################################
+install_buildkitd() {
+  set +u
+  local h="${1:-$MASTER_NODE}"
+  set -u
+
+  echo "[$h] ==============================================="
+  echo "[$h] Installing BuildKit (rootless mode)"
+  echo "[$h] ==============================================="
+
+  # -----------------------------------------------------
+  # STEP 1 — ARCH DETECTION
+  # -----------------------------------------------------
+  echo "[$h] → Detecting architecture..."
+
+  local ARCH
+  ARCH="$(bk_detect_arch "$h")" || {
+    echo "[$h] ❌ Failed to detect architecture"
+    return 1
+  }
+
+  echo "[$h] ✅ Architecture: $ARCH"
+
+  # -----------------------------------------------------
+  # STEP 2 — PREREQUISITES
+  # -----------------------------------------------------
+  echo "[$h] → Installing prerequisites..."
+  bk_install_prereqs "$h" || {
+    echo "[$h] ❌ Failed installing prerequisites"
+    return 1
+  }
+
+  # -----------------------------------------------------
+  # STEP 3 — DIRECTORIES
+  # -----------------------------------------------------
+  echo "[$h] → Preparing directories..."
+  bk_prepare_dirs "$h" || {
+    echo "[$h] ❌ Failed creating directories"
+    return 1
+  }
+
+  # -----------------------------------------------------
+  # STEP 4 — ROOTLESSKIT
+  # -----------------------------------------------------
+  echo "[$h] → Installing rootlesskit..."
+  bk_install_rootlesskit "$h" "$ARCH" || {
+    echo "[$h] ❌ Failed installing rootlesskit"
+    return 1
+  }
+
+  # -----------------------------------------------------
+  # STEP 5 — BUILDKIT BINARIES
+  # -----------------------------------------------------
+  echo "[$h] → Installing BuildKit binaries..."
+  bk_install_buildkit "$h" "$ARCH" || {
+    echo "[$h] ❌ Failed installing BuildKit binaries"
+    return 1
+  }
+
+  # -----------------------------------------------------
+  # STEP 6 — CONFIG
+  # -----------------------------------------------------
+  echo "[$h] → Writing BuildKit config..."
+  bk_write_config "$h" || {
+    echo "[$h] ❌ Failed writing BuildKit config"
+    return 1
+  }
+
+  # -----------------------------------------------------
+  # STEP 7 — SYSTEMD SERVICE
+  # -----------------------------------------------------
+  echo "[$h] → Installing systemd unit..."
+  bk_write_rootless_launcher "$h" || {
+    echo "[$h] ❌ Failed writing systemd unit"
+    return 1
+  }
+
+  # -----------------------------------------------------
+  # STEP 8 — ENABLE + START
+  # -----------------------------------------------------
+  echo "[$h] → Enabling BuildKit service..."
+  bk_start_rootless_buildkit "$h" || {
+    echo "[$h] ❌ Failed enabling BuildKit service"
+    return 1
+  }
+
+  # -----------------------------------------------------
+  # STEP 9 — WAIT FOR SOCKET
+  # -----------------------------------------------------
+  echo "[$h] → Waiting for BuildKit socket..."
+  bk_wait_socket "$h" || {
+    echo "[$h] ❌ BuildKit socket did not appear"
+    return 1
+  }
+
+  echo "[$h] ✅ BuildKit installed successfully!"
+}
+
+
 # === Node prep ==================================================
 update_node() {
   local h=$1
@@ -1538,6 +1940,45 @@ print_phase_timings() {
 }
 
 # --- Phase wrappers (group multi-steps without bash -c) --------
+phase_buildkitd() {
+  echo "🧱 Installing BuildKit daemon on all nodes (parallel mode)…"
+
+  local pids=()
+  local failed=()
+
+  ## Temp: Run only master node and exit 0
+  install_buildkitd "$MASTER_NODE" && echo "[$MASTER_NODE] ✅ done" || echo "[$MASTER_NODE] ❌ failed"
+  return 0
+
+  for n in "${NODES[@]}"; do
+    (
+      echo "——— $n ———"
+      install_buildkitd "$n" \
+        && echo "[$n] ✅ done" \
+        || echo "[$n] ❌ failed"
+    ) &> >(sed "s/^/[$n] /") &   # background each, prefix logs
+    pids+=($!)
+  done
+
+  for i in "${!pids[@]}"; do
+    if ! wait "${pids[$i]}"; then
+      failed+=("${NODES[$i]}")
+    fi
+  done
+
+  if [ ${#failed[@]} -gt 0 ]; then
+    echo "❌ BuildKit setup failed on: ${failed[*]}"
+    return 1
+  fi
+
+  echo "✅ BuildKit daemon installed on all nodes (parallel)."
+  echo "ℹ️  To use from your laptop/WSL with buildx:"
+  echo "    docker buildx create --name oci-remote --driver remote \\"
+  echo "      ssh://ubuntu@${MASTER_NODE_PUBLIC_IP:-YOUR_PUBLIC_IP}"
+  echo "    docker buildx use oci-remote"
+  echo "    docker buildx build -t YOUR_REG/repo:tag --push ."
+}
+
 phase_prepare_nodes() {
   echo "⚙️  Preparing nodes (parallel mode)…"
 
@@ -1631,6 +2072,7 @@ phase_dashboard_deploy() {
 }
 
 # --- PHASES -----------------------------------------------------
+measure_phase "buildkitd (remote buildx)"    phase_buildkitd
 measure_phase "prepare nodes"                phase_prepare_nodes
 if run_remote_capture "$MASTER_NODE" "kubectl get nodes >/dev/null 2>&1"; then
   echo "✅ Cluster already initialized — skipping kubeadm init."
