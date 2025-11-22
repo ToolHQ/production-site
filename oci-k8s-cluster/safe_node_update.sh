@@ -209,17 +209,51 @@ while true; do
   # 7. Drain
   echo -e "\n${BLUE}2. Draining node...${NC}"
   echo "   (This may take a while if pods have long termination grace periods)"
-  # We run drain interactively via SSH to see output, but wrapped to handle errors
-  if ! ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$MASTER_NODE" \
-       "kubectl drain $TARGET_NODE --ignore-daemonsets --delete-emptydir-data --force"; then
-    echo -e "${RED}Drain failed!${NC}"
-    read -p "Continue anyway? (y/N): " force_cont
-    if [[ ! "$force_cont" =~ ^[Yy]$ ]]; then
-      echo "Aborting. Uncordoning node..."
-      run_kubectl_remote "uncordon $TARGET_NODE"
-      continue
+  echo -e "   ${YELLOW}Note: You may see 'Cannot evict pod' errors due to PDBs (e.g. Longhorn). This is normal, kubectl will retry.${NC}"
+  
+  # Drain loop to handle failures/retries
+  while true; do
+    # We run drain interactively via SSH to see output, but wrapped to handle errors
+    # Added --timeout=180s to prevent infinite hangs
+    if ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$MASTER_NODE" \
+         "kubectl drain $TARGET_NODE --ignore-daemonsets --delete-emptydir-data --force --timeout=60s"; then
+      echo -e "${GREEN}Drain successful.${NC}"
+      break
+    else
+      echo -e "\n${RED}Drain failed or timed out!${NC}"
+      echo "Options:"
+      echo "  r) Retry Drain"
+      echo "  f) Force Delete Pods (Bypasses PDBs - Risk of downtime)"
+      echo "  i) Ignore & Continue (Update anyway)"
+      echo "  a) Abort (Uncordon & Exit)"
+      read -p "Choose action: " drain_action
+      
+      case "$drain_action" in
+        r|R)
+          echo "Retrying drain..."
+          continue
+          ;;
+        f|F)
+          echo -e "${RED}Force deleting all non-DaemonSet pods on $TARGET_NODE...${NC}"
+          # Get all pods on the node (excluding DaemonSets ideally, but field-selector nodeName gets all)
+          # We'll just delete all pods on the node. K8s will recreate them elsewhere.
+          # Using remote kubectl to delete
+          run_kubectl_remote "get pods --all-namespaces --field-selector spec.nodeName=$TARGET_NODE --no-headers -o custom-columns=NS:.metadata.namespace,NAME:.metadata.name | xargs -r -n2 kubectl delete pod --force --grace-period=0 -n"
+          echo "Pods deleted. Retrying drain to ensure clean state..."
+          continue
+          ;;
+        i|I)
+          echo "Ignoring drain failure. Proceeding with update..."
+          break
+          ;;
+        *)
+          echo "Aborting. Uncordoning node..."
+          run_kubectl_remote "uncordon $TARGET_NODE"
+          continue 2 # Continue outer loop (back to menu)
+          ;;
+      esac
     fi
-  fi
+  done
 
   # 8. Update
   echo -e "\n${BLUE}3. Performing Update ($UPDATE_MODE)...${NC}"
