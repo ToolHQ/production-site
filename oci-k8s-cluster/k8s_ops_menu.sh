@@ -394,6 +394,7 @@ main_menu() {
 4. Select Pod
 5. Show All Pods
 6. Node Status
+7. Safe Node Update (OS/Kernel) 🔄
 0. Exit"
 
     local selected
@@ -424,6 +425,10 @@ main_menu() {
         clear
         run_kubectl "get nodes -o wide"
         read -p "Press Enter..."
+        ;;
+      7)
+        clear
+        ./safe_node_update.sh
         ;;
       0)
         echo "Bye!"
