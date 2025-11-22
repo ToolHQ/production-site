@@ -6,6 +6,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/common.sh"
+source "$(dirname "$0")/install_buildkit.sh"
 
 export DEBIAN_FRONTEND=noninteractive
 LOGFILE="../logs/setup_k8s_cluster_$(date +%Y%m%d_%H%M%S).log"
@@ -79,407 +80,44 @@ ensure_apiserver_open() {
   '
 }
 
-# === BuildKitd (remote buildx builder) ============================================
-###############################################################################
-# ROOTLESS BUILDKIT INSTALLATION MODULE (FINAL VERSION)
-# -----------------------------------------------------
-# This module installs BuildKit 0.25.2 in full rootless mode on ARM64/AMD64
-# OCI nodes. It is fully modular and uses NO heredocs inside SSH calls,
-# avoiding all escaping and interpolation bugs.
-#
-# STRUCTURE:
-#   0. Global variables
-#   1. Architecture detection
-#   2. Prerequisite installation
-#   3. Directory preparation
-#   4. RootlessKit installation
-#   5. BuildKit installation
-#   6. Write buildkitd.toml
-#   7. Write systemd unit
-#   8. Enable service
-#   9. Wait for socket
-#  10. install_buildkitd (orchestrator)
-#
-###############################################################################
-
-
-###############################################################################
-# 0. GLOBAL VARIABLES — required by all functions
-###############################################################################
-
-BUILDKIT_VERSION="${BUILDKIT_VERSION:-0.25.2}"
-ROOTLESSKIT_VERSION="${ROOTLESSKIT_VERSION:-2.3.5}"
-
-BK_USER="ubuntu"
-BK_USER_HOME="/home/${BK_USER}"
-
-###############################################################################
-# 1. DETECT ARCHITECTURE
-###############################################################################
-bk_detect_arch() {
-  set +u
-  local h="$1"
-  set -u
-
-  # Capture architecture from remote host
-  local raw rc
-  raw="$(run_remote_capture "$h" "uname -m" 2>&1)"
-  rc=$?
-
-  [[ $rc -ne 0 ]] && return $rc
-
-  # Extract last field of last line
-  local arch
-  arch="$(echo "$raw" | tail -n1 | awk '{print $NF}')"
-
-  case "$arch" in
-    aarch64) echo "arm64" ;;
-    x86_64)  echo "amd64" ;;
-    *)       return 1 ;;
-  esac
+# === Network Security (IPTables) ================================
+ensure_network_security() {
+  local h=$1
+  run_remote_stream "$h" 'bash -euxo pipefail <<'"'"'EOF_IPTABLES'"'"'
+    set -euo pipefail
+    
+    echo "🔥 Ensuring critical K8s ports are open..."
+    
+    # Required ports:
+    # 4240: Cilium agent
+    # 8472: VXLAN (UDP)
+    # 9500: Longhorn backend
+    # 9502: Longhorn webhook
+    # 10250: Kubelet API
+    
+    for port in 4240 8472 9500 9502 10250; do
+      if ! sudo iptables -C INPUT -p tcp --dport $port -j ACCEPT 2>/dev/null; then
+        echo "🔓 Allowing TCP/$port..."
+        sudo iptables -I INPUT -p tcp --dport $port -j ACCEPT
+      fi
+    done
+    
+    # VXLAN UDP
+    if ! sudo iptables -C INPUT -p udp --dport 8472 -j ACCEPT 2>/dev/null; then
+      echo "🔓 Allowing UDP/8472 (VXLAN)..."
+      sudo iptables -I INPUT -p udp --dport 8472 -j ACCEPT
+    fi
+    
+    # Check for blocking REJECT rules
+    if sudo iptables -L INPUT -n | grep -q "REJECT.*icmp-host-prohibited"; then
+      echo "⚠️  Found blocking REJECT rule. Moving it to end or deleting if problematic."
+      # For now, we warn. In a strict setup, we might delete it:
+      # sudo iptables -D INPUT -j REJECT --reject-with icmp-host-prohibited || true
+    fi
+    
+    echo "✅ Network security rules applied."
+EOF_IPTABLES'
 }
-###############################################################################
-# 2. INSTALL PREREQUISITES
-###############################################################################
-bk_install_prereqs() {
-  local h="$1"
-
-  echo "[$h] STEP 2: installing prerequisites..."
-
-  run_remote "$h" "
-    sudo apt-get update -qq &&
-    sudo apt-get install -y -qq \
-      uidmap slirp4netns fuse-overlayfs iptables dbus-user-session
-
-    USER_UID=\$(id -u ubuntu)
-    USER_GID=\$(id -g ubuntu)
-
-    echo \"✅ ubuntu UID=\$USER_UID GID=\$USER_GID\"
-
-    # Reset existing mappings for this UID
-    sudo sed -i \"/^\${USER_UID}:/d\" /etc/subuid
-    sudo sed -i \"/^\${USER_UID}:/d\" /etc/subgid
-
-    # Correct range mapping (always numeric UID)
-    echo \"\$USER_UID:100000:65536\" | sudo tee -a /etc/subuid >/dev/null
-    echo \"\$USER_UID:100000:65536\" | sudo tee -a /etc/subgid >/dev/null
-
-    echo \"✅ subuid/subgid mapped for UID \$USER_UID\"
-
-    # Ensure runtime dir exists for correct UID
-    sudo mkdir -p /run/user/\$USER_UID
-    sudo chown ubuntu:ubuntu /run/user/\$USER_UID
-    sudo chmod 700 /run/user/\$USER_UID
-    echo \"✅ /run/user/\$USER_UID ready\"
-
-    # Ensure BuildKit dirs belong to correct UID
-    sudo mkdir -p /home/ubuntu/.local/share/buildkit
-    sudo mkdir -p /home/ubuntu/.config/buildkit
-    sudo chown -R ubuntu:ubuntu /home/ubuntu/.local/share/buildkit
-    sudo chown -R ubuntu:ubuntu /home/ubuntu/.config/buildkit
-    echo \"✅ BuildKit directories fixed for UID \$USER_UID\"
-
-    sudo loginctl enable-linger ubuntu || true
-  "
-}
-###############################################################################
-# 3. PREPARE DIRECTORIES
-###############################################################################
-bk_prepare_dirs() {
-  local h="$1"
-
-  echo "[$h] STEP 3: preparing directories..."
-
-  local raw rc
-  raw="$(run_remote_capture "$h" "echo /run/user/\$(id -u $BK_USER)")"
-  rc=$?
-
-  [[ $rc -ne 0 ]] && return $rc
-
-  local BK_RUNTIME_DIR
-  BK_RUNTIME_DIR="$(echo "$raw" | tail -n1 | awk '{print $NF}')"
-
-  echo "[$h] → Using runtime dir: $BK_RUNTIME_DIR"
-
-  run_remote "$h" "
-    sudo mkdir -p $BK_RUNTIME_DIR &&
-    sudo chown $BK_USER:$BK_USER $BK_RUNTIME_DIR &&
-    sudo chmod 700 $BK_RUNTIME_DIR
-
-    mkdir -p \
-      $BK_USER_HOME/bin \
-      $BK_USER_HOME/.config/buildkit \
-      $BK_USER_HOME/.local/share/buildkit \
-      $BK_USER_HOME/.config/systemd/user
-
-    chown -R $BK_USER:$BK_USER $BK_USER_HOME/.local $BK_USER_HOME/.config $BK_USER_HOME/bin
-  "
-}
-###############################################################################
-# 4. INSTALL ROOTLESSKIT (static binary — ARM compatible)
-###############################################################################
-bk_install_rootlesskit() {
-  local h="$1"
-  local arch="$2"   # normalized: arm64 or amd64
-
-  echo "[$h] STEP 4: installing rootlesskit v$ROOTLESSKIT_VERSION..."
-
-  # Translate BuildKit arch → RootlessKit actual tarball arch
-  local rk_arch
-  case "$arch" in
-    arm64) rk_arch="aarch64" ;;
-    amd64) rk_arch="x86_64" ;;
-    *)
-      echo "[$h] ❌ Unsupported architecture for rootlesskit: $arch"
-      return 1
-      ;;
-  esac
-
-  local url="https://github.com/rootless-containers/rootlesskit/releases/download/v$ROOTLESSKIT_VERSION/rootlesskit-$rk_arch.tar.gz"
-
-  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
-set -euo pipefail
-
-echo '📦 Downloading rootlesskit v$ROOTLESSKIT_VERSION for $arch...'
-
-# Download + extract
-curl -fsSL -o /tmp/rootlesskit.tar.gz '$url'
-tar -xzf /tmp/rootlesskit.tar.gz -C /tmp
-
-# The archive contains two files:
-#   rootlesskit
-#   rootlesskit-dockerd
-sudo install -m 0755 /tmp/rootlesskit /usr/local/bin/rootlesskit
-
-# Install rootlesskit-dockerd only if it exists (x86_64 only)
-if [ -f /tmp/rootlesskit-dockerd ]; then
-  echo '✅ Installing rootlesskit-dockerd'
-  sudo install -m 0755 /tmp/rootlesskit-dockerd /usr/local/bin/rootlesskit-dockerd
-else
-  echo 'ℹ️ rootlesskit-dockerd not included for this architecture — skipping'
-fi
-
-rm -f /tmp/rootlesskit /tmp/rootlesskit-dockerd 2>/dev/null || true
-rm -f /tmp/rootlesskit.tar.gz
-
-echo '✅ rootlesskit installed at /usr/local/bin/rootlesskit'
-echo '✅ version:'
-rootlesskit --version
-
-EOF"
-}
-###############################################################################
-# 5. INSTALL BUILDKIT BINARIES
-###############################################################################
-bk_install_buildkit() {
-  local h="$1"
-  local bk_arch="$2"
-
-  echo "[$h] STEP 5: installing BuildKit v${BUILDKIT_VERSION} ($bk_arch)..."
-
-  local url="https://github.com/moby/buildkit/releases/download/v${BUILDKIT_VERSION}/buildkit-v${BUILDKIT_VERSION}.linux-${bk_arch}.tar.gz"
-
-  run_remote "$h" "
-    rm -f /tmp/buildkit.tar.gz &&
-    curl -fsSL -o /tmp/buildkit.tar.gz '$url'
-  " || return 1
-
-  run_remote "$h" "
-    tar -xzf /tmp/buildkit.tar.gz -C $BK_USER_HOME/bin --strip-components=1 &&
-    chmod +x $BK_USER_HOME/bin/buildkitd &&
-    chmod +x $BK_USER_HOME/bin/buildctl
-  "
-}
-###############################################################################
-# 6. WRITE CONFIG — buildkitd.toml
-###############################################################################
-bk_write_config() {
-  local h="$1"
-  echo "[$h] STEP 6: writing buildkitd.toml..."
-  run_remote "$h" 'cat > /home/ubuntu/.config/buildkit/buildkitd.toml <<'\''EOF'\''
-debug = false
-
-[worker.oci]
-  enabled = true
-  snapshotter = "native"
-
-[worker.oci.garbage-collection]
-  enabled = true
-  keepstorage = "10GB"
-
-[worker.containerd]
-  enabled = false
-EOF'
-}
-###############################################################################
-# 7. WRITE SYSTEMD UNIT
-###############################################################################
-bk_write_rootless_launcher() {
-  local h="$1"
-  echo "[$h] STEP 7: generating rootless BuildKit launcher..."
-  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
-set -euo pipefail
-cat > /home/ubuntu/start-buildkitd.sh << 'LAUNCHER'
-#!/bin/bash
-set -euo pipefail
-
-UID=\$(id -u ubuntu)
-export XDG_RUNTIME_DIR=/run/user/\$UID
-mkdir -p "\$XDG_RUNTIME_DIR" "\$XDG_RUNTIME_DIR/buildkit"
-chmod 700 "\$XDG_RUNTIME_DIR" "\$XDG_RUNTIME_DIR/buildkit"
-chown -R ubuntu:ubuntu "\$XDG_RUNTIME_DIR"
-
-exec /usr/local/bin/rootlesskit \
-  --net=slirp4netns \
-  --disable-host-loopback \
-  --propagation=rslave \
-  --copy-up=/etc \
-  --copy-up=/run \
-  /home/ubuntu/bin/buildkitd \
-    --root /home/ubuntu/.local/share/buildkit \
-    --addr unix:///home/ubuntu/.local/share/buildkit/buildkitd.sock \
-    --oci-worker-no-process-sandbox \
-    --config /home/ubuntu/.config/buildkit/buildkitd.toml
-LAUNCHER
-sudo chown ubuntu:ubuntu /home/ubuntu/start-buildkitd.sh
-sudo chmod 0755 /home/ubuntu/start-buildkitd.sh
-EOF"
-}
-###############################################################################
-# 8. ENABLE SERVICE
-###############################################################################
-bk_start_rootless_buildkit() {
-  local h="$1"
-  echo "[$h] STEP 8: starting rootless BuildKit daemon..."
-  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
-set -euo pipefail
-UID=\$(id -u ubuntu)
-export XDG_RUNTIME_DIR=/run/user/\$UID
-sudo mkdir -p "\$XDG_RUNTIME_DIR"; sudo chown ubuntu:ubuntu "\$XDG_RUNTIME_DIR"; sudo chmod 700 "\$XDG_RUNTIME_DIR"
-
-# background launch as ubuntu (no systemd dependency)
-sudo -u ubuntu XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" \
-  nohup /home/ubuntu/start-buildkitd.sh > /home/ubuntu/buildkitd.log 2>&1 &
-
-echo '✅ BuildKit launched (nohup)'; sleep 1
-EOF"
-}
-###############################################################################
-# 9. WAIT FOR SOCKET
-###############################################################################
-bk_wait_socket() {
-  local h="$1"
-  echo "[$h] STEP 9: waiting for BuildKit socket..."
-  run_remote_stream "$h" "bash -euxo pipefail <<'EOF'
-set -euo pipefail
-SOCK=/home/ubuntu/.local/share/buildkit/buildkitd.sock
-for i in {1..15}; do
-  [ -S "\$SOCK" ] && { echo '✅ BuildKit socket detected'; exit 0; }
-  echo '⏳ Waiting for BuildKit socket...'; sleep 2
-done
-echo '❌ BuildKit failed to create socket'; exit 1
-EOF"
-}
-###############################################################################
-# 10. ORCHESTRATOR — install_buildkitd
-###############################################################################
-install_buildkitd() {
-  set +u
-  local h="${1:-$MASTER_NODE}"
-  set -u
-
-  echo "[$h] ==============================================="
-  echo "[$h] Installing BuildKit (rootless mode)"
-  echo "[$h] ==============================================="
-
-  # -----------------------------------------------------
-  # STEP 1 — ARCH DETECTION
-  # -----------------------------------------------------
-  echo "[$h] → Detecting architecture..."
-
-  local ARCH
-  ARCH="$(bk_detect_arch "$h")" || {
-    echo "[$h] ❌ Failed to detect architecture"
-    return 1
-  }
-
-  echo "[$h] ✅ Architecture: $ARCH"
-
-  # -----------------------------------------------------
-  # STEP 2 — PREREQUISITES
-  # -----------------------------------------------------
-  echo "[$h] → Installing prerequisites..."
-  bk_install_prereqs "$h" || {
-    echo "[$h] ❌ Failed installing prerequisites"
-    return 1
-  }
-
-  # -----------------------------------------------------
-  # STEP 3 — DIRECTORIES
-  # -----------------------------------------------------
-  echo "[$h] → Preparing directories..."
-  bk_prepare_dirs "$h" || {
-    echo "[$h] ❌ Failed creating directories"
-    return 1
-  }
-
-  # -----------------------------------------------------
-  # STEP 4 — ROOTLESSKIT
-  # -----------------------------------------------------
-  echo "[$h] → Installing rootlesskit..."
-  bk_install_rootlesskit "$h" "$ARCH" || {
-    echo "[$h] ❌ Failed installing rootlesskit"
-    return 1
-  }
-
-  # -----------------------------------------------------
-  # STEP 5 — BUILDKIT BINARIES
-  # -----------------------------------------------------
-  echo "[$h] → Installing BuildKit binaries..."
-  bk_install_buildkit "$h" "$ARCH" || {
-    echo "[$h] ❌ Failed installing BuildKit binaries"
-    return 1
-  }
-
-  # -----------------------------------------------------
-  # STEP 6 — CONFIG
-  # -----------------------------------------------------
-  echo "[$h] → Writing BuildKit config..."
-  bk_write_config "$h" || {
-    echo "[$h] ❌ Failed writing BuildKit config"
-    return 1
-  }
-
-  # -----------------------------------------------------
-  # STEP 7 — SYSTEMD SERVICE
-  # -----------------------------------------------------
-  echo "[$h] → Installing systemd unit..."
-  bk_write_rootless_launcher "$h" || {
-    echo "[$h] ❌ Failed writing systemd unit"
-    return 1
-  }
-
-  # -----------------------------------------------------
-  # STEP 8 — ENABLE + START
-  # -----------------------------------------------------
-  echo "[$h] → Enabling BuildKit service..."
-  bk_start_rootless_buildkit "$h" || {
-    echo "[$h] ❌ Failed enabling BuildKit service"
-    return 1
-  }
-
-  # -----------------------------------------------------
-  # STEP 9 — WAIT FOR SOCKET
-  # -----------------------------------------------------
-  echo "[$h] → Waiting for BuildKit socket..."
-  bk_wait_socket "$h" || {
-    echo "[$h] ❌ BuildKit socket did not appear"
-    return 1
-  }
-
-  echo "[$h] ✅ BuildKit installed successfully!"
-}
-
 
 # === Node prep ==================================================
 update_node() {
@@ -537,14 +175,33 @@ install_containerd() {
 install_k8s_pkgs() {
   local h=$1
   run_remote "$h" "
+    set -euo pipefail
+    export DEBIAN_FRONTEND=noninteractive
+
     sudo install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION%.*}/deb/Release.key \
       | sudo gpg --dearmor --yes --batch -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
     echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION%.*}/deb/ /' \
       | sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null
-    sudo apt-get update -y
-    sudo apt-get install -y kubelet=${K8S_VERSION}-1.1 kubeadm=${K8S_VERSION}-1.1 kubectl=${K8S_VERSION}-1.1
-    sudo systemctl enable kubelet
+
+    # Preferir pkgs.k8s.io e a versão exata para evitar downgrade/upgrade inesperado
+    sudo tee /etc/apt/preferences.d/kubernetes.pref >/dev/null <<PREF
+Package: kubelet kubeadm kubectl
+Pin: version ${K8S_VERSION}-1.1
+Pin-Priority: 1001
+Package: kubelet kubeadm kubectl
+Pin: origin pkgs.k8s.io
+Pin-Priority: 1001
+PREF
+    sudo apt-mark unhold kubelet kubeadm kubectl >/dev/null 2>&1 || true
+    sudo apt-get update -qq
+    sudo apt-get install -y \
+      -o Dpkg::Options::=\"--force-confdef\" \
+      -o Dpkg::Options::=\"--force-confold\" \
+      kubelet=${K8S_VERSION}-1.1 kubeadm=${K8S_VERSION}-1.1 kubectl=${K8S_VERSION}-1.1
+    sudo apt-mark hold kubelet kubeadm kubectl >/dev/null 2>&1 || true
+
+    sudo systemctl enable --now kubelet
   "
 }
 
@@ -836,6 +493,25 @@ cilium_install_master() {
     else
       echo \"🌐 Installing Cilium in VXLAN mode (default)\"
 
+      # 🧹 Check and force-remove stuck cilium-secrets namespace
+      if kubectl get ns cilium-secrets 2>/dev/null | grep -q Terminating; then
+        echo "⚠️  Namespace 'cilium-secrets' is stuck in Terminating state — cleaning up..."
+        tmpfile="/tmp/cilium-secrets.json"
+        kubectl get ns cilium-secrets -o json > "\$tmpfile" || true
+        if grep -q '"finalizers"' "\$tmpfile"; then
+          # Remove finalizers safely
+          jq 'del(.spec.finalizers)' "\$tmpfile" > "\${tmpfile}.clean" 2>/dev/null || \
+            sed '/"finalizers"/,/]/d' "\$tmpfile" > "\${tmpfile}.clean"
+          kubectl replace --raw "/api/v1/namespaces/cilium-secrets/finalize" -f "\${tmpfile}.clean" >/dev/null 2>&1 || true
+          echo "✅ Forced deletion of namespace 'cilium-secrets'."
+        fi
+        # Wait a few seconds for cleanup
+        for i in {1..10}; do
+          kubectl get ns cilium-secrets >/dev/null 2>&1 || break
+          sleep 2
+        done
+      fi
+
       DEF_IF=\$(ip route show default | awk '{print \$5; exit}')
       : \"\${DEF_IF:=enp0s6}\"
       IF_MTU=\$(ip link show \"\$DEF_IF\" | awk '/mtu/ {print \$5}')
@@ -857,6 +533,22 @@ cilium_install_master() {
           --set mtu=\$DP_MTU
       else
         echo \"🚀 Installing Cilium afresh...\"
+
+        # 🧹 Ensure previous Cilium release is fully removed if stuck
+        if helm list -n kube-system 2>/dev/null | grep -q cilium; then
+          echo "⚠️  Existing Cilium Helm release found — forcing uninstall..."
+          cilium uninstall --wait=false --force || true
+          helm uninstall cilium -n kube-system --wait || true
+          # Clean up any leftover namespaces
+          kubectl delete ns cilium-secrets cilium --ignore-not-found --grace-period=0 --force >/dev/null 2>&1 || true
+          # Wait until namespace cleanup
+          for i in {1..15}; do
+            kubectl get ns cilium >/dev/null 2>&1 || break
+            sleep 2
+          done
+          echo "✅ Old Cilium installation cleaned up."
+        fi
+
         # NOTE: make install non-blocking; we will wait below with kubectl.
         cilium install --version v${CILIUM_VERSION} \
           --wait=false \
@@ -1404,7 +1096,7 @@ install_longhorn() {
       # ✅ Make mount propagation persistent across reboots
       echo "🔧 Making mount propagation persistent..."
       if ! grep -q "make-rshared" /etc/rc.local 2>/dev/null; then
-        # Create rc.local if it doesn'"'"'t exist
+        # Create rc.local if it does not exist
         if [ ! -f /etc/rc.local ]; then
           echo "#!/bin/bash" | sudo tee /etc/rc.local >/dev/null
           sudo chmod +x /etc/rc.local
@@ -1465,39 +1157,46 @@ EOF
 
 # === Storage Provisioner Detection ===========================
 detect_installed_provisioner() {
-  local detected=""
-  
-  run_remote_capture "$MASTER_NODE" "kubectl -n longhorn-system get deploy longhorn-driver-deployer -o name 2>/dev/null || true"
-  if [[ -n "$RUN_REMOTE_CAPTURE_RESULT" ]] && [[ "$RUN_REMOTE_CAPTURE_RESULT" =~ deployment ]]; then
-    detected="longhorn"
+  local provisioners=()
+
+  local cmd1="kubectl -n longhorn-system get deploy longhorn-driver-deployer -o name 2>/dev/null"
+  if run_remote_raw "$MASTER_NODE" "$cmd1" | grep -q "longhorn-driver-deployer"; then
+    provisioners+=("longhorn")
   fi
-  
-  run_remote_capture "$MASTER_NODE" "kubectl -n local-path-storage get deploy local-path-provisioner -o name 2>/dev/null || true"
-  if [[ -n "$RUN_REMOTE_CAPTURE_RESULT" ]] && [[ "$RUN_REMOTE_CAPTURE_RESULT" =~ deployment ]]; then
-    if [[ -n "$detected" ]]; then
-      detected="${detected},local-path"
-    else
-      detected="local-path"
-    fi
+
+  local cmd2="kubectl -n local-path-storage get deploy local-path-provisioner -o name 2>/dev/null"
+  if run_remote_raw "$MASTER_NODE" "$cmd2" | grep -q "local-path-provisioner"; then
+    provisioners+=("local-path")
   fi
-  
-  echo "$detected"
+
+  echo "${provisioners[@]}"
 }
 
 # === Get version of installed provisioner =====================
 get_provisioner_version() {
   local provisioner="$1"
-  local version=""
-  
-  if [[ "$provisioner" == "longhorn" ]]; then
-    run_remote_capture "$MASTER_NODE" "kubectl -n longhorn-system get deploy longhorn-driver-deployer -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+' || true"
-    version="$RUN_REMOTE_CAPTURE_RESULT"
-  elif [[ "$provisioner" == "local-path" ]]; then
-    run_remote_capture "$MASTER_NODE" "kubectl -n local-path-storage get deploy local-path-provisioner -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+' || true"
-    version="$RUN_REMOTE_CAPTURE_RESULT"
-  fi
-  
-  echo "$version" | tr -d '\r\n '
+  local cmd=""
+
+  case "$provisioner" in
+    longhorn)
+      cmd="kubectl -n longhorn-system get deploy longhorn-driver-deployer \
+           -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null"
+      ;;
+    local-path)
+      cmd="kubectl -n local-path-storage get deploy local-path-provisioner \
+           -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null"
+      ;;
+    *)
+      echo ""
+      return
+      ;;
+  esac
+
+  local image
+  image=$(run_remote_raw "$MASTER_NODE" "$cmd")
+
+  # extrai versão no formato X.Y.Z (com ou sem v)
+  echo "$image" | grep -oP ':[vV]?\d+\.\d+\.\d+' | sed 's/^://; s/^v//; s/^V//'
 }
 
 # === List PVCs using a specific storage class =================
@@ -1586,43 +1285,97 @@ verify_provisioner_health() {
   echo "🏥 Verifying health of $provisioner..."
   
   if [[ "$provisioner" == "longhorn" ]]; then
-    run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail <<'VERIFY_EOF'
+
+run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail <<'VERIFY_EOF'
 # Check Longhorn deployments
-kubectl -n longhorn-system get deploy -o wide
+kubectl -n longhorn-system get deploy -o wide || true
 echo \"---\"
 
 # Check Longhorn daemonsets
-kubectl -n longhorn-system get ds -o wide
+kubectl -n longhorn-system get ds -o wide || true
 echo \"---\"
 
-# Verify all pods are running
-not_running=\$(kubectl -n longhorn-system get pods --field-selector=status.phase!=Running,status.phase!=Succeeded -o name 2>/dev/null | wc -l)
+echo \"🔍 Checking Longhorn pod health (CrashLoopBackOff/Error/etc)...\"
+
+# 1) Check for pods in bad states by STATUS column
+unhealthy=\$(kubectl -n longhorn-system get pods --no-headers 2>/dev/null \
+  | grep -E \"CrashLoopBackOff|Error|ImagePullBackOff|Unknown|Init:Error|Init:CrashLoopBackOff\" \
+  | wc -l || true)
+
+if [[ \$unhealthy -gt 0 ]]; then
+  echo \"❌ Found \$unhealthy unhealthy Longhorn pod(s) (CrashLoopBackOff/Error/etc)\"
+  echo \"📋 Pods with problematic status:\"
+  kubectl -n longhorn-system get pods --no-headers 2>/dev/null \
+    | grep -E \"CrashLoopBackOff|Error|ImagePullBackOff|Unknown|Init:Error|Init:CrashLoopBackOff\" || true
+
+  echo \"🔧 Attempting Longhorn remediation...\"
+
+  echo \"🔄 Restarting Longhorn deployments...\"
+  kubectl -n longhorn-system rollout restart deploy longhorn-driver-deployer || true
+  kubectl -n longhorn-system rollout restart deploy longhorn-manager || true
+  kubectl -n longhorn-system rollout restart deploy longhorn-ui || true
+
+  echo \"🔄 Restarting Longhorn CSI daemonset...\"
+  kubectl -n longhorn-system rollout restart ds longhorn-csi-plugin || true
+
+  echo \"🔄 Restarting Engine Image DaemonSet...\"
+  kubectl -n longhorn-system rollout restart ds engine-image-ei-* || true
+
+  echo \"⏳ Waiting 20 seconds for pods to restart...\"
+  sleep 20
+
+  echo \"🔍 Rechecking health after remediation...\"
+
+  unhealthy2=\$(kubectl -n longhorn-system get pods --no-headers 2>/dev/null \
+    | grep -E \"CrashLoopBackOff|Error|ImagePullBackOff|Unknown|Init:Error|Init:CrashLoopBackOff\" \
+    | wc -l || true)
+
+  if [[ \$unhealthy2 -gt 0 ]]; then
+    echo \"🔴 Longhorn still unhealthy after remediation — dumping diagnostics...\"
+    echo \"--- PODS ---\"
+    kubectl -n longhorn-system get pods -o wide || true
+    echo \"--- DESCRIBE ---\"
+    kubectl -n longhorn-system describe pods || true
+    echo \"--- LOGS (manager) ---\"
+    kubectl -n longhorn-system logs -l app=longhorn-manager --tail=200 || true
+    exit 1
+  fi
+
+  echo \"🟢 Longhorn recovered successfully.\"
+  exit 0
+fi
+
+# 2) Fallback: also ensure all pods are in Running/Succeeded
+not_running=\$(kubectl -n longhorn-system get pods --field-selector=status.phase!=Running,status.phase!=Succeeded -o name 2>/dev/null | wc -l || true)
 if [[ \$not_running -gt 0 ]]; then
-  echo \"❌ Found \$not_running pods not in Running state\"
-  kubectl -n longhorn-system get pods --field-selector=status.phase!=Running,status.phase!=Succeeded
+  echo \"❌ Found \$not_running pods not in Running/Succeeded phase\"
+  kubectl -n longhorn-system get pods --field-selector=status.phase!=Running,status.phase!=Succeeded || true
   exit 1
 fi
 
 echo \"✅ All Longhorn pods are healthy\"
 VERIFY_EOF
 "
+
   elif [[ "$provisioner" == "local-path" ]]; then
-    run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail <<'VERIFY_EOF'
+
+run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail <<'VERIFY_EOF'
 # Check local-path-provisioner deployment
-kubectl -n local-path-storage get deploy -o wide
+kubectl -n local-path-storage get deploy -o wide || true
 echo \"---\"
 
-# Verify pods are running
-not_running=\$(kubectl -n local-path-storage get pods --field-selector=status.phase!=Running -o name 2>/dev/null | wc -l)
+not_running=\$(kubectl -n local-path-storage get pods --field-selector=status.phase!=Running -o name 2>/dev/null | wc -l || true)
+
 if [[ \$not_running -gt 0 ]]; then
   echo \"❌ Found \$not_running pods not in Running state\"
-  kubectl -n local-path-storage get pods --field-selector=status.phase!=Running
+  kubectl -n local-path-storage get pods --field-selector=status.phase!=Running || true
   exit 1
 fi
 
 echo \"✅ Local Path Provisioner is healthy\"
 VERIFY_EOF
 "
+
   fi
 }
 
@@ -1874,6 +1627,7 @@ prepare_node() {
   cleanup_lxd "$h"
   tune_sysctl "$h"
   ensure_kubelet_open "$h"
+  ensure_network_security "$h"
   install_containerd "$h"
   run_remote_capture "$h" "kubelet --version 2>/dev/null || echo none"
   remote_ver="$RUN_REMOTE_CAPTURE_RESULT"
@@ -1947,8 +1701,8 @@ phase_buildkitd() {
   local failed=()
 
   ## Temp: Run only master node and exit 0
-  install_buildkitd "$MASTER_NODE" && echo "[$MASTER_NODE] ✅ done" || echo "[$MASTER_NODE] ❌ failed"
-  return 0
+  # install_buildkitd "$MASTER_NODE" && echo "[$MASTER_NODE] ✅ done" || echo "[$MASTER_NODE] ❌ failed"
+  # return 0
 
   for n in "${NODES[@]}"; do
     (
@@ -2072,21 +1826,23 @@ phase_dashboard_deploy() {
 }
 
 # --- PHASES -----------------------------------------------------
-measure_phase "buildkitd (remote buildx)"    phase_buildkitd
-measure_phase "prepare nodes"                phase_prepare_nodes
-if run_remote_capture "$MASTER_NODE" "kubectl get nodes >/dev/null 2>&1"; then
-  echo "✅ Cluster already initialized — skipping kubeadm init."
-else
-  measure_phase "init master"                  init_master
-fi
-measure_phase "ensure apiserver open"        ensure_apiserver_open "$MASTER_NODE"
-measure_phase "prejoin matrix"               prejoin_matrix_to_master
-measure_phase "join workers"                 join_workers
-measure_phase "postjoin matrix"              postjoin_matrix_to_master
-measure_phase "hold kube packages"           phase_hold_kube_packages
-measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
+# measure_phase "buildkitd (remote buildx)"    phase_buildkitd
+# measure_phase "prepare nodes"                phase_prepare_nodes
+# if run_remote_capture "$MASTER_NODE" "kubectl get nodes >/dev/null 2>&1"; then
+#   echo "✅ Cluster already initialized — skipping kubeadm init."
+# else
+#   measure_phase "init master"                  init_master
+# fi
+# measure_phase "ensure apiserver open"        ensure_apiserver_open "$MASTER_NODE"
+# measure_phase "prejoin matrix"               prejoin_matrix_to_master
+# measure_phase "join workers"                 join_workers
+# measure_phase "postjoin matrix"              postjoin_matrix_to_master
+# measure_phase "hold kube packages"           phase_hold_kube_packages
+# measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
 measure_phase "install storage provisioner (${STORAGE_PROVISIONER})" install_storage_provisioner
-measure_phase "ingress controller"          phase_ingress_controller
+printf "\n🏁 Setup complete.\n"
+exit 0
+# measure_phase "ingress controller"          phase_ingress_controller
 
 # only if DEBUG=1
 if [ "${DEBUG:-0}" = "1" ]; then
