@@ -1695,37 +1695,20 @@ print_phase_timings() {
 
 # --- Phase wrappers (group multi-steps without bash -c) --------
 phase_buildkitd() {
-  echo "🧱 Installing BuildKit daemon on all nodes (parallel mode)…"
-
-  local pids=()
-  local failed=()
-
-  ## Temp: Run only master node and exit 0
-  # install_buildkitd "$MASTER_NODE" && echo "[$MASTER_NODE] ✅ done" || echo "[$MASTER_NODE] ❌ failed"
-  # return 0
+  echo "🧱 Installing BuildKit daemon on all nodes (sequential mode)…"
 
   for n in "${NODES[@]}"; do
-    (
-      echo "——— $n ———"
-      install_buildkitd "$n" \
-        && echo "[$n] ✅ done" \
-        || echo "[$n] ❌ failed"
-    ) &> >(sed "s/^/[$n] /") &   # background each, prefix logs
-    pids+=($!)
-  done
-
-  for i in "${!pids[@]}"; do
-    if ! wait "${pids[$i]}"; then
-      failed+=("${NODES[$i]}")
+    echo "——— $n ———"
+    if install_buildkitd "$n"; then
+      echo "[$n] ✅ done"
+    else
+      echo "[$n] ❌ failed"
+      echo "❌ BuildKit setup failed on $n"
+      return 1
     fi
   done
 
-  if [ ${#failed[@]} -gt 0 ]; then
-    echo "❌ BuildKit setup failed on: ${failed[*]}"
-    return 1
-  fi
-
-  echo "✅ BuildKit daemon installed on all nodes (parallel)."
+  echo "✅ BuildKit daemon installed on all nodes (sequential)."
   echo "ℹ️  To use from your laptop/WSL with buildx:"
   echo "    docker buildx create --name oci-remote --driver remote \\"
   echo "      ssh://ubuntu@${MASTER_NODE_PUBLIC_IP:-YOUR_PUBLIC_IP}"
@@ -1734,36 +1717,20 @@ phase_buildkitd() {
 }
 
 phase_prepare_nodes() {
-  echo "⚙️  Preparing nodes (parallel mode)…"
-
-  local pids=()
-  local failed=()
+  echo "⚙️  Preparing nodes (sequential mode)…"
 
   for n in "${NODES[@]}"; do
-    (
-      echo "——— $n ———"
-      prepare_node "$n" \
-        && echo "[$n] ✅ done" \
-        || echo "[$n] ❌ failed"
-    ) &> >(sed "s/^/[$n] /") &   # background each, prefix logs
-    pids+=($!)
-  done
-
-  # Wait for all and collect status
-  for i in "${!pids[@]}"; do
-    pid=${pids[$i]}
-    n=${NODES[$i]}
-    if ! wait "$pid"; then
-      failed+=("$n")
+    echo "——— $n ———"
+    if prepare_node "$n"; then
+      echo "[$n] ✅ done"
+    else
+      echo "[$n] ❌ failed"
+      echo "❌ Node preparation failed on $n"
+      return 1
     fi
   done
 
-  if [ ${#failed[@]} -gt 0 ]; then
-    echo "❌ Some node preparations failed: ${failed[*]}"
-    return 1
-  fi
-
-  echo "✅ Prep + deep cleanup done (parallel)."
+  echo "✅ Prep + deep cleanup done (sequential)."
 }
 
 phase_hold_kube_packages() {
@@ -1825,24 +1792,57 @@ phase_dashboard_deploy() {
   print_kubedash_tunnel_hint
 }
 
+# === Reachability Check ======================================================
+check_reachability() {
+  echo "📡 Checking connectivity to all nodes..."
+  local failed_nodes=()
+  
+  for node in "${NODES[@]}"; do
+    if ! ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q "$node" exit; then
+      echo "❌ Node $node is UNREACHABLE via SSH."
+      failed_nodes+=("$node")
+    else
+      echo "✅ Node $node is reachable."
+    fi
+  done
+
+  if [ ${#failed_nodes[@]} -gt 0 ]; then
+    echo "⚠️  The following nodes are unreachable: ${failed_nodes[*]}"
+    echo "   This script requires SSH access to all nodes."
+    if [[ "${failed_nodes[*]}" == *"$MASTER_NODE"* ]]; then
+      echo "🚨 MASTER NODE IS UNREACHABLE. Cannot proceed."
+      exit 1
+    fi
+    
+    echo "❓ Do you want to proceed anyway? (The script might fail on these nodes)"
+    read -p "   (y/N): " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+      echo "🚫 Aborting."
+      exit 1
+    fi
+  fi
+}
+
 # --- PHASES -----------------------------------------------------
-# measure_phase "buildkitd (remote buildx)"    phase_buildkitd
-# measure_phase "prepare nodes"                phase_prepare_nodes
-# if run_remote_capture "$MASTER_NODE" "kubectl get nodes >/dev/null 2>&1"; then
-#   echo "✅ Cluster already initialized — skipping kubeadm init."
-# else
-#   measure_phase "init master"                  init_master
-# fi
-# measure_phase "ensure apiserver open"        ensure_apiserver_open "$MASTER_NODE"
-# measure_phase "prejoin matrix"               prejoin_matrix_to_master
-# measure_phase "join workers"                 join_workers
-# measure_phase "postjoin matrix"              postjoin_matrix_to_master
-# measure_phase "hold kube packages"           phase_hold_kube_packages
-# measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
+measure_phase "check reachability"           check_reachability
+measure_phase "buildkitd (remote buildx)"    phase_buildkitd
+measure_phase "prepare nodes"                phase_prepare_nodes
+
+# Fix: Check for admin.conf file instead of API availability
+if run_remote_capture "$MASTER_NODE" "[ -f /etc/kubernetes/admin.conf ]"; then
+  echo "✅ Cluster already initialized (admin.conf found) — skipping kubeadm init."
+else
+  measure_phase "init master"                  init_master
+fi
+
+measure_phase "ensure apiserver open"        ensure_apiserver_open "$MASTER_NODE"
+measure_phase "prejoin matrix"               prejoin_matrix_to_master
+measure_phase "join workers"                 join_workers
+measure_phase "postjoin matrix"              postjoin_matrix_to_master
+measure_phase "hold kube packages"           phase_hold_kube_packages
+measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
 measure_phase "install storage provisioner (${STORAGE_PROVISIONER})" install_storage_provisioner
-printf "\n🏁 Setup complete.\n"
-exit 0
-# measure_phase "ingress controller"          phase_ingress_controller
+measure_phase "ingress controller"          phase_ingress_controller
 
 # only if DEBUG=1
 if [ "${DEBUG:-0}" = "1" ]; then
