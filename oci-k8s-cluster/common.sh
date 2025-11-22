@@ -23,7 +23,7 @@ POD_CIDR="192.168.0.0/16"   # Pod CIDR; Cilium runs in VXLAN overlay
 SERVICE_CIDR="10.96.0.0/12" # kubeadm default
 CILIUM_VERSION="1.18.3"     # exact
 CILIUM_CLI_VERSION="0.18.7"
-LONGHORN_VERSION="1.10.0"   # Longhorn stable version
+LONGHORN_VERSION="1.10.1"   # Longhorn stable version
 STORAGE_PROVISIONER="${STORAGE_PROVISIONER:-longhorn}" # Default: longhorn, alternative: local-path
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/oci-ssh-key-2025-06-19.key}"
 RUN_REMOTE_CAPTURE_RESULT=""
@@ -37,6 +37,7 @@ log_node() {
   ts=$(date '+%Y-%m-%d %H:%M:%S')
   printf "\033[90m[%s]\033[0m \033[1;36m[%s]\033[0m %s\n" "$ts" "$node" "$*"
 }
+
 run_remote() {
   local node=$1; shift
   log_node "$node" "→ $*"
@@ -78,6 +79,19 @@ run_remote_capture() {
   # Return result via global or echo
   RUN_REMOTE_CAPTURE_RESULT="$output"   # for later access
   return $status
+}
+
+run_remote_raw() {
+  local node="$1"
+  shift
+
+  log_node "$node" "$@" >&2
+
+  ssh -o BatchMode=yes \
+      -o ConnectTimeout=20 \
+      -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null \
+      -n -T "$node" "$@"
 }
 
 scp_to_remote() {
