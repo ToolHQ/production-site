@@ -41,57 +41,124 @@ log_node() {
 run_remote() {
   local node=$1; shift
   log_node "$node" "→ $*"
-  ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-      -n -T "$node" "$@" 2>&1 | sed "s/^/[$node] /"
+  local retries=3
+  local count=0
+  local delay=5
+
+  while [ $count -lt $retries ]; do
+    if ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -n -T "$node" "$@" 2>&1 | sed "s/^/[$node] /"; then
+      return 0
+    else
+      local exit_code=$?
+      # If exit code is 255 (SSH error), retry. Otherwise (command error), fail immediately.
+      if [ $exit_code -eq 255 ]; then
+        ((count++))
+        echo "[$node] ⚠️  SSH connection failed (attempt $count/$retries). Retrying in ${delay}s..." >&2
+        sleep $delay
+      else
+        return $exit_code
+      fi
+    fi
+  done
+  echo "[$node] ❌ SSH failed after $retries attempts." >&2
+  return 255
 }
+
 run_remote_stream() {
   local node=$1; shift
   log_node "$node" "▶ (streamed) $*"
+  local retries=3
+  local count=0
+  local delay=5
 
   # Detect if stdin is connected to a terminal or a pipe/heredoc
+  local use_tty="-T"
   if [ -t 0 ]; then
-    # stdin is a terminal → no heredoc/pipeline → safe to use -n
-    ssh -n -T -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-        "$node" "$@" 2>&1 | while IFS= read -r line; do echo "[$node] $line"; done
-  else
-    # stdin is piped (heredoc or pipe) → must read from stdin
-    ssh -T -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-        "$node" "$@" 2>&1 | while IFS= read -r line; do echo "[$node] $line"; done
+    use_tty="-n -T"
   fi
+
+  while [ $count -lt $retries ]; do
+    if ssh $use_tty -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        "$node" "$@" 2>&1 | while IFS= read -r line; do echo "[$node] $line"; done; then
+      return 0
+    else
+       local exit_code=${PIPESTATUS[0]}
+       if [ $exit_code -eq 255 ]; then
+        ((count++))
+        echo "[$node] ⚠️  SSH connection failed (attempt $count/$retries). Retrying in ${delay}s..." >&2
+        sleep $delay
+      else
+        return $exit_code
+      fi
+    fi
+  done
+  echo "[$node] ❌ SSH failed after $retries attempts." >&2
+  return 255
 }
+
 run_remote_capture() {
   local node=$1; shift
   local cmd="$*"
-
   log_node "$node" "→ $cmd"
 
-  # Capture both output and exit code
+  local retries=3
+  local count=0
+  local delay=5
   local output
-  output=$(ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-              -n -T "$node" "$cmd" 2>&1)
-  local status=$?
+  local status
 
-  # Prefix each output line for readability
-  if [[ -n "$output" ]]; then
-    echo "$output" | sed "s/^/[$node] /"
-  fi
+  while [ $count -lt $retries ]; do
+    output=$(ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                -n -T "$node" "$cmd" 2>&1)
+    status=$?
 
-  # Return result via global or echo
-  RUN_REMOTE_CAPTURE_RESULT="$output"   # for later access
-  return $status
+    if [ $status -eq 255 ]; then
+       ((count++))
+       echo "[$node] ⚠️  SSH connection failed (attempt $count/$retries). Retrying in ${delay}s..." >&2
+       sleep $delay
+    else
+       # Success or command error - process output and return
+       if [[ -n "$output" ]]; then
+         echo "$output" | sed "s/^/[$node] /"
+       fi
+       RUN_REMOTE_CAPTURE_RESULT="$output"
+       return $status
+    fi
+  done
+  
+  echo "[$node] ❌ SSH failed after $retries attempts." >&2
+  return 255
 }
 
 run_remote_raw() {
   local node="$1"
   shift
-
   log_node "$node" "$@" >&2
 
-  ssh -o BatchMode=yes \
-      -o ConnectTimeout=20 \
-      -o StrictHostKeyChecking=no \
-      -o UserKnownHostsFile=/dev/null \
-      -n -T "$node" "$@"
+  local retries=3
+  local count=0
+  local delay=5
+
+  while [ $count -lt $retries ]; do
+    if ssh -o BatchMode=yes \
+        -o ConnectTimeout=20 \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -n -T "$node" "$@"; then
+      return 0
+    else
+      local exit_code=$?
+      if [ $exit_code -eq 255 ]; then
+        ((count++))
+        echo "[$node] ⚠️  SSH connection failed (attempt $count/$retries). Retrying in ${delay}s..." >&2
+        sleep $delay
+      else
+        return $exit_code
+      fi
+    fi
+  done
+  return 255
 }
 
 scp_to_remote() {

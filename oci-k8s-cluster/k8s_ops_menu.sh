@@ -384,6 +384,88 @@ pod_actions_menu() {
   done
 }
 
+cluster_maintenance_menu() {
+  while true; do
+    local actions="1. Full Cluster Setup/Repair (setup_k8s_cluster.sh) 🏗️
+2. Full Cluster Heal (Nuclear Option) ☢️
+3. Fix IPTables (Open Ports) 🔥
+4. Fix DNS (CoreDNS/Cilium) 🧪
+5. Fix Host Network (OS/Resolv.conf) 🛠️
+0. Back"
+
+    local selected_action
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Maintenance > ")
+
+    if [ -z "$selected_action" ]; then
+      return
+    fi
+
+    case "${selected_action%%.*}" in
+      1)
+        clear
+        echo -e "${BLUE}Running Full Cluster Setup/Repair...${NC}"
+        ./setup_k8s_cluster.sh
+        read -p "Press Enter to continue..."
+        ;;
+      2)
+        clear
+        echo -e "${RED}Running Full Cluster Heal (Nuclear)...${NC}"
+        ./full_cluster_heal.sh
+        read -p "Press Enter to continue..."
+        ;;
+      3)
+        clear
+        ./fix_iptables.sh
+        read -p "Press Enter to continue..."
+        ;;
+      4)
+        clear
+        ./dns_doctor.sh
+        read -p "Press Enter to continue..."
+        ;;
+      5)
+        clear
+        ./os_network_doctor.sh
+        read -p "Press Enter to continue..."
+        ;;
+      0)
+        return
+        ;;
+    esac
+  done
+}
+
+component_management_menu() {
+  while true; do
+    local actions="1. Deploy/Update Components (Interactive) 📦
+2. Reinstall Longhorn (Storage) 💾
+0. Back"
+
+    local selected_action
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Components > ")
+
+    if [ -z "$selected_action" ]; then
+      return
+    fi
+
+    case "${selected_action%%.*}" in
+      1)
+        clear
+        ./deploy_components.sh
+        read -p "Press Enter to continue..."
+        ;;
+      2)
+        clear
+        ./reinstall_longhorn.sh
+        read -p "Press Enter to continue..."
+        ;;
+      0)
+        return
+        ;;
+    esac
+  done
+}
+
 main_menu() {
   ensure_fzf
 
@@ -395,6 +477,8 @@ main_menu() {
 5. Show All Pods
 6. Node Status
 7. Safe Node Update (OS/Kernel) 🔄
+8. Cluster Maintenance (Doctors & Setup) 🛠️
+9. Component Management (Deploy Apps) 📦
 0. Exit"
 
     local selected
@@ -429,6 +513,12 @@ main_menu() {
       7)
         clear
         ./safe_node_update.sh
+        ;;
+      8)
+        cluster_maintenance_menu
+        ;;
+      9)
+        component_management_menu
         ;;
       0)
         echo "Bye!"
