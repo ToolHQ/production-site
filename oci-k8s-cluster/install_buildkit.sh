@@ -95,9 +95,11 @@ bk_install_prereqs() {
 
     echo \"✅ ubuntu UID=\$USER_UID GID=\$USER_GID\"
 
-    # Reset existing mappings for this UID
-    sudo sed -i \"/^\${USER_UID}:/d\" /etc/subuid
-    sudo sed -i \"/^\${USER_UID}:/d\" /etc/subgid
+    # Clean up any existing mappings for this user to avoid duplicates/conflicts
+    sudo sed -i "/^ubuntu:/d" /etc/subuid
+    sudo sed -i "/^ubuntu:/d" /etc/subgid
+    sudo sed -i "/^\${USER_UID}:/d" /etc/subuid
+    sudo sed -i "/^\${USER_UID}:/d" /etc/subgid
 
     # Correct range mapping (always numeric UID)
     echo \"\$USER_UID:100000:65536\" | sudo tee -a /etc/subuid >/dev/null
@@ -119,6 +121,15 @@ bk_install_prereqs() {
     echo \"✅ BuildKit directories fixed for UID \$USER_UID\"
 
     sudo loginctl enable-linger ubuntu || true
+
+    # --- AppArmor Fix for Ubuntu 24.04 ---
+    # Ubuntu 24.04 restricts unprivileged user namespaces by default.
+    # We must disable this restriction for RootlessKit to work.
+    if sysctl kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+      echo "🔓 Disabling AppArmor unprivileged userns restriction..."
+      echo "kernel.apparmor_restrict_unprivileged_userns = 0" | sudo tee /etc/sysctl.d/99-buildkit-rootless.conf
+      sudo sysctl -p /etc/sysctl.d/99-buildkit-rootless.conf
+    fi
   "
 }
 ###############################################################################
@@ -270,6 +281,9 @@ Documentation=https://github.com/moby/buildkit
 
 [Service]
 Environment="PATH=/home/ubuntu/bin:/usr/local/bin:/usr/bin:/bin"
+# Delegate=yes is CRITICAL for rootlesskit to manage cgroups (fixes "operation not permitted")
+Delegate=yes
+KillMode=mixed
 ExecStart=/usr/local/bin/rootlesskit \
   --net=slirp4netns \
   --disable-host-loopback \
@@ -320,7 +334,10 @@ sleep 3
 
 # 🧩 Verificar e atualizar systemd/dbus se necessário
 echo "🧩 Verificando versão do systemd..."
-SYS_VER=$(systemctl --version 2>/dev/null | awk '/systemd/{print \$2}' || echo 0)
+# Fix: Use single quotes for awk to prevent bash expansion of $2.
+# Since we are inside a heredoc with EOF (single quoted), bash expansion is disabled.
+# However, the remote shell executes this line. We need to ensure $2 is passed literally to awk.
+SYS_VER=$(systemctl --version 2>/dev/null | awk "/systemd/{print \$2}" || echo 0)
 
 if [ "$SYS_VER" -lt 247 ]; then
   echo "⚙️  Atualizando systemd e dependências (versão atual: $SYS_VER)..."
@@ -338,24 +355,24 @@ if [ "$SYS_VER" -lt 247 ]; then
   echo "resume_buildkit" | sudo tee "$FLAG_FILE" >/dev/null
 
   # Copia script mínimo de retomada para /usr/local/sbin
-  sudo tee /usr/local/sbin/resume_buildkit.sh >/dev/null <<'EOS'
+  sudo tee /usr/local/sbin/resume_buildkit.sh >/dev/null <<EOS
 #!/bin/bash
 set -euo pipefail
 FLAG_FILE="/tmp/post_reboot_buildkit.flag"
-if [ -f "$FLAG_FILE" ]; then
+if [ -f "\$FLAG_FILE" ]; then
   echo "🧠 Reboot detectado — retomando BuildKit rootless setup..."
-  sudo rm -f "$FLAG_FILE"
+  sudo rm -f "\$FLAG_FILE"
 
   # Reexecuta o passo de ativação do BuildKit user service
-  USER_UID=$(id -u ubuntu)
-  export XDG_RUNTIME_DIR="/run/user/${USER_UID}"
+  USER_UID=\$(id -u ubuntu)
+  export XDG_RUNTIME_DIR="/run/user/\${USER_UID}"
 
-  sudo mkdir -p "$XDG_RUNTIME_DIR"
-  sudo chown ubuntu:ubuntu "$XDG_RUNTIME_DIR"
-  sudo chmod 700 "$XDG_RUNTIME_DIR"
+  sudo mkdir -p "\$XDG_RUNTIME_DIR"
+  sudo chown ubuntu:ubuntu "\$XDG_RUNTIME_DIR"
+  sudo chmod 700 "\$XDG_RUNTIME_DIR"
 
   sudo runuser -l ubuntu -c "
-    XDG_RUNTIME_DIR=/run/user/${USER_UID} nohup /usr/local/bin/rootlesskit \
+    XDG_RUNTIME_DIR=/run/user/\${USER_UID} nohup /usr/local/bin/rootlesskit \
       --net=slirp4netns --disable-host-loopback \
       /home/ubuntu/bin/buildkitd \
         --root /home/ubuntu/.local/share/buildkit \
@@ -390,25 +407,24 @@ sudo mkdir -p "$XDG_RUNTIME_DIR"
 sudo chown ubuntu:ubuntu "$XDG_RUNTIME_DIR"
 sudo chmod 700 "$XDG_RUNTIME_DIR"
 
-# Use systemctl --machine to interact with user systemd instance
-# This bypasses DBUS issues by talking directly to systemd
+# Use sudo -u ubuntu to interact with user systemd instance reliably
 echo "🔄 Reloading systemd user daemon..."
-sudo systemctl --machine=ubuntu@ --user daemon-reload
+sudo -u ubuntu XDG_RUNTIME_DIR=/run/user/${USER_UID} systemctl --user daemon-reload
 
 echo "⚙️  Enabling BuildKit service..."
-sudo systemctl --machine=ubuntu@ --user enable buildkit.service
+sudo -u ubuntu XDG_RUNTIME_DIR=/run/user/${USER_UID} systemctl --user enable buildkit.service
 
 # Stop any existing buildkit service
 echo "🛑 Stopping any existing BuildKit service..."
-sudo systemctl --machine=ubuntu@ --user stop buildkit.service 2>/dev/null || true
+sudo -u ubuntu XDG_RUNTIME_DIR=/run/user/${USER_UID} systemctl --user stop buildkit.service 2>/dev/null || true
 
 # Start the buildkit service
 echo "🚀 Starting BuildKit service..."
-sudo systemctl --machine=ubuntu@ --user start buildkit.service
+sudo -u ubuntu XDG_RUNTIME_DIR=/run/user/${USER_UID} systemctl --user start buildkit.service
 
 # Check service status
 echo "🔍 Checking BuildKit service status..."
-sudo systemctl --machine=ubuntu@ --user status buildkit.service --no-pager --lines=10 || true
+sudo -u ubuntu XDG_RUNTIME_DIR=/run/user/${USER_UID} systemctl --user status buildkit.service --no-pager --lines=10 || true
 
 echo "✅ BuildKit systemd user service started"
 EOF'
@@ -419,7 +435,7 @@ EOF'
 bk_wait_socket() {
   local h="$1"
   echo "[$h] STEP 9: waiting for BuildKit socket..."
-  run_remote_stream "$h" 'bash -euxo pipefail <<'\''EOF'\''
+  run_remote_stream "$h" 'bash -euo pipefail <<'\''EOF'\''
 set -euo pipefail
 SOCK=/home/ubuntu/.local/share/buildkit/buildkitd.sock
 USER_UID=$(id -u ubuntu)
@@ -428,32 +444,25 @@ export XDG_RUNTIME_DIR=/run/user/$USER_UID
 echo "⏳ Waiting for BuildKit socket to appear..."
 for i in {1..30}; do
   if [ -S "$SOCK" ]; then
-    echo "✅ BuildKit socket detected at $SOCK"
-    
     # Verify we can connect to it
     if timeout 5 /home/ubuntu/bin/buildctl --addr unix://$SOCK debug workers >/dev/null 2>&1; then
       echo "✅ BuildKit daemon is responding"
       exit 0
-    else
-      echo "⚠️  Socket exists but daemon not responding yet, waiting..."
     fi
   fi
   
-  # Show service status on first iteration and every 10 iterations
-  if [ $i -eq 1 ] || [ $((i % 10)) -eq 0 ]; then
-    echo "🔍 Iteration $i: Checking service status..."
-    sudo systemctl --machine=ubuntu@ --user status buildkit.service --no-pager --lines=5 2>/dev/null || true
-  fi
-  
+  # Silent wait (dots)
+  echo -n "."
   sleep 2
 done
 
+echo ""
 echo "❌ BuildKit socket did not appear after 60 seconds"
 echo "📋 Final service status:"
-sudo systemctl --machine=ubuntu@ --user status buildkit.service --no-pager --lines=20 2>/dev/null || true
+sudo -u ubuntu XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user status buildkit.service --no-pager --lines=20 2>/dev/null || true
 
 echo "📋 Service journal (last 50 lines):"
-sudo journalctl --machine=ubuntu@ --user -u buildkit.service -n 50 --no-pager 2>/dev/null || true
+sudo -u ubuntu XDG_RUNTIME_DIR=/run/user/$USER_UID journalctl --user -u buildkit.service -n 50 --no-pager 2>/dev/null || true
 
 exit 1
 EOF'
@@ -557,3 +566,33 @@ install_buildkitd() {
 
   echo "[$h] ✅ BuildKit installed successfully!"
 }
+
+# =============================================================================
+# STANDALONE EXECUTION SUPPORT
+# =============================================================================
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  # If executed directly, source common.sh and run for provided node
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -f "$SCRIPT_DIR/common.sh" ]; then
+    source "$SCRIPT_DIR/common.sh"
+  else
+    echo "❌ Error: common.sh not found in $SCRIPT_DIR"
+    exit 1
+  fi
+
+  if [ $# -lt 1 ]; then
+    echo "Usage: $0 <node_hostname_or_ip>"
+    echo "Example: $0 oci-k8s-master"
+    exit 1
+  fi
+
+  NODE="$1"
+  echo "🚀 Starting standalone BuildKit installation on $NODE..."
+  
+  if install_buildkitd "$NODE"; then
+    echo "✅ BuildKit installation completed successfully on $NODE."
+  else
+    echo "❌ BuildKit installation failed on $NODE."
+    exit 1
+  fi
+fi
