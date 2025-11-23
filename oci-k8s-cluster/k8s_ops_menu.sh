@@ -977,7 +977,8 @@ service_config_menu() {
   while true; do
     local actions="1. Initialize Minio (Bucket + Access Keys) 🪣
 2. Initialize Nexus (Blob Store + Docker Repo) 📦
-3. Auto-Initialize All (Minio → Nexus) 🚀
+3. Reset Nexus (Wipe Data & Restart) 🔄
+4. Auto-Initialize All (Minio → Nexus) 🚀
 0. Back"
     
     local selected
@@ -1042,6 +1043,26 @@ service_config_menu() {
         read -p "Press Enter to continue..."
         ;;
       3)
+        clear
+        echo -e "${RED}=== Reset Nexus ===${NC}"
+        echo ""
+        echo -e "${YELLOW}⚠️  WARNING: This will DELETE all Nexus data!${NC}"
+        echo "   - All repositories will be removed"
+        echo "   - All blob stores will be removed"
+        echo "   - All credentials will be reset"
+        echo ""
+        read -p "Are you sure? Type 'yes' to confirm: " confirm
+        
+        if [ "$confirm" != "yes" ]; then
+          echo "Reset cancelled."
+          read -p "Press Enter..."
+          continue
+        fi
+        
+        nexus_reset
+        read -p "Press Enter to continue..."
+        ;;
+      4)
         clear
         echo -e "${BLUE}=== Auto-Initialize All Services ===${NC}"
         echo ""
