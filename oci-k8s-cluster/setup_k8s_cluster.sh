@@ -798,6 +798,38 @@ done
 echo "🔑 Admin token (valid 24h):"
 kubectl -n kubernetes-dashboard create token admin-user --duration=24h || true
 echo "💡 Tip: If you see 'Invalid credentials provided', clear browser cookies or use an incognito tab."
+
+# Create Ingress for Dashboard
+echo "🌐 Creating Ingress for Dashboard (k8s. dnor.io)..."
+if kubectl -n kubernetes-dashboard get ingress dashboard-ingress > /dev/null 2>&1; then
+  echo "✅ Dashboard Ingress already exists"
+else
+  cat <<INGRESS | kubectl -n kubernetes-dashboard apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashboard-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: k8s.dnor.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kubernetes-dashboard-kong-proxy
+            port:
+              number: 443
+INGRESS
+  echo "✅ Dashboard Ingress created"
+fi
+
 echo "✅ Kubernetes Dashboard v7.13.0 deployed successfully (via Helm)."
 EOF'
 }
@@ -1148,8 +1180,35 @@ else
   # Wait for daemonsets to be ready
   kubectl -n longhorn-system rollout status ds/longhorn-manager --timeout=5m || true
   
+  echo '🌐 Creating Ingress for Longhorn UI (longhorn.dnor.io)...'
+  if kubectl -n longhorn-system get ingress longhorn-ingress > /dev/null 2>&1; then
+    echo '✅ Longhorn Ingress already exists'
+  else
+    cat <<INGRESS | kubectl -n longhorn-system apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: longhorn-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: longhorn.dnor.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: longhorn-frontend
+            port:
+              number: 80
+INGRESS
+    echo '✅ Longhorn Ingress created'
+  fi
+  
   echo '✅ Longhorn v${LONGHORN_VERSION} installed successfully.'
   echo '💡 Longhorn UI can be accessed via: kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80'
+  echo '💡 Or via Ingress at: http://longhorn.dnor.io (after starting tunnel)'
 fi
 EOF
 "
