@@ -577,104 +577,129 @@ discover_active_tunnels() {
 }
 
 start_tunnel() {
-    echo -e "${BLUE}🔍 Discovering NodePort services...${NC}"
-    
-    local services
-    services=$(run_kubectl "get svc -A --field-selector spec.type=NodePort -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name} {range .spec.ports[*]}{.name}:{.port}:{.nodePort} {end}{\"\n\"}{end}'")
-    
-    if [ -z "$services" ]; then
-      echo -e "${YELLOW}No NodePort services found.${NC}"
-      read -p "Press Enter to return..."
-      return
-    fi
+    local target_ns="$1"
+    local target_svc="$2"
+    local target_local_port="$3"
+    local target_remote_port="$4"
+    local target_desc="$5"
 
-    # Get list of already-open ports from active tunnels (both remote NodePort and local port)
-    local active_tunnel_data=$(discover_active_tunnels)
-    local active_remote_ports=""
-    local active_local_ports=""
-    if [ -n "$active_tunnel_data" ]; then
-        active_remote_ports=$(echo "$active_tunnel_data" | cut -d'|' -f5 | grep -v '^unknown$' | tr '\n' ' ')
-        active_local_ports=$(echo "$active_tunnel_data" | cut -d'|' -f4 | tr '\n' ' ')
-    fi
-
-    local menu_items=""
-    while IFS= read -r line; do
-      if [ -n "$line" ]; then
-        local ns_name="${line%% *}"
-        local ports_raw="${line#* }"
-        local ports_display=""
-        local has_active_tunnel=false
+    local svc_info=""
+    local desired_port=""
+    local remote_port=""
+    
+    # Interactive mode if no arguments provided
+    if [ -z "$target_ns" ]; then
+        echo -e "${BLUE}🔍 Discovering NodePort services...${NC}"
         
-        for p in $ports_raw; do
-            local p_name=$(echo "$p" | cut -d: -f1)
-            local p_port=$(echo "$p" | cut -d: -f2)
-            local p_nodeport=$(echo "$p" | cut -d: -f3)
+        local services
+        services=$(run_kubectl "get svc -A --field-selector spec.type=NodePort -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name} {range .spec.ports[*]}{.name}:{.port}:{.nodePort} {end}{\"\\n\"}{end}'")
+        
+        if [ -z "$services" ]; then
+          echo -e "${YELLOW}No NodePort services found.${NC}"
+          read -p "Press Enter to return..."
+          return
+        fi
+
+        # Get list of already-open ports from active tunnels (both remote NodePort and local port)
+        local active_tunnel_data=$(discover_active_tunnels)
+        local active_remote_ports=""
+        local active_local_ports=""
+        if [ -n "$active_tunnel_data" ]; then
+            active_remote_ports=$(echo "$active_tunnel_data" | cut -d'|' -f5 | grep -v '^unknown$' | tr '\n' ' ')
+            active_local_ports=$(echo "$active_tunnel_data" | cut -d'|' -f4 | tr '\n' ' ')
+        fi
+
+        local menu_items=""
+        while IFS= read -r line; do
+          if [ -n "$line" ]; then
+            local ns_name="${line%% *}"
+            local ports_raw="${line#* }"
+            local ports_display=""
+            local has_active_tunnel=false
             
-            # Check if this NodePort already has an active tunnel (check both remote NodePort, local service port, and service name)
-            local port_status=""
-            if [[ " $active_remote_ports " == *" $p_nodeport "* ]] || [[ " $active_local_ports " == *" $p_port "* ]]; then
-                port_status=" ✓"
-                has_active_tunnel=true
-            else
-                # Also check if service name matches any active tunnel
-                local svc_name="${ns_name##*/}"
-                if echo "$active_tunnel_data" | grep -q "$svc_name"; then
+            for p in $ports_raw; do
+                local p_name=$(echo "$p" | cut -d: -f1)
+                local p_port=$(echo "$p" | cut -d: -f2)
+                local p_nodeport=$(echo "$p" | cut -d: -f3)
+                
+                # Check if this NodePort already has an active tunnel
+                local port_status=""
+                if [[ " $active_remote_ports " == *" $p_nodeport "* ]] || [[ " $active_local_ports " == *" $p_port "* ]]; then
                     port_status=" ✓"
                     has_active_tunnel=true
+                else
+                    # Also check if service name matches any active tunnel
+                    local svc_name="${ns_name##*/}"
+                    if echo "$active_tunnel_data" | grep -q "$svc_name"; then
+                        port_status=" ✓"
+                        has_active_tunnel=true
+                    fi
                 fi
-            fi
+                
+                ports_display+="$p_name: $p_port->$p_nodeport$port_status, "
+            done
+            ports_display="${ports_display%, }"
             
-            ports_display+="$p_name: $p_port->$p_nodeport$port_status, "
-        done
-        ports_display="${ports_display%, }"
+            # Add visual indicator if service has active tunnels
+            if [ "$has_active_tunnel" = true ]; then
+                menu_items+="$ns_name ($ports_display) [ACTIVE]\n"
+            else
+                menu_items+="$ns_name ($ports_display)\n"
+            fi
+          fi
+        done <<< "$services"
         
-        # Add visual indicator if service has active tunnels
-        if [ "$has_active_tunnel" = true ]; then
-            menu_items+="$ns_name ($ports_display) [ACTIVE]\n"
-        else
-            menu_items+="$ns_name ($ports_display)\n"
+        menu_items+="0. Back"
+
+        local selected_item
+        selected_item=$(echo -e "$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Start Tunnel > " --header="Select a service (✓ = already open)")
+
+        if [ -z "$selected_item" ] || [[ "$selected_item" == "0. Back" ]]; then
+          return
         fi
-      fi
-    done <<< "$services"
-    
-    menu_items+="0. Back"
 
-    local selected_item
-    selected_item=$(echo -e "$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Start Tunnel > " --header="Select a service (✓ = already open)")
+        # Remove [ACTIVE] marker if present
+        selected_item="${selected_item% [ACTIVE]}"
+        
+        svc_info="${selected_item%% *}"
+        local namespace="${svc_info%%/*}"
+        local service_name="${svc_info##*/}"
+        local ports_info="${selected_item#* (}"
+        ports_info="${ports_info%)}"
 
-    if [ -z "$selected_item" ] || [[ "$selected_item" == "0. Back" ]]; then
-      return
-    fi
+        local selected_port_mapping
+        if [[ "$ports_info" == *", "* ]]; then
+            local port_menu=$(echo "$ports_info" | sed 's/, /\n/g')
+            selected_port_mapping=$(echo "$port_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Port > ")
+        else
+            selected_port_mapping="$ports_info"
+        fi
 
-    # Remove [ACTIVE] marker if present
-    selected_item="${selected_item% \[ACTIVE\]}"
-    
-    local svc_info="${selected_item%% *}"
-    local namespace="${svc_info%%/*}"
-    local service_name="${svc_info##*/}"
-    local ports_info="${selected_item#* (}"
-    ports_info="${ports_info%)}"
+        if [ -z "$selected_port_mapping" ]; then
+            return
+        fi
 
-    local selected_port_mapping
-    if [[ "$ports_info" == *", "* ]]; then
-        local port_menu=$(echo "$ports_info" | sed 's/, /\n/g')
-        selected_port_mapping=$(echo "$port_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Port > ")
+        # Remove ✓ marker if present
+        selected_port_mapping="${selected_port_mapping% ✓}"
+        
+        desired_port=$(echo "$selected_port_mapping" | awk -F'->' '{print $1}' | awk -F': ' '{print $2}')
+        remote_port=$(echo "$selected_port_mapping" | awk -F'->' '{print $2}')
     else
-        selected_port_mapping="$ports_info"
+        # Non-interactive mode (arguments provided)
+        svc_info="$target_ns/$target_svc"
+        desired_port="$target_local_port"
+        remote_port="$target_remote_port"
+        # Define variables needed for protocol detection later
+        local namespace="$target_ns"
+        local service_name="$target_svc"
+        
+        if [ -n "$target_desc" ]; then
+            echo -e "${BLUE}Starting $target_desc...${NC}"
+        fi
     fi
-
-    if [ -z "$selected_port_mapping" ]; then
-        return
-    fi
-
-    # Remove ✓ marker if present
-    selected_port_mapping="${selected_port_mapping% ✓}"
-    
-    local desired_port=$(echo "$selected_port_mapping" | awk -F'->' '{print $1}' | awk -F': ' '{print $2}')
-    local remote_port=$(echo "$selected_port_mapping" | awk -F'->' '{print $2}')
     
     if ! [[ "$desired_port" =~ ^[0-9]+$ ]] || ! [[ "$remote_port" =~ ^[0-9]+$ ]]; then
-        echo -e "${RED}Error parsing ports.${NC}"
+        echo -e "${RED}Error parsing ports ($desired_port -> $remote_port).${NC}"
         read -p "Press Enter..."
         return
     fi
@@ -759,6 +784,118 @@ start_tunnel() {
     read -p "Press Enter to continue..."
 }
 
+# --- INGRESS SUPPORT ---
+
+detect_ingress_controller() {
+    echo "$(t "ingress_detecting")" >&2
+    # Try to find ingress-nginx-controller service in all namespaces
+    local ingress_svc
+    ingress_svc=$(run_kubectl "get svc -A -o jsonpath='{range .items[*]}{@.metadata.namespace}{\"|\"}{@.metadata.name}{\"|\"}{range @.spec.ports[*]}{.name}{\":\"}{.nodePort}{\",\"}{end}{\"\\n\"}{end}'" | grep "ingress-nginx-controller|")
+    
+    if [ -z "$ingress_svc" ]; then
+        echo "$(t "ingress_not_found")" >&2
+        return 1
+    fi
+    
+    echo "$ingress_svc"
+}
+
+get_ingress_hosts() {
+    run_kubectl "get ingress -A -o jsonpath='{range .items[*]}{@.spec.rules[*].host}{\" \"}{end}'" | tr ' ' '\n' | sort | uniq | grep -v "^$"
+}
+
+ingress_menu() {
+    while true; do
+        clear
+        echo -e "${BLUE}=== $(t "ingress_menu_title") ===${NC}"
+        echo ""
+        
+        # Detect controller
+        local ingress_info
+        ingress_info=$(detect_ingress_controller)
+        local status_icon="❌"
+        
+        if [ $? -eq 0 ]; then
+            status_icon="✅"
+            # Parse info: namespace|name|http:32xxx,https:32xxx,
+            local ns=$(echo "$ingress_info" | cut -d'|' -f1)
+            local name=$(echo "$ingress_info" | cut -d'|' -f2)
+            local ports=$(echo "$ingress_info" | cut -d'|' -f3)
+            
+            echo -e "Controller: ${GREEN}$name${NC} ($ns)"
+            echo -e "Ports: ${YELLOW}$ports${NC}"
+        else
+            echo -e "${RED}$(t "ingress_not_found")${NC}"
+        fi
+        
+        echo ""
+        echo "$(t "ingress_start_tunnel")"
+        echo "$(t "ingress_show_dns")"
+        echo "$(t "prefs_back")"
+        echo ""
+        read -p "$(t "choose_option") " choice
+        
+        case "$choice" in
+            1)
+                if [ -z "$ingress_info" ]; then
+                    echo "$(t "ingress_not_found")"
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                # Extract ports
+                local http_port=$(echo "$ports" | grep -o "http:[0-9]*" | cut -d':' -f2)
+                local https_port=$(echo "$ports" | grep -o "https:[0-9]*" | cut -d':' -f2)
+                
+                # Fallback if named ports not found, try 80:xxxxx and 443:xxxxx logic if needed
+                # But usually ingress-nginx uses http/https names.
+                # If empty, try to parse by order (usually first is http, second https)
+                if [ -z "$http_port" ]; then
+                     http_port=$(echo "$ports" | cut -d',' -f1 | cut -d':' -f2)
+                fi
+                if [ -z "$https_port" ]; then
+                     https_port=$(echo "$ports" | cut -d',' -f2 | cut -d':' -f2)
+                fi
+
+                if [ -n "$http_port" ]; then
+                    start_tunnel "$ns" "$name" "8080" "$http_port" "Ingress HTTP"
+                fi
+                if [ -n "$https_port" ]; then
+                    start_tunnel "$ns" "$name" "8443" "$https_port" "Ingress HTTPS"
+                fi
+                
+                echo -e "${GREEN}$(t "ingress_tunnel_running")${NC}"
+                read -p "$(t "press_enter")"
+                ;;
+            2)
+                clear
+                echo -e "${BLUE}$(t "ingress_hosts_title")${NC}"
+                echo ""
+                echo "$(t "ingress_hosts_instructions")"
+                echo ""
+                echo -e "${YELLOW}# Kubernetes Ingress Tunnels${NC}"
+                
+                local hosts=$(get_ingress_hosts)
+                for host in $hosts; do
+                    echo -e "${GREEN}127.0.0.1 $host${NC}"
+                done
+                
+                echo ""
+                echo -e "${GRAY}(Use 'sudo nano /etc/hosts' to edit)${NC}"
+                echo ""
+                read -p "$(t "press_enter")"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo "$(t "invalid_option")"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
 manage_tunnels() {
     while true; do
         echo -e "${BLUE}🔍 Scanning for active tunnels...${NC}"
@@ -809,6 +946,7 @@ access_menu() {
   while true; do
     local actions="$(t "access_start_tunnel")
 $(t "access_manage_tunnels")
+$(t "ingress_menu_title")
 $(t "prefs_back")"
 
     local selected_action
@@ -829,6 +967,7 @@ $(t "prefs_back")"
         fi
         # Any other return code (like 1) means continue in access_menu
         ;;
+      3) ingress_menu ;;
       0) return ;;
     esac
   done
@@ -1532,12 +1671,24 @@ $(t "prefs_back")"
             3)
                 # Configure auto port forwarding
                 configure_auto_ports_menu
+                
+                echo ""
+                echo -e "${GRAY}(Use 'sudo nano /etc/hosts' to edit)${NC}"
+                echo ""
+                read -p "$(t "press_enter")"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo "$(t "invalid_option")"
+                sleep 1
                 ;;
         esac
     done
 }
 
-# --- MAIN MENU ---
+# --- TUNNEL MANAGEMENT ---
 
 main_menu() {
   ensure_fzf
