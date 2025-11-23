@@ -5,6 +5,7 @@ IFS=$'\n\t'
 # ────────────────────────────────────────────────
 # Load shared helpers
 source "$(dirname "$0")/common.sh"
+source "$(dirname "$0")/lib/credstore.sh"
 
 COMPONENTS_DIR="$(dirname "$0")/../components"
 REMOTE_BASE="/home/ubuntu/deployments"
@@ -83,6 +84,12 @@ apply_component_manifests() {
   local component="$1"
   log_node "$MASTER_NODE" "📦 Applying manifests for component '$component'"
 
+  # Fetch Nexus credentials locally
+  local cred_json
+  cred_json=$(credstore_get_credential "nexus-admin" 2>/dev/null || echo "{}")
+  local nexus_pass
+  nexus_pass=$(echo "$cred_json" | jq -r '.password')
+
   run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
 # Inject host IP for registry access (fixes 'connection refused' on 127.0.0.1)
 # We try to use the Nexus Pod IP directly to bypass potential kube-proxy/NodePort issues on the master
@@ -106,6 +113,30 @@ if curl --connect-timeout 2 -s -I "http://\$DOCKER_REGISTRY_HOST:\$PORT/v2/" >/d
 else
   export REGISTRY_INSECURE=false
   echo "🔒 Registry detected as HTTPS (Secure) or unreachable via HTTP"
+fi
+
+# Configure Registry Credentials
+NEXUS_PASS="$nexus_pass"
+if [[ -n "\$NEXUS_PASS" && "\$NEXUS_PASS" != "null" ]]; then
+  echo "🔐 Configuring registry credentials for user 'admin'..."
+  mkdir -p ~/.docker
+  
+  # Create auth string (admin:password) base64 encoded
+  AUTH_STR=\$(echo -n "admin:\$NEXUS_PASS" | base64 -w0)
+  
+  # Write config.json
+  cat > ~/.docker/config.json <<EOF
+{
+	"auths": {
+		"\$DOCKER_REGISTRY_HOST:\$PORT": {
+			"auth": "\$AUTH_STR"
+		}
+	}
+}
+EOF
+  echo "✓ Credentials configured in ~/.docker/config.json"
+else
+  echo "⚠️  No Nexus admin password found. Push may fail if auth is required."
 fi
 
 cd /home/ubuntu/deployments/$component
