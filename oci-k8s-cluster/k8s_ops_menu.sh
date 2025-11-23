@@ -4,6 +4,7 @@ set -euo pipefail
 # Source common configuration for SSH keys and node info
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
+source "${SCRIPT_DIR}/lib/credstore.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -793,6 +794,298 @@ access_menu() {
     esac
   done
 }
+# --- SERVICE CONFIGURATION MENUS ---
+
+# Source automation library scripts
+source "$SCRIPT_DIR/lib/minio_init.sh"
+source "$SCRIPT_DIR/lib/nexus_init.sh"
+
+# View stored credentials
+view_credentials_menu() {
+  while true; do
+    # Get list of credentials (name - description)
+    local cred_list
+    cred_list=$(credstore_list_names)
+    
+    if [ -z "$cred_list" ]; then
+      clear
+      echo -e "${YELLOW}No credentials stored yet.${NC}"
+      echo ""
+      read -p "Press Enter to return..."
+      return
+    fi
+    
+    # Select credential with fzf (search enabled by default)
+    local selected
+    selected=$(echo -e "0. ← Back to Main Menu\n$cred_list" | "$FZF_BIN" \
+      --height=40% \
+      --layout=reverse \
+      --border \
+      --prompt="Search Credentials > " \
+      --header="Type to search by name or description" \
+      --preview="echo 'Select to view actions'" \
+      --preview-window=down:2)
+    
+    if [ -z "$selected" ] || [[ "$selected" == "0. ← Back to Main Menu" ]]; then
+      return
+    fi
+    
+    # Extract credential name (before " - ")
+    local cred_name="${selected%% - *}"
+    
+    # Show actions for selected credential
+    while true; do
+      clear
+      echo -e "${BLUE}=== Credential: $cred_name ===${NC}"
+      echo ""
+      
+      local actions="1. Show Secret Values 👁️
+2. Edit 📝
+3. Copy Username 📋
+4. Copy Password 📋
+5. Delete 🗑️
+0. Back"
+      
+      local action
+      action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Action > ")
+      
+      if [ -z "$action" ] || [[ "$action" == "0. Back" ]]; then
+        break
+      fi
+      
+      case "${action%%.*}" in
+        1)
+          # Show secret values
+          clear
+          echo -e "${BLUE}=== Credential Details ===${NC}"
+          echo ""
+          
+          local cred_json
+          cred_json=$(credstore_get_credential "$cred_name" 2>/dev/null || echo "{}")
+          
+          if [ "$cred_json" = "{}" ]; then
+            echo -e "${RED}Error: Credential not found${NC}"
+            read -p "Press Enter..."
+            continue
+          fi
+          
+          local username=$(echo "$cred_json" | jq -r '.username')
+          local password=$(echo "$cred_json" | jq -r '.password')
+          local description=$(echo "$cred_json" | jq -r '.description')
+          
+          echo -e "${GREEN}Name:${NC} $cred_name"
+          echo -e "${GREEN}Description:${NC} $description"
+          echo -e "${GREEN}Username:${NC} $username"
+          echo -e "${GREEN}Password:${NC} ${password:0:10}********** ${GRAY}[hidden]${NC}"
+          echo ""
+          echo -e "${YELLOW}💡 Use 'Copy Username' or 'Copy Password' to get the full values${NC}"
+          echo ""
+          read -p "Press Enter..."
+          ;;
+        2)
+          # Edit credential
+          clear
+          echo -e "${BLUE}=== Edit Credential: $cred_name ===${NC}"
+          echo ""
+          
+          local edit_menu="1. Edit Username
+2. Edit Password
+3. Edit Description
+0. Cancel"
+          
+          local edit_action
+          edit_action=$(echo "$edit_menu" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Edit > ")
+          
+          if [ -z "$edit_action" ] || [[ "$edit_action" == "0. Cancel" ]]; then
+            continue
+          fi
+          
+          case "${edit_action%%.*}" in
+            1)
+              echo -e "${BLUE}Enter new username:${NC}"
+              read -r new_username
+              credstore_update "$cred_name" "username" "$new_username"
+              echo -e "${GREEN}✓ Username updated${NC}"
+              read -p "Press Enter..."
+              ;;
+            2)
+              echo -e "${BLUE}Enter new password:${NC}"
+              read -rs new_password
+              echo ""
+              credstore_update "$cred_name" "password" "$new_password"
+              echo -e "${GREEN}✓ Password updated${NC}"
+              read -p "Press Enter..."
+              ;;
+            3)
+              echo -e "${BLUE}Enter new description:${NC}"
+              read -r new_description
+              credstore_update "$cred_name" "description" "$new_description"
+              echo -e "${GREEN}✓ Description updated${NC}"
+              read -p "Press Enter..."
+              ;;
+          esac
+          ;;
+        3)
+          # Copy username
+          local cred_json
+          cred_json=$(credstore_get_credential "$cred_name" 2>/dev/null || echo "{}")
+          local username=$(echo "$cred_json" | jq -r '.username')
+          
+          if command -v clip.exe >/dev/null 2>&1; then
+            echo -n "$username" | clip.exe
+            echo -e "${GREEN}✓ Username copied to clipboard${NC}"
+          else
+            echo -e "${YELLOW}Username: $username${NC}"
+          fi
+          read -p "Press Enter..."
+          ;;
+        4)
+          # Copy password
+          local cred_json
+          cred_json=$(credstore_get_credential "$cred_name" 2>/dev/null || echo "{}")
+          local password=$(echo "$cred_json" | jq -r '.password')
+          
+          if command -v clip.exe >/dev/null 2>&1; then
+            echo -n "$password" | clip.exe
+            echo -e "${GREEN}✓ Password copied to clipboard${NC}"
+          else
+            echo -e "${YELLOW}Password: ${password:0:10}**********${NC}"
+          fi
+          read -p "Press Enter..."
+          ;;
+        5)
+          # Delete credential
+          echo -e "${RED}Are you sure you want to delete '$cred_name' ? (yes/no)${NC}"
+          read -r confirm
+          if [[ "$confirm" == "yes" ]]; then
+            credstore_delete_credential "$cred_name"
+            echo -e "${GREEN}✓ Credential deleted${NC}"
+            read -p "Press Enter..."
+            break  # Return to credential list
+          else
+            echo -e "${YELLOW}Cancelled${NC}"
+            read -p "Press Enter..."
+          fi
+          ;;
+      esac
+    done
+  done
+}
+
+# Service configuration menu
+service_config_menu() {
+  while true; do
+    local actions="1. Initialize Minio (Bucket + Access Keys) 🪣
+2. Initialize Nexus (Blob Store + Docker Repo) 📦
+3. Auto-Initialize All (Minio → Nexus) 🚀
+0. Back"
+    
+    local selected
+    selected=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Service Configuration > " --header="Automated Service Setup")
+    
+    if [ -z "$selected" ] || [[ "$selected" == "0. Back" ]]; then
+      return
+    fi
+    
+    case "${selected%%.*}" in
+      1)
+        clear
+        echo -e "${BLUE}=== Minio Initialization ===${NC}"
+        echo ""
+        
+        # Check if Minio is running
+        if ! run_kubectl "get pods -n minio -l app=minio" | grep -q "Running"; then
+          echo -e "${RED}Error: Minio pod is not running${NC}"
+          echo "Please deploy Minio first via Component Management menu"
+          read -p "Press Enter..."
+          continue
+        fi
+        
+        minio_initialize
+        read -p "Press Enter to continue..."
+        ;;
+      2)
+        clear
+        echo -e "${BLUE}=== Nexus Initialization ===${NC}"
+        echo ""
+        
+        # Check if Nexus is running
+        if ! run_kubectl "get pods -n nexus -l app=nexus" | grep -q "Running"; then
+          echo -e "${RED}Error: Nexus pod is not running${NC}"
+          echo "Please deploy Nexus first via Component Management menu"
+          read -p "Press Enter..."
+          continue
+        fi
+        
+        # Check tunnel
+        if ! lsof -i :8081 >/dev/null 2>&1; then
+          echo -e "${YELLOW}No tunnel to Nexus detected${NC}"
+          echo "Opening tunnel to Nexus on port 8081..."
+          
+          # Start tunnel in background
+          local nexus_nodeport
+          nexus_nodeport=$(run_kubectl "get svc -n nexus nexus-service -o jsonpath='{.spec.ports[0].nodePort}'" | tr -d '\r')
+          
+          ssh -f -N -L 8081:127.0.0.1:$nexus_nodeport \
+            -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$MASTER_NODE"
+          
+          # Store tunnel metadata
+          echo "nexus-service|nexus|nexus-service|http" > "$TUNNEL_DIR/8081.meta"
+          
+          sleep 2
+          echo -e "${GREEN}✓ Tunnel established${NC}"
+          echo ""
+        fi
+        
+        nexus_initialize
+        read -p "Press Enter to continue..."
+        ;;
+      3)
+        clear
+        echo -e "${BLUE}=== Auto-Initialize All Services ===${NC}"
+        echo ""
+        
+        # Step 1: Minio
+        echo -e "${YELLOW}[1/2] Initializing Minio...${NC}"
+        echo ""
+        minio_initialize || {
+          echo -e "${RED}Minio initialization failed${NC}"
+          read -p "Press Enter..."
+          continue
+        }
+        
+        echo ""
+        echo -e "${YELLOW}[2/2] Initializing Nexus...${NC}"
+        echo ""
+        
+        # Ensure tunnel for Nexus
+        if ! lsof -i :8081 >/dev/null 2>&1; then
+          local nexus_nodeport
+          nexus_nodeport=$(run_kubectl "get svc -n nexus nexus-service -o jsonpath='{.spec.ports[0].nodePort}'" | tr -d '\r')
+          ssh -f -N -L 8081:127.0.0.1:$nexus_nodeport \
+            -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$MASTER_NODE"
+          sleep 2
+        fi
+        
+        nexus_initialize || {
+          echo -e "${RED}Nexus initialization failed${NC}"
+          read -p "Press Enter..."
+          continue
+        }
+        
+        echo ""
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${GREEN}✓ All services initialized successfully!${NC}"
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        read -p "Press Enter to continue..."
+        ;;
+    esac
+  done
+}
+
+# --- MAIN MENU ---
 
 main_menu() {
   ensure_fzf
@@ -808,6 +1101,8 @@ main_menu() {
 8. Cluster Maintenance (Setup/Repair/Heal) 🛠️
 9. Component Management (Deploy/Update) 📦
 10. Access & Port Forwarding (SSH Tunnels) 🚇
+11. Service Configuration (Minio/Nexus) ⚙️
+12. View Credentials 🔐
 0. Exit"
 
     local selected
@@ -851,6 +1146,12 @@ main_menu() {
         ;;
       10)
         access_menu
+        ;;
+      11)
+        service_config_menu
+        ;;
+      12)
+        view_credentials_menu
         ;;
       0)
         echo "Bye!"
