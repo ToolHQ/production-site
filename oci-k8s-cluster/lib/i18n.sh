@@ -41,8 +41,8 @@ t() {
                 
                 # Ingress Menu
                 "ingress_menu_title") echo "3. Ingress & DNS Helper 🌐" ;;
-                "ingress_start_tunnel") echo "1. Iniciar Túnel Ingress (HTTP:8080 / HTTPS:8443) 🚀" ;;
-                "ingress_show_dns") echo "2. Mostrar Configuração DNS / Hosts 📝" ;;
+                "ingress_start_tunnel") echo "1. Iniciar Túnel Ingress (HTTP:80 / HTTPS:443) 🚀" ;;
+                "ingress_show_dns") echo "2. Atualizar /etc/hosts (Auto) 📝" ;;
                 "ingress_detecting") echo "Detectando Ingress Controller..." ;;
                 "ingress_not_found") echo "❌ Ingress Controller não encontrado!" ;;
                 "ingress_tunnel_running") echo "✅ Túnel Ingress rodando!" ;;
@@ -133,8 +133,8 @@ t() {
 
                 # Ingress Menu
                 "ingress_menu_title") echo "3. Ingress & DNS Helper 🌐" ;;
-                "ingress_start_tunnel") echo "1. Start Ingress Tunnel (HTTP:8080 / HTTPS:8443) 🚀" ;;
-                "ingress_show_dns") echo "2. Show DNS / Hosts Configuration 📝" ;;
+                "ingress_start_tunnel") echo "1. Start Ingress Tunnel (HTTP:80 / HTTPS:443) 🚀" ;;
+                "ingress_show_dns") echo "2. Update /etc/hosts (Auto) 📝" ;;
                 "ingress_detecting") echo "Detecting Ingress Controller..." ;;
                 "ingress_not_found") echo "❌ Ingress Controller not found!" ;;
                 "ingress_tunnel_running") echo "✅ Ingress Tunnel running!" ;;

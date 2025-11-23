@@ -488,22 +488,21 @@ mkdir -p "$TUNNEL_DIR"
 # Find next available port starting from base_port
 find_available_port() {
     local base_port=$1
+    local allow_privileged="${2:-false}"
     local port=$base_port
     local max_attempts=100
     
     # For privileged ports (<1024), use mnemonic offset: 8000 + port
-    if [ $port -lt 1024 ]; then
+    # UNLESS allow_privileged is set to "true"
+    if [ $port -lt 1024 ] && [ "$allow_privileged" != "true" ]; then
         port=$((8000 + base_port))
-        echo -e "${YELLOW}Note: Port $base_port requires root. Trying $port (8000+$base_port)...${NC}" >&2
+        # Only show warning if we are actually changing the port
+        if [ "$port" != "$base_port" ]; then
+             echo -e "${YELLOW}Note: Port $base_port requires root. Trying $port (8000+$base_port)...${NC}" >&2
+        fi
     fi
     
     for ((i=0; i<max_attempts; i++)); do
-        # Skip privileged ports during iteration
-        if [ $port -lt 1024 ]; then
-            ((port++))
-            continue
-        fi
-        
         if ! lsof -i ":$port" >/dev/null 2>&1; then
             echo "$port"
             return 0
@@ -577,15 +576,17 @@ discover_active_tunnels() {
 }
 
 start_tunnel() {
-    local target_ns="$1"
-    local target_svc="$2"
-    local target_local_port="$3"
-    local target_remote_port="$4"
-    local target_desc="$5"
+    local target_ns="${1:-}"
+    local target_svc="${2:-}"
+    local target_local_port="${3:-}"
+    local target_remote_port="${4:-}"
+    local target_desc="${5:-}"
 
     local svc_info=""
     local desired_port=""
     local remote_port=""
+    
+    local allow_priv="false"
     
     # Interactive mode if no arguments provided
     if [ -z "$target_ns" ]; then
@@ -693,10 +694,16 @@ start_tunnel() {
         local namespace="$target_ns"
         local service_name="$target_svc"
         
+        # In non-interactive mode (e.g. Ingress menu), we trust the requested port
+        if [ "$desired_port" -le 1024 ]; then
+            allow_priv="true"
+        fi
+        
         if [ -n "$target_desc" ]; then
             echo -e "${BLUE}Starting $target_desc...${NC}"
         fi
     fi
+
     
     if ! [[ "$desired_port" =~ ^[0-9]+$ ]] || ! [[ "$remote_port" =~ ^[0-9]+$ ]]; then
         echo -e "${RED}Error parsing ports ($desired_port -> $remote_port).${NC}"
@@ -705,20 +712,59 @@ start_tunnel() {
     fi
 
     # Auto-select available port
-    echo -e "${BLUE}Finding available local port (base: $desired_port)...${NC}"
-    local local_port=$(find_available_port "$desired_port")
+    local local_port=""
     
-    if [ "$local_port" != "$desired_port" ]; then
-        echo -e "${YELLOW}Port $desired_port in use, using $local_port instead.${NC}"
+    if [ "$allow_priv" == "true" ]; then
+        echo -e "${BLUE}Enforcing use of port $desired_port...${NC}"
+        local_port="$desired_port"
+        
+        # Check and kill if in use
+        # We use sudo lsof because the process binding a privileged port is likely root
+        if sudo lsof -i ":$local_port" >/dev/null 2>&1; then
+             echo -e "${YELLOW}Port $local_port is busy. Killing occupant...${NC}"
+             local pid=$(sudo lsof -t -iTCP:"$local_port" -sTCP:LISTEN)
+             if [ -n "$pid" ]; then
+                 sudo kill "$pid"
+             fi
+        fi
+    else
+        echo -e "${BLUE}Finding available local port (base: $desired_port)...${NC}"
+        local_port=$(find_available_port "$desired_port" "$allow_priv")
+        
+        if [ "$local_port" != "$desired_port" ]; then
+            echo -e "${YELLOW}Port $desired_port in use, using $local_port instead.${NC}"
+        fi
     fi
 
     echo -e "${BLUE}Starting background tunnel for $svc_info ($local_port -> $remote_port)...${NC}"
     
+    # Check if we need sudo for privileged ports
+    local use_sudo=""
+    if [ "$local_port" -le 1024 ]; then
+        echo -e "${YELLOW}⚠️  Port $local_port requires root privileges. You may be asked for your sudo password.${NC}"
+        use_sudo="sudo"
+    fi
+
     # Start SSH in background
-    ssh -f -N -L "$local_port:127.0.0.1:$remote_port" \
-        -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-        -o ExitOnForwardFailure=yes \
-        "$MASTER_NODE"
+    # We use 'sh -c' to properly handle the backgrounding with sudo if needed
+    if [ -n "$use_sudo" ]; then
+        # When running with sudo, we need to explicitly point to the user's SSH config
+        # because root won't have the alias 'oci-k8s-master' defined.
+        local ssh_config_opt=""
+        if [ -f "$HOME/.ssh/config" ]; then
+            ssh_config_opt="-F $HOME/.ssh/config"
+        fi
+        
+        $use_sudo ssh $ssh_config_opt -i "$SSH_KEY" -f -N -L "$local_port:127.0.0.1:$remote_port" \
+            -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ExitOnForwardFailure=yes \
+            "$MASTER_NODE"
+    else
+        ssh -f -N -L "$local_port:127.0.0.1:$remote_port" \
+            -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ExitOnForwardFailure=yes \
+            "$MASTER_NODE"
+    fi
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Tunnel started!${NC}"
@@ -858,32 +904,17 @@ ingress_menu() {
                 fi
 
                 if [ -n "$http_port" ]; then
-                    start_tunnel "$ns" "$name" "8080" "$http_port" "Ingress HTTP"
+                    start_tunnel "$ns" "$name" "80" "$http_port" "Ingress HTTP"
                 fi
                 if [ -n "$https_port" ]; then
-                    start_tunnel "$ns" "$name" "8443" "$https_port" "Ingress HTTPS"
+                    start_tunnel "$ns" "$name" "443" "$https_port" "Ingress HTTPS"
                 fi
                 
                 echo -e "${GREEN}$(t "ingress_tunnel_running")${NC}"
                 read -p "$(t "press_enter")"
                 ;;
             2)
-                clear
-                echo -e "${BLUE}$(t "ingress_hosts_title")${NC}"
-                echo ""
-                echo "$(t "ingress_hosts_instructions")"
-                echo ""
-                echo -e "${YELLOW}# Kubernetes Ingress Tunnels${NC}"
-                
-                local hosts=$(get_ingress_hosts)
-                for host in $hosts; do
-                    echo -e "${GREEN}127.0.0.1 $host${NC}"
-                done
-                
-                echo ""
-                echo -e "${GRAY}(Use 'sudo nano /etc/hosts' to edit)${NC}"
-                echo ""
-                read -p "$(t "press_enter")"
+                update_hosts_file
                 ;;
             0)
                 return
@@ -895,6 +926,127 @@ ingress_menu() {
         esac
     done
 }
+
+update_hosts_file() {
+    echo -e "${BLUE}Scanning Ingress hosts...${NC}"
+    
+    # Get all unique hosts from all Ingresses
+    local hosts
+    hosts=$(run_kubectl "get ingress -A -o jsonpath='{.items[*].spec.rules[*].host}'" | tr ' ' '\n' | sort -u | grep -v "^$")
+    
+    if [ -z "$hosts" ]; then
+        echo -e "${YELLOW}No Ingress hosts found.${NC}"
+        read -p "Press Enter..."
+        return
+    fi
+
+    echo -e "Found hosts:\n$hosts"
+    echo ""
+    echo -e "${YELLOW}This will add the above hosts to your local /etc/hosts pointing to 127.0.0.1.${NC}"
+    echo -e "${YELLOW}Root privileges (sudo) are required.${NC}"
+    read -p "Do you want to proceed? (y/N) " confirm
+    
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        local entries=""
+        for host in $hosts; do
+            entries+="127.0.0.1 $host\n"
+        done
+        
+        # Create a temporary file with the new entries
+        local tmp_file=$(mktemp)
+        echo -e "\n# Kubernetes Ingress Tunnels (dnor.io)" > "$tmp_file"
+        echo -e "$entries" >> "$tmp_file"
+        
+        echo -e "${BLUE}Updating /etc/hosts...${NC}"
+        
+        # Use sudo to append to /etc/hosts if not already present
+        # This is a simple append strategy. For more complex management, we'd need sed/awk.
+        # We first check if the marker exists to avoid duplication block
+        if grep -q "# Kubernetes Ingress Tunnels (dnor.io)" /etc/hosts; then
+             echo -e "${YELLOW}Entries might already exist. Appending new block anyway...${NC}"
+             sudo bash -c "cat '$tmp_file' >> /etc/hosts"
+        else
+             sudo bash -c "cat '$tmp_file' >> /etc/hosts"
+        fi
+        
+        rm "$tmp_file"
+        
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Successfully updated /etc/hosts!${NC}"
+            
+            # Check for WSL to update Windows hosts
+            if grep -qEi "(Microsoft|WSL)" /proc/version; then
+                echo ""
+                echo -e "${BLUE}WSL Detected!${NC}"
+                echo -e "${YELLOW}Do you want to update Windows hosts file as well?${NC}"
+                echo -e "${GRAY}(This will open a UAC prompt for PowerShell)${NC}"
+                read -p "Update Windows hosts? (y/N) " update_win
+                
+                if [[ "$update_win" =~ ^[Yy]$ ]]; then
+                    # Prepare PowerShell script to append hosts
+                    # We use a temporary PS1 script to avoid complex escaping in the command line
+                    local win_hosts_path="C:\Windows\System32\drivers\etc\hosts"
+                    local ps_script="
+\$hostsPath = '$win_hosts_path'
+\$entries = @(
+$(for host in $hosts; do echo "    '127.0.0.1 $host'"; done)
+)
+
+\$currentContent = Get-Content \$hostsPath -Raw
+\$newContent = \"\`r\`n# Kubernetes Ingress Tunnels (dnor.io)\`r\`n\"
+\$needsUpdate = \$false
+
+foreach (\$entry in \$entries) {
+    if (\$currentContent -notmatch [regex]::Escape(\$entry)) {
+        \$newContent += \"\$entry\`r\`n\"
+        \$needsUpdate = \$true
+    }
+}
+
+if (\$needsUpdate) {
+    Add-Content -Path \$hostsPath -Value \$newContent
+    Write-Host 'Windows hosts file updated!' -ForegroundColor Green
+} else {
+    Write-Host 'Entries already exist.' -ForegroundColor Yellow
+}
+Start-Sleep -Seconds 3
+"
+                    # Save PS script to a temp file accessible by Windows (current dir is likely mounted)
+                    # Use /tmp but ensure it's convertible to Windows path, or just use current dir if safe.
+                    # Safest is to pass the command encoded or just simple append.
+                    # Let's try a simpler append approach via Start-Process to avoid file sharing issues.
+                    # Actually, passing a complex script block to Start-Process is tricky.
+                    # Let's write the script to a temp file in the current directory (which is shared)
+                    echo "$ps_script" > "update_win_hosts.ps1"
+                    
+                    # Convert linux path to windows path (mixed mode / for safety in bash strings)
+                    local win_script_path
+                    if command -v wslpath >/dev/null; then
+                        win_script_path=$(wslpath -m "./update_win_hosts.ps1")
+                    else
+                        # Fallback simple conversion (hope for no backslash issues)
+                        win_script_path=".\\update_win_hosts.ps1"
+                    fi
+                    
+                    echo -e "${BLUE}Launching PowerShell as Admin...${NC}"
+                    # Use -Command and single quotes for inner args to handle parsing correctly
+                    # Use -Wait to ensure script finishes before we delete the file
+                    powershell.exe -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-ExecutionPolicy Bypass -File \"$win_script_path\"'"
+                    
+                    echo -e "${GREEN}Windows hosts update completed.${NC}"
+                    rm "update_win_hosts.ps1"
+                fi
+            fi
+        else
+            echo -e "${RED}Failed to update /etc/hosts.${NC}"
+        fi
+    else
+        echo "Cancelled."
+    fi
+    
+    read -p "Press Enter..."
+}
+
 
 manage_tunnels() {
     while true; do
