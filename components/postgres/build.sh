@@ -47,18 +47,30 @@ ensure_buildkit_running() {
 # Try to use BuildKit if available
 if [ -S "$BK_SOCK" ]; then
   echo "🚀 Building via buildctl @ $BK_SOCK"
+  
+  OUTPUT_OPTS="type=image,name=$DOCKER_TAG,push=true"
+  if [[ "${REGISTRY_INSECURE:-false}" == "true" ]]; then
+    OUTPUT_OPTS="$OUTPUT_OPTS,registry.insecure=true"
+  fi
+
   buildctl --addr "unix://$BK_SOCK" build \
     --frontend=dockerfile.v0 \
     --local context=. \
     --local dockerfile=. \
-    --output type=image,name="$DOCKER_TAG",push=true
+    --output "$OUTPUT_OPTS"
 elif ensure_buildkit_running; then
   echo "🚀 Building via buildctl @ $BK_SOCK (after service start)"
+
+  OUTPUT_OPTS="type=image,name=$DOCKER_TAG,push=true"
+  if [[ "${REGISTRY_INSECURE:-false}" == "true" ]]; then
+    OUTPUT_OPTS="$OUTPUT_OPTS,registry.insecure=true"
+  fi
+
   buildctl --addr "unix://$BK_SOCK" build \
     --frontend=dockerfile.v0 \
     --local context=. \
     --local dockerfile=. \
-    --output type=image,name="$DOCKER_TAG",push=true
+    --output "$OUTPUT_OPTS"
 else
   echo "ℹ️ buildkit not available — falling back to docker buildx"
   if command -v docker >/dev/null 2>&1; then
