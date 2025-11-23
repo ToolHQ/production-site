@@ -5,6 +5,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 source "${SCRIPT_DIR}/lib/credstore.sh"
+source "${SCRIPT_DIR}/lib/preferences.sh"
+source "${SCRIPT_DIR}/lib/i18n.sh"
+
+# Initialize preferences and set language
+prefs_init
+export I18N_LANG=$(prefs_get_language)
 
 # Colors
 RED='\033[0;31m'
@@ -306,7 +312,7 @@ select_namespace() {
   fi
 
   local selected
-  selected=$(echo "$ns_list" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select Namespace > " --header="Current: $CURRENT_NS")
+  selected=$(echo "$ns_list" | "$FZF_BIN" --height=60% --layout=reverse --border --prompt="Select Namespace > " --header="Current: $CURRENT_NS")
   
   if [ -n "$selected" ]; then
     CURRENT_NS="$selected"
@@ -325,7 +331,7 @@ select_pod() {
   fi
 
   local selected_line
-  selected_line=$(echo "$pod_list" | "$FZF_BIN" --height=40% --layout=reverse --border --header-lines=0 --prompt="Select Pod > " --header="Namespace: $CURRENT_NS")
+  selected_line=$(echo "$pod_list" | "$FZF_BIN" --height=70% --layout=reverse --border --header-lines=0 --prompt="Select Pod > " --header="Namespace: $CURRENT_NS")
   
   if [ -n "$selected_line" ]; then
     CURRENT_POD=$(echo "$selected_line" | awk '{print $1}')
@@ -344,7 +350,7 @@ pod_actions_menu() {
 0. Back"
 
     local selected_action
-    selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Action for $CURRENT_POD > ")
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Action for $CURRENT_POD > ")
 
     if [ -z "$selected_action" ]; then
       return
@@ -394,15 +400,15 @@ pod_actions_menu() {
 
 cluster_maintenance_menu() {
   while true; do
-    local actions="1. Full Cluster Setup/Repair (setup_k8s_cluster.sh) 🏗️
-2. Full Cluster Heal (Nuclear Option) ☢️
-3. Fix IPTables (Open Ports) 🔥
-4. Fix DNS (CoreDNS/Cilium) 🧪
-5. Fix Host Network (OS/Resolv.conf) 🛠️
-0. Back"
+    local actions="$(t "maint_full_setup")
+$(t "maint_full_heal")
+$(t "maint_iptables")
+$(t "maint_dns")
+$(t "maint_network")
+$(t "prefs_back")"
 
     local selected_action
-    selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Maintenance > ")
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Maintenance > ")
 
     if [ -z "$selected_action" ]; then
       return
@@ -413,28 +419,28 @@ cluster_maintenance_menu() {
         clear
         echo -e "${BLUE}Running Full Cluster Setup/Repair...${NC}"
         ./setup_k8s_cluster.sh
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       2)
         clear
         echo -e "${RED}Running Full Cluster Heal (Nuclear)...${NC}"
         ./full_cluster_heal.sh
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       3)
         clear
         ./fix_iptables.sh
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       4)
         clear
         ./dns_doctor.sh
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       5)
         clear
         ./os_network_doctor.sh
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       0)
         return
@@ -445,12 +451,12 @@ cluster_maintenance_menu() {
 
 component_management_menu() {
   while true; do
-    local actions="1. Deploy/Update Components (Interactive) 📦
-2. Reinstall Longhorn (Storage) 💾
-0. Back"
+    local actions="$(t "comp_deploy")
+$(t "comp_longhorn")
+$(t "prefs_back")"
 
     local selected_action
-    selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Components > ")
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Components > ")
 
     if [ -z "$selected_action" ]; then
       return
@@ -460,12 +466,12 @@ component_management_menu() {
       1)
         clear
         ./deploy_components.sh
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       2)
         clear
         ./reinstall_longhorn.sh
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       0)
         return
@@ -617,7 +623,7 @@ start_tunnel() {
     menu_items+="0. Back"
 
     local selected_item
-    selected_item=$(echo -e "$menu_items" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Start Tunnel > " --header="Select a service (✓ = already open)")
+    selected_item=$(echo -e "$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Start Tunnel > " --header="Select a service (✓ = already open)")
 
     if [ -z "$selected_item" ] || [[ "$selected_item" == "0. Back" ]]; then
       return
@@ -756,7 +762,7 @@ manage_tunnels() {
         menu_items+="0. Back"
         
         local selected
-        selected=$(echo -e "$menu_items" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Manage Tunnels (Select to Stop) > " --header="Active Tunnels")
+        selected=$(echo -e "0. ← Back to Main Menu\n$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Manage Tunnels (Select to Stop) > " --header="Active Tunnels")
 
         if [ -z "$selected" ] || [[ "$selected" == "0. Back" ]]; then
             return
@@ -776,12 +782,12 @@ manage_tunnels() {
 
 access_menu() {
   while true; do
-    local actions="1. Start New Tunnel 🚀
-2. Manage Active Tunnels 📋
-0. Back"
+    local actions="$(t "access_start_tunnel")
+$(t "access_manage_tunnels")
+$(t "prefs_back")"
 
     local selected_action
-    selected_action=$(echo "$actions" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Tunnel Manager > ")
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Tunnel Manager > ")
 
     if [ -z "$selected_action" ]; then
       return
@@ -975,16 +981,16 @@ view_credentials_menu() {
 # Service configuration menu
 service_config_menu() {
   while true; do
-    local actions="1. Initialize Minio (Bucket + Access Keys) 🪣
-2. Initialize Nexus (Blob Store + Docker Repo) 📦
-3. Reset Nexus (Wipe Data & Restart) 🔄
-4. Auto-Initialize All (Minio → Nexus) 🚀
-0. Back"
+    local actions="$(t "svc_minio_init")
+$(t "svc_nexus_init")
+$(t "svc_nexus_reset")
+$(t "svc_auto_init")
+$(t "prefs_back")"
     
     local selected
-    selected=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Service Configuration > " --header="Automated Service Setup")
+    selected=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Service Configuration > " --header="Automated Service Setup")
     
-    if [ -z "$selected" ] || [[ "$selected" == "0. Back" ]]; then
+    if [ -z "$selected" ] || [[ "$selected" == "$(t "prefs_back")" ]]; then
       return
     fi
     
@@ -998,12 +1004,12 @@ service_config_menu() {
         if ! run_kubectl "get pods -n minio -l app=minio" | grep -q "Running"; then
           echo -e "${RED}Error: Minio pod is not running${NC}"
           echo "Please deploy Minio first via Component Management menu"
-          read -p "Press Enter..."
+          read -p "$(t "press_enter")"
           continue
         fi
         
         minio_initialize
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       2)
         clear
@@ -1014,7 +1020,7 @@ service_config_menu() {
         if ! run_kubectl "get pods -n nexus -l app=nexus" | grep -q "Running"; then
           echo -e "${RED}Error: Nexus pod is not running${NC}"
           echo "Please deploy Nexus first via Component Management menu"
-          read -p "Press Enter..."
+          read -p "$(t "press_enter")"
           continue
         fi
         
@@ -1040,7 +1046,7 @@ service_config_menu() {
         fi
         
         nexus_initialize
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       3)
         clear
@@ -1055,12 +1061,12 @@ service_config_menu() {
         
         if [ "$confirm" != "yes" ]; then
           echo "Reset cancelled."
-          read -p "Press Enter..."
+          read -p "$(t "press_enter")"
           continue
         fi
         
         nexus_reset
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
       4)
         clear
@@ -1072,7 +1078,7 @@ service_config_menu() {
         echo ""
         minio_initialize || {
           echo -e "${RED}Minio initialization failed${NC}"
-          read -p "Press Enter..."
+          read -p "$(t "press_enter")"
           continue
         }
         
@@ -1092,7 +1098,7 @@ service_config_menu() {
         
         nexus_initialize || {
           echo -e "${RED}Nexus initialization failed${NC}"
-          read -p "Press Enter..."
+          read -p "$(t "press_enter")"
           continue
         }
         
@@ -1100,34 +1106,310 @@ service_config_menu() {
         echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo -e "${GREEN}✓ All services initialized successfully!${NC}"
         echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-        read -p "Press Enter to continue..."
+        read -p "$(t "press_enter")"
         ;;
     esac
   done
+}
+
+# --- PREFERENCES MENU ---
+
+# Get port status for display (multiline format with URLs)
+get_port_status() {
+    local tunnel_data
+    tunnel_data=$(discover_active_tunnels)
+    
+    if [ -z "$tunnel_data" ]; then
+        echo "$(t "port_status_none")"
+    else
+        # Build multiline status with protocol and URLs
+        local count=0
+        local status_lines=""
+        
+        while IFS='|' read -r pid svc_info namespace local_port remote_port; do
+            # Extract service name and protocol
+            local svc_name="$svc_info"
+            local protocol="tcp"
+            
+            # Check if protocol info is embedded (format: "service [protocol]")
+            if [[ "$svc_info" == *"["* ]]; then
+                protocol="${svc_info##*[}"
+                protocol="${protocol%%]*}"
+                svc_name="${svc_info%% [*}"
+            fi
+            
+            # Get clean service name
+            if [[ "$svc_name" == *"/"* ]]; then
+                svc_name="${svc_name##*/}"
+            fi
+            
+            # Build URL if http/https
+            local url_info=""
+            if [[ "$protocol" == "http" ]] || [[ "$protocol" == "https" ]]; then
+                url_info=" → ${protocol}://localhost:${local_port}"
+            else
+                url_info=" [$protocol]"
+            fi
+            
+            # Add to status lines
+            if [ $count -eq 0 ]; then
+                status_lines="  • $local_port ($svc_name)$url_info"
+            else
+                status_lines+=$'\n'"  • $local_port ($svc_name)$url_info"
+            fi
+            ((count++))
+        done <<< "$tunnel_data"
+        
+        echo -e "$(t "port_status_active") ($count):\n$status_lines"
+    fi
+}
+
+# Auto-forward ports on startup
+auto_forward_ports() {
+    local auto_ports
+    auto_ports=$(prefs_get_auto_ports)
+    
+    # Check if there are any ports to forward
+    local port_count
+    port_count=$(echo "$auto_ports" | jq 'length')
+    
+    if [ "$port_count" -eq 0 ]; then
+        return 0
+    fi
+    
+    echo -e "${BLUE}$(t "auto_ports_starting")${NC}"
+    
+    # Iterate through configured ports
+    local i=0
+    while [ $i -lt $port_count ]; do
+        local namespace=$(echo "$auto_ports" | jq -r ".[$i].namespace")
+        local service=$(echo "$auto_ports" | jq -r ".[$i].service")
+        local desired_port=$(echo "$auto_ports" | jq -r ".[$i].port")
+        
+        # Check if tunnel already exists for this port
+        if lsof -i :$desired_port >/dev/null 2>&1; then
+            echo -e "  ${GRAY}Port $desired_port already in use, skipping${NC}"
+            ((i++))
+            continue
+        fi
+        
+        # Get NodePort for the service
+        local nodeport
+        nodeport=$(run_kubectl "get svc -n $namespace $service -o jsonpath='{.spec.ports[0].nodePort}'" 2>/dev/null | tr -d '\r')
+        
+        if [ -z "$nodeport" ]; then
+            echo -e "  ${RED}$(t "auto_ports_failed"): $service (service not found)${NC}"
+            ((i++))
+            continue
+        fi
+        
+        # Find available local port
+        local local_port=$(find_available_port "$desired_port")
+        
+        # Start tunnel in background
+        ssh -f -N -L "$local_port:127.0.0.1:$nodeport" \
+            -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ExitOnForwardFailure=yes \
+            "$MASTER_NODE" >/dev/null 2>&1
+        
+        if [ $? -eq 0 ]; then
+            # Save metadata
+            echo "$namespace/$service|$namespace|$service|tcp" > "$TUNNEL_DIR/$local_port.meta"
+            echo -e "  ${GREEN}$(t "auto_ports_success"): $service on port $local_port${NC}"
+        else
+            echo -e "  ${RED}$(t "auto_ports_failed"): $service${NC}"
+        fi
+        
+        ((i++))
+    done
+    
+    sleep 1
+}
+
+# Configure auto port forwarding
+configure_auto_ports_menu() {
+    while true; do
+        clear
+        echo -e "${BLUE}=== $(t "auto_ports_title") ===${NC}"
+        echo ""
+        
+        # List current ports
+        local auto_ports
+        auto_ports=$(prefs_get_auto_ports)
+        local port_count
+        port_count=$(echo "$auto_ports" | jq 'length')
+        
+        if [ "$port_count" -gt 0 ]; then
+            echo -e "${GREEN}$(t "auto_ports_current"):${NC}"
+            local i=0
+            while [ $i -lt $port_count ]; do
+                local namespace=$(echo "$auto_ports" | jq -r ".[$i].namespace")
+                local service=$(echo "$auto_ports" | jq -r ".[$i].service")
+                local port=$(echo "$auto_ports" | jq -r ".[$i].port")
+                echo "  - $namespace/$service:$port"
+                ((i++))
+            done
+        else
+            echo -e "${YELLOW}$(t "auto_ports_none")${NC}"
+        fi
+        
+        echo ""
+        local actions="$(t "auto_ports_add")
+$(t "auto_ports_remove")
+$(t "prefs_back")"
+        
+        local selected
+        selected=$(echo "$actions" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Auto Ports > ")
+        
+        if [ -z "$selected" ] || [[ "$selected" == "$(t "prefs_back")" ]]; then
+            return
+        fi
+        
+        case "${selected%%.*}" in
+            1)
+                # Add port
+                echo ""
+                echo -e "${BLUE}Enter namespace:${NC}"
+                read -r namespace
+                echo -e "${BLUE}Enter service name:${NC}"
+                read -r service
+                echo -e "${BLUE}Enter desired local port:${NC}"
+                read -r port
+                
+                if [ -n "$namespace" ] && [ -n "$service" ] && [ -n "$port" ]; then
+                    prefs_add_auto_port "$namespace" "$service" "$port"
+                    echo -e "${GREEN}$(t "auto_ports_added")${NC}"
+                    sleep 1
+                fi
+                ;;
+            2)
+                # Remove port
+                if [ "$port_count" -eq 0 ]; then
+                    echo -e "${YELLOW}$(t "auto_ports_none")${NC}"
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                # Build menu of configured ports
+                local port_menu=""
+                local i=0
+                while [ $i -lt $port_count ]; do
+                    local namespace=$(echo "$auto_ports" | jq -r ".[$i].namespace")
+                    local service=$(echo "$auto_ports" | jq -r ".[$i].service")
+                    local port=$(echo "$auto_ports" | jq -r ".[$i].port")
+                    port_menu+="$namespace/$service:$port"$'\n'
+                    ((i++))
+                done
+                
+                local to_remove
+                to_remove=$(echo "$port_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Remove > ")
+                
+                if [ -n "$to_remove" ]; then
+                    local namespace=$(echo "$to_remove" | cut -d'/' -f1)
+                    local service_port=$(echo "$to_remove" | cut -d'/' -f2)
+                    local service=$(echo "$service_port" | cut -d':' -f1)
+                    local port=$(echo "$service_port" | cut -d':' -f2)
+                    
+                    prefs_remove_auto_port "$namespace" "$service" "$port"
+                    echo -e "${GREEN}$(t "auto_ports_removed")${NC}"
+                    sleep 1
+                fi
+                ;;
+        esac
+    done
+}
+
+# Preferences menu
+preferences_menu() {
+    while true; do
+        clear
+        echo -e "${BLUE}=== $(t "prefs_menu_title") ===${NC}"
+        echo ""
+        echo -e "${GRAY}Current Language: $(prefs_get_language)${NC}"
+        echo ""
+        
+        local actions="$(t "prefs_change_lang")
+$(t "prefs_auto_ports")
+$(t "prefs_back")"
+        
+        local selected
+        selected=$(echo "$actions" | "$FZF_BIN" --height=30% --layout=reverse --border --prompt="Preferences > ")
+        
+        if [ -z "$selected" ] || [[ "$selected" == "$(t "prefs_back")" ]]; then
+            return
+        fi
+        
+        case "${selected%%.*}" in
+            1)
+                # Change language
+                clear
+                echo -e "${BLUE}=== $(t "lang_select_title") ===${NC}"
+                echo ""
+                
+                local lang_menu="$(t "lang_english")
+$(t "lang_portuguese")
+$(t "prefs_back")"
+                
+                local lang_selected
+                lang_selected=$(echo "$lang_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Language > ")
+                
+                if [ -z "$lang_selected" ] || [[ "$lang_selected" == "$(t "prefs_back")" ]]; then
+                    continue
+                fi
+                
+                case "${lang_selected%%.*}" in
+                    1)
+                        prefs_set_language "en"
+                        export I18N_LANG="en"
+                        echo -e "${GREEN}$(t "lang_changed") English${NC}"
+                        ;;
+                    2)
+                        prefs_set_language "pt_BR"
+                        export I18N_LANG="pt_BR"
+                        echo -e "${GREEN}$(t "lang_changed") Português (Brasil)${NC}"
+                        ;;
+                esac
+                read -p "$(t "press_enter")"
+                ;;
+            2)
+                # Configure auto port forwarding
+                configure_auto_ports_menu
+                ;;
+        esac
+    done
 }
 
 # --- MAIN MENU ---
 
 main_menu() {
   ensure_fzf
+  
+  # Run auto port forwarding on startup
+  auto_forward_ports
 
   while true; do
-    local menu="1. Advanced Dashboard (k9s) 🚀
-2. Open Kubernetes Dashboard (Browser) 🌐
-3. Change Namespace (Current: $CURRENT_NS)
-4. Select Pod
-5. Show All Pods
-6. Node Status
-7. Safe Node Update (OS/Kernel) 🔄
-8. Cluster Maintenance (Setup/Repair/Heal) 🛠️
-9. Component Management (Deploy/Update) 📦
-10. Access & Port Forwarding (SSH Tunnels) 🚇
-11. Service Configuration (Minio/Nexus) ⚙️
-12. View Credentials 🔐
-0. Exit"
+    # Build port status header
+    local port_status
+    port_status=$(get_port_status)
+    
+    # Build menu with translated strings (new order)
+    local menu="$(t "menu_k9s")
+$(t "menu_port_forward")
+$(t "menu_service_config")
+$(t "menu_credentials")
+$(t "menu_components")
+$(t "menu_dashboard")
+$(printf "$(t "menu_namespace")" "$CURRENT_NS")
+$(t "menu_pod")
+$(t "menu_all_pods")
+$(t "menu_nodes")
+$(t "menu_update")
+$(t "menu_maintenance")
+$(t "menu_preferences")
+$(t "menu_exit")"
 
     local selected
-    selected=$(echo "$menu" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Main Menu > " --header="Cluster: $MASTER_NODE")
+    selected=$(echo "$menu" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Main Menu > " --header="Cluster: $MASTER_NODE | $port_status")
 
     if [ -z "$selected" ]; then
       exit 0
@@ -1141,38 +1423,41 @@ main_menu() {
         open_dashboard
         ;;
       3)
-        select_namespace
+        access_menu
         ;;
       4)
-        select_pod
+        service_config_menu
         ;;
       5)
+        view_credentials_menu
+        ;;
+      6)
+        component_management_menu
+        ;;
+      7)
+        select_namespace
+        ;;
+      8)
+        select_pod
+        ;;
+      9)
         clear
         run_kubectl "get pods -A -o wide" | less -S
         ;;
-      6)
+      10)
         clear
         run_kubectl "get nodes -o wide"
-        read -p "Press Enter..."
+        read -p "$(t "press_enter")"
         ;;
-      7)
+      11)
         clear
         ./safe_node_update.sh
         ;;
-      8)
+      12)
         cluster_maintenance_menu
         ;;
-      9)
-        component_management_menu
-        ;;
-      10)
-        access_menu
-        ;;
-      11)
-        service_config_menu
-        ;;
-      12)
-        view_credentials_menu
+      13)
+        preferences_menu
         ;;
       0)
         echo "Bye!"
