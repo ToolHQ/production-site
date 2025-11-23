@@ -158,7 +158,13 @@ credstore_get_credential() {
     local dec_user=$(decrypt_field "$enc_user")
     local dec_pass=$(decrypt_field "$enc_pass")
     
-    echo "{\"name\": \"$name\", \"username\": \"$dec_user\", \"password\": \"$dec_pass\", \"description\": \"$desc\"}"
+    # Use jq to safely construct JSON
+    jq -n \
+      --arg name "$name" \
+      --arg user "$dec_user" \
+      --arg pass "$dec_pass" \
+      --arg desc "$desc" \
+      '{name: $name, username: $user, password: $pass, description: $desc}'
 }
 
 # Update a credential field
