@@ -178,7 +178,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: minio.localhost
+    - host: minio.dnor.io
       http:
         paths:
           - path: /
@@ -188,7 +188,7 @@ spec:
                 port:
                   number: 9000
             pathType: Prefix
-    - host: minio-browser.localhost
+    - host: minio-browser.dnor.io
       http:
         paths:
           - path: /
@@ -198,7 +198,7 @@ spec:
                 port:
                   number: 8080
             pathType: Prefix
-    - host: minio-console.localhost
+    - host: minio-console.dnor.io
       http:
         paths:
           - path: /
