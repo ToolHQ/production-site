@@ -253,8 +253,8 @@ open_dashboard() {
     return
   fi
   
-  # Save metadata
-  echo "kubernetes-dashboard/kubernetes-dashboard-kong-proxy|kubernetes-dashboard|dashboard" > "$TUNNEL_DIR/$local_port.meta"
+  # Save metadata (format: namespace/service|namespace|service|protocol)
+  echo "kubernetes-dashboard/kubernetes-dashboard-kong-proxy|kubernetes-dashboard|kubernetes-dashboard-kong-proxy|https" > "$TUNNEL_DIR/$local_port.meta"
   
   # 5. Wait for tunnel
   echo "Waiting for tunnel to establish..."
@@ -561,8 +561,16 @@ discover_active_tunnels() {
         fi
         
         # Get remote port from process cmdline
-        local cmdline=$(ps -p "$pid" -o args= 2>/dev/null | grep -oP '127\.0\.0\.1:\K[0-9]+' | head -1)
-        local remote_port="${cmdline:-unknown}"
+        # Handle both formats: 127.0.0.1:PORT and IP:PORT
+        local cmdline=$(ps -p "$pid" -o args= 2>/dev/null)
+        local remote_port="unknown"
+        
+        # Try to extract port from -L argument (format: localport:host:remoteport)
+        if [[ "$cmdline" =~ -L[[:space:]]+([0-9]+):([^:]+):([0-9]+) ]]; then
+            remote_port="${BASH_REMATCH[3]}"
+        elif [[ "$cmdline" =~ 127\.0\.0\.1:([0-9]+) ]]; then
+            remote_port="${BASH_REMATCH[1]}"
+        fi
         
         echo "$pid|$service_info|$namespace|$local_port|$remote_port"
     done <<< "$tunnel_info"
@@ -580,11 +588,13 @@ start_tunnel() {
       return
     fi
 
-    # Get list of already-open remote ports from active tunnels
+    # Get list of already-open ports from active tunnels (both remote NodePort and local port)
     local active_tunnel_data=$(discover_active_tunnels)
     local active_remote_ports=""
+    local active_local_ports=""
     if [ -n "$active_tunnel_data" ]; then
         active_remote_ports=$(echo "$active_tunnel_data" | cut -d'|' -f5 | grep -v '^unknown$' | tr '\n' ' ')
+        active_local_ports=$(echo "$active_tunnel_data" | cut -d'|' -f4 | tr '\n' ' ')
     fi
 
     local menu_items=""
@@ -600,11 +610,18 @@ start_tunnel() {
             local p_port=$(echo "$p" | cut -d: -f2)
             local p_nodeport=$(echo "$p" | cut -d: -f3)
             
-            # Check if this NodePort already has an active tunnel
+            # Check if this NodePort already has an active tunnel (check both remote NodePort, local service port, and service name)
             local port_status=""
-            if [[ " $active_remote_ports " == *" $p_nodeport "* ]]; then
+            if [[ " $active_remote_ports " == *" $p_nodeport "* ]] || [[ " $active_local_ports " == *" $p_port "* ]]; then
                 port_status=" ✓"
                 has_active_tunnel=true
+            else
+                # Also check if service name matches any active tunnel
+                local svc_name="${ns_name##*/}"
+                if echo "$active_tunnel_data" | grep -q "$svc_name"; then
+                    port_status=" ✓"
+                    has_active_tunnel=true
+                fi
             fi
             
             ports_display+="$p_name: $p_port->$p_nodeport$port_status, "
@@ -755,17 +772,25 @@ manage_tunnels() {
         fi
 
         local menu_items=""
+        # Add main menu option at the top
+        menu_items="← Return to Main Menu\n"
+        
         while IFS='|' read -r pid svc_info namespace local_port remote_port; do
             menu_items+="$svc_info (Local: $local_port -> Remote: $remote_port) [PID: $pid]\n"
         done <<< "$tunnel_data"
 
-        menu_items+="0. Back"
+        menu_items+="↩ Back to Access Menu"
         
         local selected
-        selected=$(echo -e "0. ← Back to Main Menu\n$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Manage Tunnels (Select to Stop) > " --header="Active Tunnels")
+        selected=$(echo -e "$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Manage Tunnels (Select to Stop) > " --header="Active Tunnels")
 
-        if [ -z "$selected" ] || [[ "$selected" == "0. Back" ]]; then
-            return
+        # Check what was selected
+        if [ -z "$selected" ]; then
+            return 1  # User cancelled, back to access menu
+        elif [[ "$selected" == "← Return to Main Menu" ]]; then
+            return 0  # Return to main menu
+        elif [[ "$selected" == "↩ Back to Access Menu" ]]; then
+            return 1
         fi
 
         local pid_to_kill=$(echo "$selected" | grep -oP 'PID: \K[0-9]+')
@@ -795,7 +820,15 @@ $(t "prefs_back")"
 
     case "${selected_action%%.*}" in
       1) start_tunnel ;;
-      2) manage_tunnels ;;
+      2) 
+        manage_tunnels
+        # Only exit to main menu if manage_tunnels explicitly returns 0
+        local ret=$?
+        if [ $ret -eq 0 ]; then
+            return 0
+        fi
+        # Any other return code (like 1) means continue in access_menu
+        ;;
       0) return ;;
     esac
   done
@@ -1329,6 +1362,7 @@ preferences_menu() {
         echo ""
         
         local actions="$(t "prefs_change_lang")
+$(t "prefs_reorder_menu")
 $(t "prefs_auto_ports")
 $(t "prefs_back")"
         
@@ -1372,6 +1406,16 @@ $(t "prefs_back")"
                 read -p "$(t "press_enter")"
                 ;;
             2)
+                # Reorder menu items
+                clear
+                echo -e "${BLUE}=== Menu Reordering ===${NC}"
+                echo ""
+                echo -e "${YELLOW}This feature is reserved for future implementation.${NC}"
+                echo "Menu order is currently fixed based on most common usage patterns."
+                echo ""
+                read -p "$(t "press_enter")"
+                ;;
+            3)
                 # Configure auto port forwarding
                 configure_auto_ports_menu
                 ;;
