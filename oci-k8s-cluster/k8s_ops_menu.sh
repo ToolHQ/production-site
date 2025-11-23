@@ -1407,13 +1407,127 @@ $(t "prefs_back")"
                 ;;
             2)
                 # Reorder menu items
-                clear
-                echo -e "${BLUE}=== Menu Reordering ===${NC}"
-                echo ""
-                echo -e "${YELLOW}This feature is reserved for future implementation.${NC}"
-                echo "Menu order is currently fixed based on most common usage patterns."
-                echo ""
-                read -p "$(t "press_enter")"
+                while true; do
+                    clear
+                    echo -e "${BLUE}=== $(t "prefs_reorder_menu") ===${NC}"
+                    echo ""
+                    
+                    # Get current order
+                    local current_order
+                    current_order=$(prefs_get_menu_order)
+                    
+                    # Convert to bash array
+                    local menu_keys=()
+                    while IFS= read -r key; do
+                        menu_keys+=("$key")
+                    done < <(echo "$current_order" | jq -r '.[]')
+                    
+                    echo -e "${GREEN}Current menu order:${NC}"
+                    local i=1
+                    for key in "${menu_keys[@]}"; do
+                        local name=""
+                        case "$key" in
+                            "k9s") name="Advanced Dashboard (k9s)" ;;
+                            "port_forward") name="Access & Port Forwarding" ;;
+                            "service_config") name="Service Configuration" ;;
+                            "credentials") name="View Credentials" ;;
+                            "components") name="Component Management" ;;
+                            "dashboard") name="Open Kubernetes Dashboard" ;;
+                            "namespace") name="Change Namespace" ;;
+                            "pod") name="Select Pod" ;;
+                            "all_pods") name="Show All Pods" ;;
+                            "nodes") name="Node Status" ;;
+                            "update") name="Safe Node Update" ;;
+                            "maintenance") name="Cluster Maintenance" ;;
+                            "preferences") name="Preferences" ;;
+                            "exit") name="Exit" ;;
+                        esac
+                        echo "  $i. $name"
+                        ((i++))
+                    done
+                    
+                    echo ""
+                    echo -e "${YELLOW}Actions:${NC}"
+                    echo "1-${#menu_keys[@]}. Move item (enter number)"
+                    echo "s. Save and Exit"
+                    echo "r. Reset to default"
+                    echo "q. Cancel (don't save)"
+                    echo ""
+                    read -p "Choose action: " action
+                    
+                    case "$action" in
+                        s)
+                            # Save
+                            local json_array="["
+                            for key in "${menu_keys[@]}"; do
+                                json_array+="\"$key\","
+                            done
+                            json_array="${json_array%,}]"
+                            
+                            prefs_set_menu_order "$json_array"
+                            echo -e "${GREEN}✓ Menu order saved!${NC}"
+                            echo -e "${YELLOW}Restart TUI to see changes${NC}"
+                            read -p "$(t "press_enter")"
+                            break
+                            ;;
+                        r)
+                            # Reset
+                            prefs_set_menu_order "$DEFAULT_MENU_ORDER"
+                            echo -e "${GREEN}✓ Reset to default!${NC}"
+                            read -p "$(t "press_enter")"
+                            break
+                            ;;
+                        q)
+                            # Cancel
+                            echo -e "${GRAY}Cancelled${NC}"
+                            read -p "$(t "press_enter")"
+                            break
+                            ;;
+                        *)
+                            # Try to move item
+                            if [[ "$action" =~ ^[0-9]+$ ]] && [ "$action" -ge 1 ] && [ "$action" -le "${#menu_keys[@]}" ]; then
+                                # Valid item selected
+                                local from_pos=$action
+                                echo ""
+                                echo -e "${BLUE}Move '${menu_keys[$((from_pos-1))]}' to position:${NC}"
+                                read -p "New position (1-${#menu_keys[@]}): " to_pos
+                                
+                                if [[ "$to_pos" =~ ^[0-9]+$ ]] && [ "$to_pos" -ge 1 ] && [ "$to_pos" -le "${#menu_keys[@]}" ]; then
+                                    local from_idx=$((from_pos - 1))
+                                    local to_idx=$((to_pos - 1))
+                                    
+                                    if [ $from_idx -ne $to_idx ]; then
+                                        # Simple move: extract item, build new array
+                                        local item="${menu_keys[$from_idx]}"
+                                        local new_arr=()
+                                        
+                                        # Build new array in one pass
+                                        for ((k=0; k<=${#menu_keys[@]}; k++)); do
+                                            # Insert item at target position
+                                            if [ $k -eq $to_idx ]; then
+                                                new_arr+=("$item")
+                                            fi
+                                            
+                                            # Copy other items (skip the original position)
+                                            if [ $k -lt ${#menu_keys[@]} ] && [ $k -ne $from_idx ]; then
+                                                new_arr+=("${menu_keys[$k]}")
+                                            fi
+                                        done
+                                        
+                                        menu_keys=("${new_arr[@]}")
+                                        echo -e "${GREEN}✓ Moved!${NC}"
+                                    fi
+                                else
+                                    echo -e "${RED}Invalid position${NC}"
+                                fi
+                                sleep 1
+                            else
+                                echo -e "${RED}Invalid choice${NC}"
+                                sleep 1
+                            fi
+                            ;;
+                    esac
+                done
                 ;;
             3)
                 # Configure auto port forwarding
@@ -1436,7 +1550,7 @@ main_menu() {
     local port_status
     port_status=$(get_port_status)
     
-    # Build menu with translated strings (new order)
+    # Build menu with translated strings (HARDCODED ORDER - dynamic ordering disabled)
     local menu="$(t "menu_k9s")
 $(t "menu_port_forward")
 $(t "menu_service_config")
@@ -1459,24 +1573,25 @@ $(t "menu_exit")"
       exit 0
     fi
 
+    # Match action based on position number
     case "${selected%%.*}" in
       1)
         open_k9s
         ;;
       2)
-        open_dashboard
-        ;;
-      3)
         access_menu
         ;;
-      4)
+      3)
         service_config_menu
         ;;
-      5)
+      4)
         view_credentials_menu
         ;;
-      6)
+      5)
         component_management_menu
+        ;;
+      6)
+        open_dashboard
         ;;
       7)
         select_namespace
