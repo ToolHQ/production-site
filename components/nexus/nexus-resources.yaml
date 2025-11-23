@@ -110,6 +110,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: 800m
 spec:
+  ingressClassName: nginx
   rules:
     - host: nexus.localhost
       http:
