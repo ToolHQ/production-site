@@ -17,23 +17,8 @@ metadata:
 # data:
 #   NEXUS_USER: cG9zdGdyZXM=
 #   NEXUS_PASSWORD: cGFzc3dvcmRpbml0aWFs
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: nexus-pv
-  namespace: nexus
-  labels:
-    type: nexus
-    app: nexus
-spec:
-  storageClassName: manual
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteMany
-  hostPath:
-    path: /data/nexus
+# PV removed for Longhorn dynamic provisioning
+
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -43,9 +28,9 @@ metadata:
   labels:
     app: nexus
 spec:
-  storageClassName: manual
+  storageClassName: longhorn
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi

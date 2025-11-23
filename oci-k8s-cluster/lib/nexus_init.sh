@@ -27,15 +27,30 @@ nexus_check_tunnel() {
 nexus_get_initial_password() {
     echo "Fetching initial Nexus admin password..." >&2
     
-    # Try to get from pod file
-    local password
-    password=$(run_kubectl "exec -n nexus deployment/nexus -- cat /nexus-data/admin.password" 2>/dev/null | tr -d '\r' || true)
+    # Retry loop to wait for Nexus to generate the password file
+    local max_retries=30
+    local count=0
+    local password=""
+    
+    while [ $count -lt $max_retries ]; do
+        # Try to get from pod file
+        password=$(run_kubectl "exec -n nexus deployment/nexus-deployment -- cat /nexus-data/admin.password" 2>/dev/null | tr -d '\r\n' || true)
+        
+        if [ -n "$password" ]; then
+            break
+        fi
+        
+        echo "Waiting for Nexus to generate admin.password... ($((count+1))/$max_retries)" >&2
+        sleep 5
+        count=$((count + 1))
+    done
     
     if [ -z "$password" ]; then
-        echo "Error: Could not retrieve initial admin password (file may not exist after first setup)" >&2
+        echo "Error: Could not retrieve initial admin password (file may not exist after first setup or Nexus is still starting)" >&2
         return 1
     fi
     
+    echo "Retrieved initial password (len=${#password})" >&2
     echo "$password"
 }
 
@@ -48,20 +63,37 @@ nexus_get_admin_password() {
     if [ "$cred_json" != "{}" ]; then
         local pass=$(echo "$cred_json" | jq -r '.password')
         if [ -n "$pass" ]; then
-            echo "$pass"
-            return 0
+            # Verify if this password actually works
+            local http_code
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" -u "admin:$pass" --max-time 5 "$NEXUS_API_BASE/service/rest/v1/blobstores" || echo "000")
+            
+            if [ "$http_code" = "200" ]; then
+                echo "$pass"
+                return 0
+            else
+                echo "Warning: Stored password failed authentication (HTTP $http_code). Checking for new initial password..." >&2
+            fi
         fi
     fi
     
-    # Try to get initial password
+    # Try to get initial password from pod
     local initial_pass
-    initial_pass=$(nexus_get_initial_password 2>&1)
+    initial_pass=$(nexus_get_initial_password)
     
     if [ -n "$initial_pass" ]; then
-        # Store it with default username "admin"
-        credstore_add "nexus-admin" "admin" "$initial_pass" "Nexus admin account"
-        echo "$initial_pass"
-        return 0
+        # Verify the initial password too
+        local http_code
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" -u "admin:$initial_pass" --max-time 5 "$NEXUS_API_BASE/service/rest/v1/blobstores" || echo "000")
+        
+        if [ "$http_code" = "200" ]; then
+            # Store it with default username "admin"
+            # If entry exists (but was wrong), this updates it
+            credstore_add "nexus-admin" "admin" "$initial_pass" "Nexus admin account"
+            echo "$initial_pass"
+            return 0
+        else
+             echo "Error: Initial password found but failed authentication (HTTP $http_code)" >&2
+        fi
     fi
     
     return 1
@@ -304,7 +336,72 @@ nexus_initialize() {
     echo "Credentials saved to credstore (view with 'View Credentials' menu)"
 }
 
+# Reset Nexus (wipe data and restart)
+# Usage: nexus_reset
+nexus_reset() {
+    echo "=== Resetting Nexus ==="
+    echo ""
+    echo "⚠️  WARNING: This will DELETE all Nexus data (repositories, blob stores, credentials)"
+    echo ""
+    
+    # Step 1: Scale down deployment
+    echo "Step 1/5: Scaling down Nexus deployment..."
+    run_kubectl "scale deployment/nexus-deployment -n nexus --replicas=0"
+    sleep 5
+    echo "✓ Deployment scaled down"
+    echo ""
+    
+    # Step 2: Delete PVC
+    echo "Step 2/5: Deleting persistent volume claim..."
+    run_kubectl "delete pvc nexus-pvc -n nexus --ignore-not-found=true"
+    sleep 5
+    echo "✓ PVC deleted"
+    echo ""
+    
+    # Step 3: Recreate PVC and Scale up
+    echo "Step 3/5: Recreating resources and scaling up..."
+    cat "$LIB_DIR/../../components/nexus/nexus-resources.yaml" | run_kubectl "apply -f -"
+    run_kubectl "scale deployment/nexus-deployment -n nexus --replicas=1"
+    echo "✓ Resources applied and deployment scaled up"
+    echo ""
+    
+    # Step 4: Wait for pod to be ready
+    echo "Step 4/5: Waiting for Nexus pod to be ready..."
+    local max_wait=120
+    local waited=0
+    while [ $waited -lt $max_wait ]; do
+        local ready=$(run_kubectl "get pods -n nexus -l app=nexus -o jsonpath='{.items[0].status.containerStatuses[0].ready}'" 2>/dev/null || echo "false")
+        if [ "$ready" = "true" ]; then
+            echo "✓ Nexus pod is ready"
+            break
+        fi
+        echo -n "."
+        sleep 5
+        waited=$((waited + 5))
+    done
+    echo ""
+    
+    if [ $waited -ge $max_wait ]; then
+        echo "⚠️  Warning: Nexus pod did not become ready within $max_wait seconds"
+        echo "   You may need to check pod status manually"
+    fi
+    echo ""
+    
+    # Step 5: Clean up credstore
+    echo "Step 5/5: Cleaning up stored credentials..."
+    credstore_delete_credential "nexus-admin" 2>/dev/null || true
+    echo "✓ Credentials cleared"
+    echo ""
+    
+    echo "=== Nexus Reset Complete ==="
+    echo ""
+    echo "Next steps:"
+    echo "1. Run 'Initialize Nexus' to set up Nexus with fresh admin.password"
+    echo "2. Credentials will be automatically stored in credstore"
+}
+
+
 # Export functions if sourced
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-    export -f nexus_check_tunnel nexus_get_initial_password nexus_get_admin_password nexus_change_password nexus_create_s3_blobstore nexus_create_docker_repo nexus_initialize
+    export -f nexus_check_tunnel nexus_get_initial_password nexus_get_admin_password nexus_change_password nexus_create_s3_blobstore nexus_create_docker_repo nexus_initialize nexus_reset
 fi
