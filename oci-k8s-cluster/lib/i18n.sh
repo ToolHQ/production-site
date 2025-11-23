@@ -20,11 +20,11 @@ t() {
                 # Main Menu
                 "menu_header") echo "Cluster" ;;
                 "menu_k9s") echo "1. Dashboard Avançado (k9s) 🚀" ;;
-                "menu_dashboard") echo "2. Abrir Dashboard Kubernetes (Navegador) 🌐" ;;
-                "menu_port_forward") echo "3. Acesso & Encaminhamento de Portas (Túneis SSH) 🚇" ;;
-                "menu_service_config") echo "4. Configuração de Serviços (Minio/Nexus) ⚙️" ;;
-                "menu_credentials") echo "5. Ver Credenciais 🔐" ;;
-                "menu_components") echo "6. Gerenciamento de Componentes (Deploy/Atualizar) 📦" ;;
+                "menu_port_forward") echo "2. Acesso & Encaminhamento de Portas (Túneis SSH) 🚇" ;;
+                "menu_service_config") echo "3. Configuração de Serviços (Minio/Nexus) ⚙️" ;;
+                "menu_credentials") echo "4. Ver Credenciais 🔐" ;;
+                "menu_components") echo "5. Gerenciamento de Componentes (Deploy/Atualizar) 📦" ;;
+                "menu_dashboard") echo "6. Abrir Dashboard Kubernetes (Navegador) 🌐" ;;
                 "menu_namespace") echo "7. Mudar Namespace (Atual: %s)" ;;
                 "menu_pod") echo "8. Selecionar Pod" ;;
                 "menu_all_pods") echo "9. Mostrar Todos os Pods" ;;
@@ -102,11 +102,11 @@ t() {
                 # Main Menu
                 "menu_header") echo "Cluster" ;;
                 "menu_k9s") echo "1. Advanced Dashboard (k9s) 🚀" ;;
-                "menu_dashboard") echo "2. Open Kubernetes Dashboard (Browser) 🌐" ;;
-                "menu_port_forward") echo "3. Access & Port Forwarding (SSH Tunnels) 🚇" ;;
-                "menu_service_config") echo "4. Service Configuration (Minio/Nexus) ⚙️" ;;
-                "menu_credentials") echo "5. View Credentials 🔐" ;;
-                "menu_components") echo "6. Component Management (Deploy/Update) 📦" ;;
+                "menu_port_forward") echo "2. Access & Port Forwarding (SSH Tunnels) 🚇" ;;
+                "menu_service_config") echo "3. Service Configuration (Minio/Nexus) ⚙️" ;;
+                "menu_credentials") echo "4. View Credentials 🔐" ;;
+                "menu_components") echo "5. Component Management (Deploy/Update) 📦" ;;
+                "menu_dashboard") echo "6. Open Kubernetes Dashboard (Browser) 🌐" ;;
                 "menu_namespace") echo "7. Change Namespace (Current: %s)" ;;
                 "menu_pod") echo "8. Select Pod" ;;
                 "menu_all_pods") echo "9. Show All Pods" ;;
