@@ -84,6 +84,30 @@ apply_component_manifests() {
   log_node "$MASTER_NODE" "📦 Applying manifests for component '$component'"
 
   run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
+# Inject host IP for registry access (fixes 'connection refused' on 127.0.0.1)
+# We try to use the Nexus Pod IP directly to bypass potential kube-proxy/NodePort issues on the master
+NEXUS_POD_IP=\$(kubectl get pods -n nexus -l app=nexus -o jsonpath='{.items[0].status.podIP}' 2>/dev/null || true)
+
+if [[ -n "\$NEXUS_POD_IP" ]]; then
+  export DOCKER_REGISTRY_HOST="\$NEXUS_POD_IP"
+  export PORT=18444
+  echo "🔌 Registry (Pod Direct): \$DOCKER_REGISTRY_HOST:\$PORT"
+else
+  export DOCKER_REGISTRY_HOST=\$(hostname -I | awk '{print \$1}')
+  export PORT=31444
+  echo "🔌 Registry (Node LAN): \$DOCKER_REGISTRY_HOST:\$PORT"
+fi
+
+# Detect if registry is HTTP (insecure)
+if curl --connect-timeout 2 -s -I "http://\$DOCKER_REGISTRY_HOST:\$PORT/v2/" >/dev/null 2>&1 || \
+   curl --connect-timeout 2 -s -I "http://\$DOCKER_REGISTRY_HOST:\$PORT/" >/dev/null 2>&1; then
+  export REGISTRY_INSECURE=true
+  echo "🔓 Registry detected as HTTP (Insecure)"
+else
+  export REGISTRY_INSECURE=false
+  echo "🔒 Registry detected as HTTPS (Secure) or unreachable via HTTP"
+fi
+
 cd /home/ubuntu/deployments/$component
 if [ -f commands.sh ]; then
   chmod +x commands.sh

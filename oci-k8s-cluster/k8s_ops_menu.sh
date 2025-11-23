@@ -10,6 +10,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+GRAY='\033[1;30m'
 NC='\033[0m' # No Color
 
 # State variables
@@ -206,16 +207,7 @@ open_dashboard() {
     return
   fi
   
-  # 2. Setup Tunnel (SSH -> ClusterIP)
-  echo "Setting up secure connection (SSH Tunnel to ClusterIP)..."
-  
-  # CLEANUP: Kill local processes on 8443
-  if lsof -ti:8443 >/dev/null 2>&1; then
-    echo "Freeing local port 8443..."
-    kill -9 $(lsof -ti:8443) 2>/dev/null || true
-  fi
-  
-  # Get ClusterIP
+  # 2. Get ClusterIP for Dashboard
   echo "Resolving Dashboard IP..."
   local cluster_ip
   cluster_ip=$(capture_clean "kubectl -n kubernetes-dashboard get svc kubernetes-dashboard-kong-proxy -o jsonpath='{.spec.clusterIP}'")
@@ -233,16 +225,34 @@ open_dashboard() {
   
   echo "Target: $cluster_ip:443"
   
-  # Start SSH Tunnel
-  # Local 8443 -> SSH(Master) -> ClusterIP:443
-  # This works because the Master node can route to ClusterIPs.
-  ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-      -f -N -L 8443:${cluster_ip}:443 \
+  # 3. Find available local port (starting from 8443)
+  echo "Finding available local port..."
+  local local_port=$(find_available_port 8443)
+  
+  if [ "$local_port" != "8443" ]; then
+      echo -e "${YELLOW}Port 8443 in use, using $local_port instead.${NC}"
+  fi
+  
+  # 4. Start persistent background tunnel
+  echo "Starting persistent tunnel..."
+  ssh -f -N -L "$local_port:${cluster_ip}:443" \
+      -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+      -o ExitOnForwardFailure=yes \
       "$MASTER_NODE"
   
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to start tunnel.${NC}"
+    read -p "Press Enter..."
+    return
+  fi
+  
+  # Save metadata
+  echo "kubernetes-dashboard/kubernetes-dashboard-kong-proxy|kubernetes-dashboard|dashboard" > "$TUNNEL_DIR/$local_port.meta"
+  
+  # 5. Wait for tunnel
   echo "Waiting for tunnel to establish..."
   local retries=0
-  while ! nc -z localhost 8443 >/dev/null 2>&1; do
+  while ! nc -z localhost "$local_port" >/dev/null 2>&1; do
     sleep 1
     ((retries++))
     if [ $retries -gt 10 ]; then
@@ -252,9 +262,9 @@ open_dashboard() {
     fi
   done
   
-  local url="https://localhost:8443/#/workloads?namespace=_all"
+  local url="https://localhost:$local_port/#/workloads?namespace=_all"
   
-  # 3. Display and Open
+  # 6. Display and Open
   echo -e "\n${GREEN}Token (Copied to clipboard if possible):${NC}"
   echo "$token"
   echo -e "\n${YELLOW}URL:${NC} $url"
@@ -277,12 +287,9 @@ open_dashboard() {
   echo -e "\n${BLUE}Opening browser...${NC}"
   open_url "$url"
   
-  read -p "Press Enter to stop tunnel and return..."
-  
-  # Cleanup on exit
-  if lsof -ti:8443 >/dev/null 2>&1; then
-    kill -9 $(lsof -ti:8443) 2>/dev/null || true
-  fi
+  echo -e "\n${GREEN}Dashboard tunnel running in background on port $local_port${NC}"
+  echo -e "${GRAY}You can manage this tunnel via 'Access & Port Forwarding' -> 'Manage Active Tunnels'${NC}"
+  read -p "Press Enter to return to menu..."
 }
 
 # --- MENUS ---
@@ -466,6 +473,327 @@ component_management_menu() {
   done
 }
 
+
+# Tunnel Metadata Directory (stores service info for discovered tunnels)
+TUNNEL_DIR="$HOME/.local/state/k8s_ops_tunnels"
+mkdir -p "$TUNNEL_DIR"
+
+# Find next available port starting from base_port
+find_available_port() {
+    local base_port=$1
+    local port=$base_port
+    local max_attempts=100
+    
+    # For privileged ports (<1024), use mnemonic offset: 8000 + port
+    if [ $port -lt 1024 ]; then
+        port=$((8000 + base_port))
+        echo -e "${YELLOW}Note: Port $base_port requires root. Trying $port (8000+$base_port)...${NC}" >&2
+    fi
+    
+    for ((i=0; i<max_attempts; i++)); do
+        # Skip privileged ports during iteration
+        if [ $port -lt 1024 ]; then
+            ((port++))
+            continue
+        fi
+        
+        if ! lsof -i ":$port" >/dev/null 2>&1; then
+            echo "$port"
+            return 0
+        fi
+        ((port++))
+    done
+    
+    echo "$base_port"  # Fallback to original if all attempts fail
+    return 1
+}
+
+# Discover active SSH tunnels from system processes and enrich with metadata
+discover_active_tunnels() {
+    # Find SSH processes with LISTEN state (local port forwarding)
+    # lsof output sample: ssh 347987 dnorio 4u IPv6 ... TCP [::1]:8443 (LISTEN)
+    local lsof_output=$(lsof -i -P -n 2>/dev/null | grep -E '^ssh.*LISTEN')
+    
+    if [ -z "$lsof_output" ]; then
+        return 1
+    fi
+    
+    # Parse lsof output to get PID and port
+    # Column 2: PID, Column 9: NAME (e.g., "127.0.0.1:8443" or "[::1]:8443")
+    local tunnel_info=$(echo "$lsof_output" | awk '{
+        # Extract port from NAME column (format: IP:PORT or [IP]:PORT)
+        if (match($9, /:([0-9]+)/, arr)) {
+            port = arr[1]
+            # Skip port 1 (SSH multiplexing control socket)
+            if (port != "1") {
+                print $2, port
+            }
+        }
+    }' | sort -u)
+    
+    if [ -z "$tunnel_info" ]; then
+        return 1
+    fi
+    
+    # Enrich with metadata
+    while read -r pid local_port; do
+        [ -z "$pid" ] && continue
+        
+        local meta_file="$TUNNEL_DIR/$local_port.meta"
+        local service_info="Unknown Service"
+        local namespace="unknown"
+        
+        if [ -f "$meta_file" ]; then
+            service_info=$(cat "$meta_file" | cut -d'|' -f1)
+            namespace=$(cat "$meta_file" | cut -d'|' -f2)
+            local protocol=$(cat "$meta_file" | cut -d'|' -f4 2>/dev/null || echo "unknown")
+            # Append protocol to service_info for display
+            if [ -n "$protocol" ] && [ "$protocol" != "unknown" ]; then
+                service_info="$service_info [$protocol]"
+            fi
+        fi
+        
+        # Get remote port from process cmdline
+        local cmdline=$(ps -p "$pid" -o args= 2>/dev/null | grep -oP '127\.0\.0\.1:\K[0-9]+' | head -1)
+        local remote_port="${cmdline:-unknown}"
+        
+        echo "$pid|$service_info|$namespace|$local_port|$remote_port"
+    done <<< "$tunnel_info"
+}
+
+start_tunnel() {
+    echo -e "${BLUE}🔍 Discovering NodePort services...${NC}"
+    
+    local services
+    services=$(run_kubectl "get svc -A --field-selector spec.type=NodePort -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name} {range .spec.ports[*]}{.name}:{.port}:{.nodePort} {end}{\"\n\"}{end}'")
+    
+    if [ -z "$services" ]; then
+      echo -e "${YELLOW}No NodePort services found.${NC}"
+      read -p "Press Enter to return..."
+      return
+    fi
+
+    # Get list of already-open remote ports from active tunnels
+    local active_tunnel_data=$(discover_active_tunnels)
+    local active_remote_ports=""
+    if [ -n "$active_tunnel_data" ]; then
+        active_remote_ports=$(echo "$active_tunnel_data" | cut -d'|' -f5 | grep -v '^unknown$' | tr '\n' ' ')
+    fi
+
+    local menu_items=""
+    while IFS= read -r line; do
+      if [ -n "$line" ]; then
+        local ns_name="${line%% *}"
+        local ports_raw="${line#* }"
+        local ports_display=""
+        local has_active_tunnel=false
+        
+        for p in $ports_raw; do
+            local p_name=$(echo "$p" | cut -d: -f1)
+            local p_port=$(echo "$p" | cut -d: -f2)
+            local p_nodeport=$(echo "$p" | cut -d: -f3)
+            
+            # Check if this NodePort already has an active tunnel
+            local port_status=""
+            if [[ " $active_remote_ports " == *" $p_nodeport "* ]]; then
+                port_status=" ✓"
+                has_active_tunnel=true
+            fi
+            
+            ports_display+="$p_name: $p_port->$p_nodeport$port_status, "
+        done
+        ports_display="${ports_display%, }"
+        
+        # Add visual indicator if service has active tunnels
+        if [ "$has_active_tunnel" = true ]; then
+            menu_items+="$ns_name ($ports_display) [ACTIVE]\n"
+        else
+            menu_items+="$ns_name ($ports_display)\n"
+        fi
+      fi
+    done <<< "$services"
+    
+    menu_items+="0. Back"
+
+    local selected_item
+    selected_item=$(echo -e "$menu_items" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Start Tunnel > " --header="Select a service (✓ = already open)")
+
+    if [ -z "$selected_item" ] || [[ "$selected_item" == "0. Back" ]]; then
+      return
+    fi
+
+    # Remove [ACTIVE] marker if present
+    selected_item="${selected_item% \[ACTIVE\]}"
+    
+    local svc_info="${selected_item%% *}"
+    local namespace="${svc_info%%/*}"
+    local service_name="${svc_info##*/}"
+    local ports_info="${selected_item#* (}"
+    ports_info="${ports_info%)}"
+
+    local selected_port_mapping
+    if [[ "$ports_info" == *", "* ]]; then
+        local port_menu=$(echo "$ports_info" | sed 's/, /\n/g')
+        selected_port_mapping=$(echo "$port_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Port > ")
+    else
+        selected_port_mapping="$ports_info"
+    fi
+
+    if [ -z "$selected_port_mapping" ]; then
+        return
+    fi
+
+    # Remove ✓ marker if present
+    selected_port_mapping="${selected_port_mapping% ✓}"
+    
+    local desired_port=$(echo "$selected_port_mapping" | awk -F'->' '{print $1}' | awk -F': ' '{print $2}')
+    local remote_port=$(echo "$selected_port_mapping" | awk -F'->' '{print $2}')
+    
+    if ! [[ "$desired_port" =~ ^[0-9]+$ ]] || ! [[ "$remote_port" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}Error parsing ports.${NC}"
+        read -p "Press Enter..."
+        return
+    fi
+
+    # Auto-select available port
+    echo -e "${BLUE}Finding available local port (base: $desired_port)...${NC}"
+    local local_port=$(find_available_port "$desired_port")
+    
+    if [ "$local_port" != "$desired_port" ]; then
+        echo -e "${YELLOW}Port $desired_port in use, using $local_port instead.${NC}"
+    fi
+
+    echo -e "${BLUE}Starting background tunnel for $svc_info ($local_port -> $remote_port)...${NC}"
+    
+    # Start SSH in background
+    ssh -f -N -L "$local_port:127.0.0.1:$remote_port" \
+        -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -o ExitOnForwardFailure=yes \
+        "$MASTER_NODE"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Tunnel started!${NC}"
+        
+        # Robust protocol detection with actual connectivity test
+        local detected_protocol="tcp"
+        echo -n "Detecting protocol... "
+        sleep 1
+        
+        # Check if it's likely HTTPS (port 443, 8443, or service name contains 'dashboard', 'kong', 'ssl', 'tls')
+        if [[ "$local_port" =~ ^(443|8443)$ ]] || [[ "$remote_port" =~ ^(443|31271)$ ]] || \
+           [[ "$service_name" =~ (dashboard|kong|ssl|tls|secure) ]]; then
+            # Test HTTPS first
+            if curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "https://localhost:$local_port" >/dev/null 2>&1; then
+                detected_protocol="https"
+                echo -e "${GREEN}HTTPS${NC}"
+            elif curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://localhost:$local_port" >/dev/null 2>&1; then
+                detected_protocol="http"
+                echo -e "${YELLOW}HTTP (expected HTTPS)${NC}"
+            else
+                detected_protocol="tcp"
+                echo -e "${GRAY}TCP (no HTTP/HTTPS)${NC}"
+            fi
+        # Check for HTTP services
+        elif [[ "$local_port" =~ ^(80|8080|8081|9000|9001)$ ]] || \
+             [[ "$service_name" =~ (console|ui|web|api|nexus|minio|browser) ]]; then
+            # Test HTTP first, then HTTPS
+            if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://localhost:$local_port" >/dev/null 2>&1; then
+                detected_protocol="http"
+                echo -e "${GREEN}HTTP${NC}"
+            elif curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "https://localhost:$local_port" >/dev/null 2>&1; then
+                detected_protocol="https"
+                echo -e "${YELLOW}HTTPS (expected HTTP)${NC}"
+            else
+                detected_protocol="tcp"
+                echo -e "${GRAY}TCP (no HTTP/HTTPS)${NC}"
+            fi
+        # Default: TCP check for databases and other services
+        else
+            if nc -z localhost "$local_port" >/dev/null 2>&1; then
+                detected_protocol="tcp"
+                echo -e "${GREEN}TCP${NC}"
+            else
+                detected_protocol="unknown"
+                echo -e "${RED}No response${NC}"
+            fi
+        fi
+        
+        # Save metadata with detected protocol
+        echo "$svc_info|$namespace|$service_name|$detected_protocol" > "$TUNNEL_DIR/$local_port.meta"
+        
+        # Display access URL with correct protocol
+        if [ "$detected_protocol" = "https" ]; then
+            echo -e "Access URL: ${YELLOW}https://localhost:$local_port${NC}"
+        elif [ "$detected_protocol" = "http" ]; then
+            echo -e "Access URL: ${YELLOW}http://localhost:$local_port${NC}"
+        else
+            echo -e "Access URL: ${YELLOW}localhost:$local_port${NC} (protocol: $detected_protocol)"
+        fi
+    else
+        echo -e "${RED}Failed to start tunnel.${NC}"
+    fi
+    read -p "Press Enter to continue..."
+}
+
+manage_tunnels() {
+    while true; do
+        echo -e "${BLUE}🔍 Scanning for active tunnels...${NC}"
+        
+        local tunnel_data=$(discover_active_tunnels)
+        
+        if [ -z "$tunnel_data" ]; then
+            echo -e "${YELLOW}No active SSH tunnels found.${NC}"
+            read -p "Press Enter to return..."
+            return
+        fi
+
+        local menu_items=""
+        while IFS='|' read -r pid svc_info namespace local_port remote_port; do
+            menu_items+="$svc_info (Local: $local_port -> Remote: $remote_port) [PID: $pid]\n"
+        done <<< "$tunnel_data"
+
+        menu_items+="0. Back"
+        
+        local selected
+        selected=$(echo -e "$menu_items" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Manage Tunnels (Select to Stop) > " --header="Active Tunnels")
+
+        if [ -z "$selected" ] || [[ "$selected" == "0. Back" ]]; then
+            return
+        fi
+
+        local pid_to_kill=$(echo "$selected" | grep -oP 'PID: \K[0-9]+')
+        local lport_to_kill=$(echo "$selected" | grep -oP 'Local: \K[0-9]+')
+        
+        if [ -n "$pid_to_kill" ]; then
+            kill "$pid_to_kill" 2>/dev/null
+            [ -f "$TUNNEL_DIR/$lport_to_kill.meta" ] && rm "$TUNNEL_DIR/$lport_to_kill.meta"
+            echo -e "${RED}Tunnel stopped (PID: $pid_to_kill, Port: $lport_to_kill).${NC}"
+            sleep 0.5
+        fi
+    done
+}
+
+access_menu() {
+  while true; do
+    local actions="1. Start New Tunnel 🚀
+2. Manage Active Tunnels 📋
+0. Back"
+
+    local selected_action
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Tunnel Manager > ")
+
+    if [ -z "$selected_action" ]; then
+      return
+    fi
+
+    case "${selected_action%%.*}" in
+      1) start_tunnel ;;
+      2) manage_tunnels ;;
+      0) return ;;
+    esac
+  done
+}
+
 main_menu() {
   ensure_fzf
 
@@ -477,8 +805,9 @@ main_menu() {
 5. Show All Pods
 6. Node Status
 7. Safe Node Update (OS/Kernel) 🔄
-8. Cluster Maintenance (Doctors & Setup) 🛠️
-9. Component Management (Deploy Apps) 📦
+8. Cluster Maintenance (Setup/Repair/Heal) 🛠️
+9. Component Management (Deploy/Update) 📦
+10. Access & Port Forwarding (SSH Tunnels) 🚇
 0. Exit"
 
     local selected
@@ -519,6 +848,9 @@ main_menu() {
         ;;
       9)
         component_management_menu
+        ;;
+      10)
+        access_menu
         ;;
       0)
         echo "Bye!"
