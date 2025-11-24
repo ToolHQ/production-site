@@ -889,13 +889,13 @@ ingress_menu() {
                     continue
                 fi
                 
-                # Extract ports
-                local http_port=$(echo "$ports" | grep -o "http:[0-9]*" | cut -d':' -f2)
-                local https_port=$(echo "$ports" | grep -o "https:[0-9]*" | cut -d':' -f2)
+                # Start tunnel for HTTP and HTTPS
+                local http_port=$(echo "$ports" | grep -oP 'http:\K[0-9]+')
+                local https_port=$(echo "$ports" | grep -oP 'https:\K[0-9]+')
+                local postgres_port=$(echo "$ports" | grep -oP 'postgres:\K[0-9]+')
                 
                 # Fallback if named ports not found, try 80:xxxxx and 443:xxxxx logic if needed
                 # But usually ingress-nginx uses http/https names.
-                # If empty, try to parse by order (usually first is http, second https)
                 if [ -z "$http_port" ]; then
                      http_port=$(echo "$ports" | cut -d',' -f1 | cut -d':' -f2)
                 fi
@@ -908,6 +908,14 @@ ingress_menu() {
                 fi
                 if [ -n "$https_port" ]; then
                     start_tunnel "$ns" "$name" "443" "$https_port" "Ingress HTTPS"
+                fi
+                
+                # Also create TCP tunnel for PostgreSQL if port is exposed
+                if [ -n "$postgres_port" ]; then
+                    echo -e "${BLUE}Creating PostgreSQL TCP tunnel (local 5432 → remote $postgres_port)...${NC}"
+                    start_tunnel "$ns" "$name" "5432" "$postgres_port" "PostgreSQL TCP"
+                else
+                    echo -e "${YELLOW}PostgreSQL TCP port not found in Ingress Controller service${NC}"
                 fi
                 
                 echo -e "${GREEN}$(t "ingress_tunnel_running")${NC}"

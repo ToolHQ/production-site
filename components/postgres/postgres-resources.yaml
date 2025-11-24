@@ -114,3 +114,15 @@ spec:
       targetPort: 5432
       nodePort: 31432
       protocol: TCP
+---
+# TCP Ingress Configuration for PostgreSQL
+# This ConfigMap configures NGINX Ingress Controller to expose PostgreSQL on TCP port 5432
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcp-services
+  namespace: ingress-nginx
+data:
+  # Format: "<external-port>": "<namespace>/<service>:<internal-port>"
+  "5432": "postgres/postgres-service:5432"
+

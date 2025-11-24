@@ -577,22 +577,50 @@ cilium_install_master() {
 # === Optional: Ingress Controller ===========================================
 install_ingress_controller() {
   echo "🌐 Installing NGINX Ingress Controller..."
-  run_remote_stream "$MASTER_NODE" 'bash -eu -o pipefail <<'"'"'EOF'"'"'
-# If ingress-nginx already exists, skip
-if kubectl -n ingress-nginx get deploy ingress-nginx-controller >/dev/null 2>&1; then
-  echo "✅ NGINX Ingress Controller already installed — skipping."
-  exit 0
-fi
-
-echo "📦 Applying official NGINX Ingress manifest..."
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
-
-echo "⏳ Waiting for ingress-nginx controller to become ready..."
-kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=5m || true
-
-echo "✅ NGINX Ingress Controller deployed (namespace: ingress-nginx)"
-EOF'
+  
+  # Check if already installed
+  if run_remote_capture "$MASTER_NODE" "kubectl -n ingress-nginx get deploy ingress-nginx-controller >/dev/null 2>&1"; then
+    echo "✅ NGINX Ingress Controller already installed."
+  else
+    echo "📦 Applying official NGINX Ingress manifest..."
+    run_remote_stream "$MASTER_NODE" "kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"
+    
+    echo "⏳ Waiting for ingress-nginx controller to become ready..."
+    run_remote_stream "$MASTER_NODE" "kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=5m || true"
+  fi
+  
+  # Configure TCP port 5432 for PostgreSQL (if TCP services ConfigMap exists)
+  if run_remote_capture "$MASTER_NODE" "kubectl -n ingress-nginx get configmap tcp-services >/dev/null 2>&1"; then
+    echo "🔧 Configuring NGINX Ingress Controller for TCP services (PostgreSQL)..."
+    
+    # Patch deployment to expose TCP port 5432
+    if ! run_remote_capture "$MASTER_NODE" "kubectl -n ingress-nginx get deploy ingress-nginx-controller -o yaml | grep -q 'containerPort: 5432'"; then
+      run_remote_stream "$MASTER_NODE" "kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type='json' -p='[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/ports/-\",\"value\":{\"name\":\"postgres\",\"containerPort\":5432,\"protocol\":\"TCP\"}}]'"
+      echo "✅ Added PostgreSQL TCP port to deployment"
+    else
+      echo "✅ PostgreSQL TCP port already configured in deployment"
+    fi
+    
+    # Patch service to expose TCP port 5432
+    if ! run_remote_capture "$MASTER_NODE" "kubectl -n ingress-nginx get svc ingress-nginx-controller -o yaml | grep -q 'name: postgres'"; then
+      run_remote_stream "$MASTER_NODE" "kubectl patch service ingress-nginx-controller -n ingress-nginx --type='json' -p='[{\"op\":\"add\",\"path\":\"/spec/ports/-\",\"value\":{\"name\":\"postgres\",\"port\":5432,\"targetPort\":5432,\"protocol\":\"TCP\"}}]'"
+      echo "✅ Added PostgreSQL TCP port to service"
+    else
+      echo "✅ PostgreSQL TCP port already configured in service"
+    fi
+    
+    # Add --tcp-services-configmap argument if not present
+    if ! run_remote_capture "$MASTER_NODE" "kubectl -n ingress-nginx get deploy ingress-nginx-controller -o yaml | grep -q 'tcp-services-configmap'"; then
+      run_remote_stream "$MASTER_NODE" "kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type='json' -p='[{\"op\":\"add\",\"path\":\"/spec/template/spec/containers/0/args/-\",\"value\":\"--tcp-services-configmap=ingress-nginx/tcp-services\"}]'"
+      echo "✅ Added TCP services ConfigMap argument to controller"
+    else
+      echo "✅ TCP services ConfigMap argument already configured"
+    fi
+  fi
+  
+  echo "✅ NGINX Ingress Controller deployed (namespace: ingress-nginx)"
 }
+
 
 # === Optional ingress phase =========================================================
 phase_ingress_controller() {
