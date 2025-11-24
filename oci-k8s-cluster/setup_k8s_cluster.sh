@@ -489,7 +489,10 @@ cilium_install_master() {
         --set mtu=\$DP_MTU \
         --set bpf.masquerade=true \
         --set enableIPv4Masquerade=true \
-        --set ipv4NativeRoutingCIDR=\"${POD_CIDR}\"
+        --set ipv4NativeRoutingCIDR=\"${POD_CIDR}\" \
+        --set hubble.relay.enabled=true \
+        --set hubble.ui.enabled=true \
+        --set hubble.ui.ingress.enabled=false
     else
       echo \"🌐 Installing Cilium in VXLAN mode (default)\"
 
@@ -530,7 +533,10 @@ cilium_install_master() {
           --set kubeProxyReplacement=false \
           --set ipam.mode=kubernetes \
           --set rollOutCiliumPods=true \
-          --set mtu=\$DP_MTU
+          --set mtu=\$DP_MTU \
+          --set hubble.relay.enabled=true \
+          --set hubble.ui.enabled=true \
+          --set hubble.ui.ingress.enabled=false
       else
         echo \"🚀 Installing Cilium afresh...\"
 
@@ -556,7 +562,10 @@ cilium_install_master() {
           --set kubeProxyReplacement=false \
           --set ipam.mode=kubernetes \
           --set rollOutCiliumPods=true \
-          --set mtu=\$DP_MTU
+          --set mtu=\$DP_MTU \
+          --set hubble.relay.enabled=true \
+          --set hubble.ui.enabled=true \
+          --set hubble.ui.ingress.enabled=false
       fi
     fi
 
@@ -571,6 +580,34 @@ cilium_install_master() {
     fi
     cilium status --wait --wait-duration=5m
     echo '✅ Cilium installed (v${CILIUM_VERSION})'
+    
+    # Create Hubble UI Ingress
+    echo '🌐 Creating Hubble UI Ingress...'
+    if ! kubectl -n kube-system get ingress hubble-ingress > /dev/null 2>&1; then
+      cat <<INGRESS | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hubble-ingress
+  namespace: kube-system
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: hubble.dnor.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hubble-ui
+            port:
+              number: 80
+INGRESS
+      echo '✅ Hubble Ingress created'
+    else
+      echo '✅ Hubble Ingress already exists'
+    fi
   "
 }
 
