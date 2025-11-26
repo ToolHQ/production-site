@@ -24,6 +24,7 @@ SERVICE_CIDR="10.96.0.0/12" # kubeadm default
 CILIUM_VERSION="1.18.3"     # exact
 CILIUM_CLI_VERSION="0.18.7"
 LONGHORN_VERSION="1.10.1"   # Longhorn stable version
+CERT_MANAGER_VERSION="v1.13.0" # cert-manager version
 STORAGE_PROVISIONER="${STORAGE_PROVISIONER:-longhorn}" # Default: longhorn, alternative: local-path
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/oci-ssh-key-2025-06-19.key}"
 RUN_REMOTE_CAPTURE_RESULT=""

@@ -1102,6 +1102,262 @@ manage_tunnels() {
     done
 }
 
+# --- SECURITY MENU ---
+security_menu() {
+    while true; do
+        local menu="$(t "sec_check_certs")
+$(t "sec_view_policies")
+$(t "sec_force_renew")
+$(t "sec_export_ca")
+$(t "sec_install_ca")
+$(t "back")"
+
+        local selected
+        selected=$(echo "$menu" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Security > " --header="$(t "sec_menu_title")")
+
+        if [ -z "$selected" ]; then
+            return
+        fi
+
+        case "${selected%%.*}" in
+            1)
+                echo -e "${BLUE}📜 Certificates:${NC}"
+                run_kubectl "get certificate -A"
+                echo ""
+                echo -e "${BLUE}📜 Certificate Requests:${NC}"
+                run_kubectl "get certificaterequest -A"
+                echo ""
+                echo -e "${BLUE}📜 Cluster Issuers:${NC}"
+                run_kubectl "get clusterissuer"
+                read -p "$(t "press_enter")"
+                ;;
+            2)
+                echo -e "${BLUE}🛡️  Network Policies:${NC}"
+                run_kubectl "get networkpolicy -A"
+                read -p "$(t "press_enter")"
+                ;;
+            3)
+                # Force Renew (Delete Certificate)
+                echo -e "${BLUE}🔄 Select Certificate to Renew (Delete):${NC}"
+                local certs
+                certs=$(run_kubectl "get certificate -A --no-headers" | awk '{print $1 " " $2}')
+                
+                if [ -z "$certs" ]; then
+                    echo "No certificates found."
+                    sleep 2
+                    continue
+                fi
+                
+                local selected_cert
+                selected_cert=$(echo "$certs" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Renew Cert > ")
+                
+                if [ -n "$selected_cert" ]; then
+                    local ns=$(echo "$selected_cert" | awk '{print $1}')
+                    local name=$(echo "$selected_cert" | awk '{print $2}')
+                    
+                    echo -e "${YELLOW}Deleting certificate $ns/$name to trigger renewal...${NC}"
+                    run_kubectl "delete certificate -n $ns $name"
+                    echo -e "${GREEN}Certificate deleted. Watch status in option 1.${NC}"
+                    sleep 2
+                fi
+                ;;
+            4)
+                # Export Root CA (Selectable)
+                echo -e "${BLUE}🔍 Fetching Cluster Issuers...${NC}"
+                
+                # Get list of ClusterIssuers (only those with a CA secret)
+                local issuers
+                issuers=$(run_remote_raw "$MASTER_NODE" "kubectl get clusterissuer -o jsonpath='{range .items[?(@.spec.ca.secretName)]}{.metadata.name}{\"\\n\"}{end}'")
+                
+                if [ -z "$issuers" ]; then
+                    echo -e "${RED}❌ No exportable CA ClusterIssuers found.${NC}"
+                    echo "   (Only issuers of type 'CA' with a configured secret can be exported)"
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                # Select Issuer
+                local selected_issuer
+                selected_issuer=$(echo "$issuers" | tr ' ' '\n' | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Issuer > " --header="Choose which CA to export")
+                
+                if [ -z "$selected_issuer" ]; then
+                    continue
+                fi
+                
+                echo -e "${BLUE}👉 Selected: $selected_issuer${NC}"
+                
+                # Get Secret Name
+                local secret_name
+                secret_name=$(run_remote_raw "$MASTER_NODE" "kubectl get clusterissuer $selected_issuer -o jsonpath='{.spec.ca.secretName}' 2>/dev/null")
+                
+                if [ -z "$secret_name" ]; then
+                    echo -e "${YELLOW}⚠️  This issuer ($selected_issuer) does not seem to have a CA secret (it might be ACME/Let's Encrypt).${NC}"
+                    echo -e "   Only 'CA' type issuers have a downloadable root certificate."
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                echo -e "${BLUE}📥 Exporting CA from secret: $secret_name ...${NC}"
+                
+                if run_remote_stream "$MASTER_NODE" "kubectl -n cert-manager get secret $secret_name >/dev/null 2>&1"; then
+                    # Extract CA cert from secret
+                    run_remote_raw "$MASTER_NODE" "kubectl -n cert-manager get secret $secret_name -o jsonpath='{.data.ca\.crt}' | base64 -d" > "${selected_issuer}.crt"
+                    
+                    echo -e "${GREEN}✅ Certificate saved to: $(pwd)/${selected_issuer}.crt${NC}"
+                    echo ""
+                    echo -e "${YELLOW}👉 How to Import:${NC}"
+                    echo "1. Copy '${selected_issuer}.crt' to your local machine."
+                    echo "2. Windows: Double-click > Install Certificate > Local Machine > Place in 'Trusted Root Certification Authorities'."
+                    echo "3. Chrome: Settings > Privacy and security > Security > Manage certificates > Authorities > Import."
+                    echo "4. Linux: Copy to /usr/local/share/ca-certificates/ and run 'update-ca-certificates'."
+                else
+                    echo -e "${RED}❌ Secret '$secret_name' not found.${NC}"
+                fi
+                read -p "$(t "press_enter")"
+                ;;
+            0)
+                return
+                ;;
+            5)
+                # Auto-Install Root CA (Selectable)
+                echo -e "${BLUE}🪄 Auto-Installing Root CA...${NC}"
+                
+                # Select Issuer (Reuse logic or just pick file?)
+                # Let's check for local .crt files first
+                local crt_files
+                crt_files=$(ls *.crt 2>/dev/null || true)
+                
+                local selected_crt
+                if [ -n "$crt_files" ]; then
+                     selected_crt=$(echo "$crt_files" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Certificate File > " --header="Choose certificate to install" || true)
+                else
+                     echo -e "${YELLOW}No local .crt files found. Please use Option 4 to export one first.${NC}"
+                     read -p "$(t "press_enter")"
+                     continue
+                fi
+                
+                if [ -z "$selected_crt" ]; then
+                    continue
+                fi
+
+                echo -e "${BLUE}👉 Selected: $selected_crt${NC}"
+                
+                # 2. Install on WSL (Linux)
+                echo -e "${BLUE}🐧 Installing on WSL/Linux...${NC}"
+                if [ -d "/usr/local/share/ca-certificates" ]; then
+                    sudo cp "$selected_crt" "/usr/local/share/ca-certificates/$selected_crt"
+                    sudo update-ca-certificates
+                    echo -e "${GREEN}✅ Installed in WSL system store.${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  /usr/local/share/ca-certificates not found (non-Debian?)${NC}"
+                fi
+                
+                # 3. Install on Windows (via interop)
+                if command -v cmd.exe >/dev/null 2>&1; then
+                    echo -e "${BLUE}🪟 Installing on Windows (Trusted Root)...${NC}"
+                    echo -e "${YELLOW}⚠️  You may see a Windows prompt asking for permission.${NC}"
+                    
+                    # 1. Get Windows Temp path
+                    local win_temp
+                    win_temp=$(cmd.exe /c "echo %TEMP%" 2>/dev/null | tr -d '\r' || true)
+                    
+                    if [ -z "$win_temp" ]; then
+                        echo -e "${RED}❌ Could not determine Windows Temp path.${NC}"
+                    else
+                        # 2. Convert to WSL path
+                        local wsl_temp
+                        wsl_temp=$(wslpath -u "$win_temp")
+                        
+                        # 3. Copy cert to Windows Temp
+                        cp "$selected_crt" "$wsl_temp/$selected_crt"
+                        
+                        # 4. Get Windows path for the file (safer than manual concatenation)
+                        local cert_win_path
+                        cert_win_path=$(wslpath -w "$wsl_temp/$selected_crt" | tr -d '\r\n')
+                        
+                        echo -e "${BLUE}ℹ️  Debug: Checking file presence...${NC}"
+                        ls -l "$wsl_temp/$selected_crt" || echo "❌ File not found in WSL path!"
+                        
+                        echo -e "${BLUE}ℹ️  Installing from: '${cert_win_path}'${NC}"
+                        
+                        # Use certutil.exe directly (bypassing cmd.exe quoting issues)
+                        if command -v certutil.exe >/dev/null 2>&1; then
+                             certutil.exe -user -addstore Root "$cert_win_path" || true
+                        else
+                             # Fallback to cmd.exe if certutil.exe not in path (unlikely)
+                             cmd.exe /c "certutil -user -addstore Root \"$cert_win_path\"" || true
+                        fi
+                        
+                        # 5. Cleanup
+                        rm -f "$wsl_temp/$selected_crt"
+                        
+                        echo -e "${GREEN}✅ Windows import command executed.${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}⚠️  Windows interop (cmd.exe) not found. Skipping Windows install.${NC}"
+                fi
+                
+                read -p "$(t "press_enter")"
+                ;;
+        esac
+    done
+}
+
+backup_menu() {
+    while true; do
+        local actions="1. Check Backup Status (Longhorn/Etcd) 📊
+2. Trigger Manual Etcd Backup 💾
+3. Trigger Manual Longhorn Snapshot 📸
+4. View Backup Schedules (CronJobs) 🕒
+0. Back"
+        
+        local choice
+        choice=$(echo "$actions" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Backup Ops > " --header="Backup & Disaster Recovery")
+        
+        case "${choice%%.*}" in
+            1)
+                echo -e "${BLUE}📊 Checking Backup Status...${NC}"
+                echo -e "${YELLOW}--- Etcd Backups ---${NC}"
+                run_kubectl "get cronjob etcd-backup -n kube-system"
+                echo ""
+                echo -e "${YELLOW}--- Longhorn Backups ---${NC}"
+                run_kubectl "get recurringjob -n longhorn-system"
+                read -p "$(t "press_enter")"
+                ;;
+            2)
+                echo -e "${BLUE}💾 Triggering Manual Etcd Backup...${NC}"
+                run_kubectl "create job --from=cronjob/etcd-backup etcd-backup-manual-$(date +%s) -n kube-system"
+                echo -e "${GREEN}✅ Backup job created.${NC}"
+                read -p "$(t "press_enter")"
+                ;;
+            3)
+                echo -e "${BLUE}📸 Triggering Manual Longhorn Snapshot...${NC}"
+                # This is tricky without a specific volume. Let's list volumes first.
+                echo -e "${YELLOW}Select a volume to snapshot:${NC}"
+                local vol
+                vol=$(run_kubectl "get volumes.longhorn.io -n longhorn-system -o jsonpath='{range .items[*]}{.metadata.name}{\"\n\"}{end}'" | "$FZF_BIN" --height=20% --layout=reverse --border)
+                
+                if [ -n "$vol" ]; then
+                    echo -e "Snapshotting $vol..."
+                    # Longhorn snapshot via kubectl is complex (CRD manipulation). 
+                    # For now, let's just show a message or use the UI.
+                    echo -e "${YELLOW}⚠️  Manual snapshot via CLI is complex. Please use the Longhorn UI (Option 3 -> 2).${NC}"
+                fi
+                read -p "$(t "press_enter")"
+                ;;
+            4)
+                echo -e "${BLUE}🕒 Backup Schedules...${NC}"
+                run_kubectl "get cronjobs -A"
+                run_kubectl "get recurringjobs -n longhorn-system"
+                read -p "$(t "press_enter")"
+                ;;
+            0)
+                return
+                ;;
+        esac
+    done
+}
+
 access_menu() {
   while true; do
     local actions="$(t "access_start_tunnel")
@@ -1812,6 +2068,7 @@ $(t "prefs_back")"
                                                 new_arr+=("${menu_keys[$k]}")
                                             fi
                                         done
+
                                         
                                         menu_keys=("${new_arr[@]}")
                                         echo -e "${GREEN}✓ Moved!${NC}"
@@ -1875,6 +2132,8 @@ $(t "menu_nodes")
 $(t "menu_update")
 $(t "menu_maintenance")
 $(t "menu_preferences")
+$(t "menu_security")
+$(t "menu_backup")
 $(t "menu_exit")"
 
     local selected
@@ -1928,6 +2187,12 @@ $(t "menu_exit")"
         ;;
       13)
         preferences_menu
+        ;;
+      14)
+        security_menu
+        ;;
+      15)
+        backup_menu
         ;;
       0)
         echo "Bye!"
