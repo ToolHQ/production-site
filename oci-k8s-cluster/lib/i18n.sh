@@ -98,6 +98,22 @@ t() {
                 "access_start_tunnel") echo "1. Iniciar Novo Túnel 🚀" ;;
                 "access_manage_tunnels") echo "2. Gerenciar Túneis Ativos 📋" ;;
                 
+                # Security Menu
+                "menu_security") echo "14. Segurança & TLS (Certificados/Políticas) 🔒" ;;
+                "sec_menu_title") echo "Gerenciamento de Segurança & TLS" ;;
+                "sec_check_certs") echo "1. Verificar Status dos Certificados 📜" ;;
+                "sec_view_policies") echo "2. Ver Políticas de Rede 🛡️" ;;
+                "sec_force_renew") echo "3. Forçar Renovação de Certificados 🔄" ;;
+                "sec_export_ca") echo "4. Exportar CA Raiz (Para Importar no Navegador) 📥" ;;
+                "sec_install_ca") echo "5. Instalar CA Raiz Automaticamente (Windows/WSL) 🪄" ;;
+                
+                # Backup Menu
+                "menu_backup") echo "15. Backup & Recuperação de Desastres 💾" ;;
+                "bkp_menu_title") echo "Backup & Recuperação de Desastres" ;;
+                "bkp_etcd_now") echo "1. Executar Backup do etcd AGORA ⚡" ;;
+                "bkp_etcd_list") echo "2. Listar Backups do etcd 📜" ;;
+                "bkp_longhorn_ui") echo "3. Abrir UI do Longhorn (Gerenciar Snapshots) 🌐" ;;
+                
                 # Service Config Menu
                 "svc_minio_init") echo "1. Inicializar Minio (Bucket + Chaves de Acesso) 🪣" ;;
                 "svc_nexus_init") echo "2. Inicializar Nexus (Blob Store + Repositório Docker) 📦" ;;
@@ -189,6 +205,22 @@ t() {
                 # Access Menu
                 "access_start_tunnel") echo "1. Start New Tunnel 🚀" ;;
                 "access_manage_tunnels") echo "2. Manage Active Tunnels 📋" ;;
+                
+                # Security Menu
+                "menu_security") echo "14. Security & TLS (Certificates/Policies) 🔒" ;;
+                "sec_menu_title") echo "Security & TLS Management" ;;
+                "sec_check_certs") echo "1. Check Certificate Status 📜" ;;
+                "sec_view_policies") echo "2. View Network Policies 🛡️" ;;
+                "sec_force_renew") echo "3. Force Certificate Renewal 🔄" ;;
+                "sec_export_ca") echo "4. Export Root CA (For Browser Import) 📥" ;;
+                "sec_install_ca") echo "5. Auto-Install Root CA (Windows/WSL) 🪄" ;;
+                
+                # Backup Menu
+                "menu_backup") echo "15. Backup & Disaster Recovery 💾" ;;
+                "bkp_menu_title") echo "Backup & Disaster Recovery" ;;
+                "bkp_etcd_now") echo "1. Trigger etcd Backup NOW ⚡" ;;
+                "bkp_etcd_list") echo "2. List etcd Backups 📜" ;;
+                "bkp_longhorn_ui") echo "3. Open Longhorn UI (Manage Snapshots) 🌐" ;;
                 
                 # Service Config Menu
                 "svc_minio_init") echo "1. Initialize Minio (Bucket + Access Keys) 🪣" ;;
