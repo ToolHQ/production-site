@@ -611,6 +611,47 @@ INGRESS
   "
 }
 
+# === Cert Manager ===========================================================
+install_cert_manager() {
+  echo "🔒 Installing cert-manager ${CERT_MANAGER_VERSION}..."
+  
+  run_remote_stream "$MASTER_NODE" "
+    set -e
+    # Check if already installed
+    if kubectl get ns cert-manager >/dev/null 2>&1; then
+      echo '✅ cert-manager namespace already exists.'
+    else
+      echo '📦 Applying cert-manager manifest...'
+      kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
+      
+      echo '⏳ Waiting for cert-manager pods...'
+      kubectl -n cert-manager rollout status deploy/cert-manager --timeout=5m
+      kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
+      kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
+    fi
+
+    # Create ClusterIssuer (Let's Encrypt Staging)
+    echo '📝 Configuring Let'\''s Encrypt Staging ClusterIssuer...'
+    cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@dnor.io
+    privateKeySecretRef:
+      name: letsencrypt-staging
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+EOF
+    echo '✅ ClusterIssuer created.'
+  "
+}
+
 # === Optional: Ingress Controller ===========================================
 install_ingress_controller() {
   echo "🌐 Installing NGINX Ingress Controller..."
@@ -658,6 +699,199 @@ install_ingress_controller() {
   echo "✅ NGINX Ingress Controller deployed (namespace: ingress-nginx)"
 }
 
+# === Cert Manager ===========================================================
+install_cert_manager() {
+  echo "🔒 Installing cert-manager ${CERT_MANAGER_VERSION}..."
+  
+  run_remote_stream "$MASTER_NODE" "
+    set -e
+    # Check if already installed
+    if kubectl get ns cert-manager >/dev/null 2>&1; then
+      echo '✅ cert-manager namespace already exists.'
+    else
+      echo '📦 Applying cert-manager manifest...'
+      kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
+      
+      echo '⏳ Waiting for cert-manager pods...'
+      kubectl -n cert-manager rollout status deploy/cert-manager --timeout=5m
+      kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
+      kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
+    fi
+
+    # --- SELF-SIGNED CA SETUP (For Private DNS) ---
+    echo '📝 Configuring Self-Signed Root CA...'
+    
+    # 1. Create Self-Signed ClusterIssuer (to bootstrap the CA)
+    cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: self-signed-issuer
+spec:
+  selfSigned: {}
+EOF
+
+    # 2. Create the Root CA Certificate
+    cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: dnor-root-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: dnor-root-ca
+  secretName: dnor-root-ca-tls
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: self-signed-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+EOF
+
+    echo '⏳ Waiting for Root CA to be ready...'
+    # Wait loop for CA secret
+    for i in {1..30}; do
+      if kubectl -n cert-manager get secret dnor-root-ca-tls >/dev/null 2>&1; then
+        echo '✅ Root CA Secret created.'
+        break
+      fi
+      sleep 2
+    done
+
+    # 3. Create the CA ClusterIssuer (uses the Root CA secret)
+    cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: dnor-ca-issuer
+spec:
+  ca:
+    secretName: dnor-root-ca-tls
+EOF
+    echo '✅ CA ClusterIssuer created.'
+  "
+}
+
+configure_tls_ingress() {
+  echo "🔒 Configuring TLS for Ingress resources..."
+  
+  run_remote_stream "$MASTER_NODE" "
+    set -e
+    
+    # Helper function to patch ingress
+    patch_ingress_tls() {
+      local ns=\$1
+      local name=\$2
+      local host=\$3
+      local secret=\${4:-\$name-tls}
+      
+      if kubectl -n \"\$ns\" get ingress \"\$name\" >/dev/null 2>&1; then
+        echo \"   - Patching \$ns/\$name for TLS (\$host)...\"
+        
+        # Add annotation (Use our CA Issuer)
+        kubectl -n \"\$ns\" annotate ingress \"\$name\" --overwrite \
+          cert-manager.io/cluster-issuer=dnor-ca-issuer
+          
+        # Add TLS block (using JSON patch for array manipulation)
+        kubectl -n \"\$ns\" patch ingress \"\$name\" --type='json' -p='[
+          {\"op\": \"add\", \"path\": \"/spec/tls\", \"value\": [{\"hosts\": [\"'\$host'\"], \"secretName\": \"'\$secret'\"}]}
+        ]' || echo \"     (TLS block might already exist, skipping patch)\"
+      fi
+    }
+
+    # Patch known Ingresses
+    patch_ingress_tls \"kubernetes-dashboard\" \"dashboard-ingress\" \"k8s.dnor.io\" \"k8s-tls\"
+    patch_ingress_tls \"longhorn-system\" \"longhorn-ingress\" \"longhorn.dnor.io\"
+    patch_ingress_tls \"kube-system\" \"hubble-ingress\" \"hubble.dnor.io\"
+    patch_ingress_tls \"minio\" \"minio-ingress\" \"minio.dnor.io\"
+    patch_ingress_tls \"nexus\" \"nexus-ingress\" \"nexus.dnor.io\"
+    
+    echo \"✅ All Ingress resources updated with TLS configuration.\"
+  "
+}
+
+
+
+configure_backups() {
+  echo "💾 Configuring Disaster Recovery (Backups)..."
+  
+  # 1. etcd Backup
+  echo "   - Applying etcd backup CronJob..."
+  if [ -f "../components/backup/etcd-backup-cronjob.yaml" ]; then
+    cat "../components/backup/etcd-backup-cronjob.yaml" | run_remote_stream "$MASTER_NODE" "kubectl apply -f -"
+    echo "✅ etcd backup CronJob configured."
+  else
+    echo "⚠️  Warning: components/backup/etcd-backup-cronjob.yaml not found."
+  fi
+  
+  # 2. Longhorn Recurring Jobs
+  echo "   - Applying Longhorn recurring backup jobs..."
+  if [ -f "../components/backup/longhorn-recurring-job.yaml" ]; then
+    cat "../components/backup/longhorn-recurring-job.yaml" | run_remote_stream "$MASTER_NODE" "kubectl apply -f -"
+    echo "✅ Longhorn recurring jobs configured."
+  else
+    echo "⚠️  Warning: components/backup/longhorn-recurring-job.yaml not found."
+  fi
+}
+
+apply_network_policies() {
+  echo "🛡️  Applying Network Policies..."
+  
+  run_remote_stream "$MASTER_NODE" "
+    set -e
+    
+    # PostgreSQL Isolation
+    if kubectl get ns postgres >/dev/null 2>&1; then
+      echo '   - Applying PostgreSQL isolation policy...'
+      cat <<EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-isolation
+  namespace: postgres
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow from Nexus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: nexus
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow from Ingress Controller (for TCP access)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 5432
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+EOF
+    fi
+    
+    echo '✅ Network Policies applied.'
+  "
+}
 
 # === Optional ingress phase =========================================================
 phase_ingress_controller() {
@@ -1967,6 +2201,10 @@ measure_phase "hold kube packages"           phase_hold_kube_packages
 measure_phase "cilium install (${CILIUM_MODE:-vxlan})" cilium_install_master
 measure_phase "install storage provisioner (${STORAGE_PROVISIONER})" install_storage_provisioner
 measure_phase "ingress controller"          phase_ingress_controller
+measure_phase "cert manager"                install_cert_manager
+measure_phase "configure tls"               configure_tls_ingress
+measure_phase "network policies"            apply_network_policies
+measure_phase "configure backups"           configure_backups
 
 # only if DEBUG=1
 if [ "${DEBUG:-0}" = "1" ]; then
