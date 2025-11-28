@@ -1309,6 +1309,7 @@ backup_menu() {
 2. Trigger Manual Etcd Backup 💾
 3. Trigger Manual Longhorn Snapshot 📸
 4. View Backup Schedules (CronJobs) 🕒
+5. Configure Backup Target (S3/Minio) ⚙️
 0. Back"
         
         local choice
@@ -1332,16 +1333,65 @@ backup_menu() {
                 ;;
             3)
                 echo -e "${BLUE}📸 Triggering Manual Longhorn Snapshot...${NC}"
-                # This is tricky without a specific volume. Let's list volumes first.
                 echo -e "${YELLOW}Select a volume to snapshot:${NC}"
-                local vol
-                vol=$(run_kubectl "get volumes.longhorn.io -n longhorn-system -o jsonpath='{range .items[*]}{.metadata.name}{\"\n\"}{end}'" | "$FZF_BIN" --height=20% --layout=reverse --border)
                 
-                if [ -n "$vol" ]; then
-                    echo -e "Snapshotting $vol..."
-                    # Longhorn snapshot via kubectl is complex (CRD manipulation). 
-                    # For now, let's just show a message or use the UI.
-                    echo -e "${YELLOW}⚠️  Manual snapshot via CLI is complex. Please use the Longhorn UI (Option 3 -> 2).${NC}"
+                # Get volumes with PVC info
+                local vol_info
+                vol_info=$(run_kubectl "get volumes.longhorn.io -n longhorn-system -o json" | jq -r '.items[] | "\(.metadata.name)|\(.status.kubernetesStatus.pvcName // "no-pvc")|\(.status.kubernetesStatus.namespace // "")|\(.spec.size // "")"')
+                
+                if [ -z "$vol_info" ]; then
+                    echo -e "${RED}No volumes found.${NC}"
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                # Format for fzf: "pvc-name (namespace) [size] - volume-id"
+                local formatted_list=""
+                while IFS='|' read -r vol_name pvc_name ns size; do
+                    if [ "$pvc_name" = "no-pvc" ]; then
+                        formatted_list+="[Unattached] $vol_name\n"
+                    else
+                        # Convert size from bytes to human readable
+                        local size_hr=$(echo "$size" | awk '{ split( "B KB MB GB TB" , v ); s=1; while( $1>1024 ){ $1/=1024; s++ } printf "%.1f%s", $1, v[s] }')
+                        formatted_list+="$pvc_name ($ns) [$size_hr] - $vol_name\n"
+                    fi
+                done <<< "$vol_info"
+                
+                local selected
+                selected=$(echo -e "$formatted_list" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select volume: ")
+                
+                if [ -n "$selected" ]; then
+                    # Extract volume name from selection
+                    local vol=$(echo "$selected" | awk '{print $NF}')
+                    local snapshot_name="manual-$(date +%Y%m%d-%H%M%S)"
+                    
+                    echo -e "${BLUE}Creating snapshot '$snapshot_name' for volume '$vol'...${NC}"
+                    
+                    # Create snapshot via kubectl
+                    cat <<EOF | run_kubectl "apply -f -"
+apiVersion: longhorn.io/v1beta2
+kind: Snapshot
+metadata:
+  name: $snapshot_name
+  namespace: longhorn-system
+  labels:
+    longhornvolume: $vol
+spec:
+  createSnapshot: true
+  volume: $vol
+  labels:
+    manual: "true"
+    created-by: "k8s-ops-menu"
+EOF
+                    
+                    if [ $? -eq 0 ]; then
+                        echo -e "${GREEN}✅ Snapshot created successfully!${NC}"
+                        echo -e "${YELLOW}Checking snapshot status...${NC}"
+                        sleep 2
+                        run_kubectl "get snapshot $snapshot_name -n longhorn-system"
+                    else
+                        echo -e "${RED}❌ Failed to create snapshot.${NC}"
+                    fi
                 fi
                 read -p "$(t "press_enter")"
                 ;;
@@ -1349,6 +1399,36 @@ backup_menu() {
                 echo -e "${BLUE}🕒 Backup Schedules...${NC}"
                 run_kubectl "get cronjobs -A"
                 run_kubectl "get recurringjobs -n longhorn-system"
+                read -p "$(t "press_enter")"
+                ;;
+            5)
+                echo -e "${BLUE}⚙️  Configure Backup Target (S3/Minio)...${NC}"
+                echo -e "${YELLOW}Current Target:${NC}"
+                run_kubectl "get backuptargets.longhorn.io default -n longhorn-system"
+                echo ""
+                
+                read -p "Enter S3 Endpoint URL (e.g., http://minio-service...:9000): " s3_endpoint
+                read -p "Enter Bucket Name (e.g., k8s-backups): " s3_bucket
+                read -p "Enter Region (default: us-east-1): " s3_region
+                : "${s3_region:=us-east-1}"
+                read -p "Enter Access Key: " s3_access
+                read -s -p "Enter Secret Key: " s3_secret
+                echo ""
+                
+                if [ -n "$s3_endpoint" ] && [ -n "$s3_bucket" ]; then
+                    # 1. Update Secret
+                    echo -e "${BLUE}Updating Secret...${NC}"
+                    run_kubectl "create secret generic minio-secret -n longhorn-system --from-literal=AWS_ACCESS_KEY_ID=$s3_access --from-literal=AWS_SECRET_ACCESS_KEY=$s3_secret --from-literal=AWS_ENDPOINTS=$s3_endpoint --dry-run=client -o yaml | kubectl apply -f -"
+                    
+                    # 2. Update BackupTarget
+                    echo -e "${BLUE}Updating BackupTarget...${NC}"
+                    local target_url="s3://${s3_bucket}@${s3_region}/"
+                    run_kubectl "patch backuptargets.longhorn.io default -n longhorn-system --type=merge -p '{\"spec\":{\"backupTargetURL\":\"$target_url\",\"credentialSecret\":\"minio-secret\"}}'"
+                    
+                    echo -e "${GREEN}✅ Backup Target Updated!${NC}"
+                else
+                    echo -e "${RED}❌ Invalid input.${NC}"
+                fi
                 read -p "$(t "press_enter")"
                 ;;
             0)
