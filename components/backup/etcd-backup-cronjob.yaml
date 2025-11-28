@@ -1,0 +1,111 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: etcd-backup
+  namespace: kube-system
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          nodeSelector:
+            node-role.kubernetes.io/control-plane: ""
+          tolerations:
+          - effect: NoSchedule
+            key: node-role.kubernetes.io/control-plane
+          hostNetwork: true
+          dnsPolicy: ClusterFirstWithHostNet
+          initContainers:
+          - name: etcd-snapshot
+            image: debian:bookworm-slim
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              apt-get update && apt-get install -y curl ca-certificates tar
+              
+              # Download etcdctl
+              ETCD_VER=v3.5.9
+              curl -L https://github.com/etcd-io/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-arm64.tar.gz -o /tmp/etcd.tar.gz
+              tar xzvf /tmp/etcd.tar.gz -C /tmp --strip-components=1
+              mv /tmp/etcdctl /usr/local/bin/etcdctl
+              
+              BACKUP_DIR=/host-backup/etcd
+              mkdir -p $BACKUP_DIR
+              
+              # Create snapshot
+              SNAPSHOT_NAME=etcd-$(date +%Y%m%d-%H%M%S).db
+              ETCDCTL_API=3 etcdctl snapshot save \
+                $BACKUP_DIR/$SNAPSHOT_NAME \
+                --endpoints=https://127.0.0.1:2379 \
+                --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+                --cert=/etc/kubernetes/pki/etcd/server.crt \
+                --key=/etc/kubernetes/pki/etcd/server.key
+              
+              # Save name for next container
+              echo "$SNAPSHOT_NAME" > $BACKUP_DIR/latest_snapshot
+              
+              # Keep only last 7 days locally
+              find $BACKUP_DIR -name 'etcd-*.db' -mtime +7 -delete
+              
+              echo "Snapshot created: $SNAPSHOT_NAME"
+            volumeMounts:
+            - name: etcd-certs
+              mountPath: /etc/kubernetes/pki/etcd
+              readOnly: true
+            - name: backup
+              mountPath: /host-backup
+          containers:
+          - name: s3-upload
+            image: minio/mc
+            env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: AWS_ACCESS_KEY_ID
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: AWS_ENDPOINTS
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              # Configure alias
+              mc alias set myminio $MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+              
+              BACKUP_DIR=/host-backup/etcd
+              if [ -f "$BACKUP_DIR/latest_snapshot" ]; then
+                  SNAPSHOT_NAME=$(cat $BACKUP_DIR/latest_snapshot)
+                  echo "Uploading $SNAPSHOT_NAME to Minio..."
+                  mc cp $BACKUP_DIR/$SNAPSHOT_NAME myminio/k8s-backups/etcd/$SNAPSHOT_NAME
+                  echo "Upload complete."
+              else
+                  echo "No snapshot found to upload."
+                  exit 1
+              fi
+            volumeMounts:
+            - name: backup
+              mountPath: /host-backup
+          volumes:
+          - name: etcd-certs
+            hostPath:
+              path: /etc/kubernetes/pki/etcd
+              type: Directory
+          - name: backup
+            hostPath:
+              path: /var/backup
+              type: DirectoryOrCreate
+          restartPolicy: OnFailure
