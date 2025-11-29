@@ -581,12 +581,13 @@ start_tunnel() {
     local target_local_port="${3:-}"
     local target_remote_port="${4:-}"
     local target_desc="${5:-}"
+    local force_port="${6:-false}"  # New parameter: force use of specific port
 
     local svc_info=""
     local desired_port=""
     local remote_port=""
     
-    local allow_priv="false"
+    local allow_priv="$force_port"  # Use force_port to control privileged port enforcement
     
     # Interactive mode if no arguments provided
     if [ -z "$target_ns" ]; then
@@ -695,7 +696,8 @@ start_tunnel() {
         local service_name="$target_svc"
         
         # In non-interactive mode (e.g. Ingress menu), we trust the requested port
-        if [ "$desired_port" -le 1024 ]; then
+        # If force_port is already true (from parameter), keep it. Otherwise check if privileged port.
+        if [ "$force_port" != "true" ] && [ "$desired_port" -le 1024 ]; then
             allow_priv="true"
         fi
         
@@ -720,11 +722,14 @@ start_tunnel() {
         
         # Check and kill if in use
         # We use sudo lsof because the process binding a privileged port is likely root
-        if sudo lsof -i ":$local_port" >/dev/null 2>&1; then
+        if sudo lsof -i ":$local_port" > /dev/null 2>&1; then
              echo -e "${YELLOW}Port $local_port is busy. Killing occupant...${NC}"
-             local pid=$(sudo lsof -t -iTCP:"$local_port" -sTCP:LISTEN)
-             if [ -n "$pid" ]; then
-                 sudo kill "$pid"
+             local pids=$(sudo lsof -t -iTCP:"$local_port" -sTCP:LISTEN)
+             if [ -n "$pids" ]; then
+                 # Kill each PID individually (in case there are multiple)
+                 for pid in $pids; do
+                     sudo kill "$pid" 2>/dev/null || true
+                 done
              fi
         fi
     else
@@ -904,16 +909,16 @@ ingress_menu() {
                 fi
 
                 if [ -n "$http_port" ]; then
-                    start_tunnel "$ns" "$name" "80" "$http_port" "Ingress HTTP"
+                    start_tunnel "$ns" "$name" "80" "$http_port" "Ingress HTTP" "true"
                 fi
                 if [ -n "$https_port" ]; then
-                    start_tunnel "$ns" "$name" "443" "$https_port" "Ingress HTTPS"
+                    start_tunnel "$ns" "$name" "443" "$https_port" "Ingress HTTPS" "true"
                 fi
                 
                 # Also create TCP tunnel for PostgreSQL if port is exposed
                 if [ -n "$postgres_port" ]; then
                     echo -e "${BLUE}Creating PostgreSQL TCP tunnel (local 5432 → remote $postgres_port)...${NC}"
-                    start_tunnel "$ns" "$name" "5432" "$postgres_port" "PostgreSQL TCP"
+                    start_tunnel "$ns" "$name" "5432" "$postgres_port" "PostgreSQL TCP" "true"
                 else
                     echo -e "${YELLOW}PostgreSQL TCP port not found in Ingress Controller service${NC}"
                 fi
@@ -1310,6 +1315,7 @@ backup_menu() {
 3. Trigger Manual Longhorn Snapshot 📸
 4. View Backup Schedules (CronJobs) 🕒
 5. Configure Backup Target (S3/Minio) ⚙️
+6. Restore from Backup/Snapshot 🔄
 0. Back"
         
         local choice
@@ -1429,6 +1435,111 @@ EOF
                 else
                     echo -e "${RED}❌ Invalid input.${NC}"
                 fi
+                read -p "$(t "press_enter")"
+                ;;
+            6)
+                echo -e "${BLUE}🔄 Restore from Backup/Snapshot...${NC}"
+                echo -e "${YELLOW}Choose restore source:${NC}"
+                local restore_type
+                restore_type=$(echo -e "1. From Snapshot (local)\n2. From Backup (S3)" | "$FZF_BIN" --height=10% --layout=reverse --border --prompt="Restore from: ")
+                
+                if [[ "$restore_type" == "1."* ]]; then
+                    # Restore from snapshot
+                    echo -e "${BLUE}📸 Available Snapshots:${NC}"
+                    local snapshot_list
+                    snapshot_list=$(run_kubectl "get snapshots.longhorn.io -n longhorn-system -o json" | jq -r '.items[] | "\(.metadata.name)|\(.spec.volume)|\(.status.creationTime // \"N/A\")|\(.status.size // 0)"')
+                    
+                    if [ -z "$snapshot_list" ]; then
+                        echo -e "${RED}No snapshots found.${NC}"
+                        read -p "$(t "press_enter")"
+                        continue
+                    fi
+                    
+                    # Format: "snapshot-name (volume) [size] - creation-time"
+                    local formatted_snapshots=""
+                    while IFS='|' read -r snap_name vol_name creation_time size; do
+                        local size_hr=$(echo "$size" | awk '{ split( "B KB MB GB TB" , v ); s=1; while( $1>1024 ){ $1/=1024; s++ } printf "%.1f%s", $1, v[s] }')
+                        local short_vol=$(echo "$vol_name" | cut -c1-40)
+                        formatted_snapshots+="$snap_name ($short_vol) [$size_hr] - $creation_time\n"
+                    done <<< "$snapshot_list"
+                    
+                    local selected_snapshot
+                    selected_snapshot=$(echo -e "$formatted_snapshots" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select snapshot: ")
+                    
+                    if [ -n "$selected_snapshot" ]; then
+                        local snap_name=$(echo "$selected_snapshot" | awk '{print $1}')
+                        echo -e "${YELLOW}Snapshot restore creates a NEW PVC. Original PVC remains unchanged.${NC}"
+                        read -p "Enter name for new PVC (e.g., postgres-restored): " new_pvc_name
+                        read -p "Enter namespace (default: default): " ns
+                        : "${ns:=default}"
+                        
+                        if [ -n "$new_pvc_name" ]; then
+                            echo -e "${BLUE}Creating PVC '$new_pvc_name' from snapshot '$snap_name'...${NC}"
+                            
+                            # Get snapshot details
+                            local vol_name=$(run_kubectl "get snapshot $snap_name -n longhorn-system -o jsonpath='{.spec.volume}'")
+                            local size=$(run_kubectl "get volume $vol_name -n longhorn-system -o jsonpath='{.spec.size}'")
+                            local size_gi=$((size / 1073741824))
+                            
+                            # Create PVC from snapshot
+                            cat <<EOF | run_kubectl "apply -f -"
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: $new_pvc_name
+  namespace: $ns
+  annotations:
+    longhorn.io/volume-scheduling-error: ""
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: ${size_gi}Gi
+  dataSource:
+    name: $snap_name
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+EOF
+                            
+                            if [ $? -eq 0 ]; then
+                                echo -e "${GREEN}✅ PVC created! Check status with: kubectl get pvc $new_pvc_name -n $ns${NC}"
+                            else
+                                echo -e "${RED}❌ Failed to create PVC.${NC}"
+                            fi
+                        fi
+                    fi
+                    
+                elif [[ "$restore_type" == "2."* ]]; then
+                    # Restore from backup (S3)
+                    echo -e "${BLUE}💾 Available Backups:${NC}"
+                    local backup_list
+                    backup_list=$(run_kubectl "get backups.longhorn.io -n longhorn-system -o json" | jq -r '.items[] | "\(.metadata.name)|\(.status.snapshotName)|\(.status.size // 0)|\(.status.snapshotCreatedAt // \"N/A\")"')
+                    
+                    if [ -z "$backup_list" ]; then
+                        echo -e "${RED}No backups found.${NC}"
+                        read -p "$(t "press_enter")"
+                        continue
+                    fi
+                    
+                    # Format backups
+                    local formatted_backups=""
+                    while IFS='|' read -r backup_name snapshot_name size creation_time; do
+                        local size_hr=$(echo "$size" | awk '{ split( "B KB MB GB TB" , v ); s=1; while( $1>1024 ){ $1/=1024; s++ } printf "%.1f%s", $1, v[s] }')
+                        formatted_backups+="$backup_name (from: $snapshot_name) [$size_hr] - $creation_time\n"
+                    done <<< "$backup_list"
+                    
+                    local selected_backup
+                    selected_backup=$(echo -e "$formatted_backups" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select backup: ")
+                    
+                    if [ -n "$selected_backup" ]; then
+                        local backup_name=$(echo "$selected_backup" | awk '{print $1}')
+                        echo -e "${YELLOW}⚠️  Backup restore via CLI is complex. Recommended: Use Longhorn UI (Backup tab → Restore).${NC}"
+                        echo -e "${BLUE}Selected backup: $backup_name${NC}"
+                    fi
+                fi
+                
                 read -p "$(t "press_enter")"
                 ;;
             0)
@@ -1875,7 +1986,7 @@ auto_forward_ports() {
         local local_port=$(find_available_port "$desired_port")
         
         # Start tunnel in background
-        ssh -f -N -L "$local_port:127.0.0.1:$nodeport" \
+        ssh -f -N -L "0.0.0.0:$local_port:127.0.0.1:$nodeport" \
             -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             -o ExitOnForwardFailure=yes \
             "$MASTER_NODE" >/dev/null 2>&1
