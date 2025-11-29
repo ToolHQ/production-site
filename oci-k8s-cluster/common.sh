@@ -4,15 +4,18 @@ set -euo pipefail
 # ────────────────────────────────────────────────
 # Common functions and variables for OCI K8s cluster scripts
 # ────────────────────────────────────────────────
-if grep -q 'Host oci-k8s-' ~/.ssh/config; then
-  mapfile -t NODES < <(grep -E '^Host oci-k8s-' ~/.ssh/config | awk '{print $2}')
-  echo "🔍 Auto-detected nodes:"
-  for n in "${NODES[@]}"; do
-    echo "   • $n"
-  done
-else
-  echo "⚠️  No oci-k8s-* hosts found; using defaults."
-  NODES=(oci-k8s-master oci-k8s-node-1 oci-k8s-node-2)
+# Only detect nodes if not already set (cache across multiple sourcing)
+if [ -z "${NODES+x}" ]; then
+  if grep -q 'Host oci-k8s-' ~/.ssh/config; then
+    mapfile -t NODES < <(grep -E '^Host oci-k8s-' ~/.ssh/config | awk '{print $2}')
+    echo "🔍 Auto-detected nodes:"
+    for n in "${NODES[@]}"; do
+      echo "   • $n"
+    done
+  else
+    echo "⚠️  No oci-k8s-* hosts found; using defaults."
+    NODES=(oci-k8s-master oci-k8s-node-1 oci-k8s-node-2)
+  fi
 fi
 
 MASTER_PUBLIC_IP="150.136.34.254"
