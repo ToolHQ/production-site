@@ -83,7 +83,7 @@ if kubectl -n postgres rollout status deployment/postgres-deployment --timeout=5
     echo "💡 Useful commands:"
     echo "   - Port forward: kubectl port-forward --namespace=postgres deployment/postgres-deployment 54322:5432"
     echo "   - View logs: kubectl -n postgres logs -l app=postgres -f"
-    echo "   - Check PVC: kubectl -n postgres describe pvc postgres-volume-claim"
+    echo "   - Check PVC: kubectl -n postgres describe pvc postgres-pvc"
     echo "   - Check events: kubectl -n postgres get events --sort-by='.lastTimestamp'"
     echo "   - Connect: psql -h localhost -p 54322 -U postgres"
 else
@@ -103,7 +103,7 @@ else
         echo ""
         echo "   Or use manual cleanup:"
         echo "   kubectl -n postgres delete deployment postgres-deployment"
-        echo "   kubectl -n postgres delete pvc postgres-volume-claim"
+        echo "   kubectl -n postgres delete pvc postgres-pvc"
         echo "   Then re-apply the resources"
     fi
     
@@ -111,7 +111,7 @@ else
     echo "   - View pod events: kubectl -n postgres get events --sort-by='.lastTimestamp'"
     echo "   - View pod logs: kubectl -n postgres logs -l app=postgres"
     echo "   - Describe pods: kubectl -n postgres describe pods -l app=postgres"
-    echo "   - Check PVC status: kubectl -n postgres describe pvc postgres-volume-claim"
+    echo "   - Check PVC status: kubectl -n postgres describe pvc postgres-pvc"
     
     exit 1
 fi

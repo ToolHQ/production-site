@@ -22,8 +22,8 @@ spec:
       volumes:
         - name: postgresdata16
           persistentVolumeClaim:
-            claimName: postgres-volume-claim
+            claimName: postgres-pvc
         - name: postgresdata17
           persistentVolumeClaim:
-            claimName: postgres-volume-claim
+            claimName: postgres-pvc
       restartPolicy: Never
