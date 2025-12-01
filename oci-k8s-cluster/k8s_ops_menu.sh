@@ -17,6 +17,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 GRAY='\033[1;30m'
 NC='\033[0m' # No Color
 
@@ -206,7 +207,7 @@ open_dashboard() {
   # 1. Get Token
   echo "Fetching admin token..."
   local token
-  token=$(capture_clean "kubectl -n kubernetes-dashboard create token admin-user --duration=24h 2>/dev/null")
+  token=$(capture_clean "kubectl -n kubernetes-dashboard create token admin-user --duration=96h 2>/dev/null")
   
   if [ -z "$token" ]; then
     echo -e "${RED}Failed to get token. Is dashboard installed?${NC}"
@@ -214,88 +215,117 @@ open_dashboard() {
     return
   fi
   
-  # 2. Get ClusterIP for Dashboard
-  echo "Resolving Dashboard IP..."
-  local cluster_ip
-  cluster_ip=$(capture_clean "kubectl -n kubernetes-dashboard get svc kubernetes-dashboard-kong-proxy -o jsonpath='{.spec.clusterIP}'")
+  # 2. Check for Ingress (preferred) or fallback to ClusterIP
+  echo "Resolving Dashboard URL..."
+  local ingress_host
+  ingress_host=$(capture_clean "kubectl -n kubernetes-dashboard get ingress -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null")
   
-  if [ -z "$cluster_ip" ]; then
-     # Fallback to old service name
-     cluster_ip=$(capture_clean "kubectl -n kubernetes-dashboard get svc kubernetes-dashboard -o jsonpath='{.spec.clusterIP}'")
-  fi
+  local dashboard_url=""
+  local local_port=""
+  
+  if [ -n "$ingress_host" ]; then
+    # Use ingress
+    echo -e "${GREEN}Using Ingress: https://$ingress_host${NC}"
+    dashboard_url="https://$ingress_host"
+  else
+    # Fallback to ClusterIP tunnel
+    echo -e "${YELLOW}No ingress found, using local tunnel...${NC}"
+    local cluster_ip
+    cluster_ip=$(capture_clean "kubectl -n kubernetes-dashboard get svc kubernetes-dashboard-kong-proxy -o jsonpath='{.spec.clusterIP}'")
+    
+    if [ -z "$cluster_ip" ]; then
+       # Fallback to old service name
+       cluster_ip=$(capture_clean "kubectl -n kubernetes-dashboard get svc kubernetes-dashboard -o jsonpath='{.spec.clusterIP}'")
+    fi
 
-  if [ -z "$cluster_ip" ]; then
-    echo -e "${RED}Failed to detect Dashboard ClusterIP.${NC}"
-    read -p "Press Enter..."
-    return
-  fi
-  
-  echo "Target: $cluster_ip:443"
-  
-  # 3. Find available local port (starting from 8443)
-  echo "Finding available local port..."
-  local local_port=$(find_available_port 8443)
-  
-  if [ "$local_port" != "8443" ]; then
-      echo -e "${YELLOW}Port 8443 in use, using $local_port instead.${NC}"
-  fi
-  
-  # 4. Start persistent background tunnel
-  echo "Starting persistent tunnel..."
-  ssh -f -N -L "$local_port:${cluster_ip}:443" \
-      -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-      -o ExitOnForwardFailure=yes \
-      "$MASTER_NODE"
-  
-  if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to start tunnel.${NC}"
-    read -p "Press Enter..."
-    return
-  fi
-  
-  # Save metadata (format: namespace/service|namespace|service|protocol)
-  echo "kubernetes-dashboard/kubernetes-dashboard-kong-proxy|kubernetes-dashboard|kubernetes-dashboard-kong-proxy|https" > "$TUNNEL_DIR/$local_port.meta"
-  
-  # 5. Wait for tunnel
-  echo "Waiting for tunnel to establish..."
-  local retries=0
-  while ! nc -z localhost "$local_port" >/dev/null 2>&1; do
-    sleep 1
-    ((retries++))
-    if [ $retries -gt 10 ]; then
-      echo -e "${RED}Timeout waiting for tunnel.${NC}"
+    if [ -z "$cluster_ip" ]; then
+      echo -e "${RED}Failed to detect Dashboard ClusterIP.${NC}"
       read -p "Press Enter..."
       return
     fi
-  done
+    
+    echo "Target: $cluster_ip:443"
   
-  local url="https://localhost:$local_port/#/workloads?namespace=_all"
+    # 3. Find available local port (starting from 8443)
+    echo "Finding available local port..."
+    local_port=$(find_available_port 8443)
+    
+    if [ "$local_port" != "8443" ]; then
+        echo -e "${YELLOW}Port 8443 in use, using $local_port instead.${NC}"
+    fi
+    
+    # 4. Start persistent background tunnel
+    echo "Starting persistent tunnel..."
+    ssh -f -N -L "$local_port:${cluster_ip}:443" \
+        -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -o ExitOnForwardFailure=yes \
+        "$MASTER_NODE"
   
-  # 6. Display and Open
-  echo -e "\n${GREEN}Token (Copied to clipboard if possible):${NC}"
+    if [ $? -ne 0 ]; then
+      echo -e "${RED}Failed to start tunnel.${NC}"
+      read -p "Press Enter..."
+      return
+    fi
+  
+    # 5. Wait for tunnel
+    echo "Waiting for tunnel to establish..."
+    local retries=0
+    while ! nc -z localhost "$local_port" > /dev/null 2>&1; do
+      sleep 1
+      ((retries++))
+      if [ $retries -gt 10 ]; then
+        echo -e "${RED}Timeout waiting for tunnel.${NC}"
+        read -p "Press Enter..."
+        return
+      fi
+    done
+    
+    # Save tunnel metadata
+    mkdir -p "$TUNNEL_DIR"
+    cat > "$TUNNEL_DIR/$local_port.meta" <<META
+service=kubernetes-dashboard
+namespace=kubernetes-dashboard
+local_port=$local_port
+remote_port=443
+target=$cluster_ip
+META
+    
+    dashboard_url="https://localhost:$local_port"
+  fi
+  
+  # Display token
+  echo ""
+  echo "Token (Copied to clipboard if possible):"
   echo "$token"
-  echo -e "\n${YELLOW}URL:${NC} $url"
+  echo ""
   
-  # Try to copy to clipboard (Linux/Mac/WSL)
-  if command -v clip.exe >/dev/null 2>&1; then
-    # WSL Clipboard
+  # Copy to clipboard
+  if command -v clip.exe &> /dev/null; then
     echo -n "$token" | clip.exe
-    echo -e "${GREEN}(Token copied to clipboard via clip.exe)${NC}"
-  elif command -v xclip >/dev/null 2>&1; then
+    echo "(Token copied to clipboard via clip.exe)"
+  elif command -v xclip &> /dev/null; then
     echo -n "$token" | xclip -selection clipboard
-    echo -e "${GREEN}(Token copied to clipboard)${NC}"
-  elif command -v pbcopy >/dev/null 2>&1; then
+    echo "(Token copied to clipboard via xclip)"
+  elif command -v pbcopy &> /dev/null; then
     echo -n "$token" | pbcopy
-    echo -e "${GREEN}(Token copied to clipboard)${NC}"
+    echo "(Token copied to clipboard via pbcopy)"
   else
     echo -e "${YELLOW}(Clipboard tool not found - please copy token manually)${NC}"
   fi
   
-  echo -e "\n${BLUE}Opening browser...${NC}"
-  open_url "$url"
+  # Final URL with navigation
+  local full_url="${dashboard_url}/#/workloads?namespace=_all"
+  echo ""
+  echo "URL: $full_url"
   
-  echo -e "\n${GREEN}Dashboard tunnel running in background on port $local_port${NC}"
-  echo -e "${GRAY}You can manage this tunnel via 'Access & Port Forwarding' -> 'Manage Active Tunnels'${NC}"
+  echo -e "\n${BLUE}Opening browser...${NC}"
+  open_url "$full_url"
+  
+  # Only show tunnel message if using tunnel
+  if [ -n "$local_port" ]; then
+    echo -e "\n${GREEN}Dashboard tunnel running in background on port $local_port${NC}"
+    echo "You can manage this tunnel via 'Access & Port Forwarding' -> 'Manage Active Tunnels'"
+  fi
   read -p "Press Enter to return to menu..."
 }
 
@@ -1352,53 +1382,49 @@ backup_menu() {
                     continue
                 fi
                 
-                # Format for fzf: "pvc-name (namespace) [size] - volume-id"
-                local formatted_list=""
-                while IFS='|' read -r vol_name pvc_name ns size; do
-                    if [ "$pvc_name" = "no-pvc" ]; then
-                        formatted_list+="[Unattached] $vol_name\n"
-                    else
-                        # Convert size from bytes to human readable
-                        local size_hr=$(echo "$size" | awk '{ split( "B KB MB GB TB" , v ); s=1; while( $1>1024 ){ $1/=1024; s++ } printf "%.1f%s", $1, v[s] }')
-                        formatted_list+="$pvc_name ($ns) [$size_hr] - $vol_name\n"
-                    fi
-                done <<< "$vol_info"
                 
-                local selected
-                selected=$(echo -e "$formatted_list" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select volume: ")
+                echo -e "${BLUE}📸 Creating CSI VolumeSnapshot...${NC}"
                 
-                if [ -n "$selected" ]; then
-                    # Extract volume name from selection
-                    local vol=$(echo "$selected" | awk '{print $NF}')
-                    local snapshot_name="manual-$(date +%Y%m%d-%H%M%S)"
-                    
-                    echo -e "${BLUE}Creating snapshot '$snapshot_name' for volume '$vol'...${NC}"
-                    
-                    # Create snapshot via kubectl
-                    cat <<EOF | run_kubectl "apply -f -"
-apiVersion: longhorn.io/v1beta2
-kind: Snapshot
+                # List PVCs across all namespaces
+                local pvc_list=$(run_kubectl "get pvc -A -o json" | jq -r '.items[] | "\(.metadata.namespace)/\(.metadata.name)"')
+                
+                if [ -z "$pvc_list" ]; then
+                    echo -e "${RED}No PVCs found.${NC}"
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                echo "Select a PVC to snapshot:"
+                local selected_pvc=$(echo "$pvc_list" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select PVC: ")
+                
+                if [ -z "$selected_pvc" ]; then
+                    continue
+                fi
+                
+                local pvc_ns=$(echo "$selected_pvc" | cut -d/ -f1)
+                local pvc_name=$(echo "$selected_pvc" | cut -d/ -f2)
+                local snapshot_name="manual-$(date +%Y%m%d-%H%M%S)"
+                
+                echo -e "${BLUE}Creating VolumeSnapshot '$snapshot_name' for PVC '$pvc_name' in namespace '$pvc_ns'...${NC}"
+                
+                cat <<EOF | run_kubectl "apply -f -"
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
 metadata:
   name: $snapshot_name
-  namespace: longhorn-system
-  labels:
-    longhornvolume: $vol
+  namespace: $pvc_ns
 spec:
-  createSnapshot: true
-  volume: $vol
-  labels:
-    manual: "true"
-    created-by: "k8s-ops-menu"
+  volumeSnapshotClassName: longhorn-snapshot-vsc
+  source:
+    persistentVolumeClaimName: $pvc_name
 EOF
-                    
-                    if [ $? -eq 0 ]; then
-                        echo -e "${GREEN}✅ Snapshot created successfully!${NC}"
-                        echo -e "${YELLOW}Checking snapshot status...${NC}"
-                        sleep 2
-                        run_kubectl "get snapshot $snapshot_name -n longhorn-system"
-                    else
-                        echo -e "${RED}❌ Failed to create snapshot.${NC}"
-                    fi
+                
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}✅ VolumeSnapshot created successfully!${NC}"
+                    echo -e "${BLUE}Checking snapshot status...${NC}"
+                    run_kubectl "get volumesnapshot $snapshot_name -n $pvc_ns"
+                else
+                    echo -e "${RED}❌ Failed to create VolumeSnapshot.${NC}"
                 fi
                 read -p "$(t "press_enter")"
                 ;;
@@ -1447,76 +1473,310 @@ EOF
                 if [[ "$restore_type" == "1."* ]]; then
                     # Restore from snapshot
                     echo -e "${BLUE}📸 Available Snapshots:${NC}"
+                    
+                    # List CSI VolumeSnapshots from all namespaces  
                     local snapshot_list
-                    snapshot_list=$(run_kubectl "get snapshots.longhorn.io -n longhorn-system -o json" | jq -r '.items[] | "\(.metadata.name)|\(.spec.volume)|\(.status.creationTime // \"N/A\")|\(.status.size // 0)"')
+                    snapshot_list=$(run_kubectl "get volumesnapshot -A -o json" | jq -r '.items[] | "\(.metadata.name)|\(.metadata.namespace)|\(.spec.source.persistentVolumeClaimName)|\(.status.creationTime // "N/A")|\(.status.restoreSize // "0" | tostring)|\(.status.readyToUse // false)"')
                     
                     if [ -z "$snapshot_list" ]; then
-                        echo -e "${RED}No snapshots found.${NC}"
+                        echo -e "${RED}No VolumeSnapshots found.${NC}"
+                        echo -e "${YELLOW}Tip: Create snapshots with: kubectl create -f volumesnapshot.yaml${NC}"
                         read -p "$(t "press_enter")"
                         continue
                     fi
                     
-                    # Format: "snapshot-name (volume) [size] - creation-time"
+                    # Format snapshots for display
                     local formatted_snapshots=""
-                    while IFS='|' read -r snap_name vol_name creation_time size; do
-                        local size_hr=$(echo "$size" | awk '{ split( "B KB MB GB TB" , v ); s=1; while( $1>1024 ){ $1/=1024; s++ } printf "%.1f%s", $1, v[s] }')
-                        local short_vol=$(echo "$vol_name" | cut -c1-40)
-                        formatted_snapshots+="$snap_name ($short_vol) [$size_hr] - $creation_time\n"
+                    while IFS='|' read -r snap_name snap_ns pvc_name creation_time size ready; do
+                        # Size already comes as string (e.g., "10Gi") from restoreSize, just clean it
+                        local size_display="$size"
+                        [ "$size" == "0" ] && size_display="calculating..."
+                        
+                        # Format timestamp
+                        local timestamp=$(echo "$creation_time" | cut -c1-19 | tr 'T' ' ')
+                        
+                        # Only show ready snapshots
+                        if [ "$ready" == "true" ]; then
+                            formatted_snapshots+="${creation_time}|${pvc_name}|${snap_ns}|${size_display}|${snap_name}\n"
+                        fi
                     done <<< "$snapshot_list"
                     
+                    if [ -z "$formatted_snapshots" ]; then
+                        echo -e "${RED}No ready VolumeSnapshots found.${NC}"
+                        read -p "$(t "press_enter")"
+                        continue
+                    fi
+                    
+                    # Sort by timestamp DESC and format
+                    local sorted_snapshots=$(echo -e "$formatted_snapshots" | sort -r | column -t -s '|' -N "TIMESTAMP,PVC,NAMESPACE,SIZE,SNAPSHOT")
+                    
+                    # Extract header for fzf
+                    local header=$(echo "$sorted_snapshots" | head -1)
+                    local data=$(echo "$sorted_snapshots" | tail -n +2)
+                    
                     local selected_snapshot
-                    selected_snapshot=$(echo -e "$formatted_snapshots" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select snapshot: ")
+                    selected_snapshot=$(echo "$data" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select snapshot: " --header="$header")
                     
                     if [ -n "$selected_snapshot" ]; then
-                        local snap_name=$(echo "$selected_snapshot" | awk '{print $1}')
-                        echo -e "${YELLOW}Snapshot restore creates a NEW PVC. Original PVC remains unchanged.${NC}"
-                        read -p "Enter name for new PVC (e.g., postgres-restored): " new_pvc_name
-                        read -p "Enter namespace (default: default): " ns
-                        : "${ns:=default}"
+                        # Extract snapshot name and PVC info from selection
+                        local snap_name=$(echo "$selected_snapshot" | awk '{print $NF}')
+                        local pvc_name=$(echo "$selected_snapshot" | awk '{print $2}')
+                        local pvc_ns=$(echo "$selected_snapshot" | awk '{print $3}')
+                        local snap_ns="$pvc_ns"  # Snapshot is in same namespace as PVC
                         
-                        if [ -n "$new_pvc_name" ]; then
-                            echo -e "${BLUE}Creating PVC '$new_pvc_name' from snapshot '$snap_name'...${NC}"
+                        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                        echo -e "${CYAN}🔄 BLUE/GREEN RESTORE (Zero Downtime):${NC}"
+                        echo -e "${CYAN}  1. Create new PVC from snapshot: ${GREEN}$snap_name${NC}"
+                        echo -e "${CYAN}  2. Clone deployment with new PVC (green)${NC}"
+                        echo -e "${CYAN}  3. Wait for green deployment to be ready${NC}"
+                        echo -e "${CYAN}  4. Switch service to green deployment${NC}"
+                        echo -e "${CYAN}  5. Remove old deployment and PVC (blue)${NC}"
+                        echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                        echo -e "${GREEN}✅ Application stays online during entire process!${NC}"
+                        read -p "$(echo -e ${YELLOW}Continue with restore? [y/N]: ${NC})" confirm
+                        
+                        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+                            echo -e "${BLUE}Restore cancelled.${NC}"
+                            read -p "$(t "press_enter")"
+                            continue
+                        fi
+                        
+                        
+                        echo -e "${BLUE}🔍 Finding source PVC from snapshot...${NC}"
+                        echo -e "${CYAN}  Snapshot: $snap_name (namespace: $snap_ns)${NC}"
+                        
+                        # Get source PVC from the snapshot (the PVC that was snapshotted)
+                        # Execute kubectl + jq in single SSH command to avoid escaping issues
+                        local source_pvc=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q "$MASTER_NODE" \
+                            "kubectl get volumesnapshot $snap_name -n $snap_ns -o json | jq -r '.spec.source.persistentVolumeClaimName // empty'")
+                        
+                        if [ -z "$source_pvc" ]; then
+                            echo -e "${RED}❌ Could not determine source PVC from snapshot.${NC}"
+                            read -p "$(t "press_enter")"
+                            continue
+                        fi
+                        
+                        
+                        echo -e "${BLUE}📦 Source PVC: ${CYAN}$source_pvc${NC}"
+                        echo -e "${BLUE}🔍 Finding deployment using PVC '$source_pvc'...${NC}"
+                        
+                        # Find deployment using this PVC (only deployments supported for Blue/Green)
+                        local deployments=$(run_kubectl "get deployments -n $pvc_ns -o json" | jq -r --arg pvc "$source_pvc" '.items[] | select(.spec.template.spec.volumes[]?.persistentVolumeClaim.claimName == $pvc) | .metadata.name')
+                        
+                        # FALLBACK: If not found, try alternate name (base <-> -green)
+                        if [ -z "$deployments" ]; then
+                            local alternate_pvc
+                            if [[ "$source_pvc" =~ -green$ ]]; then
+                                # Try base name (remove -green)
+                                alternate_pvc="${source_pvc%-green}"
+                            else
+                                # Try -green variant
+                                alternate_pvc="${source_pvc}-green"
+                            fi
                             
-                            # Get snapshot details
-                            local vol_name=$(run_kubectl "get snapshot $snap_name -n longhorn-system -o jsonpath='{.spec.volume}'")
-                            local size=$(run_kubectl "get volume $vol_name -n longhorn-system -o jsonpath='{.spec.size}'")
-                            local size_gi=$((size / 1073741824))
+                            echo -e "${YELLOW}⚠️  No deployment found, trying alternate PVC: $alternate_pvc${NC}"
+                            deployments=$(run_kubectl "get deployments -n $pvc_ns -o json" | jq -r --arg pvc "$alternate_pvc" '.items[] | select(.spec.template.spec.volumes[]?.persistentVolumeClaim.claimName == $pvc) | .metadata.name')
                             
-                            # Create PVC from snapshot
-                            cat <<EOF | run_kubectl "apply -f -"
+                            if [ -n "$deployments" ]; then
+                                # Update source_pvc to the one actually in use
+                                source_pvc="$alternate_pvc"
+                                echo -e "${GREEN}✅ Found deployment using: $source_pvc${NC}"
+                            fi
+                        fi
+                        
+                        if [ -z "$deployments" ]; then
+                            echo -e "${RED}❌ No deployment found using PVC '$source_pvc' or its alternate.${NC}"
+                            echo -e "${YELLOW}Blue/Green restore only supports Deployments (not StatefulSets).${NC}"
+                            read -p "$(t "press_enter")"
+                            continue
+                        fi
+                        
+                        local workload_name=$(echo "$deployments" | head -1)
+                        echo -e "${BLUE}📦 Found deployment: ${CYAN}$workload_name${NC}"
+                        
+                        # Use source PVC as the current PVC (the one to be replaced)
+                        pvc_name="$source_pvc"
+                        
+                        # Get deployment spec
+                        local deployment_json=$(run_kubectl "get deployment $workload_name -n $pvc_ns -o json")
+                        
+                        # Fetch PVC and deployment specs
+                        echo -e "${BLUE}📋 Fetching PVC specifications...${NC}"
+                        local pvc_spec=$(run_kubectl "get pvc $pvc_name -n $pvc_ns -o json")
+                        local storage_class=$(echo "$pvc_spec" | jq -r '.spec.storageClassName')
+                        local access_modes=$(echo "$pvc_spec" | jq -r '.spec.accessModes[0] // "ReadWriteOnce"')
+                        local storage_size=$(echo "$pvc_spec" | jq -r '.spec.resources.requests.storage')
+                        
+                        # BLUE/GREEN ALTERNATION LOGIC
+                        # Detect current deployment color and create opposite
+                        local current_deployment="$workload_name"
+                        local is_current_green=false
+                        
+                        if [[ "$current_deployment" =~ -green$ ]]; then
+                            # Current is GREEN → create BLUE (base name)
+                            is_current_green=true
+                            local base_name="${current_deployment%-green}"
+                            local new_deployment="$base_name"
+                            local new_pvc="${pvc_name%-green}"
+                            local new_color="blue"
+                            local old_color="green"
+                        else
+                            # Current is BLUE (base) → create GREEN
+                            local base_name="$current_deployment"
+                            local new_deployment="${current_deployment}-green"
+                            local new_pvc="${pvc_name}-green"
+                            local new_color="green"
+                            local old_color="blue"
+                        fi
+                        
+                        echo -e "${CYAN}🔄 Blue/Green Strategy:${NC}"
+                        echo -e "${CYAN}   Current: ${YELLOW}$current_deployment${CYAN} ($old_color)${NC}"
+                        echo -e "${CYAN}   Creating: ${GREEN}$new_deployment${CYAN} ($new_color)${NC}"
+                        
+                        # Step 1: Create new PVC from CSI VolumeSnapshot
+                        echo -e "${BLUE}🟢 Step 1/5: Creating $new_color PVC from snapshot...${NC}"
+                        
+                        # Create PVC with dataSource pointing to VolumeSnapshot
+                        cat <<EOF | run_kubectl "apply -f -"
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: $new_pvc_name
-  namespace: $ns
-  annotations:
-    longhorn.io/volume-scheduling-error: ""
+  name: $new_pvc
+  namespace: $pvc_ns
+  labels:
+    restore-version: "$new_color"
+    restored-from-snapshot: "$snap_name"
 spec:
   accessModes:
-    - ReadWriteOnce
-  storageClassName: longhorn
+    - $access_modes
+  storageClassName: $storage_class
   resources:
     requests:
-      storage: ${size_gi}Gi
+      storage: $storage_size
   dataSource:
     name: $snap_name
     kind: VolumeSnapshot
     apiGroup: snapshot.storage.k8s.io
 EOF
-                            
-                            if [ $? -eq 0 ]; then
-                                echo -e "${GREEN}✅ PVC created! Check status with: kubectl get pvc $new_pvc_name -n $ns${NC}"
-                            else
-                                echo -e "${RED}❌ Failed to create PVC.${NC}"
-                            fi
+
+                        if [ $? -ne 0 ]; then
+                            echo -e "${RED}❌ Failed to create PVC from snapshot.${NC}"
+                            read -p "$(t "press_enter")"
+                            continue
                         fi
+                        
+                        
+                        # Wait for PVC to be Bound (manual polling - kubectl wait has race condition bug)
+                        echo -e "${BLUE}⏳ Waiting for $new_color PVC to bind...${NC}"
+                        local max_wait=300
+                        local waited=0
+                        local pvc_bound=false
+                        
+                        while [ $waited -lt $max_wait ]; do
+                            local pvc_status=$(run_kubectl "get pvc $new_pvc -n $pvc_ns -o jsonpath='{.status.phase}' 2>/dev/null")
+                            if [ "$pvc_status" == "Bound" ]; then
+                                pvc_bound=true
+                                break
+                            fi
+                            sleep 2
+                            waited=$((waited + 2))
+                        done
+                        
+                        if [ "$pvc_bound" != "true" ]; then
+                            echo -e "${RED}❌ PVC failed to bind.${NC}"
+                            run_kubectl "delete pvc $new_pvc -n $pvc_ns"
+                            read -p "$(t "press_enter")"
+                            continue
+                        fi
+                        
+                        echo -e "${GREEN}✅ $new_color PVC bound and ready!${NC}"
+                        
+                        
+                        # Step 2: Clone deployment with new PVC
+                        echo -e "${BLUE}🟢 Step 2/5: Creating $new_color deployment...${NC}"
+                        
+                        # Clone deployment with modified PVC reference and labels
+                        echo "$deployment_json" | jq --arg new_name "$new_deployment" --arg new_pvc "$new_pvc" --arg color "$new_color" --arg snapshot "$snap_name" '
+                            .metadata.name = $new_name |
+                            .metadata.labels."restore-version" = $color |
+                            .metadata.labels."restored-from-snapshot" = $snapshot |
+                            .spec.selector.matchLabels."restore-version" = $color |
+                            .spec.template.metadata.labels."restore-version" = $color |
+                            .spec.template.metadata.labels."restored-from-snapshot" = $snapshot |
+                            .spec.template.spec.volumes[].persistentVolumeClaim.claimName = $new_pvc |
+                            del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.generation, .status)
+                        ' | run_kubectl "apply -f -"
+                        
+                        
+                        # Step 3: Wait for new deployment
+                        echo -e "${BLUE}🟢 Step 3/5: Waiting for $new_color deployment to be ready...${NC}"
+                        run_kubectl "rollout status deployment/$new_deployment -n $pvc_ns --timeout=180s"
+                        
+                        if [ $? -ne 0 ]; then
+                            echo -e "${RED}❌ $new_color deployment failed to become ready.${NC}"
+                            echo -e "${YELLOW}Cleaning up $new_color resources...${NC}"
+                            run_kubectl "delete deployment $new_deployment -n $pvc_ns"
+                            run_kubectl "delete pvc $new_pvc -n $pvc_ns"
+                            read -p "$(t "press_enter")"
+                            continue
+                        fi
+                        
+                        # CRITICAL: Wait extra time for pods to be ACTUALLY ready (not just deployment)
+                        echo -e "${BLUE}⏳ Ensuring $new_color pods are fully ready...${NC}"
+                        sleep 5
+                        
+                        # Verify new pods are running
+                        local new_ready=$(run_kubectl "get deployment $new_deployment -n $pvc_ns -o jsonpath='{.status.readyReplicas}'")
+                        if [ -z "$new_ready" ] || [ "$new_ready" -lt 1 ]; then
+                            echo -e "${RED}❌ $new_color deployment has no ready pods!${NC}"
+                            run_kubectl "delete deployment $new_deployment -n $pvc_ns"
+                            run_kubectl "delete pvc $new_pvc -n $pvc_ns"
+                            read -p "$(t "press_enter")"
+                            continue
+                        fi
+                        
+                        echo -e "${GREEN}✅ $new_color deployment ready with $new_ready pod(s)!${NC}"
+                        
+                        
+                        # Step 4: Switch service to new deployment
+                        echo -e "${BLUE}🔀 Step 4/5: Switching service to $new_color deployment...${NC}"
+                        
+                        # Find service pointing to current deployment (by app label, not restore-version)
+                        local services=$(run_kubectl "get svc -n $pvc_ns -o json" | jq -r --arg app "$base_name" '.items[] | select(.spec.selector.app == $app) | .metadata.name')
+                        
+                        if [ -n "$services" ]; then
+                            for svc in $services; do
+                                echo -e "${BLUE}  Updating service: $svc${NC}"
+                                run_kubectl "patch svc $svc -n $pvc_ns --type=merge -p '{\"spec\":{\"selector\":{\"restore-version\":\"$new_color\"}}}'"
+                            done
+                            echo -e "${GREEN}✅ Services switched to $new_color!${NC}"
+                            sleep 5  # Grace period for connections to drain
+                        fi
+                                               
+                        # Step 5: Clean up old deployment resources
+                        echo -e "${BLUE}🗑️  Step 5/5: Removing old $old_color deployment and PVC...${NC}"
+                        
+                        # Keep old deployment running for 10s to allow connection draining
+                        echo -e "${YELLOW}⏳ Waiting 10s for connection draining...${NC}"
+                        sleep 10
+                        
+                        run_kubectl "delete deployment $current_deployment -n $pvc_ns --grace-period=30"
+                        run_kubectl "delete pvc $pvc_name -n $pvc_ns"
+                        
+                        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                        echo -e "${GREEN}✅ Restore complete!${NC}"
+                        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                        echo -e "${CYAN}📝 Active deployment: ${GREEN}$new_deployment${NC}"
+                        echo -e "${CYAN}📝 Active PVC: ${GREEN}$new_pvc${NC}"
+                        echo -e "${CYAN}📝 Restore labels: ${GREEN}restore-version=$new_color, restored-from-snapshot=$snap_name${NC}"
+                        echo -e "${YELLOW}Monitor: kubectl get pods -n $pvc_ns -w${NC}"
                     fi
                     
                 elif [[ "$restore_type" == "2."* ]]; then
                     # Restore from backup (S3)
                     echo -e "${BLUE}💾 Available Backups:${NC}"
                     local backup_list
-                    backup_list=$(run_kubectl "get backups.longhorn.io -n longhorn-system -o json" | jq -r '.items[] | "\(.metadata.name)|\(.status.snapshotName)|\(.status.size // 0)|\(.status.snapshotCreatedAt // \"N/A\")"')
+                    backup_list=$(run_kubectl "get backups.longhorn.io -n longhorn-system -o json" | jq -r '.items[] | "\(.metadata.name)|\(.status.snapshotName)|\(.status.size // 0)|\(.status.snapshotCreatedAt // "N/A")"')
                     
                     if [ -z "$backup_list" ]; then
                         echo -e "${RED}No backups found.${NC}"
