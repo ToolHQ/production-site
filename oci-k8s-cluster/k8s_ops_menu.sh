@@ -1476,7 +1476,7 @@ EOF
                     
                     # List CSI VolumeSnapshots from all namespaces  
                     local snapshot_list
-                    snapshot_list=$(run_kubectl "get volumesnapshot -A -o json" | jq -r '.items[] | "\(.metadata.name)|\(.metadata.namespace)|\(.spec.source.persistentVolumeClaimName)|\(.status.creationTime // "N/A")|\(.status.restoreSize // "0" | tostring)|\(.status.readyToUse // false)"')
+                    snapshot_list=$(run_kubectl "get volumesnapshot -A -o json" | jq -r '.items[] | "\(.metadata.name)|\(.metadata.namespace)|\(.spec.source.persistentVolumeClaimName)|\(.status.creationTime // "N/A")|\(.status.restoreSize // "0" | tostring)|\(.status.readyToUse // false)|\(.status.boundVolumeSnapshotContentName // "")"')
                     
                     if [ -z "$snapshot_list" ]; then
                         echo -e "${RED}No VolumeSnapshots found.${NC}"
@@ -1485,19 +1485,57 @@ EOF
                         continue
                     fi
                     
+                    # Get ALL VolumeSnapshotContents at once to extract backup IDs
+                    echo -e "${BLUE}📊 Fetching snapshot sizes...${NC}"
+                    local all_snapshot_contents=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q "$MASTER_NODE" \
+                        "kubectl get volumesnapshotcontent -o json 2>/dev/null | jq -r '.items[] | \"\(.metadata.name)|\(.status.snapshotHandle // \"\")\"'")
+                    
+                    # Get ALL Longhorn Backups with actual sizes
+                    local all_backup_sizes=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q "$MASTER_NODE" \
+                        "kubectl get backups.longhorn.io -n longhorn-system -o json 2>/dev/null | jq -r '.items[] | \"\(.metadata.name)|\(.status.size // 0)\"'")
+                    
                     # Format snapshots for display
                     local formatted_snapshots=""
-                    while IFS='|' read -r snap_name snap_ns pvc_name creation_time size ready; do
-                        # Size already comes as string (e.g., "10Gi") from restoreSize, just clean it
-                        local size_display="$size"
-                        [ "$size" == "0" ] && size_display="calculating..."
+                    while IFS='|' read -r snap_name snap_ns pvc_name creation_time capacity_size ready snapshot_content; do
+                        # Capacity size already comes as string (e.g., "10Gi")
+                        local capacity_display="$capacity_size"
+                        [ "$capacity_size" == "0" ] && capacity_display="N/A"
+                        
+                        # Get actual backup size from Longhorn
+                        local actual_size="N/A"
+                        if [ -n "$snapshot_content" ] && [ "$snapshot_content" != "null" ]; then
+                            # Get snapshotHandle (contains backup ID)
+                            local snapshot_handle=$(echo "$all_snapshot_contents" | grep "^${snapshot_content}|" | cut -d'|' -f2)
+                            
+                            if [ -n "$snapshot_handle" ] && [[ "$snapshot_handle" =~ backup-([a-f0-9]+) ]]; then
+                                local backup_id="${BASH_REMATCH[1]}"
+                                local backup_name="backup-${backup_id}"
+                                
+                                # Look up actual size in Longhorn backups
+                                local backup_size_bytes=$(echo "$all_backup_sizes" | grep "^${backup_name}|" | cut -d'|' -f2)
+                                
+                                if [ -n "$backup_size_bytes" ] && [ "$backup_size_bytes" != "0" ]; then
+                                    # Convert bytes to human-readable
+                                    if [ "$backup_size_bytes" -lt 1048576 ]; then
+                                        # Less than 1MB, show in KB
+                                        actual_size=$(awk "BEGIN {printf \"%.0fKi\", $backup_size_bytes / 1024}")
+                                    elif [ "$backup_size_bytes" -lt 1073741824 ]; then
+                                        # Less than 1GB, show in MB
+                                        actual_size=$(awk "BEGIN {printf \"%.0fMi\", $backup_size_bytes / 1024 / 1024}")
+                                    else
+                                        # Show in GB
+                                        actual_size=$(awk "BEGIN {printf \"%.2fGi\", $backup_size_bytes / 1024 / 1024 / 1024}")
+                                    fi
+                                fi
+                            fi
+                        fi
                         
                         # Format timestamp
                         local timestamp=$(echo "$creation_time" | cut -c1-19 | tr 'T' ' ')
                         
                         # Only show ready snapshots
                         if [ "$ready" == "true" ]; then
-                            formatted_snapshots+="${creation_time}|${pvc_name}|${snap_ns}|${size_display}|${snap_name}\n"
+                            formatted_snapshots+="${creation_time}|${pvc_name}|${snap_ns}|${actual_size}|${capacity_display}|${snap_name}\n"
                         fi
                     done <<< "$snapshot_list"
                     
@@ -1508,7 +1546,7 @@ EOF
                     fi
                     
                     # Sort by timestamp DESC and format
-                    local sorted_snapshots=$(echo -e "$formatted_snapshots" | sort -r | column -t -s '|' -N "TIMESTAMP,PVC,NAMESPACE,SIZE,SNAPSHOT")
+                    local sorted_snapshots=$(echo -e "$formatted_snapshots" | sort -r | column -t -s '|' -N "TIMESTAMP,PVC,NAMESPACE,ACTUAL_SIZE,CAPACITY_SIZE,SNAPSHOT")
                     
                     # Extract header for fzf
                     local header=$(echo "$sorted_snapshots" | head -1)
