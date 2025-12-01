@@ -19,17 +19,17 @@ data:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: postgres-volume-claim
+  name: postgres-pvc
   namespace: postgres
   labels:
     app: postgres
 spec:
-  storageClassName: longhorn # ✅ uses distributed Longhorn storage for HA
+  storageClassName: longhorn
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
+      storage: 5Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -94,7 +94,7 @@ spec:
       volumes:
         - name: postgresdata
           persistentVolumeClaim:
-            claimName: postgres-volume-claim
+            claimName: postgres-pvc
       restartPolicy: Always
 ---
 apiVersion: v1

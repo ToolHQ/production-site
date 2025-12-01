@@ -194,7 +194,7 @@ When deploying components, ensure they use the correct storage class:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: postgres-volume-claim
+  name: postgres-pvc
   namespace: postgres
 spec:
   storageClassName: local-path  # or 'longhorn'
