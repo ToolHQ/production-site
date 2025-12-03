@@ -1339,6 +1339,205 @@ $(t "back")"
     done
 }
 
+manage_snapshots() {
+    while true; do
+        echo -e "${BLUE}📸 Listing Available Snapshots...${NC}"
+        
+        # Get ALL VolumeSnapshots with metadata
+        local snapshot_list
+        snapshot_list=$(run_kubectl "get volumesnapshot -A -o json" | jq -r '.items[] | "\(.metadata.name)|\(.metadata.namespace)|\(.spec.source.persistentVolumeClaimName)|\(.status.creationTime // "N/A")|\(.status.restoreSize // "0" | tostring)|\(.status.readyToUse // false)|\(.status.boundVolumeSnapshotContentName // "")|\(.metadata.annotations["snapshot.longhorn.io/display-name"] // "")|\(.metadata.annotations["snapshot.longhorn.io/description"] // "")"')
+        
+        if [ -z "$snapshot_list" ]; then
+            echo -e "${RED}No VolumeSnapshots found.${NC}"
+            read -p "$(t "press_enter")"
+            return
+        fi
+        
+        echo -e "${BLUE}📊 Fetching snapshot sizes...${NC}"
+        
+        # Get ALL VolumeSnapshotContents and Longhorn Backups
+        local all_snapshot_contents=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q "$MASTER_NODE" \
+            "kubectl get volumesnapshotcontent -o json 2>/dev/null | jq -r '.items[] | \"\(.metadata.name)|\(.status.snapshotHandle // \"\")\"'")
+        
+        local all_backup_sizes=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q "$MASTER_NODE" \
+            "kubectl get backups.longhorn.io -n longhorn-system -o json 2>/dev/null | jq -r '.items[] | \"\(.metadata.name)|\(.status.size // 0)\"'")
+        
+        # Format snapshots for display
+        local formatted_snapshots=""
+        while IFS='|' read -r snap_name snap_ns pvc_name creation_time capacity_size ready snapshot_content display_name description; do
+            # Skip unready snapshots
+            [ "$ready" != "true" ] && continue
+            
+            local capacity_display="$capacity_size"
+            [ "$capacity_size" == "0" ] && capacity_display="N/A"
+            
+            # Get actual backup size
+            local actual_size="N/A"
+            if [ -n "$snapshot_content" ] && [ "$snapshot_content" != "null" ]; then
+                local snapshot_handle=$(echo "$all_snapshot_contents" | grep "^${snapshot_content}|" | cut -d'|' -f2)
+                
+                if [ -n "$snapshot_handle" ] && [[ "$snapshot_handle" =~ backup-([a-f0-9]+) ]]; then
+                    local backup_id="${BASH_REMATCH[1]}"
+                    local backup_name="backup-${backup_id}"
+                    local backup_size_bytes=$(echo "$all_backup_sizes" | grep "^${backup_name}|" | cut -d'|' -f2)
+                    
+                    if [ -n "$backup_size_bytes" ] && [ "$backup_size_bytes" != "0" ]; then
+                        if [ "$backup_size_bytes" -lt 1048576 ]; then
+                            actual_size=$(awk "BEGIN {printf \"%.0fKi\", $backup_size_bytes / 1024}")
+                        elif [ "$backup_size_bytes" -lt 1073741824 ]; then
+                            actual_size=$(awk "BEGIN {printf \"%.0fMi\", $backup_size_bytes / 1024 / 1024}")
+                        else
+                            actual_size=$(awk "BEGIN {printf \"%.2fGi\", $backup_size_bytes / 1024 / 1024 / 1024}")
+                        fi
+                    fi
+                fi
+            fi
+            
+            # Use display name if set, otherwise use actual name
+            local name_display="${display_name:-$snap_name}"
+            
+            # Format timestamp
+            local timestamp=$(echo "$creation_time" | cut -c1-19 | tr 'T' ' ')
+            
+            # Store for display and for data lookup separately
+            formatted_snapshots+="${timestamp}|${pvc_name}|${snap_ns}|${actual_size}|${capacity_display}|${name_display}\n"
+            # Store mapping for lookup
+            echo "${timestamp}|${pvc_name}|${snap_ns}|${snap_ns}:${snap_name}" >> /tmp/snapshot_mapping_$$.txt
+        done <<< "$snapshot_list"
+        
+        if [ -z "$formatted_snapshots" ]; then
+            echo -e "${RED}No ready VolumeSnapshots found.${NC}"
+            read -p "$(t "press_enter")"
+            return
+        fi
+        
+        # Sort and display with perfect alignment (no hidden columns)
+        local sorted_snapshots=$(echo -e "$formatted_snapshots" | sort -r | column -t -s '|' -N "TIMESTAMP,PVC,NAMESPACE,ACTUAL,CAPACITY,DISPLAY_NAME")
+        local header=$(echo "$sorted_snapshots" | head -1)
+        local display_data=$(echo "$sorted_snapshots" | tail -n +2)
+        
+        local selected_snapshot
+        selected_snapshot=$(echo "$display_data" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select snapshot to manage: " --header="$header")
+        
+        if [ -z "$selected_snapshot" ]; then
+            rm -f /tmp/snapshot_mapping_$$.txt
+            return
+        fi
+        
+        # Extract unique key (first 3 fields) and convert spaces to pipes for grep
+        local timestamp=$(echo "$selected_snapshot" | awk '{print $1, $2}')
+        local pvc=$(echo "$selected_snapshot" | awk '{print $3}')
+        local namespace=$(echo "$selected_snapshot" | awk '{print $4}')
+        local search_key="${timestamp}|${pvc}|${namespace}"
+        local snapshot_info=$(grep "^${search_key}" /tmp/snapshot_mapping_$$.txt | head -1 | awk -F'|' '{print $NF}')
+        rm -f /tmp/snapshot_mapping_$$.txt
+        
+        if [ -z "$snapshot_info" ]; then
+            echo -e "${RED}❌ Error: Could not find snapshot info.${NC}"
+            read -p "$(t "press_enter")"
+            continue
+        fi
+        
+        # Parse namespace:snapshot
+        local snap_ns="${snapshot_info%%:*}"
+        local snap_name="${snapshot_info##*:}"
+        
+        # Management submenu
+        while true; do
+            local mgmt_actions="1. View Details 📋
+2. Set Display Name ✏️
+3. Add/Edit Description 📝
+4. Delete Snapshot 🗑️
+0. Back"
+            
+            local mgmt_choice
+            mgmt_choice=$(echo "$mgmt_actions" | "$FZF_BIN" --height=15% --layout=reverse --border --prompt="Manage $snap_name > " --header="Snapshot Management")
+            
+            case "${mgmt_choice%%.*}" in
+                1)
+                    # View Details
+                    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                    echo -e "${CYAN}📋 Snapshot Details: $snap_name${NC}"
+                    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                    run_kubectl "get volumesnapshot $snap_name -n $snap_ns -o yaml"
+                    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                    read -p "$(t "press_enter")"
+                    ;;
+                2)
+                    # Set Display Name
+                    echo -e "${CYAN}📝 Set Display Name for: $snap_name${NC}"
+                    local current_display=$(run_kubectl "get volumesnapshot $snap_name -n $snap_ns -o jsonpath='{.metadata.annotations.snapshot\.longhorn\.io/display-name}'" 2>/dev/null || echo "")
+                    
+                    if [ -n "$current_display" ]; then
+                        echo -e "${BLUE}Current display name: ${GREEN}$current_display${NC}"
+                    else
+                        echo -e "${YELLOW}No display name set (using real name: $snap_name)${NC}"
+                    fi
+                    
+                    echo -e "${BLUE}Enter new display name (or 'clear' to remove):${NC}"
+                    read -p "> " new_display_name
+                    
+                    if [ "$new_display_name" == "clear" ]; then
+                        run_kubectl "annotate volumesnapshot $snap_name -n $snap_ns snapshot.longhorn.io/display-name-"
+                        echo -e "${GREEN}✅ Display name cleared.${NC}"
+                    elif [ -n "$new_display_name" ]; then
+                        run_kubectl "annotate volumesnapshot $snap_name -n $snap_ns snapshot.longhorn.io/display-name=\"$new_display_name\" --overwrite"
+                        echo -e "${GREEN}✅ Display name set to: $new_display_name${NC}"
+                    fi
+                    
+                    read -p "$(t "press_enter")"
+                    ;;
+                3)
+                    # Add/Edit Description
+                    echo -e "${CYAN}📝 Add/Edit Description for: $snap_name${NC}"
+                    local current_desc=$(run_kubectl "get volumesnapshot $snap_name -n $snap_ns -o jsonpath='{.metadata.annotations.snapshot\.longhorn\.io/description}'" 2>/dev/null || echo "")
+                    
+                    if [ -n "$current_desc" ]; then
+                        echo -e "${BLUE}Current description:${NC}"
+                        echo -e "${GREEN}$current_desc${NC}"
+                        echo ""
+                    fi
+                    
+                    echo -e "${BLUE}Enter new description (or 'clear' to remove):${NC}"
+                    read -p "> " new_description
+                    
+                    if [ "$new_description" == "clear" ]; then
+                        run_kubectl "annotate volumesnapshot $snap_name -n $snap_ns snapshot.longhorn.io/description-"
+                        echo -e "${GREEN}✅ Description cleared.${NC}"
+                    elif [ -n "$new_description" ]; then
+                        run_kubectl "annotate volumesnapshot $snap_name -n $snap_ns snapshot.longhorn.io/description=\"$new_description\" --overwrite"
+                        echo -e "${GREEN}✅ Description updated.${NC}"
+                    fi
+                    
+                    read -p "$(t "press_enter")"
+                    ;;
+                4)
+                    # Delete Snapshot
+                    echo -e "${RED}⚠️  WARNING: Delete Snapshot${NC}"
+                    echo -e "${BLUE}Snapshot: ${CYAN}$snap_name${NC}"
+                    echo -e "${BLUE}Namespace: ${CYAN}$snap_ns${NC}"
+                    echo -e "${YELLOW}This will permanently delete the snapshot and its underlying backup.${NC}"
+                    echo ""
+                    echo -e "${RED}Type the snapshot name to confirm deletion:${NC}"
+                    read -p "> " confirm_name
+                    
+                    if [ "$confirm_name" == "$snap_name" ]; then
+                        run_kubectl "delete volumesnapshot $snap_name -n $snap_ns"
+                        echo -e "${GREEN}✅ Snapshot deleted.${NC}"
+                        read -p "$(t "press_enter")"
+                        break  # Exit submenu after deletion
+                    else
+                        echo -e "${YELLOW}❌ Deletion cancelled (name mismatch).${NC}"
+                        read -p "$(t "press_enter")"
+                    fi
+                    ;;
+                0)
+                    break
+                    ;;
+            esac
+        done
+    done
+}
 backup_menu() {
     while true; do
         local actions="1. Check Backup Status (Longhorn/Etcd) 📊
@@ -1347,6 +1546,7 @@ backup_menu() {
 4. View Backup Schedules (CronJobs) 🕒
 5. Configure Backup Target (S3/Minio) ⚙️
 6. Restore from Backup/Snapshot 🔄
+7. Manage Backups/Snapshots 🗂️
 0. Back"
         
         local choice
@@ -1840,6 +2040,9 @@ EOF
                 fi
                 
                 read -p "$(t "press_enter")"
+                ;;
+            7)
+                manage_snapshots
                 ;;
             0)
                 return
