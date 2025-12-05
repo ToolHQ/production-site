@@ -342,7 +342,7 @@ select_namespace() {
   fi
 
   local selected
-  selected=$(echo "$ns_list" | "$FZF_BIN" --height=60% --layout=reverse --border --prompt="Select Namespace (ESC to cancel) > " --header="Current: $CURRENT_NS") || true
+  selected=$(echo "$ns_list" | "$FZF_BIN" --height=60% --layout=reverse --border --prompt="Select Namespace > " --header="Current: $CURRENT_NS")
   
   if [ -n "$selected" ]; then
     CURRENT_NS="$selected"
@@ -361,7 +361,7 @@ select_pod() {
   fi
 
   local selected_line
-  selected_line=$(echo "$pod_list" | "$FZF_BIN" --height=70% --layout=reverse --border --header-lines=0 --prompt="Select Pod (ESC to go back) > " --header="Namespace: $CURRENT_NS") || true
+  selected_line=$(echo "$pod_list" | "$FZF_BIN" --height=70% --layout=reverse --border --header-lines=0 --prompt="Select Pod > " --header="Namespace: $CURRENT_NS")
   
   if [ -n "$selected_line" ]; then
     CURRENT_POD=$(echo "$selected_line" | awk '{print $1}')
@@ -380,7 +380,7 @@ pod_actions_menu() {
 0. Back"
 
     local selected_action
-    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Action for $CURRENT_POD > ") || true
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Action for $CURRENT_POD > ")
 
     if [ -z "$selected_action" ]; then
       return
@@ -438,7 +438,7 @@ $(t "maint_network")
 $(t "prefs_back")"
 
     local selected_action
-    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Maintenance > ") || true
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Maintenance > ")
 
     if [ -z "$selected_action" ]; then
       return
@@ -486,7 +486,7 @@ $(t "comp_longhorn")
 $(t "prefs_back")"
 
     local selected_action
-    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Components > ") || true
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Components > ")
 
     if [ -z "$selected_action" ]; then
       return
@@ -685,7 +685,7 @@ start_tunnel() {
         menu_items+="0. Back"
 
         local selected_item
-        selected_item=$(echo -e "$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Start Tunnel > " --header="Select a service (✓ = already open)") || true
+        selected_item=$(echo -e "$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Start Tunnel > " --header="Select a service (✓ = already open)")
 
         if [ -z "$selected_item" ] || [[ "$selected_item" == "0. Back" ]]; then
           return
@@ -703,7 +703,7 @@ start_tunnel() {
         local selected_port_mapping
         if [[ "$ports_info" == *", "* ]]; then
             local port_menu=$(echo "$ports_info" | sed 's/, /\n/g')
-            selected_port_mapping=$(echo "$port_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Port > ") || true
+            selected_port_mapping=$(echo "$port_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Port > ")
         else
             selected_port_mapping="$ports_info"
         fi
@@ -1115,7 +1115,7 @@ manage_tunnels() {
         menu_items+="↩ Back to Access Menu"
         
         local selected
-        selected=$(echo -e "$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Manage Tunnels (Select to Stop) > " --header="Active Tunnels") || true
+        selected=$(echo -e "$menu_items" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Manage Tunnels (Select to Stop) > " --header="Active Tunnels")
 
         # Check what was selected
         if [ -z "$selected" ]; then
@@ -1149,7 +1149,7 @@ $(t "sec_install_ca")
 $(t "back")"
 
         local selected
-        selected=$(echo "$menu" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Security > " --header="$(t "sec_menu_title")") || true
+        selected=$(echo "$menu" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Security > " --header="$(t "sec_menu_title")")
 
         if [ -z "$selected" ]; then
             return
@@ -1185,7 +1185,7 @@ $(t "back")"
                 fi
                 
                 local selected_cert
-                selected_cert=$(echo "$certs" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Renew Cert > ") || true
+                selected_cert=$(echo "$certs" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Renew Cert > ")
                 
                 if [ -n "$selected_cert" ]; then
                     local ns=$(echo "$selected_cert" | awk '{print $1}')
@@ -1214,7 +1214,7 @@ $(t "back")"
                 
                 # Select Issuer
                 local selected_issuer
-                selected_issuer=$(echo "$issuers" | tr ' ' '\n' | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Issuer > " --header="Choose which CA to export") || true
+                selected_issuer=$(echo "$issuers" | tr ' ' '\n' | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Issuer > " --header="Choose which CA to export")
                 
                 if [ -z "$selected_issuer" ]; then
                     continue
@@ -1454,7 +1454,7 @@ manage_snapshots() {
 0. Back"
             
             local mgmt_choice
-            mgmt_choice=$(echo "$mgmt_actions" | "$FZF_BIN" --height=15% --layout=reverse --border --prompt="Manage $snap_name (ESC to go back) > " --header="Snapshot Management") || true
+            mgmt_choice=$(echo "$mgmt_actions" | "$FZF_BIN" --height=15% --layout=reverse --border --prompt="Manage $snap_name > " --header="Snapshot Management")
             
             case "${mgmt_choice%%.*}" in
                 1)
@@ -1552,7 +1552,7 @@ schedule_snapshots() {
 0. Back"
         
         local choice
-        choice=$(echo "$actions" | "$FZF_BIN" --height=15% --layout=reverse --border --prompt="Schedule Snapshots (ESC to go back) > " --header="Automated Snapshot Management") || true
+        choice=$(echo "$actions" | "$FZF_BIN" --height=15% --layout=reverse --border --prompt="Schedule Snapshots > " --header="Automated Snapshot Management")
         
         case "${choice%%.*}" in
             1)
@@ -1720,11 +1720,7 @@ schedule_snapshots() {
 0. Back"
         
         local choice
-        choice=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Backup Ops (ESC to go back) > " --header="Backup & Disaster Recovery") || true
-        
-        if [ -z "$choice" ]; then
-            break  # ESC pressed, go back
-        fi
+        choice=$(echo "$actions" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Backup Ops > " --header="Backup & Disaster Recovery")
         
         case "${choice%%.*}" in
             1)
@@ -1769,7 +1765,7 @@ schedule_snapshots() {
                 fi
                 
                 echo "Select a PVC to snapshot:"
-                local selected_pvc=$(echo "$pvc_list" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select PVC: ") || true
+                local selected_pvc=$(echo "$pvc_list" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select PVC: ")
                 
                 if [ -z "$selected_pvc" ]; then
                     continue
@@ -1842,7 +1838,7 @@ EOF
                 echo -e "${BLUE}🔄 Restore from Backup/Snapshot...${NC}"
                 echo -e "${YELLOW}Choose restore source:${NC}"
                 local restore_type
-                restore_type=$(echo -e "1. From Snapshot (local)\n2. From Backup (S3)" | "$FZF_BIN" --height=10% --layout=reverse --border --prompt="Restore from: ") || true
+                restore_type=$(echo -e "1. From Snapshot (local)\n2. From Backup (S3)" | "$FZF_BIN" --height=10% --layout=reverse --border --prompt="Restore from: ")
                 
                 if [[ "$restore_type" == "1."* ]]; then
                     # Restore from snapshot
@@ -1927,7 +1923,7 @@ EOF
                     local data=$(echo "$sorted_snapshots" | tail -n +2)
                     
                     local selected_snapshot
-                    selected_snapshot=$(echo "$data" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select snapshot: " --header="$header") || true
+                    selected_snapshot=$(echo "$data" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select snapshot: " --header="$header")
                     
                     if [ -n "$selected_snapshot" ]; then
                         # Extract snapshot name and PVC info from selection
@@ -2204,7 +2200,7 @@ EOF
                     done <<< "$backup_list"
                     
                     local selected_backup
-                    selected_backup=$(echo -e "$formatted_backups" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select backup: ") || true
+                    selected_backup=$(echo -e "$formatted_backups" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Select backup: ")
                     
                     if [ -n "$selected_backup" ]; then
                         local backup_name=$(echo "$selected_backup" | awk '{print $1}')
@@ -2233,7 +2229,7 @@ $(t "ingress_menu_title")
 $(t "prefs_back")"
 
     local selected_action
-    selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Tunnel Manager > ") || true
+    selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Tunnel Manager > ")
 
     if [ -z "$selected_action" ]; then
       return
@@ -2278,16 +2274,16 @@ view_credentials_menu() {
     
     # Select credential with fzf (search enabled by default)
     local selected
-    selected=$(echo -e "0. Back\n$cred_list" | "$FZF_BIN" \
-      --height=60% \
+    selected=$(echo -e "0. ← Back to Main Menu\n$cred_list" | "$FZF_BIN" \
+      --height=40% \
       --layout=reverse \
       --border \
-      --prompt="Search Credentials (ESC to go back) > " \
+      --prompt="Search Credentials > " \
       --header="Type to search by name or description" \
       --preview="echo 'Select to view actions'" \
-      --preview-window=down:2) || true
+      --preview-window=down:2)
     
-    if [ -z "$selected" ] || [ "$selected" = "0. Back" ]; then
+    if [ -z "$selected" ] || [[ "$selected" == "0. ← Back to Main Menu" ]]; then
       return
     fi
     
@@ -2308,7 +2304,7 @@ view_credentials_menu() {
 0. Back"
       
       local action
-      action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Action > ") || true
+      action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Action > ")
       
       if [ -z "$action" ] || [[ "$action" == "0. Back" ]]; then
         break
@@ -2355,7 +2351,7 @@ view_credentials_menu() {
 0. Cancel"
           
           local edit_action
-          edit_action=$(echo "$edit_menu" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Edit > ") || true
+          edit_action=$(echo "$edit_menu" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="Edit > ")
           
           if [ -z "$edit_action" ] || [[ "$edit_action" == "0. Cancel" ]]; then
             continue
@@ -2443,7 +2439,7 @@ $(t "svc_auto_init")
 $(t "prefs_back")"
     
     local selected
-    selected=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Service Configuration > " --header="Automated Service Setup") || true
+    selected=$(echo "$actions" | "$FZF_BIN" --height=50% --layout=reverse --border --prompt="Service Configuration > " --header="Automated Service Setup")
     
     if [ -z "$selected" ] || [[ "$selected" == "$(t "prefs_back")" ]]; then
       return
@@ -2714,7 +2710,7 @@ $(t "auto_ports_remove")
 $(t "prefs_back")"
         
         local selected
-        selected=$(echo "$actions" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Auto Ports > ") || true
+        selected=$(echo "$actions" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Auto Ports > ")
         
         if [ -z "$selected" ] || [[ "$selected" == "$(t "prefs_back")" ]]; then
             return
@@ -2757,7 +2753,7 @@ $(t "prefs_back")"
                 done
                 
                 local to_remove
-                to_remove=$(echo "$port_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Remove > ") || true
+                to_remove=$(echo "$port_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Remove > ")
                 
                 if [ -n "$to_remove" ]; then
                     local namespace=$(echo "$to_remove" | cut -d'/' -f1)
@@ -2789,7 +2785,7 @@ $(t "prefs_auto_ports")
 $(t "prefs_back")"
         
         local selected
-        selected=$(echo "$actions" | "$FZF_BIN" --height=30% --layout=reverse --border --prompt="Preferences > ") || true
+        selected=$(echo "$actions" | "$FZF_BIN" --height=30% --layout=reverse --border --prompt="Preferences > ")
         
         if [ -z "$selected" ] || [[ "$selected" == "$(t "prefs_back")" ]]; then
             return
@@ -2807,7 +2803,7 @@ $(t "lang_portuguese")
 $(t "prefs_back")"
                 
                 local lang_selected
-                lang_selected=$(echo "$lang_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Language > ") || true
+                lang_selected=$(echo "$lang_menu" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Language > ")
                 
                 if [ -z "$lang_selected" ] || [[ "$lang_selected" == "$(t "prefs_back")" ]]; then
                     continue
@@ -3004,7 +3000,7 @@ $(t "menu_backup")
 $(t "menu_exit")"
 
     local selected
-    selected=$(echo "$menu" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Main Menu (ESC to exit) > " --header="Cluster: $MASTER_NODE | $port_status") || true
+    selected=$(echo "$menu" | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Main Menu > " --header="Cluster: $MASTER_NODE | $port_status")
 
     if [ -z "$selected" ]; then
       exit 0
