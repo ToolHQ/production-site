@@ -95,10 +95,7 @@ while true; do
 
   TARGET_NODE=""
   if [ -x "$FZF_BIN" ]; then
-    # Add Exit Option (Formatted to match table)
-    printf "%-20s | %-25s | %-30s | %-20s\n" "EXIT" "" "" "" >> "$TMP_DIR/list"
-    
-    SELECTED_LINE=$(cat "$TMP_DIR/list" | "$FZF_BIN" --height=40% --layout=reverse --border --header-lines=2 --prompt="Select Node > ")
+    SELECTED_LINE=$(cat "$TMP_DIR/list" | "$FZF_BIN" --height=40% --layout=reverse --border --header-lines=2 --prompt="Select Node (ESC to exit) > ") || true
     TARGET_NODE=$(echo "$SELECTED_LINE" | awk '{print $1}')
   else
     echo "Select node to update (or Ctrl+C to exit):"
@@ -108,7 +105,7 @@ while true; do
     done
   fi
 
-  if [ -z "$TARGET_NODE" ] || [ "$TARGET_NODE" == "EXIT" ]; then
+  if [ -z "$TARGET_NODE" ]; then
     echo "Exiting..."
     rm -rf "$TMP_DIR"
     exit 0
