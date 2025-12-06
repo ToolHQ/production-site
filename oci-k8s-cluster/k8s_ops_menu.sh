@@ -226,6 +226,33 @@ open_dashboard() {
   if [ -n "$ingress_host" ]; then
     # Use ingress
     echo -e "${GREEN}Using Ingress: https://$ingress_host${NC}"
+    
+    # Check if HTTPS port (443) is accessible locally
+    if ! (lsof -iTCP:443 -sTCP:LISTEN &>/dev/null || ss -tulpn 2>/dev/null | grep -q ":443 "); then
+      echo -e "${YELLOW}Port 443 not open locally. Opening ingress tunnel...${NC}"
+      
+      # Get ingress controller info
+      local ingress_info
+      ingress_info=$(detect_ingress_controller)
+      
+      if [ $? -eq 0 ]; then
+        local ingress_ns=$(echo "$ingress_info" | cut -d'|' -f1)
+        local ingress_name=$(echo "$ingress_info" | cut -d'|' -f2)
+        local ports=$(echo "$ingress_info" | cut -d'|' -f3)
+        
+        # Extract HTTPS port
+        local https_port=$(echo "$ports" | grep -o 'https:[0-9]*' | cut -d':' -f2)
+        
+        if [ -n "$https_port" ]; then
+          # Use existing start_tunnel function
+          start_tunnel "$ingress_ns" "$ingress_name" "443" "$https_port" "Ingress HTTPS" "true"
+          echo -e "${GREEN}✅ Ingress tunnel opened on port 443${NC}"
+        fi
+      fi
+    else
+      echo -e "${GREEN}✅ Port 443 already accessible${NC}"
+    fi
+    
     dashboard_url="https://$ingress_host"
   else
     # Fallback to ClusterIP tunnel
@@ -351,17 +378,67 @@ select_namespace() {
 
 select_pod() {
   echo "Fetching pods in $CURRENT_NS..."
-  local pod_list
-  pod_list=$(run_kubectl "-n $CURRENT_NS get pods --no-headers -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,RESTARTS:.status.containerStatuses[0].restartCount,AGE:.metadata.creationTimestamp")
   
-  if [ -z "$pod_list" ]; then
+  # Get pod details in pipe-delimited format
+  local pod_data
+  pod_data=$(run_kubectl "-n $CURRENT_NS get pods --no-headers -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,READY:.status.containerStatuses[0].ready,RESTARTS:.status.containerStatuses[0].restartCount,AGE:.metadata.creationTimestamp")
+  
+  if [ -z "$pod_data" ]; then
     echo -e "${YELLOW}No pods found in namespace $CURRENT_NS.${NC}"
     read -p "Press Enter to continue..."
     return
   fi
 
+  # Format with proper columns and header
+  local formatted_pods=""
+  while IFS= read -r line; do
+    local name=$(echo "$line" | awk '{print $1}')
+    local status=$(echo "$line" | awk '{print $2}')
+    local ready=$(echo "$line" | awk '{print $3}')
+    local restarts=$(echo "$line" | awk '{print $4}')
+    local age_timestamp=$(echo "$line" | awk '{print $5}')
+    
+    # Calculate age from timestamp
+    local age="N/A"
+    if [ -n "$age_timestamp" ] && [ "$age_timestamp" != "<none>" ]; then
+      local now=$(date +%s)
+      local created=$(date -d "$age_timestamp" +%s 2>/dev/null || echo "$now")
+      local diff=$((now - created))
+      
+      if [ $diff -lt 60 ]; then
+        age="${diff}s"
+      elif [ $diff -lt 3600 ]; then
+        age="$((diff / 60))m"
+      elif [ $diff -lt 86400 ]; then
+        age="$((diff / 3600))h"
+      else
+        age="$((diff / 86400))d"
+      fi
+    fi
+    
+    # Format ready status
+    if [ "$ready" = "true" ]; then
+      ready="1/1"
+    elif [ "$ready" = "false" ]; then
+      ready="0/1"
+    else
+      ready="N/A"
+    fi
+    
+    # Default restarts to 0 if empty
+    [ -z "$restarts" ] || [ "$restarts" = "<none>" ] && restarts="0"
+    
+    formatted_pods+="$name|$status|$ready|$restarts|$age\n"
+  done <<< "$pod_data"
+  
+  # Create header and format with column
+  local header="NAME|STATUS|READY|RESTARTS|AGE"
+  local display_data=$(echo -e "$header\n$formatted_pods" | column -t -s '|')
+  
+  # Use fzf with header
   local selected_line
-  selected_line=$(echo "$pod_list" | "$FZF_BIN" --height=70% --layout=reverse --border --header-lines=0 --prompt="Select Pod (ESC to go back) > " --header="Namespace: $CURRENT_NS") || true
+  selected_line=$(echo "$display_data" | tail -n +2 | "$FZF_BIN" --height=70% --layout=reverse --border --prompt="Select Pod (ESC to go back) > " --header="$(echo "$display_data" | head -1)
+Namespace: $CURRENT_NS") || true
   
   if [ -n "$selected_line" ]; then
     CURRENT_POD=$(echo "$selected_line" | awk '{print $1}')
@@ -3041,9 +3118,181 @@ $(t "menu_exit")"
         run_kubectl "get pods -A -o wide" | less -S
         ;;
       10)
-        clear
-        run_kubectl "get nodes -o wide"
-        read -p "$(t "press_enter")"
+        # Node Status - Interactive Menu with fzf
+        while true; do
+          echo -e "${BLUE}📊 Node Status${NC}"
+          echo ""
+          
+          # Build formatted table for fzf
+          local node_data=""
+          local header="NODE|STATUS||CONDITION|ROLE|VERSION|AGE"
+          
+          run_kubectl "get nodes --no-headers" | while read name status roles age version rest; do
+            local status_icon="❌"
+            if [ "$status" = "Ready" ]; then
+              status_icon="✅"
+              status="Ready"
+            fi
+            
+            if [ "$roles" = "<none>" ]; then
+              roles="worker"
+            fi
+            
+            echo "$name|$status_icon|$status|$roles|$version|$age"
+          done > /tmp/nodes_$$.txt
+          
+          
+          # Create formatted display with proper spacing
+          {
+            printf "%-20s %-8s %-10s %-15s %-12s %-6s\n" "NODE" "STATUS" "CONDITION" "ROLE" "VERSION" "AGE"
+            while IFS='|' read -r name icon status role version age; do
+              printf "%-20s %-8s %-10s %-15s %-12s %-6s\n" "$name" "$icon" "$status" "$role" "$version" "$age"
+            done < /tmp/nodes_$$.txt
+          } > /tmp/nodes_display_$$.txt
+          
+          
+          # Use fzf with working preview (no SSH complications)
+          local selected_node
+          selected_node=$(cat /tmp/nodes_display_$$.txt | "$FZF_BIN" \
+            --height=60% \
+            --layout=reverse \
+            --border \
+            --header-lines=1 \
+            --prompt="Select Node (ESC to go back) > " \
+            --preview="echo 'Node: {}' && echo '' && kubectl get node \$(echo {} | awk '{print \$1}') -o wide 2>/dev/null" \
+            --preview-window=down:8 \
+            | awk '{print $1}') || true
+          
+          rm -f /tmp/nodes_$$.txt /tmp/nodes_display_$$.txt
+          
+          if [ -z "$selected_node" ]; then
+            break  # ESC pressed
+          fi
+          
+          # Enhanced actions menu for selected node
+          while true; do
+            local actions="1. Describe Node (Full Details) 📋
+2. View Pods on This Node 🏃
+3. Resource Usage (CPU/Memory) 📊
+4. View Node Logs (Kubelet) 📜
+5. Cordon Node (Prevent Scheduling) 🚫
+6. Uncordon Node (Allow Scheduling) ✅
+7. Drain Node (Evict Pods) 💧
+8. View/Edit Labels 🏷️
+9. View/Edit Taints 🚧
+10. SSH into Node 💻
+0. Back"
+            
+            local action
+            action=$(echo "$actions" | "$FZF_BIN" \
+              --height=50% \
+              --layout=reverse \
+              --border \
+              --prompt="Manage $selected_node (ESC to go back) > " \
+              --header="Node Management - Command Center") || true
+            
+            if [ -z "$action" ]; then
+              break  # Go back to node list
+            fi
+            
+            case "${action%%.*}" in
+              1)
+                clear
+                echo -e "${BLUE}=== Node Description: $selected_node ===${NC}"
+                run_kubectl "describe node $selected_node" | less
+                ;;
+              2)
+                clear
+                echo -e "${BLUE}=== Pods Running on $selected_node ===${NC}"
+                echo ""
+                run_kubectl "get pods -A --field-selector spec.nodeName=$selected_node -o wide"
+                echo ""
+                read -p "Press Enter to continue..."
+                ;;
+              3)
+                clear
+                echo -e "${BLUE}=== Resource Usage: $selected_node ===${NC}"
+                echo ""
+                echo -e "${YELLOW}CPU & Memory:${NC}"
+                run_kubectl "top node $selected_node" 2>/dev/null || echo "Metrics server not available"
+                echo ""
+                echo -e "${YELLOW}Capacity:${NC}"
+                run_kubectl "get node $selected_node -o jsonpath='{\"CPU: \"}{.status.capacity.cpu}{\" Memory: \"}{.status.capacity.memory}{\"\\n\"}'"
+                echo ""
+                echo -e "${YELLOW}Allocatable:${NC}"
+                run_kubectl "get node $selected_node -o jsonpath='{\"CPU: \"}{.status.allocatable.cpu}{\" Memory: \"}{.status.allocatable.memory}{\"\\n\"}'"
+                echo ""
+                read -p "Press Enter to continue..."
+                ;;
+              4)
+                clear
+                echo -e "${BLUE}=== Node Logs (journalctl) ===${NC}"
+                echo -e "${YELLOW}Note: This requires SSH access to the node${NC}"
+                echo ""
+                local ssh_target=$(echo "$selected_node" | sed 's/^k8s-/oci-k8s-/')
+                [[ "$ssh_target" != oci-* ]] && ssh_target="oci-$ssh_target"
+                ssh -t "$ssh_target" "sudo journalctl -u kubelet -n 100 --no-pager"
+                read -p "Press Enter to continue..."
+                ;;
+              5)
+                echo -e "${YELLOW}Cordoning $selected_node...${NC}"
+                run_kubectl "cordon $selected_node"
+                echo -e "${GREEN}✅ Node cordoned (no new pods will be scheduled)${NC}"
+                read -p "Press Enter to continue..."
+                ;;
+              6)
+                echo -e "${YELLOW}Uncordoning $selected_node...${NC}"
+                run_kubectl "uncordon $selected_node"
+                echo -e "${GREEN}✅ Node uncordoned (scheduling enabled)${NC}"
+                read -p "Press Enter to continue..."
+                ;;
+              7)
+                echo -e "${RED}⚠️  WARNING: This will evict all pods from $selected_node${NC}"
+                read -p "Type 'yes' to confirm: " confirm
+                if [ "$confirm" = "yes" ]; then
+                  echo -e "${YELLOW}Draining $selected_node...${NC}"
+                  run_kubectl "drain $selected_node --ignore-daemonsets --delete-emptydir-data"
+                  echo -e "${GREEN}✅ Node drained${NC}"
+                else
+                  echo "Cancelled."
+                fi
+                read -p "Press Enter to continue..."
+                ;;
+              8)
+                clear
+                echo -e "${BLUE}=== Labels on $selected_node ===${NC}"
+                echo ""
+                run_kubectl "get node $selected_node --show-labels"
+                echo ""
+                echo -e "${YELLOW}To add label: kubectl label node $selected_node key=value${NC}"
+                echo -e "${YELLOW}To remove label: kubectl label node $selected_node key-${NC}"
+                read -p "Press Enter to continue..."
+                ;;
+              9)
+                clear
+                echo -e "${BLUE}=== Taints on $selected_node ===${NC}"
+                echo ""
+                run_kubectl "get node $selected_node -o jsonpath='{.spec.taints}'" | jq '.' 2>/dev/null || echo "No taints"
+                echo ""
+                echo -e "${YELLOW}To add taint: kubectl taint node $selected_node key=value:NoSchedule${NC}"
+                echo -e "${YELLOW}To remove taint: kubectl taint node $selected_node key:NoSchedule-${NC}"
+                read -p "Press Enter to continue..."
+                ;;
+              10)
+                clear
+                echo -e "${BLUE}=== SSH into $selected_node ===${NC}"
+                local ssh_target=$(echo "$selected_node" | sed 's/^k8s-/oci-k8s-/')
+                [[ "$ssh_target" != oci-* ]] && ssh_target="oci-$ssh_target"
+                echo -e "${YELLOW}Connecting to $ssh_target...${NC}"
+                echo ""
+                ssh -t "$ssh_target"
+                ;;
+              0)
+                break
+                ;;
+            esac
+          done
+        done
         ;;
       11)
         clear
