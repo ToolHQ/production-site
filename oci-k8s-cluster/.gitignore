@@ -1,3 +1,4 @@
 join_cmd.sh
 cluster_report_*.md
 setup_k8s_cluster_*.log
+dnor-ca-issuer.crt
