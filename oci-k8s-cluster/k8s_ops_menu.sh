@@ -185,6 +185,19 @@ open_url() {
 }
 
 
+format_age() {
+    local diff=$1
+    if [ "$diff" -lt 60 ]; then
+        echo "${diff}s"
+    elif [ "$diff" -lt 3600 ]; then
+        echo "$((diff / 60))m"
+    elif [ "$diff" -lt 86400 ]; then
+        echo "$((diff / 3600))h"
+    else
+        echo "$((diff / 86400))d"
+    fi
+}
+
 # --- ACTIONS ---
 
 open_k9s() {
@@ -405,15 +418,8 @@ select_pod() {
       local created=$(date -d "$age_timestamp" +%s 2>/dev/null || echo "$now")
       local diff=$((now - created))
       
-      if [ $diff -lt 60 ]; then
-        age="${diff}s"
-      elif [ $diff -lt 3600 ]; then
-        age="$((diff / 60))m"
-      elif [ $diff -lt 86400 ]; then
-        age="$((diff / 3600))h"
-      else
-        age="$((diff / 86400))d"
-      fi
+      if [ $diff -lt 0 ]; then diff=0; fi
+      age=$(format_age "$diff")
     fi
     
     # Format ready status
@@ -949,7 +955,26 @@ detect_ingress_controller() {
     echo "$(t "ingress_detecting")" >&2
     # Try to find ingress-nginx-controller service in all namespaces
     local ingress_svc
-    ingress_svc=$(run_kubectl "get svc -A -o jsonpath='{range .items[*]}{@.metadata.namespace}{\"|\"}{@.metadata.name}{\"|\"}{range @.spec.ports[*]}{.name}{\":\"}{.nodePort}{\",\"}{end}{\"\\n\"}{end}'" | grep "ingress-nginx-controller|")
+    
+    # 3. Parse info
+    echo "$ingress_svc"
+}
+
+parse_ingress_data() {
+    local raw_input="$1"
+    # Logic to parse the specific format: namespace|name|portname:nodeport,
+    # This helper is now testable purely with strings
+    echo "$raw_input" | grep "ingress-nginx-controller|"
+}
+
+detect_ingress_controller() {
+    echo "$(t "ingress_detecting")" >&2
+    # Try to find ingress-nginx-controller service in all namespaces
+    local raw_data
+    raw_data=$(run_kubectl "get svc -A -o jsonpath='{range .items[*]}{@.metadata.namespace}{\"|\"}{@.metadata.name}{\"|\"}{range @.spec.ports[*]}{.name}{\":\"}{.nodePort}{\",\"}{end}{\"\\n\"}{end}'")
+    
+    local ingress_svc
+    ingress_svc=$(parse_ingress_data "$raw_data")
     
     if [ -z "$ingress_svc" ]; then
         echo "$(t "ingress_not_found")" >&2
@@ -3319,4 +3344,6 @@ $(t "menu_exit")"
 }
 
 # Start
-main_menu
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main_menu
+fi
