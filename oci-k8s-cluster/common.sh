@@ -14,7 +14,7 @@ if [ -z "${NODES+x}" ]; then
     done
   else
     echo "⚠️  No oci-k8s-* hosts found; using defaults."
-    NODES=(oci-k8s-master oci-k8s-node-1 oci-k8s-node-2)
+    NODES=(oci-k8s-master oci-k8s-node-1 oci-k8s-node-2 oci-k8s-node-3)
   fi
 fi
 
