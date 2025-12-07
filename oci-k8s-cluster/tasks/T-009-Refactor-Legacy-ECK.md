@@ -1,6 +1,6 @@
 # Task T-009: Refactor Legacy ECK Components
 
-**Status**: 🧊 Backlog
+**Status**: ✅ Done
 **Epic**: Refactoring / Observability
 **Estimate**: 4 hours
 
