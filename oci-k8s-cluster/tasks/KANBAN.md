@@ -5,7 +5,7 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
-| [T-005](T-005-Cost-Analysis.md) | **Implement Kubecost & FinOps Audit** | 🔽 Low | FinOps | 1d |
+
 
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
@@ -15,6 +15,7 @@
 | [T-009](T-009-Refactor-Legacy-ECK.md) | **Refactor Legacy ECK Components** | 🔽 Low | Refactor | 4h |
 
 ## ✅ Done
+- [x] **[T-005](T-005-Cost-Analysis.md) Implement Kubecost & FinOps Audit** (Free Tier Optimized)
 - [x] **[T-004](T-004-Observability-Setup.md) Revitalize ELK Integration** (Pixie De-scoped)
 - [x] **[T-008](T-008-Register-Credentials.md) Register ELK Credentials**
 - [x] **[T-007](T-007-Refactor-Observability.md) Refactor Observability to Components**

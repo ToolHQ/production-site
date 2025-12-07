@@ -253,6 +253,13 @@ prepare_tunnel_targets() {
     fi
   fi
 
+  # --- INGRESS-FIRST POLICY ---
+  # If we have Ingress tunnels, ignore Service/NodePort tunnels to reduce noise and resource usage.
+  if (( ${#ingress_tunnels[@]} > 0 )); then
+      echo "✨ Ingress validated. Skipping bare Service tunnels (Ingress-First Policy)."
+      service_tunnels=()
+  fi
+
   export service_tunnels ingress_tunnels
 }
 
