@@ -13,6 +13,13 @@
 - **Workers**: `oci-k8s-node-1`, `oci-k8s-node-2`, `oci-k8s-node-3` (ARM64).
 - **Kubernetes Version**: v1.34.2
 - **CNI**: Cilium (VXLAN mode).
+
+### 3. Access & Networking
+- **Ingress-First Policy**: ALL interactive services (Kibana, Grafana, Nexus, etc) MUST be exposed via `ingress-nginx` with a `*.dnor.io` subdomain.
+- **No-SaaS Policy**: We prioritized Self-Hosted solutions. Do NOT implement SaaS-based monitoring (e.g., Pixie Cloud, Grafana Cloud) unless explicitly authorized. Data must stay in the cluster.
+- **TUI Integration**: The `k8s_ops_menu.sh` relies on these Ingress routes for its "One-Click Open" functionality.
+- **Tunneling**: Access is achieved via SSH Tunnel to 443 (Ingress) or direct NodePort.
+
 - **Storage**:
     - **Longhorn** (Default): Distributed block storage.
     - **Local Path**: Lightweight alternative for extensive I/O.
