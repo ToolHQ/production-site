@@ -3,3 +3,7 @@ coverage/**
 dnor-ca-issuer.crt
 join_cmd.sh
 setup_k8s_cluster_*.log
+# Sensitive
+kubeconfig*
+*.conf
+pixie_install_debug.sh

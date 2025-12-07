@@ -5,15 +5,20 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-005](T-005-Cost-Analysis.md) | **Implement Kubecost & FinOps Audit** | 🔽 Low | FinOps | 1d |
 
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
 |:--:|:---|:--:|:---|:--:|
-
-| [T-004](T-004-Observability-Setup.md) | **Revitalize ELK & Pixie Integration** | 🔼 Med | Obs. | 3d |
-| [T-005](T-005-Cost-Analysis.md) | **Implement Kubecost & FinOps Audit** | 🔽 Low | FinOps | 1d |
+| [T-010](T-010-Self-Hosted-Pixie.md) | **Deploy Self-Hosted Pixie** | 🚧 Hard | Obs. | 1d |
+| [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
+| [T-009](T-009-Refactor-Legacy-ECK.md) | **Refactor Legacy ECK Components** | 🔽 Low | Refactor | 4h |
 
 ## ✅ Done
+- [x] **[T-004](T-004-Observability-Setup.md) Revitalize ELK Integration** (Pixie De-scoped)
+- [x] **[T-008](T-008-Register-Credentials.md) Register ELK Credentials**
+- [x] **[T-007](T-007-Refactor-Observability.md) Refactor Observability to Components**
+- [x] **[T-006](T-006-Expose-ELK-Ingress.md) Expose ELK via Ingress (*.dnor.io)**
 - [x] **[T-003](T-003-Architecture-Documentation.md) Create Architecture Documentation**
 - [x] **[T-002](T-002-TUI-Testing-Framework.md) Implement BATS Testing Framework**
 - [x] **[T-001](T-001-Fix-Configuration-Drift.md) Remediate Configuration Drift**
