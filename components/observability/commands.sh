@@ -80,4 +80,13 @@ else
 fi
 
 echo ""
+# 5. Configure Kibana
+echo " [5] Configuring Kibana..."
+if [ -f "scripts/configure_kibana.sh" ]; then
+    ./scripts/configure_kibana.sh
+else
+    echo "    ⚠️  Configuration script not found."
+fi
+
+echo ""
 echo "✅ Observability Setup (ECK + Manifests) finished."
