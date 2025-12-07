@@ -7,14 +7,15 @@
 |:--:|:---|:--:|:--:|:--:|
 
 
+
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
 |:--:|:---|:--:|:---|:--:|
 | [T-010](T-010-Self-Hosted-Pixie.md) | **Deploy Self-Hosted Pixie** | 🚧 Hard | Obs. | 1d |
 | [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
-| [T-009](T-009-Refactor-Legacy-ECK.md) | **Refactor Legacy ECK Components** | 🔽 Low | Refactor | 4h |
 
 ## ✅ Done
+- [x] **[T-009](T-009-Refactor-Legacy-ECK.md) Refactor Legacy ECK Components**
 - [x] **[T-005](T-005-Cost-Analysis.md) Implement Kubecost & FinOps Audit** (Free Tier Optimized)
 - [x] **[T-004](T-004-Observability-Setup.md) Revitalize ELK Integration** (Pixie De-scoped)
 - [x] **[T-008](T-008-Register-Credentials.md) Register ELK Credentials**
