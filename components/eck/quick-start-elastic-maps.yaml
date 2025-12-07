@@ -1,7 +1,0 @@
-apiVersion: maps.k8s.elastic.co/v1alpha1
-kind: ElasticMapsServer
-metadata:
-  name: quickstart
-spec:
-  version: 8.13.3
-  count: 1
