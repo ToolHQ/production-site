@@ -5,8 +5,8 @@
 # Main volume manager interface
 manage_volumes() {
     while true; do
-        # Get volume list
-        local volumes_data=$(bash scripts/volume_manager/list_volumes.sh 2>/dev/null)
+        # Get volume list (fast version - shows all PVCs instantly)
+        local volumes_data=$(bash scripts/volume_manager/list_volumes_fast.sh 2>/dev/null)
         
         if [ -z "$volumes_data" ]; then
             whiptail --title "Volume Manager" --msgbox "No volumes found or error listing volumes." 8 60
@@ -34,7 +34,8 @@ Used:       {4}
 Available:  {5}
 Usage:      {6}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"' \
-            --preview-window=right:40%) || return
+            --preview-window=right:40% \
+            --with-nth=1,2,3,4,6) || return
         
         if [ -z "$selected" ]; then
             return
