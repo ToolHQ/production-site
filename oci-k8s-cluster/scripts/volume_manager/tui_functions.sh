@@ -13,25 +13,27 @@ manage_volumes() {
             return
         fi
         
-        # Format for fzf display
+        # Format for fzf display (skip header, format as table)
         local volume_list=$(echo "$volumes_data" | tail -n +2 | awk -F'|' '{
-            printf "%-20s %-30s %8s %8s %6s\n", $1, $2, $3, $4, $6
+            printf "%-20s %-35s %8s %8s %8s\n", $1, $2, $3, $4, $6
         }')
         
-        # Select volume
+        # Select volume with proper preview
         local selected=$(echo "$volume_list" | "$FZF_BIN" \
             --height=80% \
             --layout=reverse \
             --border \
             --prompt="Select Volume > " \
-            --header="NAMESPACE            PVC NAME                       ALLOCATED    USED  USAGE%" \
+            --header="NAMESPACE            PVC NAME                            ALLOCATED    USED  USAGE%" \
             --preview='echo "Volume Details:
-Namespace: {}
-PVC: {}
-Allocated: {}
-Used: {}
-Available: {}
-Usage: {}"' \
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Namespace:  {1}
+PVC Name:   {2}
+Allocated:  {3}
+Used:       {4}
+Available:  {5}
+Usage:      {6}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"' \
             --preview-window=right:40%) || return
         
         if [ -z "$selected" ]; then
