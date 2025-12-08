@@ -5,15 +5,13 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
-
-
-
+| [T-014](T-014-DeepFlow-Observability.md) | **Deploy DeepFlow (eBPF Observability)** | 🔼 High | Obs. | 1d |
+| [T-015](T-015-Pyroscope-Profiling.md) | **Deploy Pyroscope (Continuous Profiling)** | 🔼 Med | Obs. | 4h |
 
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
 |:--:|:---|:--:|:---|:--:|
 | [T-013](T-013-Log-Archiving-Minio.md) | **Log Archiving & Rehydration** | 🛡️ FinOps | Obs. | 1d |
-| [T-010](T-010-Self-Hosted-Pixie.md) | **Deploy Self-Hosted Pixie** | 🚧 Hard | Obs. | 1d |
 | [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 
 ## ✅ Done
@@ -30,6 +28,11 @@
 - [x] **[T-000](T-000-Project-Initialization.md) Project Initialization**
 - [x] **Cluster Connection & Diagnostics** (Score: 92/100)
 - [x] **Strategic Roadmap Definition**
+
+## 🗄️ Deprioritized (Abandoned/Blocked)
+| ID | Task Name | Reason | Date |
+|:--:|:---|:---|:--:|
+| [T-010](T-010-Self-Hosted-Pixie.md) | **Deploy Self-Hosted Pixie** | SaaS dependency, no ARM64 CLI, replaced by DeepFlow | 2025-12-07 |
 
 ---
 > **Legend**: 🚨 Critical, 🔼 High/Med, 🔽 Low
