@@ -19,7 +19,7 @@ manage_volumes() {
         }')
         
         # Select volume
-        local selected=$(echo "$volume_list" | fzf \
+        local selected=$(echo "$volume_list" | "$FZF_BIN" \
             --height=80% \
             --layout=reverse \
             --border \
