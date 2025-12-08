@@ -1,0 +1,137 @@
+# DeepFlow Custom Values for OCI ARM64 Cluster
+# Optimized for self-hosted deployment with resource constraints
+
+global:
+  image:
+    # Use official registry (supports ARM64)
+    repository: deepflowce
+    pullPolicy: IfNotPresent
+  
+  # Single replica for resource efficiency
+  replicas: 1
+  
+  # Use Longhorn for persistent storage
+  storageClass: "longhorn"
+  
+  # Timezone
+  timezone: "America/Sao_Paulo"
+  
+  # Passwords
+  password:
+    mysql: "deepflow-mysql-pass"
+    clickhouse: ""  # Empty = no password for ClickHouse
+  
+  # Disable NodePort (use Ingress instead - Ingress-First policy)
+  nodePort:
+    clickhouseTcpPort:
+    clickhouseHttpPort:
+    deepflowServerIngester:
+    deepflowServerGrpc:
+    deepflowServerhealthCheck:
+
+# DeepFlow Server (Control Plane)
+server:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 2Gi
+  service:
+    type: ClusterIP  # Expose via Ingress
+
+# DeepFlow App (Web UI)
+app:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+  service:
+    type: ClusterIP  # Expose via Ingress
+
+# ClickHouse (Time-series storage) - ULTRA MINIMAL (5GB TOTAL)
+clickhouse:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+  storageConfig:
+    type: persistentVolumeClaim
+    persistence:
+      - name: clickhouse-path
+        accessModes:
+          - ReadWriteOnce
+        size: 2Gi  # Ultra minimal
+        storageClass: "longhorn"
+      - name: clickhouse-storage-path
+        accessModes:
+          - ReadWriteOnce
+        size: 3Gi  # Ultra minimal
+        storageClass: "longhorn"
+
+# MySQL (Metadata storage) - MINIMAL CONFIG
+# Note: DeepFlow requires MySQL (not compatible with Postgres)
+mysql:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m       # Minimal
+      memory: 128Mi  # Minimal
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storageConfig:
+    type: persistentVolumeClaim
+    persistence:
+      storageClass: "longhorn"
+      size: 5Gi  # MINIMAL - only metadata
+
+# DeepFlow Agent (eBPF collector - DaemonSet)
+deepflow-agent:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+  
+  # Enable eBPF optimizations
+  sysctlInitContainer:
+    enabled: true
+  
+  # Security context for eBPF
+  securityContext:
+    capabilities:
+      add:
+        - SYS_ADMIN
+        - SYS_RESOURCE
+        - SYS_PTRACE
+        - NET_ADMIN
+        - NET_RAW
+        - IPC_LOCK
+        - SYSLOG
+
+# Grafana (Optional - can be disabled if using external Grafana)
+grafana:
+  enabled: true
+  adminPassword: "deepflow"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
