@@ -109,6 +109,7 @@ t() {
                 
                 # Backup Menu
                 "menu_backup") echo "15. Backup & Recuperação de Desastres 💾" ;;
+                "menu_volumes") echo "16. Gerenciar Volumes (Resize/Snapshots) 💿" ;;
                 "bkp_menu_title") echo "Backup & Recuperação de Desastres" ;;
                 "bkp_etcd_now") echo "1. Executar Backup do etcd AGORA ⚡" ;;
                 "bkp_etcd_list") echo "2. Listar Backups do etcd 📜" ;;
@@ -217,6 +218,7 @@ t() {
                 
                 # Backup Menu
                 "menu_backup") echo "15. Backup & Disaster Recovery 💾" ;;
+                "menu_volumes") echo "16. Manage Volumes (Resize/Snapshots) 💿" ;;
                 "bkp_menu_title") echo "Backup & Disaster Recovery" ;;
                 "bkp_etcd_now") echo "1. Trigger etcd Backup NOW ⚡" ;;
                 "bkp_etcd_list") echo "2. List etcd Backups 📜" ;;

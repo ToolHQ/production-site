@@ -147,5 +147,5 @@ spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 2Gi
+            storage: 500Mi  # Optimized from 2Gi (T-016)
         storageClassName: longhorn

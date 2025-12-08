@@ -5,6 +5,8 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-017](T-017-TUI-Volume-Manager.md) | **TUI Volume Manager (Interactive Resize)** | 🔼 High | Infra | 1d |
+| [T-016](T-016-Storage-Optimization-Audit.md) | **Storage Optimization Audit** | 🚨 CRITICAL | Infra | 4h |
 | [T-014](T-014-DeepFlow-Observability.md) | **Deploy DeepFlow (eBPF Observability)** | 🔼 High | Obs. | 1d |
 | [T-015](T-015-Pyroscope-Profiling.md) | **Deploy Pyroscope (Continuous Profiling)** | 🔼 Med | Obs. | 4h |
 
