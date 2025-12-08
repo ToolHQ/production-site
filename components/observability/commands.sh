@@ -89,4 +89,34 @@ else
 fi
 
 echo ""
-echo "✅ Observability Setup (ECK + Manifests) finished."
+# 6. Deploy DeepFlow (eBPF Observability)
+echo " [6] Deploying DeepFlow..."
+if helm list -n deepflow | grep -q deepflow; then
+    echo "    ✅ DeepFlow already deployed."
+else
+    echo "    📥 Installing DeepFlow via Helm..."
+    
+    # Create namespace
+    kubectl create namespace deepflow --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Add Helm repo if not exists
+    if ! helm repo list | grep -q deepflow; then
+        helm repo add deepflow https://deepflowio.github.io/deepflow
+        helm repo update
+    fi
+    
+    # Install DeepFlow with custom values
+    helm install deepflow deepflow/deepflow \
+        -n deepflow \
+        -f deepflow_values.yaml \
+        --wait --timeout 10m
+    
+    # Apply Ingress
+    kubectl apply -f manifests/deepflow-ingress.yaml
+    
+    echo "    ✅ DeepFlow deployed successfully."
+    echo "    🌐 Access UI at: https://deepflow.dnor.io"
+fi
+
+echo ""
+echo "✅ Observability Setup (ECK + DeepFlow) finished."

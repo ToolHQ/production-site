@@ -3103,6 +3103,7 @@ $(t "menu_maintenance")
 $(t "menu_preferences")
 $(t "menu_security")
 $(t "menu_backup")
+$(t "menu_volumes")
 $(t "menu_exit")"
 
     local selected
@@ -3334,6 +3335,11 @@ $(t "menu_exit")"
         ;;
       15)
         backup_menu
+        ;;
+      16)
+        # Volume Manager (T-017)
+        source scripts/volume_manager/tui_functions.sh
+        manage_volumes
         ;;
       0)
         echo "Bye!"
