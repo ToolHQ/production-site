@@ -229,9 +229,9 @@ echo ""
 # Swap PVCs (improved method)
 echo "[8/9] Swapping volumes..."
 
-# Remove finalizers from old PVC if stuck
+# CRITICAL: Remove finalizers from old PVC BEFORE deletion (prevents Terminating stuck)
 echo "  Removing finalizers from old PVC..."
-ssh oci-k8s-master "kubectl patch pvc $PVC_NAME -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":null}}' --type=merge" 2>/dev/null || true
+ssh oci-k8s-master "kubectl patch pvc $PVC_NAME -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge" 2>/dev/null || true
 
 echo "  Deleting old PVC: $PVC_NAME"
 ssh oci-k8s-master "kubectl delete pvc $PVC_NAME -n $NAMESPACE --force --grace-period=0 --wait=false" 2>/dev/null || true
@@ -262,9 +262,9 @@ ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVo
 echo "  Releasing PV from temp PVC..."
 ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}'"
 
-# Remove finalizers from temp PVC to ensure it can delete
+# CRITICAL: Remove finalizers from temp PVC BEFORE deletion (prevents Terminating stuck)
 echo "  Removing finalizers from temp PVC..."
-ssh oci-k8s-master "kubectl patch pvc $TEMP_PVC -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":null}}' --type=merge" 2>/dev/null || true
+ssh oci-k8s-master "kubectl patch pvc $TEMP_PVC -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge" 2>/dev/null || true
 
 # Delete temp PVC (should delete quickly now)
 echo "  Deleting temporary PVC..."
