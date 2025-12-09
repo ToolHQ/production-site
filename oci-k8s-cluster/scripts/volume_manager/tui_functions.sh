@@ -254,18 +254,34 @@ resize_volume_expand() {
         return
     fi
     
+    
     # Confirmation
     if ! whiptail --title "Confirm Expansion" \
         --yesno "Expand $namespace/$pvc_name from $current_size to $new_size?\n\nThis is a safe operation (no data loss)." 10 60; then
         return
     fi
     
+    # Clear screen and show progress in real-time
+    clear
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  EXPAND OPERATION IN PROGRESS"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     
-    # Execute expansion and capture output
-    local expand_output=$(bash scripts/volume_manager/resize_expand.sh "$namespace" "$pvc_name" "$new_size" 2>&1)
+    # Execute expansion with real-time output
+    bash scripts/volume_manager/resize_expand.sh "$namespace" "$pvc_name" "$new_size"
     
-    whiptail --title "Expanding Volume" --scrolltext --msgbox "$expand_output" 20 80 \
-        3>&1 1>&2 2>&3
+    local exit_code=$?
+    
+    echo ""
+    if [ $exit_code -eq 0 ]; then
+        echo "✓ EXPAND COMPLETED SUCCESSFULLY"
+    else
+        echo "✗ EXPAND FAILED"
+    fi
+    
+    echo ""
+    read -p "Press ENTER to continue..."
 }
 
 # Shrink volume (snapshot-based)
@@ -321,12 +337,33 @@ resize_volume_shrink() {
         return
     fi
     
+    # Clear screen and show progress in real-time
+    clear
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  SHRINK OPERATION IN PROGRESS"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Watch progress below. This may take several minutes..."
+    echo ""
     
-    # Execute shrink v2 and capture output
-    local shrink_output=$(bash scripts/volume_manager/resize_shrink_v2.sh "$namespace" "$pvc_name" "$new_size" "$deployment" 2>&1)
+    # Execute shrink v2 with real-time output (no capture)
+    bash scripts/volume_manager/resize_shrink_v2.sh "$namespace" "$pvc_name" "$new_size" "$deployment"
     
-    whiptail --title "Shrinking Volume (Copy-based)" --scrolltext --msgbox "$shrink_output" 24 90 \
-        3>&1 1>&2 2>&3
+    local exit_code=$?
+    
+    echo ""
+    if [ $exit_code -eq 0 ]; then
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  ✓ SHRINK COMPLETED SUCCESSFULLY"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    else
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  ✗ SHRINK FAILED"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    fi
+    
+    echo ""
+    read -p "Press ENTER to continue..."
 }
 
 # View volume details
