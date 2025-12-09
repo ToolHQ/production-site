@@ -44,11 +44,15 @@ manage_volumes() {
                     VOL_NAME=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.volumes[] | select(.persistentVolumeClaim.claimName == \"$PVC\") | .name" 2>/dev/null)
                     
                     if [ -n "$VOL_NAME" ]; then
-                        MOUNT_PATH=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.containers[0].volumeMounts[] | select(.name == \"$VOL_NAME\") | .mountPath" 2>/dev/null)
+                        # Search ALL containers for this volume mount (not just [0])
+                        MOUNT_INFO=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.containers[] | select(.volumeMounts[]?.name == \"$VOL_NAME\") | .name + \"|\" + (.volumeMounts[] | select(.name == \"$VOL_NAME\") | .mountPath)" 2>/dev/null | head -1)
                         
-                        if [ -n "$MOUNT_PATH" ]; then
-                            # Get df output for the exact mount point
-                            DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
+                        if [ -n "$MOUNT_INFO" ]; then
+                            CONTAINER_NAME=$(echo "$MOUNT_INFO" | cut -d"|" -f1)
+                            MOUNT_PATH=$(echo "$MOUNT_INFO" | cut -d"|" -f2)
+                            
+                            # Get df output using the correct container
+                            DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -c $CONTAINER_NAME -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
                             
                             if [ -n "$DF_OUT" ]; then
                                 USED=$(echo "$DF_OUT" | awk "{print \$3}")
@@ -63,13 +67,14 @@ manage_volumes() {
                                 echo "  Available:     $AVAIL"
                                 echo "  Usage:         $PCT"
                                 echo "  Mount Point:   $MOUNT_PATH"
+                                echo "  Container:     $CONTAINER_NAME"
                             else
                                 echo "  Used:          N/A (df failed for $MOUNT_PATH)"
                                 echo "  Available:     N/A"
                                 echo "  Usage:         N/A"
                             fi
                         else
-                            echo "  Used:          N/A (mount path not found for vol: $VOL_NAME)"
+                            echo "  Used:          N/A (mount not found in any container)"
                             echo "  Available:     N/A"
                             echo "  Usage:         N/A"
                         fi
