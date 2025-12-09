@@ -72,13 +72,24 @@ echo ""
 # Wait for pod termination
 echo "[3/9] Waiting for pod termination..."
 sleep 5
+
+# Determine if it's a deployment or statefulset and get pod selector
+RESOURCE_TYPE=$(ssh oci-k8s-master "kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o name 2>/dev/null" && echo "deployment" || echo "statefulset")
+
 for i in {1..30}; do
-    RUNNING_PODS=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE 2>/dev/null" | grep -c "Running" || echo "0")
+    # Check only pods belonging to this specific deployment/statefulset
+    if [ "$RESOURCE_TYPE" = "deployment" ]; then
+        RUNNING_PODS=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE -l app=$DEPLOYMENT 2>/dev/null" | grep -c "Running" || echo "0")
+    else
+        # For statefulset, check by name pattern
+        RUNNING_PODS=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE 2>/dev/null" | grep "^$DEPLOYMENT-" | grep -c "Running" || echo "0")
+    fi
+    
     if [ "$RUNNING_PODS" = "0" ]; then
-        echo "  ✓ All pods terminated"
+        echo "  ✓ All pods from $DEPLOYMENT terminated"
         break
     fi
-    echo "  Waiting for pods to terminate... ($i/30)"
+    echo "  Waiting for $DEPLOYMENT pods to terminate... ($i/30)"
     sleep 2
 done
 echo ""
