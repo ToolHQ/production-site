@@ -210,31 +210,28 @@ volume_actions_menu() {
     local usage_pct=$5
     
     while true; do
-        local action=$(whiptail --title "Volume: $namespace/$pvc_name" \
-            --menu "Current Size: $allocated | Used: $used ($usage_pct)\n\nChoose action:" 18 70 10 \
-            "1" "Expand Volume (increase size)" \
-            "2" "Shrink Volume (decrease size - uses snapshot)" \
-            "3" "View Details" \
-            "4" "Create Snapshot" \
-            "5" "Back to Volume List" \
-            3>&1 1>&2 2>&3) || return
+        # Build menu options
+        local menu_options=(
+            "1" "View Details"
+            "2" "Expand Volume"
+            "3" "Shrink Volume"
+            "4" "Create Snapshot"
+            "5" "Auto-Recover (N/A fix)"
+            "6" "Back"
+        )
         
-        case $action in
-            1)
-                resize_volume_expand "$namespace" "$pvc_name" "$allocated"
-                ;;
-            2)
-                resize_volume_shrink "$namespace" "$pvc_name" "$allocated" "$used"
-                ;;
-            3)
-                view_volume_details "$namespace" "$pvc_name"
-                ;;
-            4)
-                create_volume_snapshot "$namespace" "$pvc_name"
-                ;;
-            5)
-                return
-                ;;
+        local choice=$(whiptail --title "Volume Actions: $pvc_name" \
+            --menu "Namespace: $namespace\nAllocated: $allocated\n\nChoose an action:" 18 70 6 \
+            "${menu_options[@]}" \
+            3>&1 1>&2 2>&3)
+        
+        case $choice in
+            1) view_volume_details "$namespace" "$pvc_name" "$allocated" ;;
+            2) resize_volume_expand "$namespace" "$pvc_name" "$allocated" ;;
+            3) resize_volume_shrink "$namespace" "$pvc_name" "$allocated" "$used" ;;
+            4) create_volume_snapshot "$namespace" "$pvc_name" ;;
+            5) auto_recover_volume "$namespace" "$pvc_name" ;; # Assuming auto_recover_volume function exists or will be added
+            6|"") return ;;
         esac
     done
 }
@@ -403,4 +400,44 @@ spec:
 EOF
     
     whiptail --title "Snapshot Created" --msgbox "Snapshot created: $snapshot_name\n\nView with:\nkubectl get volumesnapshot -n $namespace" 10 60
+}
+
+# Auto-recover volume (fix N/A status)
+auto_recover_volume() {
+    local namespace=$1
+    local pvc_name=$2
+    
+    # Get deployment name automatically
+    local deployment=$(ssh oci-k8s-master "kubectl get pods -n $namespace -o json 2>/dev/null" | \
+                jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$pvc_name\") | .metadata.ownerReferences[]? | select(.kind == \"StatefulSet\" or .kind == \"ReplicaSet\") | .name" 2>/dev/null | \
+                sed 's/-[a-z0-9]\{10\}$//' | head -1)
+    
+    if [ -z "$deployment" ]; then
+        # Try to get from statefulset naming pattern
+        deployment=$(echo "$pvc_name" | sed 's/-[0-9]*$//')
+    fi
+    
+    if [ -z "$deployment" ]; then
+        whiptail --title "Error" --msgbox "Could not auto-detect deployment/statefulset name.\\n\\nPlease scale it manually using kubectl." 10 60 3>&1 1>&2 2>&3
+        return
+    fi
+    
+    # Confirmation
+    if ! whiptail --title "Auto-Recover Volume" \
+        --yesno "This will scale the deployment back to 1 replica to fix N/A status.\\n\\nNamespace: $namespace\\nPVC: $pvc_name\\nDeployment: $deployment\\n\\nProceed?" 14 65; then
+        return
+    fi
+    
+    # Clear screen and show progress
+    clear
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  AUTO-RECOVERY IN PROGRESS"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    # Execute auto-recovery
+    bash scripts/volume_manager/auto_recover.sh "$namespace" "$pvc_name" "$deployment"
+    
+    echo ""
+    read -p "Press ENTER to continue..."
 }
