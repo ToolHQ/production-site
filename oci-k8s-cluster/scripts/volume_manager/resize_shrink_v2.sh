@@ -258,16 +258,25 @@ TEMP_PV_NAME=$(ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE -o js
 echo "  Setting PV reclaim policy to Retain..."
 ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}'"
 
-# Remove claimRef from PV so it can be claimed by new PVC
+# CRITICAL: Remove claimRef from PV BEFORE deleting PVC (prevents hang)
 echo "  Releasing PV from temp PVC..."
 ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}'"
 
-# Delete temp PVC (PV will remain due to Retain policy)
+# Delete temp PVC (don't wait - it will delete quickly now that claimRef is gone)
 echo "  Deleting temporary PVC..."
-ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --wait=true"
+ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
 
-# Wait a bit
-sleep 2
+# Wait for PV to become Available
+echo "  Waiting for PV to become Available..."
+for i in {1..20}; do
+    PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'")
+    if [ "$PV_STATUS" = "Available" ]; then
+        echo "  ✓ PV is Available"
+        break
+    fi
+    echo "  PV status: $PV_STATUS ($i/20)"
+    sleep 1
+done
 
 # Create new PVC with original name, binding to the existing PV
 cat <<EOF | ssh oci-k8s-master "kubectl apply -f -"
