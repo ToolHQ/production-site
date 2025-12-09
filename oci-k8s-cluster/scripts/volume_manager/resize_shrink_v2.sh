@@ -250,6 +250,26 @@ for i in {1..10}; do
 done
 
 echo "  Creating new PVC with original name..."
+
+# Get the PV name from temp PVC before we lose it
+TEMP_PV_NAME=$(ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE -o jsonpath='{.spec.volumeName}'")
+
+# First, patch the PV to change its reclaim policy to Retain (prevent deletion)
+echo "  Setting PV reclaim policy to Retain..."
+ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}'"
+
+# Remove claimRef from PV so it can be claimed by new PVC
+echo "  Releasing PV from temp PVC..."
+ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}'"
+
+# Delete temp PVC (PV will remain due to Retain policy)
+echo "  Deleting temporary PVC..."
+ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --wait=true"
+
+# Wait a bit
+sleep 2
+
+# Create new PVC with original name, binding to the existing PV
 cat <<EOF | ssh oci-k8s-master "kubectl apply -f -"
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -260,7 +280,7 @@ spec:
   accessModes:
     - $ACCESS_MODE
   storageClassName: $STORAGE_CLASS
-  volumeName: $(ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE -o jsonpath='{.spec.volumeName}'")
+  volumeName: $TEMP_PV_NAME
   resources:
     requests:
       storage: $NEW_SIZE
@@ -278,9 +298,9 @@ for i in {1..30}; do
     sleep 2
 done
 
-# Delete temp PVC (but keep the PV)
-echo "  Removing temporary PVC reference..."
-ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
+# Change PV reclaim policy back to Delete
+echo "  Restoring PV reclaim policy to Delete..."
+ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Delete\"}}'"
 
 echo "  ✓ PVCs swapped successfully"
 echo ""
