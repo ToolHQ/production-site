@@ -273,10 +273,11 @@ ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-p
 # Wait for temp PVC to be fully deleted
 echo "  Waiting for temp PVC deletion to complete..."
 for i in {1..10}; do
-    if ! ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE" 2>/dev/null | grep -q "$TEMP_PVC"; then
+    if ! ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE" >/dev/null 2>&1; then
         echo "  ✓ Temp PVC deleted"
         break
     fi
+    echo "  Temp PVC still exists... ($i/10)"
     sleep 1
 done
 
