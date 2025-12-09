@@ -28,12 +28,13 @@ manage_volumes() {
             --preview='
                 NS={1}
                 PVC={2}
+                ALLOC={3}
                 echo "Volume Details:"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 echo "PVC Information:"
                 echo "  Namespace:     $NS"
                 echo "  PVC Name:      $PVC"
-                echo "  Allocated:     {3}"
+                echo "  Allocated:     $ALLOC"
                 
                 # Get pod using this PVC
                 POD=$(ssh oci-k8s-master "kubectl get pods -n $NS -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC\") | .metadata.name" 2>/dev/null | head -1)
@@ -53,6 +54,11 @@ manage_volumes() {
                                 USED=$(echo "$DF_OUT" | awk "{print \$3}")
                                 AVAIL=$(echo "$DF_OUT" | awk "{print \$4}")
                                 PCT=$(echo "$DF_OUT" | awk "{print \$5}")
+                                
+                                # Normalize units (G -> Gi, M -> Mi)
+                                USED=$(echo "$USED" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
+                                AVAIL=$(echo "$AVAIL" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
+                                
                                 echo "  Used:          $USED"
                                 echo "  Available:     $AVAIL"
                                 echo "  Usage:         $PCT"
