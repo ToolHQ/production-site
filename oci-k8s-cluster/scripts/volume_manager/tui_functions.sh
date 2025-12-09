@@ -35,11 +35,17 @@ manage_volumes() {
                 echo "  PVC Name:      $PVC"
                 echo "  Allocated:     {3}"
                 
-                # Get real-time usage for this specific PVC
+                # Get pod using this PVC
                 POD=$(ssh oci-k8s-master "kubectl get pods -n $NS -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC\") | .metadata.name" 2>/dev/null | head -1)
+                
                 if [ -n "$POD" ]; then
-                    for MOUNT in /data /var/lib/postgresql /usr/share/elasticsearch/data /nexus-data /var/lib/mysql /usr/share/logstash /var/lib/prometheus /prometheus; do
-                        DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -- df -h $MOUNT 2>/dev/null" 2>/dev/null | grep -E "^/dev|^overlay" | head -1)
+                    # Get exact mount point for this PVC from pod spec
+                    MOUNT_PATH=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.volumes[] | select(.persistentVolumeClaim.claimName == \"$PVC\") | .name as \$volname | ..|.volumeMounts[]? | select(.name == \$volname) | .mountPath" 2>/dev/null | head -1)
+                    
+                    if [ -n "$MOUNT_PATH" ]; then
+                        # Get df output for the EXACT mount point
+                        DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
+                        
                         if [ -n "$DF_OUT" ]; then
                             USED=$(echo "$DF_OUT" | awk "{print \$3}")
                             AVAIL=$(echo "$DF_OUT" | awk "{print \$4}")
@@ -47,9 +53,17 @@ manage_volumes() {
                             echo "  Used:          $USED"
                             echo "  Available:     $AVAIL"
                             echo "  Usage:         $PCT"
-                            break
+                            echo "  Mount Point:   $MOUNT_PATH"
+                        else
+                            echo "  Used:          N/A (mount not found in df)"
+                            echo "  Available:     N/A"
+                            echo "  Usage:         N/A"
                         fi
-                    done
+                    else
+                        echo "  Used:          N/A (mount path not found)"
+                        echo "  Available:     N/A"
+                        echo "  Usage:         N/A"
+                    fi
                 else
                     echo "  Used:          N/A (no pod)"
                     echo "  Available:     N/A"
