@@ -5,9 +5,8 @@
 # Main volume manager interface
 manage_volumes() {
     while true; do
-        # Get volume list with real usage data
-        echo "Loading volumes..." >&2
-        local volumes_data=$(bash scripts/volume_manager/list_volumes_with_usage.sh 2>/dev/null)
+        # Get volume list (fast - shows all PVCs instantly)
+        local volumes_data=$(bash scripts/volume_manager/list_volumes_fast.sh 2>/dev/null)
         
         if [ -z "$volumes_data" ]; then
             whiptail --title "Volume Manager" --msgbox "No volumes found or error listing volumes." 8 60
@@ -25,7 +24,7 @@ manage_volumes() {
             --layout=reverse \
             --border \
             --prompt="Select Volume > " \
-            --header="NAMESPACE            PVC NAME                            ALLOCATED    USED  USAGE%" \
+            --header="NAMESPACE            PVC NAME                            ALLOCATED    USED   USAGE %" \
             --preview='
                 NS={1}
                 PVC={2}
@@ -35,9 +34,28 @@ manage_volumes() {
                 echo "  Namespace:     $NS"
                 echo "  PVC Name:      $PVC"
                 echo "  Allocated:     {3}"
-                echo "  Used:          {4}"
-                echo "  Available:     {5}"
-                echo "  Usage:         {6}"
+                
+                # Get real-time usage for this specific PVC
+                POD=$(ssh oci-k8s-master "kubectl get pods -n $NS -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC\") | .metadata.name" 2>/dev/null | head -1)
+                if [ -n "$POD" ]; then
+                    for MOUNT in /data /var/lib/postgresql /usr/share/elasticsearch/data /nexus-data /var/lib/mysql /usr/share/logstash /var/lib/prometheus /prometheus; do
+                        DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -- df -h $MOUNT 2>/dev/null" 2>/dev/null | grep -E "^/dev|^overlay" | head -1)
+                        if [ -n "$DF_OUT" ]; then
+                            USED=$(echo "$DF_OUT" | awk "{print \$3}")
+                            AVAIL=$(echo "$DF_OUT" | awk "{print \$4}")
+                            PCT=$(echo "$DF_OUT" | awk "{print \$5}")
+                            echo "  Used:          $USED"
+                            echo "  Available:     $AVAIL"
+                            echo "  Usage:         $PCT"
+                            break
+                        fi
+                    done
+                else
+                    echo "  Used:          N/A (no pod)"
+                    echo "  Available:     N/A"
+                    echo "  Usage:         N/A"
+                fi
+                
                 echo ""
                 echo "Additional Details:"
                 ssh oci-k8s-master "kubectl get pvc $PVC -n $NS -o json 2>/dev/null" | jq -r "
