@@ -5,8 +5,9 @@
 # Main volume manager interface
 manage_volumes() {
     while true; do
-        # Get volume list (fast version - shows all PVCs instantly)
-        local volumes_data=$(bash scripts/volume_manager/list_volumes_fast.sh 2>/dev/null)
+        # Get volume list with real usage data
+        echo "Loading volumes..." >&2
+        local volumes_data=$(bash scripts/volume_manager/list_volumes_with_usage.sh 2>/dev/null)
         
         if [ -z "$volumes_data" ]; then
             whiptail --title "Volume Manager" --msgbox "No volumes found or error listing volumes." 8 60
@@ -18,23 +19,40 @@ manage_volumes() {
             printf "%-20s %-35s %8s %8s %8s\n", $1, $2, $3, $4, $6
         }')
         
-        # Select volume with proper preview
+        # Select volume with enhanced preview showing additional details
         local selected=$(echo "$volume_list" | "$FZF_BIN" \
             --height=80% \
             --layout=reverse \
             --border \
             --prompt="Select Volume > " \
             --header="NAMESPACE            PVC NAME                            ALLOCATED    USED  USAGE%" \
-            --preview='echo "Volume Details:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Namespace:  {1}
-PVC Name:   {2}
-Allocated:  {3}
-Used:       {4}
-Available:  {5}
-Usage:      {6}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"' \
-            --preview-window=right:40% \
+            --preview='
+                NS={1}
+                PVC={2}
+                echo "Volume Details:"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "PVC Information:"
+                echo "  Namespace:     $NS"
+                echo "  PVC Name:      $PVC"
+                echo "  Allocated:     {3}"
+                echo "  Used:          {4}"
+                echo "  Available:     {5}"
+                echo "  Usage:         {6}"
+                echo ""
+                echo "Additional Details:"
+                ssh oci-k8s-master "kubectl get pvc $PVC -n $NS -o json 2>/dev/null" | jq -r "
+                    \"  Status:        \" + .status.phase,
+                    \"  StorageClass:  \" + .spec.storageClassName,
+                    \"  Access Mode:   \" + (.spec.accessModes[0] // \"N/A\"),
+                    \"  Volume Mode:   \" + (.spec.volumeMode // \"Filesystem\"),
+                    \"  PV Name:       \" + (.spec.volumeName // \"N/A\")
+                " 2>/dev/null
+                echo ""
+                echo "Pods using this volume:"
+                ssh oci-k8s-master "kubectl get pods -n $NS -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC\") | \"  • \" + .metadata.name + \" (\" + .status.phase + \")\"" 2>/dev/null || echo "  None"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            ' \
+            --preview-window=right:50% \
             --with-nth=1,2,3,4,6) || return
         
         if [ -z "$selected" ]; then
