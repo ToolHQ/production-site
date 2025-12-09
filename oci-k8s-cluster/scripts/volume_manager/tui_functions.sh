@@ -39,28 +39,36 @@ manage_volumes() {
                 POD=$(ssh oci-k8s-master "kubectl get pods -n $NS -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC\") | .metadata.name" 2>/dev/null | head -1)
                 
                 if [ -n "$POD" ]; then
-                    # Get exact mount point for this PVC from pod spec
-                    MOUNT_PATH=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.volumes[] | select(.persistentVolumeClaim.claimName == \"$PVC\") | .name as \$volname | ..|.volumeMounts[]? | select(.name == \$volname) | .mountPath" 2>/dev/null | head -1)
+                    # Get volume name and mount path
+                    VOL_NAME=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.volumes[] | select(.persistentVolumeClaim.claimName == \"$PVC\") | .name" 2>/dev/null)
                     
-                    if [ -n "$MOUNT_PATH" ]; then
-                        # Get df output for the EXACT mount point
-                        DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
+                    if [ -n "$VOL_NAME" ]; then
+                        MOUNT_PATH=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.containers[0].volumeMounts[] | select(.name == \"$VOL_NAME\") | .mountPath" 2>/dev/null)
                         
-                        if [ -n "$DF_OUT" ]; then
-                            USED=$(echo "$DF_OUT" | awk "{print \$3}")
-                            AVAIL=$(echo "$DF_OUT" | awk "{print \$4}")
-                            PCT=$(echo "$DF_OUT" | awk "{print \$5}")
-                            echo "  Used:          $USED"
-                            echo "  Available:     $AVAIL"
-                            echo "  Usage:         $PCT"
-                            echo "  Mount Point:   $MOUNT_PATH"
+                        if [ -n "$MOUNT_PATH" ]; then
+                            # Get df output for the exact mount point
+                            DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
+                            
+                            if [ -n "$DF_OUT" ]; then
+                                USED=$(echo "$DF_OUT" | awk "{print \$3}")
+                                AVAIL=$(echo "$DF_OUT" | awk "{print \$4}")
+                                PCT=$(echo "$DF_OUT" | awk "{print \$5}")
+                                echo "  Used:          $USED"
+                                echo "  Available:     $AVAIL"
+                                echo "  Usage:         $PCT"
+                                echo "  Mount Point:   $MOUNT_PATH"
+                            else
+                                echo "  Used:          N/A (df failed for $MOUNT_PATH)"
+                                echo "  Available:     N/A"
+                                echo "  Usage:         N/A"
+                            fi
                         else
-                            echo "  Used:          N/A (mount not found in df)"
+                            echo "  Used:          N/A (mount path not found for vol: $VOL_NAME)"
                             echo "  Available:     N/A"
                             echo "  Usage:         N/A"
                         fi
                     else
-                        echo "  Used:          N/A (mount path not found)"
+                        echo "  Used:          N/A (volume name not found)"
                         echo "  Available:     N/A"
                         echo "  Usage:         N/A"
                     fi
