@@ -13,9 +13,9 @@ manage_volumes() {
             return
         fi
         
-        # Format for fzf display (skip header, format as table)
+        # Format for fzf display (skip header, show only available fields)
         local volume_list=$(echo "$volumes_data" | tail -n +2 | awk -F'|' '{
-            printf "%-20s %-35s %8s %8s %8s\n", $1, $2, $3, $4, $6
+            printf "%-20s %-40s %10s\n", $1, $2, $3
         }')
         
         # Select volume with enhanced preview showing additional details
@@ -24,7 +24,7 @@ manage_volumes() {
             --layout=reverse \
             --border \
             --prompt="Select Volume > " \
-            --header="NAMESPACE            PVC NAME                            ALLOCATED    USED   USAGE %" \
+            --header="NAMESPACE            PVC NAME                                 ALLOCATED" \
             --preview='
                 NS={1}
                 PVC={2}
@@ -92,8 +92,7 @@ manage_volumes() {
                 ssh oci-k8s-master "kubectl get pods -n $NS -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC\") | \"  • \" + .metadata.name + \" (\" + .status.phase + \")\"" 2>/dev/null || echo "  None"
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             ' \
-            --preview-window=right:50% \
-            --with-nth=1,2,3,4,6) || return
+            --preview-window=right:50%) || return
         
         if [ -z "$selected" ]; then
             return
