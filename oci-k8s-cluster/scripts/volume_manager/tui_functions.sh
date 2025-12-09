@@ -314,17 +314,18 @@ resize_volume_shrink() {
     
     deployment="$deployment_input"
     
+    
     # Final confirmation
     if ! whiptail --title "⚠️  FINAL CONFIRMATION" \
-        --yesno "SHRINK OPERATION:\n\nNamespace: $namespace\nPVC: $pvc_name\nDeployment: $deployment\n\nOld Size: $current_size\nNew Size: $new_size\n\nThis will cause DOWNTIME but NO DATA LOSS (snapshot-based).\n\nProceed?" 18 60; then
+        --yesno "SHRINK OPERATION (Copy-based):\n\nNamespace: $namespace\nPVC: $pvc_name\nDeployment: $deployment\n\nOld Size: $current_size\nNew Size: $new_size\n\nThis will cause DOWNTIME but NO DATA LOSS.\nData will be copied to new volume.\n\nProceed?" 18 65; then
         return
     fi
     
     
-    # Execute shrink and capture output
-    local shrink_output=$(bash scripts/volume_manager/resize_shrink.sh "$namespace" "$pvc_name" "$new_size" "$deployment" 2>&1)
+    # Execute shrink v2 and capture output
+    local shrink_output=$(bash scripts/volume_manager/resize_shrink_v2.sh "$namespace" "$pvc_name" "$new_size" "$deployment" 2>&1)
     
-    whiptail --title "Shrinking Volume" --scrolltext --msgbox "$shrink_output" 24 90 \
+    whiptail --title "Shrinking Volume (Copy-based)" --scrolltext --msgbox "$shrink_output" 24 90 \
         3>&1 1>&2 2>&3
 }
 
