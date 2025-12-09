@@ -270,18 +270,39 @@ ssh oci-k8s-master "kubectl patch pvc $TEMP_PVC -n $NAMESPACE -p '{\"metadata\":
 echo "  Deleting temporary PVC..."
 ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
 
-# Wait for PV to become Available
-echo "  Waiting for PV to become Available..."
-for i in {1..20}; do
-    PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'" 2>/dev/null || echo "NotFound")
-    if [ "$PV_STATUS" = "Available" ]; then
-        echo "  ✓ PV is Available"
+# Wait for temp PVC to be fully deleted
+echo "  Waiting for temp PVC deletion to complete..."
+for i in {1..10}; do
+    if ! ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE" 2>/dev/null | grep -q "$TEMP_PVC"; then
+        echo "  ✓ Temp PVC deleted"
         break
     fi
+    sleep 1
+done
+
+# Wait for PV to become Available or Released
+echo "  Waiting for PV to become Available/Released..."
+for i in {1..20}; do
+    PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'" 2>/dev/null || echo "NotFound")
+    
+    # Accept both Available and Released (Longhorn uses Released)
+    if [ "$PV_STATUS" = "Available" ] || [ "$PV_STATUS" = "Released" ]; then
+        echo "  ✓ PV is $PV_STATUS"
+        break
+    fi
+    
     if [ "$PV_STATUS" = "NotFound" ]; then
         echo "  ✗ ERROR: PV not found!"
         exit 1
     fi
+    
+    if [ $i -eq 20 ]; then
+        echo "  ✗ ERROR: PV stuck in $PV_STATUS state after 20 seconds"
+        echo "  This might indicate a Longhorn issue. Check PV manually:"
+        echo "  kubectl describe pv $TEMP_PV_NAME"
+        exit 1
+    fi
+    
     echo "  PV status: $PV_STATUS ($i/20)"
     sleep 1
 done
