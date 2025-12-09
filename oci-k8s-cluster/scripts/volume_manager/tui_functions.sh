@@ -401,20 +401,29 @@ EOF
     
     whiptail --title "Snapshot Created" --msgbox "Snapshot created: $snapshot_name\n\nView with:\nkubectl get volumesnapshot -n $namespace" 10 60
 }
-
 # Auto-recover volume (fix N/A status)
 auto_recover_volume() {
     local namespace=$1
     local pvc_name=$2
     
-    # Get deployment name automatically
-    local deployment=$(ssh oci-k8s-master "kubectl get pods -n $namespace -o json 2>/dev/null" | \
-                jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$pvc_name\") | .metadata.ownerReferences[]? | select(.kind == \"StatefulSet\" or .kind == \"ReplicaSet\") | .name" 2>/dev/null | \
-                sed 's/-[a-z0-9]\{10\}$//' | head -1)
+    # Try to find deployment/statefulset that uses this PVC
+    local deployment=""
     
+    # Method 1: Check running/recent pods
+    deployment=$(ssh oci-k8s-master "kubectl get pods -n $namespace -o json 2>/dev/null" | \
+                jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$pvc_name\") | .metadata.ownerReferences[]? | select(.kind == \"StatefulSet\" or .kind == \"ReplicaSet\") | .name" 2>/dev/null | \
+                sed 's/-[a-z0-9]\{9,10\}$//' | head -1)
+    
+    # Method 2: For StatefulSets, check volumeClaimTemplates
     if [ -z "$deployment" ]; then
-        # Try to get from statefulset naming pattern
-        deployment=$(echo "$pvc_name" | sed 's/-[0-9]*$//')
+        deployment=$(ssh oci-k8s-master "kubectl get statefulset -n $namespace -o json 2>/dev/null" | \
+                    jq -r ".items[] | select(.spec.volumeClaimTemplates[]?.metadata.name as \$tpl | \"$pvc_name\" | startswith(\$tpl)) | .metadata.name" 2>/dev/null | head -1)
+    fi
+    
+    # Method 3: Try common naming patterns (last resort)
+    if [ -z "$deployment" ]; then
+        # Remove common PVC suffixes like -0, -1, -pvc, -vol, etc.
+        deployment=$(echo "$pvc_name" | sed -E 's/-(pvc|vol|data|storage)-.*$//' | sed 's/-[0-9]*$//')
     fi
     
     if [ -z "$deployment" ]; then
