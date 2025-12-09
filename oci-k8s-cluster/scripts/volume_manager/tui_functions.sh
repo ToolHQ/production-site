@@ -2,6 +2,9 @@
 # Part of T-017: TUI Volume Manager
 # Add these functions to k8s_ops_menu.sh
 
+# Set whiptail colors to remove pink background
+export NEWT_COLORS='root=,black'
+
 # Main volume manager interface
 manage_volumes() {
     while true; do
@@ -136,16 +139,66 @@ manage_volumes() {
             return
         fi
         
-        # Extract volume info
+        # Extract volume info from selection
         local namespace=$(echo "$selected" | awk '{print $1}')
         local pvc_name=$(echo "$selected" | awk '{print $2}')
         local allocated=$(echo "$selected" | awk '{print $3}')
-        local used=$(echo "$selected" | awk '{print $4}')
-        local usage_pct=$(echo "$selected" | awk '{print $5}')
+        
+        # Get real usage data by querying the pod (same logic as preview)
+        echo "Fetching usage data..." >&2
+        local usage_data=$(get_volume_usage "$namespace" "$pvc_name")
+        local used=$(echo "$usage_data" | cut -d'|' -f1)
+        local usage_pct=$(echo "$usage_data" | cut -d'|' -f2)
         
         # Show volume actions menu
         volume_actions_menu "$namespace" "$pvc_name" "$allocated" "$used" "$usage_pct"
     done
+}
+
+# Get volume usage data (extracted for reuse)
+get_volume_usage() {
+    local namespace=$1
+    local pvc_name=$2
+    
+    # Find pod using this PVC
+    local pod=$(ssh oci-k8s-master "kubectl get pods -n $namespace -o json 2>/dev/null" | \
+                jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$pvc_name\") | .metadata.name" 2>/dev/null | head -1)
+    
+    if [ -z "$pod" ]; then
+        echo "N/A|N/A"
+        return
+    fi
+    
+    # Get volume name and mount info
+    local vol_name=$(ssh oci-k8s-master "kubectl get pod $pod -n $namespace -o json 2>/dev/null" | \
+                     jq -r ".spec.volumes[] | select(.persistentVolumeClaim.claimName == \"$pvc_name\") | .name" 2>/dev/null)
+    
+    if [ -z "$vol_name" ]; then
+        echo "N/A|N/A"
+        return
+    fi
+    
+    local mount_info=$(ssh oci-k8s-master "kubectl get pod $pod -n $namespace -o json 2>/dev/null" | \
+                       jq -r ".spec.containers[] | select(.volumeMounts[]?.name == \"$vol_name\") | .name + \"|\" + (.volumeMounts[] | select(.name == \"$vol_name\") | .mountPath)" 2>/dev/null | head -1)
+    
+    if [ -z "$mount_info" ]; then
+        echo "N/A|N/A"
+        return
+    fi
+    
+    local container_name=$(echo "$mount_info" | cut -d"|" -f1)
+    local mount_path=$(echo "$mount_info" | cut -d"|" -f2)
+    
+    # Get usage via df
+    local df_out=$(ssh oci-k8s-master "kubectl exec -n $namespace $pod -c $container_name -- df -h 2>/dev/null" 2>/dev/null | grep " $mount_path\$")
+    
+    if [ -n "$df_out" ]; then
+        local used=$(echo "$df_out" | awk '{print $3}' | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
+        local pct=$(echo "$df_out" | awk '{print $5}')
+        echo "$used|$pct"
+    else
+        echo "N/A|N/A"
+    fi
 }
 
 # Volume actions submenu
@@ -225,9 +278,9 @@ resize_volume_shrink() {
         return
     fi
     
-    # Get new size
+    # Get new size with clear instructions
     local new_size=$(whiptail --title "Shrink Volume" \
-        --inputbox "Current size: $current_size\nCurrent usage: $used\n\nEnter new size (must be > $used):" 12 60 \
+        --inputbox "Current allocated: $current_size\nCurrent usage: $used\n\n⚠️  New size MUST be larger than usage!\n\nEnter new size with unit (e.g., 1Gi, 500Mi, 1.5Gi):\n(Must be > $used)" 14 65 \
         3>&1 1>&2 2>&3)
     
     if [ -z "$new_size" ]; then
@@ -260,10 +313,11 @@ view_volume_details() {
     local namespace=$1
     local pvc_name=$2
     
-    local details=$(ssh oci-k8s-master "kubectl describe pvc $pvc_name -n $namespace")
+    local details=$(ssh oci-k8s-master "kubectl describe pvc $pvc_name -n $namespace" 2>&1)
     
-    echo "$details" | whiptail --title "Volume Details: $namespace/$pvc_name" \
-        --scrolltext --msgbox /dev/stdin 24 90
+    whiptail --title "Volume Details: $namespace/$pvc_name" \
+        --scrolltext --msgbox "$details" 24 90 \
+        3>&1 1>&2 2>&3
 }
 
 # Create snapshot
