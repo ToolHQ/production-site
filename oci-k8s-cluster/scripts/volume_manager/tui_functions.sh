@@ -260,9 +260,12 @@ resize_volume_expand() {
         return
     fi
     
-    # Execute expansion
-    bash scripts/volume_manager/resize_expand.sh "$namespace" "$pvc_name" "$new_size" 2>&1 | \
-        whiptail --title "Expanding Volume" --scrolltext --msgbox /dev/stdin 20 80
+    
+    # Execute expansion and capture output
+    local expand_output=$(bash scripts/volume_manager/resize_expand.sh "$namespace" "$pvc_name" "$new_size" 2>&1)
+    
+    whiptail --title "Expanding Volume" --scrolltext --msgbox "$expand_output" 20 80 \
+        3>&1 1>&2 2>&3
 }
 
 # Shrink volume (snapshot-based)
@@ -287,15 +290,29 @@ resize_volume_shrink() {
         return
     fi
     
-    # Get deployment name
-    local deployment=$(whiptail --title "Deployment Name" \
-        --inputbox "Enter deployment/statefulset name (e.g., postgres-deployment):" 10 60 \
+    # Get deployment name automatically
+    local pod=$(ssh oci-k8s-master "kubectl get pods -n $namespace -o json 2>/dev/null" | \
+                jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$pvc_name\") | .metadata.name" 2>/dev/null | head -1)
+    
+    local deployment=""
+    if [ -n "$pod" ]; then
+        # Try to get owner (deployment/statefulset)
+        deployment=$(ssh oci-k8s-master "kubectl get pod $pod -n $namespace -o json 2>/dev/null" | \
+                     jq -r '.metadata.ownerReferences[0].name' 2>/dev/null)
+    fi
+    
+    # Ask for deployment name with auto-detected value as default
+    local deployment_input=$(whiptail --title "Deployment Name" \
+        --inputbox "Enter deployment/statefulset name:\n\n(Auto-detected from pod using this PVC)" 10 65 \
+        "$deployment" \
         3>&1 1>&2 2>&3)
     
-    if [ -z "$deployment" ]; then
-        whiptail --title "Error" --msgbox "Deployment name is required for shrink operation." 8 60
+    if [ -z "$deployment_input" ]; then
+        whiptail --title "Error" --msgbox "Deployment name is required for shrink operation." 8 60 3>&1 1>&2 2>&3
         return
     fi
+    
+    deployment="$deployment_input"
     
     # Final confirmation
     if ! whiptail --title "⚠️  FINAL CONFIRMATION" \
@@ -303,9 +320,12 @@ resize_volume_shrink() {
         return
     fi
     
-    # Execute shrink
-    bash scripts/volume_manager/resize_shrink.sh "$namespace" "$pvc_name" "$new_size" "$deployment" 2>&1 | \
-        whiptail --title "Shrinking Volume" --scrolltext --msgbox /dev/stdin 24 90
+    
+    # Execute shrink and capture output
+    local shrink_output=$(bash scripts/volume_manager/resize_shrink.sh "$namespace" "$pvc_name" "$new_size" "$deployment" 2>&1)
+    
+    whiptail --title "Shrinking Volume" --scrolltext --msgbox "$shrink_output" 24 90 \
+        3>&1 1>&2 2>&3
 }
 
 # View volume details
