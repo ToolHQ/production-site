@@ -262,17 +262,25 @@ ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVo
 echo "  Releasing PV from temp PVC..."
 ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}'"
 
-# Delete temp PVC (don't wait - it will delete quickly now that claimRef is gone)
+# Remove finalizers from temp PVC to ensure it can delete
+echo "  Removing finalizers from temp PVC..."
+ssh oci-k8s-master "kubectl patch pvc $TEMP_PVC -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":null}}' --type=merge" 2>/dev/null || true
+
+# Delete temp PVC (should delete quickly now)
 echo "  Deleting temporary PVC..."
 ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
 
 # Wait for PV to become Available
 echo "  Waiting for PV to become Available..."
 for i in {1..20}; do
-    PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'")
+    PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'" 2>/dev/null || echo "NotFound")
     if [ "$PV_STATUS" = "Available" ]; then
         echo "  ✓ PV is Available"
         break
+    fi
+    if [ "$PV_STATUS" = "NotFound" ]; then
+        echo "  ✗ ERROR: PV not found!"
+        exit 1
     fi
     echo "  PV status: $PV_STATUS ($i/20)"
     sleep 1
