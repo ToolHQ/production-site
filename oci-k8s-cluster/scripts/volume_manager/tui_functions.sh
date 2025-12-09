@@ -51,27 +51,54 @@ manage_volumes() {
                             CONTAINER_NAME=$(echo "$MOUNT_INFO" | cut -d"|" -f1)
                             MOUNT_PATH=$(echo "$MOUNT_INFO" | cut -d"|" -f2)
                             
-                            # Get df output using the correct container
-                            DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -c $CONTAINER_NAME -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
+                            # Check if this is a hostPath volume
+                            STORAGE_CLASS=$(ssh oci-k8s-master "kubectl get pvc $PVC -n $NS -o jsonpath=\"{.spec.storageClassName}\"" 2>/dev/null)
                             
-                            if [ -n "$DF_OUT" ]; then
-                                USED=$(echo "$DF_OUT" | awk "{print \$3}")
-                                AVAIL=$(echo "$DF_OUT" | awk "{print \$4}")
-                                PCT=$(echo "$DF_OUT" | awk "{print \$5}")
+                            if [ "$STORAGE_CLASS" = "manual" ] || [ "$STORAGE_CLASS" = "hostpath" ]; then
+                                # For hostPath, use du to get actual directory usage
+                                DU_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -c $CONTAINER_NAME -- du -sh $MOUNT_PATH 2>/dev/null" 2>/dev/null | head -1)
                                 
-                                # Normalize units (G -> Gi, M -> Mi)
-                                USED=$(echo "$USED" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
-                                AVAIL=$(echo "$AVAIL" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
-                                
-                                echo "  Used:          $USED"
-                                echo "  Available:     $AVAIL"
-                                echo "  Usage:         $PCT"
-                                echo "  Mount Point:   $MOUNT_PATH"
-                                echo "  Container:     $CONTAINER_NAME"
+                                if [ -n "$DU_OUT" ]; then
+                                    USED=$(echo "$DU_OUT" | awk "{print \$1}")
+                                    ALLOCATED=$(ssh oci-k8s-master "kubectl get pvc $PVC -n $NS -o jsonpath=\"{.spec.resources.requests.storage}\"" 2>/dev/null)
+                                    
+                                    # Normalize units
+                                    USED=$(echo "$USED" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
+                                    
+                                    echo "  Used:          $USED (hostPath)"
+                                    echo "  Allocated:     $ALLOCATED"
+                                    echo "  Usage:         N/A (hostPath - no quota)"
+                                    echo "  Mount Point:   $MOUNT_PATH"
+                                    echo "  Container:     $CONTAINER_NAME"
+                                    echo "  Storage Type:  hostPath (local node storage)"
+                                else
+                                    echo "  Used:          N/A (du failed for hostPath)"
+                                    echo "  Available:     N/A"
+                                    echo "  Usage:         N/A"
+                                fi
                             else
-                                echo "  Used:          N/A (df failed for $MOUNT_PATH)"
-                                echo "  Available:     N/A"
-                                echo "  Usage:         N/A"
+                                # For Longhorn/network storage, use df
+                                DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -c $CONTAINER_NAME -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
+                                
+                                if [ -n "$DF_OUT" ]; then
+                                    USED=$(echo "$DF_OUT" | awk "{print \$3}")
+                                    AVAIL=$(echo "$DF_OUT" | awk "{print \$4}")
+                                    PCT=$(echo "$DF_OUT" | awk "{print \$5}")
+                                    
+                                    # Normalize units (G -> Gi, M -> Mi)
+                                    USED=$(echo "$USED" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
+                                    AVAIL=$(echo "$AVAIL" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
+                                    
+                                    echo "  Used:          $USED"
+                                    echo "  Available:     $AVAIL"
+                                    echo "  Usage:         $PCT"
+                                    echo "  Mount Point:   $MOUNT_PATH"
+                                    echo "  Container:     $CONTAINER_NAME"
+                                else
+                                    echo "  Used:          N/A (df failed for $MOUNT_PATH)"
+                                    echo "  Available:     N/A"
+                                    echo "  Usage:         N/A"
+                                fi
                             fi
                         else
                             echo "  Used:          N/A (mount not found in any container)"
