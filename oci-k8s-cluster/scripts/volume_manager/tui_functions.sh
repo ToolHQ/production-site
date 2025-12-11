@@ -324,9 +324,17 @@ resize_volume_shrink() {
     
     local deployment=""
     if [ -n "$pod" ]; then
-        # Try to get owner (deployment/statefulset)
-        deployment=$(ssh oci-k8s-master "kubectl get pod $pod -n $namespace -o json 2>/dev/null" | \
-                     jq -r '.metadata.ownerReferences[0].name' 2>/dev/null)
+        # Get immediate owner kind and name
+        local owner_json=$(ssh oci-k8s-master "kubectl get pod $pod -n $namespace -o json 2>/dev/null")
+        local owner_kind=$(echo "$owner_json" | jq -r '.metadata.ownerReferences[0].kind')
+        local owner_name=$(echo "$owner_json" | jq -r '.metadata.ownerReferences[0].name')
+        
+        if [ "$owner_kind" = "ReplicaSet" ]; then
+            # Get ReplicaSet's owner (Deployment)
+            deployment=$(ssh oci-k8s-master "kubectl get replicaset $owner_name -n $namespace -o jsonpath='{.metadata.ownerReferences[0].name}'" 2>/dev/null)
+        else
+            deployment="$owner_name"
+        fi
     fi
     
     # Ask for deployment name with auto-detected value as default

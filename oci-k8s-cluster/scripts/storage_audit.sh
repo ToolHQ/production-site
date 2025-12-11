@@ -57,8 +57,8 @@ check_pvc_usage() {
 # Elasticsearch
 check_pvc_usage "elastic-system" "elasticsearch-data-oci-logs-es-default-0" "5Gi"
 check_pvc_usage "elastic-system" "elasticsearch-data-oci-logs-es-default-1" "5Gi"
-check_pvc_usage "elastic-system" "logstash-data-oci-logstash-ls-0" "1Gi"
-check_pvc_usage "elastic-system" "dlq-vol-oci-logstash-ls-0" "2Gi"
+check_pvc_usage "elastic-system" "logstash-data-oci-logstash-ls-0" "128Mi"
+check_pvc_usage "elastic-system" "dlq-vol-oci-logstash-ls-0" "128Mi"
 
 # Kubecost
 check_pvc_usage "kubecost" "kubecost-cost-analyzer" "5Gi"
