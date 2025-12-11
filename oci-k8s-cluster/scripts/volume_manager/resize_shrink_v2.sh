@@ -76,7 +76,7 @@ sleep 5
 # Determine if it's a deployment or statefulset and get pod selector
 RESOURCE_TYPE=$(ssh oci-k8s-master "kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o name 2>/dev/null" && echo "deployment" || echo "statefulset")
 
-for i in {1..30}; do
+for i in {1..90}; do
     # Check only pods belonging to this specific deployment/statefulset
     if [ "$RESOURCE_TYPE" = "deployment" ]; then
         RUNNING_PODS=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE -l app=$DEPLOYMENT 2>/dev/null" | grep -c "Running" || echo "0")
@@ -89,9 +89,16 @@ for i in {1..30}; do
         echo "  ✓ All pods from $DEPLOYMENT terminated"
         break
     fi
-    echo "  Waiting for $DEPLOYMENT pods to terminate... ($i/30)"
+    echo "  Waiting for $DEPLOYMENT pods to terminate... ($i/90)"
     sleep 2
 done
+# Force delete if still running after timeout
+if [ "$RUNNING_PODS" != "0" ]; then
+    echo "  ⚠️  Pods taking too long to terminate. forcing..."
+    ssh oci-k8s-master "kubectl delete pods -n $NAMESPACE -l app=$DEPLOYMENT --force --grace-period=0" 2>/dev/null || true
+    ssh oci-k8s-master "kubectl delete pods -n $NAMESPACE -l app.kubernetes.io/name=$DEPLOYMENT --force --grace-period=0" 2>/dev/null || true
+fi
+
 echo ""
 
 # Create temporary PVC
@@ -191,7 +198,7 @@ echo "[7/9] Waiting for copy job to complete..."
 echo "  (This may take several minutes depending on data size)"
 echo ""
 
-for i in {1..600}; do
+for i in {1..90}; do
     JOB_STATUS=$(ssh oci-k8s-master "kubectl get job $JOB_NAME -n $NAMESPACE -o jsonpath='{.status.conditions[?(@.type==\"Complete\")].status}'" 2>/dev/null || echo "")
     JOB_FAILED=$(ssh oci-k8s-master "kubectl get job $JOB_NAME -n $NAMESPACE -o jsonpath='{.status.conditions[?(@.type==\"Failed\")].status}'" 2>/dev/null || echo "")
     
@@ -226,6 +233,14 @@ if [ "$JOB_STATUS" != "True" ]; then
 fi
 echo ""
 
+# CRITICAL: Delete job immediately to release volume locks
+echo "Cleaning up copy job to release volumes..."
+ssh oci-k8s-master "kubectl delete job $JOB_NAME -n $NAMESPACE" 2>/dev/null || true
+# Wait a moment for pod to disappear
+sleep 5
+echo "  ✓ Job cleaned up"
+echo ""
+
 # Swap PVCs (improved method)
 echo "[8/9] Swapping volumes..."
 
@@ -243,11 +258,24 @@ sleep 3
 for i in {1..10}; do
     if ! ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE" 2>/dev/null | grep -q "$PVC_NAME"; then
         echo "  ✓ Old PVC deleted"
+        DELETED_OLD="true"
         break
     fi
     echo "  Waiting for old PVC deletion... ($i/10)"
     sleep 2
 done
+
+# CRITICAL: If old PVC still exists, we cannot proceed
+if [ "$DELETED_OLD" != "true" ]; then
+    echo "  ✗ ERROR: Old PVC failed to delete (stuck in Terminating?)"
+    echo "  Attempting finalizer removal again..."
+    ssh oci-k8s-master "kubectl patch pvc $PVC_NAME -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge" 2>/dev/null || true
+    sleep 2
+    if ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE" 2>/dev/null | grep -q "$PVC_NAME"; then
+        echo "  ✗ Aborting: Old PVC still exists. Manual intervention required."
+        exit 1
+    fi
+fi
 
 echo "  Creating new PVC with original name..."
 
@@ -291,7 +319,7 @@ ssh oci-k8s-master "kubectl patch pvc $TEMP_PVC -n $NAMESPACE -p '{\"metadata\":
 
 # Delete temp PVC (should delete quickly now)
 echo "  Deleting temporary PVC..."
-ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
+ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0 --wait=false" 2>/dev/null || true
 
 # Wait for temp PVC to be fully deleted
 echo "  Waiting for temp PVC deletion to complete..."
