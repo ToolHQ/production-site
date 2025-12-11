@@ -294,9 +294,24 @@ resize_volume_shrink() {
         return
     fi
     
-    # Get new size with clear instructions
+    # Calculate safe size (Used / 0.6 = leaves 40% buffer)
+    # Extract number and unit
+    local used_val=$(echo "$used" | sed 's/[^0-9.]*//g')
+    local used_unit=$(echo "$used" | sed 's/[0-9.]*//g')
+    local safe_size=""
+    local safe_msg=""
+    
+    if [ -n "$used_val" ]; then
+        # Simple calculation using awk
+        safe_size=$(awk -v u="$used_val" 'BEGIN {printf "%.0f", u / 0.6 + 1}')
+        safe_size="${safe_size}${used_unit}"
+        safe_msg="\n\n💡 RECOMMENDED: ${safe_size} (leaves 40% buffer)"
+    fi
+
+    # Get new size with clear instructions and safe recommendation
     local new_size=$(whiptail --title "Shrink Volume" \
-        --inputbox "Current allocated: $current_size\nCurrent usage: $used\n\n⚠️  New size MUST be larger than usage!\n\nEnter new size with unit (e.g., 1Gi, 500Mi, 1.5Gi):\n(Must be > $used)" 14 65 \
+        --inputbox "Current allocated: $current_size\nCurrent usage: $used${safe_msg}\n\n⚠️  New size MUST be larger than usage!\n\nEnter new size with unit (e.g., 1Gi, 500Mi, 1.5Gi):\n(Must be > $used)" 16 65 \
+        "$safe_size" \
         3>&1 1>&2 2>&3)
     
     if [ -z "$new_size" ]; then
