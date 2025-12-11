@@ -1,6 +1,7 @@
 #!/bin/bash
 # Volume Shrink v2 - Copy-based strategy (IMPROVED)
 # Safer approach: Create new volume, copy data, swap volumes
+# Fixes: Robust waiting logic + Post-Release claimRef clearing
 
 set -e
 
@@ -73,30 +74,27 @@ echo ""
 echo "[3/9] Waiting for pod termination..."
 sleep 5
 
-# Determine if it's a deployment or statefulset and get pod selector
-RESOURCE_TYPE=$(ssh oci-k8s-master "kubectl get deployment $DEPLOYMENT -n $NAMESPACE -o name 2>/dev/null" && echo "deployment" || echo "statefulset")
-
+# Check for any pods using this PVC (more robust than label selector)
 for i in {1..90}; do
-    # Check only pods belonging to this specific deployment/statefulset
-    if [ "$RESOURCE_TYPE" = "deployment" ]; then
-        RUNNING_PODS=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE -l app=$DEPLOYMENT 2>/dev/null" | grep -c "Running" || echo "0")
-    else
-        # For statefulset, check by name pattern
-        RUNNING_PODS=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE 2>/dev/null" | grep "^$DEPLOYMENT-" | grep -c "Running" || echo "0")
-    fi
+    POD_COUNT=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC_NAME\") | .metadata.name" | wc -l)
     
-    if [ "$RUNNING_PODS" = "0" ]; then
-        echo "  ✓ All pods from $DEPLOYMENT terminated"
+    if [ "$POD_COUNT" -eq 0 ]; then
+        echo "  ✓ All pods using $PVC_NAME terminated"
         break
     fi
-    echo "  Waiting for $DEPLOYMENT pods to terminate... ($i/90)"
+    echo "  Waiting for $POD_COUNT pods using $PVC_NAME to terminate... ($i/90)"
     sleep 2
 done
+
 # Force delete if still running after timeout
-if [ "$RUNNING_PODS" != "0" ]; then
+if [ "$POD_COUNT" -ne 0 ]; then
     echo "  ⚠️  Pods taking too long to terminate. forcing..."
-    ssh oci-k8s-master "kubectl delete pods -n $NAMESPACE -l app=$DEPLOYMENT --force --grace-period=0" 2>/dev/null || true
-    ssh oci-k8s-master "kubectl delete pods -n $NAMESPACE -l app.kubernetes.io/name=$DEPLOYMENT --force --grace-period=0" 2>/dev/null || true
+    # Get the pod names
+    PODS=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC_NAME\") | .metadata.name")
+    for POD in $PODS; do
+        echo "  Deleting pod $POD..."
+        ssh oci-k8s-master "kubectl delete pod $POD -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
+    done
 fi
 
 echo ""
@@ -309,9 +307,8 @@ if [ "$POLICY" != "Retain" ]; then
     exit 1
 fi
 
-# CRITICAL: Remove claimRef from PV BEFORE deleting PVC (prevents hang)
-echo "  Releasing PV from temp PVC..."
-ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}'"
+# NOTE: We do NOT patch claimRef here anymore. 
+# We must wait for PV to be Released, THEN patch it.
 
 # CRITICAL: Remove finalizers from temp PVC BEFORE deletion (prevents Terminating stuck)
 echo "  Removing finalizers from temp PVC..."
@@ -338,8 +335,13 @@ for i in {1..20}; do
     PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'" 2>/dev/null || echo "NotFound")
     
     # Accept both Available and Released (Longhorn uses Released)
-    if [ "$PV_STATUS" = "Available" ] || [ "$PV_STATUS" = "Released" ]; then
-        echo "  ✓ PV is $PV_STATUS"
+    if [ "$PV_STATUS" = "Released" ]; then
+        echo "  ✓ PV is Released"
+        break
+    fi
+    
+    if [ "$PV_STATUS" = "Available" ]; then
+        echo "  ✓ PV is Available"
         break
     fi
     
@@ -348,16 +350,19 @@ for i in {1..20}; do
         exit 1
     fi
     
-    if [ $i -eq 20 ]; then
-        echo "  ✗ ERROR: PV stuck in $PV_STATUS state after 20 seconds"
-        echo "  This might indicate a Longhorn issue. Check PV manually:"
-        echo "  kubectl describe pv $TEMP_PV_NAME"
-        exit 1
-    fi
-    
     echo "  PV status: $PV_STATUS ($i/20)"
     sleep 1
 done
+
+# CRITICAL: Now that PV is Released, we MUST clear the claimRef so it becomes Available
+# The controller adds the claimRef back upon deletion, so we clear it now.
+echo "  Cleaning up claimRef to make PV Available..."
+ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}'"
+sleep 2
+
+# Verify it is Available
+PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'" 2>/dev/null)
+echo "  PV Status after patch: $PV_STATUS"
 
 # Create new PVC with original name, binding to the existing PV
 cat <<EOF | ssh oci-k8s-master "kubectl apply -f -"
@@ -387,6 +392,15 @@ for i in {1..30}; do
     echo "  Waiting... ($i/30)"
     sleep 2
 done
+
+if [ "$NEW_STATUS" != "Bound" ]; then
+    echo "  ✗ CRITICAL ERROR: New PVC failed to bind after 30 seconds!"
+    echo "  We will NOT restore the PV reclaim policy to Delete."
+    echo "  The PV is still set to Retain, so your data is safe."
+    echo "  Please check why the PVC is not binding (maybe PV is stuck in Released?)."
+    echo "  Manual intervention required."
+    exit 1
+fi
 
 # Change PV reclaim policy back to Delete
 echo "  Restoring PV reclaim policy to Delete..."
