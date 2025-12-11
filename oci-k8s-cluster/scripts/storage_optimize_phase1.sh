@@ -56,7 +56,7 @@ echo ""
 resize_pvc "postgres" "postgres-deployment" "postgres-pvc" "2Gi"
 
 # 2. Logstash (StatefulSet)
-resize_pvc "elastic-system" "oci-logstash" "dlq-vol-oci-logstash-ls-0" "500Mi"
+resize_pvc "elastic-system" "oci-logstash" "dlq-vol-oci-logstash-ls-0" "128Mi"
 
 echo "=== PHASE 1 COMPLETE ==="
 echo "✅ Postgres: 5Gi → 2Gi (saved 3Gi)"
