@@ -1,9 +1,6 @@
 #!/bin/bash
-# Auto-recovery for volumes showing N/A status or Pending state (v2)
-# Handles:
-# 1. Deployment scaled to 0 (scales up)
-# 2. Lost PV (recreates PVC)
-# 3. Stuck Terminating (removes finalizers)
+# Auto-recovery for volumes showing N/A status or Pending state (v3)
+# Updates: Handles Released PVs (Ghost Volumes)
 
 set -e
 
@@ -17,7 +14,7 @@ if [ -z "$NAMESPACE" ] || [ -z "$PVC_NAME" ] || [ -z "$DEPLOYMENT" ]; then
 fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "AUTO-RECOVERY - Volume Status Fix v2"
+echo "AUTO-RECOVERY - Volume Status Fix v3"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Namespace:   $NAMESPACE"
 echo "PVC:         $PVC_NAME"
@@ -43,32 +40,24 @@ echo "  PVC Status: $PVC_STATUS"
 echo "  Target PV:  ${TARGET_PV:-<none>}"
 echo ""
 
-# 2. Handle Pending State (Lost PV Case)
+# 2. Handle Pending State (Lost or Ghost PV)
 if [ "$PVC_STATUS" = "Pending" ] && [ -n "$TARGET_PV" ]; then
-    echo "[2/4] analyzing Pending state..."
-    # Check if PV exists
-    PV_EXISTS=$(ssh oci-k8s-master "kubectl get pv $TARGET_PV --no-headers 2>/dev/null" || echo "")
+    echo "[2/4] Analyzing Pending state..."
+    # Check PV status
+    PV_PHASE=$(ssh oci-k8s-master "kubectl get pv $TARGET_PV -o jsonpath='{.status.phase}' 2>/dev/null" || echo "NotFound")
     
-    if [ -z "$PV_EXISTS" ]; then
+    echo "  PV Status:  $PV_PHASE"
+    
+    if [ "$PV_PHASE" = "NotFound" ]; then
         echo "  ⚠️  CRITICAL ISSUE DETECTED: Lost PV"
-        echo "  The PVC is stuck in Pending because it tries to bind to"
-        echo "  volume '$TARGET_PV' which does not exist."
-        echo ""
-        echo "  This usually happens if the backend storage was deleted."
-        echo "  The data is likely already lost."
+        echo "  The PVC points to volume '$TARGET_PV' which does not exist."
+        echo "  Data is likely lost."
         echo "" 
         
         read -p "  Action: Recreate empty volume to restore service? (y/N): " verify
         if [[ "$verify" =~ ^[Yy]$ ]]; then
-            echo ""
             echo "  Recreating volume..."
-            
-            # Delete old PVC
-            echo "  1. Deleting stuck PVC..."
             ssh oci-k8s-master "kubectl delete pvc $PVC_NAME -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
-            
-            # Create new PVC
-            echo "  2. Creating fresh PVC ($CAPACITY)..."
             cat <<EOF | ssh oci-k8s-master "kubectl apply -f -"
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -85,20 +74,39 @@ spec:
 EOF
             echo "  ✓ Volume recreated. Waiting for binding..."
             sleep 5
-            
-            # Restart pod
-            echo "  3. Restarting pod to mount new volume..."
             ssh oci-k8s-master "kubectl delete pod -n $NAMESPACE -l app=$DEPLOYMENT --force --grace-period=0" 2>/dev/null || true
-             ssh oci-k8s-master "kubectl delete pod -n $NAMESPACE -l app.kubernetes.io/name=$DEPLOYMENT --force --grace-period=0" 2>/dev/null || true
-            
-            echo ""
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✓ RECOVERED FROM LOST PV"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             exit 0
-        else
-            echo "  Cancelled."
-            exit 1
+        fi
+        
+    elif [ "$PV_PHASE" = "Released" ]; then
+        echo ""
+        echo "  ⚠️  ISSUE DETECTED: Ghost Volume (Released)"
+        echo "  The PV exists but is 'Released' (locked to old PVC UID)."
+        echo "  We can unlock it to restore your data immediately."
+        echo ""
+        
+        read -p "  Action: Unlock PV to restore data? (y/N): " verify
+        if [[ "$verify" =~ ^[Yy]$ ]]; then
+             echo "  Unlocking PV..."
+             ssh oci-k8s-master "kubectl patch pv $TARGET_PV -p '{\"spec\":{\"claimRef\":null}}'"
+             echo "  ✓ PV Unlocked. Waiting for bind..."
+             for i in {1..30}; do
+                 NEW_STATUS=$(ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.status.phase}'")
+                 if [ "$NEW_STATUS" = "Bound" ]; then
+                     echo "  ✓ PVC Bound successfully!"
+                     break
+                 fi
+                 sleep 1
+             done
+             echo ""
+             echo "  Restarting pod..."
+             ssh oci-k8s-master "kubectl delete pod -n $NAMESPACE -l app.kubernetes.io/name=cost-analyzer --force --grace-period=0" 2>/dev/null || true
+             ssh oci-k8s-master "kubectl delete pod -n $NAMESPACE -l app=$DEPLOYMENT --force --grace-period=0" 2>/dev/null || true
+             
+             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+             echo "✓ RECOVERY COMPLETE - DATA RESTORED"
+             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+             exit 0
         fi
     fi
 fi
@@ -138,11 +146,6 @@ if [ "$REPLICAS" = "0" ]; then
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 else
     echo "  ℹ️  Deployment is already running"
-    echo ""
-    echo "  Possible causes of N/A status:"
-    echo "  1. Pod is still starting (wait a few seconds)"
-    echo "  2. Volume is not mounted in pod"
-    echo "  3. Pod is in error state"
     echo ""
     echo "  Check pod status:"
     ssh oci-k8s-master "kubectl get pods -n $NAMESPACE | grep -E '$DEPLOYMENT|${DEPLOYMENT}-0'"
