@@ -258,6 +258,29 @@ TEMP_PV_NAME=$(ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE -o js
 echo "  Setting PV reclaim policy to Retain..."
 ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}'"
 
+# CRITICAL: Verify ReclaimPolicy is actually Retain (prevent PV loss)
+echo "  Verifying PV reclaim policy..."
+for i in {1..10}; do
+    POLICY=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.spec.persistentVolumeReclaimPolicy}'" 2>/dev/null)
+    if [ "$POLICY" = "Retain" ]; then
+        echo "  ✓ PV policy verified: Retain"
+        break
+    fi
+    echo "  Waiting for policy update... ($i/10)"
+    sleep 1
+    
+    # Retry patch if needed
+    if [ $((i % 3)) -eq 0 ]; then
+        ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}'"
+    fi
+done
+
+if [ "$POLICY" != "Retain" ]; then
+    echo "  ✗ CRITICAL ERROR: Failed to set PV policy to Retain!"
+    echo "  Aborting to prevent data loss."
+    exit 1
+fi
+
 # CRITICAL: Remove claimRef from PV BEFORE deleting PVC (prevents hang)
 echo "  Releasing PV from temp PVC..."
 ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}'"
