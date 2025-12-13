@@ -16,123 +16,98 @@ manage_volumes() {
             return
         fi
         
-        # Format for fzf display (skip header, show only available fields)
-        local volume_list=$(echo "$volumes_data" | tail -n +2 | awk -F'|' '{
-            printf "%-20s %-40s %10s\n", $1, $2, $3
-        }')
+        # Prepare Async Update
+        FZF_PORT=$((62000 + RANDOM % 1000))
+        INITIAL_LIST_FILE="/tmp/vol_initial_$$.txt"
+        DISPLAY_FILE="/tmp/vol_display_$$.txt"
         
-        # Select volume with enhanced preview showing additional details
-        local selected=$(echo "$volume_list" | "$FZF_BIN" \
+        # Explicit Cache Directory to prevent ambiguity and ensure fzf preview looks in invalid place
+        CACHE_DIR="/tmp/vol_usage_cache_$$"
+        mkdir -p "$CACHE_DIR"
+        
+        # Save raw list (skip header)
+        echo "$volumes_data" | tail -n +2 > "$INITIAL_LIST_FILE"
+        
+        # Generate initial display list with Green Loading Icons
+        > "$DISPLAY_FILE"
+        printf "%-20s %-45s %10s %10s %10s\n" "NAMESPACE" "PVC NAME" "ALLOCATED" "USED" "USAGE" > "$DISPLAY_FILE"
+        
+        while IFS= read -r line; do
+             NS=$(echo "$line" | cut -d'|' -f1)
+             PVC=$(echo "$line" | cut -d'|' -f2)
+             ALLOC=$(echo "$line" | cut -d'|' -f3)
+             printf "%-20s %-45s %10s %10s %10s\n" "$NS" "$PVC" "$ALLOC" "⏳" "⏳" >> "$DISPLAY_FILE"
+        done < "$INITIAL_LIST_FILE"
+        
+        # Start Background Updater (Pass explicit CACHE_DIR as 4th arg)
+        bash scripts/volume_manager/async_updater.sh "$INITIAL_LIST_FILE" "$DISPLAY_FILE" "$FZF_PORT" "$CACHE_DIR" >/dev/null 2>&1 &
+        UPDATER_PID=$!
+        
+        # Cleanup trap for local scope
+        trap "kill $UPDATER_PID 2>/dev/null; rm -rf $INITIAL_LIST_FILE $DISPLAY_FILE $CACHE_DIR" RETURN
+ 
+         
+        # Export CACHE_DIR so fzf preview shell can see it
+        export CACHE_DIR
+        
+        # Select volume using FZF with --listen for async updates
+        # initial input is piped from cat DISPLAY_FILE
+        local selected=$(cat "$DISPLAY_FILE" | "$FZF_BIN" \
+            --listen "$FZF_PORT" \
+            --header-lines=1 \
             --height=80% \
             --layout=reverse \
             --border \
             --prompt="Select Volume > " \
-            --header="NAMESPACE            PVC NAME                                 ALLOCATED" \
-            --preview='
+            --prompt="Select Volume > " \
+            --bind "start:reload(cat $DISPLAY_FILE)" \
+            --bind "load:reload(cat $DISPLAY_FILE)" \
+            --bind "change:reload(cat $DISPLAY_FILE)" \
+            --preview="
+                # Pure Cache-Based Preview (Zero Latency)
+                # FZF quotes the fields (e.g. {1} becomes 'namespace'), so we must assign to variables
+                # to lets bash strip the quotes before building the path.
                 NS={1}
                 PVC={2}
                 ALLOC={3}
-                echo "Volume Details:"
-                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                echo "PVC Information:"
-                echo "  Namespace:     $NS"
-                echo "  PVC Name:      $PVC"
-                echo "  Allocated:     $ALLOC"
                 
-                # Get pod using this PVC
-                POD=$(ssh oci-k8s-master "kubectl get pods -n $NS -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC\") | .metadata.name" 2>/dev/null | head -1)
+                # Use variables to construct path (Escaped vars are evaluated by preview shell)
+                CACHE_FILE=\"$CACHE_DIR/\${NS}_\${PVC}\"
                 
-                if [ -n "$POD" ]; then
-                    # Get volume name and mount path
-                    VOL_NAME=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.volumes[] | select(.persistentVolumeClaim.claimName == \"$PVC\") | .name" 2>/dev/null)
-                    
-                    if [ -n "$VOL_NAME" ]; then
-                        # Search ALL containers for this volume mount (not just [0])
-                        MOUNT_INFO=$(ssh oci-k8s-master "kubectl get pod $POD -n $NS -o json 2>/dev/null" | jq -r ".spec.containers[] | select(.volumeMounts[]?.name == \"$VOL_NAME\") | .name + \"|\" + (.volumeMounts[] | select(.name == \"$VOL_NAME\") | .mountPath)" 2>/dev/null | head -1)
-                        
-                        if [ -n "$MOUNT_INFO" ]; then
-                            CONTAINER_NAME=$(echo "$MOUNT_INFO" | cut -d"|" -f1)
-                            MOUNT_PATH=$(echo "$MOUNT_INFO" | cut -d"|" -f2)
-                            
-                            # Check if this is a hostPath volume
-                            STORAGE_CLASS=$(ssh oci-k8s-master "kubectl get pvc $PVC -n $NS -o jsonpath=\"{.spec.storageClassName}\"" 2>/dev/null)
-                            
-                            if [ "$STORAGE_CLASS" = "manual" ] || [ "$STORAGE_CLASS" = "hostpath" ]; then
-                                # For hostPath, use du to get actual directory usage
-                                DU_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -c $CONTAINER_NAME -- du -sh $MOUNT_PATH 2>/dev/null" 2>/dev/null | head -1)
-                                
-                                if [ -n "$DU_OUT" ]; then
-                                    USED=$(echo "$DU_OUT" | awk "{print \$1}")
-                                    ALLOCATED=$(ssh oci-k8s-master "kubectl get pvc $PVC -n $NS -o jsonpath=\"{.spec.resources.requests.storage}\"" 2>/dev/null)
-                                    
-                                    # Normalize units
-                                    USED=$(echo "$USED" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
-                                    
-                                    echo "  Used:          $USED (hostPath)"
-                                    echo "  Allocated:     $ALLOCATED"
-                                    echo "  Usage:         N/A (hostPath - no quota)"
-                                    echo "  Mount Point:   $MOUNT_PATH"
-                                    echo "  Container:     $CONTAINER_NAME"
-                                    echo "  Storage Type:  hostPath (local node storage)"
-                                else
-                                    echo "  Used:          N/A (du failed for hostPath)"
-                                    echo "  Available:     N/A"
-                                    echo "  Usage:         N/A"
-                                fi
-                            else
-                                # For Longhorn/network storage, use df
-                                DF_OUT=$(ssh oci-k8s-master "kubectl exec -n $NS $POD -c $CONTAINER_NAME -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
-                                
-                                if [ -n "$DF_OUT" ]; then
-                                    USED=$(echo "$DF_OUT" | awk "{print \$3}")
-                                    AVAIL=$(echo "$DF_OUT" | awk "{print \$4}")
-                                    PCT=$(echo "$DF_OUT" | awk "{print \$5}")
-                                    
-                                    # Normalize units (G -> Gi, M -> Mi)
-                                    USED=$(echo "$USED" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
-                                    AVAIL=$(echo "$AVAIL" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
-                                    
-                                    echo "  Used:          $USED"
-                                    echo "  Available:     $AVAIL"
-                                    echo "  Usage:         $PCT"
-                                    echo "  Mount Point:   $MOUNT_PATH"
-                                    echo "  Container:     $CONTAINER_NAME"
-                                else
-                                    echo "  Used:          N/A (df failed for $MOUNT_PATH)"
-                                    echo "  Available:     N/A"
-                                    echo "  Usage:         N/A"
-                                fi
-                            fi
-                        else
-                            echo "  Used:          N/A (mount not found in any container)"
-                            echo "  Available:     N/A"
-                            echo "  Usage:         N/A"
-                        fi
-                    else
-                        echo "  Used:          N/A (volume name not found)"
-                        echo "  Available:     N/A"
-                        echo "  Usage:         N/A"
-                    fi
+                if [ -r \"\$CACHE_FILE\" ]; then
+                     IFS=\"|\" read -r c_used c_usage c_pod c_container c_mount c_class c_all_pods c_access_mode < \"\$CACHE_FILE\"
+                     
+                     echo \"Volume Details:\"
+                     echo \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\"
+                     echo \"PVC Information:\"
+                     echo \"  Namespace:     \$NS\"
+                     echo \"  PVC Name:      \$PVC\"
+                     echo \"  Allocated:     \$ALLOC\"
+                     echo \"  Access Mode:   \$c_access_mode\"
+                     echo \"\"
+                     echo \"Usage Metrics:\"
+                     echo \"  Used:          \$c_used\"
+                     echo \"  Usage:         \$c_usage\"
+                     echo \"\"
+                     echo \"Mount Details:\"
+                     echo \"  Primary Pod:   \$c_pod\"
+                     echo \"  Container:     \$c_container\"
+                     echo \"  Mount Point:   \$c_mount\"
+                     echo \"  Storage Class: \$c_class\"
+                     echo \"\"
+                     echo \"Attached Pods:\"
+                     echo \"  \$c_all_pods\"
+                     echo \"  Status:        (Updated)\"
+                     echo \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\"
                 else
-                    echo "  Used:          N/A (no pod)"
-                    echo "  Available:     N/A"
-                    echo "  Usage:         N/A"
+                     echo \"Loading details... (⏳)\"
+                     echo \"\"
+                     echo \"PVC: \$PVC\"
+                     echo \"NS:  \$NS\"
+                     echo \"\"
+                     echo \"(Details will appear automatically)\"
                 fi
-                
-                echo ""
-                echo "Additional Details:"
-                ssh oci-k8s-master "kubectl get pvc $PVC -n $NS -o json 2>/dev/null" | jq -r "
-                    \"  Status:        \" + .status.phase,
-                    \"  StorageClass:  \" + .spec.storageClassName,
-                    \"  Access Mode:   \" + (.spec.accessModes[0] // \"N/A\"),
-                    \"  Volume Mode:   \" + (.spec.volumeMode // \"Filesystem\"),
-                    \"  PV Name:       \" + (.spec.volumeName // \"N/A\")
-                " 2>/dev/null
-                echo ""
-                echo "Pods using this volume:"
-                ssh oci-k8s-master "kubectl get pods -n $NS -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC\") | \"  • \" + .metadata.name + \" (\" + .status.phase + \")\"" 2>/dev/null || echo "  None"
-                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            ' \
+            " \
             --preview-window=right:50%) || return
         
         if [ -z "$selected" ]; then
@@ -140,15 +115,25 @@ manage_volumes() {
         fi
         
         # Extract volume info from selection
+        # Extract volume info from selection
         local namespace=$(echo "$selected" | awk '{print $1}')
         local pvc_name=$(echo "$selected" | awk '{print $2}')
         local allocated=$(echo "$selected" | awk '{print $3}')
-        
-        # Get real usage data by querying the pod (same logic as preview)
-        echo "Fetching usage data..." >&2
-        local usage_data=$(get_volume_usage "$namespace" "$pvc_name")
-        local used=$(echo "$usage_data" | cut -d'|' -f1)
-        local usage_pct=$(echo "$usage_data" | cut -d'|' -f2)
+        local used=$(echo "$selected" | awk '{print $4}')
+        local usage_pct=$(echo "$selected" | awk '{print $5}')
+
+        # If data was still loading (Hourglass), fetch it synchronously now
+        if [ "$used" == "⏳" ] || [ "$used" == "Loading..." ] || [ -z "$used" ]; then
+             echo "Fetching usage data..." >&2
+             # Use the standalone script we just created instead of internal func?
+             # Actually internal func `get_volume_usage` (lines 189+) duplicates `fetch_usage_item.sh`.
+             # We should probably deduplicate later. For now, use the internal one or our script.
+             # Let's use internal to minimize dependencies inside this block, or use script for consistency.
+             # The internal `get_volume_usage` exists in the file.
+             local usage_data=$(get_volume_usage "$namespace" "$pvc_name")
+             used=$(echo "$usage_data" | cut -d'|' -f1)
+             usage_pct=$(echo "$usage_data" | cut -d'|' -f2)
+        fi
         
         # Show volume actions menu
         volume_actions_menu "$namespace" "$pvc_name" "$allocated" "$used" "$usage_pct"

@@ -18,6 +18,8 @@
 | [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 
 ## ✅ Done
+- [x] **T-018: Async Usage Columns in TUI** (Improvement)
+- [ ] **T-014: Housekeeping Resurrection** (Recovery)**
 - [x] **[T-017.1] Housekeeping Logic (Resurrection/Cleanup)**
 - [x] **[T-012](T-012-Automate-Kibana-Setup.md) Automate Kibana Setup**
 - [x] **[T-009](T-009-Refactor-Legacy-ECK.md) Refactor Legacy ECK Components**
