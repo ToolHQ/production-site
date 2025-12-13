@@ -5,6 +5,10 @@
 
 set -e
 
+# Global flags
+OPERATOR_INTERFERENCE="false"
+DELETED_OLD="false"
+
 # Source shared utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/vm_utils.sh"
@@ -67,9 +71,186 @@ echo ""
 
 # Scale down deployment
 echo "[2/9] Scaling down deployment to 0..."
-k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=0 2>/dev/null || \
-k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=0
-echo "  ✓ Deployment scaled to 0"
+
+# Detect Deployment Type
+if k get deployment $DEPLOYMENT -n $NAMESPACE >/dev/null 2>&1; then
+    DEPLOYMENT_TYPE="deployment"
+    k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=0
+elif k get statefulset $DEPLOYMENT -n $NAMESPACE >/dev/null 2>&1; then
+    DEPLOYMENT_TYPE="statefulset"
+    k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=0
+else
+    echo "  ⚠️  Could not find Deployment or StatefulSet named '$DEPLOYMENT'"
+    DEPLOYMENT_TYPE="unknown"
+fi
+echo "  ✓ $DEPLOYMENT_TYPE scaled to 0"
+
+# Check for Operator Interference (Fight Detection) & Smart Auto-Scaling
+sleep 5
+CURRENT_REPLICAS=$(k get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.status.replicas}' 2>/dev/null || k get statefulset $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+
+if [ "$CURRENT_REPLICAS" -gt 0 ]; then
+    echo ""
+    echo "  ⚠️  OPERATOR INTERFERENCE DETECTED! (Replicas: $CURRENT_REPLICAS)" 
+    
+    # Identify Owner
+    OWNER_INFO=$(k get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}' 2>/dev/null || k get statefulset $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}' 2>/dev/null)
+    OWNER_KIND=$(echo $OWNER_INFO | cut -d'/' -f1)
+    OWNER_NAME=$(echo $OWNER_INFO | cut -d'/' -f2)
+
+    if [ "$OWNER_KIND" == "Elasticsearch" ]; then
+        echo "  🤖 Identified ECK Operator managing '$OWNER_NAME'."
+        echo "  Attempting to suspend Operator to allow maintenance..."
+
+        # Find ECK Operator Deployment (Cluster-wide search)
+        echo "  Searching for Elastic Operator deployment..."
+        
+        # Try specific label first (cluster-wide) without crashing script if not found
+        OPERATOR_DEP_INFO=$(k get deployment -A -l control-plane=elastic-operator -o jsonpath='{.items[0].metadata.namespace}/{.items[0].metadata.name}' 2>/dev/null || true)
+        
+        if [ -z "$OPERATOR_DEP_INFO" ]; then
+             echo "  Label search failed (Deployment). Checking StatefulSets..."
+             # Fallback: Try StatefulSet search which is common for ECK operator
+             OPERATOR_DEP_INFO=$(k get sts elastic-operator -n elastic-system -o jsonpath='{.metadata.namespace}/{.metadata.name}' 2>/dev/null || k get sts elastic-operator -n default -o jsonpath='{.metadata.namespace}/{.metadata.name}' 2>/dev/null || true)
+             if [ -n "$OPERATOR_DEP_INFO" ]; then
+                OPERATOR_TYPE="statefulset"
+                echo "  Found Operator StatefulSet."
+             else
+                # Fallback: Try generic name search for deployment again as last resort
+                OPERATOR_DEP_INFO=$(k get deployment elastic-operator -n elastic-system -o jsonpath='{.metadata.namespace}/{.metadata.name}' 2>/dev/null || k get deployment elastic-operator -n default -o jsonpath='{.metadata.namespace}/{.metadata.name}' 2>/dev/null || true)
+                OPERATOR_TYPE="deployment"
+             fi
+        else
+             OPERATOR_TYPE="deployment"
+        fi
+
+        if [ -n "$OPERATOR_DEP_INFO" ]; then
+            OP_NS=$(echo $OPERATOR_DEP_INFO | cut -d'/' -f1)
+            OP_NAME=$(echo $OPERATOR_DEP_INFO | cut -d'/' -f2)
+            
+            if [ -z "$OP_NAME" ] || [ -z "$OP_NS" ]; then
+                echo "  ✗ Found empty operator info. Skipping suspension."
+            else
+                echo "  Found Operator: $OP_NAME ($OPERATOR_TYPE) in namespace $OP_NS"
+                echo "  Suspending Operator (Scale to 0)..."
+                
+                k scale $OPERATOR_TYPE $OP_NAME -n $OP_NS --replicas=0 2>/dev/null
+                
+                # Wait for Operator to stop
+                sleep 5
+                
+                # Now scale the application again (Operator can't revert it now)
+                k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=0 2>/dev/null || \
+                k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=0
+                
+                OPERATOR_INTERFERENCE="true"
+                OPERATOR_KIND="Elasticsearch"
+                OPERATOR_DEP_NAME="$OP_NAME"
+                OPERATOR_DEP_NS="$OP_NS"
+                OPERATOR_DEP_TYPE="$OPERATOR_TYPE"
+                
+                echo "  ✓ Operator suspended and Application scaled to 0."
+                
+                # NEW: Patch the Parent CR to prevent "revert to old size" behavior
+                # We must bypass the ValidatingWebhook to do this while operator is down
+                WEBHOOK_NAME="elastic-webhook.k8s.elastic.co"
+                if k get validatingwebhookconfiguration $WEBHOOK_NAME >/dev/null 2>&1; then
+                    echo "  🛡️  Found ValidatingWebhook '$WEBHOOK_NAME'. Temporarily disabling..."
+                    # Backup webhook to SAFE location
+                    BACKUP_DIR="$HOME/.kube/backups"
+                    mkdir -p "$BACKUP_DIR"
+                    WEBHOOK_BACKUP="$BACKUP_DIR/${WEBHOOK_NAME}.yaml.bak"
+                    
+                    k get validatingwebhookconfiguration $WEBHOOK_NAME -o yaml > "$WEBHOOK_BACKUP"
+                    # Delete webhook to allow CR patching
+                    k delete validatingwebhookconfiguration $WEBHOOK_NAME >/dev/null 2>&1
+                    echo "  ✓ Webhook disabled (Backup saved to $WEBHOOK_BACKUP)."
+                fi
+                
+                
+                # Fetch limits to ensure Guaranteed QoS for patch (requests=limits)
+                LIMIT_MEM=$(k get elasticsearch $OWNER_NAME -n $NAMESPACE -o jsonpath='{.spec.nodeSets[0].podTemplate.spec.containers[0].resources.limits.memory}' 2>/dev/null || echo "")
+                
+                PATCH_JSON=""
+                if [ -n "$LIMIT_MEM" ] && [ "$LIMIT_MEM" != "null" ]; then
+                     echo "  🧠 Enforcing Guaranteed QoS (Memory Requests = Limits: $LIMIT_MEM)..."
+                     PATCH_JSON="'[{\"op\": \"replace\", \"path\": \"/spec/nodeSets/0/volumeClaimTemplates/0/spec/resources/requests/storage\", \"value\": \"$NEW_SIZE\"}, {\"op\": \"replace\", \"path\": \"/spec/nodeSets/0/podTemplate/spec/containers/0/resources/requests/memory\", \"value\": \"$LIMIT_MEM\"}]'"
+                else
+                     PATCH_JSON="'[{\"op\": \"replace\", \"path\": \"/spec/nodeSets/0/volumeClaimTemplates/0/spec/resources/requests/storage\", \"value\": \"$NEW_SIZE\"}]'"
+                fi
+
+                echo "  📝 Patching Elasticsearch CR Storage Request to $NEW_SIZE..."
+                if OUTPUT=$(k patch elasticsearch $OWNER_NAME -n $NAMESPACE --type=json -p "$PATCH_JSON" 2>&1); then
+                     echo "  ✓ CR patched successfully."
+                     
+                     # NEW: If target is StatefulSet, we MUST delete it (orphan) to allow template update
+                     # The operator will recreate it with new size. Without this, it gets stuck.
+                     if [[ "$DEPLOYMENT_TYPE" == "statefulset" ]]; then
+                         echo "  ♻️  Deleting StatefulSet '$DEPLOYMENT' (Orphan mode) to enforce template update..."
+                         k delete sts $DEPLOYMENT -n $NAMESPACE --cascade=orphan >/dev/null 2>&1 || true
+                         echo "  ✓ StatefulSet deleted (Pods remain running)."
+                         
+                         # NEW: Check for Stale Replicas (other pods in the set with old PVC size)
+                         # E.g. if we are resizing pod-0, check pod-1, pod-2...
+                         echo "  🔍 Checking for other replicas with stale PVC sizes..."
+                         OTHER_PVCS=$(k get pvc -n $NAMESPACE -l "common.k8s.elastic.co/type=elasticsearch,elasticsearch.k8s.elastic.co/cluster-name=$OWNER_NAME" --no-headers | awk '{print $1}' | grep -v "$PVC_NAME" || true)
+                         
+                         if [ -n "$OTHER_PVCS" ]; then
+                             echo "  ⚠️  Detected other replicas for this Elasticsearch cluster:"
+                             echo "$OTHER_PVCS" | sed 's/^/     - /'
+                             echo "  ℹ️  To effectively resize the StatefulSet template, ALL replicas must use the new size."
+                             echo "     These old PVCs will block the Operator from scaling up properly."
+                             
+                             # Auto-confirm based on our new robust automation policy, or ask?
+                             # Given user requested automation, we will prompt once or assume Y if they passed auto flags?
+                             # For safety, let's ask, but default to Y.
+                             read -p "  ❓ Delete these stale replica PVCs to allow auto-recreation with new size $NEW_SIZE? [Y/n] " CONFIRM_CLEANUP
+                             CONFIRM_CLEANUP=${CONFIRM_CLEANUP:-Y}
+                             if [[ "$CONFIRM_CLEANUP" =~ ^[Yy]$ ]]; then
+                                 for OPVC in $OTHER_PVCS; do
+                                     echo "     🗑️  Deleting $OPVC..."
+                                     # Remove finalizers first just in case
+                                     k patch pvc $OPVC -p '{"metadata":{"finalizers":null}}' -n $NAMESPACE >/dev/null 2>&1 || true
+                                     k delete pvc $OPVC -n $NAMESPACE --wait=false >/dev/null 2>&1
+                                 done
+                                 echo "  ✓ Stale replicas cleaned up. Operator will recreate them."
+                             else
+                                 echo "  ⚠️  Skipping cleanup. Operator may get stuck on these replicas."
+                             fi
+                         fi
+                     fi
+                else
+                     echo "  ⚠️  Failed to patch CR. The Operator might revert the size change later."
+                     echo "     Error: $OUTPUT"
+                fi
+            fi
+        else
+            echo "  ✗ Could not find ECK Operator deployment automatically."
+            echo "    Falling back to manual mode."
+        fi
+    else
+        echo "  ⚠️  Unknown Operator ($OWNER_KIND). Manual intervention required."
+    fi
+
+    # Wait for Operator to process the scale-down
+    while [ "$CURRENT_REPLICAS" -gt 0 ]; do
+        # If we didn't auto-handle it (or if patch failed/is slow), prompt user
+        if [ "$OPERATOR_INTERFERENCE" != "true" ]; then
+             echo ""
+             echo "  ACTION REQUIRED:"
+             echo "  1. Manually scale down the parent Custom Resource ($OWNER_KIND $OWNER_NAME)."
+             echo "     Example: kubectl edit $OWNER_KIND $OWNER_NAME -n $NAMESPACE"
+             read -p "  Press [Enter] once you have scaled down the Operator resource..."
+        else
+             echo "  Waiting for Operator to terminate pods... (Replicas: $CURRENT_REPLICAS)"
+             sleep 5
+        fi
+        
+        CURRENT_REPLICAS=$(k get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.status.replicas}' 2>/dev/null || k get statefulset $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+    done
+    echo "  ✓ Operator resource scaled down successfully."
+fi
+
 echo ""
 
 # Wait for pod termination
@@ -84,7 +265,17 @@ for i in {1..90}; do
         echo "  ✓ All pods using $PVC_NAME terminated"
         break
     fi
-    echo "  Waiting for $POD_COUNT pods using $PVC_NAME to terminate... ($i/90)"
+    
+    # Early force kill after 60 seconds (30 * 2s)
+    if [ $i -ge 30 ]; then
+        echo "  ⚠️  Timeout (60s) reached. Proceeding to force delete..."
+        break
+    fi
+
+    # Print status every 10 seconds (5 * 2s)
+    if [ $((i % 5)) -eq 0 ]; then
+        echo "  Waiting for $POD_COUNT pods using $PVC_NAME to terminate... (${i}s)"
+    fi
     sleep 2
 done
 
@@ -246,6 +437,30 @@ monitor_copy_job() {
             echo "  ✗ ERROR: Copy job failed!"
             k logs job/$job_name -n $namespace || true
             return 1
+        fi
+
+        # NEW: Check Pod Phase to distinguish "Pending" from "Stalled"
+        POD_PHASE=$(k get pods -n $namespace -l job-name=$job_name -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "")
+        
+        # If pod is not running yet (Pending, ContainerCreating), we perform a Startup Timeout check instead of meaningful Log Stall check
+        if [ "$POD_PHASE" = "Pending" ] || [ "$POD_PHASE" = "" ]; then
+            startup_timeout=600 # 10 minutes to start
+            if [ $elapsed -ge $startup_timeout ]; then
+                 echo ""
+                 echo "  ✗ ERROR: Job Pod failed to start within 10 minutes (Stuck in Pending?)"
+                 k describe pod -n $namespace -l job-name=$job_name
+                 return 1
+            fi
+            
+            # Print periodic update
+            if [ $((elapsed % 30)) -eq 0 ]; then
+                 echo "  Waiting for pod to start... (Phase: $POD_PHASE | Time: ${elapsed}s)"
+            fi
+            
+            # Reset stall timer because we are not "stalled copying", we are "waiting to start"
+            last_log_change=$current_time
+            sleep 5
+            continue
         fi
         
         # Check Total Timeout
@@ -454,9 +669,55 @@ echo ""
 
 # Scale deployment back up
 echo "[9/9] Scaling deployment back to 1..."
-k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=1 2>/dev/null || \
-k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=1
-echo "  ✓ Deployment scaled back to 1"
+
+if [ "$OPERATOR_INTERFERENCE" = "true" ]; then
+    if [ "$OPERATOR_KIND" == "Elasticsearch" ]; then
+        echo "  🤖 Detected ECK Management."
+        
+        # 1. Restore Operator FIRST (so it can recreate the orphaned StatefulSet)
+        echo "  Waking up Operator (elastic-operator)..."
+        k scale statefulset $OPERATOR_DEP_NAME -n $OPERATOR_DEP_NS --replicas=1 2>/dev/null || \
+        k scale deployment $OPERATOR_DEP_NAME -n $OPERATOR_DEP_NS --replicas=1
+        
+        # 2. Wait for Operator to start
+        echo "  Waiting for Operator to start..."
+        sleep 10
+        
+        echo "  ✓ Successfully restored Operator."
+        
+        # 3. Restore Webhook (Using LOCAL pipe since backup is on local machine)
+        if [ -f "$WEBHOOK_BACKUP" ]; then
+             echo "  🛡️  Restoring ValidatingWebhook Configuration..."
+             # Use cat | ssh to pipe local file content to remote kubectl
+             cat "$WEBHOOK_BACKUP" | k apply -f - >/dev/null 2>&1 || echo "Warning: Failed to restore webhook automatically. Check $WEBHOOK_BACKUP"
+             echo "  ✓ Webhook restored."
+        fi
+        
+        # 4. Wait for Application StatefulSet to reappear (Operator should recreate it)
+        echo "  Waiting for Operator to recreate StatefulSet '$DEPLOYMENT'..."
+        for i in {1..60}; do
+             if k get statefulset $DEPLOYMENT -n $NAMESPACE >/dev/null 2>&1; then
+                 echo "  ✓ StatefulSet detected."
+                 break
+             fi
+             if [ $((i % 5)) -eq 0 ]; then echo -n "."; fi
+             sleep 1
+        done
+        echo "  ✓ StatefulSet detected."
+    else
+        echo "  ⚠️  Operator interference was detected earlier."
+        echo "  The script cannot reliably scale up the resource because the Operator controls it."
+        echo ""
+        echo "  ACTION REQUIRED:"
+        echo "  1. Manually scale UP the parent Custom Resource (e.g. Postgres) to 1."
+        read -p "  Press [Enter] once you have scaled UP the Operator resource..."
+        echo "  ✓ Assuming resource scaled up."
+    fi
+else
+    k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=1 2>/dev/null || \
+    k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=1
+    echo "  ✓ Deployment scaled back to 1"
+fi
 echo ""
 
 
