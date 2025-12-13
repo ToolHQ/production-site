@@ -1,9 +1,13 @@
 #!/bin/bash
 # Volume Shrink v2 - Copy-based strategy (IMPROVED)
 # Safer approach: Create new volume, copy data, swap volumes
-# Fixes: Robust waiting logic + Post-Release claimRef clearing
+# Uses vm_utils.sh for shared logic.
 
 set -e
+
+# Source shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/vm_utils.sh"
 
 NAMESPACE=$1
 PVC_NAME=$2
@@ -15,9 +19,7 @@ if [ -z "$NAMESPACE" ] || [ -z "$PVC_NAME" ] || [ -z "$NEW_SIZE" ] || [ -z "$DEP
     exit 1
 fi
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "SHRINK VOLUME - Copy-based Strategy v2"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+header "SHRINK VOLUME - Copy-based Strategy v2"
 echo "Namespace:   $NAMESPACE"
 echo "PVC:         $PVC_NAME"
 echo "New Size:    $NEW_SIZE"
@@ -27,26 +29,26 @@ echo ""
 # Cleanup function for rollback
 cleanup_on_error() {
     echo ""
-    echo "⚠️  ERROR DETECTED - Attempting cleanup..."
+    log "⚠️  ERROR DETECTED - Attempting cleanup..."
     
     # Scale deployment back up
-    echo "  Scaling deployment back to 1..."
-    ssh oci-k8s-master "kubectl scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=1" 2>/dev/null || \
-    ssh oci-k8s-master "kubectl scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=1" 2>/dev/null || true
+    log "Scaling deployment back to 1..."
+    k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=1 2>/dev/null || \
+    k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=1 2>/dev/null || true
     
     # Delete temp PVC if exists
     if [ -n "$TEMP_PVC" ]; then
-        echo "  Deleting temporary PVC: $TEMP_PVC"
-        ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
+        log "Deleting temporary PVC: $TEMP_PVC"
+        k delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0 2>/dev/null || true
     fi
     
     # Delete job if exists
     if [ -n "$JOB_NAME" ]; then
-        echo "  Deleting copy job: $JOB_NAME"
-        ssh oci-k8s-master "kubectl delete job $JOB_NAME -n $NAMESPACE" 2>/dev/null || true
+        log "Deleting copy job: $JOB_NAME"
+        k delete job $JOB_NAME -n $NAMESPACE 2>/dev/null || true
     fi
     
-    echo "  ✓ Cleanup completed"
+    log "✓ Cleanup completed"
     exit 1
 }
 
@@ -54,9 +56,9 @@ trap cleanup_on_error ERR
 
 # Get current PVC info
 echo "[1/9] Getting current PVC information..."
-STORAGE_CLASS=$(ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.storageClassName}'")
-ACCESS_MODE=$(ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.accessModes[0]}'")
-CURRENT_SIZE=$(ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.resources.requests.storage}'")
+STORAGE_CLASS=$(k get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.storageClassName}')
+ACCESS_MODE=$(k get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.accessModes[0]}')
+CURRENT_SIZE=$(k get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.resources.requests.storage}')
 
 echo "  Current Size:    $CURRENT_SIZE"
 echo "  Storage Class:   $STORAGE_CLASS"
@@ -65,8 +67,8 @@ echo ""
 
 # Scale down deployment
 echo "[2/9] Scaling down deployment to 0..."
-ssh oci-k8s-master "kubectl scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=0" 2>/dev/null || \
-ssh oci-k8s-master "kubectl scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=0"
+k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=0 2>/dev/null || \
+k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=0
 echo "  ✓ Deployment scaled to 0"
 echo ""
 
@@ -76,7 +78,7 @@ sleep 5
 
 # Check for any pods using this PVC (more robust than label selector)
 for i in {1..90}; do
-    POD_COUNT=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC_NAME\") | .metadata.name" | wc -l)
+    POD_COUNT=$(k get pods -n $NAMESPACE -o json 2>/dev/null | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC_NAME\") | .metadata.name" | wc -l)
     
     if [ "$POD_COUNT" -eq 0 ]; then
         echo "  ✓ All pods using $PVC_NAME terminated"
@@ -90,10 +92,10 @@ done
 if [ "$POD_COUNT" -ne 0 ]; then
     echo "  ⚠️  Pods taking too long to terminate. forcing..."
     # Get the pod names
-    PODS=$(ssh oci-k8s-master "kubectl get pods -n $NAMESPACE -o json 2>/dev/null" | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC_NAME\") | .metadata.name")
+    PODS=$(k get pods -n $NAMESPACE -o json 2>/dev/null | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC_NAME\") | .metadata.name")
     for POD in $PODS; do
         echo "  Deleting pod $POD..."
-        ssh oci-k8s-master "kubectl delete pod $POD -n $NAMESPACE --force --grace-period=0" 2>/dev/null || true
+        k delete pod $POD -n $NAMESPACE --force --grace-period=0 2>/dev/null || true
     done
 fi
 
@@ -103,7 +105,7 @@ echo ""
 TEMP_PVC="${PVC_NAME}-temp-$(date +%Y%m%d-%H%M%S)"
 echo "[4/9] Creating temporary PVC: $TEMP_PVC"
 
-cat <<EOF | ssh oci-k8s-master "kubectl apply -f -"
+cat <<EOF | k apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -124,7 +126,7 @@ echo ""
 # Wait for PVC to be bound
 echo "[5/9] Waiting for temporary PVC to be bound..."
 for i in {1..30}; do
-    STATUS=$(ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE -o jsonpath='{.status.phase}'")
+    STATUS=$(k get pvc $TEMP_PVC -n $NAMESPACE -o jsonpath='{.status.phase}')
     if [ "$STATUS" = "Bound" ]; then
         echo "  ✓ Temporary PVC is Bound"
         break
@@ -143,7 +145,7 @@ echo ""
 echo "[6/9] Creating data copy job..."
 JOB_NAME="volume-copy-$(date +%Y%m%d-%H%M%S)"
 
-cat <<EOF | ssh oci-k8s-master "kubectl apply -f -"
+cat <<EOF | k apply -f -
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -216,8 +218,8 @@ monitor_copy_job() {
         elapsed=$((current_time - start_time))
         
         # Check Job Status
-        JOB_STATUS=$(ssh oci-k8s-master "kubectl get job $job_name -n $namespace -o jsonpath='{.status.conditions[?(@.type==\"Complete\")].status}'" 2>/dev/null || echo "")
-        JOB_FAILED=$(ssh oci-k8s-master "kubectl get job $job_name -n $namespace -o jsonpath='{.status.conditions[?(@.type==\"Failed\")].status}'" 2>/dev/null || echo "")
+        JOB_STATUS=$(k get job $job_name -n $namespace -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "")
+        JOB_FAILED=$(k get job $job_name -n $namespace -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || echo "")
         
         if [ "$JOB_STATUS" = "True" ]; then
             echo ""
@@ -228,7 +230,7 @@ monitor_copy_job() {
         if [ "$JOB_FAILED" = "True" ]; then
             echo ""
             echo "  ✗ ERROR: Copy job failed!"
-            ssh oci-k8s-master "kubectl logs job/$job_name -n $namespace"
+            k logs job/$job_name -n $namespace
             return 1
         fi
         
@@ -241,7 +243,7 @@ monitor_copy_job() {
         
         # Check Log Activity (Heartbeat)
         # Get last line of logs to see progress
-        CURRENT_LOG=$(ssh oci-k8s-master "kubectl logs job/$job_name -n $namespace --tail=1" 2>/dev/null)
+        CURRENT_LOG=$(k logs job/$job_name -n $namespace --tail=1 2>/dev/null)
         
         if [ "$CURRENT_LOG" != "$last_log_content" ]; then
             last_log_change=$current_time
@@ -276,7 +278,7 @@ echo ""
 
 # CRITICAL: Delete job immediately to release volume locks
 echo "Cleaning up copy job to release volumes..."
-ssh oci-k8s-master "kubectl delete job $JOB_NAME -n $NAMESPACE" 2>/dev/null || true
+k delete job $JOB_NAME -n $NAMESPACE 2>/dev/null || true
 # Wait a moment for pod to disappear
 sleep 5
 echo "  ✓ Job cleaned up"
@@ -287,17 +289,17 @@ echo "[8/9] Swapping volumes..."
 
 # CRITICAL: Remove finalizers from old PVC BEFORE deletion (prevents Terminating stuck)
 echo "  Removing finalizers from old PVC..."
-ssh oci-k8s-master "kubectl patch pvc $PVC_NAME -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge" 2>/dev/null || true
+k patch pvc $PVC_NAME -n $NAMESPACE -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
 
 echo "  Deleting old PVC: $PVC_NAME"
-ssh oci-k8s-master "kubectl delete pvc $PVC_NAME -n $NAMESPACE --force --grace-period=0 --wait=false" 2>/dev/null || true
+k delete pvc $PVC_NAME -n $NAMESPACE --force --grace-period=0 --wait=false 2>/dev/null || true
 
 # Wait a bit for deletion
 sleep 3
 
 # Verify old PVC is gone
 for i in {1..10}; do
-    if ! ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE" 2>/dev/null | grep -q "$PVC_NAME"; then
+    if ! k get pvc $PVC_NAME -n $NAMESPACE 2>/dev/null | grep -q "$PVC_NAME"; then
         echo "  ✓ Old PVC deleted"
         DELETED_OLD="true"
         break
@@ -310,9 +312,9 @@ done
 if [ "$DELETED_OLD" != "true" ]; then
     echo "  ✗ ERROR: Old PVC failed to delete (stuck in Terminating?)"
     echo "  Attempting finalizer removal again..."
-    ssh oci-k8s-master "kubectl patch pvc $PVC_NAME -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge" 2>/dev/null || true
+    k patch pvc $PVC_NAME -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge 2>/dev/null || true
     sleep 2
-    if ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE" 2>/dev/null | grep -q "$PVC_NAME"; then
+    if k get pvc $PVC_NAME -n $NAMESPACE 2>/dev/null | grep -q "$PVC_NAME"; then
         echo "  ✗ Aborting: Old PVC still exists. Manual intervention required."
         exit 1
     fi
@@ -321,32 +323,13 @@ fi
 echo "  Creating new PVC with original name..."
 
 # Get the PV name from temp PVC before we lose it
-TEMP_PV_NAME=$(ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE -o jsonpath='{.spec.volumeName}'")
+TEMP_PV_NAME=$(k get pvc $TEMP_PVC -n $NAMESPACE -o jsonpath='{.spec.volumeName}')
 
 # First, patch the PV to change its reclaim policy to Retain (prevent deletion)
-echo "  Setting PV reclaim policy to Retain..."
-ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}'"
-
-# CRITICAL: Verify ReclaimPolicy is actually Retain (prevent PV loss)
-echo "  Verifying PV reclaim policy..."
-for i in {1..10}; do
-    POLICY=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.spec.persistentVolumeReclaimPolicy}'" 2>/dev/null)
-    if [ "$POLICY" = "Retain" ]; then
-        echo "  ✓ PV policy verified: Retain"
-        break
-    fi
-    echo "  Waiting for policy update... ($i/10)"
-    sleep 1
-    
-    # Retry patch if needed
-    if [ $((i % 3)) -eq 0 ]; then
-        ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}'"
-    fi
-done
-
-if [ "$POLICY" != "Retain" ]; then
+# Refactored: Use shared valid function
+protect_pv "$NAMESPACE" "$TEMP_PVC"
+if [ $? -ne 0 ]; then
     echo "  ✗ CRITICAL ERROR: Failed to set PV policy to Retain!"
-    echo "  Aborting to prevent data loss."
     exit 1
 fi
 
@@ -355,16 +338,16 @@ fi
 
 # CRITICAL: Remove finalizers from temp PVC BEFORE deletion (prevents Terminating stuck)
 echo "  Removing finalizers from temp PVC..."
-ssh oci-k8s-master "kubectl patch pvc $TEMP_PVC -n $NAMESPACE -p '{\"metadata\":{\"finalizers\":[]}}' --type=merge" 2>/dev/null || true
+k patch pvc $TEMP_PVC -n $NAMESPACE -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
 
 # Delete temp PVC (should delete quickly now)
 echo "  Deleting temporary PVC..."
-ssh oci-k8s-master "kubectl delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0 --wait=false" 2>/dev/null || true
+k delete pvc $TEMP_PVC -n $NAMESPACE --force --grace-period=0 --wait=false 2>/dev/null || true
 
 # Wait for temp PVC to be fully deleted
 echo "  Waiting for temp PVC deletion to complete..."
 for i in {1..10}; do
-    if ! ssh oci-k8s-master "kubectl get pvc $TEMP_PVC -n $NAMESPACE" >/dev/null 2>&1; then
+    if ! k get pvc $TEMP_PVC -n $NAMESPACE >/dev/null 2>&1; then
         echo "  ✓ Temp PVC deleted"
         break
     fi
@@ -375,7 +358,7 @@ done
 # Wait for PV to become Available or Released
 echo "  Waiting for PV to become Available/Released..."
 for i in {1..20}; do
-    PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'" 2>/dev/null || echo "NotFound")
+    PV_STATUS=$(k get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
     
     # Accept both Available and Released (Longhorn uses Released)
     if [ "$PV_STATUS" = "Released" ]; then
@@ -400,15 +383,15 @@ done
 # CRITICAL: Now that PV is Released, we MUST clear the claimRef so it becomes Available
 # The controller adds the claimRef back upon deletion, so we clear it now.
 echo "  Cleaning up claimRef to make PV Available..."
-ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}'"
+k patch pv $TEMP_PV_NAME -p '{"spec":{"claimRef":null}}'
 sleep 2
 
 # Verify it is Available
-PV_STATUS=$(ssh oci-k8s-master "kubectl get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}'" 2>/dev/null)
+PV_STATUS=$(k get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}' 2>/dev/null)
 echo "  PV Status after patch: $PV_STATUS"
 
 # Create new PVC with original name, binding to the existing PV
-cat <<EOF | ssh oci-k8s-master "kubectl apply -f -"
+cat <<EOF | k apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -427,7 +410,7 @@ EOF
 # Wait for new PVC to bind
 echo "  Waiting for new PVC to bind..."
 for i in {1..30}; do
-    NEW_STATUS=$(ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.status.phase}'" 2>/dev/null || echo "")
+    NEW_STATUS=$(k get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
     if [ "$NEW_STATUS" = "Bound" ]; then
         echo "  ✓ New PVC bound successfully"
         break
@@ -446,36 +429,33 @@ if [ "$NEW_STATUS" != "Bound" ]; then
 fi
 
 # Change PV reclaim policy back to Delete
-echo "  Restoring PV reclaim policy to Delete..."
-ssh oci-k8s-master "kubectl patch pv $TEMP_PV_NAME -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Delete\"}}'"
+restore_pv_policy "$TEMP_PV_NAME"
 
 echo "  ✓ PVCs swapped successfully"
 echo ""
 
 # Scale deployment back up
 echo "[9/9] Scaling deployment back to 1..."
-ssh oci-k8s-master "kubectl scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=1" 2>/dev/null || \
-ssh oci-k8s-master "kubectl scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=1"
+k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=1 2>/dev/null || \
+k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=1
 echo "  ✓ Deployment scaled back to 1"
 echo ""
 
 # Cleanup job
 echo "Cleaning up copy job..."
-ssh oci-k8s-master "kubectl delete job $JOB_NAME -n $NAMESPACE" 2>/dev/null || true
+k delete job $JOB_NAME -n $NAMESPACE 2>/dev/null || true
 echo "  ✓ Job cleaned up"
 echo ""
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✓ SHRINK COMPLETED SUCCESSFULLY!"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+header "✓ SHRINK COMPLETED SUCCESSFULLY!"
 echo "Old Size: $CURRENT_SIZE"
 echo "New Size: $NEW_SIZE"
 echo ""
 echo "Verifying pod status..."
 sleep 5
-ssh oci-k8s-master "kubectl get pod -n $NAMESPACE | grep -E 'NAME|$DEPLOYMENT'" || true
+k get pod -n $NAMESPACE | grep -E "NAME|$DEPLOYMENT" || true
 echo ""
 echo "Verifying PVC status..."
-ssh oci-k8s-master "kubectl get pvc $PVC_NAME -n $NAMESPACE"
+k get pvc $PVC_NAME -n $NAMESPACE
 echo ""
 echo "✓ All done! Volume successfully shrunk."

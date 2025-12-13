@@ -3,33 +3,9 @@
 # Analyzes cluster for stuck/residual volume operations and helps fix them.
 # v3: "Resurrection" (Re-establish) logic + Improved Owner Detection + Snapshot Safety.
 
-# Helper for remote execution
-k() {
-    ssh oci-k8s-master "kubectl $@"
-}
-
-log() {
-    echo "   $1"
-}
-
-snapshot_pvc() {
-    local ns=$1
-    local pvc=$2
-    local snap_name="${pvc}-snap-$(date +%Y%m%d-%H%M%S)"
-    log "Creating snapshot $snap_name..."
-    cat <<EOF | k apply -f - >/dev/null
-apiVersion: snapshot.storage.k8s.io/v1
-kind: VolumeSnapshot
-metadata:
-  name: $snap_name
-  namespace: $ns
-spec:
-  volumeSnapshotClassName: longhorn-snapshot-vsc
-  source:
-    persistentVolumeClaimName: $pvc
-EOF
-    log "✓ Snapshot created."
-}
+# Source shared utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/vm_utils.sh"
 
 resurrect_pvc() {
     local ns=$1
@@ -48,9 +24,8 @@ resurrect_pvc() {
         return 1
     fi
     
-    # 2. Protect PV
-    log "Protecting PV $pv_name (Retain)..."
-    k patch pv "$pv_name" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}' >/dev/null 2>&1
+    # 2. Protect PV (Using shared util)
+    protect_pv "$ns" "$pvc"
     
     # 3. Force Delete Old PVC
     log "Force deleting stuck PVC object..."
@@ -96,16 +71,13 @@ EOF
         log "✓ PVC Resurrected and Bound!"
         
         # 7. Restore PV Policy
-        k patch pv "$pv_name" -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}' >/dev/null 2>&1
-        log "✓ PV policy restored to Delete."
+        restore_pv_policy "$pv_name"
     else
         log "⚠️  Warning: New PVC status is $status (expected Bound)."
     fi
 }
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  VOLUME MANAGER HOUSEKEEPING v3"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+header "VOLUME MANAGER HOUSEKEEPING v3"
 echo "Analyzing cluster state..."
 echo ""
 
@@ -124,8 +96,7 @@ while read -r ns name status age; do
     fi
 done < <(k get jobs -A --no-headers 2>/dev/null | grep "volume-copy-")
 
-# 2. Scan for Temp PVCs (Bound or Terminating, doesn't matter, handled by regex)
-# Logic: If it has "-temp-", it's temp.
+# 2. Scan for Temp PVCs
 while read -r ns name status; do
     if [ -n "$name" ]; then
         TEMP_PVCS+=("$ns|$name|$status")
@@ -142,7 +113,7 @@ while read -r ns name status; do
     fi
 done < <(k get pvc -A --no-headers 2>/dev/null | grep "\-restored")
 
-# 4. Scan for Unused/Detached PVCs (Improved Detection)
+# 4. Scan for Unused/Detached PVCs
 while read -r ns name; do
     if [ -n "$name" ]; then
         MOUNTED=$(k get pods -n "$ns" -o json 2>/dev/null | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$name\") | .metadata.name")
@@ -150,14 +121,11 @@ while read -r ns name; do
         if [ -z "$MOUNTED" ]; then
             # Owner Heuristics
             OWNER=""
-            
-            # 1. Direct StatefulSet logic (remove -0, -1 suffix)
             BASE_STS=$(echo "$name" | sed 's/-[0-9]*$//')
             if k get statefulset "$BASE_STS" -n "$ns" >/dev/null 2>&1; then
                 OWNER="$BASE_STS (StatefulSet)"
             fi
             
-            # 2. Logstash specific: logstash-data-oci-logstash-ls -> oci-logstash-ls
             if [ -z "$OWNER" ]; then
                 TRY_NAME=$(echo "$name" | sed 's/^logstash-data-//' | sed 's/-[0-9]*$//')
                 if k get statefulset "$TRY_NAME" -n "$ns" >/dev/null 2>&1; then
@@ -165,7 +133,6 @@ while read -r ns name; do
                 fi
             fi
             
-            # 3. Generic prefix strippers
             if [ -z "$OWNER" ]; then
                  CLEAN_NAME=$(echo "$name" | sed -E 's/-(pvc|vol|data|storage)-.*$//' | sed 's/-[0-9]*$//')
                  if k get deployment "$CLEAN_NAME" -n "$ns" >/dev/null 2>&1; then
@@ -175,21 +142,18 @@ while read -r ns name; do
                  fi
             fi
             
-            # If found owner and it's scaled down
             if [ -n "$OWNER" ]; then
                  UNUSED_PVCS+=("$ns|$name|$OWNER")
             elif [ "$name" == "logstash-data-oci-logstash-ls-0" ] || [ "$name" == "dlq-vol-oci-logstash-ls-0" ]; then
-                 # Fallback for known criticals if heuristics fail
                  UNUSED_PVCS+=("$ns|$name|oci-logstash-ls (Inferred)")
             fi
         fi
     fi
 done < <(k get pvc -A --no-headers 2>/dev/null | grep "Bound" | grep -v "\-temp-" | grep -v "\-restored")
 
-# 5. Scan for Stuck Terminating (split into Temp vs Original)
+# 5. Scan for Stuck Terminating
 while read -r ns name; do
     if [ -n "$name" ]; then
-        # Check if it's already in temp list
         IS_TEMP=0
         if [[ "$name" == *"-temp-"* ]]; then
              IS_TEMP=1
@@ -227,7 +191,7 @@ if [ ${#STUCK_JOBS[@]} -gt 0 ]; then
     echo "--------------------------------------------------------"
 fi
 
-# FIX 2: Stuck Terminating ORIGINAL PVCs (CRITICAL)
+# FIX 2: Stuck Terminating ORIGINAL PVCs
 if [ ${#TERMINATING_PVCS_ORIG[@]} -gt 0 ]; then
     echo "🚨 Found ${#TERMINATING_PVCS_ORIG[@]} ORIGINAL PVCs stuck in Terminating (Data Risk!):"
     for item in "${TERMINATING_PVCS_ORIG[@]}"; do
@@ -245,13 +209,10 @@ if [ ${#TERMINATING_PVCS_ORIG[@]} -gt 0 ]; then
             resurrect_pvc "$ns" "$name"
         done
     elif [[ $REPLY =~ ^[Dd]$ ]]; then
-         # Dangerous delete
          for item in "${TERMINATING_PVCS_ORIG[@]}"; do
             IFS='|' read -r ns name <<< "$item"
             log "Force Deleting $name (PV Protected)..."
-            # Protect anyway
-            PV_NAME=$(k get pvc "$name" -n "$ns" -o jsonpath='{.spec.volumeName}' 2>/dev/null)
-            if [ -n "$PV_NAME" ]; then k patch pv "$PV_NAME" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}' >/dev/null 2>&1; fi
+            protect_pv "$ns" "$name"
             k patch pvc "$name" -n "$ns" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
             k delete pvc "$name" -n "$ns" --force --grace-period=0 --wait=false 2>/dev/null || true
          done
@@ -276,8 +237,7 @@ if [ ${#TEMP_PVCS[@]} -gt 0 ]; then
             IFS='|' read -r ns name status <<< "$item"
             snapshot_pvc "$ns" "$name"
             # Delete logic
-             PV_NAME=$(k get pvc "$name" -n "$ns" -o jsonpath='{.spec.volumeName}' 2>/dev/null)
-             if [ -n "$PV_NAME" ]; then k patch pv "$PV_NAME" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}' >/dev/null 2>&1; fi
+             protect_pv "$ns" "$name"
              k patch pvc "$name" -n "$ns" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
              k delete pvc "$name" -n "$ns" --force --grace-period=0 --wait=false 2>/dev/null || true
         done
@@ -285,8 +245,7 @@ if [ ${#TEMP_PVCS[@]} -gt 0 ]; then
     elif [[ $REPLY =~ ^[Dd]$ ]]; then
         for item in "${TEMP_PVCS[@]}"; do
             IFS='|' read -r ns name status <<< "$item"
-            PV_NAME=$(k get pvc "$name" -n "$ns" -o jsonpath='{.spec.volumeName}' 2>/dev/null)
-            if [ -n "$PV_NAME" ]; then k patch pv "$PV_NAME" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}' >/dev/null 2>&1; fi
+            protect_pv "$ns" "$name"
             k patch pvc "$name" -n "$ns" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
             k delete pvc "$name" -n "$ns" --force --grace-period=0 --wait=false 2>/dev/null || true
         done
@@ -337,7 +296,6 @@ if [ ${#UNUSED_PVCS[@]} -gt 0 ]; then
     if [[ $REPLY =~ ^[Rr]$ ]]; then
         for item in "${UNUSED_PVCS[@]}"; do
             IFS='|' read -r ns name owner <<< "$item"
-            # Extract simple name from owner string
             target=$(echo "$owner" | awk '{print $1}')
             
             log "Scaling up $target in $ns..."
