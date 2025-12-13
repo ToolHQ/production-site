@@ -166,7 +166,8 @@ spec:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "Starting data copy with rsync..."
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          rsync -av --progress /source/ /dest/
+          # Use rsync with progress2 for total percentage
+          rsync -a --info=progress2 --no-inc-recursive /source/ /dest/
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "✓ Copy completed successfully!"
@@ -217,20 +218,33 @@ monitor_copy_job() {
         current_time=$(date +%s)
         elapsed=$((current_time - start_time))
         
-        # Check Job Status
+        # Check Job Status (Protected against SSH failure)
         JOB_STATUS=$(k get job $job_name -n $namespace -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "")
         JOB_FAILED=$(k get job $job_name -n $namespace -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || echo "")
         
+        # Check success via K8s Status
         if [ "$JOB_STATUS" = "True" ]; then
             echo ""
-            echo "  ✓ Copy job completed successfully!"
+            echo "  ✓ Copy job completed successfully! (Status Verified)"
             return 0
         fi
         
+        # Check Log Activity (Heartbeat) - Fetch more lines for content check
+        CURRENT_LOG_BLOCK=$(k logs job/$job_name -n $namespace --tail=50 2>/dev/null || echo "")
+        
+        if echo "$CURRENT_LOG_BLOCK" | grep -q "Copy completed successfully"; then
+             echo ""
+             echo "  ✓ Copy job completed successfully! (Log Verified)"
+             echo "  --------------------------------------------------"
+             echo "$CURRENT_LOG_BLOCK" | grep -v "Copy completed successfully" | tail -n 10
+             echo "  --------------------------------------------------"
+             return 0
+        fi
+
         if [ "$JOB_FAILED" = "True" ]; then
             echo ""
             echo "  ✗ ERROR: Copy job failed!"
-            k logs job/$job_name -n $namespace
+            k logs job/$job_name -n $namespace || true
             return 1
         fi
         
@@ -240,10 +254,9 @@ monitor_copy_job() {
              echo "  ✗ ERROR: Copy job exceeded global timeout of 24h"
              return 1
         fi
-        
-        # Check Log Activity (Heartbeat)
-        # Get last line of logs to see progress
-        CURRENT_LOG=$(k logs job/$job_name -n $namespace --tail=1 2>/dev/null)
+
+        # Extract last line for finding progress
+        CURRENT_LOG=$(echo "$CURRENT_LOG_BLOCK" | tail -1)
         
         if [ "$CURRENT_LOG" != "$last_log_content" ]; then
             last_log_change=$current_time
@@ -326,9 +339,8 @@ echo "  Creating new PVC with original name..."
 TEMP_PV_NAME=$(k get pvc $TEMP_PVC -n $NAMESPACE -o jsonpath='{.spec.volumeName}')
 
 # First, patch the PV to change its reclaim policy to Retain (prevent deletion)
-# Refactored: Use shared valid function
-protect_pv "$NAMESPACE" "$TEMP_PVC"
-if [ $? -ne 0 ]; then
+# Refactored: Use shared valid function (Protected call)
+if ! protect_pv "$NAMESPACE" "$TEMP_PVC"; then
     echo "  ✗ CRITICAL ERROR: Failed to set PV policy to Retain!"
     exit 1
 fi
@@ -383,7 +395,12 @@ done
 # CRITICAL: Now that PV is Released, we MUST clear the claimRef so it becomes Available
 # The controller adds the claimRef back upon deletion, so we clear it now.
 echo "  Cleaning up claimRef to make PV Available..."
-k patch pv $TEMP_PV_NAME -p '{"spec":{"claimRef":null}}'
+if ! OUTPUT=$(k patch pv $TEMP_PV_NAME -p '{\"spec\":{\"claimRef\":null}}' 2>&1); then
+    echo "  ✗ CRITICAL ERROR: Failed to clear claimRef on PV $TEMP_PV_NAME"
+    echo "    Error: $OUTPUT"
+    echo "    The PV is Retained but not Available. Manual 'kubectl edit pv' required."
+    exit 1
+fi
 sleep 2
 
 # Verify it is Available
