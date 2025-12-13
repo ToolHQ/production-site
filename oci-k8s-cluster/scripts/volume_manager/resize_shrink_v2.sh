@@ -196,37 +196,80 @@ echo "[7/9] Waiting for copy job to complete..."
 echo "  (This may take several minutes depending on data size)"
 echo ""
 
-for i in {1..90}; do
-    JOB_STATUS=$(ssh oci-k8s-master "kubectl get job $JOB_NAME -n $NAMESPACE -o jsonpath='{.status.conditions[?(@.type==\"Complete\")].status}'" 2>/dev/null || echo "")
-    JOB_FAILED=$(ssh oci-k8s-master "kubectl get job $JOB_NAME -n $NAMESPACE -o jsonpath='{.status.conditions[?(@.type==\"Failed\")].status}'" 2>/dev/null || echo "")
+# Smart monitoring function
+monitor_copy_job() {
+    local job_name=$1
+    local namespace=$2
+    local timeout_seconds=86400  # 24 hours max total time
+    local stall_timeout=300      # 5 minutes of no log activity
     
-    if [ "$JOB_STATUS" = "True" ]; then
-        echo ""
-        echo "  ✓ Copy job completed successfully!"
-        echo ""
-        echo "  Job logs (last 15 lines):"
-        echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        ssh oci-k8s-master "kubectl logs job/$JOB_NAME -n $NAMESPACE" | tail -15 | sed 's/^/  /'
-        echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        break
-    fi
+    local start_time=$(date +%s)
+    local last_log_change=$(date +%s)
+    local last_log_content=""
     
-    if [ "$JOB_FAILED" = "True" ]; then
-        echo ""
-        echo "  ✗ ERROR: Copy job failed!"
-        echo ""
-        ssh oci-k8s-master "kubectl logs job/$JOB_NAME -n $NAMESPACE"
-        exit 1
-    fi
+    echo "  Monitor initialized at $(date)"
+    echo "  Max duration: 24h | Stall timeout: 5m"
+    echo ""
     
-    if [ $((i % 10)) -eq 0 ]; then
-        echo "  Still copying... ($i/600 seconds)"
-    fi
-    sleep 1
-done
+    while true; do
+        current_time=$(date +%s)
+        elapsed=$((current_time - start_time))
+        
+        # Check Job Status
+        JOB_STATUS=$(ssh oci-k8s-master "kubectl get job $job_name -n $namespace -o jsonpath='{.status.conditions[?(@.type==\"Complete\")].status}'" 2>/dev/null || echo "")
+        JOB_FAILED=$(ssh oci-k8s-master "kubectl get job $job_name -n $namespace -o jsonpath='{.status.conditions[?(@.type==\"Failed\")].status}'" 2>/dev/null || echo "")
+        
+        if [ "$JOB_STATUS" = "True" ]; then
+            echo ""
+            echo "  ✓ Copy job completed successfully!"
+            return 0
+        fi
+        
+        if [ "$JOB_FAILED" = "True" ]; then
+            echo ""
+            echo "  ✗ ERROR: Copy job failed!"
+            ssh oci-k8s-master "kubectl logs job/$job_name -n $namespace"
+            return 1
+        fi
+        
+        # Check Total Timeout
+        if [ $elapsed -ge $timeout_seconds ]; then
+             echo ""
+             echo "  ✗ ERROR: Copy job exceeded global timeout of 24h"
+             return 1
+        fi
+        
+        # Check Log Activity (Heartbeat)
+        # Get last line of logs to see progress
+        CURRENT_LOG=$(ssh oci-k8s-master "kubectl logs job/$job_name -n $namespace --tail=1" 2>/dev/null)
+        
+        if [ "$CURRENT_LOG" != "$last_log_content" ]; then
+            last_log_change=$current_time
+            last_log_content="$CURRENT_LOG"
+            # Print update
+            echo "  Progressing: $CURRENT_LOG"
+        else
+            stall_time=$((current_time - last_log_change))
+            if [ $stall_time -ge $stall_timeout ]; then
+                echo ""
+                echo "  ✗ ERROR: Copy job stalled! No log output for $stall_time seconds."
+                echo "  Last output: $last_log_content"
+                return 1
+            fi
+            
+            # Print keepalive every 30s
+            if [ $((elapsed % 30)) -eq 0 ]; then
+                 echo "  Still copying... (Time: ${elapsed}s | Last update: ${stall_time}s ago)"
+            fi
+        fi
+        
+        sleep 5
+    done
+}
 
-if [ "$JOB_STATUS" != "True" ]; then
-    echo "  ✗ ERROR: Copy job timed out after 10 minutes"
+monitor_copy_job "$JOB_NAME" "$NAMESPACE"
+if [ $? -ne 0 ]; then
+    echo "  ✗ Copy job monitoring failed"
     exit 1
 fi
 echo ""
