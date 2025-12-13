@@ -58,7 +58,7 @@ trap cleanup_on_error ERR
 echo "[1/9] Getting current PVC information..."
 STORAGE_CLASS=$(k get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.storageClassName}')
 ACCESS_MODE=$(k get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.accessModes[0]}')
-CURRENT_SIZE=$(k get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.spec.resources.requests.storage}')
+CURRENT_SIZE=$(k get pvc $PVC_NAME -n $NAMESPACE -o jsonpath='{.status.capacity.storage}')
 
 echo "  Current Size:    $CURRENT_SIZE"
 echo "  Storage Class:   $STORAGE_CLASS"
@@ -333,7 +333,7 @@ if [ "$DELETED_OLD" != "true" ]; then
     fi
 fi
 
-echo "  Creating new PVC with original name..."
+echo "  Preparing PV for swap..."
 
 # Get the PV name from temp PVC before we lose it
 TEMP_PV_NAME=$(k get pvc $TEMP_PVC -n $NAMESPACE -o jsonpath='{.spec.volumeName}')
@@ -408,6 +408,7 @@ PV_STATUS=$(k get pv $TEMP_PV_NAME -o jsonpath='{.status.phase}' 2>/dev/null)
 echo "  PV Status after patch: $PV_STATUS"
 
 # Create new PVC with original name, binding to the existing PV
+echo "  Creating new PVC with original name..."
 cat <<EOF | k apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -458,13 +459,8 @@ k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=1
 echo "  ✓ Deployment scaled back to 1"
 echo ""
 
-# Cleanup job
-echo "Cleaning up copy job..."
-k delete job $JOB_NAME -n $NAMESPACE 2>/dev/null || true
-echo "  ✓ Job cleaned up"
-echo ""
 
-header "✓ SHRINK COMPLETED SUCCESSFULLY!"
+
 echo "Old Size: $CURRENT_SIZE"
 echo "New Size: $NEW_SIZE"
 echo ""
