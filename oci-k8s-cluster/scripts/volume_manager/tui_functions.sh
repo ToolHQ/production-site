@@ -217,7 +217,8 @@ volume_actions_menu() {
             "3" "Shrink Volume"
             "4" "Create Snapshot"
             "5" "Auto-Recover (N/A fix)"
-            "6" "Back"
+            "6" "Housekeeping (Fix Leftovers)"
+            "7" "Back"
         )
         
         local choice=$(whiptail --title "Volume Actions: $pvc_name" \
@@ -230,8 +231,12 @@ volume_actions_menu() {
             2) resize_volume_expand "$namespace" "$pvc_name" "$allocated" ;;
             3) resize_volume_shrink "$namespace" "$pvc_name" "$allocated" "$used" ;;
             4) create_volume_snapshot "$namespace" "$pvc_name" ;;
-            5) auto_recover_volume "$namespace" "$pvc_name" ;; # Assuming auto_recover_volume function exists or will be added
-            6|"") return ;;
+            5) auto_recover_volume "$namespace" "$pvc_name" ;; 
+            6) 
+                clear
+                bash scripts/volume_manager/housekeeping.sh
+                ;;
+            7|"") return ;;
         esac
     done
 }
