@@ -88,6 +88,7 @@ declare -a RESTORED_PVCS
 declare -a UNUSED_PVCS
 declare -a TERMINATING_PVCS_ORIG
 declare -a PENDING_PVCS
+declare -a SCALED_DOWN_APPS
 
 # 1. Scan for Stuck Copy Jobs
 while read -r ns name rest; do
@@ -171,6 +172,14 @@ while read -r ns name rest; do
         PENDING_PVCS+=("$ns|$name")
     fi
 done < <(k get pvc -A --no-headers 2>/dev/null | grep "Pending")
+
+# 7. Scan for Scaled Down Apps (New)
+# Find running deployments/statefulsets with 0 replicas that have Bound PVCs
+while read -r ns name kind; do
+    if [ -n "$name" ]; then
+        SCALED_DOWN_APPS+=("$ns|$kind|$name")
+    fi
+done < <(k get statefulset,deployment -A -o json 2>/dev/null | jq -r '.items[] | select(.spec.replicas == 0) | "\(.metadata.namespace) \(.metadata.name) \(.kind)"')
 
 
 # REPORT AND FIX
@@ -329,6 +338,32 @@ if [ ${#PENDING_PVCS[@]} -gt 0 ]; then
     done
     echo ""
     echo "💡 To fix these, use the 'Auto-Recover (N/A)' option in the Volume Manager menu."
+    echo "--------------------------------------------------------"
+fi
+
+# FIX 7: Scaled Down Apps (Auto-Recover)
+if [ ${#SCALED_DOWN_APPS[@]} -gt 0 ]; then
+    echo "⚠️  Found ${#SCALED_DOWN_APPS[@]} Scaled Down Applications (0 Replicas):"
+    for item in "${SCALED_DOWN_APPS[@]}"; do
+        IFS='|' read -r ns kind name <<< "$item"
+        echo "   • $kind: $ns / $name"
+    done
+    
+    echo ""
+    read -p "Scale these applications back up to 1 replica? (y/N) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        for item in "${SCALED_DOWN_APPS[@]}"; do
+            IFS='|' read -r ns kind name <<< "$item"
+            log "Scaling up $kind $name in $ns..."
+            if [ "$kind" == "StatefulSet" ]; then
+                k scale statefulset "$name" -n "$ns" --replicas=1 2>/dev/null || true
+            else
+                k scale deployment "$name" -n "$ns" --replicas=1 2>/dev/null || true
+            fi
+        done
+        log "✓ Applications scaled up."
+    fi
     echo "--------------------------------------------------------"
 fi
 
