@@ -1,7 +1,7 @@
 #!/bin/bash
 # housekeeping.sh
 # Analyzes cluster for stuck/residual volume operations and helps fix them.
-# v3: "Resurrection" (Re-establish) logic + Improved Owner Detection + Snapshot Safety.
+# v3.1: Fixes parsing bugs + Adds Pending PVC detection.
 
 # Source shared utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,7 +77,7 @@ EOF
     fi
 }
 
-header "VOLUME MANAGER HOUSEKEEPING v3"
+header "VOLUME MANAGER HOUSEKEEPING v3.1"
 echo "Analyzing cluster state..."
 echo ""
 
@@ -87,34 +87,34 @@ declare -a TEMP_PVCS
 declare -a RESTORED_PVCS
 declare -a UNUSED_PVCS
 declare -a TERMINATING_PVCS_ORIG
-declare -a TERMINATING_PVCS_TEMP
+declare -a PENDING_PVCS
 
 # 1. Scan for Stuck Copy Jobs
-while read -r ns name status age; do
+while read -r ns name rest; do
     if [ -n "$name" ]; then
-        STUCK_JOBS+=("$ns|$name|$status|$age")
+        STUCK_JOBS+=("$ns|$name")
     fi
 done < <(k get jobs -A --no-headers 2>/dev/null | grep "volume-copy-")
 
 # 2. Scan for Temp PVCs
-while read -r ns name status; do
+while read -r ns name rest; do
     if [ -n "$name" ]; then
-        TEMP_PVCS+=("$ns|$name|$status")
+        TEMP_PVCS+=("$ns|$name")
     fi
 done < <(k get pvc -A --no-headers 2>/dev/null | grep "\-temp-")
 
 # 3. Scan for "Restored" Leftovers (unused)
-while read -r ns name status; do
+while read -r ns name rest; do
     if [ -n "$name" ]; then
         IN_USE=$(k get pods -n "$ns" -o json 2>/dev/null | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$name\") | .metadata.name")
         if [ -z "$IN_USE" ]; then
-             RESTORED_PVCS+=("$ns|$name|$status")
+             RESTORED_PVCS+=("$ns|$name")
         fi
     fi
 done < <(k get pvc -A --no-headers 2>/dev/null | grep "\-restored")
 
 # 4. Scan for Unused/Detached PVCs
-while read -r ns name; do
+while read -r ns name rest; do
     if [ -n "$name" ]; then
         MOUNTED=$(k get pods -n "$ns" -o json 2>/dev/null | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$name\") | .metadata.name")
         
@@ -152,7 +152,7 @@ while read -r ns name; do
 done < <(k get pvc -A --no-headers 2>/dev/null | grep "Bound" | grep -v "\-temp-" | grep -v "\-restored")
 
 # 5. Scan for Stuck Terminating
-while read -r ns name; do
+while read -r ns name rest; do
     if [ -n "$name" ]; then
         IS_TEMP=0
         if [[ "$name" == *"-temp-"* ]]; then
@@ -165,6 +165,13 @@ while read -r ns name; do
     fi
 done < <(k get pvc -A --no-headers 2>/dev/null | grep "Terminating")
 
+# 6. Scan for Pending PVCs (New)
+while read -r ns name rest; do
+    if [ -n "$name" ]; then
+        PENDING_PVCS+=("$ns|$name")
+    fi
+done < <(k get pvc -A --no-headers 2>/dev/null | grep "Pending")
+
 
 # REPORT AND FIX
 # =========================================================
@@ -173,8 +180,8 @@ done < <(k get pvc -A --no-headers 2>/dev/null | grep "Terminating")
 if [ ${#STUCK_JOBS[@]} -gt 0 ]; then
     echo "⚠️  Found ${#STUCK_JOBS[@]} Stuck Copy Jobs:"
     for item in "${STUCK_JOBS[@]}"; do
-        IFS='|' read -r ns name status age <<< "$item"
-        echo "   • $ns / $name (Status: $status)"
+        IFS='|' read -r ns name <<< "$item"
+        echo "   • $ns / $name"
     done
     
     echo ""
@@ -182,7 +189,7 @@ if [ ${#STUCK_JOBS[@]} -gt 0 ]; then
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         for item in "${STUCK_JOBS[@]}"; do
-            IFS='|' read -r ns name status age <<< "$item"
+            IFS='|' read -r ns name <<< "$item"
             log "Deleting $name..."
             k delete job "$name" -n "$ns" --force --grace-period=0 2>/dev/null || true
         done
@@ -224,7 +231,7 @@ fi
 if [ ${#TEMP_PVCS[@]} -gt 0 ]; then
     echo "⚠️  Found ${#TEMP_PVCS[@]} Residual Temporary PVCs:"
     for item in "${TEMP_PVCS[@]}"; do
-        IFS='|' read -r ns name status <<< "$item"
+        IFS='|' read -r ns name <<< "$item"
         echo "   • $ns / $name"
     done
     
@@ -234,7 +241,7 @@ if [ ${#TEMP_PVCS[@]} -gt 0 ]; then
     echo ""
     if [[ $REPLY =~ ^[Ss]$ ]]; then
         for item in "${TEMP_PVCS[@]}"; do
-            IFS='|' read -r ns name status <<< "$item"
+            IFS='|' read -r ns name <<< "$item"
             snapshot_pvc "$ns" "$name"
             # Delete logic
              protect_pv "$ns" "$name"
@@ -244,7 +251,7 @@ if [ ${#TEMP_PVCS[@]} -gt 0 ]; then
         log "✓ Temp PVCs snapshotted and deleted."
     elif [[ $REPLY =~ ^[Dd]$ ]]; then
         for item in "${TEMP_PVCS[@]}"; do
-            IFS='|' read -r ns name status <<< "$item"
+            IFS='|' read -r ns name <<< "$item"
             protect_pv "$ns" "$name"
             k patch pvc "$name" -n "$ns" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
             k delete pvc "$name" -n "$ns" --force --grace-period=0 --wait=false 2>/dev/null || true
@@ -258,7 +265,7 @@ fi
 if [ ${#RESTORED_PVCS[@]} -gt 0 ]; then
     echo "ℹ️  Found ${#RESTORED_PVCS[@]} Unused 'Restored' PVCs:"
     for item in "${RESTORED_PVCS[@]}"; do
-        IFS='|' read -r ns name status <<< "$item"
+        IFS='|' read -r ns name <<< "$item"
         echo "   • $ns / $name"
     done
     
@@ -268,13 +275,13 @@ if [ ${#RESTORED_PVCS[@]} -gt 0 ]; then
     echo ""
      if [[ $REPLY =~ ^[Ss]$ ]]; then
         for item in "${RESTORED_PVCS[@]}"; do
-            IFS='|' read -r ns name status <<< "$item"
+            IFS='|' read -r ns name <<< "$item"
             snapshot_pvc "$ns" "$name"
             k delete pvc "$name" -n "$ns" 2>/dev/null || true
         done
     elif [[ $REPLY =~ ^[Dd]$ ]]; then
         for item in "${RESTORED_PVCS[@]}"; do
-            IFS='|' read -r ns name status <<< "$item"
+            IFS='|' read -r ns name <<< "$item"
              k delete pvc "$name" -n "$ns" 2>/dev/null || true
         done
     fi
@@ -311,6 +318,18 @@ if [ ${#UNUSED_PVCS[@]} -gt 0 ]; then
         done
     fi
      echo "--------------------------------------------------------"
+fi
+
+# FIX 6: Pending PVCs
+if [ ${#PENDING_PVCS[@]} -gt 0 ]; then
+    echo "🚨 Found ${#PENDING_PVCS[@]} Pending PVCs (Not Bound!):"
+    for item in "${PENDING_PVCS[@]}"; do
+        IFS='|' read -r ns name <<< "$item"
+        echo "   • $ns / $name"
+    done
+    echo ""
+    echo "💡 To fix these, use the 'Auto-Recover (N/A)' option in the Volume Manager menu."
+    echo "--------------------------------------------------------"
 fi
 
 echo ""

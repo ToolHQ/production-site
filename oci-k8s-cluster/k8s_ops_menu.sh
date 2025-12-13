@@ -1353,12 +1353,6 @@ $(t "back")"
                 fi
                 read -p "$(t "press_enter")"
                 ;;
-            8)
-                schedule_snapshots
-                ;;
-            0)
-                return
-                ;;
             5)
                 # Auto-Install Root CA (Selectable)
                 echo -e "${BLUE}🪄 Auto-Installing Root CA...${NC}"
@@ -1439,6 +1433,9 @@ $(t "back")"
                 fi
                 
                 read -p "$(t "press_enter")"
+                ;;
+            0)
+                return
                 ;;
         esac
     done
@@ -1819,6 +1816,7 @@ schedule_snapshots() {
 6. Restore from Backup/Snapshot 🔄
 7. Manage Backups/Snapshots 🗂️
 8. Schedule Snapshots ⏰
+9. Housekeeping (Cluster PVC Recovery) 🧹
 0. Back"
         
         local choice
@@ -2319,6 +2317,20 @@ EOF
                 ;;
             7)
                 manage_snapshots
+                ;;
+            8)
+                schedule_snapshots
+                ;;
+            9)
+                clear
+                # Execute in subshell to isolate environment and exit codes
+                (bash scripts/volume_manager/housekeeping.sh < /dev/tty) || true
+                
+                # Restore terminal state
+                stty sane
+                
+                echo ""
+                read -p "Press Enter to return to menu..."
                 ;;
             0)
                 return
