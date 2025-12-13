@@ -64,31 +64,44 @@ if [ "$STORAGE_CLASS" = "manual" ] || [ "$STORAGE_CLASS" = "hostpath" ]; then
         USAGE="N/A" # No quota on hostPath usually
     fi
 else
-    # Standard/Longhorn: Use df
+    # Standard/Longhorn: Use df -P -k (POSIX, 1K blocks) to avoid wrapping and get raw numbers
     # grep for mount path at end of line to ensure we match the correct line
-    DF_OUT=$(k_exec "kubectl exec -n $NS $POD -c $CONTAINER_NAME -- df -h 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
+    DF_OUT=$(k_exec "kubectl exec -n $NS $POD -c $CONTAINER_NAME -- df -P -k 2>/dev/null" 2>/dev/null | grep " $MOUNT_PATH\$")
     
     if [ -n "$DF_OUT" ]; then
-        # Handle wrapped df output common in k8s (Long filesystem names wrap to next line)
-        # Normal:   Filesystem Size Used Avail Use% Mounted on (6 fields)
-        # Wrapped:             Size Used Avail Use% Mounted on (5 fields)
+        # Parse raw blocks (1K units)
+        # $2 = Total, $3 = Used
+        # Return: HUMAND_READABLE_USED|PERCENTAGE
         
-        NUM_FIELDS=$(echo "$DF_OUT" | awk '{print NF}')
+        STATS=$(echo "$DF_OUT" | awk '{
+            used_k = $3;
+            total_k = $2;
+            
+            # Formatting Human Readable (simulating df -h but with Ki/Mi/Gi)
+            human_used = "";
+            if (used_k < 1024) {
+                 human_used = sprintf("%.0fKi", used_k);
+            } else {
+                 used_m = used_k / 1024;
+                 if (used_m < 1024) {
+                     human_used = sprintf("%.1fMi", used_m);
+                 } else {
+                     used_g = used_m / 1024;
+                     human_used = sprintf("%.1fGi", used_g);
+                 }
+            }
+            
+            # Calculate Percentage with 2 decimal places
+            if (total_k > 0) {
+                pct = (used_k / total_k) * 100;
+                printf "%s|%.2f%%", human_used, pct;
+            } else {
+                printf "%s|N/A", human_used;
+            }
+        }')
         
-        if [ "$NUM_FIELDS" -eq 6 ]; then
-            RAW_USED=$(echo "$DF_OUT" | awk '{print $3}')
-            PCT=$(echo "$DF_OUT" | awk '{print $5}')
-        elif [ "$NUM_FIELDS" -eq 5 ]; then
-            RAW_USED=$(echo "$DF_OUT" | awk '{print $2}')
-            PCT=$(echo "$DF_OUT" | awk '{print $4}')
-        else
-            # Unexpected format, try to find % field
-            PCT=$(echo "$DF_OUT" | grep -o "[0-9]*%")
-            RAW_USED="N/A"
-        fi
-        
-        USED=$(echo "$RAW_USED" | sed "s/^\([0-9.]*\)\([KMGT]\)$/\1\2i/")
-        USAGE="$PCT"
+        USED=$(echo "$STATS" | cut -d'|' -f1)
+        USAGE=$(echo "$STATS" | cut -d'|' -f2)
     fi
 fi
 
