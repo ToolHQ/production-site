@@ -32,14 +32,34 @@ CURRENT_SIZE=$(k get pvc "$PVC_NAME" -n "$NAMESPACE" -o jsonpath='{.status.capac
 echo "Current Size: $CURRENT_SIZE"
 
 # Patch PVC
+# Patch PVC (Escaping for SSH wrapper)
 echo "Expanding PVC..."
-k patch pvc "$PVC_NAME" -n "$NAMESPACE" -p "{\"spec\":{\"resources\":{\"requests\":{\"storage\":\"$NEW_SIZE\"}}}}"
+PATCH_DATA="{\"spec\":{\"resources\":{\"requests\":{\"storage\":\"$NEW_SIZE\"}}}}"
+k patch pvc "$PVC_NAME" -n "$NAMESPACE" -p "'$PATCH_DATA'"
 
 echo "⏳ Waiting for expansion to complete..."
-sleep 5
 
-# Check new size
-NEW_ACTUAL=$(k get pvc "$PVC_NAME" -n "$NAMESPACE" -o jsonpath='{.status.capacity.storage}')
+# Polling loop (Max 60s)
+MAX_RETRIES=30
+COUNT=0
+NEW_ACTUAL=""
+
+while [ $COUNT -lt $MAX_RETRIES ]; do
+    sleep 2
+    NEW_ACTUAL=$(k get pvc "$PVC_NAME" -n "$NAMESPACE" -o jsonpath='{.status.capacity.storage}')
+    
+    # If NEW_ACTUAL is empty or matches old size, keep waiting
+    # Note: We can't easily compare strings like "512Mi" > "480Mi" purely in bash without standardizing units
+    # So we check if it matches the TARGET size exactly.
+    
+    if [ "$NEW_ACTUAL" == "$NEW_SIZE" ]; then
+        break
+    fi
+    
+    echo -ne "   Waiting... ($((COUNT * 2))s)\r"
+    COUNT=$((COUNT + 1))
+done
+echo ""
 
 echo ""
 header "EXPANSION COMPLETE"
