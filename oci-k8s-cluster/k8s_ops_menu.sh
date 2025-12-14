@@ -3139,6 +3139,7 @@ $(t "menu_security")
 $(t "menu_backup")
 $(t "menu_volumes")
 $(t "menu_disk_optimizer")
+$(t "menu_node_fixer")
 $(t "menu_exit")"
 
     local selected
@@ -3380,6 +3381,10 @@ $(t "menu_exit")"
         # Node Disk Optimizer
         source scripts/disk_manager/tui_disk.sh
         node_disk_optimizer_menu
+        ;;
+      18)
+        source "$SCRIPT_DIR/scripts/node_fixer/tui_node_fixer.sh"
+        longhorn_fixer_menu
         ;;
       0)
         echo "Bye!"
