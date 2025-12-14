@@ -203,6 +203,7 @@ volume_actions_menu() {
             "4" "Create Snapshot"
             "5" "Auto-Recover (N/A fix)"
             "6" "Back"
+            "7" "Manage Backup Policies (Auto-Snapshot) 🛡️"
         )
         
         local choice=$(whiptail --title "Volume Actions: $pvc_name" \
@@ -216,7 +217,9 @@ volume_actions_menu() {
             3) resize_volume_shrink "$namespace" "$pvc_name" "$allocated" "$used" ;;
             4) create_volume_snapshot "$namespace" "$pvc_name" ;;
             5) auto_recover_volume "$namespace" "$pvc_name" ;; 
-            6|"") return ;;
+            6) return ;;
+            7) manage_backup_policy ;;
+            "") return ;;
         esac
     done
 }
@@ -455,6 +458,19 @@ auto_recover_volume() {
     # Execute auto-recovery
     bash scripts/volume_manager/auto_recover.sh "$namespace" "$pvc_name" "$deployment"
     
+    echo ""
+    read -p "Press ENTER to continue..."
+}
+
+# Manage Backup Policy
+manage_backup_policy() {
+    if ! whiptail --title "Backup Policy Manager (Gold Standard)" \
+        --yesno "Apply 'Gold Standard' Policy to ALL volumes?\n\n1. Snapshots: Every 1h (Keep 5)\n2. Backups: Daily @ 03:00 (Keep 7)\n\nThis creates Longhorn RecurringJobs and binds all volumes to them." 14 70; then
+        return
+    fi
+    
+    clear
+    bash scripts/volume_manager/apply_policy.sh
     echo ""
     read -p "Press ENTER to continue..."
 }
