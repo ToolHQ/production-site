@@ -32,6 +32,10 @@ t() {
                 "menu_update") echo "11. Atualização Segura de Nó (OS/Kernel) 🔄" ;;
                 "menu_maintenance") echo "12. Manutenção do Cluster (Setup/Reparo/Restaurar) 🛠️" ;;
                 "menu_preferences") echo "13. Preferências ⚙️" ;;
+                "menu_security") echo "14. Segurança & TLS (Certificados/Políticas) 🔒" ;;
+                "menu_backup") echo "15. Backup & Recuperação de Desastres 💾" ;;
+                "menu_volumes") echo "16. Gerenciar Volumes (Resize/Snapshots) 💿" ;;
+                "menu_disk_optimizer") echo "17. Otimizador de Disco em Nós (Limpeza de Imagens) 💽" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -141,6 +145,10 @@ t() {
                 "menu_update") echo "11. Safe Node Update (OS/Kernel) 🔄" ;;
                 "menu_maintenance") echo "12. Cluster Maintenance (Setup/Repair/Heal) 🛠️" ;;
                 "menu_preferences") echo "13. Preferences ⚙️" ;;
+                "menu_security") echo "14. Security & TLS (Certificates/Policies) 🔒" ;;
+                "menu_backup") echo "15. Backup & Disaster Recovery 💾" ;;
+                "menu_volumes") echo "16. Manage Volumes (Resize/Snapshots) 💿" ;;
+                "menu_disk_optimizer") echo "17. Node Disk Optimizer (Image Prune) 💽" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
