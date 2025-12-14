@@ -21,6 +21,29 @@ CYAN='\033[0;36m'
 GRAY='\033[1;30m'
 NC='\033[0m' # No Color
 
+# Fix for "Horrible Pink Background"
+# Sets whiptail theme to Black/Grayscale + Cyan
+export NEWT_COLORS='
+root=,black
+window=,black
+border=white,black
+shadow=,black
+button=black,cyan
+actbutton=black,cyan
+compactbutton=,black
+title=yellow,black
+textbox=,black
+acttextbox=black,cyan
+entry=,black
+disentry=gray,black
+checkbox=,black
+actcheckbox=black,cyan
+listbox=,black
+actlistbox=black,cyan
+sellistbox=black,cyan
+actsellistbox=black,cyan
+'
+
 # State variables
 CURRENT_NS="default"
 CURRENT_POD=""
@@ -2748,7 +2771,6 @@ auto_forward_ports() {
     
     echo -e "${BLUE}$(t "auto_ports_starting")${NC}"
     
-    # Iterate through configured ports
     local i=0
     while [ $i -lt $port_count ]; do
         local namespace=$(echo "$auto_ports" | jq -r ".[$i].namespace")
@@ -3116,6 +3138,7 @@ $(t "menu_preferences")
 $(t "menu_security")
 $(t "menu_backup")
 $(t "menu_volumes")
+$(t "menu_disk_optimizer")
 $(t "menu_exit")"
 
     local selected
@@ -3352,6 +3375,11 @@ $(t "menu_exit")"
         # Volume Manager (T-017)
         source scripts/volume_manager/tui_functions.sh
         manage_volumes
+        ;;
+      17)
+        # Node Disk Optimizer
+        source scripts/disk_manager/tui_disk.sh
+        node_disk_optimizer_menu
         ;;
       0)
         echo "Bye!"
