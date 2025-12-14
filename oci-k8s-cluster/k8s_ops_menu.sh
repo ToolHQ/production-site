@@ -3140,6 +3140,7 @@ $(t "menu_backup")
 $(t "menu_volumes")
 $(t "menu_disk_optimizer")
 $(t "menu_node_fixer")
+$(t "menu_sys_cleaner")
 $(t "menu_exit")"
 
     local selected
@@ -3385,6 +3386,10 @@ $(t "menu_exit")"
       18)
         source "$SCRIPT_DIR/scripts/node_fixer/tui_node_fixer.sh"
         longhorn_fixer_menu
+        ;;
+      19)
+        source "$SCRIPT_DIR/scripts/system_cleaner/tui_system_cleaner.sh"
+        system_cleaner_menu
         ;;
       0)
         echo "Bye!"

@@ -37,6 +37,7 @@ t() {
                 "menu_volumes") echo "16. Gerenciar Volumes (Resize/Snapshots) 💿" ;;
                 "menu_disk_optimizer") echo "17. Otimizador de Disco em Nós (Limpeza de Imagens) 💽" ;;
                 "menu_node_fixer") echo "18. Node Fixer (Dependências Longhorn: dm_crypt/multipath) 🔧" ;;
+                "menu_sys_cleaner") echo "19. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -151,6 +152,7 @@ t() {
                 "menu_volumes") echo "16. Manage Volumes (Resize/Snapshots) 💿" ;;
                 "menu_disk_optimizer") echo "17. Node Disk Optimizer (Image Prune) 💽" ;;
                 "menu_node_fixer") echo "18. Node Fixer (Longhorn Reqs: dm_crypt/multipath) 🔧" ;;
+                "menu_sys_cleaner") echo "19. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
