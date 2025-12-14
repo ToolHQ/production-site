@@ -1071,6 +1071,13 @@ ingress_menu() {
                     start_tunnel "$ns" "$name" "443" "$https_port" "Ingress HTTPS" "true"
                 fi
                 
+                # Also create TCP tunnel for MySQL if port is exposed
+                local mysql_port=$(echo "$ports" | grep -oP 'mysql:\K[0-9]+')
+                if [ -n "$mysql_port" ]; then
+                    echo -e "${BLUE}Creating MySQL TCP tunnel (local 3306 → remote $mysql_port)...${NC}"
+                    start_tunnel "$ns" "$name" "3306" "$mysql_port" "DeepFlow MySQL" "true"
+                fi
+
                 # Also create TCP tunnel for PostgreSQL if port is exposed
                 if [ -n "$postgres_port" ]; then
                     echo -e "${BLUE}Creating PostgreSQL TCP tunnel (local 5432 → remote $postgres_port)...${NC}"
@@ -1268,6 +1275,7 @@ security_menu() {
     while true; do
         local menu="$(t "sec_check_certs")
 $(t "sec_view_policies")
+$(t "sec_audit_log")
 $(t "sec_force_renew")
 $(t "sec_export_ca")
 $(t "sec_install_ca")
@@ -1298,6 +1306,9 @@ $(t "back")"
                 read -p "$(t "press_enter")"
                 ;;
             3)
+                security_audit_menu
+                ;;
+            4)
                 # Force Renew (Delete Certificate)
                 echo -e "${BLUE}🔄 Select Certificate to Renew (Delete):${NC}"
                 local certs
@@ -1322,7 +1333,7 @@ $(t "back")"
                     sleep 2
                 fi
                 ;;
-            4)
+            5)
                 # Export Root CA (Selectable)
                 echo -e "${BLUE}🔍 Fetching Cluster Issuers...${NC}"
                 
@@ -1376,7 +1387,7 @@ $(t "back")"
                 fi
                 read -p "$(t "press_enter")"
                 ;;
-            5)
+            6)
                 # Auto-Install Root CA (Selectable)
                 echo -e "${BLUE}🪄 Auto-Installing Root CA...${NC}"
                 
@@ -3108,6 +3119,62 @@ $(t "prefs_back")"
     done
 }
 
+# --- SECURITY AUDIT ---
+
+security_audit_menu() {
+  while true; do
+    local log_file="/var/log/k8s_ops.log"
+    # Fallback if no sudo access
+    if [ ! -f "$log_file" ] && [ -f "$HOME/.k8s_ops.log" ]; then
+      log_file="$HOME/.k8s_ops.log"
+    fi
+
+    echo -e "${BLUE}🛡️  Security Audit Menu${NC}"
+    echo ""
+    echo "1. View Audit Log (Last 50 entries) 📜"
+    echo "2. View Audit Log (Full / Interactive) 🔍"
+    echo "3. Scan Known Hosts (Fixes MITM Risk) 🔑"
+    echo "0. Back"
+    echo ""
+    read -p "Choose option: " choice
+
+    case "$choice" in
+      1)
+        clear
+        echo -e "${YELLOW}Last 50 Audit Entries:${NC}"
+        echo "------------------------------------------------"
+        if [ -f "$log_file" ]; then
+            tail -n 50 "$log_file"
+        else
+            echo "No audit log found at $log_file"
+        fi
+        echo ""
+        read -p "Press Enter..."
+        ;;
+      2)
+        if [ -f "$log_file" ]; then
+            less +G "$log_file"
+        else
+            echo "No audit log found."
+            sleep 2
+        fi
+        ;;
+      3)
+        echo -e "${YELLOW}Running SSH Host Key Scanner...${NC}"
+        source scripts/security/scan_known_hosts.sh
+        read -p "Press Enter..."
+        ;;
+      0)
+        return
+        ;;
+      *)
+        echo "Invalid option"
+        sleep 1
+        ;;
+    esac
+  done
+}
+
 # --- TUNNEL MANAGEMENT ---
 
 main_menu() {
@@ -3134,7 +3201,6 @@ $(t "menu_all_pods")
 $(t "menu_nodes")
 $(t "menu_update")
 $(t "menu_maintenance")
-$(t "menu_preferences")
 $(t "menu_security")
 $(t "menu_backup")
 $(t "menu_volumes")
@@ -3142,6 +3208,8 @@ $(t "menu_disk_optimizer")
 $(t "menu_node_fixer")
 $(t "menu_sys_cleaner")
 $(t "menu_kubecost")
+$(t "menu_deepflow")
+$(t "menu_preferences")
 $(t "menu_exit")"
 
     local selected
@@ -3211,7 +3279,7 @@ $(t "menu_exit")"
             printf "%-20s %-8s %-10s %-15s %-12s %-6s\n" "NODE" "STATUS" "CONDITION" "ROLE" "VERSION" "AGE"
             while IFS='|' read -r name icon status role version age; do
               printf "%-20s %-8s %-10s %-15s %-12s %-6s\n" "$name" "$icon" "$status" "$role" "$version" "$age"
-            done < /tmp/nodes_$$.txt
+            done < /tmp/nodes_display_$$.txt
           } > /tmp/nodes_display_$$.txt
           
           
@@ -3306,8 +3374,10 @@ $(t "menu_exit")"
                 ;;
               6)
                 echo -e "${YELLOW}Uncordoning $selected_node...${NC}"
-                run_kubectl "uncordon $selected_node"
-                echo -e "${GREEN}✅ Node uncordoned (scheduling enabled)${NC}"
+                if run_kubectl "uncordon $selected_node"; then
+                    echo -e "${GREEN}✅ Node uncordoned (scheduling enabled)${NC}"
+                    log_action "NODE" "Uncordon" "$selected_node"
+                fi
                 read -p "Press Enter to continue..."
                 ;;
               7)
@@ -3315,8 +3385,10 @@ $(t "menu_exit")"
                 read -p "Type 'yes' to confirm: " confirm
                 if [ "$confirm" = "yes" ]; then
                   echo -e "${YELLOW}Draining $selected_node...${NC}"
-                  run_kubectl "drain $selected_node --ignore-daemonsets --delete-emptydir-data"
-                  echo -e "${GREEN}✅ Node drained${NC}"
+                  if run_kubectl "drain $selected_node --ignore-daemonsets --delete-emptydir-data --force --timeout=30s"; then
+                    echo -e "${GREEN}✅ Node drained${NC}"
+                    log_action "NODE" "Drain" "$selected_node"
+                  fi
                 else
                   echo "Cancelled."
                 fi
@@ -3366,34 +3438,43 @@ $(t "menu_exit")"
         cluster_maintenance_menu
         ;;
       13)
-        preferences_menu
+        security_menu # Now includes audit functionality
         ;;
       14)
-        security_menu
-        ;;
-      15)
         backup_menu
         ;;
-      16)
+      15)
         # Volume Manager (T-017)
         source scripts/volume_manager/tui_functions.sh
         manage_volumes
         ;;
-      17)
-        # Node Disk Optimizer
+      16)
+        # Disk Optimizer (T-013 Refactored)
         source scripts/disk_manager/tui_disk.sh
-        node_disk_optimizer_menu
+        image_manager_menu
+        ;;
+      17)
+        # Node Fixer (T-017.1)
+        source scripts/node_fixer/tui_node_fixer.sh
+        node_fixer_menu
         ;;
       18)
-        source "$SCRIPT_DIR/scripts/node_fixer/tui_node_fixer.sh"
-        longhorn_fixer_menu
+        # System Cleaner (Hidden/Advanced)
+        system_cleaner_menu
         ;;
       19)
-        bash "$SCRIPT_DIR/scripts/system_cleaner/tui_system_cleaner.sh"
+        # Kubecost
+        source scripts/finops/kubecost_view.sh
+        kubecost_menu
         ;;
       20)
-        # Execute in subshell to avoid SCRIPT_DIR pollution
-        bash "$SCRIPT_DIR/scripts/finops/kubecost_view.sh"
+        # DeepFlow
+        ./scripts/observability/install_deepflow.sh
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      21)
+        preferences_menu
         ;;
       0)
         echo "Bye!"

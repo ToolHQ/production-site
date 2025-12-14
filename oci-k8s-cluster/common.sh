@@ -32,6 +32,20 @@ STORAGE_PROVISIONER="${STORAGE_PROVISIONER:-longhorn}" # Default: longhorn, alte
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/oci-ssh-key-2025-06-19.key}"
 RUN_REMOTE_CAPTURE_RESULT=""
 
+# Source Audit Library
+if [[ -f "$SCRIPT_DIR/lib/audit.sh" ]]; then
+    source "$SCRIPT_DIR/lib/audit.sh"
+elif [[ -f "$(dirname "$0")/lib/audit.sh" ]]; then
+    source "$(dirname "$0")/lib/audit.sh"
+fi
+
+# Source Credential Store Library
+if [[ -f "$SCRIPT_DIR/lib/credstore.sh" ]]; then
+    source "$SCRIPT_DIR/lib/credstore.sh"
+elif [[ -f "$(dirname "$0")/lib/credstore.sh" ]]; then
+    source "$(dirname "$0")/lib/credstore.sh"
+fi
+
 # === Helpers ====================================================
 log_node() { 
   # $1 = node name, $2+ = message
@@ -50,7 +64,7 @@ run_remote() {
   local delay=5
 
   while [ $count -lt $retries ]; do
-    if ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    if ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
         -n -T "$node" "$@" 2>&1 | sed "s/^/[$node] /"; then
       return 0
     else
@@ -83,7 +97,7 @@ run_remote_stream() {
   fi
 
   while [ $count -lt $retries ]; do
-    if ssh $use_tty -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    if ssh $use_tty -o BatchMode=yes -o ConnectTimeout=30 -o StrictHostKeyChecking=accept-new \
         "$node" "$@" 2>&1 | while IFS= read -r line; do echo "[$node] $line"; done; then
       return 0
     else
@@ -113,7 +127,7 @@ run_remote_capture() {
   local status
 
   while [ $count -lt $retries ]; do
-    output=$(ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    output=$(ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
                 -n -T "$node" "$cmd" 2>&1)
     status=$?
 
@@ -147,8 +161,7 @@ run_remote_raw() {
   while [ $count -lt $retries ]; do
     if ssh -o BatchMode=yes \
         -o ConnectTimeout=20 \
-        -o StrictHostKeyChecking=no \
-        -o UserKnownHostsFile=/dev/null \
+        -o StrictHostKeyChecking=accept-new \
         -n -T "$node" "$@"; then
       return 0
     else
@@ -169,7 +182,7 @@ scp_to_remote() {
   local node="$1"
   local src="$2"
   local dest="$3"
-  scp -r -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+  scp -r -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
       "$src" "$node:$dest"
   log_node "$node" "📤 Copied $src to $dest"
 }

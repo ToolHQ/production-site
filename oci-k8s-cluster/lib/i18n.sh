@@ -39,6 +39,7 @@ t() {
                 "menu_node_fixer") echo "18. Node Fixer (Dependências Longhorn: dm_crypt/multipath) 🔧" ;;
                 "menu_sys_cleaner") echo "19. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
                 "menu_kubecost") echo "20. Cost Optimization (Kubecost Reports) 💰" ;;
+                "menu_deepflow") echo "21. DeepFlow (Observabilidade eBPF) 🕵️‍♂️" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -147,14 +148,15 @@ t() {
                 "menu_nodes") echo "10. Node Status" ;;
                 "menu_update") echo "11. Safe Node Update (OS/Kernel) 🔄" ;;
                 "menu_maintenance") echo "12. Cluster Maintenance (Setup/Repair/Heal) 🛠️" ;;
-                "menu_preferences") echo "13. Preferences ⚙️" ;;
-                "menu_security") echo "14. Security & TLS (Certificates/Policies) 🔒" ;;
-                "menu_backup") echo "15. Backup & Disaster Recovery 💾" ;;
-                "menu_volumes") echo "16. Manage Volumes (Resize/Snapshots) 💿" ;;
-                "menu_disk_optimizer") echo "17. Node Disk Optimizer (Image Prune) 💽" ;;
-                "menu_node_fixer") echo "18. Node Fixer (Longhorn Reqs: dm_crypt/multipath) 🔧" ;;
-                "menu_sys_cleaner") echo "19. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
-                "menu_kubecost") echo "20. Cost Optimization (Kubecost Reports) 💰" ;;
+                "menu_security") echo "13. Security & Audit 🔒" ;;
+                "menu_backup") echo "14. Backup & Disaster Recovery 💾" ;;
+                "menu_volumes") echo "15. Manage Volumes (Resize/Snapshots) 💿" ;;
+                "menu_disk_optimizer") echo "16. Node Disk Optimizer (Image Prune) 📀" ;;
+                "menu_node_fixer") echo "17. Node Fixer (Longhorn Reqs: dm_crypt/multipath) 🔧" ;;
+                "menu_sys_cleaner") echo "18. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
+                "menu_kubecost") echo "19. Cost Optimization (Kubecost Reports) 💰" ;;
+                "menu_deepflow") echo "20. DeepFlow (eBPF Observability) 🔭" ;;
+                "menu_preferences") echo "21. Preferences ⚙️" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
@@ -223,12 +225,13 @@ t() {
                 
                 # Security Menu
                 "menu_security") echo "14. Security & TLS (Certificates/Policies) 🔒" ;;
-                "sec_menu_title") echo "Security & TLS Management" ;;
+                "sec_menu_title") echo "Security & Audit Management" ;;
                 "sec_check_certs") echo "1. Check Certificate Status 📜" ;;
                 "sec_view_policies") echo "2. View Network Policies 🛡️" ;;
-                "sec_force_renew") echo "3. Force Certificate Renewal 🔄" ;;
-                "sec_export_ca") echo "4. Export Root CA (For Browser Import) 📥" ;;
-                "sec_install_ca") echo "5. Auto-Install Root CA (Windows/WSL) 🪄" ;;
+                "sec_audit_log") echo "3. View Audit Logs 📜" ;;
+                "sec_force_renew") echo "4. Force Certificate Renewal 🔄" ;;
+                "sec_export_ca") echo "5. Export CA (kubeconfig) 📤" ;;
+                "sec_install_ca") echo "6. Install CA (Local Trust) 📥" ;;
                 
                 # Backup Menu
                 "menu_backup") echo "15. Backup & Disaster Recovery 💾" ;;
