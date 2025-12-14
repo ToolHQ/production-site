@@ -2,9 +2,9 @@
 # tui_system_cleaner.sh
 # TUI wrapper for System Cleaner (Log Vacuum / Package Autoremove)
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../../common.sh"
-source "$SCRIPT_DIR/../../lib/i18n.sh"
+CLEANER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$CLEANER_DIR/../../common.sh"
+source "$CLEANER_DIR/../../lib/i18n.sh"
 
 
 system_cleaner_menu() {
@@ -45,7 +45,7 @@ system_cleaner_menu() {
             fi
             
             for node in "${NODES[@]}"; do
-                "$SCRIPT_DIR/run_system_cleaner.sh" "$node"
+                "$CLEANER_DIR/run_system_cleaner.sh" "$node"
             done
             
             whiptail --title "Success" --msgbox "System Cleanup initiated on ALL nodes." 8 50
@@ -56,7 +56,7 @@ system_cleaner_menu() {
             fi
             
             clear
-            "$SCRIPT_DIR/run_system_cleaner.sh" "$SELECTED_NODE"
+            "$CLEANER_DIR/run_system_cleaner.sh" "$SELECTED_NODE"
             
             echo ""
             echo "Press ENTER to continue..."
@@ -64,4 +64,7 @@ system_cleaner_menu() {
         fi
     done
 }
+
+# Run menu if executed directly
+system_cleaner_menu
 

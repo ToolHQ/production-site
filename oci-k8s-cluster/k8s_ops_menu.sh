@@ -3141,6 +3141,7 @@ $(t "menu_volumes")
 $(t "menu_disk_optimizer")
 $(t "menu_node_fixer")
 $(t "menu_sys_cleaner")
+$(t "menu_kubecost")
 $(t "menu_exit")"
 
     local selected
@@ -3388,8 +3389,11 @@ $(t "menu_exit")"
         longhorn_fixer_menu
         ;;
       19)
-        source "$SCRIPT_DIR/scripts/system_cleaner/tui_system_cleaner.sh"
-        system_cleaner_menu
+        bash "$SCRIPT_DIR/scripts/system_cleaner/tui_system_cleaner.sh"
+        ;;
+      20)
+        # Execute in subshell to avoid SCRIPT_DIR pollution
+        bash "$SCRIPT_DIR/scripts/finops/kubecost_view.sh"
         ;;
       0)
         echo "Bye!"
