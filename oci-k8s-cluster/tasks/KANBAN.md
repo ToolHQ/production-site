@@ -5,9 +5,8 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
-| [T-014](tasks/T-014-DeepFlow-Observability.md) | **Deploy DeepFlow (eBPF Observability)** | 🚨 CRITICAL | Obs. | 1d |
 | [T-020](tasks/T-020-Security-Hardening.md) | **Security Hardening (SSH/Audit)** | 🔼 High | Sec | 4h |
-| [T-021](tasks/T-021-Automated-Maintenance.md) | **Automated Maintenance Policies** | � Low | Infra | 2h |
+| [T-021](tasks/T-021-Automated-Maintenance.md) | **Automated Maintenance Policies** |  Low | Infra | 2h |
 
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
