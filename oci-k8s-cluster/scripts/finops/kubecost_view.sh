@@ -188,6 +188,90 @@ while true; do
             read -r
         fi
         
+    elif [ "$SELECTED" == "abandonedWorkload" ]; then
+        echo "⏳ Fetching Abandoned Workloads..."
+        
+        ABD_JSON=$(ssh oci-k8s-master "curl -s -m 5 '${BASE_URL}/savings/abandonedWorkloads?window=7d'" 2>/dev/null) || ABD_JSON=""
+        
+        # Parse: NS | KIND | NAME
+        # Deduplicate by owner
+        # SAFETY FILTER: Exclude CRITICAL system namespaces
+        PARSED_ABD=$(echo "$ABD_JSON" | jq -r 'group_by(.owners[0].namespace + .owners[0].name) | map(.[0]) | .[] | select(.owners[0].name != null) | select(.namespace | test("kube-system|longhorn-system|cert-manager|monitoring|kubecost|calico-system|tigera-operator|ingress-nginx") | not) | "\(.namespace)|\(.owners[0].kind)|\(.owners[0].name)"')
+        
+        if [ -z "$PARSED_ABD" ]; then
+             whiptail --title "Abandoned Workloads" --msgbox "No (Safe-to-Remove) abandoned workloads detected.\n\n(System components were hidden for safety)" 10 60
+             continue
+        fi
+
+        # Build Checklist
+        CHECKLIST_ARGS=()
+        DATA_MAP=()
+        IDX=1
+        
+        while IFS='|' read -r ns kind name; do
+             # Store data
+             DATA_VAL="${ns}:${kind}:${name}"
+             DATA_MAP[$IDX]="$DATA_VAL"
+             
+             # Display
+             DISPLAY="${ns}/${name} ($kind)"
+             CHECKLIST_ARGS+=("$IDX" "$DISPLAY" "OFF")
+             ((IDX++))
+        done <<< "$PARSED_ABD"
+        
+        SELECTIONS=$(whiptail --title "👻 Abandoned Candidates" \
+            --checklist "Select workloads to SUSPEND (Scale to 0):\n(These workloads have little to no traffic)" \
+            22 100 12 \
+            "${CHECKLIST_ARGS[@]}" \
+            3>&1 1>&2 2>&3)
+            
+        if [ $? -eq 0 ] && [ -n "$SELECTIONS" ]; then
+            SELECTIONS=$(echo "$SELECTIONS" | tr -d '"')
+            
+            # --- SAFETY CHECK: Detect Risky Workloads ---
+            RISKY_ITEMS=""
+            SAFE_ITEMS=""
+            for S_IDX in $SELECTIONS; do
+                ITEM="${DATA_MAP[$S_IDX]}"
+                if [[ "$ITEM" =~ "postgres" ]] || [[ "$ITEM" =~ "minio" ]] || [[ "$ITEM" =~ "mysql" ]] || [[ "$ITEM" =~ "mongo" ]] || [[ "$ITEM" =~ "redis" ]] || [[ "$ITEM" =~ "db" ]]; then
+                    # Extract name for display
+                    IFS=':' read -r r_ns r_kind r_name <<< "$ITEM"
+                    RISKY_ITEMS+="$r_ns/$r_name\n"
+                fi
+            done
+            
+            # --- CONFIRMATION DIALOGS ---
+            if [ -n "$RISKY_ITEMS" ]; then
+                whiptail --title "⚠️ CRITICAL WARNING" --yesno "You have selected STATEFUL/DATABASE workloads:\n\n$RISKY_ITEMS\nSuspending these will STOP your database/storage.\nAre you absolutely sure?" 12 70
+                if [ $? -ne 0 ]; then
+                    continue # Cancel and return to list
+                fi
+            else
+                # Standard confirmation for non-risky items
+                 whiptail --title "Confirm Suspension" --yesno "You are about to scale ${#SELECTIONS[@]} workloads to 0 replicas.\nThey will stop processing traffic.\n\nProceed?" 10 60
+                 if [ $? -ne 0 ]; then
+                    continue
+                 fi
+            fi
+            
+            clear
+            echo "🚀 Suspending workloads..."
+            echo "--------------------------------"
+            
+            for S_IDX in $SELECTIONS; do
+                ITEM="${DATA_MAP[$S_IDX]}"
+                if [ -n "$ITEM" ]; then
+                    IFS=':' read -r p_ns p_kind p_name <<< "$ITEM"
+                    echo "Processing #$S_IDX: $p_kind/$p_name..."
+                    bash "$FINOPS_DIR/apply_scale_zero.sh" "$p_ns" "$p_kind" "$p_name"
+                fi
+            done
+            echo "--------------------------------"
+            echo "✅ Batch processing complete."
+            echo "Press ENTER to return to report..."
+            read -r
+        fi
+        
     else
         # Default fallback for other items
         DETAILS=$(echo "$JSON_DATA" | jq -r ".production.\"$SELECTED\"")
