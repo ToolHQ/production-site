@@ -3461,6 +3461,7 @@ $(t "menu_exit")"
         ;;
       18)
         # System Cleaner (Hidden/Advanced)
+        source scripts/system_cleaner/tui_system_cleaner.sh
         system_cleaner_menu
         ;;
       19)
