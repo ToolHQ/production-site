@@ -3,12 +3,12 @@
 # TUI Module for Node Disk Optimization (Image Management)
 
 # Ensure common vars
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DISK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Relies on common.sh being sourced by the parent script usually, but sourcing here doesn't hurt.
-source "$SCRIPT_DIR/../../common.sh"
-source "$SCRIPT_DIR/../../scripts/volume_manager/vm_utils.sh"
+source "$DISK_DIR/../../common.sh"
+source "$DISK_DIR/../../scripts/volume_manager/vm_utils.sh"
 
-DISK_MGR_DIR="$SCRIPT_DIR/../../scripts/disk_manager"
+DISK_MGR_DIR="$DISK_DIR/../../scripts/disk_manager"
 
 node_disk_optimizer_menu() {
     while true; do

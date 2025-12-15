@@ -2,6 +2,18 @@
 set -euo pipefail
 
 # ────────────────────────────────────────────────
+# Color Definitions
+# ────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# ────────────────────────────────────────────────
 # Common functions and variables for OCI K8s cluster scripts
 # ────────────────────────────────────────────────
 # Only detect nodes if not already set (cache across multiple sourcing)
@@ -205,4 +217,11 @@ kill_local_tunnel() {
   else
     pkill -f "ssh.*-L.*${port}:.*:.*" 2>/dev/null && echo "🧹 Closed ssh tunnel(s) on port $port."
   fi
+}
+
+# Helper to run kubectl on master
+run_kubectl() {
+  local cmd="$1"
+  # Use run_remote_raw for direct output (no logs in stdout)
+  run_remote_raw "$MASTER_NODE" "kubectl $cmd"
 }

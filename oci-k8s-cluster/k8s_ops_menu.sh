@@ -3209,6 +3209,7 @@ $(t "menu_node_fixer")
 $(t "menu_sys_cleaner")
 $(t "menu_kubecost")
 $(t "menu_deepflow")
+$(t "menu_cloud_rescue")
 $(t "menu_preferences")
 $(t "menu_exit")"
 
@@ -3451,7 +3452,7 @@ $(t "menu_exit")"
       16)
         # Disk Optimizer (T-013 Refactored)
         source scripts/disk_manager/tui_disk.sh
-        image_manager_menu
+        node_disk_optimizer_menu
         ;;
       17)
         # Node Fixer (T-017.1)
@@ -3469,11 +3470,17 @@ $(t "menu_exit")"
         ;;
       20)
         # DeepFlow
-        ./scripts/observability/install_deepflow.sh
+        source "$SCRIPT_DIR/scripts/observability/install_deepflow.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
       21)
+        # Cloud Rescue
+        source "$SCRIPT_DIR/lib/oci_wrapper.sh"
+        source "$SCRIPT_DIR/scripts/cloud_ops/tui_cloud.sh"
+        cloud_ops_menu
+        ;;
+      22)
         preferences_menu
         ;;
       0)

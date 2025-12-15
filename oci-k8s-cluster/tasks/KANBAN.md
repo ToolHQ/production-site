@@ -5,6 +5,7 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-022](tasks/T-022-OCI-Rescue-Ops.md) | **OCI Rescue Operations (Cloud Integration)** | 🚨 Critical | Infra | 2h |
 | [T-020](tasks/T-020-Security-Hardening.md) | **Security Hardening (SSH/Audit)** | 🔼 High | Sec | 4h |
 | [T-021](tasks/T-021-Automated-Maintenance.md) | **Automated Maintenance Policies** |  Low | Infra | 2h |
 
