@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/../../scripts/volume_manager/vm_utils.sh"
 
 FIXER_DIR="$SCRIPT_DIR"
 
-longhorn_fixer_menu() {
+node_fixer_menu() {
     while true; do
         # 1. Select Node
         local node_options=()
