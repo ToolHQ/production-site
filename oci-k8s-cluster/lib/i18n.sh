@@ -40,6 +40,7 @@ t() {
                 "menu_sys_cleaner") echo "19. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
                 "menu_kubecost") echo "20. Cost Optimization (Kubecost Reports) 💰" ;;
                 "menu_deepflow") echo "21. DeepFlow (Observabilidade eBPF) 🕵️‍♂️" ;;
+                "menu_cloud_rescue") echo "22. Cloud Rescue (OCI) 🚁" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -156,7 +157,8 @@ t() {
                 "menu_sys_cleaner") echo "18. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
                 "menu_kubecost") echo "19. Cost Optimization (Kubecost Reports) 💰" ;;
                 "menu_deepflow") echo "20. DeepFlow (eBPF Observability) 🔭" ;;
-                "menu_preferences") echo "21. Preferences ⚙️" ;;
+                "menu_cloud_rescue") echo "21. Cloud Rescue (OCI) 🚑" ;;
+                "menu_preferences") echo "22. Preferences ⚙️" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
