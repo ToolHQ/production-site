@@ -4,7 +4,7 @@
 # Optimized for OCI Ampere (ARM64) - ULTRA MINIMAL & INTERACTIVE
 
 set -euo pipefail
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../../common.sh"
 source "$SCRIPT_DIR/../../lib/credstore.sh"
 
@@ -25,7 +25,7 @@ fi
 echo "✍️  Generating DeepFlow OCI config..."
 cat <<EOF > /tmp/deepflow-values.yaml
 global:
-  allInOne: true 
+  allInOne: false
   image:
     repository: deepflowce
     pullPolicy: IfNotPresent
@@ -53,6 +53,13 @@ deepflow-server:
     initialDelaySeconds: 120
     periodSeconds: 20
 
+# Force Controller IP to fix 127.0.0.1 advertising issue
+configmap:
+  server.yaml:
+    controller:
+      trisolaris:
+        node-ip: ${MASTER_PRIVATE_IP}
+
 # Grafana Configuration (Fixes startup loop)
 grafana:
   readinessProbe:
@@ -63,8 +70,12 @@ grafana:
     ingressClassName: nginx
     hosts:
       - deepflow.dnor.io
+    tls:
+      - secretName: deepflow-grafana-tls
+        hosts:
+          - deepflow.dnor.io
     annotations:
-      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      cert-manager.io/cluster-issuer: "dnor-ca-issuer"
 
 # Database (ClickHouse) Tuning - ULTRA MINIMAL
 clickhouse:
@@ -105,6 +116,9 @@ mysql:
 
 # Agent (DaemonSet)
 deepflow-agent:
+  # Explicitly point to the server service to fix "grpc client not connected"
+  deepflowServerNodeIPS:
+    - ${MASTER_PRIVATE_IP}
   resources:
     requests:
       cpu: 20m
@@ -112,6 +126,7 @@ deepflow-agent:
     limits:
       memory: 256Mi
 EOF
+
 
 # Transfer values to master
 scp_to_remote oci-k8s-master /tmp/deepflow-values.yaml /home/ubuntu/deepflow-values.yaml
@@ -127,6 +142,17 @@ fi
 # 5. Install/Upgrade (NO WAIT - for TUI responsiveness)
 echo "🚀 Deploying DeepFlow (v6.6.018)..."
 ssh oci-k8s-master "helm upgrade --install deepflow deepflow/deepflow -n deepflow -f /home/ubuntu/deepflow-values.yaml --version 6.6.018 --timeout 10m"
+
+# 5.a. Post-Install Patches (Critical for OCI/ARM64)
+echo "🔧 Applying Critical Patches..."
+# Fix 1: Server Deadlock (Server needs to reach itself via Service IP to become valid)
+ssh oci-k8s-master "kubectl patch svc -n deepflow deepflow-server -p '{\"spec\": {\"publishNotReadyAddresses\": true}}'" >/dev/null 2>&1 || true
+
+# Fix 1.b: MySQL Deadlock (Similar to Server, MySQL might be slow to come up)
+ssh oci-k8s-master "kubectl patch svc -n deepflow deepflow-mysql -p '{\"spec\": {\"publishNotReadyAddresses\": true}}'" >/dev/null 2>&1 || true
+
+# Fix 2: Grafana Init Permission (Init container cannot write to volume as non-root)
+ssh oci-k8s-master "kubectl patch deploy -n deepflow deepflow-grafana -p '{\"spec\": {\"template\": {\"spec\": {\"initContainers\": [{\"name\": \"init-custom-plugins\", \"securityContext\": {\"runAsUser\": 0, \"runAsNonRoot\": false}}, {\"name\": \"init-grafana-ds-dh\", \"securityContext\": {\"runAsUser\": 0, \"runAsNonRoot\": false}}]}}}}'" >/dev/null 2>&1 || true
 
 # 6. Interactive Watch (Replacing --wait)
 echo "✅ Deployment triggered!"
