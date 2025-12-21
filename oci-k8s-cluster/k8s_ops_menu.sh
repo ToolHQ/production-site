@@ -1071,14 +1071,12 @@ ingress_menu() {
                     start_tunnel "$ns" "$name" "443" "$https_port" "Ingress HTTPS" "true"
                 fi
                 
-                # Also create TCP tunnel for MySQL if port is exposed
+                # Also create TCP tunnel for MySQL if port is exposed AND DeepFlow is installed
                 local mysql_port=$(echo "$ports" | grep -oP 'mysql:\K[0-9]+')
-                if [ -n "$mysql_port" ]; then
+                if [ -n "$mysql_port" ] && kubectl get ns deepflow >/dev/null 2>&1; then
                     echo -e "${BLUE}Creating MySQL TCP tunnel (local 3306 → remote $mysql_port)...${NC}"
                     start_tunnel "$ns" "$name" "3306" "$mysql_port" "DeepFlow MySQL" "true"
-                fi
-
-                # Also create TCP tunnel for PostgreSQL if port is exposed
+                fi                # Also create TCP tunnel for PostgreSQL if port is exposed
                 if [ -n "$postgres_port" ]; then
                     echo -e "${BLUE}Creating PostgreSQL TCP tunnel (local 5432 → remote $postgres_port)...${NC}"
                     start_tunnel "$ns" "$name" "5432" "$postgres_port" "PostgreSQL TCP" "true"
@@ -3209,6 +3207,9 @@ $(t "menu_node_fixer")
 $(t "menu_sys_cleaner")
 $(t "menu_kubecost")
 $(t "menu_deepflow")
+$(t "menu_deepflow_uninstall")
+$(t "menu_pixie_install")
+$(t "menu_pixie_uninstall")
 $(t "menu_cloud_rescue")
 $(t "menu_preferences")
 $(t "menu_exit")"
@@ -3476,6 +3477,24 @@ $(t "menu_exit")"
         read -p "$(t "press_enter")"
         ;;
       21)
+        # Uninstall DeepFlow
+        source "$SCRIPT_DIR/scripts/observability/uninstall_deepflow.sh"
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      22)
+        # Install Pixie
+        source "$SCRIPT_DIR/scripts/observability/install_pixie.sh"
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      23)
+        # Uninstall Pixie
+        source "$SCRIPT_DIR/scripts/observability/uninstall_pixie.sh"
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      24)
         # Cloud Rescue
         source "$SCRIPT_DIR/lib/oci_wrapper.sh"
         source "$SCRIPT_DIR/scripts/cloud_ops/tui_cloud.sh"

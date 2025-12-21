@@ -39,8 +39,12 @@ t() {
                 "menu_node_fixer") echo "18. Node Fixer (Dependências Longhorn: dm_crypt/multipath) 🔧" ;;
                 "menu_sys_cleaner") echo "19. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
                 "menu_kubecost") echo "20. Cost Optimization (Kubecost Reports) 💰" ;;
-                "menu_deepflow") echo "21. DeepFlow (Observabilidade eBPF) 🕵️‍♂️" ;;
-                "menu_cloud_rescue") echo "22. Cloud Rescue (OCI) 🚁" ;;
+                "menu_deepflow") echo "20. DeepFlow (Observabilidade eBPF) 🕵️‍♂️" ;;
+                "menu_deepflow_uninstall") echo "21. Desinstalar DeepFlow 🗑️" ;;
+                "menu_pixie_install") echo "22. Instalar Pixie 🧚" ;;
+                "menu_pixie_uninstall") echo "23. Desinstalar Pixie 🗑️" ;;
+                "menu_cloud_rescue") echo "24. Cloud Rescue (OCI) 🚁" ;;
+                "menu_preferences") echo "25. Preferências ⚙️" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -157,8 +161,11 @@ t() {
                 "menu_sys_cleaner") echo "18. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
                 "menu_kubecost") echo "19. Cost Optimization (Kubecost Reports) 💰" ;;
                 "menu_deepflow") echo "20. DeepFlow (eBPF Observability) 🔭" ;;
-                "menu_cloud_rescue") echo "21. Cloud Rescue (OCI) 🚑" ;;
-                "menu_preferences") echo "22. Preferences ⚙️" ;;
+                "menu_deepflow_uninstall") echo "21. DeepFlow Uninstall 🗑️" ;;
+                "menu_pixie_install") echo "22. Pixie Install 🧚" ;;
+                "menu_pixie_uninstall") echo "23. Pixie Uninstall 🗑️" ;;
+                "menu_cloud_rescue") echo "24. Cloud Rescue (OCI) 🚑" ;;
+                "menu_preferences") echo "25. Preferences ⚙️" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu

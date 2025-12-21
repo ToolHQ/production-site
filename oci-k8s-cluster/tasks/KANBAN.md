@@ -5,7 +5,6 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
-| [T-024](tasks/T-024-Fix-Deepflow-Ingestion.md) | **Fix Deepflow Data Ingestion** | 🚨 Critical | Obs. | 2h |
 | [T-023](tasks/T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
 | [T-020](tasks/T-020-Security-Hardening.md) | **Security Hardening (SSH/Audit)** | 🔼 High | Sec | 4h |
 | [T-021](tasks/T-021-Automated-Maintenance.md) | **Automated Maintenance Policies** |  Low | Infra | 2h |
@@ -18,6 +17,7 @@
 | [T-011](tasks/T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 
 ## ✅ Done
+- [x] **[T-024](tasks/T-024-Fix-Deepflow-Ingestion.md) Fix Deepflow Data Ingestion**
 - [x] **T-022: OCI Rescue Operations (Cloud Integration)**
   - Full TUI Rescue Menu (Reboot, Deep Forensics, Live Forensics)
   - Fixed Storage Freeze Diagnosis
