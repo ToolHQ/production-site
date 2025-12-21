@@ -5,6 +5,7 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-024](tasks/T-024-Fix-Deepflow-Ingestion.md) | **Fix Deepflow Data Ingestion** | 🚨 Critical | Obs. | 2h |
 | [T-023](tasks/T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
 | [T-020](tasks/T-020-Security-Hardening.md) | **Security Hardening (SSH/Audit)** | 🔼 High | Sec | 4h |
 | [T-021](tasks/T-021-Automated-Maintenance.md) | **Automated Maintenance Policies** |  Low | Infra | 2h |
