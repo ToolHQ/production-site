@@ -1,0 +1,50 @@
+log-file: /var/log/deepflow/server.log
+log-level: info
+controller:
+  trisolaris:
+    node-ip: 10.0.1.221
+  election-name: deepflow-server
+  election-namespace: deepflow
+  grpc-max-message-length: 104857600
+  grpc-port: 20035
+  kubeconfig:
+  listen-port: 20417
+  clickhouse:
+    database: flow_tag
+    endpoint-tcp-port-name: tcp-port
+    host: deepflow-clickhouse
+    port: 9000
+    user-name: default
+    user-password:
+  mysql:
+    database: deepflow
+    host: 10.110.193.14
+    port: 30130
+    timeout: 30
+    user-name: root
+    user-password: deepflow
+ingester:
+  es-syslog: false
+  ckdb:
+    cluster-name:
+    endpoint-tcp-port-name: tcp-port
+    external: false
+    host: deepflow-clickhouse
+    port: 9000
+    storage-policy:
+    type: clickhouse
+  ckdb-auth:
+    password:
+    username: default
+querier:
+  listen-port: 20416
+  clickhouse:
+    database: flow_tag
+    host: deepflow-clickhouse
+    port: 9000
+    timeout: 60
+    user-name: default
+    user-password:
+  deepflow-app:
+    host: deepflow-app
+    port: 20418
