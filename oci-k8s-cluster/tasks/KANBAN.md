@@ -18,16 +18,16 @@
 
 ## ✅ Done
 - [x] **[T-024](tasks/T-024-Fix-Deepflow-Ingestion.md) Fix Deepflow Data Ingestion**
-- [x] **T-022: OCI Rescue Operations (Cloud Integration)**
+- [x] **[T-022](tasks/T-022-OCI-Rescue-Ops.md) OCI Rescue Operations (Cloud Integration)**
   - Full TUI Rescue Menu (Reboot, Deep Forensics, Live Forensics)
   - Fixed Storage Freeze Diagnosis
-- [x] **T-019: Interactive FinOps Reports (Kubecost TUI)**
+- [x] **[T-019](tasks/T-019-Interactive-FinOps-Reports.md) Interactive FinOps Reports (Kubecost TUI)**
   - Batch Right-Sizing
   - Abandoned Workload Suspension (Safe Mode)
 - [x] **[T-018](tasks/T-018-Storage-Optimization-Baselines.md) Storage Baselines (Lean Defaults)**
-- [x] **T-017: Volume Manager (Interactive Resize)**
-- [x] **T-017.1: System Cleaner (Log/Apt Vacuum)**
-- [x] **T-016: Storage Optimization (Longhorn Policies + Node Fixes)**
+- [x] **[T-017](tasks/T-017-TUI-Volume-Manager.md) Volume Manager (Interactive Resize)**
+- [x] **[T-017.1](tasks/T-017.1-Housekeeping-Recovery.md) System Cleaner (Log/Apt Vacuum)**
+- [x] **[T-016](tasks/T-016-Storage-Optimization-Audit.md) Storage Optimization (Longhorn Policies + Node Fixes)**
 - [x] **[T-012](tasks/T-012-Automate-Kibana-Setup.md) Automate Kibana Setup**
 - [x] **[T-009](tasks/T-009-Refactor-Legacy-ECK.md) Refactor Legacy ECK Components**
 - [x] **[T-005](tasks/T-005-Cost-Analysis.md) Implement Kubecost & FinOps Audit**
