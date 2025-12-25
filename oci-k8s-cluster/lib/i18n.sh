@@ -43,8 +43,12 @@ t() {
                 "menu_deepflow_uninstall") echo "21. Desinstalar DeepFlow 🗑️" ;;
                 "menu_pixie_install") echo "22. Instalar Pixie 🧚" ;;
                 "menu_pixie_uninstall") echo "23. Desinstalar Pixie 🗑️" ;;
-                "menu_cloud_rescue") echo "24. Cloud Rescue (OCI) 🚁" ;;
-                "menu_preferences") echo "25. Preferências ⚙️" ;;
+                "menu_coroot_install") echo "24. Instalar Coroot (Community) 🦉" ;;
+                "menu_coroot_uninstall") echo "25. Desinstalar Coroot 🗑️" ;;
+                "menu_parca_install") echo "26. Instalar Parca (Profiler) 🔥" ;;
+                "menu_parca_uninstall") echo "27. Desinstalar Parca 🗑️" ;;
+                "menu_cloud_rescue") echo "28. Cloud Rescue (OCI) 🚁" ;;
+                "menu_preferences") echo "29. Preferências ⚙️" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -164,8 +168,12 @@ t() {
                 "menu_deepflow_uninstall") echo "21. DeepFlow Uninstall 🗑️" ;;
                 "menu_pixie_install") echo "22. Pixie Install 🧚" ;;
                 "menu_pixie_uninstall") echo "23. Pixie Uninstall 🗑️" ;;
-                "menu_cloud_rescue") echo "24. Cloud Rescue (OCI) 🚑" ;;
-                "menu_preferences") echo "25. Preferences ⚙️" ;;
+                "menu_coroot_install") echo "24. Coroot Install (Community) 🦉" ;;
+                "menu_coroot_uninstall") echo "25. Coroot Uninstall 🗑️" ;;
+                "menu_parca_install") echo "26. Parca Install (Profiler) 🔥" ;;
+                "menu_parca_uninstall") echo "27. Parca Uninstall 🗑️" ;;
+                "menu_cloud_rescue") echo "28. Cloud Rescue (OCI) 🚑" ;;
+                "menu_preferences") echo "29. Preferences ⚙️" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
