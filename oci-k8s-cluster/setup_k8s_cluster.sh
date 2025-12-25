@@ -80,6 +80,22 @@ ensure_apiserver_open() {
   '
 }
 
+# === CPU Quota Enforcement (Anti-Freeze) ========================
+enforce_cpu_quota() {
+  local h=$1
+  echo "🛡️  Enforcing CPU Quota on $h..."
+  
+  # Copy the script if it doesn't exist or is different
+  scp -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+      "$(dirname "$0")/scripts/cloud_ops/cpu_quota_enforcer.sh" "$h:/tmp/cpu_quota_enforcer.sh" >/dev/null 2>&1
+      
+  run_remote "$h" '
+    sudo mv /tmp/cpu_quota_enforcer.sh /usr/local/bin/enforce_cpu_quota.sh
+    sudo chmod +x /usr/local/bin/enforce_cpu_quota.sh
+    sudo /usr/local/bin/enforce_cpu_quota.sh
+  '
+}
+
 # === Network Security (IPTables) ================================
 ensure_network_security() {
   local h=$1
@@ -390,6 +406,9 @@ init_master() {
     echo '⏳ Waiting API health...'
     until curl -ks https://localhost:6443/healthz | grep -q '^ok$'; do sleep 3; done
   "
+
+  # Enforce CPU Quota immediately after init
+  enforce_cpu_quota "$MASTER_NODE"
 
   # Save join command
   ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$MASTER_NODE" \

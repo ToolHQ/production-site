@@ -223,6 +223,7 @@ node_action_menu() {
         echo -e "9. ${RED}Hard Reset Control Plane${NC} - ${BOLD}Toggle Manifests to Fix Mirror Pods${NC}"
         echo -e "10. ${CYAN}Tune Etcd I/O Performance${NC} - ${BOLD}Fix Slow Disk/High CPU${NC}"
         echo -e "11. ${MAGENTA}Prioritize Control Plane${NC} - ${BOLD}Renice Etcd/API to High Priority${NC}"
+        echo -e "12. ${YELLOW}Enforce API CPU Quota${NC} - ${BOLD}Lock API Server to 50% CPU${NC}"
         echo -e "0. Back to Node List"
         
         echo -ne "\nSelect option: "
@@ -430,6 +431,20 @@ node_action_menu() {
                 echo -e "${MAGENTA}Tip: This tells Linux to serve the Database FIRST, preventing timeouts.${NC}"
                 echo "Press Enter to continue..."
                 read
+                ;;
+            12)
+                echo -e "\n${YELLOW}Enforcing CPU Quota on API Server...${NC}"
+                echo -e "Target: $ssh_target"
+                
+                # Check if script exists on target, if not copy it
+                scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null \
+                    "${SCRIPT_DIR}/scripts/cloud_ops/cpu_quota_enforcer.sh" "${ssh_target}:/tmp/cpu_quota_enforcer.sh"
+                
+                ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null "$ssh_target" \
+                    "sudo mv /tmp/cpu_quota_enforcer.sh /usr/local/bin/enforce_cpu_quota.sh && sudo chmod +x /usr/local/bin/enforce_cpu_quota.sh && sudo /usr/local/bin/enforce_cpu_quota.sh"
+                    
+                echo "Quota Enforcement Complete."
+                read -p "Press Enter to continue..."
                 ;;
             5)
                 echo -e "\n${CYAN}Attempting to whitelist your IP...${NC}"
