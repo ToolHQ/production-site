@@ -32,7 +32,7 @@ spec:
         - ReadWriteOnce
         resources:
           requests:
-            storage: 5Gi
+            storage: 1Gi
         storageClassName: longhorn # Explicitly use longhorn for replication
 ---
 apiVersion: kibana.k8s.elastic.co/v1

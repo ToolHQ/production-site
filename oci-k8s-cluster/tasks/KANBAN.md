@@ -24,7 +24,7 @@
 - [x] **T-019: Interactive FinOps Reports (Kubecost TUI)**
   - Batch Right-Sizing
   - Abandoned Workload Suspension (Safe Mode)
-- [x] **T-018: Node Disk Manager (Image Pruning)**
+- [x] **[T-018](tasks/T-018-Storage-Optimization-Baselines.md) Storage Baselines (Lean Defaults)**
 - [x] **T-017: Volume Manager (Interactive Resize)**
 - [x] **T-017.1: System Cleaner (Log/Apt Vacuum)**
 - [x] **T-016: Storage Optimization (Longhorn Policies + Node Fixes)**
