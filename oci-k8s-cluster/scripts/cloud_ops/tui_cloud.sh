@@ -16,7 +16,7 @@ fi
 
 perform_diagnosis() {
     local node_name="$1"
-    local node_ip="$2"
+    local node_ip="${2:-Unknown}"
     
     echo -e "\n${CYAN}Running Smart Diagnosis for ${node_name}...${NC}"
     
@@ -40,6 +40,19 @@ perform_diagnosis() {
     else
         echo -e "${RED}OFFLINE${NC}"
         local ssh_ok=false
+        
+        # New Feature: Check Security List (Firewall)
+        echo -n "Checking Firewall Rules (Port 22)... "
+        local ocid_check=$(get_instance_ocid_by_name "$node_name")
+        local firewall_status
+        if firewall_status=$(check_ssh_allowed_from_ip "$ocid_check"); then
+             echo -e "${GREEN}ALLOWED${NC}"
+        else
+             local my_ip_val="$firewall_status"
+             echo -e "${RED}BLOCKED${NC}"
+             echo -e "${YELLOW}⚠️  WARNING: SSH appears blocked for your IP (${my_ip_val}).${NC}"
+             echo -e "   Check OCI Security List for Subnet."
+        fi
     fi
 
     # 3. OCI Metrics (Cloud Truth)
@@ -77,6 +90,13 @@ perform_diagnosis() {
         fi
         echo -e "${RED}Recommendation: HARD REBOOT (RESET) REQUIRED.${NC}"
         return 99 # Zombie Code
+
+    # Priority 1.5: Frozen Detection (OS Unresponsive + Cloud Active)
+    elif [[ "$ssh_ok" == "false" ]]; then
+         echo -e "${RED}${BOLD}❄️  CRITICAL: NODE FROZEN (High CPU / SSH Unresponsive)${NC}"
+         echo -e "${YELLOW}Evidence: Cloud shows Active CPU usage, but SSH is offline.${NC}"
+         echo -e "${RED}Recommendation: HARD REBOOT (RESET) REQUIRED.${NC}"
+         return 98 # Frozen Code
 
     # Priority 2: K8s Failure but OS Alive (Appears to be the case now)
     elif [[ "$k8s_status" != "True" && "$ssh_ok" == "true" ]]; then
@@ -172,17 +192,33 @@ node_action_menu() {
         perform_diagnosis "$node_name" "$node_ip"
         local diag_code=$?
         set -e
-        
+        alert_sound # Alert user (Ready for input)
+
         echo -e "\n${BOLD}Available Actions:${NC}"
         echo -e "1. ${RED}Emergency Hard Reboot (RESET)${NC}"
         echo -e "2. ${MAGENTA}Deep Forensics (Previous Boot Logs)${NC} - Use after reboot"
         echo -e "3. ${CYAN}Live Forensics (Current Boot Logs)${NC} - If node is reachable"
+        echo -e "4. ${YELLOW}Serial Console Logs (Boot History)${NC} - ${BOLD}Run this if stuck in Reboot Loop!${NC}"
+        echo -e "5. ${GREEN}Whitelist My IP (Fix SSH Block)${NC} - ${BOLD}Add rule to OCI Security List${NC}"
         echo -e "0. Back to Node List"
         
         echo -ne "\nSelect option: "
         read -r choice
         
         case "$choice" in
+            5)
+                echo -e "\n${CYAN}Attempting to whitelist your IP...${NC}"
+                local ocid=$(get_instance_ocid_by_name "$node_name")
+                if whitelist_my_ip "$ocid"; then
+                    echo -e "${GREEN}Success! You should now be able to SSH.${NC}"
+                    alert_sound
+                else
+                    echo -e "${RED}Failed to whitelist IP.${NC}"
+                    echo -e "\a"
+                fi
+                echo "Press Enter to continue..."
+                read
+                ;;
             1)
                 echo -e "\n${RED}${BOLD}!!! DANGER ZONE !!!${NC}"
                 echo -e "Action: FORCE RESET (Power Cycle)"
@@ -219,6 +255,34 @@ node_action_menu() {
                 fi
                 read -p "Press Enter to continue..."
                 ;;
+            4)
+                echo -e "\n${YELLOW}Requesting Serial Console Logs from OCI...${NC}"
+                echo -e "This takes about 10-20 seconds to capture."
+                local ocid=$(get_instance_ocid_by_name "$node_name")
+                
+                # Fetch Logs
+                local console_log
+                console_log=$(get_instance_console_history "$ocid")
+                
+                if [[ -z "$console_log" ]]; then
+                    echo -e "${RED}Failed to retrieve console logs.${NC}"
+                    echo -e "${YELLOW}Debug Info:${NC}"
+                    cat /tmp/oci_capture_error.log 2>/dev/null
+                else
+                    alert_sound # Alert user (Success)
+                    echo -e "${GREEN}Logs Retrieved! Displaying last 50 lines...${NC}"
+                    echo -e "---------------------------------------------------"
+                    echo "$console_log" | tail -n 50
+                    echo -e "---------------------------------------------------"
+                    
+                    # Option to save
+                    echo -e "\nAlso saving full log to: $(pwd)/../../logs/console-${node_name}.log"
+                    echo "$console_log" > "../../logs/console-${node_name}.log"
+                    
+                    echo -e "${CYAN}Tip: Look for specific services failing to start (e.g., 'Started Kubernetes Node Agent' ... HANG).${NC}"
+                fi
+                read -p "Press Enter to continue..."
+                ;;
             0)
                 return
                 ;;
@@ -238,7 +302,25 @@ cloud_ops_menu() {
         # List Nodes with status place holder
         echo -e "${BOLD}Select Node to Diagnose/Rescue:${NC}"
         
-        nodes=$(run_kubectl "get nodes -o wide --no-headers" 2>/dev/null | awk '{print $1, $6}')
+        if ! nodes=$(run_kubectl "get nodes -o wide --no-headers" 2>/dev/null | awk '{print $1, $6}'); then
+             # Fallback to OCI CLI if kubectl is down (Critical for Master Node rescue)
+             alert_sound # Alert user
+             echo -e "${YELLOW}Kubernetes API unreachable. Fetching form OCI...${NC}"
+             local tenancy_id=$(get_tenancy_id)
+             # Get list of DisplayName and PrivateIP
+             # Note: This query assumes standard OCI VCN setups where primary IP is relevant
+             # We filter for "k8s-" or "oci-k8s-" to avoid clutter if shared compartment
+             nodes=$(oci compute instance list \
+                --compartment-id "$tenancy_id" \
+                --query "data[?contains(\"display-name\", 'k8s')].{\"name\":\"display-name\"}" \
+                --raw-output 2>/dev/null | jq -r '.[].name' | while read -r name; do
+                    # Simplified: We don't have easy IP access here without multiple calls, 
+                    # so we just list the name. The diagnostics step resolves IP anyway.
+                    # Strip 'oci-' prefix if present to match common naming convention in this script
+                    short_name=${name#oci-}
+                    echo "$short_name (OCI-Fallback)"
+                done)
+        fi
         
         # Use fzf to select (use FZF_BIN from parent or find in path)
         FZF_CMD="${FZF_BIN:-fzf}"

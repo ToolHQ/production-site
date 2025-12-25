@@ -120,7 +120,7 @@ EOF'
 run_kubectl() {
   local cmd="$1"
   ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-      -q "$MASTER_NODE" "kubectl $cmd"
+      -o ConnectTimeout=5 -q "$MASTER_NODE" "kubectl $cmd"
 }
 
 run_interactive_ssh() {
@@ -1370,8 +1370,9 @@ $(t "back")"
                 echo -e "${BLUE}📥 Exporting CA from secret: $secret_name ...${NC}"
                 
                 if run_remote_stream "$MASTER_NODE" "kubectl -n cert-manager get secret $secret_name >/dev/null 2>&1"; then
-                    # Extract CA cert from secret
-                    run_remote_raw "$MASTER_NODE" "kubectl -n cert-manager get secret $secret_name -o jsonpath='{.data.ca\.crt}' | base64 -d" > "${selected_issuer}.crt"
+                    # Use run_remote_raw for direct output (no logs in stdout)
+                    # Fix: Add timeout to prevent hang if master is down (Zombie Master)
+                    run_remote_raw "$MASTER_NODE" -o ConnectTimeout=5 "kubectl -n cert-manager get secret $secret_name -o jsonpath='{.data.ca\.crt}' | base64 -d" > "${selected_issuer}.crt"
                     
                     echo -e "${GREEN}✅ Certificate saved to: $(pwd)/${selected_issuer}.crt${NC}"
                     echo ""
@@ -3210,6 +3211,10 @@ $(t "menu_deepflow")
 $(t "menu_deepflow_uninstall")
 $(t "menu_pixie_install")
 $(t "menu_pixie_uninstall")
+$(t "menu_coroot_install")
+$(t "menu_coroot_uninstall")
+$(t "menu_parca_install")
+$(t "menu_parca_uninstall")
 $(t "menu_cloud_rescue")
 $(t "menu_preferences")
 $(t "menu_exit")"
@@ -3494,15 +3499,41 @@ $(t "menu_exit")"
         echo ""
         read -p "$(t "press_enter")"
         ;;
+
       24)
-        # Cloud Rescue
+        # Install Coroot
+        source "$SCRIPT_DIR/scripts/observability/install_coroot.sh"
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      25)
+        # Uninstall Coroot
+        source "$SCRIPT_DIR/scripts/observability/uninstall_coroot.sh"
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      26)
+        # Install Parca
+        source "$SCRIPT_DIR/scripts/observability/install_parca.sh"
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      27)
+        # Uninstall Parca
+        source "$SCRIPT_DIR/scripts/observability/uninstall_parca.sh"
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      28)
+        # Cloud Rescue (Renumbered)
         source "$SCRIPT_DIR/lib/oci_wrapper.sh"
         source "$SCRIPT_DIR/scripts/cloud_ops/tui_cloud.sh"
         cloud_ops_menu
         ;;
-      22)
+      29)
         preferences_menu
         ;;
+
       0)
         echo "Bye!"
         exit 0

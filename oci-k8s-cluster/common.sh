@@ -223,6 +223,24 @@ kill_local_tunnel() {
 # Helper to run kubectl on master
 run_kubectl() {
   local cmd="$1"
-  # Use run_remote_raw for direct output (no logs in stdout)
   run_remote_raw "$MASTER_NODE" "kubectl $cmd"
+}
+
+# Audio Alert (WSL Compatible)
+# Audio Alert (WSL Compatible)
+alert_sound() {
+    # Method 1: PowerShell SystemSound (Most reliable on WSL)
+    if grep -q "microsoft" /proc/version 2>/dev/null; then
+         powershell.exe -c "(New-Object Media.SoundPlayer 'C:\Windows\Media\tada.wav').PlaySync();" 2>/dev/null &
+         return
+    fi
+
+    # Method 2: xdg-open (Linux Desktop / setup pending)
+    if command -v xdg-open >/dev/null 2>&1; then
+        # This is often silent on servers, but user requested it
+        return
+    fi
+
+    # Method 3: Standard Bell (Fallback)
+    echo -e "\a"
 }
