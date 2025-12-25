@@ -104,9 +104,23 @@ perform_diagnosis() {
         echo -e "Recommendation: Heavy Load or Kubelet issue. Check 'Live Forensics'."
         return 1
         
-    # Priority 3: Healthy
+    # Priority 2.5: High CPU Warning (OS Alive, K8s Ready/Unknown, but CPU High)
+    elif [[ "$ssh_ok" == "true" && "$cloud_zombie" == "false" ]]; then
+         # Check if CPU > 80
+         # Remove the % sign and parens to compare
+         local cpu_val=$(echo "$cpu_metric" | grep -oE "[0-9.]+" | head -n 1 | awk '{print int($1)}')
+         if [[ "$cpu_val" -gt 80 ]]; then
+             echo -e "${YELLOW}${BOLD}⚠️  WARNING: HIGH CPU LOAD DETECTED ($cpu_metric)${NC}"
+             echo -e "${YELLOW}Node is responsive, but under heavy stress. Check 'Resource Usage'.${NC}"
+             return 2
+         else
+             echo -e "${GREEN}Node appears HEALTHY.${NC}"
+             return 0
+         fi
+
+    # Priority 3: Healthy (Fallback)
     else
-        echo -e "${GREEN}Node appears HEALTHY or issue is partial.${NC}"
+        echo -e "${GREEN}Node appears HEALTHY.${NC}"
         return 0
     fi
 }
@@ -183,6 +197,9 @@ node_action_menu() {
     local node_name="$1"
     local node_ip="$2"
     
+    # Define SSH Target using the Alias convention (reachable from Bastion/Public)
+    local ssh_target="oci-$node_name"
+    
     while true; do
         clear
         echo -e "${BOLD}${CYAN}=== Node Rescue: ${node_name} ===${NC}"
@@ -200,12 +217,220 @@ node_action_menu() {
         echo -e "3. ${CYAN}Live Forensics (Current Boot Logs)${NC} - If node is reachable"
         echo -e "4. ${YELLOW}Serial Console Logs (Boot History)${NC} - ${BOLD}Run this if stuck in Reboot Loop!${NC}"
         echo -e "5. ${GREEN}Whitelist My IP (Fix SSH Block)${NC} - ${BOLD}Add rule to OCI Security List${NC}"
+        echo -e "6. ${MAGENTA}Resource Usage (Top Processes)${NC} - ${BOLD}Identify CPU/RAM Hogs${NC}"
+        echo -e "7. ${CYAN}Auto-Fix Kubelet Typo${NC} - ${BOLD}Repair known 'override.conf' error${NC}"
+        echo -e "8. ${YELLOW}Control Plane Health${NC} - ${BOLD}Inspect Kubelet, API & Etcd Logs${NC}"
+        echo -e "9. ${RED}Hard Reset Control Plane${NC} - ${BOLD}Toggle Manifests to Fix Mirror Pods${NC}"
+        echo -e "10. ${CYAN}Tune Etcd I/O Performance${NC} - ${BOLD}Fix Slow Disk/High CPU${NC}"
+        echo -e "11. ${MAGENTA}Prioritize Control Plane${NC} - ${BOLD}Renice Etcd/API to High Priority${NC}"
         echo -e "0. Back to Node List"
         
         echo -ne "\nSelect option: "
         read -r choice
         
         case "$choice" in
+            6)
+                echo -e "\n${CYAN}Checking Resource Usage (top)...${NC}"
+                echo -e "Connecting to $ssh_target..."
+                # Run batch top, sort by CPU (default often is, but -o %CPU helps or just standard top)
+                # Linux top: -b batch, -n 1 iteration, -o %CPU (if supported) or just head
+                # standard top usually sorts by CPU by default.
+                
+                if ssh -q -o StrictHostKeyChecking=accept-new "$ssh_target" "top -b -n 1 | head -n 20"; then
+                    echo -e "---------------------------------------------------"
+                    echo -e "${GREEN}Snapshot Complete.${NC}"
+                else
+                    echo -e "${RED}Failed to SSH into node.${NC}"
+                fi
+                echo "Press Enter to continue..."
+                read
+                ;;
+            7)
+                echo -e "\n${MAGENTA}Attempting Live Repair of Kubelet Config...${NC}"
+                echo -e "Target: $ssh_target"
+                echo -e "Fixing known typo: '[Service]nMountFlags' -> '[Service]\nMountFlags'"
+                
+                # Check if file exists first
+                if ssh -q -o StrictHostKeyChecking=accept-new "$ssh_target" "[ -f /etc/systemd/system/kubelet.service.d/override.conf ]"; then
+                    # Perform the fix using sed
+                    # We use a specific match to avoid breaking anything else
+                     if ssh -q -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo sed -i 's/\[Service\]nMountFlags/\[Service\]\nMountFlags/g' /etc/systemd/system/kubelet.service.d/override.conf"; then
+                         echo -e "${GREEN}File patched.${NC}"
+                         
+                         echo -e "Reloading systemd and restarting kubelet..."
+                         if ssh -q -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo systemctl daemon-reload && sudo systemctl restart kubelet"; then
+                             echo -e "${GREEN}Service Restarted!${NC}"
+                             alert_sound
+                         else
+                             echo -e "${RED}Failed to restart service.${NC}"
+                         fi
+                     else
+                         echo -e "${RED}Failed to patch file (sed error or permission).${NC}"
+                     fi
+                else
+                    echo -e "${YELLOW}File /etc/systemd/system/kubelet.service.d/override.conf not found. Skipping.${NC}"
+                fi
+                echo "Press Enter to continue..."
+                read
+                ;;
+            8)
+                echo -e "\n${MAGENTA}Inspecting Control Plane Health...${NC}"
+                echo -e "Target: $ssh_target"
+                local timestamp=$(date +%Y%m%d_%H%M%S)
+                local log_file="$CLOUD_DIR/../../../logs/cp-health-${node_name}-${timestamp}.log"
+                mkdir -p "$(dirname "$log_file")"
+                
+                echo -e "\n${BOLD}1. Checking Kubelet Service Status:${NC}" | tee -a "$log_file"
+                ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "systemctl status kubelet --no-pager -n 10" | tee -a "$log_file"
+                
+                echo -e "\n${BOLD}2. Identifying Control Plane Containers:${NC}" | tee -a "$log_file"
+                ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo crictl ps --name 'kube-apiserver|etcd'" | tee -a "$log_file"
+                
+                echo -e "\n${BOLD}3. CAPTURING KUBE-APISERVER LOGS (Last 100 lines):${NC}" | tee -a "$log_file"
+                local api_logs=$(ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo crictl logs --tail 100 \$(sudo crictl ps --name kube-apiserver -q | head -n 1)" 2>&1)
+                echo "$api_logs" >> "$log_file"
+                echo "(Saved to file)"
+                
+                echo -e "\n${BOLD}4. CAPTURING ETCD LOGS (Last 100 lines):${NC}" | tee -a "$log_file"
+                local etcd_logs=$(ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo crictl logs --tail 100 \$(sudo crictl ps --name etcd -q | head -n 1)" 2>&1)
+                echo "$etcd_logs" >> "$log_file"
+                echo "(Saved to file)"
+                
+                echo -e "\n${CYAN}📥 Logs saved to: $log_file${NC}"
+
+                # --- AUTO-ANALYSIS ---
+                echo -e "\n${BOLD}🤖 RUNNING AUTOMATED ANALYSIS...${NC}"
+                local analysis_found=false
+                
+                # Check Kube-Apiserver Patterns
+                if echo "$api_logs" | grep -iEq "connection refused|dial tcp|i/o timeout"; then
+                    echo -e "${RED}[!] API Server Network Issues Detected:${NC}"
+                    echo "$api_logs" | grep -iEq "connection refused|dial tcp|i/o timeout" | tail -n 3
+                    analysis_found=true
+                fi
+                if echo "$api_logs" | grep -iEq "etcdserver: request timed out"; then
+                    echo -e "${RED}[!] Critical: API Server cannot talk to Etcd (High Latency/Timeouts)${NC}"
+                    analysis_found=true
+                fi
+                if echo "$api_logs" | grep -iEq "throttling"; then
+                     echo -e "${YELLOW}[!] Warning: API Server Throttling requests (Load Spike)${NC}"
+                     analysis_found=true
+                fi
+                
+                # Check Etcd Patterns
+                if echo "$etcd_logs" | grep -iEq "database space exceeded"; then
+                    echo -e "${RED}[!] CRITICAL: ETCD STORAGE FULL${NC}"
+                    analysis_found=true
+                fi
+                 if echo "$etcd_logs" | grep -iEq "took too long"; then
+                    echo -e "${YELLOW}[!] Warning: Etcd Disk I/O is slow (Heartbeat missed)${NC}"
+                    analysis_found=true
+                fi
+                
+                if [[ "$analysis_found" == "false" ]]; then
+                    echo -e "${GREEN}No critical errors matched in recent logs.${NC}"
+                    echo -e "Check the full log file manually."
+                fi
+                
+                echo "Press Enter to continue..."
+                read
+                ;;
+            9)
+                echo -e "\n${RED}${BOLD}Performing Hard Reset of Control Plane (Manifest Toggle)...${NC}"
+                echo -e "${YELLOW}This procedure stops Kubelet, moves static manifests to temp, waits for cleanup, and restores them.${NC}"
+                echo -e "Target: $ssh_target"
+                
+                read -p "Type 'RESET' to confirm: " confirm_reset
+                if [[ "$confirm_reset" == "RESET" ]]; then
+                    echo -e "\n1. Stopping Kubelet..."
+                    ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo systemctl stop kubelet"
+                    
+                    echo -e "2. Moving Manifests (Clearing State)..."
+                    # Fix: Use bash -c so glob expansion (*.yaml) happens as root
+                    ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo mkdir -p /tmp/k8s_manifests_bk && sudo bash -c 'mv /etc/kubernetes/manifests/*.yaml /tmp/k8s_manifests_bk/'"
+                    
+                    echo -e "3. Restarting Kubelet to Trigger Cleanup (Waiting 15s)..."
+                    ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo systemctl start kubelet"
+                    sleep 15
+                    
+                    echo -e "4. Stopping Kubelet again..."
+                    ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo systemctl stop kubelet"
+                    
+                    echo -e "5. Restoring Manifests..."
+                    # Fix: Use bash -c here too
+                    ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo bash -c 'mv /tmp/k8s_manifests_bk/*.yaml /etc/kubernetes/manifests/'"
+                    
+                    echo -e "6. Final Restart of Kubelet..."
+                    ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo systemctl start kubelet"
+                    
+                    echo -e "${GREEN}Reset Sequence Complete.${NC}"
+                    echo -e "Wait 30-60 seconds for Control Plane to initialize, then check Health (Option 8)."
+                    alert_sound
+                else
+                    echo "Cancelled."
+                fi
+                echo "Press Enter to continue..."
+                read
+                ;;
+            10)
+                echo -e "\n${CYAN}${BOLD}Tuning Etcd Performance for Slow Disk...${NC}"
+                echo -e "Target: $ssh_target"
+                echo -e "Goal: Increase Heartbeat to 1000ms and Election Timeout to 5000ms"
+                
+                # Check if already tuned
+                if ssh -q -o StrictHostKeyChecking=accept-new "$ssh_target" "sudo grep -q 'heartbeat-interval=1000' /etc/kubernetes/manifests/etcd.yaml"; then
+                     echo -e "${GREEN}Etcd is already tuned! No changes needed.${NC}"
+                else
+                     echo -e "Applying patch to /etc/kubernetes/manifests/etcd.yaml..."
+                     
+                     # We use sed to insert the flags after the 'command:' line or just before the image line if easier
+                     # But safer is to append to the command arguments list.
+                     # The arguments are typically:
+                     #  - etcd
+                     #  - --advertise-client-urls=...
+                     # We can just append the lines after "- etcd"
+                     
+                     # Command: Find '- etcd' and append the new lines after it
+                     local sed_cmd="sudo sed -i '/- etcd/a \    - --heartbeat-interval=1000\n    - --election-timeout=5000' /etc/kubernetes/manifests/etcd.yaml"
+                     
+                     if ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "$sed_cmd"; then
+                         echo -e "${GREEN}Configuration Updated.${NC}"
+                         echo -e "Etcd pod will restart automatically (wait 30s)..."
+                         alert_sound
+                     else
+                         echo -e "${RED}Failed to patch manifest.${NC}"
+                     fi
+                fi
+                echo "Press Enter to continue..."
+                read
+                ;;
+            11)
+                echo -e "\n${CYAN}${BOLD}Prioritizing Control Plane (CPU Scheduler)...${NC}"
+                echo -e "Target: $ssh_target"
+                echo -e "Goal: Renice Etcd (-10) and API Server (-5) to survive high load."
+                
+                # Command to find PIDs and renice
+                # We use pgrep to find the processes by name
+                
+                echo -e "1. Boosting Etcd Priority..."
+                if ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "pid=\$(pgrep etcd | head -n 1) && [ -n \"\$pid\" ] && sudo renice -n -10 -p \$pid"; then
+                    echo -e "${GREEN}Etcd priority increased (Nice -10).${NC}"
+                else
+                    echo -e "${RED}Failed to renice Etcd (Process not found?)${NC}"
+                fi
+
+                echo -e "2. Boosting API Server Priority..."
+                if ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "pid=\$(pgrep kube-apiserver | head -n 1) && [ -n \"\$pid\" ] && sudo renice -n -5 -p \$pid"; then
+                    echo -e "${GREEN}API Server priority increased (Nice -5).${NC}"
+                else
+                    echo -e "${RED}Failed to renice API Server.${NC}"
+                fi
+                
+                alert_sound
+                echo -e "${MAGENTA}Tip: This tells Linux to serve the Database FIRST, preventing timeouts.${NC}"
+                echo "Press Enter to continue..."
+                read
+                ;;
             5)
                 echo -e "\n${CYAN}Attempting to whitelist your IP...${NC}"
                 local ocid=$(get_instance_ocid_by_name "$node_name")
@@ -244,9 +469,9 @@ node_action_menu() {
                 ;;
             3)
                 echo -e "\n${CYAN}Pulling logs from CURRENT session (SSH)...${NC}"
-                if ssh -q -o StrictHostKeyChecking=accept-new "$node_ip" "exit" 2>/dev/null; then
+                if ssh -q -o StrictHostKeyChecking=accept-new "$ssh_target" "exit" 2>/dev/null; then
                     echo -e "---------------------------------------------------"
-                    ssh -o StrictHostKeyChecking=no "$node_ip" "sudo journalctl -n 50 --no-pager"
+                    ssh -o StrictHostKeyChecking=no "$ssh_target" "sudo journalctl -n 50 --no-pager"
                     echo -e "---------------------------------------------------"
                     echo -e "${GREEN}Live logs retrieved.${NC}"
                 else
