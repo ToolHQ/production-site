@@ -29,7 +29,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi  # Reverted - restoring from snapshot
+      storage: 256Mi  # Optimized based on audit
 ---
 apiVersion: apps/v1
 kind: Deployment
