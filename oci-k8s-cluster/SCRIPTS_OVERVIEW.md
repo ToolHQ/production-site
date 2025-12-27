@@ -20,6 +20,13 @@ This directory contains the complete toolkit for bootstrapping, managing, and ma
 | **`os_network_doctor.sh`** | **Host Network Fixer.** Fixes `/etc/resolv.conf`, `systemd-resolved`, and cleans up orphaned network namespaces on the host OS. | `./os_network_doctor.sh` |
 | **`fix_iptables.sh`** | **Firewall Fixer.** Ensures critical K8s ports (6443, 4240, 8472, etc.) are open in `iptables`. | `./fix_iptables.sh` |
 
+## 👁️ Observability & Monitoring
+
+| Script | Purpose | Usage |
+| :--- | :--- | :--- |
+| **`scripts/observability/install_coroot.sh`** | **Coroot Installer.** Deploys Coroot full stack (Prometheus-based metrics, ClickHouse-based logs/traces) with automatic OCI pricing & Postgres discovery. | `./scripts/observability/install_coroot.sh` |
+| **`scripts/observability/uninstall_coroot.sh`** | **Coroot Remover.** Cleanly removes Coroot namespace and resources. | `./scripts/observability/uninstall_coroot.sh` |
+
 ## 📦 Installers & Utilities
 
 | Script | Purpose | Usage |
