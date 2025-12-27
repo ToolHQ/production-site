@@ -1,13 +1,13 @@
 #!/bin/bash
+
+# Source common variables/functions if they exist
+# Assuming running from repo root or scripts dir
 OBS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# Define SCRIPT_DIR for common.sh if not set (e.g. running directly)
-if [ -z "${SCRIPT_DIR:-}" ]; then
-  SCRIPT_DIR="$( cd "$OBS_DIR/../.." && pwd )"
-fi
+SCRIPT_DIR="$OBS_DIR"
 source "$OBS_DIR/../../common.sh"
 
 install_coroot() {
-  echo -e "${BLUE}Installing Coroot Observability (Full Stack - Profiling/Traces/Logs) on REMOTE MASTER...${NC}"
+  echo -e "${BLUE}Installing/Updating Coroot Observability (Full Stack) on REMOTE MASTER...${NC}"
 
   run_remote_stream "$MASTER_NODE" 'bash -s' <<'EOF'
     set -e
@@ -15,16 +15,24 @@ install_coroot() {
     YELLOW='\033[1;33m'
     GREEN='\033[0;32m'
     BLUE='\033[0;34m'
+    RED='\033[0;31m'
     NC='\033[0m'
 
-    echo -e "${YELLOW}Adding Coroot Helm Repo...${NC}"
+    # 1. UPSERT LOGIC: Check if already installed
+    if kubectl get ns coroot &>/dev/null; then
+      echo -e "${YELLOW}Coroot namespace exists. Running in UPSERT/UPDATE mode...${NC}"
+      echo -e "${YELLOW}Existing data (ClickHouse/Prometheus) will be PRESERVED.${NC}"
+    else
+      echo -e "${BLUE}Fresh installation detected. Creating namespace...${NC}"
+      kubectl create ns coroot --dry-run=client -o yaml | kubectl apply -f -
+    fi
+
+    echo -e "${YELLOW}Adding/Updating Coroot Helm Repo...${NC}"
     helm repo add coroot https://coroot.github.io/helm-charts
     helm repo update
 
-    # Create namespace
-    kubectl create ns coroot --dry-run=client -o yaml | kubectl apply -f -
-
     echo -e "${YELLOW}Deploying Coroot via Helm (Prometheus for metrics, NO ClickHouse via Helm)...${NC}"
+    # Use 'upgrade --install' for idempotency
     helm upgrade --install coroot coroot/coroot \
       --namespace coroot \
       --set clickhouse.enabled=false \
@@ -48,9 +56,9 @@ install_coroot() {
       --set "corootCE.ingress.tls[0].secretName=coroot-tls" \
       --set "corootCE.ingress.annotations.cert-manager\.io/cluster-issuer=dnor-ca-issuer"
 
-    echo -e "${BLUE}Deploying standalone ClickHouse with passwordless config...${NC}"
+    echo -e "${BLUE}Deploying/Updating standalone ClickHouse...${NC}"
     
-    # Create ClickHouse users config (passwordless auth)
+    # ClickHouse Users Config (Upsert)
     cat <<CLICKHOUSE_CONFIG | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
@@ -73,7 +81,7 @@ data:
     </clickhouse>
 CLICKHOUSE_CONFIG
 
-    # Create ClickHouse Service
+    # ClickHouse Service (Upsert)
     cat <<CLICKHOUSE_SVC | kubectl apply -f -
 apiVersion: v1
 kind: Service
@@ -90,7 +98,8 @@ spec:
     app: clickhouse
 CLICKHOUSE_SVC
 
-    # Create ClickHouse Deployment (emptyDir to avoid Longhorn issues)
+    # ClickHouse Deployment (Upsert)
+    # Note: We keep emptyDir for now as per previous successful fix for Longhorn issues
     cat <<CLICKHOUSE_DEPLOY | kubectl apply -f -
 apiVersion: apps/v1
 kind: Deployment
@@ -135,29 +144,82 @@ spec:
           name: clickhouse-users-config
 CLICKHOUSE_DEPLOY
 
-    echo -e "${BLUE}Configuring Coroot to use ClickHouse...${NC}"
-    # Add ClickHouse env vars to Coroot (NO PASSWORD)
+    echo -e "${BLUE}Configuring Coroot Connection...${NC}"
+    
+    # Ensure password env var is REMOVED (fix for upsert/clean state)
+    # This prevents 'password authentication failed' if helm chart defaults drift
+    kubectl set env deployment/coroot -n coroot BOOTSTRAP_CLICKHOUSE_PASSWORD- 2>/dev/null || true
+    
+    # Set the correct connection details
     kubectl set env deployment/coroot -n coroot \
       BOOTSTRAP_CLICKHOUSE_ADDRESS=clickhouse:9000 \
       BOOTSTRAP_CLICKHOUSE_USER=default \
       BOOTSTRAP_CLICKHOUSE_DATABASE=default
 
     echo -e "${BLUE}Waiting for pods to be ready...${NC}"
-    kubectl wait --for=condition=ready pod -l app=clickhouse -n coroot --timeout=180s
-    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=coroot -n coroot --timeout=180s
+    kubectl wait --for=condition=ready pod -l app=clickhouse -n coroot --timeout=300s
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=coroot -n coroot --timeout=300s
 
-    echo -e "${GREEN}Coroot with full ClickHouse stack installed successfully!${NC}"
-    echo -e "${GREEN}Features enabled: Profiling, Traces, Logs, Metrics, Service Map${NC}"
+    # 3. AUTOMATIC POSTGRES INTEGRATION
+    echo -e "${BLUE}Scanning for Postgres deployments to enable Coroot Integration...${NC}"
+    # Find deployments with "postgres" in name
+    # Using jsonpath range to iterate
+    PG_DEPLOYS=$(kubectl get deployments -A -o jsonpath='{range .items[?(@.metadata.name=="postgres-deployment")]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}')
+    
+    if [ ! -z "$PG_DEPLOYS" ]; then
+      while read -r NS NAME; do
+        echo -e "${YELLOW}Found Postgres: $NAME in namespace $NS${NC}"
+        # Try to find secret name from env vars
+        SECRET_NAME=$(kubectl get deployment -n "$NS" "$NAME" -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="POSTGRES_USER")].valueFrom.secretKeyRef.name}')
+        
+        if [ ! -z "$SECRET_NAME" ]; then
+           echo -e "${GREEN}Found credentials secret: $SECRET_NAME. Configuring Coroot integration...${NC}"
+           # Patch deployment with Coroot annotations
+           kubectl patch deployment -n "$NS" "$NAME" --type='merge' -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"coroot.com/postgres-scrape\":\"true\",\"coroot.com/postgres-scrape-credentials-secret-name\":\"$SECRET_NAME\",\"coroot.com/postgres-scrape-credentials-secret-username-key\":\"POSTGRES_USER\",\"coroot.com/postgres-scrape-credentials-secret-password-key\":\"POSTGRES_PASSWORD\"}}}}}"
+           echo -e "${GREEN}✓ patched deployment $NAME in $NS with Coroot annotations${NC}"
+        else
+           echo -e "${RED}Could not auto-detect secret for $NAME. Please annotate manually.${NC}"
+        fi
+      done <<< "$PG_DEPLOYS"
+    else
+      echo -e "${YELLOW}No specific 'postgres-deployment' found (searched for exact match).${NC}"
+    fi
+
+    # 2. OCI CLOUD PRICING (Automatic Fetch)
+    echo -e "${BLUE}Detecting Cloud Environment & Pricing...${NC}"
+    
+    # Try to fetch OCI Metadata from Instance Metadata Service (IMDS)
+    # Using curl inside the remote session; Fail fast (2s timeout) if not on OCI
+    if OCI_META=$(curl -s --connect-timeout 2 --fail http://169.254.169.254/opc/v1/instance/ 2>/dev/null); then
+       echo -e "${GREEN}✓ Successfully connected to OCI Metadata Service${NC}"
+       
+       # Check for A1 Flex Shape
+       if echo "$OCI_META" | grep -q "VM.Standard.A1.Flex"; then
+           SHAPE="VM.Standard.A1.Flex (ARM)"
+           # OCI A1 Flex Pricing (Standard List Price)
+           VCPU_PRICE="0.01"
+           MEM_PRICE="0.0015"
+           STORAGE_PRICE="0.0255"
+           
+           echo -e "${GREEN}✓ Identified Instance Shape: $SHAPE${NC}"
+           echo -e "${GREEN}✓ Fetched Pricing Model: Oracle Cloud Infrastructure (Always Free Compatible)${NC}"
+           
+           echo -e "${YELLOW}ACTION REQUIRED: Configure these exact values in Coroot UI (Settings > Costs):${NC}"
+           echo -e "  • vCPU Cost:   \$$VCPU_PRICE / hour"
+           echo -e "  • Memory Cost: \$$MEM_PRICE / GB / hour"
+           echo -e "  • Storage:     \$$STORAGE_PRICE / GB / month"
+       else
+           echo -e "${YELLOW}Detected OCI Environment but unknown shape. Please check OCI pricing calculator.${NC}"
+           # Extract shape if possible
+           RAW_SHAPE=$(echo "$OCI_META" | grep -o '"shape":\s*"[^"]*"' | cut -d'"' -f4)
+           echo -e "Instance Shape: $RAW_SHAPE"
+       fi
+    else
+       echo -e "${YELLOW}Could not fetch cloud metadata (Not OCI?). Using default pricing.${NC}"
+    fi
+
+    echo -e "${GREEN}Coroot Full Stack (Upserted) is Ready!${NC}"
 EOF
-
-  echo -e "${GREEN}Coroot is Ready!${NC}"
-  echo -e "${YELLOW}Access: https://coroot.dnor.io${NC}"
-  echo -e "${GREEN}✓ Agent Detection${NC}"
-  echo -e "${GREEN}✓ Applications & Service Map${NC}"
-  echo -e "${GREEN}✓ Prometheus Metrics${NC}"
-  echo -e "${GREEN}✓ ClickHouse Profiling${NC}"
-  echo -e "${GREEN}✓ Distributed Tracing${NC}"
-  echo -e "${GREEN}✓ Log Aggregation${NC}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

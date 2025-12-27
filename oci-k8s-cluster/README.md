@@ -22,6 +22,7 @@ STORAGE_PROVISIONER=local-path ./setup_k8s_cluster.sh
 - **Dashboard**: Kubernetes Dashboard with auto-tunneling
 - **Metrics**: Metrics server for resource monitoring
 - **Ingress**: NGINX Ingress Controller
+- **Observability**: Coroot Full Stack (Metrics, Logs, Traces, Profiling)
 
 ## Storage Provisioner Management
 
