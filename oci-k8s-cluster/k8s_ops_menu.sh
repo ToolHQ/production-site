@@ -3503,24 +3503,28 @@ $(t "menu_exit")"
       24)
         # Install Coroot
         source "$SCRIPT_DIR/scripts/observability/install_coroot.sh"
+        install_coroot
         echo ""
         read -p "$(t "press_enter")"
         ;;
       25)
         # Uninstall Coroot
         source "$SCRIPT_DIR/scripts/observability/uninstall_coroot.sh"
+        uninstall_coroot
         echo ""
         read -p "$(t "press_enter")"
         ;;
       26)
         # Install Parca
         source "$SCRIPT_DIR/scripts/observability/install_parca.sh"
+        install_parca
         echo ""
         read -p "$(t "press_enter")"
         ;;
       27)
         # Uninstall Parca
         source "$SCRIPT_DIR/scripts/observability/uninstall_parca.sh"
+        uninstall_parca
         echo ""
         read -p "$(t "press_enter")"
         ;;
