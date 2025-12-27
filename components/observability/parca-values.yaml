@@ -1,0 +1,85 @@
+server:
+  enabled: true
+  retentionTime: "24h" # Default is likely short, setting explicit
+  storageActiveMemory: 536870912 # 512MB
+  
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "dnor-ca-issuer"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # SSL Passthrough - Kibana uses it, might be safer here too?
+    # Actually Parca UI is HTTP by default, so we likely terminate TLS at Ingress
+    # nginx.ingress.kubernetes.io/backend-protocol: "HTTP" 
+  hosts:
+    - host: parca.dnor.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: parca-tls
+      hosts:
+        - parca.dnor.io
+
+agent:
+  enabled: true
+  # Ensure agents can run on master/control-plane nodes if needed
+  tolerations:
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+    # Plus defaults
+    - effect: NoSchedule
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
+
+  image:
+    # -- Overrides the image repository
+    repository: ghcr.io/parca-dev/parca-agent
+    # -- Overrides pullpolicy
+    pullPolicy: Always
+    # -- Overrides the image tag
+    tag: "v0.29.0"
+
+  # Fix for "kernel config not found" and BPF issues
+  extraVolumes:
+    - name: boot
+      hostPath:
+        path: /boot
+    - name: sys-btf
+      hostPath:
+        path: /sys/kernel/btf
+    - name: usr-src
+      hostPath:
+        path: /usr/src
+  extraVolumeMounts:
+    - name: boot
+      mountPath: /boot
+      readOnly: true
+    - name: sys-btf
+      mountPath: /sys/kernel/btf
+      readOnly: true
+    - name: usr-src
+      mountPath: /usr/src
+      readOnly: true
+
+  # Fix for "Argument list too long" on ARM64 (Reduce BPF complexity)
+  extraArgs:
+    - --profiling-cpu-sampling-frequency=19
+    - --dwarf-unwinding-disable
+    - --python-unwinding-disable
+    - --ruby-unwinding-disable
+    - --debuginfo-upload-disable
+
+  # Resource limits (critical for OCI constrained nodes)
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 200Mi

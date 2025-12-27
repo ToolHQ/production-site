@@ -1,0 +1,60 @@
+clickhouse:
+  enabled: true
+  image:
+    tag: "25.4.3"
+  persistence:
+    size: 2Gi
+    storageClass: longhorn-2
+  auth:
+    password: "i4FtSOCFXu"
+
+prometheus:
+  enabled: true
+  server:
+    persistentVolume:
+      enabled: true
+      size: 2Gi
+      storageClass: longhorn-2
+    resources:
+      requests:
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+
+corootCE:
+  image:
+    tag: "1.17.6"
+  env:
+    - name: BOOTSTRAP_CLICKHOUSE_ADDRESS
+      value: "coroot-clickhouse:9000"
+    - name: BOOTSTRAP_CLICKHOUSE_USER
+      value: "default"
+    - name: BOOTSTRAP_CLICKHOUSE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: coroot-clickhouse
+          key: admin-password
+    - name: BOOTSTRAP_CLICKHOUSE_DATABASE
+      value: "default"
+  persistentVolume:
+    size: 1Gi
+    storageClassName: longhorn-2
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: coroot.dnor.io
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - hosts:
+          - coroot.dnor.io
+        secretName: coroot-tls
+    annotations:
+      cert-manager.io/cluster-issuer: dnor-ca-issuer
