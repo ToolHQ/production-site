@@ -17,6 +17,7 @@
 | [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 
 ## ✅ Done
+- [x] **[T-025](T-025-Coroot-Enhancements.md) Implement Robust Coroot Observability (Upsert + Auto-Integrations)**
 - [x] **[T-024](T-024-Fix-Deepflow-Ingestion.md) Fix Deepflow Data Ingestion**
 - [x] **[T-022](T-022-OCI-Rescue-Ops.md) OCI Rescue Operations (Cloud Integration)**
   - Full TUI Rescue Menu (Reboot, Deep Forensics, Live Forensics)
