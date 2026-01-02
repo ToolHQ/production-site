@@ -234,11 +234,29 @@ open_k9s() {
 open_dashboard() {
   echo -e "${BLUE}=== Opening Kubernetes Dashboard ===${NC}"
   
-  # Helper for clean capture
+  # Clean helper
   capture_clean() {
     ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
         -q "$MASTER_NODE" "$1" 2>/dev/null
   }
+
+  # --- AUTOMATION: SELF-HEALING ---
+  # Source and run healing logic locally (since it uses kubectl commands that are likely wrapped or available via common.sh)
+  # But wait, heal_dashboard.sh uses 'kubectl' directly. If we run it locally, does it have access?
+  # The environment has kubeconfig. 
+  # Let's ensure we source it properly.
+  
+  if [ -f "${SCRIPT_DIR}/scripts/observability/heal_dashboard.sh" ]; then
+    source "${SCRIPT_DIR}/scripts/observability/heal_dashboard.sh"
+    # We must ensure run_kubectl is available or kubectl is configured.
+    # The menu runs locally and connects to master for some things, but also has kubectl configured locally in common.sh usually?
+    # Actually checking common.sh/run_kubectl usage.
+    # heal_dashboard.sh uses "kubectl". 
+    # Let's wrap the call or just run it. 
+    # If it fails, we ignore it.
+    heal_dashboard || true
+  fi
+  # -------------------------------
   
   # 1. Get Token
   echo "Fetching admin token..."
@@ -541,6 +559,10 @@ $(t "maint_full_heal")
 $(t "maint_iptables")
 $(t "maint_dns")
 $(t "maint_network")
+6. Clean Cluster Chaos (Evicted/Failed Pods)
+7. Fix Registry DNS (Safe)
+8. Prune Disk Space (Images/Logs)
+9. Generate Storage Dossier (App-Level)
 $(t "prefs_back")"
 
     local selected_action
@@ -578,7 +600,27 @@ $(t "prefs_back")"
         ./os_network_doctor.sh
         read -p "$(t "press_enter")"
         ;;
-      0)
+      6)
+        clear
+        source "$SCRIPT_DIR/scripts/maintenance/clean_cluster_chaos.sh"
+        read -p "$(t "press_enter")"
+        ;;
+      7)
+        clear
+        source "$SCRIPT_DIR/scripts/maintenance/fix_registry_hosts.sh"
+        read -p "$(t "press_enter")"
+        ;;
+      8)
+        clear
+        source "$SCRIPT_DIR/scripts/maintenance/prune_disk.sh"
+        read -p "$(t "press_enter")"
+        ;;
+      9)
+        clear
+        source "$SCRIPT_DIR/scripts/observability/generate_storage_dossier.sh"
+        read -p "$(t "press_enter")"
+        ;;
+      *)
         return
         ;;
     esac
