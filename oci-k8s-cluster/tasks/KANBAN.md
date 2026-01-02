@@ -40,6 +40,12 @@
 - [x] **[T-002](T-002-TUI-Testing-Framework.md) Implement BATS Testing Framework**
 - [x] **[T-001](T-001-Fix-Configuration-Drift.md) Remediate Configuration Drift**
 - [x] **[T-000](T-000-Project-Initialization.md) Project Initialization**
+- [x] **Upgrade**: Upgraded Coroot to `1.17.6` & Disabled Prometheus (Metrics via Clickhouse).
+
+## Automation & Self-Healing
+- [x] **Feature**: Automate Kubernetes Dashboard Healing (Kong CrashLoop detection & fix) <!-- id: 50 -->
+- [x] **Feature**: Automate Cluster Chaos Cleanup (Remove Evicted/Failed pods) <!-- id: 51 -->
+- [x] **Feature**: Automate Registry Connectivity Fix (/etc/hosts sync) <!-- id: 52 -->
 - [x] **Cluster Connection & Diagnostics** (Score: 92/100)
 - [x] **Strategic Roadmap Definition**
 
