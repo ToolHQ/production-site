@@ -222,8 +222,7 @@ kill_local_tunnel() {
 
 # Helper to run kubectl on master
 run_kubectl() {
-  local cmd="$1"
-  run_remote_raw "$MASTER_NODE" "kubectl $cmd"
+  run_remote_raw "$MASTER_NODE" "kubectl $*"
 }
 
 # Audio Alert (WSL Compatible)

@@ -1,0 +1,13 @@
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: maintenance-cleanup
+  namespace: longhorn-system
+spec:
+  cron: "*/30 * * * *"
+  task: snapshot-delete
+  groups: []
+  retain: 1
+  concurrency: 1
+  labels:
+    purpose: "disk-pressure-relief"
