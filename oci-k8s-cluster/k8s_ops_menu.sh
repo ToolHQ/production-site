@@ -627,6 +627,8 @@ $(t "prefs_back")"
   done
 }
 
+
+
 component_management_menu() {
   while true; do
     local actions="$(t "comp_deploy")
@@ -701,6 +703,7 @@ $(t "prefs_back")"
         fi
         read -p "$(t "press_enter")"
         ;;
+
       0)
         return
         ;;
@@ -753,15 +756,21 @@ discover_active_tunnels() {
         return 1
     fi
     
-    # Parse lsof output to get PID and port
-    # Column 2: PID, Column 9: NAME (e.g., "127.0.0.1:8443" or "[::1]:8443")
+    # Parse lsof output to get PID, Bind IP, and Port
+    # Column 2: PID, Column 9: NAME (e.g., "127.0.0.1:8443" or "[::1]:8443" or "127.0.0.2:5432")
     local tunnel_info=$(echo "$lsof_output" | awk '{
-        # Extract port from NAME column (format: IP:PORT or [IP]:PORT)
-        if (match($9, /:([0-9]+)/, arr)) {
-            port = arr[1]
+        # Extract IP and port from NAME column
+        # Matches IP:PORT (IPv4) or [IPv6]:PORT
+        if (match($9, /(.*):([0-9]+)/, arr)) {
+            ip_str = arr[1]
+            port = arr[2]
+            
+            # Remove brackets from IPv6
+            gsub(/^\[|\]$/, "", ip_str)
+            
             # Skip port 1 (SSH multiplexing control socket)
             if (port != "1") {
-                print $2, port
+                print $2, ip_str, port
             }
         }
     }' | sort -u)
@@ -771,10 +780,12 @@ discover_active_tunnels() {
     fi
     
     # Enrich with metadata
-    while read -r pid local_port; do
+    while read -r pid bind_ip local_port; do
         [ -z "$pid" ] && continue
         
-        local meta_file="$TUNNEL_DIR/$local_port.meta"
+        # Use bind_ip-port as metadata key to match how we save it in start_tunnel
+        local meta_key="${bind_ip//./-}-$local_port"
+        local meta_file="$TUNNEL_DIR/$meta_key.meta"
         local service_info="Unknown Service"
         local namespace="unknown"
         
@@ -789,18 +800,20 @@ discover_active_tunnels() {
         fi
         
         # Get remote port from process cmdline
-        # Handle both formats: 127.0.0.1:PORT and IP:PORT
+        # Handle both formats: 127.0.0.1:PORT and IP:PORT bound
         local cmdline=$(ps -p "$pid" -o args= 2>/dev/null)
         local remote_port="unknown"
         
-        # Try to extract port from -L argument (format: localport:host:remoteport)
-        if [[ "$cmdline" =~ -L[[:space:]]+([0-9]+):([^:]+):([0-9]+) ]]; then
-            remote_port="${BASH_REMATCH[3]}"
-        elif [[ "$cmdline" =~ 127\.0\.0\.1:([0-9]+) ]]; then
-            remote_port="${BASH_REMATCH[1]}"
+        # Try to extract port from -L argument (format: localport:host:remoteport or bind_ip:localport:host:remoteport)
+        if [[ "$cmdline" =~ -L[[:space:]]+([^:]+:)?([0-9]+):([^:]+):([0-9]+) ]]; then
+            # If 4 groups, means bind_ip is present. remote_port is the last group
+             remote_port="${BASH_REMATCH[4]}"
+        elif [[ "$cmdline" =~ :([0-9]+)$ ]]; then
+             # simplistic fallback
+             remote_port="${BASH_REMATCH[1]}"
         fi
         
-        echo "$pid|$service_info|$namespace|$local_port|$remote_port"
+        echo "$pid|$service_info|$namespace|$local_port|$remote_port|$bind_ip"
     done <<< "$tunnel_info"
 }
 
@@ -811,6 +824,8 @@ start_tunnel() {
     local target_remote_port="${4:-}"
     local target_desc="${5:-}"
     local force_port="${6:-false}"  # New parameter: force use of specific port
+    local bind_ip="${7:-127.0.0.1}" # New parameter: bind ip (e.g. 127.0.0.2)
+    local target_host="${8:-127.0.0.1}" # New parameter: remote target host (e.g. ClusterIP or PodIP)
 
     local svc_info=""
     local desired_port=""
@@ -841,6 +856,28 @@ start_tunnel() {
         fi
 
         local menu_items=""
+        
+        # 1. Add Postgres Smart Tunnels (Top Priority)
+        # Fetch IPs dynamically
+        local pg_0_ip=$(run_kubectl "-n postgres get pod postgres-0 -o jsonpath='{.status.podIP}'" 2>/dev/null || echo "")
+        local pg_1_ip=$(run_kubectl "-n postgres get pod postgres-1 -o jsonpath='{.status.podIP}'" 2>/dev/null || echo "")
+        
+        if [ -n "$pg_0_ip" ]; then
+             local status=""
+             if [[ " $active_local_ports " == *" 5432 "* ]] && echo "$active_tunnel_data" | grep -q "postgres-0"; then
+                 status=" [ACTIVE] ✓"
+             fi
+             menu_items+="postgres/postgres-0 (Primary: 127.0.0.2:5432 -> $pg_0_ip:5432) [SMART]$status\n"
+        fi
+         if [ -n "$pg_1_ip" ]; then
+             local status=""
+             if [[ " $active_local_ports " == *" 5432 "* ]] && echo "$active_tunnel_data" | grep -q "postgres-1"; then
+                 status=" [ACTIVE] ✓"
+             fi
+             menu_items+="postgres/postgres-1 (Replica: 127.0.0.3:5432 -> $pg_1_ip:5432) [SMART]$status\n"
+        fi
+        
+        # 2. Add NodePort Services
         while IFS= read -r line; do
           if [ -n "$line" ]; then
             local ns_name="${line%% *}"
@@ -889,6 +926,17 @@ start_tunnel() {
           return
         fi
 
+        # handle SMART selections immediately
+        if [[ "$selected_item" == *"postgres/postgres-0"* ]] && [[ "$selected_item" == *"[SMART]"* ]]; then
+             # start_tunnel ns svc local remote desc force bind target
+             start_tunnel "postgres" "postgres-0" "5432" "5432" "Primary Tunnel" "true" "127.0.0.2" "$pg_0_ip"
+             return
+        fi
+        if [[ "$selected_item" == *"postgres/postgres-1"* ]] && [[ "$selected_item" == *"[SMART]"* ]]; then
+             start_tunnel "postgres" "postgres-1" "5432" "5432" "Replica Tunnel" "true" "127.0.0.3" "$pg_1_ip"
+             return
+        fi
+
         # Remove [ACTIVE] marker if present
         selected_item="${selected_item% [ACTIVE]}"
         
@@ -897,6 +945,7 @@ start_tunnel() {
         local service_name="${svc_info##*/}"
         local ports_info="${selected_item#* (}"
         ports_info="${ports_info%)}"
+
 
         local selected_port_mapping
         if [[ "$ports_info" == *", "* ]]; then
@@ -949,16 +998,17 @@ start_tunnel() {
         echo -e "${BLUE}Enforcing use of port $desired_port...${NC}"
         local_port="$desired_port"
         
-        # Check and kill if in use
-        # We use sudo lsof because the process binding a privileged port is likely root
-        if sudo lsof -i ":$local_port" > /dev/null 2>&1; then
-             echo -e "${YELLOW}Port $local_port is busy. Killing occupant...${NC}"
-             local pids=$(sudo lsof -t -iTCP:"$local_port" -sTCP:LISTEN)
+        # Check and kill if in use on THIS SPECIFIC bind_ip
+        # CRITICAL: Must check bind_ip:port, not just port, to avoid killing other loopback binds
+        if sudo lsof -i "@$bind_ip:$local_port" > /dev/null 2>&1; then
+             echo -e "${YELLOW}Port $bind_ip:$local_port is busy. Killing occupant...${NC}"
+             local pids=$(sudo lsof -t -i "@$bind_ip:$local_port" -sTCP:LISTEN)
              if [ -n "$pids" ]; then
                  # Kill each PID individually (in case there are multiple)
                  for pid in $pids; do
                      sudo kill "$pid" 2>/dev/null || true
                  done
+                 sleep 0.5  # Give it time to die
              fi
         fi
     else
@@ -970,9 +1020,13 @@ start_tunnel() {
         fi
     fi
 
-    echo -e "${BLUE}Starting background tunnel for $svc_info ($local_port -> $remote_port)...${NC}"
+    echo -e "${BLUE}Starting background tunnel for $svc_info ($bind_ip:$local_port -> $target_host:$remote_port)...${NC}"
     
-    # Check if we need sudo for privileged ports
+    # Debug: Show exact bind IP being used
+    echo -e "${GRAY}Bind IP: $bind_ip, Local Port: $local_port, Target: $target_host:$remote_port${NC}"
+    
+    # Check if we need sudo for privileged ports OR if bind_ip demands it (though usually only port < 1024 needs it)
+    # However, binding to 127.0.0.1 usually fine. 127.0.0.2+ also usually fine on Linux.
     local use_sudo=""
     if [ "$local_port" -le 1024 ]; then
         echo -e "${YELLOW}⚠️  Port $local_port requires root privileges. You may be asked for your sudo password.${NC}"
@@ -989,33 +1043,37 @@ start_tunnel() {
             ssh_config_opt="-F $HOME/.ssh/config"
         fi
         
-        $use_sudo ssh $ssh_config_opt -i "$SSH_KEY" -f -N -L "$local_port:127.0.0.1:$remote_port" \
+        $use_sudo ssh $ssh_config_opt -i "$SSH_KEY" -f -N -L "$bind_ip:$local_port:$target_host:$remote_port" \
             -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             -o ExitOnForwardFailure=yes \
             "$MASTER_NODE"
     else
-        ssh -f -N -L "$local_port:127.0.0.1:$remote_port" \
+        ssh -f -N -L "$bind_ip:$local_port:$target_host:$remote_port" \
             -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             -o ExitOnForwardFailure=yes \
             "$MASTER_NODE"
+
     fi
     
-    if [ $? -eq 0 ]; then
+        if [ $? -eq 0 ]; then
         echo -e "${GREEN}Tunnel started!${NC}"
         
-        # Robust protocol detection with actual connectivity test
+        # Robust protocol detection with actual connectivity test using Bind IP
         local detected_protocol="tcp"
         echo -n "Detecting protocol... "
         sleep 1
+        
+        # Protocol check URLs
+        local check_host="${bind_ip}"
         
         # Check if it's likely HTTPS (port 443, 8443, or service name contains 'dashboard', 'kong', 'ssl', 'tls')
         if [[ "$local_port" =~ ^(443|8443)$ ]] || [[ "$remote_port" =~ ^(443|31271)$ ]] || \
            [[ "$service_name" =~ (dashboard|kong|ssl|tls|secure) ]]; then
             # Test HTTPS first
-            if curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "https://localhost:$local_port" >/dev/null 2>&1; then
+            if curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "https://$check_host:$local_port" >/dev/null 2>&1; then
                 detected_protocol="https"
                 echo -e "${GREEN}HTTPS${NC}"
-            elif curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://localhost:$local_port" >/dev/null 2>&1; then
+            elif curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://$check_host:$local_port" >/dev/null 2>&1; then
                 detected_protocol="http"
                 echo -e "${YELLOW}HTTP (expected HTTPS)${NC}"
             else
@@ -1026,10 +1084,10 @@ start_tunnel() {
         elif [[ "$local_port" =~ ^(80|8080|8081|9000|9001)$ ]] || \
              [[ "$service_name" =~ (console|ui|web|api|nexus|minio|browser) ]]; then
             # Test HTTP first, then HTTPS
-            if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://localhost:$local_port" >/dev/null 2>&1; then
+            if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://$check_host:$local_port" >/dev/null 2>&1; then
                 detected_protocol="http"
                 echo -e "${GREEN}HTTP${NC}"
-            elif curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "https://localhost:$local_port" >/dev/null 2>&1; then
+            elif curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "https://$check_host:$local_port" >/dev/null 2>&1; then
                 detected_protocol="https"
                 echo -e "${YELLOW}HTTPS (expected HTTP)${NC}"
             else
@@ -1038,7 +1096,7 @@ start_tunnel() {
             fi
         # Default: TCP check for databases and other services
         else
-            if nc -z localhost "$local_port" >/dev/null 2>&1; then
+            if nc -z "$check_host" "$local_port" >/dev/null 2>&1; then
                 detected_protocol="tcp"
                 echo -e "${GREEN}TCP${NC}"
             else
@@ -1048,15 +1106,71 @@ start_tunnel() {
         fi
         
         # Save metadata with detected protocol
-        echo "$svc_info|$namespace|$service_name|$detected_protocol" > "$TUNNEL_DIR/$local_port.meta"
+        # CRITICAL: Use bind_ip-port as key to distinguish tunnels on same port but different loopback IPs
+        local meta_key="${bind_ip//./-}-$local_port"
+        echo "$svc_info|$namespace|$service_name|$detected_protocol" > "$TUNNEL_DIR/$meta_key.meta"
         
         # Display access URL with correct protocol
+        local display_host="localhost"
+        if [ "$check_host" != "127.0.0.1" ]; then
+             display_host="$check_host"
+        fi
+
         if [ "$detected_protocol" = "https" ]; then
-            echo -e "Access URL: ${YELLOW}https://localhost:$local_port${NC}"
+            echo -e "Access URL: ${YELLOW}https://$display_host:$local_port${NC}"
         elif [ "$detected_protocol" = "http" ]; then
-            echo -e "Access URL: ${YELLOW}http://localhost:$local_port${NC}"
+            echo -e "Access URL: ${YELLOW}http://$display_host:$local_port${NC}"
         else
-            echo -e "Access URL: ${YELLOW}localhost:$local_port${NC} (protocol: $detected_protocol)"
+            echo -e "Access URL: ${YELLOW}$display_host:$local_port${NC} (protocol: $detected_protocol)"
+        fi
+        
+        # HYBRID WSL MODE: Bridge WSL tunnel to Windows using socat
+        if grep -qEi "(Microsoft|WSL)" /proc/version 2>/dev/null; then
+            if [ "$bind_ip" != "127.0.0.1" ]; then
+                echo ""
+                echo -e "${CYAN}WSL detected: Creating Windows bridge via socat...${NC}"
+                
+                # Check if socat is installed
+                if ! command -v socat &>/dev/null; then
+                    echo -e "${YELLOW}socat not found. Installing...${NC}"
+                    sudo apt-get update -qq && sudo apt-get install -y socat >/dev/null 2>&1
+                    if [ $? -eq 0 ]; then
+                        echo -e "${GREEN}socat installed!${NC}"
+                    else
+                        echo -e "${RED}Failed to install socat. Windows bridge unavailable.${NC}"
+                        echo -e "${YELLOW}Windows users: Use localhost:15432 via /tmp/wsl_to_windows_bridge.sh${NC}"
+                        continue
+                    fi
+                fi
+                
+                # Determine Windows-accessible port (use alternative ports to avoid conflicts)
+                local win_port="$local_port"
+                if [ "$bind_ip" = "127.0.0.2" ]; then
+                    win_port="15432"  # Primary postgres -> Windows localhost:15432
+                elif [ "$bind_ip" = "127.0.0.3" ]; then
+                    win_port="15433"  # Replica postgres -> Windows localhost:15433
+                fi
+                
+                # Kill existing socat bridge
+                pkill -f "socat.*$win_port" 2>/dev/null || true
+                
+                # Get WSL IP that Windows can access
+                local wsl_ip=$(hostname -I | awk '{print $1}')
+                
+                # Create socat bridge: Windows can access WSL_IP:port -> routes to WSL bind_ip:port
+                socat TCP-LISTEN:$win_port,fork,bind=$wsl_ip,reuseaddr TCP:$bind_ip:$local_port </dev/null &>/dev/null &
+                local socat_pid=$!
+                
+                sleep 0.5
+                if kill -0 $socat_pid 2>/dev/null && ss -tln | grep -q ":$win_port"; then
+                    echo -e "${GREEN}✓ Windows bridge created!${NC}"
+                    echo -e "  ${GRAY}WSL apps: Use $bind_ip:$local_port${NC}"
+                    echo -e "  ${GRAY}Windows apps: Use $wsl_ip:$win_port${NC}"
+                    echo -e "  ${YELLOW}Note: Connect using WSL IP, not localhost${NC}"
+                else
+                    echo -e "${YELLOW}⚠  Bridge failed. Manual option: /tmp/wsl_to_windows_bridge.sh${NC}"
+                fi
+            fi
         fi
     else
         echo -e "${RED}Failed to start tunnel.${NC}"
@@ -1168,10 +1282,33 @@ ingress_menu() {
                 if [ -n "$mysql_port" ] && kubectl get ns deepflow >/dev/null 2>&1; then
                     echo -e "${BLUE}Creating MySQL TCP tunnel (local 3306 → remote $mysql_port)...${NC}"
                     start_tunnel "$ns" "$name" "3306" "$mysql_port" "DeepFlow MySQL" "true"
-                fi                # Also create TCP tunnel for PostgreSQL if port is exposed
+                fi
+                
+                # Smart Postgres Tunneling (Primary + Replica)
                 if [ -n "$postgres_port" ]; then
-                    echo -e "${BLUE}Creating PostgreSQL TCP tunnel (local 5432 → remote $postgres_port)...${NC}"
-                    start_tunnel "$ns" "$name" "5432" "$postgres_port" "PostgreSQL TCP" "true"
+                    echo -e "${BLUE}Initializing Smart Postgres Tunnels...${NC}"
+                    echo -e "${YELLOW}Initializing Robust Postgres Tunnels (CNI Bypass)...${NC}"
+                    
+                    # Kill stale remote port-forwards owned by us
+                    ssh -o BatchMode=yes -o StrictHostKeyChecking=no "$MASTER_NODE" "pkill -f 'kubectl port-forward.*postgres' >/dev/null 2>&1 || true"
+                    
+                    # Start remote port-forward for Primary (postgres-0) -> Master:50000
+                    # Using ssh -f to put in background immediately after auth
+                    ssh -f -o BatchMode=yes -o StrictHostKeyChecking=no "$MASTER_NODE" \
+                        "kubectl port-forward -n postgres postgres-0 50000:5432 --address 127.0.0.1 >/dev/null 2>&1"
+                    
+                    # Start remote port-forward for Replica (postgres-1) -> Master:50001
+                    ssh -f -o BatchMode=yes -o StrictHostKeyChecking=no "$MASTER_NODE" \
+                         "kubectl port-forward -n postgres postgres-1 50001:5432 --address 127.0.0.1 >/dev/null 2>&1"
+                         
+                    # Give time for remote port-forwards to establish
+                    echo -n "Establishing remote links..."
+                    sleep 3
+                    echo " Done"
+                    
+                    # Connect tunnels to localhost on master node (where port-forward is listening)
+                    start_tunnel "postgres" "postgres-0" "5432" "50000" "Postgres Primary" "true" "127.0.0.2" "127.0.0.1"
+                    start_tunnel "postgres" "postgres-1" "5432" "50001" "Postgres Replica" "true" "127.0.0.3" "127.0.0.1"
                 else
                     echo -e "${YELLOW}PostgreSQL TCP port not found in Ingress Controller service${NC}"
                 fi
@@ -1197,115 +1334,221 @@ update_hosts_file() {
     echo -e "${BLUE}Scanning Ingress hosts...${NC}"
     
     # Get all unique hosts from all Ingresses
-    local hosts
-    hosts=$(run_kubectl "get ingress -A -o jsonpath='{.items[*].spec.rules[*].host}'" | tr ' ' '\n' | sort -u | grep -v "^$")
+    local ingress_hosts
+    ingress_hosts=$(run_kubectl "get ingress -A -o jsonpath='{.items[*].spec.rules[*].host}'" | tr ' ' '\n' | sort -u | grep -v "^$")
     
-    if [ -z "$hosts" ]; then
-        echo -e "${YELLOW}No Ingress hosts found.${NC}"
-        read -p "Press Enter..."
-        return
+    # Define Postgres mappings
+    local pg_primary="postgres.dnor.io"
+    local pg_replica="postgres-ro.dnor.io"
+    
+    local wsl_detected=false
+    if grep -qEi "(Microsoft|WSL)" /proc/version; then
+        wsl_detected=true
     fi
 
-    echo -e "Found hosts:\n$hosts"
+    echo -e "Found Ingress hosts:\n$ingress_hosts"
+    echo -e "Adding Postgres mappings:"
+    echo -e "  $pg_primary -> 127.0.0.2"
+    echo -e "  $pg_replica -> 127.0.0.3"
     echo ""
-    echo -e "${YELLOW}This will add the above hosts to your local /etc/hosts pointing to 127.0.0.1.${NC}"
-    echo -e "${YELLOW}Root privileges (sudo) are required.${NC}"
+    
+    if [ "$wsl_detected" = true ]; then
+        echo -e "${YELLOW}This will update BOTH your Linux (/etc/hosts) and Windows hosts files with ALL entries.${NC}"
+    else
+        echo -e "${YELLOW}This will add these hosts to your local /etc/hosts.${NC}"
+    fi
+    echo -e "${YELLOW}Root privileges (sudo/UAC) are required.${NC}"
     read -p "Do you want to proceed? (y/N) " confirm
     
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        local entries=""
-        for host in $hosts; do
-            entries+="127.0.0.1 $host\n"
+        # Build entries list for Linux /etc/hosts
+        local linux_entries=""
+        
+        # Add Ingress hosts (127.0.0.1)
+        for host in $ingress_hosts; do
+            linux_entries+="127.0.0.1 $host\n"
         done
         
-        # Create a temporary file with the new entries
+        # Add Postgres hosts (127.0.0.2, 127.0.0.3)
+        linux_entries+="127.0.0.2 $pg_primary\n"
+        linux_entries+="127.0.0.3 $pg_replica\n"
+        
+        # --- Update Linux Hosts ---
+        echo -e "${BLUE}Updating Linux /etc/hosts...${NC}"
+        
         local tmp_file=$(mktemp)
-        echo -e "\n# Kubernetes Ingress Tunnels (dnor.io)" > "$tmp_file"
-        echo -e "$entries" >> "$tmp_file"
+        echo -e "# Kubernetes Ingress Tunnels (dnor.io)" > "$tmp_file"
+        echo -e "$linux_entries" >> "$tmp_file"
         
-        echo -e "${BLUE}Updating /etc/hosts...${NC}"
+        # Aggressive Cleanup Strategy
+        # Remove old block marker
+        local marker="# Kubernetes Ingress Tunnels (dnor.io)"
+        sudo sed -i "/$marker/d" /etc/hosts
         
-        # Use sudo to append to /etc/hosts if not already present
-        # This is a simple append strategy. For more complex management, we'd need sed/awk.
-        # We first check if the marker exists to avoid duplication block
-        if grep -q "# Kubernetes Ingress Tunnels (dnor.io)" /etc/hosts; then
-             echo -e "${YELLOW}Entries might already exist. Appending new block anyway...${NC}"
-             sudo bash -c "cat '$tmp_file' >> /etc/hosts"
-        else
-             sudo bash -c "cat '$tmp_file' >> /etc/hosts"
-        fi
+        # Global removal for any dnor.io domain
+        sudo sed -i '/\.dnor\.io/d' /etc/hosts
         
+        # Append clean new block
+        sudo bash -c "cat '$tmp_file' >> /etc/hosts"
         rm "$tmp_file"
+        echo -e "${GREEN}Linux hosts updated!${NC}"
         
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}Successfully updated /etc/hosts!${NC}"
+        # --- Update Windows Hosts (if WSL) ---
+        if [ "$wsl_detected" = true ]; then
+            echo ""
+            echo -e "${BLUE}Updating Windows hosts file...${NC}"
             
-            # Check for WSL to update Windows hosts
-            if grep -qEi "(Microsoft|WSL)" /proc/version; then
-                echo ""
-                echo -e "${BLUE}WSL Detected!${NC}"
-                echo -e "${YELLOW}Do you want to update Windows hosts file as well?${NC}"
-                echo -e "${GRAY}(This will open a UAC prompt for PowerShell)${NC}"
-                read -p "Update Windows hosts? (y/N) " update_win
-                
-                if [[ "$update_win" =~ ^[Yy]$ ]]; then
-                    # Prepare PowerShell script to append hosts
-                    # We use a temporary PS1 script to avoid complex escaping in the command line
-                    local win_hosts_path="C:\Windows\System32\drivers\etc\hosts"
-                    local ps_script="
-\$hostsPath = '$win_hosts_path'
-\$entries = @(
-$(for host in $hosts; do echo "    '127.0.0.1 $host'"; done)
-)
+            # Generate unique marker with timestamp for verification
+            local timestamp=$(date +%s)
+            local unique_marker="# Kubernetes Ingress Tunnels (dnor.io) - Updated: $timestamp"
+            
+            # PowerShell Script with OWNERSHIP TAKEOVER (nuclear option for antivirus)
+            local ps_script="
+\$hostsPath = \"\$env:SystemRoot\System32\drivers\etc\hosts\"
+\$backupPath = \"\$hostsPath.bak\"
+\$tempPath = \"\$env:TEMP\hosts_temp_\$(Get-Random).txt\"
 
-\$currentContent = Get-Content \$hostsPath -Raw
-\$newContent = \"\`r\`n# Kubernetes Ingress Tunnels (dnor.io)\`r\`n\"
-\$needsUpdate = \$false
+Write-Host 'Creating backup...' -ForegroundColor Yellow
+Copy-Item \$hostsPath \$backupPath -Force -ErrorAction SilentlyContinue
 
-foreach (\$entry in \$entries) {
-    if (\$currentContent -notmatch [regex]::Escape(\$entry)) {
-        \$newContent += \"\$entry\`r\`n\"
-        \$needsUpdate = \$true
+Write-Host 'Taking ownership of hosts file...' -ForegroundColor Yellow
+& takeown.exe /F \$hostsPath
+& icacls.exe \$hostsPath /grant Administrators:F
+
+Write-Host 'Removing file protections...' -ForegroundColor Yellow
+& cmd.exe /c \"attrib -r -s -h \$hostsPath\"
+
+Write-Host 'Reading current hosts file...' -ForegroundColor Cyan
+\$content = Get-Content \$hostsPath
+\$newContent = @()
+\$inBlock = \$false
+
+foreach (\$line in \$content) {
+    # Skip any existing Kubernetes block or dnor.io entries
+    if (\$line -match 'Kubernetes.*Ingress.*Tunnels|dnor\.io') { 
+        if (\$line -match '#.*Kubernetes') { \$inBlock = \$true }
+        continue 
     }
+    if (\$inBlock -and \$line.Trim() -eq '') { \$inBlock = \$false;continue }
+    if (-not \$inBlock) { \$newContent += \$line }
 }
 
-if (\$needsUpdate) {
-    Add-Content -Path \$hostsPath -Value \$newContent
-    Write-Host 'Windows hosts file updated!' -ForegroundColor Green
-} else {
-    Write-Host 'Entries already exist.' -ForegroundColor Yellow
+Write-Host 'Adding new entries...' -ForegroundColor Cyan
+\$newContent += \"\"
+\$newContent += \"$unique_marker\"
+$(for host in $ingress_hosts; do echo "\$newContent += \"127.0.0.1 $host\""; done)
+\$newContent += \"127.0.0.2 $pg_primary\"
+\$newContent += \"127.0.0.3 $pg_replica\"
+\$newContent += \"\"
+
+try {
+    Write-Host 'Writing to temp file...' -ForegroundColor Yellow
+    \$newContent | Out-File -FilePath \$tempPath -Encoding ASCII -Force
+    
+    Write-Host 'Replacing hosts file...' -ForegroundColor Yellow
+    # Direct overwrite using Set-Content after ownership takeover
+    \$newContent | Set-Content -Path \$hostsPath -Force -ErrorAction Stop
+    
+    Write-Host 'Windows hosts file updated successfully!' -ForegroundColor Green
+} catch {
+    Write-Error \"Failed: \$_\"
+    Write-Host \"Restoring from backup...\" -ForegroundColor Yellow
+    if (Test-Path \$backupPath) { 
+        Copy-Item \$backupPath \$hostsPath -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host \"ERROR: Antivirus is blocking file write. Please whitelist this script.\" -ForegroundColor Red
+    exit 1
+} finally {
+    if (Test-Path \$tempPath) { Remove-Item \$tempPath -Force -ErrorAction SilentlyContinue }
 }
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 2
 "
-                    # Save PS script to a temp file accessible by Windows (current dir is likely mounted)
-                    # Use /tmp but ensure it's convertible to Windows path, or just use current dir if safe.
-                    # Safest is to pass the command encoded or just simple append.
-                    # Let's try a simpler append approach via Start-Process to avoid file sharing issues.
-                    # Actually, passing a complex script block to Start-Process is tricky.
-                    # Let's write the script to a temp file in the current directory (which is shared)
-                    echo "$ps_script" > "update_win_hosts.ps1"
-                    
-                    # Convert linux path to windows path (mixed mode / for safety in bash strings)
-                    local win_script_path
-                    if command -v wslpath >/dev/null; then
-                        win_script_path=$(wslpath -m "./update_win_hosts.ps1")
-                    else
-                        # Fallback simple conversion (hope for no backslash issues)
-                        win_script_path=".\\update_win_hosts.ps1"
-                    fi
-                    
-                    echo -e "${BLUE}Launching PowerShell as Admin...${NC}"
-                    # Use -Command and single quotes for inner args to handle parsing correctly
-                    # Use -Wait to ensure script finishes before we delete the file
-                    powershell.exe -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-ExecutionPolicy Bypass -File \"$win_script_path\"'"
-                    
-                    echo -e "${GREEN}Windows hosts update completed.${NC}"
-                    rm "update_win_hosts.ps1"
-                fi
+            echo "$ps_script" > "update_win_hosts.ps1"
+            
+            local win_script_path
+            if command -v wslpath >/dev/null; then
+                win_script_path=$(wslpath -w "./update_win_hosts.ps1")
+            else
+                win_script_path=".\\update_win_hosts.ps1"
             fi
-        else
-            echo -e "${RED}Failed to update /etc/hosts.${NC}"
+            
+            echo -e "${BLUE}Launching PowerShell as Admin...${NC}"
+            powershell.exe -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"$win_script_path\"'" 2>&1 | tee /tmp/ps_output.log
+            
+            # Verify if the file was actually modified by checking for our marker
+            echo -e "${GRAY}[DEBUG] Waiting for file sync...${NC}"
+            sleep 2
+            
+            local verification_failed=false
+            local win_hosts_mount="/mnt/c/Windows/System32/drivers/etc/hosts"
+            
+            echo -e "${GRAY}[DEBUG] Checking if Windows hosts mount exists: $win_hosts_mount${NC}"
+            if [ -f "$win_hosts_mount" ]; then
+                echo -e "${GRAY}[DEBUG] Mount found. Checking for timestamped marker...${NC}"
+                echo -e "${GRAY}[DEBUG] Looking for: Updated: $timestamp${NC}"
+                if grep -q "Updated: $timestamp" "$win_hosts_mount" 2>/dev/null; then
+                    echo -e "${GREEN}[DEBUG] Timestamped marker found! Update successful.${NC}"
+                    verification_failed=false
+                else
+                    echo -e "${RED}[DEBUG] Timestamped marker NOT found. Update failed!${NC}"
+                    echo -e "${YELLOW}[DEBUG] Last 15 lines of Windows hosts file:${NC}"
+                    tail -15 "$win_hosts_mount" 2>/dev/null || echo "[DEBUG] Could not read file"
+                    verification_failed=true
+                fi
+            else
+                echo -e "${YELLOW}[DEBUG] Mount not accessible. Cannot verify automatically.${NC}"
+                echo -e "${YELLOW}Please check manually: C:\Windows\System32\drivers\etc\hosts${NC}"
+                verification_failed=false  # Can't verify, assume it worked
+            fi
+            
+            if [ "$verification_failed" = true ]; then
+                echo -e "${RED}PowerShell automation failed (likely blocked by antivirus).${NC}"
+                echo -e "${YELLOW}Opening Notepad for MANUAL editing...${NC}"
+                
+                # Create a temp file with instructions + entries to copy
+                local instructions_file=$(mktemp /tmp/hosts_instructions.XXXXXX.txt)
+                cat > "$instructions_file" <<EOF
+==============================================
+WINDOWS HOSTS FILE - MANUAL UPDATE REQUIRED
+==============================================
+
+Your antivirus blocked automatic editing.
+Please follow these steps:
+
+1. The Windows hosts file will open in Notepad (requires UAC approval)
+2. Scroll to the bottom of the file
+3. DELETE any existing "# Kubernetes Ingress Tunnels (dnor.io)" block
+4. COPY the lines below and PASTE them at the end:
+
+--- START COPYING HERE ---
+# Kubernetes Ingress Tunnels (dnor.io)
+$(for host in $ingress_hosts; do echo "127.0.0.1 $host"; done)
+127.0.0.2 $pg_primary
+127.0.0.3 $pg_replica
+
+--- END COPYING HERE ---
+
+5. Save the file (Ctrl+S)
+6. Close Notepad
+
+Press Enter in this terminal when done...
+EOF
+                # Show instructions in Linux terminal
+                cat "$instructions_file"
+                
+                # Open Windows hosts in Notepad as Admin
+                local win_hosts_win_path='C:\Windows\System32\drivers\etc\hosts'
+                powershell.exe -Command "Start-Process notepad.exe -ArgumentList '$win_hosts_win_path' -Verb RunAs"
+                
+                read -p ""
+                rm "$instructions_file"
+                echo -e "${GREEN}Manual edit completed.${NC}"
+            else
+                echo -e "${GREEN}Windows hosts update completed.${NC}"
+            fi
+            rm "update_win_hosts.ps1"
         fi
+
     else
         echo "Cancelled."
     fi
@@ -1330,8 +1573,13 @@ manage_tunnels() {
         # Add main menu option at the top
         menu_items="← Return to Main Menu\n"
         
-        while IFS='|' read -r pid svc_info namespace local_port remote_port; do
-            menu_items+="$svc_info (Local: $local_port -> Remote: $remote_port) [PID: $pid]\n"
+        while IFS='|' read -r pid svc_info namespace local_port remote_port bind_ip_raw; do
+            # Format bind info if not 127.0.0.1
+            local bind_display=""
+            if [ -n "$bind_ip_raw" ] && [ "$bind_ip_raw" != "127.0.0.1" ] && [ "$bind_ip_raw" != "localhost" ]; then
+                bind_display=" ($bind_ip_raw)"
+            fi
+            menu_items+="$svc_info (Local: $local_port$bind_display -> Remote: $remote_port) [PID: $pid]\n"
         done <<< "$tunnel_data"
 
         menu_items+="↩ Back to Access Menu"
@@ -2815,6 +3063,7 @@ $(t "prefs_back")"
 # --- PREFERENCES MENU ---
 
 # Get port status for display (multiline format with URLs)
+
 get_port_status() {
     local tunnel_data
     tunnel_data=$(discover_active_tunnels)
@@ -2826,7 +3075,7 @@ get_port_status() {
         local count=0
         local status_lines=""
         
-        while IFS='|' read -r pid svc_info namespace local_port remote_port; do
+        while IFS='|' read -r pid svc_info namespace local_port remote_port bind_ip_raw; do
             # Extract service name and protocol
             local svc_name="$svc_info"
             local protocol="tcp"
@@ -2843,12 +3092,22 @@ get_port_status() {
                 svc_name="${svc_name##*/}"
             fi
             
+            # Determine display host
+            local display_host="localhost"
+            if [ -n "$bind_ip_raw" ] && [ "$bind_ip_raw" != "127.0.0.1" ] && [ "$bind_ip_raw" != "localhost" ]; then
+                display_host="$bind_ip_raw"
+            fi
+            
             # Build URL if http/https
             local url_info=""
             if [[ "$protocol" == "http" ]] || [[ "$protocol" == "https" ]]; then
-                url_info=" → ${protocol}://localhost:${local_port}"
+                url_info=" → ${protocol}://${display_host}:${local_port}"
             else
-                url_info=" [$protocol]"
+                if [ "$display_host" != "localhost" ]; then
+                     url_info=" → ${display_host}:${local_port} [$protocol]"
+                else
+                     url_info=" [$protocol]"
+                fi
             fi
             
             # Add to status lines
