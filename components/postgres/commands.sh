@@ -10,7 +10,7 @@ echo "🐘 Starting PostgreSQL deployment..."
 
 # === SMART BUILD LOGIC ===
 HASH_FILE=".last_build_hash"
-FILES_TO_MONITOR="Dockerfile postgresql.conf pg_upgrade.sh run_upgrade.sh upgrade.yaml"
+FILES_TO_MONITOR="Dockerfile postgresql.conf pg_upgrade.sh run_upgrade.sh upgrade.yaml entrypoint-wrapper.sh"
 
 # Calculate current hash (MD5 of combined file content)
 # We handle missing files gracefully by checking existence
@@ -191,9 +191,9 @@ fi
 echo "🚀 Applying PostgreSQL resources..."
 kubectl apply -f postgres-resources.yaml
 
-# Wait for deployment to be ready
-echo "⏳ Waiting for PostgreSQL deployment to be ready (timeout: 5m)..."
-if kubectl -n postgres rollout status deployment/postgres-deployment --timeout=5m 2>&1; then
+# Wait for StatefulSet to be ready
+echo "⏳ Waiting for PostgreSQL StatefulSet to be ready (timeout: 5m)..."
+if kubectl -n postgres rollout status statefulset/postgres --timeout=5m 2>&1; then
     echo "✅ PostgreSQL deployment successful!"
     
     # Display deployment info
@@ -238,6 +238,13 @@ else
     exit 1
 fi
 
+# Enable Replication Security (Inject Secret)
+if [ -n "${PG_REP_PASS:-}" ]; then
+    echo "🔐 Injecting Replication Password into postgres-secret..."
+    kubectl -n postgres patch secret postgres-secret \
+      -p="{\"data\":{\"POSTGRES_REPLICATION_PASSWORD\": \"$(echo -n $PG_REP_PASS | base64 | tr -d '\n')\"}}"
+fi
+
 # ==========================================
 # 🛡️  SECURE COROOT INTEGRATION
 # ==========================================
@@ -271,8 +278,8 @@ if kubectl get ns coroot >/dev/null 2>&1; then
     # 3. Configure Postgres User & Extension (Idempotent)
     echo "🐘 Configuring Postgres Roles & Extensions..."
     
-    # Get a running pod
-    POD=$(kubectl get pod -n postgres -l app=postgres -o jsonpath="{.items[0].metadata.name}")
+    # Get the Primary Pod (postgres-0)
+    POD="postgres-0"
     
     # SQL: Create user if not exists, update password, grant monitor, create extension
     SQL_COMMANDS="
