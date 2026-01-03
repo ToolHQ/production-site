@@ -49,8 +49,8 @@ spec:
               # Save name for next container
               echo "$SNAPSHOT_NAME" > $BACKUP_DIR/latest_snapshot
               
-              # Keep only last 7 days locally
-              find $BACKUP_DIR -name 'etcd-*.db' -mtime +7 -delete
+              # Keep only last 3 days locally (Optimized)
+              find $BACKUP_DIR -name 'etcd-*.db' -mtime +3 -delete
               
               echo "Snapshot created: $SNAPSHOT_NAME"
             volumeMounts:
