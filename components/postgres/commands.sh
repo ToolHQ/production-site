@@ -8,14 +8,112 @@ set -euo pipefail
 
 echo "🐘 Starting PostgreSQL deployment..."
 
-# Build and push Docker image
-echo "📦 Building PostgreSQL image..."
-# if [ -f ./build.sh ]; then
-#     source ./build.sh
-# else
-#     echo "⚠️  build.sh not found, skipping image build"
-# fi
-echo "Skipping build.sh (Using public postgres:alpine image)"
+# === SMART BUILD LOGIC ===
+HASH_FILE=".last_build_hash"
+FILES_TO_MONITOR="Dockerfile postgresql.conf pg_upgrade.sh run_upgrade.sh upgrade.yaml"
+
+# Calculate current hash (MD5 of combined file content)
+# We handle missing files gracefully by checking existence
+CURRENT_HASH=""
+for f in $FILES_TO_MONITOR; do
+    if [ -f "$f" ]; then
+        CURRENT_HASH="${CURRENT_HASH}$(md5sum "$f" | awk '{print $1}')"
+    fi
+done
+CURRENT_HASH=$(echo "$CURRENT_HASH" | md5sum | awk '{print $1}')
+
+# Check if build is needed
+BUILD_NEEDED=false
+if [ ! -f "$HASH_FILE" ]; then
+    echo "🆕 No previous build detected. Initializing Smart Build..."
+    BUILD_NEEDED=true
+else
+    LAST_HASH=$(cat "$HASH_FILE")
+    if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then
+         echo "♻️  Changes detected in configuration/Dockerfile."
+         BUILD_NEEDED=true
+    else
+         echo "✅ No changes detected. Skipping build."
+    fi
+fi
+
+# Override force build if build.sh missing
+if [ ! -f ./build.sh ]; then
+    echo "⚠️  build.sh not found. Cannot build. Using public/existing image."
+    BUILD_NEEDED=false
+fi
+
+if [ "$BUILD_NEEDED" == "true" ]; then
+    echo "📦 Starting Smart Build..."
+    
+    # FIX: Ensure registry.local resolves to ClusterIP, not 127.0.0.1
+    # We discovered that /etc/hosts on master points registry.local to 127.0.0.1 but no tunnel exists.
+    # We need to find the ClusterIP of the Nexus service and update/add host entry.
+    
+    echo "🔧 Improving Registry Connectivity..."
+    # We need to map registry.local to the Node IP (where NodePort 31444 is listening).
+    # Using ClusterIP would fail because ClusterIP listens on 18444, but our tag uses 31444.
+    
+    # Get Master IP (Internal)
+    # We assume standard 10.0.1.100 or detect it
+    NODE_IP=$(hostname -I | awk '{print $1}')
+    # Or hardcode if we are sure
+    NODE_IP="10.0.1.100" # Master Private IP
+    
+    if [ -n "$NODE_IP" ]; then
+        echo "   Using Node IP for Registry: $NODE_IP"
+        # Remove old entry if exists (rudimentary)
+        sudo sed -i '/registry.local/d' /etc/hosts || true
+        # Add new entry
+        echo "$NODE_IP registry.local" | sudo tee -a /etc/hosts >/dev/null
+        echo "   Updated /etc/hosts: registry.local -> $NODE_IP"
+        
+        # FIX: Restart BuildKit to flush DNS cache (crucial because it caches 127.0.0.1)
+        echo "♻️  Restarting BuildKit service to flush DNS cache..."
+        systemctl --user restart buildkit.service
+        
+        # Wait for socket
+        sleep 5
+        
+        # Verify hosts
+        # grep "registry.local" /etc/hosts
+    else
+        echo "⚠️  Could not find Node IP."
+    fi
+    
+    # Enable Insecure Registry (HTTP) for BuildKit
+    export REGISTRY_INSECURE=true
+
+    # Generate Version Tag: 18.0-<short_hash>
+    # We use the first 7 chars of the content hash as the version suffix
+    VERSION_SUFFIX="${CURRENT_HASH:0:7}"
+    BASE_IMAGE="registry.local:31444/repository/docker-repo/postgres"
+    NEW_TAG="${BASE_IMAGE}:18.0-alpine3.22-${VERSION_SUFFIX}"
+    
+    echo "🏷️  New Image Tag: $NEW_TAG"
+    
+    # Run Build
+    if ./build.sh "$NEW_TAG"; then
+        echo "✅ Build & Push Successful."
+        
+        # Save Hash
+        echo "$CURRENT_HASH" > "$HASH_FILE"
+        
+        # Update YAML with new tag
+        echo "📝 Updating postgres-resources.yaml..."
+        # Use sed to replace the image line. We match the image: registry.local... line
+        # We look for 'image: registry.local.*' and replace it
+        sed -i "s|image: registry.local:31444/.*|image: $NEW_TAG|g" postgres-resources.yaml
+        
+        echo "✅ YAML Updated."
+    else
+        echo "❌ Build Failed! Aborting deployment."
+        exit 1
+    fi
+else
+    echo "⏭️  Using existing image defined in YAML."
+fi
+# =========================
 
 # Verify Longhorn storage class is available
 echo "🔍 Verifying Longhorn storage class..."

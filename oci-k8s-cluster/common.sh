@@ -16,6 +16,10 @@ NC='\033[0m' # No Color
 # ────────────────────────────────────────────────
 # Common functions and variables for OCI K8s cluster scripts
 # ────────────────────────────────────────────────
+
+# Ensure SCRIPT_DIR is set (robust for sourcing or direct execution)
+SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+
 # Only detect nodes if not already set (cache across multiple sourcing)
 if [ -z "${NODES+x}" ]; then
   if grep -q 'Host oci-k8s-' ~/.ssh/config; then
@@ -46,15 +50,15 @@ SSH_KEY="${SSH_KEY:-$HOME/.ssh/oci-ssh-key-2025-06-19.key}"
 RUN_REMOTE_CAPTURE_RESULT=""
 
 # Source Audit Library
-if [[ -f "$SCRIPT_DIR/lib/audit.sh" ]]; then
-    source "$SCRIPT_DIR/lib/audit.sh"
+if [[ -f "${SCRIPT_DIR:-}/lib/audit.sh" ]]; then
+    source "${SCRIPT_DIR:-}/lib/audit.sh"
 elif [[ -f "$(dirname "$0")/lib/audit.sh" ]]; then
     source "$(dirname "$0")/lib/audit.sh"
 fi
 
 # Source Credential Store Library
-if [[ -f "$SCRIPT_DIR/lib/credstore.sh" ]]; then
-    source "$SCRIPT_DIR/lib/credstore.sh"
+if [[ -f "${SCRIPT_DIR:-}/lib/credstore.sh" ]]; then
+    source "${SCRIPT_DIR:-}/lib/credstore.sh"
 elif [[ -f "$(dirname "$0")/lib/credstore.sh" ]]; then
     source "$(dirname "$0")/lib/credstore.sh"
 fi
