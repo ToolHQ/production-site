@@ -112,6 +112,18 @@ if [ "$BUILD_NEEDED" == "true" ]; then
     fi
 else
     echo "⏭️  Using existing image defined in YAML."
+    
+    # FIX: Even if we skip the build, we must ensure the YAML uses the hashed tag.
+    # Why? Because deploy_components.sh overwrites the remote YAML with the local (default) one.
+    
+    # Reconstruct version
+    VERSION_SUFFIX="${CURRENT_HASH:0:7}"
+    BASE_IMAGE="registry.local:31444/repository/docker-repo/postgres"
+    NEW_TAG="${BASE_IMAGE}:18.0-alpine3.22-${VERSION_SUFFIX}"
+
+    echo "📝 Updating postgres-resources.yaml to match hash (Tag: ${VERSION_SUFFIX})..."
+    sed -i "s|image: registry.local:31444/.*|image: $NEW_TAG|g" postgres-resources.yaml
+    echo "✅ YAML Updated."
 fi
 # =========================
 
