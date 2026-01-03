@@ -224,6 +224,7 @@ node_action_menu() {
         echo -e "10. ${CYAN}Tune Etcd I/O Performance${NC} - ${BOLD}Fix Slow Disk/High CPU${NC}"
         echo -e "11. ${MAGENTA}Prioritize Control Plane${NC} - ${BOLD}Renice Etcd/API to High Priority${NC}"
         echo -e "12. ${YELLOW}Enforce API CPU Quota${NC} - ${BOLD}Lock API Server to 50% CPU${NC}"
+        echo -e "13. ${RED}Surgical Rescue (Volume Fix)${NC} - ${BOLD}Detach Boot Vol -> Fix Files -> Restore${NC}"
         echo -e "0. Back to Node List"
         
         echo -ne "\nSelect option: "
@@ -444,6 +445,26 @@ node_action_menu() {
                     "sudo mv /tmp/cpu_quota_enforcer.sh /usr/local/bin/enforce_cpu_quota.sh && sudo chmod +x /usr/local/bin/enforce_cpu_quota.sh && sudo /usr/local/bin/enforce_cpu_quota.sh"
                     
                 echo "Quota Enforcement Complete."
+                read -p "Press Enter to continue..."
+                ;;
+            13)
+                echo -e "\n${RED}${BOLD}!!! SURGICAL OPERATION !!!${NC}"
+                echo -e "This procedure will STOP the node, detach its boot volume, fix the filesystem via a helper node, and restore it."
+                echo -e "Patient: $node_name"
+                echo -e "Doctor:  k8s-node-1 (Hardcoded default helper)"
+                
+                read -p "Type 'SURGERY' to confirm: " confirm_surgery
+                if [[ "$confirm_surgery" == "SURGERY" ]]; then
+                    # Call surgical script with Patient and Doctor
+                    # Ensure we aren't operating on the doctor itself
+                    if [[ "$node_name" == "k8s-node-1" ]]; then
+                        echo -e "${RED}Cannot operate on the Doctor node itself! Choose another helper.${NC}"
+                    else 
+                        "$CLOUD_DIR/surgical_rescue.sh" "$node_name" "k8s-node-1"
+                    fi
+                else
+                    echo "Cancelled."
+                fi
                 read -p "Press Enter to continue..."
                 ;;
             5)

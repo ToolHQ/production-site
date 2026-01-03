@@ -10,11 +10,12 @@ echo "🐘 Starting PostgreSQL deployment..."
 
 # Build and push Docker image
 echo "📦 Building PostgreSQL image..."
-if [ -f ./build.sh ]; then
-    source ./build.sh
-else
-    echo "⚠️  build.sh not found, skipping image build"
-fi
+# if [ -f ./build.sh ]; then
+#     source ./build.sh
+# else
+#     echo "⚠️  build.sh not found, skipping image build"
+# fi
+echo "Skipping build.sh (Using public postgres:alpine image)"
 
 # Verify Longhorn storage class is available
 echo "🔍 Verifying Longhorn storage class..."
