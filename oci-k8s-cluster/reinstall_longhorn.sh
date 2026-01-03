@@ -79,6 +79,12 @@ else
   
   echo '✅ Longhorn v${LONGHORN_VERSION} installed successfully.'
   echo '💡 Longhorn UI can be accessed via: kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80'
+
+  # Tuning for Small Clusters (Prevent "Scheduling Failed" on high disk usage)
+  echo '🔧 Tuning Longhorn settings for small clusters...'
+  kubectl patch -n longhorn-system settings storage-minimal-available-percentage -p '{"value":"15"}' --type=merge
+  kubectl patch -n longhorn-system settings storage-over-provisioning-percentage -p '{"value":"200"}' --type=merge
+  echo '✅ Tuned: storage-minimal-available-percentage=15%, over-provisioning=200%'
 fi
 EOF
 "

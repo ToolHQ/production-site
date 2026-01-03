@@ -367,6 +367,29 @@ if [ ${#SCALED_DOWN_APPS[@]} -gt 0 ]; then
     echo "--------------------------------------------------------"
 fi
 
+# FIX 8: Longhorn Orphaned Data
+LH_IP=$(k -n longhorn-system get svc longhorn-frontend -o jsonpath="{.spec.clusterIP}" 2>/dev/null)
+if [ -n "$LH_IP" ]; then
+    ORPHANS_JSON=$(curl -s "http://$LH_IP/v1/orphans")
+    ORPHAN_COUNT=$(echo "$ORPHANS_JSON" | jq -r ".data[].id" 2>/dev/null | wc -w)
+    
+    if [ "$ORPHAN_COUNT" -gt 0 ]; then
+        echo "🧹 Found $ORPHAN_COUNT Longhorn Orphaned Data entries (Zombie replicas)."
+        echo ""
+        read -p "Clean up these orphans? (y/N) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            IDS=$(echo "$ORPHANS_JSON" | jq -r ".data[].id")
+            for id in $IDS; do
+                log "Deleting orphan $id..."
+                curl -s -X DELETE "http://$LH_IP/v1/orphans/$id" >/dev/null
+            done
+            log "✓ Orphans cleaned."
+        fi
+        echo "--------------------------------------------------------"
+    fi
+fi
+
 echo ""
 echo "Housekeeping Complete."
 read -p "Press ENTER to continue..."

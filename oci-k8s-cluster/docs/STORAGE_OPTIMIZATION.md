@@ -27,4 +27,4 @@ Or use the `resize_shrink_v2.sh` script to attempt an in-place shrink (risky).
 *   `components/observability/manifests/logstash.yaml`
 *   `components/nexus/nexus-resources.yaml`
 *   `components/postgres/postgres-resources.yaml`
-*   `components/kubecost/commands.sh`
+*   `components/kubecost/commands.sh` (Optimized Jan 2026: 2Gi)
