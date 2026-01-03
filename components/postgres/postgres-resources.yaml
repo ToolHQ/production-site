@@ -107,14 +107,13 @@ metadata:
   labels:
     app: postgres
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: postgres
   ports:
     - name: tcp-port
       port: 5432
       targetPort: 5432
-      nodePort: 31432
       protocol: TCP
 ---
 # TCP Ingress Configuration for PostgreSQL
