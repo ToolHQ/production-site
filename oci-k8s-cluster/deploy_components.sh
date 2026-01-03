@@ -93,6 +93,21 @@ apply_component_manifests() {
   # Special handling for Postgres Coroot Credential (local generation)
   local coroot_pg_pass=""
   if [[ "$component" == "postgres" ]]; then
+    # Replication Password (Early Generation)
+    local cred_rep="postgres_replication_password"
+    local cred_json_rep=$(credstore_get_credential "$cred_rep" 2>/dev/null || echo "{}")
+    local pg_rep_pass=""
+    
+    if [ -z "$cred_json_rep" ] || [ "$cred_json_rep" = "{}" ]; then
+         echo "🆕 Generating new secure password for Postgres Replication..."
+         pg_rep_pass=$(openssl rand -base64 24)
+         credstore_add "$cred_rep" "replicator" "$pg_rep_pass" "Postgres replication user"
+    else
+         pg_rep_pass=$(echo "$cred_json_rep" | jq -r '.password')
+         echo "🔑 Using existing Replication credential from local store."
+    fi
+
+    # Coroot Credential
       local cred_name="postgres_coroot_password"
       local cred_json_pg=$(credstore_get_credential "$cred_name" 2>/dev/null || echo "{}")
       
@@ -165,7 +180,7 @@ cd /home/ubuntu/deployments/$component
 if [ -f commands.sh ]; then
   chmod +x commands.sh
   echo "▶ Running custom commands.sh for $component..."
-  COROOT_PG_PASSWORD="$coroot_pg_pass" ./commands.sh
+  COROOT_PG_PASSWORD="$coroot_pg_pass" PG_REP_PASS="$pg_rep_pass" ./commands.sh
 else
   echo "▶ Applying YAML manifests in $component..."
   kubectl apply -f .

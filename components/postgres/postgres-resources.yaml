@@ -32,14 +32,15 @@ spec:
       storage: 5Gi  # Matches existing volume
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  name: postgres-deployment
+  name: postgres
   namespace: postgres
   labels:
     app: postgres
 spec:
-  replicas: 1
+  serviceName: "postgres-service"
+  replicas: 2
   selector:
     matchLabels:
       app: postgres
@@ -73,31 +74,45 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
+            - name: POSTGRES_REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_REPLICATION_PASSWORD
             - name: PG_HOST
               value: postgres
             - name: POSTGRES_LISTEN_ADDRESSES
               value: "*"
             # Default Data Directory (User requested /18/docker subpath)
+            # IMPORTANT: For StatefulSet, we mount to the ROOT of the PVC usually, or subpath.
+            # Entrypoint wrapper expects PGDATA to be the data dir.
             - name: PGDATA
-              value: /var/lib/postgresql/18/docker
+              value: /var/lib/postgresql/data/pgdata
           volumeMounts:
-            - name: postgresdata
-              mountPath: /var/lib/postgresql
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
           readinessProbe: # ✅ adds safe startup check
             exec:
-              command: ["pg_isready", "-U", "postgres"]
+              command: ["pg_isready", "-U", "postgres", "-d", "template1"]
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 5
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "postgres"]
+              command: ["pg_isready", "-U", "postgres", "-d", "template1"]
             initialDelaySeconds: 20
             periodSeconds: 20
-      volumes:
-        - name: postgresdata
-          persistentVolumeClaim:
-            claimName: postgres-pvc
+            timeoutSeconds: 5
       restartPolicy: Always
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "longhorn"
+        resources:
+          requests:
+            storage: 5Gi
 ---
 apiVersion: v1
 kind: Service
