@@ -1,13 +1,23 @@
 #!/bin/bash
 set -e
 
-# Detect Mode based on Hostname
-HOSTNAME=$(hostname)
-echo "🐘 Postgres Entrypoint Wrapper - Hostname: $HOSTNAME"
+# Detect Mode based on POD_NAME (preferred for HostNetwork) or Hostname
+if [ -n "$POD_NAME" ]; then
+    IDENTITY="$POD_NAME"
+else
+    IDENTITY=$(hostname)
+fi
 
-if [[ "$HOSTNAME" =~ -0$ ]]; then
+echo "🐘 Postgres Entrypoint Wrapper - Identity: $IDENTITY"
+
+if [[ "$IDENTITY" =~ -0$ ]]; then
     ROLE="primary"
     echo "👑 Detected Role: PRIMARY"
+    PGdata=${PGDATA:-/var/lib/postgresql/data}
+    if [ -f "$PGdata/standby.signal" ]; then
+        echo "⚠️  Found stale standby.signal on Primary. Removing it..."
+        rm -f "$PGdata/standby.signal"
+    fi
 else
     ROLE="standby"
     echo "🛡️ Detected Role: STANDBY"
@@ -73,14 +83,14 @@ configure_standby() {
         fi
         
         # Wait for Primary
-        until PGPASSWORD=$POSTGRES_REPLICATION_PASSWORD psql -h postgres-0.postgres-service -U replicator -d template1 -c '\l' >/dev/null 2>&1; do
+        until PGPASSWORD=$POSTGRES_REPLICATION_PASSWORD psql -h postgres-0.postgres-internal -U replicator -d template1 -c '\l' >/dev/null 2>&1; do
             echo "⏳ Waiting for Primary (postgres-0) to be ready..."
             sleep 5
         done
         
         echo "🚀 Starting Base Backup..."
         PGPASSWORD=$POSTGRES_REPLICATION_PASSWORD pg_basebackup \
-            -h postgres-0.postgres-service \
+            -h postgres-0.postgres-internal \
             -U replicator \
             -D "$PGdata" \
             -Fp -Xs -P -R

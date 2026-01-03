@@ -38,7 +38,7 @@ install_coroot() {
       --set clickhouse.enabled=false \
       --set prometheus.enabled=true \
       --set prometheus.server.persistentVolume.enabled=true \
-      --set prometheus.server.persistentVolume.size=663Mi \
+      --set prometheus.server.persistentVolume.size=2Gi \
       --set prometheus.server.persistentVolume.storageClass=longhorn-2 \
       --set prometheus.server.global.scrape_interval=30s \
       --set prometheus.server.resources.requests.memory=128Mi \

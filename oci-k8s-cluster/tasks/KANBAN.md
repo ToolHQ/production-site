@@ -8,6 +8,7 @@
 | [T-023](T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
 | [T-020](T-020-Security-Hardening.md) | **Security Hardening (SSH/Audit)** | 🔼 High | Sec | 4h |
 | [T-021](T-021-Automated-Maintenance.md) | **Automated Maintenance Policies** |  Low | Infra | 2h |
+| [T-030](T-030-Postgres-Replica-Exposition.md) | **Postgres Replica Exposition (Loopback Tunnels)** | 🔼 High | DevExp | 2h |
 
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
