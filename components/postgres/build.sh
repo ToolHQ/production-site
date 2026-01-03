@@ -3,7 +3,7 @@ set -euo pipefail
 
 DOCKER_REGISTRY_HOST=${DOCKER_REGISTRY_HOST:-127.0.0.1}
 PORT=${PORT:-31444}
-DEFAULT_TAG="$DOCKER_REGISTRY_HOST:$PORT/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0"
+DEFAULT_TAG="$DOCKER_REGISTRY_HOST:$PORT/repository/docker-repo/postgres:custom-latest"
 DOCKER_TAG="${1:-$DEFAULT_TAG}"
 
 # Prefer rootless buildkit socket if present
