@@ -39,6 +39,16 @@ manage_volumes() {
              printf "%-20s %-45s %10s %10s %10s\n" "$NS" "$PVC" "$ALLOC" "⏳" "⏳" >> "$DISPLAY_FILE"
         done < "$INITIAL_LIST_FILE"
         
+        # ⚠️ Detect Orphans and Prepend Option
+        ORPHAN_COUNT=$(grep -c "Lost" "$INITIAL_LIST_FILE" || true)
+        if [ "$ORPHAN_COUNT" -gt 0 ]; then
+             # Create a special top line (Use distinct formatting)
+             SPECIAL_LINE=$(printf "%-20s %-45s %10s %10s %10s" "ALL" "⚠️  CLEAN UP ORPHANS ($ORPHAN_COUNT)" "" "" "")
+             
+             # Prepend to DISPLAY_FILE (using temp file to avoid race condition)
+             echo "$SPECIAL_LINE" | cat - "$DISPLAY_FILE" > "${DISPLAY_FILE}.tmp" && mv "${DISPLAY_FILE}.tmp" "$DISPLAY_FILE"
+        fi
+        
         # Start Background Updater (Pass explicit CACHE_DIR as 4th arg)
         bash scripts/volume_manager/async_updater.sh "$INITIAL_LIST_FILE" "$DISPLAY_FILE" "$FZF_PORT" "$CACHE_DIR" >/dev/null 2>&1 &
         UPDATER_PID=$!
@@ -115,6 +125,16 @@ manage_volumes() {
         fi
         
         # Extract volume info from selection
+        if [ -z "$selected" ]; then
+            return
+        fi
+        
+        # Handle Special Cleanup Option
+        if echo "$selected" | grep -q "CLEAN UP ORPHANS"; then
+             bash scripts/volume_manager/cleanup_orphans.sh
+             continue
+        fi
+        
         # Extract volume info from selection
         local namespace=$(echo "$selected" | awk '{print $1}')
         local pvc_name=$(echo "$selected" | awk '{print $2}')
