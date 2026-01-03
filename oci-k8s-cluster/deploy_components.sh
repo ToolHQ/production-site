@@ -130,6 +130,9 @@ if [[ -n "\$NEXUS_PASS" && "\$NEXUS_PASS" != "null" ]]; then
 	"auths": {
 		"\$DOCKER_REGISTRY_HOST:\$PORT": {
 			"auth": "\$AUTH_STR"
+		},
+		"registry.local:31444": {
+			"auth": "\$AUTH_STR"
 		}
 	}
 }
