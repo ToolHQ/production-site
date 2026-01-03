@@ -154,8 +154,8 @@ fi
 
 # Check for existing deployment and handle Multi-Attach errors
 echo "🔍 Checking for existing PostgreSQL deployment..."
-if kubectl -n postgres get deployment postgres-deployment >/dev/null 2>&1; then
-    echo "⚠️  Existing PostgreSQL deployment found."
+if kubectl -n postgres get statefulset postgres >/dev/null 2>&1; then
+    echo "⚠️  Existing PostgreSQL statefulset found."
     
     # Check for stuck pods or volume attachment issues
     stuck_pods=$(kubectl -n postgres get pods -l app=postgres --field-selector=status.phase!=Running,status.phase!=Succeeded 2>/dev/null | grep -c "postgres" 2>/dev/null || echo "0")
@@ -176,7 +176,7 @@ if kubectl -n postgres get deployment postgres-deployment >/dev/null 2>&1; then
     
     # Scale down deployment to avoid Multi-Attach errors during update
     echo "📉 Scaling down existing deployment to avoid Multi-Attach errors..."
-    kubectl -n postgres scale deployment postgres-deployment --replicas=0
+    kubectl -n postgres scale statefulset postgres --replicas=0
     
     # Wait for pods to terminate
     echo "⏳ Waiting for pods to terminate (max 60s)..."
@@ -199,11 +199,11 @@ if kubectl -n postgres rollout status statefulset/postgres --timeout=5m 2>&1; th
     # Display deployment info
     echo ""
     echo "📊 Deployment Status:"
-    kubectl -n postgres get deployment,pod,svc,pvc -o wide
+    kubectl -n postgres get statefulset,pod,svc,pvc -o wide
     
     echo ""
     echo "💡 Useful commands:"
-    echo "   - Port forward: kubectl port-forward --namespace=postgres deployment/postgres-deployment 54322:5432"
+    echo "   - Port forward: kubectl port-forward --namespace=postgres statefulset/postgres 54322:5432"
     echo "   - View logs: kubectl -n postgres logs -l app=postgres -f"
     echo "   - Check PVC: kubectl -n postgres describe pvc postgres-pvc"
     echo "   - Check events: kubectl -n postgres get events --sort-by='.lastTimestamp'"
@@ -224,7 +224,7 @@ else
         echo "   3. Re-run this script"
         echo ""
         echo "   Or use manual cleanup:"
-        echo "   kubectl -n postgres delete deployment postgres-deployment"
+        echo "   kubectl -n postgres delete statefulset postgres"
         echo "   kubectl -n postgres delete pvc postgres-pvc"
         echo "   Then re-apply the resources"
     fi
@@ -281,6 +281,13 @@ if kubectl get ns coroot >/dev/null 2>&1; then
     # Get the Primary Pod (postgres-0)
     POD="postgres-0"
     
+    # FIX: Ensure 'postgres' database exists (Standard Docker Image usually creates it, but custom entrypoints might miss it)
+    echo "🔍 Verifying 'postgres' database exists..."
+    if ! kubectl exec -n postgres "$POD" -- psql -U postgres -d template1 -tAc "SELECT 1 FROM pg_database WHERE datname='postgres'" | grep -q 1; then
+         echo "⚠️  Database 'postgres' not found. Creating it..."
+         kubectl exec -n postgres "$POD" -- psql -U postgres -d template1 -c "CREATE DATABASE postgres;"
+    fi
+    
     # SQL: Create user if not exists, update password, grant monitor, create extension
     SQL_COMMANDS="
     DO \$\$
@@ -305,7 +312,7 @@ if kubectl get ns coroot >/dev/null 2>&1; then
     
     # 4. Annotate Deployment for Coroot Agent
     echo "🏷️  Annotating Deployment for Coroot Agent..."
-    kubectl patch deployment postgres-deployment -n postgres --type='merge' -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"coroot.com/postgres-scrape\":\"true\",\"coroot.com/postgres-scrape-credentials-secret-name\":\"postgres-coroot-creds\",\"coroot.com/postgres-scrape-credentials-secret-username-key\":\"username\",\"coroot.com/postgres-scrape-credentials-secret-password-key\":\"password\"}}}}}"
+    kubectl patch statefulset postgres -n postgres --type='merge' -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"coroot.com/postgres-scrape\":\"true\",\"coroot.com/postgres-scrape-credentials-secret-name\":\"postgres-coroot-creds\",\"coroot.com/postgres-scrape-credentials-secret-username-key\":\"username\",\"coroot.com/postgres-scrape-credentials-secret-password-key\":\"password\"}}}}}"
     
     echo "✅ Integration Complete! Coroot will begin collecting metrics shortly."
 

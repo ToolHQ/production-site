@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM postgres:18.1-alpine3.22
+FROM postgres:16-alpine
 COPY postgresql.conf /etc/postgresql/postgresql.conf
 COPY entrypoint-wrapper.sh /usr/local/bin/entrypoint-wrapper.sh
 RUN chmod +x /usr/local/bin/entrypoint-wrapper.sh

@@ -39,7 +39,7 @@ metadata:
   labels:
     app: postgres
 spec:
-  serviceName: "postgres-service"
+  serviceName: "postgres-internal"
   replicas: 2
   selector:
     matchLabels:
@@ -51,17 +51,33 @@ spec:
       annotations:
         container.apparmor.security.beta.kubernetes.io/postgres: unconfined
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - postgres
+              topologyKey: "kubernetes.io/hostname"
       imagePullSecrets:
         - name: regsecret
       containers:
         - name: postgres
           # Custom Image from Nexus (registry.local:31444)
-          image: registry.local:31444/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
+          image: registry.local:31444/repository/docker-repo/postgres:16-alpine-6d98ea7
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
               protocol: TCP
           env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: PG_PORT
               value: "5432"
             - name: POSTGRES_USER
@@ -91,16 +107,23 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+          # Startup Probe: Gives time for pg_basebackup to finish (up to 5 mins)
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "template1"]
+            failureThreshold: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
           readinessProbe: # ✅ adds safe startup check
             exec:
               command: ["pg_isready", "-U", "postgres", "-d", "template1"]
-            initialDelaySeconds: 10
+            initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", "postgres", "-d", "template1"]
-            initialDelaySeconds: 20
+            initialDelaySeconds: 10
             periodSeconds: 20
             timeoutSeconds: 5
       restartPolicy: Always
@@ -113,6 +136,23 @@ spec:
         resources:
           requests:
             storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-internal
+  namespace: postgres
+  labels:
+    app: postgres
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - name: tcp-port
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
 ---
 apiVersion: v1
 kind: Service
