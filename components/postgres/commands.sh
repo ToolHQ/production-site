@@ -84,11 +84,19 @@ if [ "$BUILD_NEEDED" == "true" ]; then
     # Enable Insecure Registry (HTTP) for BuildKit
     export REGISTRY_INSECURE=true
 
-    # Generate Version Tag: 18.0-<short_hash>
+    # Extract Postgres version from Dockerfile
+    # Tag logic: registry.../postgres:<BaseVersion>-<Hash>
+    # If FROM is postgres:18.0-alpine3.22 -> BaseVersion = 18.0-alpine3.22
+    # If FROM is postgres (no tag) -> BaseVersion = latest
+    PG_VERSION=$(grep '^FROM' Dockerfile | head -n 1 | awk -F':' '{print $2}' | tr -d ' \r\n')
+    PG_VERSION=${PG_VERSION:-latest}
+    echo "ℹ️  Detected Postgres Version from Dockerfile: $PG_VERSION"
+
+    # Generate Version Tag: <Version>-<short_hash>
     # We use the first 7 chars of the content hash as the version suffix
     VERSION_SUFFIX="${CURRENT_HASH:0:7}"
     BASE_IMAGE="registry.local:31444/repository/docker-repo/postgres"
-    NEW_TAG="${BASE_IMAGE}:18.0-alpine3.22-${VERSION_SUFFIX}"
+    NEW_TAG="${BASE_IMAGE}:${PG_VERSION}-${VERSION_SUFFIX}"
     
     echo "🏷️  New Image Tag: $NEW_TAG"
     
@@ -102,7 +110,7 @@ if [ "$BUILD_NEEDED" == "true" ]; then
         # Update YAML with new tag
         echo "📝 Updating postgres-resources.yaml..."
         # Use sed to replace the image line. We match the image: registry.local... line
-        # We look for 'image: registry.local.*' and replace it
+        # We look for 'image: registry.local.*' and replace it with new tag
         sed -i "s|image: registry.local:31444/.*|image: $NEW_TAG|g" postgres-resources.yaml
         
         echo "✅ YAML Updated."
@@ -116,10 +124,13 @@ else
     # FIX: Even if we skip the build, we must ensure the YAML uses the hashed tag.
     # Why? Because deploy_components.sh overwrites the remote YAML with the local (default) one.
     
-    # Reconstruct version
+    # Reconstruct version (for consistency checks or ensuring YAML is correct)
+    PG_VERSION=$(grep '^FROM' Dockerfile | head -n 1 | awk -F':' '{print $2}' | tr -d ' \r\n')
+    PG_VERSION=${PG_VERSION:-latest}
+    
     VERSION_SUFFIX="${CURRENT_HASH:0:7}"
     BASE_IMAGE="registry.local:31444/repository/docker-repo/postgres"
-    NEW_TAG="${BASE_IMAGE}:18.0-alpine3.22-${VERSION_SUFFIX}"
+    NEW_TAG="${BASE_IMAGE}:${PG_VERSION}-${VERSION_SUFFIX}"
 
     echo "📝 Updating postgres-resources.yaml to match hash (Tag: ${VERSION_SUFFIX})..."
     sed -i "s|image: registry.local:31444/.*|image: $NEW_TAG|g" postgres-resources.yaml
