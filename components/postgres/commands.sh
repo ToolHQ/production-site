@@ -237,3 +237,71 @@ else
     
     exit 1
 fi
+
+# ==========================================
+# 🛡️  SECURE COROOT INTEGRATION
+# ==========================================
+echo ""
+echo "🔍 Checking for Coroot Observability..."
+
+if kubectl get ns coroot >/dev/null 2>&1; then
+    echo "✅ Coroot namespace detected. Configuring secure integration..."
+    
+    
+    # Credentials passed via Env Var from deploy_components.sh (Local CredStore)
+    COROOT_USER="coroot"
+    
+    
+    if [ -n "${COROOT_PG_PASSWORD:-}" ]; then
+        echo "🔐 Using secure credential provided by deployment environment."
+        COROOT_PASS="$COROOT_PG_PASSWORD"
+    else
+        echo "❌ COROOT_PG_PASSWORD not set in environment. Skipping secure integration."
+        exit 0
+    fi
+    
+    # 2. Create/Update Kubernetes Secret
+    echo "📦 Syncing Kubernetes Secret (postgres-coroot-creds)..."
+    kubectl create secret generic postgres-coroot-creds \
+        --namespace postgres \
+        --from-literal=username="$COROOT_USER" \
+        --from-literal=password="$COROOT_PASS" \
+        --dry-run=client -o yaml | kubectl apply -f -
+    
+    # 3. Configure Postgres User & Extension (Idempotent)
+    echo "🐘 Configuring Postgres Roles & Extensions..."
+    
+    # Get a running pod
+    POD=$(kubectl get pod -n postgres -l app=postgres -o jsonpath="{.items[0].metadata.name}")
+    
+    # SQL: Create user if not exists, update password, grant monitor, create extension
+    SQL_COMMANDS="
+    DO \$\$
+    BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$COROOT_USER') THEN
+        CREATE USER $COROOT_USER WITH LOGIN PASSWORD '$COROOT_PASS';
+      ELSE
+        ALTER USER $COROOT_USER WITH PASSWORD '$COROOT_PASS';
+      END IF;
+      
+      GRANT pg_monitor TO $COROOT_USER;
+      CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+    END
+    \$\$;
+    "
+    
+    if kubectl exec -n postgres "$POD" -- psql -U postgres -c "$SQL_COMMANDS"; then
+        echo "✅ Postgres user '$COROOT_USER' and extension 'pg_stat_statements' configured."
+    else
+        echo "❌ Failed to execute SQL commands."
+    fi
+    
+    # 4. Annotate Deployment for Coroot Agent
+    echo "🏷️  Annotating Deployment for Coroot Agent..."
+    kubectl patch deployment postgres-deployment -n postgres --type='merge' -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"coroot.com/postgres-scrape\":\"true\",\"coroot.com/postgres-scrape-credentials-secret-name\":\"postgres-coroot-creds\",\"coroot.com/postgres-scrape-credentials-secret-username-key\":\"username\",\"coroot.com/postgres-scrape-credentials-secret-password-key\":\"password\"}}}}}"
+    
+    echo "✅ Integration Complete! Coroot will begin collecting metrics shortly."
+
+else
+    echo "ℹ️  Coroot namespace not found. Skipping integration."
+fi
