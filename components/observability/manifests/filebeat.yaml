@@ -43,6 +43,13 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+            limits:
+              cpu: 300m
+              memory: 300Mi
         volumes:
         - name: varlogcontainers
           hostPath:

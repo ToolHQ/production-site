@@ -85,6 +85,22 @@ else
   kubectl patch -n longhorn-system settings storage-minimal-available-percentage -p '{"value":"15"}' --type=merge
   kubectl patch -n longhorn-system settings storage-over-provisioning-percentage -p '{"value":"200"}' --type=merge
   echo '✅ Tuned: storage-minimal-available-percentage=15%, over-provisioning=200%'
+
+  echo '🔧 Tuning Longhorn Manager resources...'
+  kubectl patch -n longhorn-system ds longhorn-manager --type=strategic -p '{"spec":{"template":{"spec":{"containers":[{"name":"longhorn-manager","resources":{"requests":{"cpu":"100m","memory":"256Mi"},"limits":{"memory":"1Gi"}}}]}}}}'
+  echo '✅ Appied resource limits to longhorn-manager.'
+
+  # Patch Longhorn Manager & Engine Image for Resilience (15s Timeout)
+  echo "🩹 Applying Resilience Patches (Manager Resource Limits + Engine Timeout)..."
+  kubectl -n longhorn-system patch deployment longhorn-manager --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/cpu", "value": "200m"}, {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory", "value": "512Mi"}, {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/cpu", "value": "50m"}, {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory", "value": "256Mi"}]' || true
+
+  # Patch Engine Image DaemonSet (Increase Probe Timeout for IO-starved nodes)
+  # Note: The DS name is dynamic (e.g., engine-image-ei-xxxx), so we find it first.
+  kubectl get ds -n longhorn-system -l longhorn.io/component=engine-image -o name | xargs -I {} kubectl patch -n longhorn-system {} --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/livenessProbe/timeoutSeconds", "value": 15}, {"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/timeoutSeconds", "value": 15}]' || true
+
+  echo '🔧 Tuning Longhorn UI resources...'
+  kubectl patch -n longhorn-system deploy longhorn-ui --type=strategic -p '{"spec":{"template":{"spec":{"containers":[{"name":"longhorn-ui","resources":{"requests":{"cpu":"50m","memory":"64Mi"},"limits":{"memory":"256Mi"}}}]}}}}'
+  echo '✅ Appied resource limits to longhorn-ui.'
 fi
 EOF
 "
