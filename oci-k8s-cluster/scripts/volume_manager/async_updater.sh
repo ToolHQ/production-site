@@ -32,6 +32,14 @@ regenerate_display() {
     
     # Add Header Row (Must match fzf --header-lines=1)
     printf "%-20s %-45s %10s %10s %10s\n" "NAMESPACE" "PVC NAME" "ALLOCATED" "USED" "USAGE" >> "$DISPLAY_FILE.tmp"
+
+    # ⚠️ Detect Orphans and Prepend Option (Persistent)
+    ORPHAN_COUNT=$(grep -c "Lost" "$INITIAL_LIST" || true)
+    if [ "$ORPHAN_COUNT" -gt 0 ]; then
+             # Create a special top line (Use distinct formatting)
+             SPECIAL_LINE=$(printf "%-20s %-45s %10s %10s %10s" "ALL" "⚠️  CLEAN UP ORPHANS ($ORPHAN_COUNT)" "" "" "")
+             echo "$SPECIAL_LINE" >> "$DISPLAY_FILE.tmp"
+    fi
     
     # Read initial list and overlay cache
     while IFS= read -r line; do
