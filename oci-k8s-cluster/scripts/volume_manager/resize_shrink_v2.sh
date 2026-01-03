@@ -89,6 +89,9 @@ echo "  ✓ $DEPLOYMENT_TYPE scaled to 0"
 sleep 5
 CURRENT_REPLICAS=$(k get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.status.replicas}' 2>/dev/null || k get statefulset $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
 
+# FIX: Ensure CURRENT_REPLICAS is an integer (default to 0 if empty/failed)
+CURRENT_REPLICAS=${CURRENT_REPLICAS:-0}
+
 if [ "$CURRENT_REPLICAS" -gt 0 ]; then
     echo ""
     echo "  ⚠️  OPERATOR INTERFERENCE DETECTED! (Replicas: $CURRENT_REPLICAS)" 
