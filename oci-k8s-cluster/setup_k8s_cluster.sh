@@ -222,7 +222,25 @@ install_containerd() {
       # Add runtime configuration after the [plugins.\"io.containerd.grpc.v1.cri\".containerd] section
       sudo sed -i '/\\[plugins\\.\"io\\.containerd\\.grpc\\.v1\\.cri\"\\.containerd\\]/a\\    default_runtime_name = \"runc\"' /etc/containerd/config.toml
     fi
-    
+
+    # ✅ Enable Insecure Registry for Nexus (registry.local & ClusterIP)
+    if ! grep -q 'registry.local:31444' /etc/containerd/config.toml; then
+      echo '🔓 Configuring Insecure Registry (Nexus)...'
+      cat <<TOML | sudo tee -a /etc/containerd/config.toml
+[plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.local:31444"]
+  endpoint = ["http://registry.local:31444"]
+
+[plugins."io.containerd.grpc.v1.cri".registry.configs."registry.local:31444".tls]
+  insecure_skip_verify = true
+
+[plugins."io.containerd.grpc.v1.cri".registry.mirrors."10.99.219.185:18444"]
+  endpoint = ["http://10.99.219.185:18444"]
+
+[plugins."io.containerd.grpc.v1.cri".registry.configs."10.99.219.185:18444".tls]
+  insecure_skip_verify = true
+TOML
+    fi
+     
     sudo systemctl enable --now containerd
     sudo systemctl restart containerd || true
     sudo systemctl restart kubelet || true
