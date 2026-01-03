@@ -1892,6 +1892,7 @@ schedule_snapshots() {
 7. Manage Backups/Snapshots 🗂️
 8. Schedule Snapshots ⏰
 9. Housekeeping (Cluster PVC Recovery) 🧹
+10. Offsite Sync (Google Drive) ☁️
 0. Back"
         
         local choice
@@ -1902,6 +1903,11 @@ schedule_snapshots() {
         fi
         
         case "${choice%%.*}" in
+            10)
+                echo -e "${BLUE}☁️  Running Google Drive Sync...${NC}"
+                bash scripts/cloud_ops/sync_to_gdrive.sh
+                read -p "$(t "press_enter")"
+                ;;
             1)
                 echo -e "${BLUE}📊 Checking Backup Status...${NC}"
                 echo -e "${YELLOW}--- Etcd Backups ---${NC}"
