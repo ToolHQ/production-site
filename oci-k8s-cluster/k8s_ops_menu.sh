@@ -631,6 +631,7 @@ component_management_menu() {
   while true; do
     local actions="$(t "comp_deploy")
 $(t "comp_longhorn")
+3. Regenerate Registry Secret (Fix Pull Errors)
 $(t "prefs_back")"
 
     local selected_action
@@ -649,6 +650,54 @@ $(t "prefs_back")"
       2)
         clear
         ./reinstall_longhorn.sh
+        read -p "$(t "press_enter")"
+        ;;
+      3)
+        clear
+        echo -e "${CYAN}Generating Registry Secret Manifest...${NC}"
+        
+        # Define Script Path (Adjusted for location relative to SCRIPT_DIR)
+        # Components are in the parent directory of oci-k8s-cluster (SCRIPT_DIR)
+        SECRET_SCRIPT="$SCRIPT_DIR/../components/nexus/create_registry_secret.sh"
+        
+        if [ ! -f "$SECRET_SCRIPT" ]; then
+             echo -e "${RED}Error: Script not found at $SECRET_SCRIPT${NC}"
+             read -p "Press Enter..."
+             return
+        fi
+        
+        echo "---------------------------------------------------"
+        # Run script: Stderr goes to terminal (logs), Stdout captured to variable
+        YAML_OUTPUT=$("$SECRET_SCRIPT" "postgres")
+        
+        echo -e "\n${BOLD}Generated Manifest:${NC}"
+        echo "$YAML_OUTPUT"
+        echo "---------------------------------------------------"
+        
+        echo -e "\n${YELLOW}Do you want to APPLY this secret to the cluster?${NC}"
+        read -p "Type 'APPLY' to confirm: " confirm_apply
+        
+        if [[ "$confirm_apply" == "APPLY" ]]; then
+            # Save to local temp file
+            echo "$YAML_OUTPUT" > /tmp/regsecret.yaml
+            
+            echo "Uploading manifest to master..."
+            scp -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                /tmp/regsecret.yaml "$MASTER_NODE:/tmp/regsecret.yaml"
+            
+            echo "Applying manifest..."
+            run_kubectl "apply -f /tmp/regsecret.yaml"
+            
+            echo -e "${GREEN}Secret Applied!${NC}"
+            # Cleanup
+            run_kubectl "delete -f /tmp/regsecret.yaml 2>/dev/null" || true # Cleanup remote file?? No, delete -f deletes resource. Rm file instead.
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q "$MASTER_NODE" "rm /tmp/regsecret.yaml"
+            rm /tmp/regsecret.yaml
+            
+            alert_sound
+        else
+            echo "Cancelled."
+        fi
         read -p "$(t "press_enter")"
         ;;
       0)

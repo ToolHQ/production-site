@@ -29,7 +29,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 256Mi  # Optimized based on audit
+      storage: 5Gi  # Matches existing volume
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -50,11 +50,12 @@ spec:
       annotations:
         container.apparmor.security.beta.kubernetes.io/postgres: unconfined
     spec:
+      imagePullSecrets:
+        - name: regsecret
       containers:
         - name: postgres
-          # PostgreSQL 18.0 on Alpine Linux 3.22
-          image: >-
-            registry.local:31444/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
+          # Custom Image from Nexus (registry.local:31444)
+          image: registry.local:31444/repository/docker-repo/postgres:18.0-alpine3.22-1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
@@ -76,6 +77,7 @@ spec:
               value: postgres
             - name: POSTGRES_LISTEN_ADDRESSES
               value: "*"
+            # Default Data Directory (User requested /18/docker subpath)
             - name: PGDATA
               value: /var/lib/postgresql/18/docker
           volumeMounts:
@@ -94,7 +96,7 @@ spec:
       volumes:
         - name: postgresdata
           persistentVolumeClaim:
-            claimName: postgres-pvc-restored  # Using restored snapshot
+            claimName: postgres-pvc
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -125,4 +127,3 @@ metadata:
 data:
   # Format: "<external-port>": "<namespace>/<service>:<internal-port>"
   "5432": "postgres/postgres-service:5432"
-

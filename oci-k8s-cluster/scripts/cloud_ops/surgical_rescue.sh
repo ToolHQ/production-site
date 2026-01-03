@@ -15,9 +15,14 @@ SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 source "$SCRIPT_DIR/../../common.sh"
 source "$SCRIPT_DIR/../../lib/oci_wrapper.sh"
 
-PATIENT="k8s-master"
-DOCTOR="k8s-node-1"
+PATIENT="${1:-k8s-master}"
+DOCTOR="${2:-k8s-node-1}"
 MOUNT_POINT="/mnt/rescue_drive"
+
+if [ "$PATIENT" == "$DOCTOR" ]; then
+    echo "Error: Patient and Doctor cannot be the same node."
+    exit 1
+fi
 
 log() {
     echo -e "${CYAN}[$(date +%T)] $1${NC}"
