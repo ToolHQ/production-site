@@ -36,7 +36,7 @@ else
 fi
 
 # 3. Apply Local Manifests (recursively if needed, but structure is flattened mostly or in manifests/)
-echo " [3] Applying ELK Manifests..."
+echo " [3] Applying ELK Manifests (Ensuring Logstash 2Gi, Filebeat 300m)..."
 # Check if manifests directory exists relative to this script
 if [ -d "manifests" ]; then
     kubectl apply -f manifests/

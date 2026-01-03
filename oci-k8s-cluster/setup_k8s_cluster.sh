@@ -96,6 +96,49 @@ enforce_cpu_quota() {
   '
 }
 
+# === Control Plane Resource Tuning ================================
+tune_control_plane_resources() {
+  local h=$1
+  echo "⚖️  Tuning Control Plane Resources on $h..."
+  
+  run_remote "$h" '
+    set -e
+    # Kube Controller Manager (100m / 64Mi)
+    if [ -f /etc/kubernetes/manifests/kube-controller-manager.yaml ]; then
+      echo "  - Tuning kube-controller-manager..."
+      # Check if resources block exists, if not, careful with replacement
+      # This simple sed works if "cpu: 200m" is the default pattern, otherwise we use a more robust append if needed.
+      # Given we already patched it, we want this to be idempotent.
+      # We will use "kubectl set resources" logic on the static pod manifest file content via sed if feasible, 
+      # but standardizing the manifest is safer.
+      
+      # Strategy: Ensure requests are set.
+      sudo sed -i "s/cpu: 200m/cpu: 100m/" /etc/kubernetes/manifests/kube-controller-manager.yaml || true
+      if ! grep -q "memory: 64Mi" /etc/kubernetes/manifests/kube-controller-manager.yaml; then
+         # Insert memory request after cpu request
+         sudo sed -i "/cpu: 100m/a \        memory: 64Mi" /etc/kubernetes/manifests/kube-controller-manager.yaml
+      fi
+    fi
+
+    # Kube Scheduler (50m / 32Mi)
+    if [ -f /etc/kubernetes/manifests/kube-scheduler.yaml ]; then
+      echo "  - Tuning kube-scheduler..."
+      sudo sed -i "s/cpu: 100m/cpu: 50m/" /etc/kubernetes/manifests/kube-scheduler.yaml || true
+      if ! grep -q "memory: 32Mi" /etc/kubernetes/manifests/kube-scheduler.yaml; then
+         sudo sed -i "/cpu: 50m/a \        memory: 32Mi" /etc/kubernetes/manifests/kube-scheduler.yaml
+      fi
+    fi
+    
+    # Etcd (128Mi)
+    if [ -f /etc/kubernetes/manifests/etcd.yaml ]; then
+      echo "  - Tuning etcd..."
+      sudo sed -i "s/memory: 100Mi/memory: 128Mi/" /etc/kubernetes/manifests/etcd.yaml || true
+    fi
+    
+    echo "✅ Control plane resources tuned."
+  '
+}
+
 # === Network Security (IPTables) ================================
 ensure_network_security() {
   local h=$1
@@ -2213,6 +2256,7 @@ else
 fi
 
 measure_phase "ensure apiserver open"        ensure_apiserver_open "$MASTER_NODE"
+  tune_control_plane_resources "$MASTER_NODE"
 measure_phase "prejoin matrix"               prejoin_matrix_to_master
 measure_phase "join workers"                 join_workers
 measure_phase "postjoin matrix"              postjoin_matrix_to_master

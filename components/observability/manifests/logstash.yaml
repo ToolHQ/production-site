@@ -126,7 +126,7 @@ spec:
               memory: 512Mi
               cpu: 100m
             limits:
-              memory: 1Gi
+              memory: 2Gi
               cpu: 1
           volumeMounts:
             - name: patterns-vol

@@ -38,14 +38,17 @@ install_coroot() {
       --set clickhouse.enabled=false \
       --set prometheus.enabled=true \
       --set prometheus.server.persistentVolume.enabled=true \
-      --set prometheus.server.persistentVolume.size=2Gi \
+      --set prometheus.server.persistentVolume.size=4Gi \
       --set prometheus.server.persistentVolume.storageClass=longhorn-2 \
-      --set prometheus.server.resources.requests.memory=256Mi \
+      --set prometheus.server.global.scrape_interval=30s \
+      --set prometheus.server.resources.requests.memory=128Mi \
       --set prometheus.server.resources.limits.memory=1Gi \
+      --set corootClusterAgent.resources.requests.memory=256Mi \
+      --set corootClusterAgent.resources.limits.memory=1Gi \
       --set corootCE.image.tag="1.17.6" \
       --set corootCE.persistentVolume.size=1Gi \
       --set corootCE.persistentVolume.storageClassName=longhorn-2 \
-      --set corootCE.resources.requests.memory=256Mi \
+      --set corootCE.resources.requests.memory=128Mi \
       --set corootCE.resources.limits.memory=1Gi \
       --set corootCE.ingress.enabled=true \
       --set "corootCE.ingress.hosts[0].host=coroot.dnor.io" \
@@ -59,6 +62,7 @@ install_coroot() {
     echo -e "${BLUE}Deploying/Updating standalone ClickHouse...${NC}"
     
     # ClickHouse Users Config (Upsert)
+    # OPTIMIZATION: Tuning for Low-Resource (1 Core) Environment
     cat <<CLICKHOUSE_CONFIG | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
@@ -68,6 +72,14 @@ metadata:
 data:
   users.xml: |
     <clickhouse>
+      <profiles>
+        <default>
+          <max_threads>2</max_threads>
+          <max_distributed_connections>2</max_distributed_connections>
+          <background_pool_size>2</background_pool_size>
+          <max_memory_usage>1610612736</max_memory_usage> <!-- 1.5GB Soft Limit -->
+        </default>
+      </profiles>
       <users>
         <default>
           <password></password>
