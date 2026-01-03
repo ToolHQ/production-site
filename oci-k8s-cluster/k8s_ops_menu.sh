@@ -631,7 +631,7 @@ component_management_menu() {
   while true; do
     local actions="$(t "comp_deploy")
 $(t "comp_longhorn")
-3. Regenerate Registry Secret (Fix Pull Errors)
+3. Global Registry Secret Repair (Fix Pull Errors)
 $(t "prefs_back")"
 
     local selected_action
@@ -668,7 +668,8 @@ $(t "prefs_back")"
         
         echo "---------------------------------------------------"
         # Run script: Stderr goes to terminal (logs), Stdout captured to variable
-        YAML_OUTPUT=$("$SECRET_SCRIPT" "postgres")
+        echo "🌍 Targeting ALL namespaces..."
+        YAML_OUTPUT=$("$SECRET_SCRIPT" "all")
         
         echo -e "\n${BOLD}Generated Manifest:${NC}"
         echo "$YAML_OUTPUT"
@@ -690,7 +691,7 @@ $(t "prefs_back")"
             
             echo -e "${GREEN}Secret Applied!${NC}"
             # Cleanup
-            run_kubectl "delete -f /tmp/regsecret.yaml 2>/dev/null" || true # Cleanup remote file?? No, delete -f deletes resource. Rm file instead.
+            # run_kubectl "delete -f /tmp/regsecret.yaml 2>/dev/null" || true # REMOVED: This deleted the secret from cluster!
             ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q "$MASTER_NODE" "rm /tmp/regsecret.yaml"
             rm /tmp/regsecret.yaml
             
