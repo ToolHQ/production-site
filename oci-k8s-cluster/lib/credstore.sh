@@ -146,7 +146,7 @@ credstore_get_credential() {
     local cred_json
     cred_json=$(jq --arg name "$name" '.credentials[] | select(.name == $name)' "$CREDSTORE_FILE" 2>/dev/null || echo "{}")
     
-    if [ "$cred_json" = "{}" ]; then
+    if [ -z "$cred_json" ] || [ "$cred_json" = "{}" ]; then
         return 1
     fi
     

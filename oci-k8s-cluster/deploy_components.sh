@@ -90,6 +90,22 @@ apply_component_manifests() {
   local nexus_pass
   nexus_pass=$(echo "$cred_json" | jq -r '.password')
 
+  # Special handling for Postgres Coroot Credential (local generation)
+  local coroot_pg_pass=""
+  if [[ "$component" == "postgres" ]]; then
+      local cred_name="postgres_coroot_password"
+      local cred_json_pg=$(credstore_get_credential "$cred_name" 2>/dev/null || echo "{}")
+      
+      if [[ "$cred_json_pg" == "{}" ]]; then
+           echo "🆕 Generating new secure password for Coroot Postgres integration..."
+           coroot_pg_pass=$(openssl rand -base64 18)
+           credstore_add "$cred_name" "coroot" "$coroot_pg_pass" "Postgres user for Coroot metrics"
+      else
+           coroot_pg_pass=$(echo "$cred_json_pg" | jq -r '.password')
+           echo "🔑 Using existing Coroot Postgres credential from local store."
+      fi
+  fi
+
   run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
 # Inject host IP for registry access (fixes 'connection refused' on 127.0.0.1)
 # We try to use the Nexus Pod IP directly to bypass potential kube-proxy/NodePort issues on the master
@@ -117,6 +133,9 @@ fi
 
 # Configure Registry Credentials
 NEXUS_PASS="$nexus_pass"
+COROOT_PG_PASSWORD="$coroot_pg_pass"
+export COROOT_PG_PASSWORD
+
 if [[ -n "\$NEXUS_PASS" && "\$NEXUS_PASS" != "null" ]]; then
   echo "🔐 Configuring registry credentials for user 'admin'..."
   mkdir -p ~/.docker
@@ -146,7 +165,7 @@ cd /home/ubuntu/deployments/$component
 if [ -f commands.sh ]; then
   chmod +x commands.sh
   echo "▶ Running custom commands.sh for $component..."
-  ./commands.sh
+  COROOT_PG_PASSWORD="$coroot_pg_pass" ./commands.sh
 else
   echo "▶ Applying YAML manifests in $component..."
   kubectl apply -f .
