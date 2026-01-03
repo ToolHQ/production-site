@@ -17,6 +17,9 @@
 | [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 
 ## ✅ Done
+- [x] **[T-028](T-028-TUI-Orphaned-PVC-Cleanup.md) Volume Manager: Orphaned PVC Cleanup (TUI Feature)**
+- [x] **[T-027](T-027-Dynamic-Postgres-Versioning.md) Dynamic Postgres Versioning (Dockerfile Source of Truth)**
+- [x] **[T-026](T-026-Secure-Coroot-Integration.md) Secure Coroot Integration (Zero-Trust Credentials)**
 - [x] **[T-025](T-025-Coroot-Enhancements.md) Implement Robust Coroot Observability (Upsert + Auto-Integrations)**
 - [x] **[T-024](T-024-Fix-Deepflow-Ingestion.md) Fix Deepflow Data Ingestion**
 - [x] **[T-022](T-022-OCI-Rescue-Ops.md) OCI Rescue Operations (Cloud Integration)**
