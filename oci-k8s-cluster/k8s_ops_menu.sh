@@ -1600,7 +1600,12 @@ manage_tunnels() {
         local lport_to_kill=$(echo "$selected" | grep -oP 'Local: \K[0-9]+')
         
         if [ -n "$pid_to_kill" ]; then
+            ## Check first if low lport_to_kill, then we must apply a sudo kill
+            if [ "$lport_to_kill" -lt 1024 ]; then
+                sudo kill "$pid_to_kill" 2>/dev/null
+            else
             kill "$pid_to_kill" 2>/dev/null
+            fi
             [ -f "$TUNNEL_DIR/$lport_to_kill.meta" ] && rm "$TUNNEL_DIR/$lport_to_kill.meta"
             echo -e "${RED}Tunnel stopped (PID: $pid_to_kill, Port: $lport_to_kill).${NC}"
             sleep 0.5
