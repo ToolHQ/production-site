@@ -29,7 +29,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 5Gi  # Matches existing volume
+      storage: 2.1Gi  # Matches existing volume
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -135,7 +135,7 @@ spec:
         storageClassName: "longhorn"
         resources:
           requests:
-            storage: 5Gi
+            storage: 2.1Gi
 ---
 apiVersion: v1
 kind: Service
