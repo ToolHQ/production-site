@@ -189,7 +189,34 @@ fi
 
 # Apply Kubernetes resources
 echo "🚀 Applying PostgreSQL resources..."
-kubectl apply -f postgres-resources.yaml
+if ! output=$(kubectl apply -f postgres-resources.yaml 2>&1); then
+    # Check for Immutable Field Error (e.g. volumeClaimTemplates)
+    if echo "$output" | grep -q "forbidden"; then
+        echo "⚠️  Immutable field change detected (likely Storage Size)."
+        echo "🔄 Performing Zero-Downtime Update (Orphan Strategy)..."
+        
+        # 1. Delete StatefulSet ORPHANING pods (keep them running)
+        echo "   Deleting StatefulSet object (keeping pods)..."
+        kubectl -n postgres delete statefulset postgres --cascade=orphan
+        
+        # 2. Re-apply new manifest
+        echo "   Applying new definition..."
+        if kubectl apply -f postgres-resources.yaml; then
+             echo "✅ Definition updated successfully."
+        else
+             echo "❌ Failed to re-apply resources."
+             echo "$output"
+             exit 1
+        fi
+    else
+        # Other error
+        echo "❌ Apply failed!"
+        echo "$output"
+        exit 1
+    fi
+else
+    echo "✅ Resources applied successfully."
+fi
 
 # Wait for StatefulSet to be ready
 echo "⏳ Waiting for PostgreSQL StatefulSet to be ready (timeout: 5m)..."
@@ -208,6 +235,8 @@ if kubectl -n postgres rollout status statefulset/postgres --timeout=5m 2>&1; th
     echo "   - Check PVC: kubectl -n postgres describe pvc postgres-pvc"
     echo "   - Check events: kubectl -n postgres get events --sort-by='.lastTimestamp'"
     echo "   - Connect: psql -h localhost -p 54322 -U postgres"
+    # Added explicit success message for clarity
+    echo "✅ Update Complete."
 else
     echo "❌ PostgreSQL deployment failed or timed out"
     echo ""
