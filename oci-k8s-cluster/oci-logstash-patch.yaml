@@ -1,0 +1,19 @@
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
+metadata:
+  name: oci-logstash
+  namespace: elastic-system
+spec:
+  version: "8.11.0"
+  podTemplate:
+    spec:
+      containers:
+      - name: logstash
+        env:
+        - name: LS_JAVA_OPTS
+          value: "-Xms2g -Xmx2g"
+        resources:
+          limits:
+            memory: 3Gi
+          requests:
+            memory: 2Gi
