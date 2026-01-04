@@ -714,6 +714,7 @@ $(t "prefs_back")"
 
 # Tunnel Metadata Directory (stores service info for discovered tunnels)
 TUNNEL_DIR="$HOME/.local/state/k8s_ops_tunnels"
+TUNNEL_PIDS_FILE="$TUNNEL_DIR/active_pids.list"
 mkdir -p "$TUNNEL_DIR"
 
 # Find next available port starting from base_port
@@ -826,6 +827,7 @@ start_tunnel() {
     local force_port="${6:-false}"  # New parameter: force use of specific port
     local bind_ip="${7:-127.0.0.1}" # New parameter: bind ip (e.g. 127.0.0.2)
     local target_host="${8:-127.0.0.1}" # New parameter: remote target host (e.g. ClusterIP or PodIP)
+    local no_prompt="${9:-false}"       # New parameter: skips "Press Enter" prompt
 
     local svc_info=""
     local desired_port=""
@@ -1124,58 +1126,80 @@ start_tunnel() {
             echo -e "Access URL: ${YELLOW}$display_host:$local_port${NC} (protocol: $detected_protocol)"
         fi
         
-        # HYBRID WSL MODE: Bridge WSL tunnel to Windows using socat
-        if grep -qEi "(Microsoft|WSL)" /proc/version 2>/dev/null; then
-            if [ "$bind_ip" != "127.0.0.1" ]; then
-                echo ""
-                echo -e "${CYAN}WSL detected: Creating Windows bridge via socat...${NC}"
-                
-                # Check if socat is installed
-                if ! command -v socat &>/dev/null; then
-                    echo -e "${YELLOW}socat not found. Installing...${NC}"
-                    sudo apt-get update -qq && sudo apt-get install -y socat >/dev/null 2>&1
-                    if [ $? -eq 0 ]; then
-                        echo -e "${GREEN}socat installed!${NC}"
-                    else
-                        echo -e "${RED}Failed to install socat. Windows bridge unavailable.${NC}"
-                        echo -e "${YELLOW}Windows users: Use localhost:15432 via /tmp/wsl_to_windows_bridge.sh${NC}"
-                        continue
-                    fi
-                fi
-                
-                # Determine Windows-accessible port (use alternative ports to avoid conflicts)
-                local win_port="$local_port"
-                if [ "$bind_ip" = "127.0.0.2" ]; then
-                    win_port="15432"  # Primary postgres -> Windows localhost:15432
-                elif [ "$bind_ip" = "127.0.0.3" ]; then
-                    win_port="15433"  # Replica postgres -> Windows localhost:15433
-                fi
-                
-                # Kill existing socat bridge
-                pkill -f "socat.*$win_port" 2>/dev/null || true
-                
-                # Get WSL IP that Windows can access
-                local wsl_ip=$(hostname -I | awk '{print $1}')
-                
-                # Create socat bridge: Windows can access WSL_IP:port -> routes to WSL bind_ip:port
-                socat TCP-LISTEN:$win_port,fork,bind=$wsl_ip,reuseaddr TCP:$bind_ip:$local_port </dev/null &>/dev/null &
-                local socat_pid=$!
-                
-                sleep 0.5
-                if kill -0 $socat_pid 2>/dev/null && ss -tln | grep -q ":$win_port"; then
-                    echo -e "${GREEN}✓ Windows bridge created!${NC}"
-                    echo -e "  ${GRAY}WSL apps: Use $bind_ip:$local_port${NC}"
-                    echo -e "  ${GRAY}Windows apps: Use $wsl_ip:$win_port${NC}"
-                    echo -e "  ${YELLOW}Note: Connect using WSL IP, not localhost${NC}"
-                else
-                    echo -e "${YELLOW}⚠  Bridge failed. Manual option: /tmp/wsl_to_windows_bridge.sh${NC}"
-                fi
+        # WINDOWS LOOPBACK BRIDGE (Double Bridge Strategy)
+        # Goal: Allow Windows apps to connect to 127.0.0.X:5432
+        # Flow: Windows App -> Windows 127.0.0.X:5432 (PowerShell Proxy) -> WSL IP:BridgePort -> socat -> WSL 127.0.0.X:local_port -> SSH Tunnel
+        
+        # Robust WSL Detection: Check /proc/version for "Microsoft" or "WSL"
+        if grep -qEi "(Microsoft|WSL)" /proc/version 2>/dev/null && [ "$bind_ip" != "127.0.0.1" ]; then
+            echo ""
+            echo -e "${MAGENTA}WSL Detected + Custom Bind IP ($bind_ip). Initializing Windows Bridge...${NC}"
+            
+            # Check socat
+            if ! command -v socat &>/dev/null; then
+                 echo -e "${YELLOW}Installing socat for bridge support...${NC}"
+                 sudo apt-get update -qq && sudo apt-get install -y socat >/dev/null 2>&1
             fi
+
+            # Step 1: Bridge WSL Loopback -> WSL Interface (0.0.0.0) via socat on random high port
+            local bridge_port=$(find_available_port "15432" "false")
+            
+            # Start socat bridge in background
+            nohup socat -d -d TCP-LISTEN:$bridge_port,bind=0.0.0.0,fork TCP:$bind_ip:$local_port > /tmp/socat_${bind_ip}_${local_port}.log 2>&1 &
+            local socat_pid=$!
+            echo "$socat_pid" >> "$TUNNEL_PIDS_FILE"
+            
+            echo -e "${GRAY}  L2 (WSL): 0.0.0.0:$bridge_port -> $bind_ip:$local_port (PID: $socat_pid)${NC}"
+            
+            # Step 2: Bridge Windows Loopback -> WSL IP via PowerShell
+            # Get WSL IP (as seen by Windows)
+            local wsl_ip=$(hostname -I | awk '{print $1}')
+            
+            # Native Windows PortProxy (netsh)
+            # This is the most stable method but requires Admin privileges (UAC Prompt)
+            local bridge_port="${bridge_port}"
+            local win_bind_ip="${bind_ip}"
+            local win_bind_port="${local_port}"
+            local wsl_target_ip="127.0.0.1" # Windows sees WSL on localhost
+            
+            # Generate a tiny PowerShell runner to execute netsh with Admin privs
+            local ps_runner="/tmp/netsh_runner_${win_bind_ip//./_}_${win_bind_port}.ps1"
+            
+            cat <<EOF > "$ps_runner"
+\$ErrorActionPreference = 'Stop'
+\$bindIP = "${win_bind_ip}"
+\$bindPort = "${win_bind_port}"
+\$targetIP = "${wsl_target_ip}"
+\$targetPort = "${bridge_port}"
+
+# 1. Clear old rules to ensure clean state
+netsh interface portproxy delete v4tov4 listenaddress=\$bindIP listenport=\$bindPort | Out-Null
+
+# 2. Add new forwarding rule
+# Maps Windows Loopback (e.g. 127.0.0.2:5432) -> WSL Bridge (127.0.0.1:BridgePort)
+netsh interface portproxy add v4tov4 listenaddress=\$bindIP listenport=\$bindPort connectaddress=\$targetIP connectport=\$targetPort
+
+Write-Host "✅ [Netsh] PortProxy Rule Added: \${bindIP}:\${bindPort} -> \${targetIP}:\${targetPort}" -ForegroundColor Green
+Start-Sleep -Seconds 4
+EOF
+            
+            echo -e "${GRAY}  L3 (Win): Requesting Admin Privileges to update Network Rules (UAC)...${NC}"
+            
+            # Execute via Start-Process -Verb RunAs to trigger UAC
+            # Removed -NoExit so it closes automatically after the script finishes (and sleeps)
+            /mnt/c/Windows/System32/cmd.exe /c start "Updating Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${ps_runner}'"
+            
+            echo -e "${GREEN}✅ Windows Bridge Activated via netsh!${NC}"
+            echo -e "  You can now connect from Windows using: ${CYAN}${bind_ip}:${local_port}${NC}"
         fi
     else
         echo -e "${RED}Failed to start tunnel.${NC}"
+        return 1
     fi
-    read -p "Press Enter to continue..."
+    
+    if [ "$no_prompt" != "true" ]; then
+        read -p "Press Enter to continue..."
+    fi
 }
 
 # --- INGRESS SUPPORT ---
@@ -1271,17 +1295,17 @@ ingress_menu() {
                 fi
 
                 if [ -n "$http_port" ]; then
-                    start_tunnel "$ns" "$name" "80" "$http_port" "Ingress HTTP" "true"
+                    start_tunnel "$ns" "$name" "80" "$http_port" "Ingress HTTP" "true" "127.0.0.1" "127.0.0.1" "true"
                 fi
                 if [ -n "$https_port" ]; then
-                    start_tunnel "$ns" "$name" "443" "$https_port" "Ingress HTTPS" "true"
+                    start_tunnel "$ns" "$name" "443" "$https_port" "Ingress HTTPS" "true" "127.0.0.1" "127.0.0.1" "true"
                 fi
                 
                 # Also create TCP tunnel for MySQL if port is exposed AND DeepFlow is installed
                 local mysql_port=$(echo "$ports" | grep -oP 'mysql:\K[0-9]+')
                 if [ -n "$mysql_port" ] && kubectl get ns deepflow >/dev/null 2>&1; then
                     echo -e "${BLUE}Creating MySQL TCP tunnel (local 3306 → remote $mysql_port)...${NC}"
-                    start_tunnel "$ns" "$name" "3306" "$mysql_port" "DeepFlow MySQL" "true"
+                    start_tunnel "$ns" "$name" "3306" "$mysql_port" "DeepFlow MySQL" "true" "127.0.0.1" "$MASTER_NODE" "true"
                 fi
                 
                 # Smart Postgres Tunneling (Primary + Replica)
@@ -1297,7 +1321,7 @@ ingress_menu() {
                     if [ -n "$PG0_IP" ]; then
                          # Forward to Node IP : 5432 (Since hostNetwork=true)
                          # 127.0.0.2:5432 -> Master -> PG0_NodeIP:5432
-                         start_tunnel "postgres" "postgres-0" "5432" "5432" "Postgres Primary" "true" "127.0.0.2" "$PG0_IP"
+                         start_tunnel "postgres" "postgres-0" "5432" "5432" "Postgres Primary" "true" "127.0.0.2" "$PG0_IP" "true"
                     else
                          echo -e "${RED}Could not determine Node IP for postgres-0${NC}"
                     fi
@@ -1305,7 +1329,7 @@ ingress_menu() {
                     if [ -n "$PG1_IP" ]; then
                          # Forward to Node IP : 5432
                          # 127.0.0.3:5432 -> Master -> PG1_NodeIP:5432
-                         start_tunnel "postgres" "postgres-1" "5432" "5432" "Postgres Replica" "true" "127.0.0.3" "$PG1_IP"
+                         start_tunnel "postgres" "postgres-1" "5432" "5432" "Postgres Replica" "true" "127.0.0.3" "$PG1_IP" "true"
                     else
                          echo -e "${RED}Could not determine Node IP for postgres-1${NC}"
                     fi
@@ -1604,7 +1628,7 @@ manage_tunnels() {
             if [ "$lport_to_kill" -lt 1024 ]; then
                 sudo kill "$pid_to_kill" 2>/dev/null
             else
-            kill "$pid_to_kill" 2>/dev/null
+                kill "$pid_to_kill" 2>/dev/null
             fi
             [ -f "$TUNNEL_DIR/$lport_to_kill.meta" ] && rm "$TUNNEL_DIR/$lport_to_kill.meta"
             echo -e "${RED}Tunnel stopped (PID: $pid_to_kill, Port: $lport_to_kill).${NC}"
