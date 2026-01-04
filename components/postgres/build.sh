@@ -85,7 +85,7 @@ else
   fi
 fi
 
-kubectl apply -f ./postgres-resources.yaml
+# kubectl apply -f ./postgres-resources.yaml
 
 # http://localhost:31444/
 # docker login localhost:31444
