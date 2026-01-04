@@ -1286,20 +1286,24 @@ manage_bridges() {
         
         local socat_list=""
         if pgrep -x "socat" >/dev/null; then
-            echo -e "PID\tBridge Port\tTarget Endpoint"
-            echo -e "---\t-----------\t---------------"
+            echo -e "PID(s)\tBridge Port\tTarget Endpoint"
+            echo -e "------\t-----------\t---------------"
             
             # Capture socat list for display AND selection
-            # Format: PID | Port | Target
+            # Deduplicate by Bridge Port
             while read -r line; do
                 local pid=$(echo "$line" | awk '{print $1}')
                 local listen=$(echo "$line" | grep -oP 'TCP-LISTEN:\K[0-9]+')
                 local target=$(echo "$line" | grep -oP 'TCP:\K[^ ]+')
+                
                 if [ -n "$listen" ]; then
-                    echo -e "${pid}\t${listen}\t\t→ ${target}"
-                    socat_list+="${pid}|${listen}|${target}\n"
+                    # Check if we already have this port in the list to avoid duplicate display rows for forks
+                    if [[ ! "$socat_list" =~ "|$listen|" ]]; then
+                        echo -e "${pid}..\t${listen}\t\t→ ${target}"
+                        socat_list+="${pid}|${listen}|${target}\n"
+                    fi
                 fi
-            done < <(pgrep -a socat | grep "TCP-LISTEN")
+            done < <(pgrep -a socat | grep "TCP-LISTEN" | sort -k1n) # sort by PID
         else
             echo -e "${YELLOW}No active socat bridges found.${NC}"
         fi
@@ -1325,9 +1329,12 @@ manage_bridges() {
                 local pid_kill=$(echo "$selected" | awk '{print $1}')
                 local bridge_port_kill=$(echo "$selected" | awk '{print $2}')
                 
-                if [ -n "$pid_kill" ]; then
-                    echo -e "${YELLOW}Killing socat PID $pid_kill...${NC}"
-                    kill "$pid_kill" 2>/dev/null
+                if [ -n "$bridge_port_kill" ]; then
+                    echo -e "${YELLOW}Killing all socat processes for port $bridge_port_kill...${NC}"
+                    # Kill all processes listening on this port (Parent + Forks)
+                    pkill -f "TCP-LISTEN:$bridge_port_kill" 2>/dev/null
+                    
+                    # Find and Kill associated Netsh rule
                     
                     # Find and Kill associated Netsh rule
                     # Look for Netsh line where TargetPort ($4) matches our BridgePort
@@ -1441,7 +1448,7 @@ ingress_menu() {
                 
                 # Also create TCP tunnel for MySQL if port is exposed AND DeepFlow is installed
                 local mysql_port=$(echo "$ports" | grep -oP 'mysql:\K[0-9]+')
-                if [ -n "$mysql_port" ] && kubectl get ns deepflow >/dev/null 2>&1; then
+                if [ -n "$mysql_port" ] && run_kubectl_silent "get ns deepflow" >/dev/null 2>&1; then
                     echo -e "${BLUE}Creating MySQL TCP tunnel (local 3306 → remote $mysql_port)...${NC}"
                     start_tunnel "$ns" "$name" "3306" "$mysql_port" "DeepFlow MySQL" "true" "127.0.0.1" "$MASTER_NODE" "true"
                 fi
