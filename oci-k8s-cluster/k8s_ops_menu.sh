@@ -1287,28 +1287,28 @@ ingress_menu() {
                 # Smart Postgres Tunneling (Primary + Replica)
                 if [ -n "$postgres_port" ]; then
                     echo -e "${BLUE}Initializing Smart Postgres Tunnels...${NC}"
-                    echo -e "${YELLOW}Initializing Robust Postgres Tunnels (CNI Bypass)...${NC}"
+                    echo -e "${YELLOW}Initializing Robust Postgres Tunnels (HostNetwork Direct)...${NC}"
                     
-                    # Kill stale remote port-forwards owned by us
-                    ssh -o BatchMode=yes -o StrictHostKeyChecking=no "$MASTER_NODE" "pkill -f 'kubectl port-forward.*postgres' >/dev/null 2>&1 || true"
+                    # Fetch Node IPs for HostNetwork pods (Bypassing CNI Overlay)
+                    # We run this remotely to get the correct internal IPs
+                    PG0_IP=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no "$MASTER_NODE" "kubectl get pod -n postgres postgres-0 -o jsonpath='{.status.hostIP}' 2>/dev/null")
+                    PG1_IP=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no "$MASTER_NODE" "kubectl get pod -n postgres postgres-1 -o jsonpath='{.status.hostIP}' 2>/dev/null")
                     
-                    # Start remote port-forward for Primary (postgres-0) -> Master:50000
-                    # Using ssh -f to put in background immediately after auth
-                    ssh -f -o BatchMode=yes -o StrictHostKeyChecking=no "$MASTER_NODE" \
-                        "kubectl port-forward -n postgres postgres-0 50000:5432 --address 127.0.0.1 >/dev/null 2>&1"
+                    if [ -n "$PG0_IP" ]; then
+                         # Forward to Node IP : 5432 (Since hostNetwork=true)
+                         # 127.0.0.2:5432 -> Master -> PG0_NodeIP:5432
+                         start_tunnel "postgres" "postgres-0" "5432" "5432" "Postgres Primary" "true" "127.0.0.2" "$PG0_IP"
+                    else
+                         echo -e "${RED}Could not determine Node IP for postgres-0${NC}"
+                    fi
                     
-                    # Start remote port-forward for Replica (postgres-1) -> Master:50001
-                    ssh -f -o BatchMode=yes -o StrictHostKeyChecking=no "$MASTER_NODE" \
-                         "kubectl port-forward -n postgres postgres-1 50001:5432 --address 127.0.0.1 >/dev/null 2>&1"
-                         
-                    # Give time for remote port-forwards to establish
-                    echo -n "Establishing remote links..."
-                    sleep 3
-                    echo " Done"
-                    
-                    # Connect tunnels to localhost on master node (where port-forward is listening)
-                    start_tunnel "postgres" "postgres-0" "5432" "50000" "Postgres Primary" "true" "127.0.0.2" "127.0.0.1"
-                    start_tunnel "postgres" "postgres-1" "5432" "50001" "Postgres Replica" "true" "127.0.0.3" "127.0.0.1"
+                    if [ -n "$PG1_IP" ]; then
+                         # Forward to Node IP : 5432
+                         # 127.0.0.3:5432 -> Master -> PG1_NodeIP:5432
+                         start_tunnel "postgres" "postgres-1" "5432" "5432" "Postgres Replica" "true" "127.0.0.3" "$PG1_IP"
+                    else
+                         echo -e "${RED}Could not determine Node IP for postgres-1${NC}"
+                    fi
                 else
                     echo -e "${YELLOW}PostgreSQL TCP port not found in Ingress Controller service${NC}"
                 fi
