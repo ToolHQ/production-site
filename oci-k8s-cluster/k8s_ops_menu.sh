@@ -123,6 +123,12 @@ run_kubectl() {
       -o ConnectTimeout=5 -q "$MASTER_NODE" "kubectl $cmd"
 }
 
+run_kubectl_silent() {
+  local cmd="$1"
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+      -o ConnectTimeout=5 -q "$MASTER_NODE" "kubectl $cmd" 2>/dev/null
+}
+
 run_interactive_ssh() {
   local cmd="$1"
   # Added || true to prevent script exit on Ctrl+C
@@ -1239,16 +1245,15 @@ parse_ingress_data() {
 }
 
 detect_ingress_controller() {
-    echo "$(t "ingress_detecting")" >&2
-    # Try to find ingress-nginx-controller service in all namespaces
+    # Try to find ingress-nginx-controller service in all namespaces (Silent)
     local raw_data
-    raw_data=$(run_kubectl "get svc -A -o jsonpath='{range .items[*]}{@.metadata.namespace}{\"|\"}{@.metadata.name}{\"|\"}{range @.spec.ports[*]}{.name}{\":\"}{.nodePort}{\",\"}{end}{\"\\n\"}{end}'")
+    # Use silent runner to avoid "kubectl get svc ..." print
+    raw_data=$(run_kubectl_silent "get svc -A -o jsonpath='{range .items[*]}{@.metadata.namespace}{\"|\"}{@.metadata.name}{\"|\"}{range @.spec.ports[*]}{.name}{\":\"}{.nodePort}{\",\"}{end}{\"\\n\"}{end}'")
     
     local ingress_svc
     ingress_svc=$(parse_ingress_data "$raw_data")
     
     if [ -z "$ingress_svc" ]; then
-        echo "$(t "ingress_not_found")" >&2
         return 1
     fi
     
@@ -1365,10 +1370,9 @@ EOF
 ingress_menu() {
     while true; do
         clear
-        echo -e "${BLUE}=== $(t "ingress_menu_title") ===${NC}"
-        echo ""
-        
-        # Detect controller
+        echo -e "${BLUE} 🌐  $(t "ingress_menu_title") ${NC}"
+        echo -e "${GRAY}────────────────────────────────────────${NC}"
+        echo -e "${BLUE}🔍  Scanning cluster for Ingress Controller...${NC}"
         local ingress_info
         ingress_info=$(detect_ingress_controller)
         local status_icon="❌"
@@ -1380,14 +1384,27 @@ ingress_menu() {
             local name=$(echo "$ingress_info" | cut -d'|' -f2)
             local ports=$(echo "$ingress_info" | cut -d'|' -f3)
             
-            echo -e "Controller: ${GREEN}$name${NC} ($ns)"
-            echo -e "Ports: ${YELLOW}$ports${NC}"
+            # Formatted Output
+            echo -e "${GREEN}✅  Found Ingress Controller${NC}"
+            echo -e "    Namespace: ${CYAN}$ns${NC}"
+            echo -e "    Service:   ${CYAN}$name${NC}"
+            echo -e "    Ports:"
+            
+            # Split ports and display nicely
+            echo "$ports" | sed 's/,/\n/g' | while read -r p; do
+                if [ -n "$p" ]; then
+                    local p_name=$(echo "$p" | cut -d':' -f1)
+                    local p_port=$(echo "$p" | cut -d':' -f2)
+                    # Align output
+                    printf "      • %-10s : %s\n" "$p_name" "$p_port"
+                fi
+            done
         else
-            echo -e "${RED}$(t "ingress_not_found")${NC}"
+            echo -e "${RED}❌  No Ingress Controller found.${NC}"
         fi
         
-        echo ""
-        echo "1. Start Ingress Tunnel (All Ports: HTTP/S + DBs) 🚀"
+        echo -e "${GRAY}────────────────────────────────────────${NC}"
+        echo "1. Start Ingress Tunnel (All Ports) 🚀"
         echo "2. Update /etc/hosts (Ingress + Postgres) 📝"
         echo "0. Back"
         echo ""
