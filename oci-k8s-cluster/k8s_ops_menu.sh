@@ -790,10 +790,18 @@ discover_active_tunnels() {
         local service_info="Unknown Service"
         local namespace="unknown"
         
+        local socat_pid=""
+        local bridge_port=""
+        
         if [ -f "$meta_file" ]; then
-            service_info=$(cat "$meta_file" | cut -d'|' -f1)
-            namespace=$(cat "$meta_file" | cut -d'|' -f2)
-            local protocol=$(cat "$meta_file" | cut -d'|' -f4 2>/dev/null || echo "unknown")
+            # Read all metadata fields, including new Layer 2 info
+            IFS='|' read -r m_svc m_ns m_name m_proto m_socat m_bridge < "$meta_file"
+            service_info="$m_svc"
+            namespace="$m_ns"
+            local protocol="$m_proto"
+            socat_pid="$m_socat"
+            bridge_port="$m_bridge"
+            
             # Append protocol to service_info for display
             if [ -n "$protocol" ] && [ "$protocol" != "unknown" ]; then
                 service_info="$service_info [$protocol]"
@@ -814,7 +822,7 @@ discover_active_tunnels() {
              remote_port="${BASH_REMATCH[1]}"
         fi
         
-        echo "$pid|$service_info|$namespace|$local_port|$remote_port|$bind_ip"
+        echo "$pid|$service_info|$namespace|$local_port|$remote_port|$bind_ip|$socat_pid|$bridge_port"
     done <<< "$tunnel_info"
 }
 
@@ -1156,16 +1164,27 @@ start_tunnel() {
             local wsl_ip=$(hostname -I | awk '{print $1}')
             
             # Native Windows PortProxy (netsh)
-            # This is the most stable method but requires Admin privileges (UAC Prompt)
+            # Strategy: 
+            # 1. Try running directly (Silent). Works if user is running WSL as Admin.
+            # 2. If valid, fallback to RunAs (UAC Popup).
+            
             local bridge_port="${bridge_port}"
             local win_bind_ip="${bind_ip}"
             local win_bind_port="${local_port}"
             local wsl_target_ip="127.0.0.1" # Windows sees WSL on localhost
             
-            # Generate a tiny PowerShell runner to execute netsh with Admin privs
-            local ps_runner="/tmp/netsh_runner_${win_bind_ip//./_}_${win_bind_port}.ps1"
+            echo -e "${GRAY}  L3 (Win): Configuring Netsh Rule (${win_bind_ip}:${win_bind_port})...${NC}"
             
-            cat <<EOF > "$ps_runner"
+            # Silent Attempt
+            # cd /mnt/c to avoid UNC warnings
+            if (cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c "netsh interface portproxy delete v4tov4 listenaddress=${win_bind_ip} listenport=${win_bind_port} & netsh interface portproxy add v4tov4 listenaddress=${win_bind_ip} listenport=${win_bind_port} connectaddress=${wsl_target_ip} connectport=${bridge_port}" >/dev/null 2>&1); then
+                 echo -e "${GREEN}✅ Windows Bridge Activated (Silent Mode)!${NC}"
+            else
+                 # Fallback to UAC
+                 echo -e "${YELLOW}  (Requires Admin) Triggering UAC prompt...${NC}"
+                 local ps_runner="/tmp/netsh_runner_${win_bind_ip//./_}_${win_bind_port}.ps1"
+            
+                 cat <<EOF > "$ps_runner"
 \$ErrorActionPreference = 'Stop'
 \$bindIP = "${win_bind_ip}"
 \$bindPort = "${win_bind_port}"
@@ -1182,15 +1201,14 @@ netsh interface portproxy add v4tov4 listenaddress=\$bindIP listenport=\$bindPor
 Write-Host "✅ [Netsh] PortProxy Rule Added: \${bindIP}:\${bindPort} -> \${targetIP}:\${targetPort}" -ForegroundColor Green
 Start-Sleep -Seconds 4
 EOF
-            
-            echo -e "${GRAY}  L3 (Win): Requesting Admin Privileges to update Network Rules (UAC)...${NC}"
-            
-            # Execute via Start-Process -Verb RunAs to trigger UAC
-            # Removed -NoExit so it closes automatically after the script finishes (and sleeps)
-            /mnt/c/Windows/System32/cmd.exe /c start "Updating Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${ps_runner}'"
-            
-            echo -e "${GREEN}✅ Windows Bridge Activated via netsh!${NC}"
+                 /mnt/c/Windows/System32/cmd.exe /c start "Updating Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${ps_runner}'"
+                 echo -e "${GREEN}✅ Windows Bridge Activated via netsh!${NC}"
+            fi
+
             echo -e "  You can now connect from Windows using: ${CYAN}${bind_ip}:${local_port}${NC}"
+            
+            # Update metadata with Layer 2 info for cleanup
+            echo "$svc_info|$namespace|$service_name|$detected_protocol|$socat_pid|$bridge_port" > "$TUNNEL_DIR/$meta_key.meta"
         fi
     else
         echo -e "${RED}Failed to start tunnel.${NC}"
@@ -1241,6 +1259,109 @@ get_ingress_hosts() {
     run_kubectl "get ingress -A -o jsonpath='{range .items[*]}{@.spec.rules[*].host}{\" \"}{end}'" | tr ' ' '\n' | sort | uniq | grep -v "^$"
 }
 
+manage_bridges() {
+    while true; do
+        clear
+        echo -e "${BLUE}Fetching Windows Bridge Status (netsh)...${NC}"
+        
+        local status
+        # Use tr to delete carriage returns and grep -a to handle binary garble from Windows cmd
+        status=$(/mnt/c/Windows/System32/cmd.exe /c "netsh interface portproxy show v4tov4" 2>&1 | tr -d '\r')
+        
+        echo -e "\n${BOLD}=== LAYER 1: Windows Kernel Rules (netsh) ===${NC}"
+        echo -e "${GRAY}(Windows Loopback -> WSL Bridge Port)${NC}"
+        echo -e "Listen IP\tListen Port\tTarget IP\tTarget Port"
+        echo -e "---------\t-----------\t---------\t-----------"
+        
+        # Parse netsh output for display
+        echo "$status" | awk '/^[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ {print $1"\t"$2"\t\t"$3"\t"$4}'
+        
+        echo -e "\n${BOLD}=== LAYER 2: WSL Bridge Processes (socat) ===${NC}"
+        echo -e "${GRAY}(WSL Bridge Port -> SSH Tunnel Endpoint)${NC}"
+        
+        local socat_list=""
+        if pgrep -x "socat" >/dev/null; then
+            echo -e "PID\tBridge Port\tTarget Endpoint"
+            echo -e "---\t-----------\t---------------"
+            
+            # Capture socat list for display AND selection
+            # Format: PID | Port | Target
+            while read -r line; do
+                local pid=$(echo "$line" | awk '{print $1}')
+                local listen=$(echo "$line" | grep -oP 'TCP-LISTEN:\K[0-9]+')
+                local target=$(echo "$line" | grep -oP 'TCP:\K[^ ]+')
+                if [ -n "$listen" ]; then
+                    echo -e "${pid}\t${listen}\t\t→ ${target}"
+                    socat_list+="${pid}|${listen}|${target}\n"
+                fi
+            done < <(pgrep -a socat | grep "TCP-LISTEN")
+        else
+            echo -e "${YELLOW}No active socat bridges found.${NC}"
+        fi
+         
+        echo ""
+        echo -e "${YELLOW}Note: Layer 1 'Target Port' should match Layer 2 'Bridge Port'.${NC}"
+        echo ""
+        echo -e "Press ${BOLD}[Enter]${NC} to return, or ${BOLD}[k]${NC} to Kill/Cleanup a Bridge."
+        read -p "> " choice
+        
+        if [[ "$choice" == "k" ]] || [[ "$choice" == "K" ]]; then
+            if [ -z "$socat_list" ]; then
+                echo -e "${RED}No socat processes to kill.${NC}"
+                sleep 1
+                continue
+            fi
+            
+            # Use FZF to select bridge to kill
+            local selected
+            selected=$(echo -e "$socat_list" | column -t -s '|' | "$FZF_BIN" --height=30% --layout=reverse --border --prompt="Select Bridge to Kill > " --header="PID  BridgePort  Target") || true
+            
+            if [ -n "$selected" ]; then
+                local pid_kill=$(echo "$selected" | awk '{print $1}')
+                local bridge_port_kill=$(echo "$selected" | awk '{print $2}')
+                
+                if [ -n "$pid_kill" ]; then
+                    echo -e "${YELLOW}Killing socat PID $pid_kill...${NC}"
+                    kill "$pid_kill" 2>/dev/null
+                    
+                    # Find and Kill associated Netsh rule
+                    # Look for Netsh line where TargetPort ($4) matches our BridgePort
+                    local netsh_match=$(echo "$status" | awk -v port="$bridge_port_kill" '$4 == port {print $1, $2}')
+                    
+                    if [ -n "$netsh_match" ]; then
+                        local n_ip=$(echo "$netsh_match" | awk '{print $1}')
+                        local n_port=$(echo "$netsh_match" | awk '{print $2}')
+                        
+                        echo -e "${YELLOW}Found orphan Netsh rule: $n_ip:$n_port -> ...:$bridge_port_kill${NC}"
+                        echo -e "${YELLOW}Cleaning up Netsh rule...${NC}"
+                        
+                        # Silent Try
+                        if (cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c "netsh interface portproxy delete v4tov4 listenaddress=${n_ip} listenport=${n_port}" >/dev/null 2>&1); then
+                            echo -e "${GREEN}✅ Rule Deleted (Silent)${NC}"
+                        else
+                             # Fallback UAC
+                             local runner_del="/tmp/netsh_del_zombie_${n_ip//./_}_${n_port}.ps1"
+                             cat <<EOF > "$runner_del"
+\$ErrorActionPreference = 'Stop'
+netsh interface portproxy delete v4tov4 listenaddress=${n_ip} listenport=${n_port} | Out-Null
+Write-Host "✅ Rule Deleted: ${n_ip}:${n_port}" -ForegroundColor Green
+Start-Sleep -Seconds 2
+EOF
+                             /mnt/c/Windows/System32/cmd.exe /c start "Cleaning Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${runner_del}'"
+                        fi
+                    else
+                        echo -e "${GRAY}No matching Netsh rule found for bridge port $bridge_port_kill.${NC}"
+                    fi
+                    
+                    sleep 1
+                fi
+            fi
+        else
+            return
+        fi
+    done
+}
+
 ingress_menu() {
     while true; do
         clear
@@ -1266,9 +1387,9 @@ ingress_menu() {
         fi
         
         echo ""
-        echo "$(t "ingress_start_tunnel")"
-        echo "$(t "ingress_show_dns")"
-        echo "$(t "prefs_back")"
+        echo "1. Start Ingress Tunnel (All Ports: HTTP/S + DBs) 🚀"
+        echo "2. Update /etc/hosts (Ingress + Postgres) 📝"
+        echo "0. Back"
         echo ""
         read -p "$(t "choose_option") " choice
         
@@ -1342,6 +1463,9 @@ ingress_menu() {
                 ;;
             2)
                 update_hosts_file
+                ;;
+            3)
+                check_windows_bridge
                 ;;
             0)
                 return
@@ -1597,7 +1721,7 @@ manage_tunnels() {
         # Add main menu option at the top
         menu_items="← Return to Main Menu\n"
         
-        while IFS='|' read -r pid svc_info namespace local_port remote_port bind_ip_raw; do
+        while IFS='|' read -r pid svc_info namespace local_port remote_port bind_ip_raw socat_pid bridge_port; do
             # Format bind info if not 127.0.0.1
             local bind_display=""
             if [ -n "$bind_ip_raw" ] && [ "$bind_ip_raw" != "127.0.0.1" ] && [ "$bind_ip_raw" != "localhost" ]; then
@@ -1623,16 +1747,54 @@ manage_tunnels() {
         local pid_to_kill=$(echo "$selected" | grep -oP 'PID: \K[0-9]+')
         local lport_to_kill=$(echo "$selected" | grep -oP 'Local: \K[0-9]+')
         
+        # Re-fetch full data line for this PID to get socat/bridge info (since fzf only showed summary)
+        local selected_data=$(echo "$tunnel_data" | grep "^$pid_to_kill|")
+        local raw_bind_ip=$(echo "$selected_data" | cut -d'|' -f6)
+        local socat_pid=$(echo "$selected_data" | cut -d'|' -f7)
+        local bridge_port=$(echo "$selected_data" | cut -d'|' -f8)
+        
         if [ -n "$pid_to_kill" ]; then
-            ## Check first if low lport_to_kill, then we must apply a sudo kill
+            # 1. Kill SSH Tunnel
             if [ "$lport_to_kill" -lt 1024 ]; then
                 sudo kill "$pid_to_kill" 2>/dev/null
             else
                 kill "$pid_to_kill" 2>/dev/null
             fi
-            [ -f "$TUNNEL_DIR/$lport_to_kill.meta" ] && rm "$TUNNEL_DIR/$lport_to_kill.meta"
-            echo -e "${RED}Tunnel stopped (PID: $pid_to_kill, Port: $lport_to_kill).${NC}"
-            sleep 0.5
+            
+            # 2. Kill Socat Process (Layer 2)
+            if [ -n "$socat_pid" ]; then
+                 echo -e "${YELLOW}Killing socat bridge (PID: $socat_pid)...${NC}"
+                 kill "$socat_pid" 2>/dev/null || true
+            fi
+            
+            # 3. Delete Netsh Rule (Layer 1)
+            # Only if we have a custom Bind IP (e.g. 127.0.0.2)
+            if [ -n "$raw_bind_ip" ] && [ "$raw_bind_ip" != "127.0.0.1" ] && [ "$raw_bind_ip" != "localhost" ]; then
+                echo -e "${YELLOW}Deleting Windows netsh rule for $raw_bind_ip:$lport_to_kill...${NC}"
+                
+                # Silent Try (cd /mnt/c to fix UNC warnings)
+                if (cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c "netsh interface portproxy delete v4tov4 listenaddress=${raw_bind_ip} listenport=${lport_to_kill}" >/dev/null 2>&1); then
+                    echo -e "${GREEN}✅ Rule Deleted (Silent)${NC}"
+                else
+                    # Fallback to UAC
+                    local runner_del="/tmp/netsh_del_${raw_bind_ip//./_}_${lport_to_kill}.ps1"
+                    cat <<EOF > "$runner_del"
+\$ErrorActionPreference = 'Stop'
+netsh interface portproxy delete v4tov4 listenaddress=${raw_bind_ip} listenport=${lport_to_kill} | Out-Null
+Write-Host "✅ Rule Deleted: ${raw_bind_ip}:${lport_to_kill}" -ForegroundColor Green
+Start-Sleep -Seconds 2
+EOF
+                    # Run it
+                    /mnt/c/Windows/System32/cmd.exe /c start "Cleaning Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${runner_del}'"
+                fi
+            fi
+            
+            # Remove metadata file
+            local meta_key="${raw_bind_ip//./-}-$lport_to_kill"
+            [ -f "$TUNNEL_DIR/$meta_key.meta" ] && rm "$TUNNEL_DIR/$meta_key.meta"
+            
+            echo -e "${RED}Tunnel stopped (PID: $pid_to_kill). Cleaned up associated bridges.${NC}"
+            sleep 1.0
         fi
     done
 }
@@ -2751,7 +2913,8 @@ access_menu() {
   while true; do
     local actions="$(t "access_start_tunnel")
 $(t "access_manage_tunnels")
-$(t "ingress_menu_title")
+3. Bridge Status & Cleanup (netsh) 🌉
+4. Ingress & DNS Helper 🌐
 $(t "prefs_back")"
 
     local selected_action
@@ -2772,7 +2935,8 @@ $(t "prefs_back")"
         fi
         # Any other return code (like 1) means continue in access_menu
         ;;
-      3) ingress_menu ;;
+      3) manage_bridges ;;
+      4) ingress_menu ;;
       0) return ;;
     esac
   done
