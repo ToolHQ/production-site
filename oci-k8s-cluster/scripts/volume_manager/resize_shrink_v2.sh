@@ -75,16 +75,52 @@ echo "[2/9] Scaling down deployment to 0..."
 # Detect Deployment Type
 if k get deployment $DEPLOYMENT -n $NAMESPACE >/dev/null 2>&1; then
     DEPLOYMENT_TYPE="deployment"
-    k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=0
 elif k get statefulset $DEPLOYMENT -n $NAMESPACE >/dev/null 2>&1; then
     DEPLOYMENT_TYPE="statefulset"
-    k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=0
 else
     echo "  ⚠️  Could not find Deployment or StatefulSet named '$DEPLOYMENT'"
     DEPLOYMENT_TYPE="unknown"
 fi
-echo "  ✓ $DEPLOYMENT_TYPE scaled to 0"
 
+# Detect Current Replicas (for restoration later)
+ORIGINAL_REPLICAS=$(k get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.spec.replicas}' 2>/dev/null || k get statefulset $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "1")
+echo "  Current Replicas: $ORIGINAL_REPLICAS"
+
+# SMART SCALING LOGIC
+TARGET_SCALE_DOWN=0
+if [[ "$DEPLOYMENT_TYPE" == "statefulset" ]]; then
+    # Try to extract ordinal from PVC name (assuming standard format: <pvc-prefix>-<pod-name>-<ordinal>)
+    # PVC Name Examples: postgres-data-postgres-0, data-app-1
+    # We look for the last number
+    ORDINAL=$(echo "$PVC_NAME" | grep -oE '[0-9]+$' || echo "")
+    
+    if [ -n "$ORDINAL" ]; then
+        echo "  Detected Pod Ordinal: $ORDINAL"
+        
+        # In StatefulSets, scaling to N creates pods 0..N-1.
+        # To effectively "stop" pod N, we must scale to N.
+        # Example: To stop pod-1 (ordinal 1), scale to 1 (keeps pod-0).
+        # Example: To stop pod-0 (ordinal 0), scale to 0 (stops everything).
+        TARGET_SCALE_DOWN=$ORDINAL
+        
+        if [ "$TARGET_SCALE_DOWN" -gt 0 ]; then
+             echo "  🧠 Smart Scaling: Resizing replica #$ORDINAL. Keeping $TARGET_SCALE_DOWN replicas running."
+        else
+             echo "  🧠 Smart Scaling: Resizing primary/first replica. Full shutdown required."
+        fi
+    fi
+fi
+
+echo "[2/9] Scaling $DEPLOYMENT_TYPE down to $TARGET_SCALE_DOWN..."
+
+if [[ "$DEPLOYMENT_TYPE" == "deployment" ]]; then
+    k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=$TARGET_SCALE_DOWN
+elif [[ "$DEPLOYMENT_TYPE" == "statefulset" ]]; then
+    k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=$TARGET_SCALE_DOWN
+fi
+
+echo "  ✓ $DEPLOYMENT_TYPE scaled to $TARGET_SCALE_DOWN"
+    
 # Check for Operator Interference (Fight Detection) & Smart Auto-Scaling
 sleep 5
 CURRENT_REPLICAS=$(k get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.status.replicas}' 2>/dev/null || k get statefulset $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
@@ -92,9 +128,9 @@ CURRENT_REPLICAS=$(k get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.sta
 # FIX: Ensure CURRENT_REPLICAS is an integer (default to 0 if empty/failed)
 CURRENT_REPLICAS=${CURRENT_REPLICAS:-0}
 
-if [ "$CURRENT_REPLICAS" -gt 0 ]; then
+if [ "$CURRENT_REPLICAS" -gt "$TARGET_SCALE_DOWN" ]; then
     echo ""
-    echo "  ⚠️  OPERATOR INTERFERENCE DETECTED! (Replicas: $CURRENT_REPLICAS)" 
+    echo "  ⚠️  OPERATOR INTERFERENCE DETECTED! (Replicas: $CURRENT_REPLICAS > $TARGET_SCALE_DOWN)" 
     
     # Identify Owner
     OWNER_INFO=$(k get deployment $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}' 2>/dev/null || k get statefulset $DEPLOYMENT -n $NAMESPACE -o jsonpath='{.metadata.ownerReferences[0].kind}/{.metadata.ownerReferences[0].name}' 2>/dev/null)
@@ -143,8 +179,11 @@ if [ "$CURRENT_REPLICAS" -gt 0 ]; then
                 sleep 5
                 
                 # Now scale the application again (Operator can't revert it now)
-                k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=0 2>/dev/null || \
-                k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=0
+                if [[ "$DEPLOYMENT_TYPE" == "deployment" ]]; then
+                    k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=$TARGET_SCALE_DOWN 2>/dev/null
+                elif [[ "$DEPLOYMENT_TYPE" == "statefulset" ]]; then
+                    k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=$TARGET_SCALE_DOWN
+                fi
                 
                 OPERATOR_INTERFERENCE="true"
                 OPERATOR_KIND="Elasticsearch"
@@ -236,7 +275,7 @@ if [ "$CURRENT_REPLICAS" -gt 0 ]; then
     fi
 
     # Wait for Operator to process the scale-down
-    while [ "$CURRENT_REPLICAS" -gt 0 ]; do
+    while [ "$CURRENT_REPLICAS" -gt "$TARGET_SCALE_DOWN" ]; do
         # If we didn't auto-handle it (or if patch failed/is slow), prompt user
         if [ "$OPERATOR_INTERFERENCE" != "true" ]; then
              echo ""
@@ -260,7 +299,8 @@ echo ""
 echo "[3/9] Waiting for pod termination..."
 sleep 5
 
-# Check for any pods using this PVC (more robust than label selector)
+# Check for specific pods using this PVC to be terminated
+# If we did a partial scale down (e.g. kept pod-0 running), we only care that the pod utilizing THIS PVC is gone.
 for i in {1..90}; do
     POD_COUNT=$(k get pods -n $NAMESPACE -o json 2>/dev/null | jq -r ".items[] | select(.spec.volumes[]?.persistentVolumeClaim.claimName == \"$PVC_NAME\") | .metadata.name" | wc -l)
     
@@ -671,7 +711,7 @@ echo "  ✓ PVCs swapped successfully"
 echo ""
 
 # Scale deployment back up
-echo "[9/9] Scaling deployment back to 1..."
+echo "[9/9] Scaling deployment back to ORIGINAL ($ORIGINAL_REPLICAS)..."
 
 if [ "$OPERATOR_INTERFERENCE" = "true" ]; then
     if [ "$OPERATOR_KIND" == "Elasticsearch" ]; then
@@ -712,14 +752,14 @@ if [ "$OPERATOR_INTERFERENCE" = "true" ]; then
         echo "  The script cannot reliably scale up the resource because the Operator controls it."
         echo ""
         echo "  ACTION REQUIRED:"
-        echo "  1. Manually scale UP the parent Custom Resource (e.g. Postgres) to 1."
+        echo "  1. Manually scale UP the parent Custom Resource (e.g. Postgres) to $ORIGINAL_REPLICAS."
         read -p "  Press [Enter] once you have scaled UP the Operator resource..."
         echo "  ✓ Assuming resource scaled up."
     fi
 else
-    k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=1 2>/dev/null || \
-    k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=1
-    echo "  ✓ Deployment scaled back to 1"
+    k scale deployment $DEPLOYMENT -n $NAMESPACE --replicas=$ORIGINAL_REPLICAS 2>/dev/null || \
+    k scale statefulset $DEPLOYMENT -n $NAMESPACE --replicas=$ORIGINAL_REPLICAS
+    echo "  ✓ Deployment scaled back to $ORIGINAL_REPLICAS"
 fi
 echo ""
 
