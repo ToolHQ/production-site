@@ -18,35 +18,8 @@ else
     kubectl patch -n kube-system deployment metrics-server --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
 fi
 
-# 2. ECK Operator (Elastic Cloud on Kubernetes)
-echo " [2] Deploying ECK Operator..."
-if kubectl get ns elastic-system &> /dev/null; then
-    echo "    ℹ️  elastic-system namespace exists."
-    if kubectl get pod -n elastic-system -l control-plane=elastic-operator | grep Running &> /dev/null; then
-        echo "    ✅ ECK Operator is running."
-    else
-        echo "    🔄 Updating ECK Operator..."
-        kubectl create -f https://download.elastic.co/downloads/eck/2.10.0/crds.yaml || true
-        kubectl apply -f https://download.elastic.co/downloads/eck/2.10.0/operator.yaml
-    fi
-else
-    echo "    📥 Installing ECK Operator (v2.10.0)..."
-    kubectl create -f https://download.elastic.co/downloads/eck/2.10.0/crds.yaml
-    kubectl apply -f https://download.elastic.co/downloads/eck/2.10.0/operator.yaml
-fi
-
-# 3. Apply Local Manifests (recursively if needed, but structure is flattened mostly or in manifests/)
-echo " [3] Applying ELK Manifests (Ensuring Logstash 2Gi, Filebeat 300m)..."
-# Check if manifests directory exists relative to this script
-if [ -d "manifests" ]; then
-    kubectl apply -f manifests/
-else
-    # Fallback if flat structure
-    kubectl apply -f .
-fi
-
-# 4. Pixie CLI
-echo " [4] Check Pixie CLI..."
+# 2. Pixie CLI
+echo " [2] Check Pixie CLI..."
 if command -v px &> /dev/null; then
     echo "    ✅ 'px' CLI found."
 else
@@ -80,17 +53,8 @@ else
 fi
 
 echo ""
-# 5. Configure Kibana
-echo " [5] Configuring Kibana..."
-if [ -f "scripts/configure_kibana.sh" ]; then
-    ./scripts/configure_kibana.sh
-else
-    echo "    ⚠️  Configuration script not found."
-fi
-
-echo ""
-# 6. Deploy DeepFlow (eBPF Observability)
-echo " [6] Deploying DeepFlow..."
+# 3. Deploy DeepFlow (eBPF Observability)
+echo " [3] Deploying DeepFlow..."
 if helm list -n deepflow | grep -q deepflow; then
     echo "    ✅ DeepFlow already deployed."
 else
@@ -112,11 +76,13 @@ else
         --wait --timeout 10m
     
     # Apply Ingress
-    kubectl apply -f manifests/deepflow-ingress.yaml
+    if [ -f "manifests/deepflow-ingress.yaml" ]; then
+        kubectl apply -f manifests/deepflow-ingress.yaml
+    fi
     
     echo "    ✅ DeepFlow deployed successfully."
     echo "    🌐 Access UI at: https://deepflow.dnor.io"
 fi
 
 echo ""
-echo "✅ Observability Setup (ECK + DeepFlow) finished."
+echo "✅ Observability Setup (DeepFlow + Metrics) finished."

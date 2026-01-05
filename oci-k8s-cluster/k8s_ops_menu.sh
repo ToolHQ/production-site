@@ -637,9 +637,10 @@ $(t "prefs_back")"
 
 component_management_menu() {
   while true; do
-    local actions="$(t "comp_deploy")
-$(t "comp_longhorn")
-3. Global Registry Secret Repair (Fix Pull Errors)
+    local actions="1. Deploy/Update Components
+2. Uninstall Components
+3. $(t "comp_longhorn")
+4. Global Registry Secret Repair (Fix Pull Errors)
 $(t "prefs_back")"
 
     local selected_action
@@ -656,6 +657,11 @@ $(t "prefs_back")"
         read -p "$(t "press_enter")"
         ;;
       2)
+        clear
+        ./deploy_components.sh --uninstall
+        read -p "$(t "press_enter")"
+        ;;
+      3)
         clear
         ./reinstall_longhorn.sh
         read -p "$(t "press_enter")"

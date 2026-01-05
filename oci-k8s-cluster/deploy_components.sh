@@ -92,6 +92,7 @@ apply_component_manifests() {
 
   # Special handling for Postgres Coroot Credential (local generation)
   local coroot_pg_pass=""
+  local pg_rep_pass=""
   if [[ "$component" == "postgres" ]]; then
     # Replication Password (Early Generation)
     local cred_rep="postgres_replication_password"
@@ -440,15 +441,87 @@ deploy_selected() {
 }
 
 # ────────────────────────────────────────────────
+# Uninstall a single component
+uninstall_component() {
+  local component="$1"
+  local ns=""
+
+  log_node "$MASTER_NODE" "🗑️  Uninstalling component '$component'"
+
+  # 1. Check for custom uninstall script
+  local uninstall_script="./../components/$component/uninstall_commands.sh"
+  
+  # We need to copy it to remote to execute it there?
+  # Actually, run_remote_stream allows executing local script content on remote via bash -s or similar?
+  # Or we scp it.
+  
+  if [ -f "$uninstall_script" ]; then
+      echo "▶ Found custom uninstall script. Executing on master..."
+      scp_to_remote "$MASTER_NODE" "$uninstall_script" "/home/ubuntu/deployments/$component/uninstall_commands.sh"
+      
+      run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
+cd /home/ubuntu/deployments/$component
+chmod +x uninstall_commands.sh
+./uninstall_commands.sh
+RMT
+  else
+      echo "▶ No custom uninstall script. Attempting standard 'kubectl delete -f .'..."
+      # This assumes the deployments folder still exists on remote.
+      run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
+if [ -d "/home/ubuntu/deployments/$component" ]; then
+    cd /home/ubuntu/deployments/$component
+    kubectl delete -f . --ignore-not-found
+else
+    echo "⚠️  Deployment directory not found on remote. Skipping standard delete."
+fi
+RMT
+  fi
+  
+  echo "✅ Component '$component' uninstalled."
+}
+
+# Uninstall selected components
+uninstall_selected() {
+  local -a comps=("$@")
+  for comp in "${comps[@]}"; do
+    uninstall_component "$comp"
+  done
+}
+
+
+# ────────────────────────────────────────────────
 # Main
 main() {
-  local -a selection
-  if [[ $# -gt 0 ]]; then
-    selection=("$@")
-  else
+  local mode="install"
+  local -a selection=()
+
+  # Parse args
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --uninstall)
+        mode="uninstall"
+        shift
+        ;;
+      --suggest-only)
+        TUNNEL_MODE="suggest"
+        shift
+        ;;
+      *)
+        selection+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  if [[ ${#selection[@]} -eq 0 ]]; then
     mapfile -t selection < <(prompt_components)
   fi
-  deploy_selected "${selection[@]}"
+
+  if [[ "$mode" == "uninstall" ]]; then
+      uninstall_selected "${selection[@]}"
+  else
+      deploy_selected "${selection[@]}"
+  fi
 }
 
 main "$@"
