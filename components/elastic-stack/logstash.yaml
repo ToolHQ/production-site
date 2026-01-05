@@ -30,15 +30,20 @@ spec:
       containers:
       - env:
         - name: LS_JAVA_OPTS
-          value: -Xms2g -Xmx2g
+          value: "-Xms512m -Xmx512m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+        - name: PIPELINE_WORKERS
+          value: "1"
+        - name: PIPELINE_BATCH_SIZE
+          value: "50"
+        - name: PIPELINE_BATCH_DELAY
+          value: "50"
         name: logstash
+        image: docker.elastic.co/logstash/logstash:8.11.0
         resources:
           limits:
-            cpu: 1
-            memory: 3Gi
+            memory: 1536Mi
           requests:
-            cpu: 100m
-            memory: 2Gi
+            memory: 1Gi
         volumeMounts:
         - mountPath: /opt/logstash/custom_patterns
           name: patterns-vol
@@ -47,6 +52,7 @@ spec:
       volumes:
       - configMap:
           name: logstash-patterns
+        image: docker.elastic.co/logstash/logstash:8.11.0
         name: patterns-vol
   services:
   - name: beats

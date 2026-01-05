@@ -1,0 +1,22 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: oci-logs
+  namespace: elastic-system
+spec:
+  version: 8.11.0
+  count: 1
+  elasticsearchRef:
+    name: oci-logs
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+        image: docker.elastic.co/kibana/kibana:8.11.0
+        resources:
+          limits:
+            cpu: 0.5
+            memory: 1Gi
+          requests:
+            cpu: 0.1
+            memory: 256Mi

@@ -85,6 +85,19 @@ else
   fi
 fi
 
+# ────────────────────────────────────────────────
+# Cache Cleanup (User Request: auto-prune > 2h)
+echo "🧹 Cleaning Build Cache (>2h retention)..."
+if [ -S "$BK_SOCK" ] || ensure_buildkit_running; then
+  # BuildKit Prune
+  buildctl --addr "unix://$BK_SOCK" prune --keep-duration 2h
+  echo "✅ BuildKit cache pruned."
+elif command -v docker >/dev/null 2>&1; then
+  # Docker Buildx Prune
+  docker buildx prune -f --filter "until=2h"
+  echo "✅ Docker Buildx cache pruned."
+fi
+
 # kubectl apply -f ./postgres-resources.yaml
 
 # http://localhost:31444/
