@@ -4,14 +4,8 @@ metadata:
   annotations:
     eck.k8s.elastic.co/orchestration-hints: '{"no_transient_settings":true,"service_accounts":true,"desired_nodes":{"version":11,"hash":"1930358945"}}'
     elasticsearch.k8s.elastic.co/cluster-uuid: ISHaRu4iQ9iWdJlhaoZ4uw
-    kubectl.kubernetes.io/last-applied-configuration: |
-      {"apiVersion":"elasticsearch.k8s.elastic.co/v1","kind":"Elasticsearch","metadata":{"annotations":{"eck.k8s.elastic.co/orchestration-hints":"{\"no_transient_settings\":true,\"service_accounts\":true}","elasticsearch.k8s.elastic.co/cluster-uuid":"ISHaRu4iQ9iWdJlhaoZ4uw"},"creationTimestamp":"2025-12-07T17:59:12Z","generation":6,"name":"oci-logs","namespace":"elastic-system","resourceVersion":"12988620","uid":"0d0fd83b-a157-404b-8bfc-c2e78dd5932e"},"spec":{"auth":{},"http":{"service":{"metadata":{},"spec":{}},"tls":{"certificate":{}}},"monitoring":{"logs":{},"metrics":{}},"nodeSets":[{"config":{"node.store.allow_mmap":false},"count":2,"name":"default","podTemplate":{"metadata":{"creationTimestamp":null},"spec":{"containers":[{"env":[{"name":"ES_JAVA_OPTS","value":"-Xms512m -Xmx512m"}],"name":"elasticsearch","resources":{"limits":{"cpu":"1","memory":"1Gi"},"requests":{"cpu":"100m","memory":"1Gi"}}}]}},"volumeClaimTemplates":[{"metadata":{"name":"elasticsearch-data"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"496Mi"}},"storageClassName":"longhorn"}}]}],"transport":{"service":{"metadata":{},"spec":{}},"tls":{"certificate":{},"certificateAuthorities":{}}},"updateStrategy":{"changeBudget":{}},"version":"8.11.0"},"status":{"availableNodes":1,"conditions":[{"lastTransitionTime":"2025-12-13T20:39:29Z","message":"handle volume expansion: decreasing storage size is not supported: an attempt was made to decrease storage size for claim elasticsearch-data","status":"False","type":"ReconciliationComplete"},{"lastTransitionTime":"2025-12-07T17:59:15Z","message":"All nodes are running version 8.11.0","status":"True","type":"RunningDesiredVersion"},{"lastTransitionTime":"2025-12-13T20:39:35Z","message":"Service elastic-system/oci-logs-es-internal-http has endpoints","status":"True","type":"ElasticsearchIsReachable"},{"lastTransitionTime":"2025-12-13T20:38:43Z","message":"Cannot get compute and storage resources from Elasticsearch resource generation 6: cannot compute resources for NodeSet \"default\": memory request and limit do not have the same value","status":"False","type":"ResourcesAwareManagement"}],"health":"yellow","inProgressOperations":{"downscale":{"lastUpdatedTime":"2025-12-07T17:59:15Z"},"upgrade":{"lastUpdatedTime":"2025-12-07T18:08:21Z"},"upscale":{"lastUpdatedTime":"2025-12-13T20:39:29Z","nodes":[{"message":"Creating master node","name":"oci-logs-es-default-1","status":"EXPECTED"}]}},"observedGeneration":6,"phase":"ApplyingChanges","version":"8.11.0"}}
-  creationTimestamp: "2025-12-07T17:59:12Z"
-  generation: 14
   name: oci-logs
   namespace: elastic-system
-  resourceVersion: "35932810"
-  uid: 0d0fd83b-a157-404b-8bfc-c2e78dd5932e
 spec:
   auth: {}
   http:
@@ -35,6 +29,8 @@ spec:
       thread_pool.write.size: 2
     podTemplate:
       spec:
+        imagePullSecrets:
+        - name: regcred
         containers:
         - name: elasticsearch
           image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -46,6 +42,33 @@ spec:
               memory: 2Gi
             requests:
               memory: 1536Mi
+          readinessProbe:
+            exec:
+              command:
+              - bash
+              - -c
+              - |
+                #!/usr/bin/env bash
+                set -e
+                # If the node is starting up wait for the cluster to be ready (request to localhost:9200)
+                # If the node is already started, checks that the node is ready to answer requests
+                # SSL Verification disabled for localhost probe
+                curl -nk --fail https://localhost:9200
+            failureThreshold: 10
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 10
+          livenessProbe:
+             failureThreshold: 3
+             initialDelaySeconds: 60
+             periodSeconds: 10
+             successThreshold: 1
+             timeoutSeconds: 10
+             exec:
+               command:
+                 - bash
+                 - -c
+                 - curl -nk --fail https://localhost:9200
         initContainers:
         - name: sysctl
           securityContext:
@@ -60,35 +83,4 @@ spec:
       certificateAuthorities: {}
   updateStrategy:
     changeBudget: {}
-  version: 8.11.0
-status:
-  availableNodes: 1
-  conditions:
-  - lastTransitionTime: "2026-01-04T23:34:26Z"
-    status: "True"
-    type: ReconciliationComplete
-  - lastTransitionTime: "2025-12-07T17:59:15Z"
-    message: All nodes are running version 8.11.0
-    status: "True"
-    type: RunningDesiredVersion
-  - lastTransitionTime: "2026-01-04T23:34:26Z"
-    message: Service elastic-system/oci-logs-es-internal-http has endpoints
-    status: "True"
-    type: ElasticsearchIsReachable
-  - lastTransitionTime: "2026-01-03T01:17:21Z"
-    message: 'Cannot get compute and storage resources from Elasticsearch resource
-      generation 14: cannot compute resources for NodeSet "default": no CPU request
-      or limit set'
-    status: "False"
-    type: ResourcesAwareManagement
-  health: red
-  inProgressOperations:
-    downscale:
-      lastUpdatedTime: "2026-01-03T01:24:49Z"
-    upgrade:
-      lastUpdatedTime: "2026-01-03T02:04:33Z"
-    upscale:
-      lastUpdatedTime: "2025-12-28T14:11:02Z"
-  observedGeneration: 14
-  phase: Ready
   version: 8.11.0
