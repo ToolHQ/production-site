@@ -21,7 +21,27 @@ system_cleaner_menu() {
     '
 
     while true; do
-        # Node Selection
+        ACTION=$(whiptail --title "System & Cluster Cleaner" \
+            --menu "Select Maintenance Task:" \
+            15 60 5 \
+            "1" "Clean System Logs/Packages (Nodes)" \
+            "2" "Prune Kubernetes Garbage (Jobs/Pods)" \
+            "0" "Back" \
+            3>&1 1>&2 2>&3) || ACTION=""
+            
+        if [ -z "$ACTION" ] || [ "$ACTION" == "0" ]; then
+            return 0
+        fi
+        
+        if [ "$ACTION" == "2" ]; then
+            clear
+            "$CLEANER_DIR/prune_k8s_garbage.sh"
+            echo ""
+            read -p "Press ENTER to continue..."
+            continue
+        fi
+
+        # Node Selection (For Action 1)
         NODES_LIST=()
         for n in "${NODES[@]}"; do
             NODES_LIST+=("$n" "")
@@ -35,7 +55,7 @@ system_cleaner_menu() {
             3>&1 1>&2 2>&3) || SELECTED_NODE=""
 
         if [ -z "$SELECTED_NODE" ]; then
-            return 0
+            continue
         fi
 
         # Confirmation
