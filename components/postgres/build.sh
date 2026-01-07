@@ -17,8 +17,12 @@ ensure_buildkit_running() {
   
   # Check if BuildKit service is active
   if systemctl --user is-active --quiet buildkit.service 2>/dev/null; then
-    echo "✅ BuildKit service is running"
-    return 0
+    if [ -S "$BK_SOCK" ]; then
+        echo "✅ BuildKit service is running"
+        return 0
+    fi
+    echo "⚠️  BuildKit active but socket missing. Restarting..."
+    systemctl --user restart buildkit.service 2>/dev/null
   fi
   
   echo "⚠️  BuildKit service not running, attempting to start..."
