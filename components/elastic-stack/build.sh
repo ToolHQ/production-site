@@ -20,8 +20,20 @@ BK_SOCK="${BK_SOCK:-/home/ubuntu/.local/share/buildkit/buildkitd.sock}"
 ensure_buildkit_running() {
   local uid=$(id -u)
   export XDG_RUNTIME_DIR="/run/user/$uid"
-  if systemctl --user is-active --quiet buildkit.service 2>/dev/null; then return 0; fi
-  systemctl --user start buildkit.service 2>/dev/null
+  
+  # Check if service is active AND socket exists
+  if systemctl --user is-active --quiet buildkit.service 2>/dev/null; then
+      if [ -S "$BK_SOCK" ]; then
+          return 0
+      fi
+      # Service is active aka "Zombie" (file deleted), so restart it
+      echo "⚠️  BuildKit active but socket missing. Restarting..."
+      systemctl --user restart buildkit.service 2>/dev/null
+  else
+      # Service inactive, start it
+      systemctl --user start buildkit.service 2>/dev/null
+  fi
+
   for i in {1..10}; do [ -S "$BK_SOCK" ] && return 0; sleep 1; done
   return 1
 }

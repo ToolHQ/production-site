@@ -181,7 +181,7 @@ cd /home/ubuntu/deployments/$component
 if [ -f commands.sh ]; then
   chmod +x commands.sh
   echo "▶ Running custom commands.sh for $component..."
-  COROOT_PG_PASSWORD="$coroot_pg_pass" PG_REP_PASS="$pg_rep_pass" ./commands.sh
+  NEXUS_PASS="$nexus_pass" COROOT_PG_PASSWORD="$coroot_pg_pass" PG_REP_PASS="$pg_rep_pass" ./commands.sh
 else
   echo "▶ Applying YAML manifests in $component..."
   kubectl apply -f .

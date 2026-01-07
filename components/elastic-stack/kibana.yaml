@@ -10,6 +10,8 @@ spec:
     name: oci-logs
   podTemplate:
     spec:
+      imagePullSecrets:
+      - name: regcred
       containers:
       - name: kibana
         image: docker.elastic.co/kibana/kibana:8.11.0

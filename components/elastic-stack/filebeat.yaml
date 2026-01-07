@@ -21,6 +21,8 @@ spec:
   daemonSet:
     podTemplate:
       spec:
+        imagePullSecrets:
+        - name: regcred
         dnsPolicy: ClusterFirstWithHostNet
         hostNetwork: true
         securityContext:
