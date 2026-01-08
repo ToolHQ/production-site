@@ -77,10 +77,20 @@ apply_robust "elasticsearch.yaml" "elasticsearch/oci-logs"
 kubectl delete kibana oci-logs -n elastic-system --ignore-not-found 2>/dev/null || true
 apply_robust "kibana.yaml" "kibana/oci-logs"
 
-# Apply Logstash
-echo "    🚀 Applying Logstash..."
+# 2.1 Create Logstash Config Secret (With Tunings)
+echo "      - Ensuring 'logstash-config' secret exists..."
+# We move Env Vars to logstash.yml to avoid ReadOnly FS errors in init containers
+cat <<EOF > /tmp/logstash.yml
+pipeline.workers: 1
+pipeline.batch.size: 50
+pipeline.batch.delay: 50
+EOF
 
-# 2.1 Create Logstash Patterns ConfigMap (Required for patterns-vol)
+kubectl create secret generic logstash-config -n elastic-system \
+  --from-file=logstash.yml=/tmp/logstash.yml \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# 2.1.5 Create Logstash Patterns ConfigMap (Required for patterns-vol)
 echo "      - Ensuring 'logstash-patterns' ConfigMap exists..."
 kubectl create configmap logstash-patterns -n elastic-system \
   --from-literal=custom.patterns='TEST_PATTERN %{WORD}' \
@@ -126,47 +136,111 @@ apply_robust "filebeat.yaml" "beat/oci-filebeat"
 echo "    🚀 Applying Kibana/ES Ingress..."
 kubectl apply -f kibana-ingress.yaml
 
+# Function: Smart Wait with Active Monitoring (Fail Fast & Success Fast)
+smart_wait() {
+    local namespace=$1
+    local selector=$2
+    local resource_name=$3
+    local timeout=${4:-300}
+    local success_pattern=${5:-""}
+
+    echo "    ⏳ Monitoring $resource_name (Max ${timeout}s)..."
+    local start_time=$(date +%s)
+    local pods_found=false
+
+    while true; do
+        current_time=$(date +%s)
+        elapsed=$((current_time - start_time))
+        
+        if [ $elapsed -ge $timeout ]; then
+            echo "      ❌ Timeout waiting for $resource_name."
+            return 1
+        fi
+
+        # Get Pods JSON
+        local pod_json=$(kubectl get pods -n "$namespace" -l "$selector" -o json 2>/dev/null)
+        local pod_count=$(echo "$pod_json" | jq '.items | length')
+
+        if [[ "$pod_count" == "0" ]]; then
+            if [[ "$pods_found" == "true" ]]; then
+                 echo "      ⚠️  Pods for $resource_name disappeared..."
+                # Still waiting for operator to create pods
+                 if (( elapsed % 10 == 0 )); then
+                    echo "      - Waiting for pods to appear (Selector: $selector)..."
+                 fi
+            else
+                 if (( elapsed % 10 == 0 )); then
+                    echo "      - Waiting for pods to appear (Selector: $selector)..."
+                 fi
+            fi
+            sleep 2
+            continue
+        fi
+        
+        pods_found=true
+
+        # 1. Fail Fast: Check for CrashLoop/ImagePull
+        local crash_pod=$(echo "$pod_json" | jq -r '.items[] | select(.status.containerStatuses[]?.state.waiting.reason == "CrashLoopBackOff") | .metadata.name' | head -n 1)
+        if [[ -n "$crash_pod" ]]; then
+            echo "      ❌ Detected CrashLoopBackOff in $crash_pod!"
+            echo "      🔍 Recent Logs:"
+            kubectl logs -n "$namespace" "$crash_pod" --tail=20 --all-containers
+            return 1
+        fi
+
+        local image_err_pod=$(echo "$pod_json" | jq -r '.items[] | select(.status.containerStatuses[]?.state.waiting.reason == "ImagePullBackOff" or .status.containerStatuses[]?.state.waiting.reason == "ErrImagePull") | .metadata.name' | head -n 1)
+        if [[ -n "$image_err_pod" ]]; then
+            echo "      ❌ Detected Image Error in $image_err_pod!"
+            echo "      🔍 Events:"
+            kubectl describe pod -n "$namespace" "$image_err_pod" | grep -A 10 Events
+            return 1
+        fi
+        
+        # 2. Success Fast: Check Logs for Pattern (if provided)
+        if [[ -n "$success_pattern" ]]; then
+             # Check logs of all pods matching selector
+             # We use 'grep -q' which exits 0 if matched
+             if kubectl logs -n "$namespace" -l "$selector" --tail=50 --prefix=false 2>/dev/null | grep -Eq "$success_pattern"; then
+                 echo "      ✅ Success Pattern Found: '$success_pattern'"
+                 return 0
+             fi
+        fi
+
+        # 3. Success Normal: Check Ready Conditions
+        local ready_count=$(echo "$pod_json" | jq '[.items[] | select(.status.conditions[]? | select(.type=="Ready" and .status=="True"))] | length')
+        
+        if [[ "$ready_count" -ge 1 ]] && [[ "$ready_count" -eq "$pod_count" ]]; then
+             echo "      ✅ $resource_name is Ready ($ready_count/$pod_count pods)."
+             return 0
+        fi
+
+        # Progress feedback with Log Snippet (User Feedback)
+        if (( elapsed % 5 == 0 )); then
+            local sample_pod=$(echo "$pod_json" | jq -r '.items[0].metadata.name')
+            local sample_status=$(echo "$pod_json" | jq -r '.items[0].status.phase')
+            
+            # Get last log line for context
+            local last_log=$(kubectl logs -n "$namespace" "$sample_pod" --tail=1 2>/dev/null | tr -d '\n\r' | cut -c 1-80)
+            if [[ -z "$last_log" ]]; then last_log="(no logs yet)"; fi
+            
+            echo "      ▶ ${resource_name}: ${sample_status} (${elapsed}s) - \"${last_log}...\""
+        fi
+        
+        sleep 3
+    done
+}
+
 # 3. Wait for Rollout (Elasticsearch first)
 echo " [3] Verifying Rollout Status..."
-echo "    ⏳ Waiting for Elasticsearch (oci-logs-es-default)..."
-# ECK creates a StatefulSet named {elasticsearch_name}-es-{nodeset_name}
-if kubectl -n elastic-system rollout status statefulset/oci-logs-es-default --timeout=600s; then
-    echo "    ✅ Elasticsearch is Ready."
-else
-    echo "    ⚠️  Elasticsearch timed out. Checking Operator logs..."
-    kubectl -n elastic-system logs -l control-plane=elastic-operator --tail=20 || true
-    echo "    🔍 Checking ES Pod logs..."
-    kubectl -n elastic-system logs -l elasticsearch.k8s.elastic.co/cluster-name=oci-logs --tail=20 || true
-fi
 
-echo "    ⏳ Waiting for Logstash (oci-logstash)..."
-# ECK creates a StatefulSet named {logstash_name}-ls
-# Wait for STS to appear first (Operator might stagger creation)
-echo "      - Waiting for StatefulSet 'oci-logstash-ls' to be created (Max 300s)..."
-timeout=300
-start_time=$(date +%s)
-while ! kubectl get statefulset oci-logstash-ls -n elastic-system >/dev/null 2>&1; do
-    current_time=$(date +%s)
-    elapsed=$((current_time - start_time))
-    if [ $elapsed -ge $timeout ]; then
-        echo "      ❌ Timed out waiting for StatefulSet creation."
-        break
-    fi
-    # UX Improvement: Print a dot every 5 seconds, or progress every 30s
-    if (( elapsed % 15 == 0 )); then
-       echo -n "      Running($elapsed s)..."
-    fi
-    sleep 5
-done
-echo "" # Newline after loop
+# Wait for Elasticsearch (Success on GREEN/YELLOW health)
+smart_wait "elastic-system" "elasticsearch.k8s.elastic.co/cluster-name=oci-logs" "Elasticsearch" 600 "Cluster health status changed from .* to \[(GREEN|YELLOW)\]" || exit 1
 
-if kubectl -n elastic-system rollout status statefulset/oci-logstash-ls --timeout=300s; then
-    echo "    ✅ Logstash is Ready."
-else
-    echo "    ⚠️  Logstash timed out."
-    kubectl -n elastic-system describe statefulset oci-logstash-ls || echo "StatefulSet not found"
-    kubectl -n elastic-system logs -l control-plane=elastic-operator --tail=20 || true
-fi
+# Wait for Logstash (Success on Pipeline started)
+smart_wait "elastic-system" "logstash.k8s.elastic.co/name=oci-logstash" "Logstash" 300 "Successfully started Logstash API endpoint" || exit 1
+
+# Wait for Kibana (Success on Status is Green or Ready)
+smart_wait "elastic-system" "common.k8s.elastic.co/type=kibana" "Kibana" 300 "Kibana is now available" || exit 1
 
 # 4. Configure Kibana
 echo " [4] Configuring Kibana..."

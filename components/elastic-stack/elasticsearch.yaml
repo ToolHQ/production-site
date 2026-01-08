@@ -50,25 +50,22 @@ spec:
               - |
                 #!/usr/bin/env bash
                 set -e
-                # If the node is starting up wait for the cluster to be ready (request to localhost:9200)
-                # If the node is already started, checks that the node is ready to answer requests
-                # SSL Verification disabled for localhost probe
-                curl -nk --fail https://localhost:9200
+                curl -nk https://localhost:9200
             failureThreshold: 10
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 10
           livenessProbe:
-             failureThreshold: 3
-             initialDelaySeconds: 60
-             periodSeconds: 10
-             successThreshold: 1
-             timeoutSeconds: 10
-             exec:
-               command:
-                 - bash
-                 - -c
-                 - curl -nk --fail https://localhost:9200
+            exec:
+              command:
+              - bash
+              - -c
+              - curl -nk https://localhost:9200
+            failureThreshold: 3
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
         initContainers:
         - name: sysctl
           securityContext:
