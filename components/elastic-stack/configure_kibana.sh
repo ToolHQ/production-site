@@ -38,6 +38,12 @@ ES_USER="${ES_USER}"
 ES_PASSWORD="${ES_PASSWORD}"
 KIBANA_URL="https://localhost:5601"
 
+echo "🔎 Waiting for Kibana API to accept connections..."
+until curl -s -k -u "\$ES_USER:\$ES_PASSWORD" "\$KIBANA_URL/api/status" > /dev/null; do
+    echo "   ... waiting for Kibana API ..."
+    sleep 3
+done
+
 echo "🔎 Fetching all Data Views (Saved Objects)..."
 # Use Saved Objects API to find everything, use sed to newline-delimit objects for grep
 ALL_OBJECTS=\$(curl -s -k -u "\$ES_USER:\$ES_PASSWORD" "\$KIBANA_URL/api/saved_objects/_find?type=index-pattern&per_page=100" | sed 's/{"type":/\n{"type":/g')
