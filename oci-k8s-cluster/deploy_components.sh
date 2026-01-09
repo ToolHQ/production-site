@@ -429,6 +429,20 @@ RMT
   #         "✅ Component '$component' deployed in namespace '$ns'."
   #         "🌐 Forwarded ingress backends:" or "🌐 Forwarded NodePorts:"
   #    - Ensure output is concise and clear.
+
+  # --- Special Post-Deploy Actions ---
+  if [[ "$component" == "elastic-stack" ]]; then
+      echo "🔐 Syncing Elastic Stack credentials..."
+      local es_pass
+      es_pass=$(run_remote "$MASTER_NODE" "kubectl get secret oci-logs-es-elastic-user -n $ns -o go-template='{{.data.elastic | base64decode}}'" 2>/dev/null || true)
+      
+      if [[ -n "$es_pass" ]]; then
+          credstore_add "elastic-admin" "elastic" "$es_pass" "Elasticsearch Superuser (Synced)"
+          echo "   ✅ Updated local TUI credential 'elastic-admin'"
+      else
+          echo "   ⚠️ Failed to retrieve Elastic password. Update credential manually."
+      fi
+  fi
 }
 
 # ────────────────────────────────────────────────
