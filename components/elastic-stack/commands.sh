@@ -111,11 +111,11 @@ cat <<EOF > /tmp/pipelines.yml
     }
     output {
       elasticsearch {
-        hosts => ["https://oci-logs-es-http:9200"]
+        hosts => ["\${OCI_LOGS_ES_HOSTS}"]
         user => "\${LOGSTASH_USER}"
         password => "\${LOGSTASH_PASSWORD}"
         ssl => true
-        cacert => "/mnt/elastic-internal/elasticsearch-association/oci-logs/es-http/ca.crt"
+        cacert => "\${OCI_LOGS_ES_SSL_CERTIFICATE_AUTHORITY}"
         index => "filebeat-%%{[agent][version]}-%%{+YYYY.MM.dd}"
       }
     }
