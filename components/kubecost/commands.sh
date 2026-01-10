@@ -35,7 +35,7 @@ helm upgrade --install kubecost kubecost/cost-analyzer \
     --set persistentVolume.size="2Gi" \
     --set prometheus.server.persistentVolume.size="2Gi" \
     --set prometheus.server.resources.requests.memory=128Mi \
-    --set prometheus.server.resources.requests.cpu=100m \
+    --set prometheus.server.resources.requests.cpu=60m \
     --set cost-analyzer.resources.requests.memory=64Mi \
     --set cost-analyzer.resources.requests.cpu=100m \
     --set networkCosts.enabled=false \
