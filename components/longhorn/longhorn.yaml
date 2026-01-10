@@ -66,6 +66,7 @@ data:
     disable-revision-counter: "{\"v1\":\"true\"}"'
   storage-minimal-available-percentage: '15'
   storage-over-provisioning-percentage: '200'
+  guaranteed-instance-manager-cpu: '9'
 kind: ConfigMap
 metadata:
   labels:

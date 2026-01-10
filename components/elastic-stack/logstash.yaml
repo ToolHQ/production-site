@@ -40,6 +40,7 @@ spec:
             memory: 1536Mi
           requests:
             memory: 1Gi
+            cpu: 100m
         volumeMounts:
         - mountPath: /opt/logstash/custom_patterns
           name: patterns-vol
