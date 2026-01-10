@@ -1,15 +1,20 @@
 #!/bin/bash
-# Tested in 2024-03-29
-## From: https://www.digitalocean.com/community/tutorials/how-to-deploy-postgres-to-kubernetes-cluster
-kubectl apply -f nexus-resources.yaml
-# docker exec -it minikube bash -c "cat /data/nexus/admin.password"
-# kubectl -n nexus exec -it $(kubectl -n nexus get pod -l app=nexus -o name) -- sh -c "cat /nexus-data/admin.password"
-# docker pull node:22.2.0-alpine3.20
-# docker tag node:22.2.0-alpine3.20 docker-nexus.localhost/repository/docker-repo/node:22.2.0-alpine3.20
-# docker login docker-nexus.localhost
-# docker push docker-nexus.localhost/repository/docker-repo/node:22.2.0-alpine3.20
-# docker pull postgres:16.2-alpine3.19
-# docker tag postgres:16.2-alpine3.19 docker-nexus.localhost/repository/docker-repo/postgres:16.2-alpine3.19
-# docker push docker-nexus.localhost/repository/docker-repo/postgres:16.2-alpine3.19
+set -euo pipefail
 
-# kubectl create secret docker-registry regsecret --docker-server=http://docker-nexus.localhost/v2/ --docker-username=docker --docker-password=docker123 --docker-email=danieltakasu@gmail.com --namespace postgres
+echo "🏰 Deploying Nexus..."
+
+# 1. Apply Namespace
+kubectl apply -f namespace.yaml
+
+# 2. Safe PVC Application (Immutable Field Protection)
+if kubectl get pvc -n nexus nexus-pvc >/dev/null 2>&1; then
+    echo "💾 PVC nexus-pvc already exists. Skipping apply to avoid immutable field errors."
+else
+    echo "💾 Creating PVC nexus-pvc..."
+    kubectl apply -f pvc.yaml
+fi
+
+# 3. Apply Resources
+kubectl apply -f nexus.yaml
+
+echo "✅ Nexus deployment applied."

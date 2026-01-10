@@ -1736,6 +1736,56 @@ EOF
 
 
 manage_tunnels() {
+    # Helper for tunnel cleanup options
+    perform_tunnel_cleanup() {
+        local pid="$1"
+        local lport="$2"
+        local raw_bind="$3"
+        local socat="$4"
+        
+        # 1. Kill SSH Tunnel
+        if [ "$lport" -lt 1024 ]; then
+            sudo kill "$pid" 2>/dev/null < /dev/null
+        else
+            kill "$pid" 2>/dev/null < /dev/null
+        fi
+        
+        # 2. Kill Socat Process (Layer 2)
+        if [ -n "$socat" ]; then
+             echo -e "${YELLOW}Killing socat bridge (PID: $socat)...${NC}"
+             kill "$socat" 2>/dev/null < /dev/null || true
+        fi
+        
+        # 3. Delete Netsh Rule (Layer 1)
+        if [ -n "$raw_bind" ] && [ "$raw_bind" != "127.0.0.1" ] && [ "$raw_bind" != "localhost" ]; then
+            echo -e "${YELLOW}Deleting Windows netsh rule for $raw_bind:$lport...${NC}"
+            
+            # Silent Try (cd /mnt/c to fix UNC warnings)
+            # Added < /dev/null to prevent stdin consumption
+            if (cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c "netsh interface portproxy delete v4tov4 listenaddress=${raw_bind} listenport=${lport}" >/dev/null 2>&1 < /dev/null); then
+                echo -e "${GREEN}✅ Rule Deleted (Silent)${NC}"
+            else
+                # Fallback to UAC
+                local runner_del="/tmp/netsh_del_${raw_bind//./_}_${lport}.ps1"
+                cat <<EOF > "$runner_del"
+\$ErrorActionPreference = 'Stop'
+netsh interface portproxy delete v4tov4 listenaddress=${raw_bind} listenport=${lport} | Out-Null
+Write-Host "✅ Rule Deleted: ${raw_bind}:${lport}" -ForegroundColor Green
+Start-Sleep -Seconds 2
+EOF
+                # Run it
+                # Added < /dev/null
+                /mnt/c/Windows/System32/cmd.exe /c start "Cleaning Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${runner_del}'" < /dev/null
+            fi
+        fi
+        
+        # Remove metadata file
+        local meta_key="${raw_bind//./-}-$lport"
+        [ -f "$TUNNEL_DIR/$meta_key.meta" ] && rm "$TUNNEL_DIR/$meta_key.meta"
+        
+        echo -e "${RED}Tunnel stopped (PID: $pid). Cleaned up associated bridges.${NC}"
+    }
+
     while true; do
         echo -e "${BLUE}🔍 Scanning for active tunnels...${NC}"
         
@@ -1749,7 +1799,7 @@ manage_tunnels() {
 
         local menu_items=""
         # Add main menu option at the top
-        menu_items="← Return to Main Menu\n"
+        menu_items="← Return to Main Menu\n⛔ Kill ALL Tunnels\n"
         
         while IFS='|' read -r pid svc_info namespace local_port remote_port bind_ip_raw socat_pid bridge_port; do
             # Format bind info if not 127.0.0.1
@@ -1772,58 +1822,34 @@ manage_tunnels() {
             return 0  # Return to main menu
         elif [[ "$selected" == "↩ Back to Access Menu" ]]; then
             return 1
+        elif [[ "$selected" == "⛔ Kill ALL Tunnels" ]]; then
+            echo -e "${RED}Stopping ALL tunnels...${NC}"
+            
+            read -p "Are you sure? (y/N): " confirm_all
+            if [[ "$confirm_all" =~ ^[Yy]$ ]]; then
+                # Use FD 3 to prevent stdin stealing by inner commands
+                while IFS='|' read -u 3 -r pid svc_info namespace local_port remote_port bind_ip_raw socat_pid bridge_port; do
+                     perform_tunnel_cleanup "$pid" "$local_port" "$bind_ip_raw" "$socat_pid"
+                done 3<<< "$tunnel_data"
+                echo -e "${GREEN}All active tunnels stopped.${NC}"
+                sleep 1.5
+            else
+                echo "Cancelled."
+                sleep 1
+            fi
+            continue
         fi
 
         local pid_to_kill=$(echo "$selected" | grep -oP 'PID: \K[0-9]+')
-        local lport_to_kill=$(echo "$selected" | grep -oP 'Local: \K[0-9]+')
         
         # Re-fetch full data line for this PID to get socat/bridge info (since fzf only showed summary)
         local selected_data=$(echo "$tunnel_data" | grep "^$pid_to_kill|")
         local raw_bind_ip=$(echo "$selected_data" | cut -d'|' -f6)
         local socat_pid=$(echo "$selected_data" | cut -d'|' -f7)
-        local bridge_port=$(echo "$selected_data" | cut -d'|' -f8)
+        local local_port=$(echo "$selected_data" | cut -d'|' -f4)
         
         if [ -n "$pid_to_kill" ]; then
-            # 1. Kill SSH Tunnel
-            if [ "$lport_to_kill" -lt 1024 ]; then
-                sudo kill "$pid_to_kill" 2>/dev/null
-            else
-                kill "$pid_to_kill" 2>/dev/null
-            fi
-            
-            # 2. Kill Socat Process (Layer 2)
-            if [ -n "$socat_pid" ]; then
-                 echo -e "${YELLOW}Killing socat bridge (PID: $socat_pid)...${NC}"
-                 kill "$socat_pid" 2>/dev/null || true
-            fi
-            
-            # 3. Delete Netsh Rule (Layer 1)
-            # Only if we have a custom Bind IP (e.g. 127.0.0.2)
-            if [ -n "$raw_bind_ip" ] && [ "$raw_bind_ip" != "127.0.0.1" ] && [ "$raw_bind_ip" != "localhost" ]; then
-                echo -e "${YELLOW}Deleting Windows netsh rule for $raw_bind_ip:$lport_to_kill...${NC}"
-                
-                # Silent Try (cd /mnt/c to fix UNC warnings)
-                if (cd /mnt/c && /mnt/c/Windows/System32/cmd.exe /c "netsh interface portproxy delete v4tov4 listenaddress=${raw_bind_ip} listenport=${lport_to_kill}" >/dev/null 2>&1); then
-                    echo -e "${GREEN}✅ Rule Deleted (Silent)${NC}"
-                else
-                    # Fallback to UAC
-                    local runner_del="/tmp/netsh_del_${raw_bind_ip//./_}_${lport_to_kill}.ps1"
-                    cat <<EOF > "$runner_del"
-\$ErrorActionPreference = 'Stop'
-netsh interface portproxy delete v4tov4 listenaddress=${raw_bind_ip} listenport=${lport_to_kill} | Out-Null
-Write-Host "✅ Rule Deleted: ${raw_bind_ip}:${lport_to_kill}" -ForegroundColor Green
-Start-Sleep -Seconds 2
-EOF
-                    # Run it
-                    /mnt/c/Windows/System32/cmd.exe /c start "Cleaning Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${runner_del}'"
-                fi
-            fi
-            
-            # Remove metadata file
-            local meta_key="${raw_bind_ip//./-}-$lport_to_kill"
-            [ -f "$TUNNEL_DIR/$meta_key.meta" ] && rm "$TUNNEL_DIR/$meta_key.meta"
-            
-            echo -e "${RED}Tunnel stopped (PID: $pid_to_kill). Cleaned up associated bridges.${NC}"
+            perform_tunnel_cleanup "$pid_to_kill" "$local_port" "$raw_bind_ip" "$socat_pid"
             sleep 1.0
         fi
     done
