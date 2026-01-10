@@ -66,8 +66,8 @@ detect_namespace() {
   local detected_ns
 
   detected_ns=$(
-    run_remote "$MASTER_NODE" "grep -m1 'namespace:' /home/ubuntu/deployments/$component/*.yaml 2>/dev/null | awk '{print \$2}'" |
-      sed -E 's/.*]//' |                      # remove leading [oci-k8s-master] or timestamps
+    run_remote "$MASTER_NODE" "grep -h -m1 'namespace:' /home/ubuntu/deployments/$component/*.yaml 2>/dev/null | awk '{print \$2}'" |
+      sed -E 's/.*]//' |                      # remove possible leading garbage
       grep -E '^[A-Za-z0-9._-]+$' |          # keep only valid names
       tail -n 1 | tr -d '\r[:space:]'        # cleanup CRs and spaces
   )
@@ -79,7 +79,7 @@ detect_namespace() {
   echo "$detected_ns"
 }
 
-# Apply manifests remotely (Step 2)
+# Apply manifests remotely
 apply_component_manifests() {
   local component="$1"
   log_node "$MASTER_NODE" "📦 Applying manifests for component '$component'"
@@ -207,8 +207,8 @@ inspect_component_resources() {
   log_node "$MASTER_NODE" "🔍 Collecting resources in namespace '$ns'"
 
   run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
-echo "📦 Deployments:"
-kubectl -n "$ns" get deploy -o wide 2>/dev/null || echo "  (none)"
+echo "📦 Workloads (Deploy/STS/DS/CronJob):"
+kubectl -n "$ns" get deploy,sts,ds,cronjob -o wide 2>/dev/null || echo "  (none)"
 echo
 echo "🧩 Services:"
 kubectl -n "$ns" get svc -o wide 2>/dev/null || echo "  (none)"

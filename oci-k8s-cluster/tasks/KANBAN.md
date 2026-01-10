@@ -11,12 +11,16 @@
 | ID | Task Name | Priority | Epic | Est. |
 |:--:|:---|:--:|:---|:--:|
 | [T-040](T-040-Master-Stability-Proactive.md) | **Proactive Master Stabilization (PLEG/QoS)** | 🔼 High | Infra | 1d |
-| [T-037](T-037-Deep-Space-Cleanup.md) | **Deep Space Cleanup (Docker/Journald)** | 🔽 Low | Ops | 4h |
-| [T-015](T-015-Pyroscope-Profiling.md) | **Deploy Pyroscope (Continuous Profiling)** | 🔼 Med | Obs. | 4h |
-| [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 
 
 ## ✅ Done
+| ID | Task Name | Priority | Owner | Est. |
+|:--:|:---|:--:|:--:|:--:|
+| [T-054](T-054-Cluster-Stabilization.md) | **Cluster Stabilization & IaC Audit** | 🔼 High | Infra | 3h |
+| [T-053](T-053-Resource-Optimization-V3.md) | **Resource Optimization V3 (Elastic/Longhorn/Coroot)** | 🔼 High | Infra | 2h |
+| [T-037](T-037-Deep-Space-Cleanup.md) | **Deep Space Cleanup (Docker/Journald)** | 🔽 Low | Ops | 4h |
+| [T-015](T-015-Pyroscope-Profiling.md) | **Deploy Pyroscope (Continuous Profiling)** | 🔼 Med | Obs. | 4h |
+| [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 - [x] **[T-052](T-052-Resource-Optimization-V2.md) Resource Optimization V2 (Tuning & Versioning)**
 - [x] **Cleaned up legacy scripts (`patch_longhorn.py`, `reinstall_longhorn.sh` etc)**
 

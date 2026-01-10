@@ -622,7 +622,7 @@ cilium_install_master() {
 
         # 🧹 Ensure previous Cilium release is fully removed if stuck
         if helm list -n kube-system 2>/dev/null | grep -q cilium; then
-          echo "⚠️  Existing Cilium Helm release found — forcing uninstall..."
+          echo \"⚠️  Existing Cilium Helm release found — forcing uninstall...\"
           cilium uninstall --wait=false --force || true
           helm uninstall cilium -n kube-system --wait || true
           # Clean up any leftover namespaces
@@ -632,22 +632,42 @@ cilium_install_master() {
             kubectl get ns cilium >/dev/null 2>&1 || break
             sleep 2
           done
-          echo "✅ Old Cilium installation cleaned up."
+          echo \"✅ Old Cilium installation cleaned up.\"
         fi
 
-        # NOTE: make install non-blocking; we will wait below with kubectl.
-        cilium install --version v${CILIUM_VERSION} \
-          --wait=false \
-          --set tunnelProtocol=vxlan \
-          --set kubeProxyReplacement=false \
-          --set ipam.mode=kubernetes \
-          --set rollOutCiliumPods=true \
-          --set mtu=\$DP_MTU \
-          --set hubble.relay.enabled=true \
-          --set hubble.ui.enabled=true \
-          --set hubble.ui.ingress.enabled=false
+        # Retry loop for Cilium installation (handling potential API server timeouts)
+        MAX_RETRIES=3
+        RETRY_COUNT=0
+        
+        while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
+          echo \"🚀 Installing Cilium (Attempt \$((RETRY_COUNT+1))/\$MAX_RETRIES)...\"
+          
+          # We add a 2-minute timeout for the Helm client operations to avoid hanging on lookup
+          if cilium install --version v${CILIUM_VERSION} \
+            --wait=false \
+            --set tunnelProtocol=vxlan \
+            --set kubeProxyReplacement=false \
+            --set ipam.mode=kubernetes \
+            --set rollOutCiliumPods=true \
+            --set mtu=\$DP_MTU \
+            --set hubble.relay.enabled=true \
+            --set hubble.ui.enabled=true \
+            --set hubble.ui.ingress.enabled=false \
+            --start-timeout=2m; then
+              echo \"✅ Cilium install command accepted.\"
+              break
+          else
+              echo \"⚠️  Cilium install failed. Waiting 10s before retry...\"
+              sleep 10
+              ((RETRY_COUNT++))
+          fi
+        done
+        
+        if [ \$RETRY_COUNT -eq \$MAX_RETRIES ]; then
+           echo \"❌ Cilium installation failed after \$MAX_RETRIES attempts.\"
+           exit 1
+        fi
       fi
-    fi
 
     set +x
     echo '⏳ Waiting for Cilium DaemonSet…'
