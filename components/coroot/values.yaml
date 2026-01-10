@@ -1,53 +1,67 @@
-clickhouse:
-  enabled: false
-prometheus:
-  enabled: true
-  server:
-    persistentVolume:
-      enabled: true
-      size: 2Gi
-      storageClass: longhorn-2
-    global:
-      scrape_interval: 30s
-    resources:
-      requests:
-        memory: 128Mi
-        cpu: 60m
-      limits:
-        memory: 1Gi
-corootClusterAgent:
-  resources:
-    requests:
-      memory: 256Mi
-      cpu: 60m
-    limits:
-      memory: 1Gi
-node-agent:
-  resources:
-    requests:
-      cpu: 90m
+# Optimized Coroot Configuration for Low-Resource ARM Cluster
+
 corootCE:
+  replicas: 1
   image:
     tag: "1.17.6"
-  persistentVolume:
-    size: 1Gi
-    storageClassName: longhorn-2
+  env:
+    - name: BOOTSTRAP_CLICKHOUSE_ADDRESS
+      value: "clickhouse:9000"
   resources:
     requests:
-      memory: 128Mi
+      cpu: 50m
+      memory: 256Mi
     limits:
-      memory: 1Gi
+      memory: 512Mi
+  # Persistence and Ingress from original
+  persistentVolume:
+    size: 2Gi
+    storageClassName: longhorn-2
   ingress:
     enabled: true
+    className: nginx
     hosts:
       - host: coroot.dnor.io
         paths:
           - path: /
             pathType: Prefix
-    className: nginx
     tls:
       - hosts:
           - coroot.dnor.io
         secretName: coroot-tls
     annotations:
       cert-manager.io/cluster-issuer: dnor-ca-issuer
+
+corootClusterAgent:
+  resources:
+    requests:
+      cpu: 30m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+node-agent:
+  priorityClassName: system-node-critical
+  resources:
+    requests:
+      cpu: 40m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+clickhouse:
+  enabled: false
+
+prometheus:
+  enabled: true
+  server:
+    resources:
+      requests:
+        cpu: 30m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+    persistentVolume:
+      enabled: true
+      size: 2Gi
+      storageClass: longhorn-2
