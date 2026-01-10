@@ -19,7 +19,11 @@
 | [T-015](T-015-Pyroscope-Profiling.md) | **Deploy Pyroscope (Continuous Profiling)** | 🔼 Med | Obs. | 4h |
 | [T-011](T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 
+
 ## ✅ Done
+- [x] **[T-052](T-052-Resource-Optimization-V2.md) Resource Optimization V2 (Tuning & Versioning)**
+- [x] **Cleaned up legacy scripts (`patch_longhorn.py`, `reinstall_longhorn.sh` etc)**
+
 - [x] **[T-028](T-028-TUI-Orphaned-PVC-Cleanup.md) Volume Manager: Orphaned PVC Cleanup (TUI Feature)**
 - [x] **[T-027](T-027-Dynamic-Postgres-Versioning.md) Dynamic Postgres Versioning (Dockerfile Source of Truth)**
 - [x] **[T-026](T-026-Secure-Coroot-Integration.md) Secure Coroot Integration (Zero-Trust Credentials)**
