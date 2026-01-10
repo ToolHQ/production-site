@@ -1,0 +1,53 @@
+clickhouse:
+  enabled: false
+prometheus:
+  enabled: true
+  server:
+    persistentVolume:
+      enabled: true
+      size: 2Gi
+      storageClass: longhorn-2
+    global:
+      scrape_interval: 30s
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 60m
+      limits:
+        memory: 1Gi
+corootClusterAgent:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 60m
+    limits:
+      memory: 1Gi
+node-agent:
+  resources:
+    requests:
+      cpu: 90m
+corootCE:
+  image:
+    tag: "1.17.6"
+  persistentVolume:
+    size: 1Gi
+    storageClassName: longhorn-2
+  resources:
+    requests:
+      memory: 128Mi
+    limits:
+      memory: 1Gi
+  ingress:
+    enabled: true
+    hosts:
+      - host: coroot.dnor.io
+        paths:
+          - path: /
+            pathType: Prefix
+    className: nginx
+    tls:
+      - hosts:
+          - coroot.dnor.io
+        secretName: coroot-tls
+    annotations:
+      cert-manager.io/cluster-issuer: dnor-ca-issuer
