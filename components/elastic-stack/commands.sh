@@ -21,12 +21,12 @@ if kubectl get ns elastic-system &> /dev/null; then
     else
         echo "    🔄 Updating ECK Operator..."
         kubectl apply -f https://download.elastic.co/downloads/eck/2.10.0/crds.yaml || true
-        kubectl apply -f https://download.elastic.co/downloads/eck/2.10.0/operator.yaml
+        kubectl apply -f operator.yaml
     fi
 else
     echo "    📥 Installing ECK Operator (v2.10.0)..."
     kubectl create -f https://download.elastic.co/downloads/eck/2.10.0/crds.yaml
-    kubectl apply -f https://download.elastic.co/downloads/eck/2.10.0/operator.yaml
+    kubectl apply -f operator.yaml
 fi
 
 # 1.5 Create Registry Secret (Required for Custom Images on Worker Nodes)
