@@ -35,7 +35,8 @@ ensure_apiserver_open() {
       NEED_BIND=1
     else
       # If bound to 127.0.0.1 only, we must widen it.
-      if ss -ltn | awk '"'"'/LISTEN/ && /:6443/ && !/0\.0\.0\.0|:::/ {print}'"'"' | grep -q 6443; then
+      # Fixed: Added \* to valid patterns to accept [::] or *
+      if ss -ltn | awk '"'"'/LISTEN/ && /:6443/ && !/0\.0\.0\.0|:::|\*/ {print}'"'"' | grep -q 6443; then
         echo "⚠️  kube-apiserver listening but not on 0.0.0.0/:: — will set bind-address."
         NEED_BIND=1
       else
