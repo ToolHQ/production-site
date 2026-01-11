@@ -46,6 +46,7 @@ CILIUM_CLI_VERSION="0.18.7"
 LONGHORN_VERSION="1.10.1"   # Longhorn stable version
 CERT_MANAGER_VERSION="v1.13.0" # cert-manager version
 STORAGE_PROVISIONER="${STORAGE_PROVISIONER:-longhorn}" # Default: longhorn, alternative: local-path
+NEXUS_IP="${NEXUS_IP:-10.99.219.185}" # Centralized IP for internal registry mirror
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/oci-ssh-key-2025-06-19.key}"
 RUN_REMOTE_CAPTURE_RESULT=""
 
