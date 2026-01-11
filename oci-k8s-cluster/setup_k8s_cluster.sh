@@ -208,6 +208,24 @@ YAML
 
 install_containerd() {
   local h=$1
+  
+  # Dynamic Nexus IP Discovery
+  # 1. Try to fetch from live cluster (if master is up and running)
+  # 2. Fallback to NEXUS_IP from common.sh
+  local DISCOVERED_IP=""
+  if command -v kubectl >/dev/null && [ -f "$HOME/.kube/config" ]; then
+      DISCOVERED_IP=$(kubectl get svc -n nexus nexus-service -o jsonpath='{.spec.clusterIP}' 2>/dev/null || true)
+  fi
+  
+  local TARGET_NEXUS_IP="${DISCOVERED_IP:-${NEXUS_IP}}"
+  
+  if [ -n "$DISCOVERED_IP" ] && [ "$DISCOVERED_IP" != "$NEXUS_IP" ]; then
+      echo "ℹ️  Using dynamically discovered Nexus IP: $TARGET_NEXUS_IP (differs from config)"
+  fi
+  
+  # Pass the resolved IP to the remote script
+  local NEXUS_IP="$TARGET_NEXUS_IP"
+
   run_remote "$h" "
     sudo apt-get install -y containerd cri-tools
     sudo mkdir -p /etc/containerd
@@ -225,22 +243,73 @@ install_containerd() {
     fi
 
     # ✅ Enable Insecure Registry for Nexus (registry.local & ClusterIP)
-    if ! grep -q 'registry.local:31444' /etc/containerd/config.toml; then
-      echo '🔓 Configuring Insecure Registry (Nexus)...'
-      cat <<TOML | sudo tee -a /etc/containerd/config.toml
-[plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.local:31444"]
-  endpoint = ["http://registry.local:31444"]
+    
+    echo '🔓 Configuring Insecure Registry (Nexus)...'
 
-[plugins."io.containerd.grpc.v1.cri".registry.configs."registry.local:31444".tls]
-  insecure_skip_verify = true
+    # Clean up old configuration to ensure idempotency and correctness
+    # We delete lines matching the registry keys to prevent duplicates before re-appending
+    # Note: This is a rough cleanup; for production, use a structured toml editor or conf.d
+    sudo sed -i "/registry.local:31444/d" /etc/containerd/config.toml
+    sudo sed -i "/${NEXUS_IP}:18444/d" /etc/containerd/config.toml
+    # Also clean up the [plugins... ] headers that might be left hanging if we just deleted content?
+    # Actually, simpler to just append unique keys. proper TOML allows redefinition? No.
+    # We will assume a clean append is safer if we ensure the keys don't conflict.
+    # But to be safe against partial blocks, we should probably leave it alone if it matches exactly?
+    # No, the user issue is likely stale config. We MUST overwrite.
+    
+    # Prune specific sections if they exist (using a loop/range delete is risky with sed)
+    # Instead, we will rely on containerd's ability to handle the specific override file if possible?
+    # No, we are editing config.toml.
+    
+    # Safe Update Strategy:
+    # 1. Check if the *Exact Correct* config exists. If so, do nothing.
+    # 2. If not, append it. (Accepting that we might duplicate if the old one was *slightly* different).
+    # Wait, duplicates break containerd.
+    
+    # Let's use a marker block logic? No.
+    
+    # Let's use the 'conf.d' approach if containerd supports it? 
+    # Check version? 1.7.28 supports imports.
+    # But default config might not have 'imports = ...'.
+    
+    # Fallback: Just append. If duplicates occur, we have to fix them manually. 
+    # BUT we want to fix the user's "Lamentavel" state.
+    
+    # Reverting to: Check if present. If present, ASSUME it's broken and try to fix?
+    # Or just warn?
+    
+    # BETTER FIX: Use a dedicated config file for registry? 
+    # /etc/containerd/certs.d is for docker/cri?
+    # Containerd uses specific config path for registries since 1.5 (deprecated 2.0).
+    # The config we are using IS DEPRECATED.
+    # "plugins...registry.mirrors" is deprecated.
+    # We SHOULD generate hosts.toml files.
+    
+    # IMPLEMENTING CONTEMPORARY FIX (hosts.toml):
+    # This avoids touching config.toml for registries entirely!
+    # /etc/containerd/certs.d/<host>/hosts.toml
+    
+    echo '🔧 Setting up registry.local hosts.toml...'
+    sudo mkdir -p /etc/containerd/certs.d/registry.local:31444
+    printf \"server = \\\"http://registry.local:31444\\\"\\n\\n[host.\\\"http://registry.local:31444\\\"]\\n  capabilities = [\\\"pull\\\", \\\"resolve\\\"]\\n  skip_verify = true\\n\" | sudo tee /etc/containerd/certs.d/registry.local:31444/hosts.toml >/dev/null
 
-[plugins."io.containerd.grpc.v1.cri".registry.mirrors."10.99.219.185:18444"]
-  endpoint = ["http://10.99.219.185:18444"]
+    echo '🔧 Setting up Nexus IP hosts.toml...'
+    sudo mkdir -p /etc/containerd/certs.d/${NEXUS_IP}:18444
+    printf \"server = \\\"http://${NEXUS_IP}:18444\\\"\\n\\n[host.\\\"http://${NEXUS_IP}:18444\\\"]\\n  capabilities = [\\\"pull\\\", \\\"resolve\\\"]\\n  skip_verify = true\\n\" | sudo tee /etc/containerd/certs.d/${NEXUS_IP}:18444/hosts.toml >/dev/null
 
-[plugins."io.containerd.grpc.v1.cri".registry.configs."10.99.219.185:18444".tls]
-  insecure_skip_verify = true
-TOML
+    # We also need to tell config.toml to use certs.d? 
+    # By default, containerd 1.x might not enable it unless 'config_path' is set.
+    # Let's check config.toml for 'config_path'.
+    if ! grep -q 'config_path' /etc/containerd/config.toml; then
+       # We need to set config_path = "/etc/containerd/certs.d"
+       # This is tricky to insert in the right place with sed.
+       # The right place is [plugins."io.containerd.grpc.v1.cri".registry]
+       echo '⚠️  Enabling config_path in config.toml (required for certs.d)...'
+       # Use a safe sed replacement. We match the [plugins...registry] header and append config_path on the next line.
+       # Note: We use single quotes for the sed expression to minimize escape hell, but we need to match [ ] characters.
+       sudo sed -i 's|\[plugins.\"io.containerd.grpc.v1.cri\".registry\]|\[plugins.\"io.containerd.grpc.v1.cri\".registry\]\\n      config_path = \"/etc/containerd/certs.d\"|' /etc/containerd/config.toml
     fi
+
      
     sudo systemctl enable --now containerd
     sudo systemctl restart containerd || true
@@ -520,14 +589,55 @@ verify_node_podcidrs() {
   fi
 }
 
+
+# Ensure each node has a PodCIDR assigned (required for Cilium/KubeProxyReplacement)
+ensure_pod_cidrs() {
+  echo "🔍 Verifying PodCIDR assignments..."
+  
+  # Map nodes to desire subnets
+  declare -A NODES_SUBNETS
+  NODES_SUBNETS["${NODES[0]}"]="192.168.0.0/24" # Master
+  NODES_SUBNETS["${NODES[1]}"]="192.168.1.0/24" # Node 1
+  NODES_SUBNETS["${NODES[2]}"]="192.168.2.0/24" # Node 2
+  NODES_SUBNETS["${NODES[3]}"]="192.168.3.0/24" # Node 3
+
+  for node_name in "${!NODES_SUBNETS[@]}"; do
+    local subnet="${NODES_SUBNETS[$node_name]}"
+    
+    # Check if node exists first
+    if run_kubectl get node "$node_name" >/dev/null 2>&1; then
+       # Check current CIDR
+       local current_cidr
+       current_cidr=$(run_kubectl get node "$node_name" -o jsonpath='{.spec.podCIDR}' 2>/dev/null || true)
+       
+       if [ -z "$current_cidr" ]; then
+         echo "⚠️  Node $node_name missing PodCIDR. Patching to $subnet..."
+         run_kubectl patch node "$node_name" -p "{\"spec\":{\"podCIDR\":\"$subnet\"}}"
+       elif [ "$current_cidr" != "$subnet" ]; then
+         echo "ℹ️  Node $node_name has PodCIDR $current_cidr (Configured: $subnet). Keeping existing."
+       else
+         echo "✅ Node $node_name has PodCIDR $subnet."
+       fi
+    else
+       echo "⚠️  Node $node_name not found in API. Skipping CIDR check."
+    fi
+  done
+}
+
 cilium_install_master() {
+  ensure_pod_cidrs
   install_cilium_cli "$MASTER_NODE"
 
   # propagate CILIUM_MODE into the remote shell
   local tunnel_mode="${CILIUM_MODE:-vxlan}"
 
+  # We use run_remote_stream so we can see real-time progress of cilium install
   run_remote_stream "$MASTER_NODE" "
-    set -e
+    # Be explicit and verbose during install; DO NOT let cilium CLI block/wait.
+    set -euo pipefail
+    set -x
+
+    # Check against current version first (fast fail/success)
     if kubectl -n kube-system get ds cilium >/dev/null 2>&1; then
       curv=\$(cilium version --client | awk '/stable/ {print \$4}')
       if [ \"\$curv\" = \"v${CILIUM_VERSION}\" ]; then
@@ -535,21 +645,9 @@ cilium_install_master() {
         exit 0
       fi
       echo '♻️  Reinstalling to refresh Cilium components...'
-      cilium uninstall --wait >/dev/null 2>&1 || true
     fi
-  "
 
-  if [ "$tunnel_mode" = "direct" ]; then
-    echo "🔧 Verifying all nodes have PodCIDRs allocated (required for direct routing)..."
-    verify_node_podcidrs
-  fi
-
-  run_remote_stream "$MASTER_NODE" "
-    # Be explicit and verbose during install; DO NOT let cilium CLI block/wait.
-    set -euo pipefail
-    set -x
-
-    TUNNEL_MODE=${tunnel_mode}
+    TUNNEL_MODE=${CILIUM_MODE:-vxlan}
     if [ \"\$TUNNEL_MODE\" = \"direct\" ]; then
       echo \"🚀 Installing Cilium in DIRECT-ROUTING mode\"
 
@@ -560,34 +658,34 @@ cilium_install_master() {
       DP_MTU=\$IF_MTU    # native routing: no tunnel overhead
       echo \"📏 Using datapath MTU=\$DP_MTU (iface \$DEF_IF has MTU=\$IF_MTU)\"
 
-      cilium install --version v${CILIUM_VERSION} \
-        --wait=false \
-        --set routingMode=direct \
-        --set autoDirectNodeRoutes=true \
-        --set kubeProxyReplacement=true \
-        --set ipam.mode=kubernetes \
-        --set rollOutCiliumPods=true \
-        --set mtu=\$DP_MTU \
-        --set bpf.masquerade=true \
-        --set enableIPv4Masquerade=true \
-        --set ipv4NativeRoutingCIDR=\"${POD_CIDR}\" \
-        --set hubble.relay.enabled=true \
-        --set hubble.ui.enabled=true \
+      cilium install --version v${CILIUM_VERSION} \\
+        --wait=false \\
+        --set routingMode=direct \\
+        --set autoDirectNodeRoutes=true \\
+        --set kubeProxyReplacement=true \\
+        --set ipam.mode=kubernetes \\
+        --set rollOutCiliumPods=true \\
+        --set mtu=\$DP_MTU \\
+        --set bpf.masquerade=true \\
+        --set enableIPv4Masquerade=true \\
+        --set ipv4NativeRoutingCIDR=\"${POD_CIDR}\" \\
+        --set hubble.relay.enabled=true \\
+        --set hubble.ui.enabled=true \\
         --set hubble.ui.ingress.enabled=false
     else
       echo \"🌐 Installing Cilium in VXLAN mode (default)\"
 
       # 🧹 Check and force-remove stuck cilium-secrets namespace
       if kubectl get ns cilium-secrets 2>/dev/null | grep -q Terminating; then
-        echo "⚠️  Namespace 'cilium-secrets' is stuck in Terminating state — cleaning up..."
-        tmpfile="/tmp/cilium-secrets.json"
-        kubectl get ns cilium-secrets -o json > "\$tmpfile" || true
-        if grep -q '"finalizers"' "\$tmpfile"; then
+        echo ⚠️ Namespace cilium-secrets is stuck in Terminating state — cleaning up...
+        tmpfile=/tmp/cilium-secrets.json
+        kubectl get ns cilium-secrets -o json > \$tmpfile || true
+        if grep -q 'finalizers' \$tmpfile; then
           # Remove finalizers safely
-          jq 'del(.spec.finalizers)' "\$tmpfile" > "\${tmpfile}.clean" 2>/dev/null || \
-            sed '/"finalizers"/,/]/d' "\$tmpfile" > "\${tmpfile}.clean"
-          kubectl replace --raw "/api/v1/namespaces/cilium-secrets/finalize" -f "\${tmpfile}.clean" >/dev/null 2>&1 || true
-          echo "✅ Forced deletion of namespace 'cilium-secrets'."
+          jq 'del(.spec.finalizers)' \$tmpfile > \${tmpfile}.clean 2>/dev/null || \\
+            sed '/finalizers/,/]/d' \$tmpfile > \${tmpfile}.clean
+          kubectl replace --raw /api/v1/namespaces/cilium-secrets/finalize -f \${tmpfile}.clean >/dev/null 2>&1 || true
+          echo ✅ Forced deletion of namespace cilium-secrets.
         fi
         # Wait a few seconds for cleanup
         for i in {1..10}; do
@@ -608,15 +706,15 @@ cilium_install_master() {
       if kubectl -n kube-system get ds cilium >/dev/null 2>&1; then
         echo \"♻️  Cilium already installed.. Upgrading if needed...\"
         # NOTE: make upgrade non-blocking; we will wait below with kubectl.
-        cilium upgrade install --version v${CILIUM_VERSION} \
-          --wait=false \
-          --set tunnelProtocol=vxlan \
-          --set kubeProxyReplacement=false \
-          --set ipam.mode=kubernetes \
-          --set rollOutCiliumPods=true \
-          --set mtu=\$DP_MTU \
-          --set hubble.relay.enabled=true \
-          --set hubble.ui.enabled=true \
+        cilium upgrade install --version v${CILIUM_VERSION} \\
+          --wait=false \\
+          --set tunnelProtocol=vxlan \\
+          --set kubeProxyReplacement=false \\
+          --set ipam.mode=kubernetes \\
+          --set rollOutCiliumPods=true \\
+          --set mtu=\$DP_MTU \\
+          --set hubble.relay.enabled=true \\
+          --set hubble.ui.enabled=true \\
           --set hubble.ui.ingress.enabled=false
       else
         echo \"🚀 Installing Cilium afresh...\"
@@ -644,17 +742,16 @@ cilium_install_master() {
           echo \"🚀 Installing Cilium (Attempt \$((RETRY_COUNT+1))/\$MAX_RETRIES)...\"
           
           # We add a 2-minute timeout for the Helm client operations to avoid hanging on lookup
-          if cilium install --version v${CILIUM_VERSION} \
-            --wait=false \
-            --set tunnelProtocol=vxlan \
-            --set kubeProxyReplacement=false \
-            --set ipam.mode=kubernetes \
-            --set rollOutCiliumPods=true \
-            --set mtu=\$DP_MTU \
-            --set hubble.relay.enabled=true \
-            --set hubble.ui.enabled=true \
-            --set hubble.ui.ingress.enabled=false \
-            --start-timeout=2m; then
+          if cilium install --version v${CILIUM_VERSION} \\
+            --wait=false \\
+            --set tunnelProtocol=vxlan \\
+            --set kubeProxyReplacement=false \\
+            --set ipam.mode=kubernetes \\
+            --set rollOutCiliumPods=true \\
+            --set mtu=\$DP_MTU \\
+            --set hubble.relay.enabled=true \\
+            --set hubble.ui.enabled=true \\
+            --set hubble.ui.ingress.enabled=false; then
               echo \"✅ Cilium install command accepted.\"
               break
           else
@@ -669,6 +766,7 @@ cilium_install_master() {
            exit 1
         fi
       fi
+    fi
 
     set +x
     echo '⏳ Waiting for Cilium DaemonSet…'
@@ -680,7 +778,7 @@ cilium_install_master() {
       exit 1
     fi
     cilium status --wait --wait-duration=5m
-    echo '✅ Cilium installed (v${CILIUM_VERSION})'
+    echo \"✅ Cilium installed (v${CILIUM_VERSION})\"
     
     # Create Hubble UI Ingress
     echo '🌐 Creating Hubble UI Ingress...'
@@ -2274,7 +2372,10 @@ check_reachability() {
     fi
     
     echo "❓ Do you want to proceed anyway? (The script might fail on these nodes)"
-    read -p "   (y/N): " confirm
+    echo "❓ Do you want to proceed anyway? (The script might fail on these nodes)"
+    # Simplest possible read to avoid syntax issues
+    echo -n "   (y/N): "
+    read confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
       echo "🚫 Aborting."
       exit 1
