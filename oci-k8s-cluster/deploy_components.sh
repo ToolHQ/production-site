@@ -67,7 +67,7 @@ detect_namespace() {
   local detected_ns
 
   detected_ns=$(
-    run_remote "$MASTER_NODE" "grep -h -m1 'namespace:' /home/ubuntu/deployments/$component/*.yaml 2>/dev/null | awk '{print \$2}'" |
+    run_remote_raw "$MASTER_NODE" "grep -h -m1 'namespace:' /home/ubuntu/deployments/$component/*.yaml 2>/dev/null | awk '{print \$2}'" |
       sed -E 's/.*]//' |                      # remove possible leading garbage
       grep -E '^[A-Za-z0-9._-]+$' |          # keep only valid names
       tail -n 1 | tr -d '\r[:space:]'        # cleanup CRs and spaces
