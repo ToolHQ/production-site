@@ -2,7 +2,8 @@
 set -euo pipefail
 # Adds an insecure registry to containerd config across cluster nodes
 
-REGISTRY_IP="192.168.1.117"
+REGISTRY_IP="192.168.1.168"
+
 REGISTRY_PORT="18444"
 REGISTRY_ENDPOINT="http://$REGISTRY_IP:$REGISTRY_PORT"
 HOST_KEY="$REGISTRY_IP:$REGISTRY_PORT"

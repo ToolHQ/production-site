@@ -11,9 +11,10 @@ COMPONENTS_DIR="$(dirname "$0")/../components"
 REMOTE_BASE="/home/ubuntu/deployments"
 
 # default: automatically tunnel detected ingress ports
-TUNNEL_MODE="auto"
-if [[ "${1:-}" == "--suggest-only" ]]; then
-  TUNNEL_MODE="suggest"
+# default: suggest only (do not automatically open ssh tunnels)
+TUNNEL_MODE="suggest"
+if [[ "${1:-}" == "--auto-tunnel" ]]; then
+  TUNNEL_MODE="auto"
   shift
 fi
 
@@ -320,6 +321,11 @@ establish_tunnels() {
     return 0
   fi
 
+  if [[ "$TUNNEL_MODE" == "suggest" ]]; then
+      echo "ℹ️  Skipping auto-tunnel (Mode: Suggest). Use 'Access & Port Forwarding' menu to connect."
+      return 0
+  fi
+
   for t in "${tunnels[@]}"; do
     IFS=':' read -r lport rhost rport <<<"$t"
     [[ -z "$lport" || -z "$rport" ]] && continue
@@ -521,8 +527,8 @@ main() {
         mode="uninstall"
         shift
         ;;
-      --suggest-only)
-        TUNNEL_MODE="suggest"
+      --auto-tunnel)
+        TUNNEL_MODE="auto"
         shift
         ;;
       *)
