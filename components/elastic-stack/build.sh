@@ -6,8 +6,38 @@ set -euo pipefail
 # Reference: ../postgres/build.sh
 
 COMPONENTS=("elasticsearch" "logstash" "kibana" "filebeat")
-REGISTRY_HOST="${DOCKER_REGISTRY_HOST:-127.0.0.1}"
-REGISTRY_PORT="${PORT:-31444}"
+
+# Function to detect registry host and port dynamically
+detect_registry() {
+  # 1. try active Nexus service
+  local nexus_ip
+  nexus_ip=$(kubectl get svc -n nexus nexus-docker -o jsonpath='{.spec.clusterIP}' 2>/dev/null || true)
+  
+  if [[ -n "$nexus_ip" ]]; then
+     # Check if we are on the cluster node (can reach ClusterIP?) or need NodePort
+     # For buildkit on host, usually localhost:NodePort is safest if NodePort is open
+     local nodeport
+     nodeport=$(kubectl get svc -n nexus nexus-docker -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || "31444")
+     
+     # If we are effectively on a node, return localhost:NodePort
+     echo "127.0.0.1:${nodeport:-31444}"
+  else
+     # Fallback
+     echo "127.0.0.1:31444"
+  fi
+}
+
+# Allow override from env, otherwise detect
+if [[ -n "${DOCKER_REGISTRY_HOST:-}" && -n "${PORT:-}" ]]; then
+   REGISTRY_HOST="$DOCKER_REGISTRY_HOST"
+   REGISTRY_PORT="$PORT"
+else
+   DETECTED=$(detect_registry)
+   REGISTRY_HOST="${DETECTED%%:*}"
+   REGISTRY_PORT="${DETECTED##*:}"
+   echo "🔍 Auto-detected Registry: $REGISTRY_HOST:$REGISTRY_PORT"
+fi
+
 BASE_REPO="${REGISTRY_HOST}:${REGISTRY_PORT}/repository/docker-repo"
 HASH_FILE=".build_hashes"
 

@@ -1494,9 +1494,6 @@ ingress_menu() {
             2)
                 update_hosts_file
                 ;;
-            3)
-                check_windows_bridge
-                ;;
             0)
                 return
                 ;;
