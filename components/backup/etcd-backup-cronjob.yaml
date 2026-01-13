@@ -114,5 +114,5 @@ spec:
                 type: Directory
             - name: backup
               hostPath:
-                path: /var/backup
+                path: /data/minio/k8s-backups
                 type: DirectoryOrCreate

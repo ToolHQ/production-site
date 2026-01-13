@@ -155,25 +155,74 @@ print_banner
 # --- SECTION 0: CLUSTER NODES ---
 print_section_header "CLUSTER NODES (Physical Storage)" "🖥️"
 
-printf "   ${GRAY}%-15s %-10s %-10s %-10s %-10s %-10s${NC}\n" "NODE" "ROOT (%)" "LONGHORN" "DOCKER" "LOGS" "ETCD"
-echo "   ──────────────────────────────────────────────────────────────────────"
+printf "   ${GRAY}%-12s %-10s %-10s %-10s %-10s %-10s %-10s %-10s${NC}\n" "NODE" "ROOT (%)" "LONGHORN" "DOCKER" "LOGS" "ETCD" "BACKUP" "SYSTEM"
+echo "   ─────────────────────────────────────────────────────────────────────────────────────────────"
 
 for node in "${NODES[@]}"; do
     CMD='
-    df_root=$(df -hP / | tail -n 1 | awk "{print \$5}")
-    lh=$(sudo du -sh /var/lib/longhorn 2>/dev/null | cut -f1 || echo "0")
-    cont=$(sudo du -sh /var/lib/containerd 2>/dev/null | cut -f1 || echo "0")
-    logs=$(sudo du -sh /var/log 2>/dev/null | cut -f1 || echo "0")
-    etcd="-"
-    if [ -d "/var/lib/etcd" ]; then etcd=$(sudo du -sh /var/lib/etcd 2>/dev/null | cut -f1); fi
-    echo "$df_root|$lh|$cont|$logs|$etcd"
+    # Calculate bytes for precision subtraction
+    df_root=$(df -P / | tail -n 1)
+    root_total=$(echo "$df_root" | awk "{print \$2}")
+    root_used=$(echo "$df_root" | awk "{print \$3}")
+    root_pct=$(echo "$df_root" | awk "{print \$5}")
+    
+    lh=$(sudo du -s /var/lib/longhorn 2>/dev/null | cut -f1 || echo "0")
+    
+    # Sum Docker (Legacy/BuildKit) + Containerd (Runtime)
+    cont_d=$(sudo du -s /var/lib/docker 2>/dev/null | cut -f1 || echo "0")
+    cont_c=$(sudo du -s /var/lib/containerd 2>/dev/null | cut -f1 || echo "0")
+    cont=$((cont_d + cont_c))
+    
+    logs=$(sudo du -s /var/log 2>/dev/null | cut -f1 || echo "0")
+    
+    etcd="0"
+    if [ -d "/var/lib/etcd" ]; then etcd=$(sudo du -s /var/lib/etcd 2>/dev/null | cut -f1); fi
+    
+    backup="0"
+    if [ -d "/var/backup" ]; then backup=$(sudo du -s /var/backup 2>/dev/null | cut -f1); fi
+    
+    # Ensure no empty values
+    [ -z "$lh" ] && lh=0
+    [ -z "$cont" ] && cont=0
+    [ -z "$logs" ] && logs=0
+    [ -z "$etcd" ] && etcd=0
+    [ -z "$backup" ] && backup=0
+    [ -z "$root_used" ] && root_used=0
+
+    # System = Used - (LH + Cont + Logs + Etcd + Backup)
+    known=$((lh + cont + logs + etcd + backup))
+    system=$((root_used - known))
+    if [ "$system" -lt 0 ]; then system=0; fi
+    
+    echo "$root_pct|$lh|$cont|$logs|$etcd|$backup|$system"
     '
     STATS=$(ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -T "$node" "$CMD" 2>/dev/null)
     
     if [ -z "$STATS" ]; then
-         printf "   %-15s ${RED}%-10s${NC}\n" "$node" "OFFLINE"
+         printf "   %-12s ${RED}%-10s${NC}\n" "$node" "OFFLINE"
     else
-         IFS='|' read -r root lh cont logs etcd <<< "$STATS"
+         IFS='|' read -r root lh cont logs etcd backup system <<< "$STATS"
+         
+         # Fallback defaults for local parsing safety
+         [ -z "$lh" ] && lh=0
+         [ -z "$cont" ] && cont=0
+         [ -z "$logs" ] && logs=0
+         [ -z "$etcd" ] && etcd=0
+         [ -z "$backup" ] && backup=0
+         [ -z "$system" ] && system=0
+
+         # Convert back to human readable for display
+         h_lh=$(numfmt --to=iec --from-unit=1024 "$lh" 2>/dev/null || echo "0B")
+         h_cont=$(numfmt --to=iec --from-unit=1024 "$cont" 2>/dev/null || echo "0B")
+         h_logs=$(numfmt --to=iec --from-unit=1024 "$logs" 2>/dev/null || echo "0B")
+         
+         h_etcd="-"
+         if [ "$etcd" -gt 0 ]; then h_etcd=$(numfmt --to=iec --from-unit=1024 "$etcd" 2>/dev/null || echo "0B"); fi
+         
+         h_backup="-"
+         if [ "$backup" -gt 0 ]; then h_backup=$(numfmt --to=iec --from-unit=1024 "$backup" 2>/dev/null || echo "0B"); fi
+         
+         h_system=$(numfmt --to=iec --from-unit=1024 "$system" 2>/dev/null || echo "0B")
          
          ROOT_COLOR=$GREEN
          clean_root=${root%\%}
@@ -181,8 +230,13 @@ for node in "${NODES[@]}"; do
              if [ "$clean_root" -gt 85 ]; then ROOT_COLOR=$RED; elif [ "$clean_root" -gt 70 ]; then ROOT_COLOR=$YELLOW; fi
          fi
          
-         printf "   %-15s ${ROOT_COLOR}%-10s${NC} %-10s %-10s %-10s %-10s\n" \
-            "${node#oci-k8s-}" "$root" "$lh" "$cont" "$logs" "$etcd"
+         printf "   %-12s ${ROOT_COLOR}%-10s${NC} %-10s %-10s %-10s %-10s %-10s %-10s\n" \
+            "${node#oci-k8s-}" "$root" "$h_lh" "$h_cont" "$h_logs" "$h_etcd" "$h_backup" "$h_system"
+            
+         # Alert on high system usage (>5GB approx 5000000 blocks)
+         if [ "$system" -gt 5000000 ]; then
+            printf "   %-12s ${YELLOW}  ↳ High System Usage via $(ssh -T $node "sudo du -h --max-depth=1 /var /opt /usr 2>/dev/null | sort -rh | head -n 3 | xargs" 2>/dev/null)${NC}\n" ""
+         fi
     fi
 done
 echo ""
