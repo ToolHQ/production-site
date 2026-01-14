@@ -116,7 +116,7 @@ cat <<EOF > /tmp/pipelines.yml
         password => "\${LOGSTASH_PASSWORD}"
         ssl => true
         cacert => "\${OCI_LOGS_ES_SSL_CERTIFICATE_AUTHORITY}"
-        index => "filebeat-%%{[agent][version]}-%%{+YYYY.MM.dd}"
+        index => "filebeat-%{[agent][version]}-%{+YYYY.MM.dd}"
       }
     }
 EOF
