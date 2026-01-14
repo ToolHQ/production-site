@@ -155,7 +155,7 @@ print_banner
 # --- SECTION 0: CLUSTER NODES ---
 print_section_header "CLUSTER NODES (Physical Storage)" "🖥️"
 
-printf "   ${GRAY}%-12s %-10s %-10s %-10s %-10s %-10s %-10s %-10s${NC}\n" "NODE" "ROOT (%)" "LONGHORN" "DOCKER" "LOGS" "ETCD" "BACKUP" "SYSTEM"
+printf "   ${GRAY}%-12s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s${NC}\n" "NODE" "ROOT (%)" "SIZE" "LONGHORN" "DOCKER" "LOGS" "ETCD" "BACKUP" "SYSTEM"
 echo "   ─────────────────────────────────────────────────────────────────────────────────────────────"
 
 for node in "${NODES[@]}"; do
@@ -164,6 +164,7 @@ for node in "${NODES[@]}"; do
     df_root=$(df -P / | tail -n 1)
     root_total=$(echo "$df_root" | awk "{print \$2}")
     root_used=$(echo "$df_root" | awk "{print \$3}")
+    root_size=$(echo "$df_root" | awk "{print \$2}")  # Total Size (1k blocks)
     root_pct=$(echo "$df_root" | awk "{print \$5}")
     
     lh=$(sudo du -s /var/lib/longhorn 2>/dev/null | cut -f1 || echo "0")
@@ -181,27 +182,32 @@ for node in "${NODES[@]}"; do
     backup="0"
     if [ -d "/var/backup" ]; then backup=$(sudo du -s /var/backup 2>/dev/null | cut -f1); fi
     
+    # Minio HostPath (Deduct from System to avoid double counting)
+    minio_data="0"
+    if [ -d "/data/minio" ]; then minio_data=$(sudo du -s /data/minio 2>/dev/null | cut -f1); fi
+    
     # Ensure no empty values
     [ -z "$lh" ] && lh=0
     [ -z "$cont" ] && cont=0
     [ -z "$logs" ] && logs=0
     [ -z "$etcd" ] && etcd=0
     [ -z "$backup" ] && backup=0
+    [ -z "$minio_data" ] && minio_data=0
     [ -z "$root_used" ] && root_used=0
 
-    # System = Used - (LH + Cont + Logs + Etcd + Backup)
-    known=$((lh + cont + logs + etcd + backup))
+    # System = Used - (LH + Cont + Logs + Etcd + Backup + Minio)
+    known=$((lh + cont + logs + etcd + backup + minio_data))
     system=$((root_used - known))
     if [ "$system" -lt 0 ]; then system=0; fi
     
-    echo "$root_pct|$lh|$cont|$logs|$etcd|$backup|$system"
+    echo "$root_pct|$root_size|$lh|$cont|$logs|$etcd|$backup|$system"
     '
     STATS=$(ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -T "$node" "$CMD" 2>/dev/null)
     
     if [ -z "$STATS" ]; then
          printf "   %-12s ${RED}%-10s${NC}\n" "$node" "OFFLINE"
     else
-         IFS='|' read -r root lh cont logs etcd backup system <<< "$STATS"
+         IFS='|' read -r root root_size lh cont logs etcd backup system <<< "$STATS"
          
          # Fallback defaults for local parsing safety
          [ -z "$lh" ] && lh=0
@@ -223,6 +229,7 @@ for node in "${NODES[@]}"; do
          if [ "$backup" -gt 0 ]; then h_backup=$(numfmt --to=iec --from-unit=1024 "$backup" 2>/dev/null || echo "0B"); fi
          
          h_system=$(numfmt --to=iec --from-unit=1024 "$system" 2>/dev/null || echo "0B")
+         h_size=$(numfmt --to=iec --from-unit=1024 "$root_size" 2>/dev/null || echo "0B")
          
          ROOT_COLOR=$GREEN
          clean_root=${root%\%}
@@ -230,12 +237,31 @@ for node in "${NODES[@]}"; do
              if [ "$clean_root" -gt 85 ]; then ROOT_COLOR=$RED; elif [ "$clean_root" -gt 70 ]; then ROOT_COLOR=$YELLOW; fi
          fi
          
-         printf "   %-12s ${ROOT_COLOR}%-10s${NC} %-10s %-10s %-10s %-10s %-10s %-10s\n" \
-            "${node#oci-k8s-}" "$root" "$h_lh" "$h_cont" "$h_logs" "$h_etcd" "$h_backup" "$h_system"
+         printf "   %-12s ${ROOT_COLOR}%-10s${NC} %-10s %-10s %-10s %-10s %-10s %-10s %-10s\n" \
+            "${node#oci-k8s-}" "$root" "$h_size" "$h_lh" "$h_cont" "$h_logs" "$h_etcd" "$h_backup" "$h_system"
             
          # Alert on high system usage (>5GB approx 5000000 blocks)
          if [ "$system" -gt 5000000 ]; then
-            printf "   %-12s ${YELLOW}  ↳ High System Usage via $(ssh -T $node "sudo du -h --max-depth=1 /var /opt /usr 2>/dev/null | sort -rh | head -n 3 | xargs" 2>/dev/null)${NC}\n" ""
+            # Drill-down with truncated paths for better readability
+            drill_down=$(ssh -T $node "sudo du -xSh / 2>/dev/null | grep -vE '/var/lib/docker|/var/lib/containerd|/var/lib/longhorn|/var/lib/etcd|/var/backup|/data' | sort -rh | head -n 5 | awk '{print \$1, substr(\$2, length(\$2)-50)}'" 2>/dev/null)
+            
+            if [ -n "$drill_down" ]; then
+                printf "   %-12s ${YELLOW}  ↳ High System Usage via:${NC}\n" ""
+                echo "$drill_down" | while read -r line; do
+                    printf "   %-12s ${YELLOW}    • %s${NC}\n" "" "$line"
+                done
+            fi
+         fi
+         
+         # Docker Drill-down (Top 5)
+         if [ "$cont" -gt 5000000 ]; then
+             docker_drill=$(ssh -T $node "sudo du -xSh /var/lib/docker /var/lib/containerd 2>/dev/null | sort -rh | head -n 5 | awk '{print \$1, substr(\$2, length(\$2)-50)}'" 2>/dev/null)
+             if [ -n "$docker_drill" ]; then
+                printf "   %-12s ${BLUE}  ↳ Top Docker Usage:${NC}\n" ""
+                echo "$docker_drill" | while read -r line; do
+                    printf "   %-12s ${BLUE}    • %s${NC}\n" "" "$line"
+                done
+             fi
          fi
     fi
 done
@@ -243,7 +269,7 @@ echo ""
 
 # --- SECTION 1: ELASTICSEARCH ---
 print_section_header "ELASTICSEARCH (Logs)" "🔎"
-ES_POD=$(exec_capture "kubectl get pods -n elastic-system -l elasticsearch.k8s.elastic.co/cluster-name=oci-logs -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding ES Pod")
+ES_POD=$(exec_capture "kubectl get pods -n elastic-system -l elasticsearch.k8s.elastic.co/cluster-name=oci-logs --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding ES Pod")
 
 if [ -z "$ES_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -278,7 +304,7 @@ echo ""
 
 # --- SECTION 2: POSTGRESQL ---
 print_section_header "POSTGRESQL (App DB)" "🐘"
-PG_POD=$(exec_capture "kubectl get pods -n postgres -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding PG Pod")
+PG_POD=$(exec_capture "kubectl get pods -n postgres -l app=postgres --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding PG Pod")
 if [ -z "$PG_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
 else
@@ -304,7 +330,7 @@ echo ""
 
 # --- SECTION 3: COROOT (Prometheus) ---
 print_section_header "COROOT (Prometheus)" "📊"
-PROM_POD=$(exec_capture "kubectl get pods -n coroot -l app=prometheus,component=server -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Prometheus Pod")
+PROM_POD=$(exec_capture "kubectl get pods -n coroot -l app=prometheus,component=server --field-selector=status.phase=Running -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Prometheus Pod")
 
 if [ -z "$PROM_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -324,7 +350,7 @@ echo ""
 # --- SECTION 4: CLICKHOUSE (Coroot DB) ---
 print_section_header "CLICKHOUSE (Coroot DB)" "🏰"
 # Fix: Use 'app=clickhouse'
-CH_POD=$(exec_capture "kubectl get pods -n coroot -l app=clickhouse -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Clickhouse Pod")
+CH_POD=$(exec_capture "kubectl get pods -n coroot -l app=clickhouse --field-selector=status.phase=Running -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Clickhouse Pod")
 
 if [ -z "$CH_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -382,7 +408,7 @@ echo ""
 
 # --- SECTION 5: MINIO (Object Storage) ---
 print_section_header "MINIO (S3 Artifacts)" "🪣"
-MINIO_POD=$(exec_capture "kubectl get pods -n minio -l app=minio -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Minio Pod")
+MINIO_POD=$(exec_capture "kubectl get pods -n minio -l app=minio --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Minio Pod")
 
 if [ -z "$MINIO_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -392,14 +418,32 @@ else
     MIN_USAGE=$(exec_capture "kubectl exec -n minio $MINIO_POD -- du -sb /data | cut -f1" "Checking Disk Usage")
     USED="$MIN_USAGE"
     
-    # Total Capacity is hard to know for HostPath (it's Node Root), but we can just show Used.
-    # PCT is irrelevant for HostPath vs Node Root unless we check Node Root size.
-    # Let's show Usage Only.
+    # FIX: Minio PVC is 1Gi but PV is 20Gi (HostPath). PVC resize fails. 
+    # We must fetch the PV capacity to show the true limit.
+    MIN_PV_NAME=$(exec_capture "kubectl get pvc -n minio minio-pvc -o jsonpath='{.spec.volumeName}' 2>/dev/null" "")
+    pvc_size=$(exec_capture "kubectl get pv $MIN_PV_NAME -o jsonpath='{.spec.capacity.storage}' 2>/dev/null" "")
+    
+    # Fallback to PVC if PV lookup fails
+    if [ -z "$pvc_size" ]; then
+        pvc_size=$(run_kubectl "get pvc minio-pvc -n minio -o jsonpath='{.status.capacity.storage}'")
+    fi
     
     if [ -z "$USED" ]; then USED="0"; fi
     
+    # Calculate Percentage
+    pvc_bytes=$(echo "$pvc_size" | sed 's/i//g' | numfmt --from=iec)
+    min_kb=$(echo "$MIN_USAGE" | awk '{print $1}')
+    if [ -z "$min_kb" ]; then min_kb=0; fi
+    min_bytes=$((min_kb)) # du -b returns bytes
+    
+    if [ "$pvc_bytes" -gt 0 ]; then
+        pct=$((min_bytes * 100 / pvc_bytes))
+    else
+        pct=0
+    fi
+
     echo -e "\n   ${BOLD}Volume Usage (Container):${NC}"
-    printf "   %-20s: %s (App Data)\n" "Usage" "$(fmt_size $USED)"
+    printf "   %-20s: %s / %s (%s%%)\n" "Usage" "$(fmt_size $MIN_USAGE)" "$pvc_size" "$pct"
     
     # List Buckets - Recursive Size using du
     echo -e "\n   ${BOLD}Buckets:${NC}"
@@ -425,7 +469,7 @@ echo ""
 
 # --- SECTION 6: KUBECOST (Cost Optimization) ---
 print_section_header "KUBECOST (Cost Optimization)" "💰"
-KC_POD=$(exec_capture "kubectl get pods -n kubecost -l app=prometheus,component=server -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Kubecost Pod")
+KC_POD=$(exec_capture "kubectl get pods -n kubecost -l app=prometheus,component=server --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Kubecost Pod")
 
 if [ -z "$KC_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -457,7 +501,7 @@ echo ""
 
 # --- SECTION 7: NEXUS (Artifact Registry) ---
 print_section_header "NEXUS (Artifact Registry)" "📦"
-NEXUS_POD=$(exec_capture "kubectl get pods -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Nexus Pod")
+NEXUS_POD=$(exec_capture "kubectl get pods -n nexus -l app=nexus --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Nexus Pod")
 
 if [ -z "$NEXUS_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -474,15 +518,15 @@ else
     echo -e "\n   ${BOLD}Volume Usage (Container):${NC}"
     printf "   %-20s: %s / %s (%s)\n" "Usage" "$(fmt_size $USED)" "$(fmt_size $TOTAL)" "$PCT"
 
-    # Nexus Blob Stores (Inside Pod)
-    echo -e "\n   ${BOLD}Blob Stores:${NC}"
-    # Use sh -c for wildcard expansion
-    BLOB_STATS=$(exec_capture "kubectl exec -n nexus $NEXUS_POD -- sh -c 'du -sh /nexus-data/blobs/*' 2>/dev/null" "Checking Blob Stores")
+    # Nexus Directories (Blobs, DB, ES)
+    echo -e "\n   ${BOLD}Directories:${NC}"
+    # Use sh -c to check key directories
+    DIR_STATS=$(exec_capture "kubectl exec -n nexus $NEXUS_POD -- sh -c 'du -sh /nexus-data/blobs /nexus-data/db /nexus-data/elasticsearch' 2>/dev/null" "Checking Directories")
     
-    if [ -n "$BLOB_STATS" ]; then
-         echo "$BLOB_STATS" | awk '{printf "   • %-20s (%s)\n", $2, $1}' | sed 's|/nexus-data/blobs/||g'
+    if [ -n "$DIR_STATS" ]; then
+         echo "$DIR_STATS" | awk '{printf "   • %-18s (%s)\n", $2, $1}' | sed 's|/nexus-data/||g'
     else
-         echo "   (No blob stores found)"
+         echo "   (No directories found)"
     fi
 
     # PV Stats

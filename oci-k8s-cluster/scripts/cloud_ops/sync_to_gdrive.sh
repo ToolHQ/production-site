@@ -10,14 +10,14 @@ LOG_FILE="/var/log/gdrive-sync.log"
 
 LOG_FILE="/var/log/gdrive-sync.log"
 
-echo "$(date): Starting Backup Routine..." >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S'): Starting Backup Routine..." >> "$LOG_FILE"
 
 # ---------------------------------------------------------
 # 1. MIRROR STRATEGY (Longhorn, Nexus)
 # Integrity is priority. GDrive reflects Minio exactly.
 # Exclude 'etcd' because we want to treat it differently (Archive).
 # ---------------------------------------------------------
-echo "$(date): [Job 1/3] Syncing General Backups (Longhorn/Nexus)..." >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S'): [Job 1/3] Syncing General Backups (Longhorn/Nexus)..." >> "$LOG_FILE"
 rclone sync "$BACKUP_SRC" "$BACKUP_DEST" \
     --exclude "/etcd/**" \
     --transfers=4 \
@@ -29,21 +29,21 @@ rclone sync "$BACKUP_SRC" "$BACKUP_DEST" \
 # 2. ARCHIVE STRATEGY (Etcd)
 # We want longer history on Cloud (30d) vs Local (7d).
 # ---------------------------------------------------------
-echo "$(date): [Job 2/3] Archiving Etcd (Copy + Cloud Retention)..." >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S'): [Job 2/3] Archiving Etcd (Copy + Cloud Retention)..." >> "$LOG_FILE"
 
 # Step A: Copy new files (Do NOT delete anything on GDrive yet)
 rclone copy "$BACKUP_SRC/etcd" "$BACKUP_DEST/etcd" >> "$LOG_FILE" 2>&1
 
 # Step B: Apply Cloud Retention (Delete GDrive files older than 30 days)
-echo "$(date): [Policy] Pruning GDrive Etcd > 30 days..." >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S'): [Policy] Pruning GDrive Etcd > 30 days..." >> "$LOG_FILE"
 rclone delete "$BACKUP_DEST/etcd" --min-age 30d >> "$LOG_FILE" 2>&1
 
 # ---------------------------------------------------------
 # 3. LOCAL CLEANUP (Free up Minio Space)
 # ---------------------------------------------------------
-echo "$(date): [Job 3/3] Pruning Local Etcd > 7 days..." >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S'): [Job 3/3] Pruning Local Etcd > 7 days..." >> "$LOG_FILE"
 # Only delete if we successfully uploaded (rclone exit code 0 preferred, but 'set -e' handles failures above)
 # Finding and deleting local Etcd snapshots older than 7 days
 find "$BACKUP_SRC/etcd" -type f -name "etcd-*.db" -mtime +7 -exec rm -v {} \; >> "$LOG_FILE" 2>&1
 
-echo "$(date): Backup Routine Complete." >> "$LOG_FILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S'): Backup Routine Complete." >> "$LOG_FILE"
