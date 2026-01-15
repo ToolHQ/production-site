@@ -8,7 +8,7 @@ BACKUP_SRC="/data/minio/k8s-backups"
 BACKUP_DEST="gdrive:/k8s-backups"
 LOG_FILE="/var/log/gdrive-sync.log"
 
-LOG_FILE="/var/log/gdrive-sync.log"
+LOG_FILE="./gdrive-sync.log"
 
 echo "$(date '+%Y-%m-%d %H:%M:%S'): Starting Backup Routine..." >> "$LOG_FILE"
 
