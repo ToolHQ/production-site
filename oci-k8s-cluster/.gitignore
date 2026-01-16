@@ -7,3 +7,4 @@ setup_k8s_cluster_*.log
 kubeconfig*
 *.conf
 pixie_install_debug.sh
+reports/

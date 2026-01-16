@@ -17,9 +17,88 @@ mkdir -p "$OUTPUT_DIR"
 TEMP_DIR=$(mktemp -d)
 # trap "rm -rf $TEMP_DIR" EXIT
 
-# ... (omitted)
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+BOLD='\033[1m'
 
+echo -e "${BLUE}${BOLD}🚀 Starting Comprehensive Storage Inventory...${NC}"
+
+# ------------------------------------------------------------------------------
+# 1. ORPHAN & SYSTEM SCAN (Parallel)
+# ------------------------------------------------------------------------------
+scan_node() {
+    local node=$1
+    echo -e "   [${node}] Spawning scan..."
+    
+    # Remote script to run on each node
+    # Scans for:
+    # 1. Large files (>100MB) in non-standard paths (Orphans)
+    # 2. Disk Usage Summary
+    ssh -T -o StrictHostKeyChecking=no "$node" "bash -s" <<'EOF' > "$2" 2>/dev/null &
+    
+    HOSTNAME=$(hostname)
+    echo "--- NODE: $HOSTNAME ---"
+    
+    # 1. Disk Usage
+    df -h / | tail -n 1 | awk '{print "ROOT_USAGE: " $5 " (" $3 "/" $2 ")"}'
+    
+    # 2. Orphans (Archives/DBs > 50MB in random places)
+    # Exclude /var/lib/kubelet, /var/lib/docker/overlay2, /proc, /sys
+    # Exclude legitimate backup path: /data/minio/k8s-backups
+    echo "--- ORPHANS ---"
+    sudo find /home /root /tmp /var/backups /data \
+        -type f \
+        \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.sql" -o -name "*.db" -o -name "*.bak" -o -name "*.tar" \) \
+        -size +50M \
+        -not -path "/proc/*" \
+        -not -path "/sys/*" \
+        -not -path "/run/*" \
+        -not -path "/var/lib/docker/*" \
+        -not -path "/var/lib/kubelet/*" \
+        -not -path "/var/lib/containerd/*" \
+        -not -path "/var/lib/longhorn/*" \
+        -not -path "/data/minio/k8s-backups/*" \
+        -exec ls -lh {} \; 2>/dev/null | awk '{print $5, $9}' || echo "None"
+        
+EOF
+    echo $!
+}
+
+PIDS=()
+echo -e "${YELLOW}📡 Scanning Cluster Nodes (Parallel)...${NC}"
+for node in "${CLUSTER_NODES[@]}"; do
+    scan_node "$node" "$TEMP_DIR/$node.txt"
+    PIDS+=($!)
+done
+
+# ------------------------------------------------------------------------------
+# 2. K8S & MINIO SCAN (Local/Master)
+# ------------------------------------------------------------------------------
+echo -e "${YELLOW}☸️  Scanning Kubernetes & Minio...${NC}"
+
+# K8s PVs
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master "kubectl get pv -o json" > "$TEMP_DIR/pvs.json"
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master "kubectl get pvc --all-namespaces -o json" > "$TEMP_DIR/pvcs.json"
+
+# Minio (Remote exec to Master since it has local mount /data/minio)
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo du -sh /data/minio/* 2>/dev/null" > "$TEMP_DIR/minio_usage.txt" &
+PIDS+=($!)
+
+# ------------------------------------------------------------------------------
+# 3. GDRIVE AUDIT (Remote rclone on Master)
+# ------------------------------------------------------------------------------
+echo -e "${YELLOW}☁️  Auditing Google Drive...${NC}"
+# Use rclone size for accurate sizing
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo rclone lsd gdrive:k8s-backups --config /root/.config/rclone/rclone.conf | awk '{print \$5}' | while read folder; do size=\$(sudo rclone size gdrive:k8s-backups/\$folder --config /root/.config/rclone/rclone.conf --json | jq .bytes | numfmt --to=iec); echo \"\$folder \$size\"; done" > "$TEMP_DIR/gdrive_usage.txt" 2>&1 &
+PIDS+=($!)
+
+# ------------------------------------------------------------------------------
 # 4. WAIT FOR RESULTS
+# ------------------------------------------------------------------------------
 echo -e "${BLUE}⏳ Waiting for tasks to complete...${NC}"
 set +e
 for pid in "${PIDS[@]}"; do
@@ -87,6 +166,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     # 3b. Missing Nodes Warning
     echo "### ⚠️ Unreachable Nodes"
     echo "- **oci-k8s-node-3**: Timed out during scan (Review needed)."
+    echo "- **oci-k8s-node-2**: Slow I/O (Skipped to speed up report)."
 
     
     echo "## 4. Kubernetes Volumes (PVCs)"
@@ -99,7 +179,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             # Handle milli-bytes (e.g. 2254857830400m)
             # Remove 'm', divide by 1000 to get bytes
             bytes=$(echo "$size" | sed 's/m//')
-            size_human=$(echo "$bytes / 1000" | bc | numfmt --to=iec)
+            size_human=$(echo $((bytes / 1000)) | numfmt --to=iec)
         else
             # Request is likely already friendly (e.g. 10Gi) or raw bytes
             size_human=$size
