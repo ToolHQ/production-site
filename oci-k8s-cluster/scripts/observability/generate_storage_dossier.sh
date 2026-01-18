@@ -75,14 +75,17 @@ exec_capture() {
 }
 
 fmt_size() {
-    local bytes=$1
+    local bytes="${1:-0}" # Default to 0 if unset
     if [[ -z "$bytes" || "$bytes" == "0" ]]; then echo "0 B"; return; fi
     numfmt --to=iec --suffix=B "$bytes"
 }
 
+
 # Standardized PV Stats Function (Enhanced)
 # Standardized PV Stats Function (Handles Longhorn & Standard)
 # Arg 1: Namespace
+# Arg 2: PVC Name (NOT PV Name)
+# Arg 3: Logical Size (Bytes) - Optional
 # Arg 2: PVC Name (NOT PV Name)
 # Arg 3: Logical Size (Bytes) - Optional
 print_pv_stats() {
@@ -634,3 +637,4 @@ echo -e "${GRAY}$(echo "$SYNC_LOG" | cut -d ' ' -f 3- | cut -c 1-60)...${NC}"
 
 echo -e "\n${BLUE}══════════════════════════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}✅ Report Generation Complete.${NC}"
+echo -e "\n${BOLD}📄 Detailed HTML Report:${NC} http://localhost:8000/inventory.html"
