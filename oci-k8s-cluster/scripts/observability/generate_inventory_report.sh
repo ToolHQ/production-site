@@ -698,9 +698,9 @@ cat <<'EOF' >> "$HTML_FILE"
                 container.appendChild(wrapper);
                 
                 // Data mapping
-                const labels = ['Docker (Cleanable)', 'Logs (Cleanable)', 'Longhorn (PVs)', 'System', 'Minio (Data)', 'Etcd', 'Backup', 'Free'];
-                const values = [data.docker, data.logs, data.lh, data.system, data.minio, data.etcd, data.backup, data.free];
-                const colors = [
+                const rawLabels = ['Docker (Cleanable)', 'Logs (Cleanable)', 'Longhorn (PVs)', 'System', 'Minio (Data)', 'Etcd', 'Backup', 'Free'];
+                const rawValues = [data.docker, data.logs, data.lh, data.system, data.minio, data.etcd, data.backup, data.free];
+                const rawColors = [
                     '#e74c3c', // Docker
                     '#d35400', // Logs
                     '#3498db', // Longhorn
@@ -711,28 +711,37 @@ cat <<'EOF' >> "$HTML_FILE"
                     '#ecf0f1'  // Free
                 ];
                 
-                // Generate Sorted Data for Legend
-                let sortedData = labels.map((label, i) => ({
+                // Calculate Total for Percentage
+                const totalSize = rawValues.reduce((a, b) => a + b, 0);
+
+                // Generate Sorted Data Objects
+                let sortedData = rawLabels.map((label, i) => ({
                     label: label,
-                    value: values[i],
-                    color: colors[i]
+                    value: rawValues[i],
+                    color: rawColors[i],
+                    pct: totalSize > 0 ? ((rawValues[i] / totalSize) * 100).toFixed(1) : 0
                 })).sort((a, b) => b.value - a.value); // Descending
+
+                // Re-map for Chart (So Chart Slices match Legend Order)
+                const sortedLabels = sortedData.map(d => d.label);
+                const sortedValues = sortedData.map(d => d.value);
+                const sortedColors = sortedData.map(d => d.color);
                 
-                // Build Legend HTML
+                // Build Legend HTML with Percentages
                 let legendHtml = '';
                 sortedData.forEach(item => {
-                    legendHtml += '<div class="legend-item"><span class="legend-label"><span class="legend-color" style="background:' + item.color + '"></span>' + item.label + '</span><span class="legend-value">' + fmtBytes(item.value) + '</span></div>';
+                    legendHtml += '<div class="legend-item"><span class="legend-label"><span class="legend-color" style="background:' + item.color + '"></span>' + item.label + '</span><span class="legend-value">' + fmtBytes(item.value) + ' (' + item.pct + '%)</span></div>';
                 });
                 legend.innerHTML = legendHtml;
                 
-                // Render Chart
+                // Render Chart with Sorted Data
                 new Chart(canvas, {
                     type: 'doughnut',
                     data: {
-                        labels: labels,
+                        labels: sortedLabels,
                         datasets: [{
-                            data: values,
-                            backgroundColor: colors,
+                            data: sortedValues,
+                            backgroundColor: sortedColors,
                             borderWidth: 1
                         }]
                     },
@@ -744,7 +753,10 @@ cat <<'EOF' >> "$HTML_FILE"
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
-                                        return context.label + ': ' + fmtBytes(context.raw);
+                                        // Recalculate pct or use from sortedData? 
+                                        // Context index matches sortedData index now.
+                                        const item = sortedData[context.dataIndex];
+                                        return context.label + ': ' + fmtBytes(context.raw) + ' (' + item.pct + '%)';
                                     }
                                 }
                             }
