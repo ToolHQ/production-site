@@ -3779,6 +3779,71 @@ security_audit_menu() {
 
 # --- TUNNEL MANAGEMENT ---
 
+node_maintenance_menu() {
+  while true; do
+    sync
+    CHOICE=$(whiptail --title "Node Maintenance & Hardening" --menu "Select Maintenance Task:" 20 80 8 \
+      "1" "Disk Optimizer (Resize/Prune)" \
+      "2" "Node Fixer (Auto-Repair)" \
+      "3" "System Cleaner (Cache/Logs)" \
+      "4" "Node Hardening (Safety/Watchdog)" \
+      "0" "Back to Main Menu" 3>&1 1>&2 2>&3)
+    
+    if [ $? != 0 ]; then return; fi
+
+    case "$CHOICE" in
+      1)
+        source scripts/disk_manager/tui_disk.sh
+        node_disk_optimizer_menu
+        ;;
+      2)
+        source scripts/node_fixer/tui_node_fixer.sh
+        node_fixer_menu
+        ;;
+      3)
+        source scripts/system_cleaner/tui_system_cleaner.sh
+        system_cleaner_menu
+        ;;
+      4)
+        show_hardening_menu
+        ;;
+      0) return ;;
+    esac
+  done
+}
+
+# --- HARDENING MENU ---
+show_hardening_menu() {
+  while true; do
+    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 15 70 4 \
+      "1" "Force Cleanup (All Nodes)" \
+      "2" "Re-apply Log Limits" \
+      "3" "Re-deploy Watchdog" \
+      "0" "Back" 3>&1 1>&2 2>&3)
+    
+    if [ $? != 0 ]; then return; fi
+
+    case "$CHOICE" in
+      1) 
+        echo -e "\n🧹 Triggering Manual Cleanup on ALL nodes..."
+        for node in "${CLUSTER_NODES[@]}"; do
+             ssh -t -o StrictHostKeyChecking=no "$node" "sudo /usr/local/bin/clean_node.sh --deep"
+        done
+        read -p "Press Enter..." 
+        ;;
+      2) 
+        ./scripts/hardening/configure_log_limits.sh
+        read -p "Press Enter..." 
+        ;;
+      3)
+        ./scripts/hardening/install_storage_protection.sh
+        read -p "Press Enter..." 
+        ;;
+      0) return ;;
+    esac
+  done
+}
+
 main_menu() {
   ensure_fzf
   
@@ -3806,9 +3871,7 @@ $(t "menu_maintenance")
 $(t "menu_security")
 $(t "menu_backup")
 $(t "menu_volumes")
-$(t "menu_disk_optimizer")
-$(t "menu_node_fixer")
-$(t "menu_sys_cleaner")
+$(t "menu_node_maintenance")
 $(t "menu_kubecost")
 $(t "menu_deepflow")
 $(t "menu_deepflow_uninstall")
@@ -4059,85 +4122,73 @@ $(t "menu_exit")"
         manage_volumes
         ;;
       16)
-        # Disk Optimizer (T-013 Refactored)
-        source scripts/disk_manager/tui_disk.sh
-        node_disk_optimizer_menu
+        # Node Maintenance & Hardening
+        node_maintenance_menu
         ;;
       17)
-        # Node Fixer (T-017.1)
-        source scripts/node_fixer/tui_node_fixer.sh
-        node_fixer_menu
-        ;;
-      18)
-        # System Cleaner (Hidden/Advanced)
-        source scripts/system_cleaner/tui_system_cleaner.sh
-        system_cleaner_menu
-        ;;
-      19)
         # Kubecost
         source scripts/finops/kubecost_view.sh
         kubecost_menu
         ;;
-      20)
+      18)
         # DeepFlow
         source "$SCRIPT_DIR/scripts/observability/install_deepflow.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      21)
+      19)
         # Uninstall DeepFlow
         source "$SCRIPT_DIR/scripts/observability/uninstall_deepflow.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      22)
+      20)
         # Install Pixie
         source "$SCRIPT_DIR/scripts/observability/install_pixie.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      23)
+      21)
         # Uninstall Pixie
         source "$SCRIPT_DIR/scripts/observability/uninstall_pixie.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
-
-      24)
+      22)
         # Install Coroot
         source "$SCRIPT_DIR/scripts/observability/install_coroot.sh"
         install_coroot
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      25)
+      23)
         # Uninstall Coroot
         source "$SCRIPT_DIR/scripts/observability/uninstall_coroot.sh"
         uninstall_coroot
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      26)
+      24)
         # Install Parca
         source "$SCRIPT_DIR/scripts/observability/install_parca.sh"
         install_parca
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      27)
+      25)
         # Uninstall Parca
         source "$SCRIPT_DIR/scripts/observability/uninstall_parca.sh"
         uninstall_parca
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      28)
+      26)
         # Cloud Rescue (Renumbered)
         source "$SCRIPT_DIR/lib/oci_wrapper.sh"
         source "$SCRIPT_DIR/scripts/cloud_ops/tui_cloud.sh"
         cloud_ops_menu
         ;;
-      29)
+      27)
         preferences_menu
         ;;
 
