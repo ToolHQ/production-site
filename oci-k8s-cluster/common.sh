@@ -34,6 +34,9 @@ if [ -z "${NODES+x}" ]; then
   fi
 fi
 
+# Alias for scripts expecting CLUSTER_NODES
+CLUSTER_NODES=("${NODES[@]}")
+
 MASTER_PUBLIC_IP="150.136.34.254"
 MASTER_PRIVATE_IP="10.0.1.100"
 MASTER_NODE="${NODES[0]}"

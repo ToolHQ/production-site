@@ -35,20 +35,18 @@ t() {
                 "menu_security") echo "14. Segurança & TLS (Certificados/Políticas) 🔒" ;;
                 "menu_backup") echo "15. Backup & Recuperação de Desastres 💾" ;;
                 "menu_volumes") echo "16. Gerenciar Volumes (Resize/Snapshots) 💿" ;;
-                "menu_disk_optimizer") echo "17. Otimizador de Disco em Nós (Limpeza de Imagens) 💽" ;;
-                "menu_node_fixer") echo "18. Node Fixer (Dependências Longhorn: dm_crypt/multipath) 🔧" ;;
-                "menu_sys_cleaner") echo "19. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
-                "menu_kubecost") echo "20. Cost Optimization (Kubecost Reports) 💰" ;;
-                "menu_deepflow") echo "20. DeepFlow (Observabilidade eBPF) 🕵️‍♂️" ;;
-                "menu_deepflow_uninstall") echo "21. Desinstalar DeepFlow 🗑️" ;;
-                "menu_pixie_install") echo "22. Instalar Pixie 🧚" ;;
-                "menu_pixie_uninstall") echo "23. Desinstalar Pixie 🗑️" ;;
-                "menu_coroot_install") echo "24. Instalar Coroot (Community) 🦉" ;;
-                "menu_coroot_uninstall") echo "25. Desinstalar Coroot 🗑️" ;;
-                "menu_parca_install") echo "26. Instalar Parca (Profiler) 🔥" ;;
-                "menu_parca_uninstall") echo "27. Desinstalar Parca 🗑️" ;;
-                "menu_cloud_rescue") echo "28. Cloud Rescue (OCI) 🚁" ;;
-                "menu_preferences") echo "29. Preferências ⚙️" ;;
+                "menu_node_maintenance") echo "17. Manutenção de Nós (Limpeza/Reparo/Hardening) 🏗️" ;;
+                "menu_kubecost") echo "18. Cost Optimization (Kubecost Reports) 💰" ;;
+                "menu_deepflow") echo "19. DeepFlow (Observabilidade eBPF) 🕵️‍♂️" ;;
+                "menu_deepflow_uninstall") echo "20. Desinstalar DeepFlow 🗑️" ;;
+                "menu_pixie_install") echo "21. Instalar Pixie 🧚" ;;
+                "menu_pixie_uninstall") echo "22. Desinstalar Pixie 🗑️" ;;
+                "menu_coroot_install") echo "23. Instalar Coroot (Community) 🦉" ;;
+                "menu_coroot_uninstall") echo "24. Desinstalar Coroot 🗑️" ;;
+                "menu_parca_install") echo "25. Instalar Parca (Profiler) 🔥" ;;
+                "menu_parca_uninstall") echo "26. Desinstalar Parca 🗑️" ;;
+                "menu_cloud_rescue") echo "27. Cloud Rescue (OCI) 🚁" ;;
+                "menu_preferences") echo "28. Preferências ⚙️" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -160,20 +158,18 @@ t() {
                 "menu_security") echo "13. Security & Audit 🔒" ;;
                 "menu_backup") echo "14. Backup & Disaster Recovery 💾" ;;
                 "menu_volumes") echo "15. Manage Volumes (Resize/Snapshots) 💿" ;;
-                "menu_disk_optimizer") echo "16. Node Disk Optimizer (Image Prune) 📀" ;;
-                "menu_node_fixer") echo "17. Node Fixer (Longhorn Reqs: dm_crypt/multipath) 🔧" ;;
-                "menu_sys_cleaner") echo "18. System Cleaner (Logs/Cache/Kernels) 🧹" ;;
-                "menu_kubecost") echo "19. Cost Optimization (Kubecost Reports) 💰" ;;
-                "menu_deepflow") echo "20. DeepFlow (eBPF Observability) 🔭" ;;
-                "menu_deepflow_uninstall") echo "21. DeepFlow Uninstall 🗑️" ;;
-                "menu_pixie_install") echo "22. Pixie Install 🧚" ;;
-                "menu_pixie_uninstall") echo "23. Pixie Uninstall 🗑️" ;;
-                "menu_coroot_install") echo "24. Coroot Install (Community) 🦉" ;;
-                "menu_coroot_uninstall") echo "25. Coroot Uninstall 🗑️" ;;
-                "menu_parca_install") echo "26. Parca Install (Profiler) 🔥" ;;
-                "menu_parca_uninstall") echo "27. Parca Uninstall 🗑️" ;;
-                "menu_cloud_rescue") echo "28. Cloud Rescue (OCI) 🚑" ;;
-                "menu_preferences") echo "29. Preferences ⚙️" ;;
+                "menu_node_maintenance") echo "16. Node Maintenance (Clean/Fix/Harden) 🏗️" ;;
+                "menu_kubecost") echo "17. Cost Optimization (Kubecost Reports) 💰" ;;
+                "menu_deepflow") echo "18. DeepFlow (eBPF Observability) 🔭" ;;
+                "menu_deepflow_uninstall") echo "19. DeepFlow Uninstall 🗑️" ;;
+                "menu_pixie_install") echo "20. Pixie Install 🧚" ;;
+                "menu_pixie_uninstall") echo "21. Pixie Uninstall 🗑️" ;;
+                "menu_coroot_install") echo "22. Coroot Install (Community) 🦉" ;;
+                "menu_coroot_uninstall") echo "23. Coroot Uninstall 🗑️" ;;
+                "menu_parca_install") echo "24. Parca Install (Profiler) 🔥" ;;
+                "menu_parca_uninstall") echo "25. Parca Uninstall 🗑️" ;;
+                "menu_cloud_rescue") echo "26. Cloud Rescue (OCI) 🚑" ;;
+                "menu_preferences") echo "27. Preferences ⚙️" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
