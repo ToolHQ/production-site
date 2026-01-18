@@ -138,15 +138,24 @@ ssh -T -o StrictHostKeyChecking=no oci-k8s-master "kubectl get pv -o json" > "$T
 ssh -T -o StrictHostKeyChecking=no oci-k8s-master "kubectl get pvc --all-namespaces -o json" > "$TEMP_DIR/pvcs.json"
 
 # Minio (Remote exec to Master since it has local mount /data/minio)
-ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo du -sh /data/minio/* 2>/dev/null" > "$TEMP_DIR/minio_usage.txt" &
+# Use max-depth 2 to get Buckets (depth 1) and their Subfolders (depth 2)
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo du -h --max-depth=2 /data/minio 2>/dev/null" > "$TEMP_DIR/minio_usage.txt" &
 PIDS+=($!)
 
 # ------------------------------------------------------------------------------
 # 3. GDRIVE AUDIT (Remote rclone on Master)
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}☁️  Auditing Google Drive...${NC}"
-# Use rclone size for accurate sizing
-ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo rclone lsd gdrive:k8s-backups --config /root/.config/rclone/rclone.conf | awk '{print \$5}' | while read folder; do size=\$(sudo rclone size gdrive:k8s-backups/\$folder --config /root/.config/rclone/rclone.conf --json | jq .bytes | numfmt --to=iec); echo \"\$folder \$size\"; done" > "$TEMP_DIR/gdrive_usage.txt" 2>&1 &
+# Use rclone size for accurate sizing AND file count
+# Also list subdirectories (lsd) for better visibility
+# Output format: FOLDER|SIZE|COUNT|SUBFOLDERS
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo rclone lsd gdrive:k8s-backups --config /root/.config/rclone/rclone.conf | awk '{print \$5}' | while read folder; do 
+    size_json=\$(sudo rclone size gdrive:k8s-backups/\$folder --config /root/.config/rclone/rclone.conf --json); 
+    bytes=\$(echo \$size_json | jq .bytes | numfmt --to=iec); 
+    count=\$(echo \$size_json | jq .count); 
+    subfolders=\$(sudo rclone lsd gdrive:k8s-backups/\$folder --config /root/.config/rclone/rclone.conf | awk '{print \$5}' | tr '\n' ', ' | sed 's/, $//'); 
+    echo \"\$folder|\$bytes|\$count|\$subfolders\"; 
+done" > "$TEMP_DIR/gdrive_usage.txt" 2>&1 &
 PIDS+=($!)
 
 # ------------------------------------------------------------------------------
@@ -171,31 +180,44 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     echo ""
     
     echo "## 1. Cloud Backup (Google Drive)"
-    echo "| Folder | Real Size | Status |"
-    echo "|---|---|---|"
+    echo "| Folder | Real Size | Files | Contents (Subfolders) | Status |"
+    echo "|---|---|---|---|---|"
     if [ -s "$TEMP_DIR/gdrive_usage.txt" ]; then
-        while read -r line; do
-            FOLDER=$(echo "$line" | awk '{print $1}')
-            SIZE=$(echo "$line" | awk '{print $2}')
-            echo "| $FOLDER | $SIZE | ✅ Synced |"
+        while IFS='|' read -r folder size count subs; do
+            [ -z "$subs" ] && subs="-"
+            echo "| **$folder** | $size | $count | \`$subs\` | ✅ Synced |"
         done < "$TEMP_DIR/gdrive_usage.txt"
     else
-        echo "| Error | - | ❌ Unreachable |"
+        echo "| Error | - | - | - | ❌ Unreachable |"
     fi
     echo ""
     
     echo "## 2. Minio Object Storage (Local)"
-    echo "| Bucket | Size |"
-    echo "|---|---|"
+    echo "| Bucket | Size | Details (Top Subfolders) |"
+    echo "|---|---|---|"
     if [ -s "$TEMP_DIR/minio_usage.txt" ]; then
-        while read -r line; do
-            SIZE=$(echo "$line" | cut -f1)
-            OBJ_PATH=$(echo "$line" | cut -f2)
-            BUCKET=$(basename "$OBJ_PATH")
-            echo "| $BUCKET | $SIZE |"
-        done < "$TEMP_DIR/minio_usage.txt"
+        # Filter out root line (/data/minio) to avoid clutter
+        grep -vE "[[:space:]]/data/minio$" "$TEMP_DIR/minio_usage.txt" > "$TEMP_DIR/minio_filtered.txt"
+        
+        # Identify Buckets (Depth 1 folders directly under /data/minio)
+        # Regex explanation: Match path ending with /data/minio/FOLDER_NAME (no extra slashes)
+        BUCKETS=$(grep -E "[[:space:]]/data/minio/[^/]+$" "$TEMP_DIR/minio_filtered.txt" | awk '{print $2}' | sort | uniq)
+        
+        for bucket_path in $BUCKETS; do
+             bucket_name=$(basename "$bucket_path")
+             # Retrieve size for this bucket
+             bucket_size=$(grep -F "$bucket_path" "$TEMP_DIR/minio_filtered.txt" | head -n1 | awk '{print $1}')
+             
+             # Find subfolders for this bucket (lines containing bucket path + / + subfolder)
+             # awk formats as: subfolder(size)
+             subs_clean=$(grep -F "$bucket_path/" "$TEMP_DIR/minio_filtered.txt" | awk -v p="$bucket_path/" '{sub(p, "", $2); sub("^/", "", $2); print $2 " (" $1 ")"}' | tr '\n' ', ' | sed 's/, $//')
+             
+             [ -z "$subs_clean" ] && subs_clean="-"
+             
+             echo "| **$bucket_name** | $bucket_size | $subs_clean |"
+        done
     else
-         echo "| No Data | - |"
+         echo "| No Data | - | - |"
     fi
     echo ""
 
