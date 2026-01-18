@@ -77,6 +77,22 @@ if [ "$MODE" == "deep" ]; then
         apt-get autoremove -y > /dev/null 2>&1 || echo "⚠️  Autoremove failed."
         echo "✅ Packages Cleaned."
     fi
+    # Snapd Cleanup
+    echo "---"
+    echo "🥦 Snap Clean..."
+    if command -v snap >/dev/null; then
+        # Clean up disabled snaps
+        set +e
+        LANG=C snap list --all | awk '/disabled/{print $1, $3}' |
+            while read snapname revision; do
+                echo "   Removing $snapname (revision $revision)..."
+                snap remove "$snapname" --revision="$revision" > /dev/null 2>&1
+            done
+        set -e
+        # Clean cache
+        rm -rf /var/lib/snapd/cache/*
+        echo "✅ Snap Cache Cleaned."
+    fi
     print_freed "$START_SPACE" "$(get_space)"
 
     # 3. CRI Cleanup

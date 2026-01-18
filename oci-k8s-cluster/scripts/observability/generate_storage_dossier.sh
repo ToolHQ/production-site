@@ -158,7 +158,7 @@ print_banner
 # --- SECTION 0: CLUSTER NODES ---
 print_section_header "CLUSTER NODES (Physical Storage)" "🖥️"
 
-printf "   ${GRAY}%-12s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s${NC}\n" "NODE" "ROOT (%)" "SIZE" "LONGHORN" "DOCKER" "LOGS" "ETCD" "BACKUP" "SYSTEM"
+printf "   ${GRAY}%-12s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %-8s %-8s${NC}\n" "NODE" "ROOT(%)" "SIZE" "SNAP" "ORACLE" "LGHRN" "DOCKER" "LOGS" "BCKUP" "OTHER"
 echo "   ─────────────────────────────────────────────────────────────────────────────────────────────"
 
 for node in "${NODES[@]}"; do
@@ -172,6 +172,12 @@ for node in "${NODES[@]}"; do
     
     lh=$(sudo du -s /var/lib/longhorn 2>/dev/null | cut -f1 || echo "0")
     
+    # Snapd (Package Cache/Revisions)
+    snap=$(sudo du -s /var/lib/snapd 2>/dev/null | cut -f1 || echo "0")
+    
+    # Oracle Cloud Agent (Logs/Data if exists)
+    oracle=$(sudo du -s /var/lib/oracle-cloud-agent 2>/dev/null | cut -f1 || echo "0")
+
     # Sum Docker (Legacy/BuildKit) + Containerd (Runtime)
     cont_d=$(sudo du -s /var/lib/docker 2>/dev/null | cut -f1 || echo "0")
     cont_c=$(sudo du -s /var/lib/containerd 2>/dev/null | cut -f1 || echo "0")
@@ -191,6 +197,8 @@ for node in "${NODES[@]}"; do
     
     # Ensure no empty values
     [ -z "$lh" ] && lh=0
+    [ -z "$snap" ] && snap=0
+    [ -z "$oracle" ] && oracle=0
     [ -z "$cont" ] && cont=0
     [ -z "$logs" ] && logs=0
     [ -z "$etcd" ] && etcd=0
@@ -198,22 +206,24 @@ for node in "${NODES[@]}"; do
     [ -z "$minio_data" ] && minio_data=0
     [ -z "$root_used" ] && root_used=0
 
-    # System = Used - (LH + Cont + Logs + Etcd + Backup + Minio)
-    known=$((lh + cont + logs + etcd + backup + minio_data))
+    # System = Used - (Known Components)
+    known=$((lh + snap + oracle + cont + logs + etcd + backup + minio_data))
     system=$((root_used - known))
     if [ "$system" -lt 0 ]; then system=0; fi
     
-    echo "$root_pct|$root_size|$lh|$cont|$logs|$etcd|$backup|$system"
+    echo "$root_pct|$root_size|$lh|$snap|$oracle|$cont|$logs|$etcd|$backup|$system"
     '
     STATS=$(ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -T "$node" "$CMD" 2>/dev/null || echo "")
     
     if [ -z "$STATS" ]; then
          printf "   %-12s ${RED}%-10s${NC}\n" "$node" "OFFLINE"
     else
-         IFS='|' read -r root root_size lh cont logs etcd backup system <<< "$STATS"
+         IFS='|' read -r root root_size lh snap oracle cont logs etcd backup system <<< "$STATS"
          
          # Fallback defaults for local parsing safety
          [ -z "$lh" ] && lh=0
+         [ -z "$snap" ] && snap=0
+         [ -z "$oracle" ] && oracle=0
          [ -z "$cont" ] && cont=0
          [ -z "$logs" ] && logs=0
          [ -z "$etcd" ] && etcd=0
@@ -222,11 +232,10 @@ for node in "${NODES[@]}"; do
 
          # Convert back to human readable for display
          h_lh=$(numfmt --to=iec --from-unit=1024 "$lh" 2>/dev/null || echo "0B")
+         h_snap=$(numfmt --to=iec --from-unit=1024 "$snap" 2>/dev/null || echo "0B")
+         h_oracle=$(numfmt --to=iec --from-unit=1024 "$oracle" 2>/dev/null || echo "0B")
          h_cont=$(numfmt --to=iec --from-unit=1024 "$cont" 2>/dev/null || echo "0B")
          h_logs=$(numfmt --to=iec --from-unit=1024 "$logs" 2>/dev/null || echo "0B")
-         
-         h_etcd="-"
-         if [ "$etcd" -gt 0 ]; then h_etcd=$(numfmt --to=iec --from-unit=1024 "$etcd" 2>/dev/null || echo "0B"); fi
          
          h_backup="-"
          if [ "$backup" -gt 0 ]; then h_backup=$(numfmt --to=iec --from-unit=1024 "$backup" 2>/dev/null || echo "0B"); fi
@@ -240,8 +249,8 @@ for node in "${NODES[@]}"; do
              if [ "$clean_root" -gt 85 ]; then ROOT_COLOR=$RED; elif [ "$clean_root" -gt 70 ]; then ROOT_COLOR=$YELLOW; fi
          fi
          
-         printf "   %-12s ${ROOT_COLOR}%-10s${NC} %-10s %-10s %-10s %-10s %-10s %-10s %-10s\n" \
-            "${node#oci-k8s-}" "$root" "$h_size" "$h_lh" "$h_cont" "$h_logs" "$h_etcd" "$h_backup" "$h_system"
+         printf "   %-12s ${ROOT_COLOR}%-8s${NC} %-8s %-8s %-8s %-8s %-8s %-8s %-8s %-8s\n" \
+            "${node#oci-k8s-}" "$root" "$h_size" "$h_snap" "$h_oracle" "$h_lh" "$h_cont" "$h_logs" "$h_backup" "$h_system"
             
          # Alert on high system usage (>5GB approx 5000000 blocks)
          if [ "$system" -gt 5000000 ]; then
@@ -341,8 +350,8 @@ echo ""
 
 # --- SECTION 2: POSTGRESQL (App DB) ---
 print_section_header "POSTGRESQL (App DB)" "🐘"
-# Fix: Use 'app.kubernetes.io/name=postgresql' for Bitnami charts
-PG_POD=$(exec_capture "kubectl get pods -n postgres -l app.kubernetes.io/name=postgresql -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding PG Pod")
+# Fix: Use 'app=postgres' (Verified via kubectl get pod postgres-0 --show-labels)
+PG_POD=$(exec_capture "kubectl get pods -n postgres -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding PG Pod")
 if [ -z "$PG_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
 else
