@@ -312,7 +312,8 @@ if [ -z "$ES_POD" ]; then
 else
     ES_PASS_B64=$(exec_capture "kubectl get secret -n elastic-system oci-logs-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null || true" "")
     ES_PASS=$(echo "$ES_PASS_B64" | base64 -d 2>/dev/null)
-    DATA_RAW=$(exec_capture "kubectl exec -n elastic-system $ES_POD -- curl -s -k -u elastic:$ES_PASS 'https://localhost:9200/_cat/indices?v&s=store.size:desc&h=health,index,docs.count,store.size' | head -n 6" "Fetching Index Stats")
+    # Fix: Add -c elasticsearch explicitly
+    DATA_RAW=$(exec_capture "kubectl exec -n elastic-system $ES_POD -c elasticsearch -- curl -s -k -u elastic:$ES_PASS 'https://localhost:9200/_cat/indices?v&s=store.size:desc&h=health,index,docs.count,store.size' | head -n 6" "Fetching Index Stats")
     
     echo -e "\n   ${BOLD}Top Indices:${NC}"
     printf "   ${GRAY}%-10s %-45s %-10s %-10s${NC}\n" "HEALTH" "INDEX" "DOCS" "SIZE"
@@ -338,9 +339,10 @@ else
 fi
 echo ""
 
-# --- SECTION 2: POSTGRESQL ---
+# --- SECTION 2: POSTGRESQL (App DB) ---
 print_section_header "POSTGRESQL (App DB)" "🐘"
-PG_POD=$(exec_capture "kubectl get pods -n postgres -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding PG Pod")
+# Fix: Use 'app.kubernetes.io/name=postgresql' for Bitnami charts
+PG_POD=$(exec_capture "kubectl get pods -n postgres -l app.kubernetes.io/name=postgresql -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding PG Pod")
 if [ -z "$PG_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
 else
@@ -360,7 +362,7 @@ else
         fi
     done <<< "$DB_RAW"
 
-    print_pv_stats "postgres" "postgres-pvc" "$TOTAL_PG_BYTES"
+    print_pv_stats "postgres" "postgres-data-postgres-0" "$TOTAL_PG_BYTES"
 fi
 echo ""
 
@@ -385,8 +387,8 @@ echo ""
 
 # --- SECTION 4: CLICKHOUSE (Coroot DB) ---
 print_section_header "CLICKHOUSE (Coroot DB)" "🏰"
-# Fix: Use 'app=clickhouse'
-CH_POD=$(exec_capture "kubectl get pods -n coroot -l app=clickhouse -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Clickhouse Pod")
+# Fix: Use 'app.kubernetes.io/name=clickhouse'
+CH_POD=$(exec_capture "kubectl get pods -n coroot -l app.kubernetes.io/name=clickhouse -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Clickhouse Pod")
 
 if [ -z "$CH_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
