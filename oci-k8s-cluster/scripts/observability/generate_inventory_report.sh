@@ -68,6 +68,9 @@ scan_node() {
 
     lh=$(get_size "/var/lib/longhorn")
     
+    snap=$(get_size "/var/lib/snapd")
+    oracle=$(get_size "/var/lib/oracle-cloud-agent")
+
     # Sum Docker (Legacy) + Containerd (Runtime)
     cont_d=$(get_size "/var/lib/docker")
     cont_c=$(get_size "/var/lib/containerd")
@@ -85,14 +88,14 @@ scan_node() {
     minio="0"
     [ -d "/data/minio" ] && minio=$(get_size "/data/minio")
     
-    # System = Used - (LH + Cont + Logs + Etcd + Backup + Minio)
-    known=$((lh + cont + logs + etcd + backup + minio))
+    # System = Used - (Known Components)
+    known=$((lh + snap + oracle + cont + logs + etcd + backup + minio))
     system=$((root_used - known))
     if [ "$system" -lt 0 ]; then system=0; fi
     
     # Output raw values (1k blocks) for report generator to format
-    # Format: STATS|PCT|TOTAL|USED|LH|DOCKER|LOGS|ETCD|BACKUP|SYSTEM|MINIO
-    echo "STATS|$root_pct|$root_total|$root_used|$lh|$cont|$logs|$etcd|$backup|$system|$minio"
+    # Format: STATS|PCT|TOTAL|USED|LH|SNAP|ORACLE|DOCKER|LOGS|ETCD|BACKUP|SYSTEM|MINIO
+    echo "STATS|$root_pct|$root_total|$root_used|$lh|$snap|$oracle|$cont|$logs|$etcd|$backup|$system|$minio"
     
     # 2. Orphans (Archives/DBs > 50MB in random places)
     # Exclude /var/lib/kubelet, /var/lib/docker/overlay2, /proc, /sys
@@ -201,8 +204,8 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     echo ""
     
     # Table Header
-    echo "| Node | Usage | Size | Longhorn | Docker | Logs | Etcd | Backup | System |"
-    echo "|---|---|---|---|---|---|---|---|---|"
+    echo "| Node | Usage | Size | Longhorn | Snap | Oracle | Docker | Logs | Etcd | Backup | System |"
+    echo "|---|---|---|---|---|---|---|---|---|---|---|"
     
     for node in "${CLUSTER_NODES[@]}"; do
         if [ -f "$TEMP_DIR/$node.txt" ]; then
@@ -210,7 +213,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             stats_line=$(grep "^STATS|" "$TEMP_DIR/$node.txt" || echo "")
             
             if [ -n "$stats_line" ]; then
-                 IFS='|' read -r _tag pct total used lh cont logs etcd backup system minio <<< "$stats_line"
+                 IFS='|' read -r _tag pct total used lh snap oracle cont logs etcd backup system minio <<< "$stats_line"
                  
                  # Helper to format kilobytes to human
                  fmt_kb() {
@@ -219,6 +222,8 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                  
                  # Default values to 0 to prevent JS syntax errors
                  lh=${lh:-0}
+                 snap=${snap:-0}
+                 oracle=${oracle:-0}
                  cont=${cont:-0}
                  logs=${logs:-0}
                  etcd=${etcd:-0}
@@ -228,6 +233,8 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                  
                  h_total=$(fmt_kb "$total")
                  h_lh=$(fmt_kb "$lh")
+                 h_snap=$(fmt_kb "$snap")
+                 h_oracle=$(fmt_kb "$oracle")
                  h_cont=$(fmt_kb "$cont")
                  h_logs=$(fmt_kb "$logs")
                  [ "$etcd" -gt 0 ] && h_etcd=$(fmt_kb "$etcd") || h_etcd="-"
@@ -239,11 +246,11 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                  status_icon="🟢"
                  if [ "$clean_pct" -gt 85 ]; then status_icon="🔴"; elif [ "$clean_pct" -gt 70 ]; then status_icon="🟡"; fi
                  
-                 echo "| **$node** | $status_icon $pct | $h_total | $h_lh | $h_cont | $h_logs | $h_etcd | $h_backup | $h_system |"
+                 echo "| **$node** | $status_icon $pct | $h_total | $h_lh | $h_snap | $h_oracle | $h_cont | $h_logs | $h_etcd | $h_backup | $h_system |"
                  
                  # Save for Charts (Raw Bytes)
-                 # Format: NODE|TOTAL|USED|LH|CONT|LOGS|ETCD|BACKUP|SYSTEM|MINIO
-                 echo "$node|$total|$used|$lh|$cont|$logs|$etcd|$backup|$system|$minio" >> "$TEMP_DIR/charts.dat"
+                 # Format: NODE|TOTAL|USED|LH|SNAP|ORACLE|CONT|LOGS|ETCD|BACKUP|SYSTEM|MINIO
+                 echo "$node|$total|$used|$lh|$snap|$oracle|$cont|$logs|$etcd|$backup|$system|$minio" >> "$TEMP_DIR/charts.dat"
                  
                  # --- DEEP DIVE GENERATION ---
                  sys_top=$(sed -n '/--- SYSTEM_TOP ---/,/--- DOCKER_TOP ---/p' "$TEMP_DIR/$node.txt" | grep -v "\-\-\-" | grep -v "Error" | head -n 10)
@@ -484,10 +491,10 @@ END { if (in_table) print "</table>" }
 CHART_JS_DATA="const chartData = ["
 if [ -f "$TEMP_DIR/charts.dat" ]; then
     while read -r line; do
-        IFS='|' read -r node total used lh cont logs etcd backup system minio <<< "$line"
+        IFS='|' read -r node total used lh snap oracle cont logs etcd backup system minio <<< "$line"
         # Calculate Free
         free=$((total - used))
-        CHART_JS_DATA="${CHART_JS_DATA}{node:'${node}',lh:${lh},docker:${cont},logs:${logs},etcd:${etcd},backup:${backup},system:${system},minio:${minio},free:${free}},"
+        CHART_JS_DATA="${CHART_JS_DATA}{node:'${node}',lh:${lh},snap:${snap},oracle:${oracle},docker:${cont},logs:${logs},etcd:${etcd},backup:${backup},system:${system},minio:${minio},free:${free}},"
     done < "$TEMP_DIR/charts.dat"
 fi
 CHART_JS_DATA="${CHART_JS_DATA}];"
@@ -698,9 +705,11 @@ cat <<'EOF' >> "$HTML_FILE"
                 container.appendChild(wrapper);
                 
                 // Data mapping
-                const rawLabels = ['Docker (Cleanable)', 'Logs (Cleanable)', 'Longhorn (PVs)', 'System', 'Minio (Data)', 'Etcd', 'Backup', 'Free'];
-                const rawValues = [data.docker, data.logs, data.lh, data.system, data.minio, data.etcd, data.backup, data.free];
+                const rawLabels = ['Snap (Cleanable)', 'Oracle Agent', 'Docker (Cleanable)', 'Logs (Cleanable)', 'Longhorn (PVs)', 'System', 'Minio (Data)', 'Etcd', 'Backup', 'Free'];
+                const rawValues = [data.snap, data.oracle, data.docker, data.logs, data.lh, data.system, data.minio, data.etcd, data.backup, data.free];
                 const rawColors = [
+                    '#8e44ad', // Snap
+                    '#c0392b', // Oracle
                     '#e74c3c', // Docker
                     '#d35400', // Logs
                     '#3498db', // Longhorn

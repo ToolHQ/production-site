@@ -70,3 +70,12 @@ spec:
         requests:
           storage: 32Mi
       storageClassName: longhorn
+  - metadata:
+      name: logstash-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+      storageClassName: longhorn
