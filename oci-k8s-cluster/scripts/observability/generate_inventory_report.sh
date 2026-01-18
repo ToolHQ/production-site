@@ -784,17 +784,26 @@ echo -e ""
 echo -e "${BOLD}Use 'Save as PDF' in your browser to export the HTML report.${NC}"
 
 # ------------------------------------------------------------------------------
-# 7. SERVE REPORT (Temporary Web Server)
+# 7. SERVE REPORT (Auto-Refresh)
 # ------------------------------------------------------------------------------
 echo -e "\n${BOLD}🏁 Processing Complete!${NC}"
-echo -e "${YELLOW}Starting temporary web server to view report...${NC}"
+
+# Kill previous server instance on port 8000
+echo -e "${YELLOW}♻️  Restarting report server...${NC}"
+pkill -f "python3 -m http.server 8000" >/dev/null 2>&1 || true
+
+# Update 'latest' symlink
+LATEST_LINK="./reports/latest"
+rm -f "$LATEST_LINK"
+ln -s "$(realpath "$OUTPUT_DIR")" "$LATEST_LINK"
+
+echo -e "${YELLOW}starting temporary web server (background)...${NC}"
+
+# Start server in background from the symlink directory
+# This allows the URL to remain constant
+nohup python3 -m http.server 8000 --directory "$LATEST_LINK" >/dev/null 2>&1 &
 
 # Get primary IP
 HOST_IP=$(hostname -I | awk '{print $1}')
 echo -e "${GREEN}👉 Local:   http://localhost:8000/inventory.html${NC}"
 [ -n "$HOST_IP" ] && echo -e "${GREEN}👉 Network: http://${HOST_IP}:8000/inventory.html${NC}"
-echo -e "${GRAY}(Press Ctrl+C to stop)${NC}"
-
-cd "$OUTPUT_DIR"
-# Python 3 http.server
-python3 -m http.server 8000 >/dev/null 2>&1

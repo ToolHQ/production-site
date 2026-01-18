@@ -1,48 +1,39 @@
+#!/bin/bash
 # scripts/maintenance/prune_disk.sh
-# Frees up disk space on all nodes by removing unused images and old logs.
+# Wrapper to execute the robust 'clean_node.sh' on all cluster nodes.
+# This replaces the old, flaky raw-SSH implementation.
 
-echo -e "${YELLOW}🧹 Pruning Disk Space on All Nodes...${NC}"
+# Rename to LOCAL_DIR to avoid overwriting parent SCRIPT_DIR when sourced
+LOCAL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Define function to run on each node
-prune_node() {
-    local node="$1"
-    # Map k8s node name to SSH host alias if running locally
-    local ssh_target="$node"
-    if [[ "$node" == k8s-* ]]; then
-        ssh_target="oci-$node"
-    fi
+# Source common to get NODES and run_remote_stream
+source "$LOCAL_DIR/../../common.sh"
+# Source i18n for translations if needed
+source "$LOCAL_DIR/../../lib/i18n.sh"
+
+# Ensure GRAY is defined (fallback)
+GRAY="${GRAY:-\033[1;30m}"
+
+echo -e "${YELLOW}🧹 Triggering Cluster-Wide Cleanup...${NC}"
+echo -e "${GRAY}   Strategy: Executing /usr/local/bin/clean_node.sh on all nodes${NC}"
+echo ""
+
+# Iterate over all detected nodes
+for node in "${NODES[@]}"; do
+    # Map k8s node name to SSH host alias if needed (handled by run_remote_stream logic usually, 
+    # but here we use the NODES array which comes from SSH config in common.sh)
     
-    echo -e "\n🔹 Processing Node: ${CYAN}$node${NC} (via $ssh_target)"
+    echo -e "${BLUE}🔹 Connecting to Node: ${node}...${NC}"
     
-    # 1. Prune Containerd Images
-    echo -e "   • Pruning unused container images..."
-    if ssh "$ssh_target" "sudo crictl rmi --prune" 2>/dev/null; then
-         echo -e "     ${GREEN}Images pruned.${NC}"
+    # We use run_remote_stream to get real-time output from the remote script
+    # The script is already deployed to /usr/local/bin/clean_node.sh by install_storage_protection.sh
+    if run_remote_stream "$node" "sudo /usr/local/bin/clean_node.sh"; then
+        echo -e "${GREEN}   ✅ Node $node cleanup completed.${NC}"
     else
-         echo -e "     ${RED}Image prune failed or timed out.${NC}"
+        echo -e "${RED}   ❌ Node $node cleanup failed or timed out.${NC}"
     fi
-    
-    # 2. Vacuum Journal Logs
-    echo -e "   • Vacuuming journal logs (keep 2days)..."
-    ssh "$ssh_target" "sudo journalctl --vacuum-time=2d" 2>/dev/null
-    
-    # 3. Clean Apt Cache
-    ssh "$ssh_target" "sudo apt-get clean" 2>/dev/null
-    
-    # 4. Show Result
-    local usage
-    usage=$(ssh "$ssh_target" "df -h / | tail -n 1 | awk '{print \$5}'")
-    echo -e "   👉 Root Usage: ${GREEN}$usage${NC}"
-}
-
-# Run on Master (using k8s name which maps to oci-k8s-master)
-prune_node "k8s-master"
-
-# Get worker nodes
-NODES=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep -v "k8s-master")
-
-for node in $NODES; do
-    prune_node "$node"
+    echo "---------------------------------------------------"
 done
 
-echo -e "\n${GREEN}✨ Disk Pruning Complete!${NC}"
+echo -e "\n${GREEN}✨ All nodes processed.${NC}"
+echo -e "${GRAY}   Check output above for detailed cleanup stats.${NC}"
