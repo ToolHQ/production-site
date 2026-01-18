@@ -39,6 +39,17 @@ scan_node() {
     # 1. Large files (>100MB) in non-standard paths (Orphans)
     # 2. Disk Usage Summary
     ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=45 "$node" "bash -s" <<'EOF' > "$2" 2>/dev/null &
+    # 3. Deep Dive Analysis
+    echo "--- SYSTEM_TOP ---"
+    du -xSh / 2>/dev/null | grep -vE '/var/lib/docker|/var/lib/containerd|/var/lib/longhorn|/var/lib/etcd|/var/backup|/data' | sort -rh | head -n 10 | awk '{print $1, substr($2, length($2)-50)}' || echo "Error scanning system"
+
+    echo "--- DOCKER_TOP ---"
+    du -xSh /var/lib/docker /var/lib/containerd 2>/dev/null | sort -rh | head -n 10 | awk '{print $1, substr($2, length($2)-50)}' || echo "Error scanning docker"
+    
+    echo "--- LOGS_STATS ---"
+    journalctl --disk-usage 2>/dev/null || echo "Journal access denied"
+    echo "--- RECENT_ERRORS ---"
+    journalctl -p 3 -xb | tail -n 5 || echo "No recent errors"
     
     HOSTNAME=$(hostname)
     echo "--- NODE: $HOSTNAME ---"
@@ -191,7 +202,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     
     # Table Header
     echo "| Node | Usage | Size | Longhorn | Docker | Logs | Etcd | Backup | System |"
-    echo "|---|---|---|---|---|---|---|---|---| "
+    echo "|---|---|---|---|---|---|---|---|---|"
     
     for node in "${CLUSTER_NODES[@]}"; do
         if [ -f "$TEMP_DIR/$node.txt" ]; then
@@ -233,9 +244,55 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                  # Save for Charts (Raw Bytes)
                  # Format: NODE|TOTAL|USED|LH|CONT|LOGS|ETCD|BACKUP|SYSTEM|MINIO
                  echo "$node|$total|$used|$lh|$cont|$logs|$etcd|$backup|$system|$minio" >> "$TEMP_DIR/charts.dat"
+                 
+                 # --- DEEP DIVE GENERATION ---
+                 sys_top=$(sed -n '/--- SYSTEM_TOP ---/,/--- DOCKER_TOP ---/p' "$TEMP_DIR/$node.txt" | grep -v "\-\-\-" | grep -v "Error" | head -n 10)
+                 dock_top=$(sed -n '/--- DOCKER_TOP ---/,/--- LOGS_STATS ---/p' "$TEMP_DIR/$node.txt" | grep -v "\-\-\-" | grep -v "Error" | head -n 10)
+                 
+                 # Only show if there is data
+                 if [ -n "$sys_top" ] || [ -n "$dock_top" ]; then
+                     detail_html="<div class='deep-dive-section'>"
+                     
+                     if [ -n "$sys_top" ]; then
+                         detail_html+="<div class='deep-dive-title'>❌ High System Usage</div><ul class='deep-list'>"
+                         while read -r line; do
+                             if [ -n "$line" ]; then
+                                 size=$(echo "$line" | awk '{print $1}')
+                                 path=$(echo "$line" | cut -d' ' -f2-)
+                                 detail_html+="<li class='deep-item'><span class='deep-size'>$size</span><span class='deep-path ctx-system'>$path</span></li>"
+                             fi
+                         done <<< "$sys_top"
+                         detail_html+="</ul>"
+                     fi
+                     
+                     if [ -n "$dock_top" ]; then
+                         detail_html+="<div class='deep-dive-title' style='margin-top:15px'>🐳 Top Docker Layers</div><ul class='deep-list'>"
+                         while read -r line; do
+                             if [ -n "$line" ]; then
+                                 size=$(echo "$line" | awk '{print $1}')
+                                 path=$(echo "$line" | cut -d' ' -f2-)
+                                 # Contextualize path
+                                 ctx=""
+                                 if [[ "$path" == *"/diff/"* ]]; then ctx=" (Layer)"; fi
+                                 if [[ "$path" == *"-json.log"* ]]; then ctx=" (Logs)"; fi
+                                 
+                                 detail_html+="<li class='deep-item'><span class='deep-size'>$size</span><span class='deep-path ctx-docker'>$path$ctx</span></li>"
+                             fi
+                         done <<< "$dock_top"
+                         detail_html+="</ul>"
+                     fi
+                     
+                     detail_html+="</div>"
+                     # Inject as Detail Row
+                     echo "+ $detail_html"
+                 fi
+                 
             else
                  echo "| **$node** | ❌ Error | - | - | - | - | - | - | - |"
             fi
+            
+            # Orphans in separate block (Legacy, keep or move?)
+            # Let's keep Orphans as they are large file warnings outside the summary
             
             # Orphans in separate block
             echo ""
@@ -343,6 +400,23 @@ cat <<EOF > "$HTML_FILE"
         .legend-label { font-weight: 500; color: var(--text-main); }
         .legend-value { font-family: Consolas, monospace; color: var(--text-muted); font-weight: bold; }
         .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px; margin-top: 20px; }
+        
+        /* Deep Dive Styles */
+        .deep-dive-section { background: var(--bg-body); border-radius: 6px; padding: 15px; margin-top: 15px; font-size: 0.9em; border: 1px solid var(--border-color); }
+        .deep-dive-title { margin: 0 0 10px 0; font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 0.95em; color: var(--header-border); }
+        .deep-list { list-style: none; padding: 0; margin: 0; }
+        .deep-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--border-color); font-family: Consolas, monospace; }
+        .deep-item:last-child { border-bottom: none; }
+        .deep-size { font-weight: bold; color: var(--text-muted); min-width: 60px; text-align: right; }
+        .deep-path { color: var(--text-main); word-break: break-all; margin-left: 10px; flex: 1; text-align: left; }
+        
+        /* Specific Context Colors */
+        .ctx-system { color: #e67e22; } /* Orange */
+        .ctx-docker { color: #3498db; } /* Blue */ 
+        .ctx-logs { color: #9b59b6; }   /* Purple */
+        
+        details.node-details summary { cursor: pointer; color: var(--header-border); font-weight: 600; margin-bottom: 10px; user-select: none; }
+        details.node-details summary:hover { text-decoration: underline; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -390,6 +464,12 @@ BEGIN { in_table=0; in_code=0 }
         print "<td>" a[i] "</td>" 
     }
     print "</tr>"
+    next
+}
+/^\+/ {
+    # Detail Row (Deep Dive)
+    # Remove "+ " prefix and inject raw HTML into a colspan row
+    print "<tr><td colspan=\"9\" style=\"padding:0; border-top:none;\">" substr($0, 3) "</td></tr>"
     next
 }
 { 
