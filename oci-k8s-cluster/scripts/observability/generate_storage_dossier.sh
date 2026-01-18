@@ -638,3 +638,13 @@ echo -e "${GRAY}$(echo "$SYNC_LOG" | cut -d ' ' -f 3- | cut -c 1-60)...${NC}"
 echo -e "\n${BLUE}══════════════════════════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}✅ Report Generation Complete.${NC}"
 echo -e "\n${BOLD}📄 Detailed HTML Report:${NC} http://localhost:8000/inventory.html"
+echo -e "${GRAY}   (Updating report in background...)${NC}"
+
+# Trigger HTML Generation & Server Refresh (Background)
+# Suppress output to keep TUI clean
+"$SCRIPT_DIR/scripts/observability/generate_inventory_report.sh" >/dev/null 2>&1 &
+
+# Play Sound (User Request)
+if type alert_sound >/dev/null 2>&1; then
+    alert_sound
+fi

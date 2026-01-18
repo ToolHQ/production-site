@@ -103,6 +103,24 @@ if [ "$MODE" == "deep" ]; then
         buildctl prune --all --force --keep-storage 1000000000 > /dev/null 2>&1
     fi
     print_freed "$START_SPACE" "$(get_space)"
+
+    # 5. GHOST DATA CLEANUP (Orphaned /var/lib/docker)
+    # Detect if we are using Containerd but have leftover Docker data
+    if [ -d "/var/lib/docker" ] && ! pgrep -x "dockerd" >/dev/null; then
+        echo "---"
+        echo "👻 Ghost Docker Data Detected..."
+        GHOST_SIZE=$(du -sh /var/lib/docker 2>/dev/null | awk '{print $1}')
+        echo "   Found $GHOST_SIZE in /var/lib/docker (Daemon inactive)."
+        
+        # Double check that we are not just failing to connect, but that containerd IS running
+        if command -v crictl >/dev/null && crictl info >/dev/null 2>&1; then
+             echo "   ✅ Containerd is active. Safe to purge Docker artifacts."
+             rm -rf /var/lib/docker/*
+             echo "   ✨ Purged $GHOST_SIZE of orphan data."
+        else
+             echo "   ⚠️  Containerd not verified or active. Skipping purge for safety."
+        fi
+    fi
 fi
 
 # 5. Longhorn Check (Always run check)
