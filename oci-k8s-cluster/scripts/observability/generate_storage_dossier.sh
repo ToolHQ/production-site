@@ -202,7 +202,7 @@ for node in "${NODES[@]}"; do
     
     echo "$root_pct|$root_size|$lh|$cont|$logs|$etcd|$backup|$system"
     '
-    STATS=$(ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -T "$node" "$CMD" 2>/dev/null)
+    STATS=$(ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -T "$node" "$CMD" 2>/dev/null || echo "")
     
     if [ -z "$STATS" ]; then
          printf "   %-12s ${RED}%-10s${NC}\n" "$node" "OFFLINE"
@@ -259,7 +259,40 @@ for node in "${NODES[@]}"; do
              if [ -n "$docker_drill" ]; then
                 printf "   %-12s ${BLUE}  ↳ Top Docker Usage:${NC}\n" ""
                 echo "$docker_drill" | while read -r line; do
-                    printf "   %-12s ${BLUE}    • %s${NC}\n" "" "$line"
+                    # Parse path for context (Heuristic based on end of path)
+                    context=""
+                    if [[ "$line" == *"/diff/"* ]]; then context=" (Image Layer)"; fi
+                    if [[ "$line" == *"/merged/"* ]]; then context=" (Active Layer)"; fi
+                    if [[ "$line" == *"-json.log"* ]]; then context=" (Logs)"; fi
+                    if [[ "$line" == *"/volumes/"* ]]; then context=" (PV Data)"; fi
+                    if [[ "$line" == *"/buildkit/"* ]]; then context=" (Build Cache)"; fi
+                    
+                    # Fallback for truncated paths
+                    if [[ -z "$context" && "$line" == *"overlay2"* ]]; then context=" (Image)"; fi
+                    if [[ -z "$context" && "$line" == *"containers"* ]]; then context=" (Container)"; fi
+                    
+                    printf "   %-12s ${BLUE}    • %s${GRAY}%s${NC}\n" "" "$line" "$context"
+                done
+             fi
+         fi
+
+         # Journal/Systemd Analysis (Top Spammers)
+         if [ "$logs" -gt 100000 ]; then # >100MB
+             # Get usage and then sample top units
+             # Awk $5 matches 'process[pid]:' standard syslog format
+             journal_top=$(ssh -T $node "journalctl --disk-usage 2>/dev/null; echo '---'; timeout 5s journalctl -n 2000 2>/dev/null | awk '{print \$5}' | grep '\[' | cut -d: -f1 | sort | uniq -c | sort -nr | head -n 5" 2>/dev/null)
+             
+             if [ -n "$journal_top" ]; then
+                printf "   %-12s ${MAGENTA}  ↳ System Log Analysis:${NC}\n" ""
+                # First line is usage
+                usage_line=$(echo "$journal_top" | head -n 1)
+                printf "   %-12s ${MAGENTA}    • %s${NC}\n" "" "$usage_line"
+                
+                # Remaining are top units
+                echo "$journal_top" | sed '1,2d' | while read -r count unit; do
+                   # Unit format is typically process[pid]
+                   # We want to extract just the process name if possible, or keep as is
+                   printf "   %-12s ${MAGENTA}    • %-20s %s entries (Recent)${NC}\n" "" "$unit" "$count"
                 done
              fi
          fi
@@ -269,7 +302,7 @@ echo ""
 
 # --- SECTION 1: ELASTICSEARCH ---
 print_section_header "ELASTICSEARCH (Logs)" "🔎"
-ES_POD=$(exec_capture "kubectl get pods -n elastic-system -l elasticsearch.k8s.elastic.co/cluster-name=oci-logs --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding ES Pod")
+ES_POD=$(exec_capture "kubectl get pods -n elastic-system -l elasticsearch.k8s.elastic.co/cluster-name=oci-logs -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding ES Pod")
 
 if [ -z "$ES_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -304,7 +337,7 @@ echo ""
 
 # --- SECTION 2: POSTGRESQL ---
 print_section_header "POSTGRESQL (App DB)" "🐘"
-PG_POD=$(exec_capture "kubectl get pods -n postgres -l app=postgres --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding PG Pod")
+PG_POD=$(exec_capture "kubectl get pods -n postgres -l app=postgres -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding PG Pod")
 if [ -z "$PG_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
 else
@@ -330,7 +363,7 @@ echo ""
 
 # --- SECTION 3: COROOT (Prometheus) ---
 print_section_header "COROOT (Prometheus)" "📊"
-PROM_POD=$(exec_capture "kubectl get pods -n coroot -l app=prometheus,component=server --field-selector=status.phase=Running -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Prometheus Pod")
+PROM_POD=$(exec_capture "kubectl get pods -n coroot -l app=prometheus,component=server -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Prometheus Pod")
 
 if [ -z "$PROM_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -350,7 +383,7 @@ echo ""
 # --- SECTION 4: CLICKHOUSE (Coroot DB) ---
 print_section_header "CLICKHOUSE (Coroot DB)" "🏰"
 # Fix: Use 'app=clickhouse'
-CH_POD=$(exec_capture "kubectl get pods -n coroot -l app=clickhouse --field-selector=status.phase=Running -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Clickhouse Pod")
+CH_POD=$(exec_capture "kubectl get pods -n coroot -l app=clickhouse -o jsonpath={.items[0].metadata.name} 2>/dev/null || true" "Finding Clickhouse Pod")
 
 if [ -z "$CH_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -408,7 +441,7 @@ echo ""
 
 # --- SECTION 5: MINIO (Object Storage) ---
 print_section_header "MINIO (S3 Artifacts)" "🪣"
-MINIO_POD=$(exec_capture "kubectl get pods -n minio -l app=minio --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Minio Pod")
+MINIO_POD=$(exec_capture "kubectl get pods -n minio -l app=minio -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Minio Pod")
 
 if [ -z "$MINIO_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -469,7 +502,7 @@ echo ""
 
 # --- SECTION 6: KUBECOST (Cost Optimization) ---
 print_section_header "KUBECOST (Cost Optimization)" "💰"
-KC_POD=$(exec_capture "kubectl get pods -n kubecost -l app=prometheus,component=server --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Kubecost Pod")
+KC_POD=$(exec_capture "kubectl get pods -n kubecost -l app=prometheus,component=server -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Kubecost Pod")
 
 if [ -z "$KC_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"
@@ -501,7 +534,7 @@ echo ""
 
 # --- SECTION 7: NEXUS (Artifact Registry) ---
 print_section_header "NEXUS (Artifact Registry)" "📦"
-NEXUS_POD=$(exec_capture "kubectl get pods -n nexus -l app=nexus --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Nexus Pod")
+NEXUS_POD=$(exec_capture "kubectl get pods -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding Nexus Pod")
 
 if [ -z "$NEXUS_POD" ]; then
     echo -e "   ${RED}❌ Pod not found${NC}"

@@ -43,8 +43,45 @@ scan_node() {
     HOSTNAME=$(hostname)
     echo "--- NODE: $HOSTNAME ---"
     
-    # 1. Disk Usage
-    df -h / | tail -n 1 | awk '{print "ROOT_USAGE: " $5 " (" $3 "/" $2 ")"}'
+    # 1. Detailed Disk Usage (Matches TUI Dossier Logic)
+    # Calculate bytes for precision subtraction
+    df_root=$(df -P / | tail -n 1)
+    root_used=$(echo "$df_root" | awk '{print $3}')
+    root_total=$(echo "$df_root" | awk '{print $2}') # 1k blocks
+    root_pct=$(echo "$df_root" | awk '{print $5}')
+    
+    # Helper to clean du output
+    get_size() {
+        sudo du -s "$1" 2>/dev/null | cut -f1 || echo "0"
+    }
+
+    lh=$(get_size "/var/lib/longhorn")
+    
+    # Sum Docker (Legacy) + Containerd (Runtime)
+    cont_d=$(get_size "/var/lib/docker")
+    cont_c=$(get_size "/var/lib/containerd")
+    cont=$((cont_d + cont_c))
+    
+    logs=$(get_size "/var/log")
+    
+    etcd="0"
+    [ -d "/var/lib/etcd" ] && etcd=$(get_size "/var/lib/etcd")
+    
+    backup="0"
+    [ -d "/var/backup" ] && backup=$(get_size "/var/backup")
+    
+    # Minio HostPath (Deduct from System to avoid double counting)
+    minio_data="0"
+    [ -d "/data/minio" ] && minio_data=$(get_size "/data/minio")
+    
+    # System = Used - (LH + Cont + Logs + Etcd + Backup + Minio)
+    known=$((lh + cont + logs + etcd + backup + minio_data))
+    system=$((root_used - known))
+    if [ "$system" -lt 0 ]; then system=0; fi
+    
+    # Output raw values (1k blocks) for report generator to format
+    # Format: STATS|PCT|TOTAL|USED|LH|DOCKER|LOGS|ETCD|BACKUP|SYSTEM
+    echo "STATS|$root_pct|$root_total|$root_used|$lh|$cont|$logs|$etcd|$backup|$system"
     
     # 2. Orphans (Archives/DBs > 50MB in random places)
     # Exclude /var/lib/kubelet, /var/lib/docker/overlay2, /proc, /sys
@@ -58,6 +95,8 @@ scan_node() {
         -not -path "/sys/*" \
         -not -path "/run/*" \
         -not -path "/var/lib/docker/*" \
+        -not -path "*/overlay2/*" \
+        -not -path "*/containers/*" \
         -not -path "/var/lib/kubelet/*" \
         -not -path "/var/lib/containerd/*" \
         -not -path "/var/lib/longhorn/*" \
@@ -150,12 +189,45 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     echo "## 3. Node Inventory & Orphans (Potential Cleanup)"
     echo "> **Note:** Scans directories: /home, /root, /tmp, /data. Excludes active backups."
     echo ""
+    
+    # Table Header
+    echo "| Node | Usage | Size | Longhorn | Docker | Logs | Etcd | Backup | System |"
+    echo "|---|---|---|---|---|---|---|---|---| "
+    
     for node in "${CLUSTER_NODES[@]}"; do
-        echo "### Node: $node"
         if [ -f "$TEMP_DIR/$node.txt" ]; then
-            grep "ROOT_USAGE" "$TEMP_DIR/$node.txt"
+            # Parse STATS line
+            stats_line=$(grep "^STATS|" "$TEMP_DIR/$node.txt" || echo "")
+            
+            if [ -n "$stats_line" ]; then
+                 IFS='|' read -r _tag pct total used lh cont logs etcd backup system <<< "$stats_line"
+                 
+                 # Helper to format kilobytes to human
+                 fmt_kb() {
+                     numfmt --to=iec --from-unit=1024 "$1" 2>/dev/null || echo "0B"
+                 }
+                 
+                 h_total=$(fmt_kb "$total")
+                 h_lh=$(fmt_kb "$lh")
+                 h_cont=$(fmt_kb "$cont")
+                 h_logs=$(fmt_kb "$logs")
+                 [ "$etcd" -gt 0 ] && h_etcd=$(fmt_kb "$etcd") || h_etcd="-"
+                 [ "$backup" -gt 0 ] && h_backup=$(fmt_kb "$backup") || h_backup="-"
+                 h_system=$(fmt_kb "$system")
+                 
+                 # Status Icon based on PCT
+                 clean_pct=${pct%\%}
+                 status_icon="🟢"
+                 if [ "$clean_pct" -gt 85 ]; then status_icon="🔴"; elif [ "$clean_pct" -gt 70 ]; then status_icon="🟡"; fi
+                 
+                 echo "| **$node** | $status_icon $pct | $h_total | $h_lh | $h_cont | $h_logs | $h_etcd | $h_backup | $h_system |"
+            else
+                 echo "| **$node** | ❌ Error | - | - | - | - | - | - | - |"
+            fi
+            
+            # Orphans in separate block
             echo ""
-            echo "**Large Orphan Files (>50MB):**"
+            echo "**$node - Large Orphan Files (>50MB):**"
             echo "\`\`\`"
             sed -n '/--- ORPHANS ---/,$p' "$TEMP_DIR/$node.txt" | tail -n +2 || echo "None"
             echo "\`\`\`"
@@ -195,26 +267,30 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
 # Simple CSS wrapper
 cat <<EOF > "$HTML_FILE"
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Storage Inventory</title>
-<style>
-body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
-.container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 1000px; margin: 0 auto; }
-h1 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-h2 { color: #34495e; margin-top: 30px; }
-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
-th { background: #f8f9fa; color: #333; }
-tr:nth-child(even) { background: #f9f9f9; }
-code { background: #eee; padding: 2px 5px; border-radius: 3px; }
-pre { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; }
-.status-synced { color: green; font-weight: bold; }
-.status-error { color: red; font-weight: bold; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Inventory</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f4f4f4; color: #333; }
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 1000px; margin: 0 auto; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #2980b9; margin-top: 30px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        h3 { color: #7f8c8d; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; background: white; }
+        th, td { padding: 12px; border: 1px solid #e1e4e8; text-align: left; }
+        th { background: #f8f9fa; color: #2c3e50; font-weight: 600; }
+        tr:nth-child(even) { background: #f8f9fa; }
+        tr:hover { background-color: #f1f1f1; }
+        code { background: #eee; padding: 2px 5px; border-radius: 3px; font-family: Consolas, monospace; }
+        pre { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .timestamp { color: #999; font-size: 0.9em; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-<div class="container">
+    <div class="container">
+    <div class="timestamp">Generated: $(date -u)</div>
 EOF
 
 # Convert MD to basic HTML (Primitive parser for tables and headers)
@@ -232,6 +308,7 @@ BEGIN { in_table=0; in_code=0 }
     next 
 }
 /^\|/ { 
+    if ($0 ~ /^\|[-|: ]+\|$/) next
     if (!in_table) { print "<table>"; in_table=1 }
     print "<tr>"
     n=split($0, a, "|")
@@ -253,7 +330,11 @@ END { if (in_table) print "</table>" }
 ' >> "$HTML_FILE"
 
 cat <<EOF >> "$HTML_FILE"
-</div>
+    </div>
+    <div style="text-align: center; margin-top: 30px; font-size: 0.9em; color: #888;">
+        <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
+        <p>End of Report. <a href="javascript:window.print()">Save as PDF</a></p>
+    </div>
 </body>
 </html>
 EOF
@@ -263,3 +344,19 @@ echo -e "   📄 Markdown: $MD_FILE"
 echo -e "   🌐 HTML (PDF Ready): $HTML_FILE"
 echo -e ""
 echo -e "${BOLD}Use 'Save as PDF' in your browser to export the HTML report.${NC}"
+
+# ------------------------------------------------------------------------------
+# 7. SERVE REPORT (Temporary Web Server)
+# ------------------------------------------------------------------------------
+echo -e "\n${BOLD}🏁 Processing Complete!${NC}"
+echo -e "${YELLOW}Starting temporary web server to view report...${NC}"
+
+# Get primary IP
+HOST_IP=$(hostname -I | awk '{print $1}')
+echo -e "${GREEN}👉 Local:   http://localhost:8000/inventory.html${NC}"
+[ -n "$HOST_IP" ] && echo -e "${GREEN}👉 Network: http://${HOST_IP}:8000/inventory.html${NC}"
+echo -e "${GRAY}(Press Ctrl+C to stop)${NC}"
+
+cd "$OUTPUT_DIR"
+# Python 3 http.server
+python3 -m http.server 8000 >/dev/null 2>&1
