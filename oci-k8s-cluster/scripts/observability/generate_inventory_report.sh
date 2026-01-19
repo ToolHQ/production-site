@@ -158,6 +158,64 @@ ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo rclone lsd gdrive:k8s-ba
 done" > "$TEMP_DIR/gdrive_usage.txt" 2>&1 &
 PIDS+=($!)
 
+# Deep dive: backupstore/volumes breakdown (GDrive)
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo rclone lsd gdrive:k8s-backups/backupstore/volumes --config /root/.config/rclone/rclone.conf | awk '{print \$5}' | while read vol; do 
+    size_json=\$(sudo rclone size gdrive:k8s-backups/backupstore/volumes/\$vol --config /root/.config/rclone/rclone.conf --json); 
+    bytes=\$(echo \$size_json | jq .bytes | numfmt --to=iec); 
+    count=\$(echo \$size_json | jq .count); 
+    echo \"\$vol|\$bytes|\$count\"; 
+done" > "$TEMP_DIR/gdrive_backupstore_volumes.txt" 2>&1 &
+PIDS+=($!)
+
+# Deep dive: backupstore/volumes breakdown (Minio)
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo du -sh /data/minio/k8s-backups/backupstore/volumes/* 2>/dev/null" > "$TEMP_DIR/minio_backupstore_volumes.txt" &
+PIDS+=($!)
+
+# Extract Longhorn metadata from Minio backupstore
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master 'bash -s' <<'METADATA_SCRIPT' > "$TEMP_DIR/minio_volume_metadata.txt" 2>&1 &
+for vol_dir in /data/minio/k8s-backups/backupstore/volumes/*/; do
+    vol_hash=$(basename "$vol_dir")
+    # Find the first PVC directory inside (usually only one)
+    pvc_meta=$(find "$vol_dir" -name "volume.cfg" -type d | head -n 1)
+    if [ -n "$pvc_meta" ]; then
+        # Extract JSON from xl.meta binary file
+        json=$(cat "$pvc_meta/xl.meta" | tr -d '\000' | grep -oP '\{.*\}' 2>/dev/null)
+        if [ -n "$json" ]; then
+            pvc_name=$(echo "$json" | jq -r '.Labels.KubernetesStatus' | jq -r '.pvcName' 2>/dev/null)
+            namespace=$(echo "$json" | jq -r '.Labels.KubernetesStatus' | jq -r '.namespace' 2>/dev/null)
+            created=$(echo "$json" | jq -r '.CreatedTime' 2>/dev/null)
+            last_backup=$(echo "$json" | jq -r '.LastBackupAt' 2>/dev/null)
+            size=$(echo "$json" | jq -r '.Size' 2>/dev/null | numfmt --to=iec 2>/dev/null)
+            
+            echo "$vol_hash|$pvc_name|$namespace|$created|$last_backup|$size"
+        fi
+    fi
+done
+METADATA_SCRIPT
+PIDS+=($!)
+
+# Extract Longhorn metadata from GDrive backupstore
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master 'bash -s' <<'GDRIVE_METADATA_SCRIPT' > "$TEMP_DIR/gdrive_volume_metadata.txt" 2>&1 &
+for vol in $(sudo rclone lsd gdrive:k8s-backups/backupstore/volumes --config /root/.config/rclone/rclone.conf | awk '{print $5}'); do
+    # Download volume.cfg/xl.meta from GDrive
+    pvc_path=$(sudo rclone lsf gdrive:k8s-backups/backupstore/volumes/$vol --dirs-only --config /root/.config/rclone/rclone.conf | head -n 1 | sed 's|/$||')
+    if [ -n "$pvc_path" ]; then
+        sudo rclone cat "gdrive:k8s-backups/backupstore/volumes/$vol/$pvc_path/volume.cfg/xl.meta" --config /root/.config/rclone/rclone.conf 2>/dev/null | tr -d '\000' | grep -oP '\{.*\}' | head -n 1 > /tmp/vol_meta_$vol.json 2>/dev/null
+        if [ -s /tmp/vol_meta_$vol.json ]; then
+            pvc_name=$(jq -r '.Labels.KubernetesStatus' /tmp/vol_meta_$vol.json | jq -r '.pvcName' 2>/dev/null)
+            namespace=$(jq -r '.Labels.KubernetesStatus' /tmp/vol_meta_$vol.json | jq -r '.namespace' 2>/dev/null)
+            created=$(jq -r '.CreatedTime' /tmp/vol_meta_$vol.json 2>/dev/null)
+            last_backup=$(jq -r '.LastBackupAt' /tmp/vol_meta_$vol.json 2>/dev/null)
+            size=$(jq -r '.Size' /tmp/vol_meta_$vol.json 2>/dev/null | numfmt --to=iec 2>/dev/null)
+            
+            echo "$vol|$pvc_name|$namespace|$created|$last_backup|$size"
+            rm -f /tmp/vol_meta_$vol.json
+        fi
+    fi
+done
+GDRIVE_METADATA_SCRIPT
+PIDS+=($!)
+
 # ------------------------------------------------------------------------------
 # 4. WAIT FOR RESULTS
 # ------------------------------------------------------------------------------
@@ -186,6 +244,35 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
         while IFS='|' read -r folder size count subs; do
             [ -z "$subs" ] && subs="-"
             echo "| **$folder** | $size | $count | \`$subs\` | ✅ Synced |"
+            
+            # Special handling for backupstore - show volumes breakdown WITH METADATA
+            if [ "$folder" = "backupstore" ] && [ -s "$TEMP_DIR/gdrive_backupstore_volumes.txt" ]; then
+                # Sort by size (descending) before display
+                sort -t'|' -k2 -h -r "$TEMP_DIR/gdrive_backupstore_volumes.txt" > "$TEMP_DIR/gdrive_backupstore_volumes_sorted.txt"
+                
+                echo "|"
+                echo "| 📂 **Backupstore Volumes Breakdown (Longhorn PVCs)** | | | | |"
+                echo "|---|---|---|---|---|"
+                echo "| Volume | PVC Name | Namespace | Size | Files | Created → Last Backup |"
+                echo "|---|---|---|---|---|---|"
+                while IFS='|' read -r vol vol_size vol_count; do
+                    # Try to get metadata for this volume (Use Minio metadata as it shares the same Volume Hash/UUID)
+                    if [ -s "$TEMP_DIR/minio_volume_metadata.txt" ]; then
+                        meta_line=$(grep "^$vol|" "$TEMP_DIR/minio_volume_metadata.txt" 2>/dev/null)
+                        if [ -n "$meta_line" ]; then
+                            IFS='|' read -r _ pvc_name namespace created last_backup meta_size <<< "$meta_line"
+                            # Format dates (remove time for brevity)
+                            created_short=$(echo "$created" | cut -dT -f1)
+                            last_backup_short=$(echo "$last_backup" | cut -dT -f1)
+                            echo "| \`$vol\` | **$pvc_name** | \`$namespace\` | **$meta_size** | $vol_count | $created_short → $last_backup_short |"
+                        else
+                            echo "| \`$vol\` | - | - | $vol_size | $vol_count | - |"
+                        fi
+                    else
+                        echo "| \`$vol\` | - | - | $vol_size | $vol_count | - |"
+                    fi
+                done < "$TEMP_DIR/gdrive_backupstore_volumes_sorted.txt"
+            fi
         done < "$TEMP_DIR/gdrive_usage.txt"
     else
         echo "| Error | - | - | - | ❌ Unreachable |"
@@ -215,6 +302,42 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
              [ -z "$subs_clean" ] && subs_clean="-"
              
              echo "| **$bucket_name** | $bucket_size | $subs_clean |"
+             
+             # Special handling for k8s-backups/backupstore - show volumes breakdown WITH METADATA
+             if [ "$bucket_name" = "k8s-backups" ] && [ -s "$TEMP_DIR/minio_backupstore_volumes.txt" ]; then
+                 # Sort by size (descending) before display
+                 sort -k1 -h -r "$TEMP_DIR/minio_backupstore_volumes.txt" > "$TEMP_DIR/minio_backupstore_volumes_sorted.txt"
+                 
+                 echo "|"
+                 echo "| 📂 **k8s-backups/backupstore/volumes Breakdown (Longhorn PVCs)** | | |"
+                 echo "|---|---|---|"
+                 echo "| Volume | PVC Name | Namespace | Size | Created → Last Backup |"
+                 echo "|---|---|---|---|---|"
+                 while read -r line; do
+                     vol_size=$(echo "$line" | awk '{print $1}')
+                     vol_path=$(echo "$line" | awk '{print $2}')
+                     vol_name=$(basename "$vol_path")
+                     
+                     # Try to get metadata for this volume
+                     echo "DEBUG: Checking $vol_name in $TEMP_DIR/minio_volume_metadata.txt" >> /tmp/report_debug.log
+                     if [ -s "$TEMP_DIR/minio_volume_metadata.txt" ]; then
+                         meta_line=$(grep "^$vol_name|" "$TEMP_DIR/minio_volume_metadata.txt")
+                         echo "DEBUG: Result: $meta_line" >> /tmp/report_debug.log
+                         if [ -n "$meta_line" ]; then
+                             IFS='|' read -r _ pvc_name namespace created last_backup meta_size <<< "$meta_line"
+                             # Format dates
+                             created_short=$(echo "$created" | cut -dT -f1)
+                             last_backup_short=$(echo "$last_backup" | cut -dT -f1)
+                             echo "| \`$vol_name\` | **$pvc_name** | \`$namespace\` | **$meta_size** | $created_short → $last_backup_short |"
+                         else
+                             echo "| \`$vol_name\` | - | - | $vol_size | - |"
+                         fi
+                     else
+                         echo "DEBUG: Metadata file empty or missing" >> /tmp/report_debug.log
+                         echo "| \`$vol_name\` | - | - | $vol_size | - |"
+                     fi
+                 done < "$TEMP_DIR/minio_backupstore_volumes_sorted.txt"
+             fi
         done
     else
          echo "| No Data | - | - |"
