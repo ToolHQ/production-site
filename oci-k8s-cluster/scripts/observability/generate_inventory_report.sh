@@ -261,9 +261,9 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                         meta_line=$(grep "^$vol|" "$TEMP_DIR/minio_volume_metadata.txt" 2>/dev/null)
                         if [ -n "$meta_line" ]; then
                             IFS='|' read -r _ pvc_name namespace created last_backup meta_size <<< "$meta_line"
-                            # Format dates (remove time for brevity)
-                            created_short=$(echo "$created" | cut -dT -f1)
-                            last_backup_short=$(echo "$last_backup" | cut -dT -f1)
+                            # Format dates (Readable: Jan 18, 2026)
+                            created_short=$(date -d "$created" +'%b %d, %Y' 2>/dev/null || echo "$created")
+                            last_backup_short=$(date -d "$last_backup" +'%b %d, %Y' 2>/dev/null || echo "$last_backup")
                             echo "| \`$vol\` | **$pvc_name** | \`$namespace\` | **$meta_size** | $vol_count | $created_short → $last_backup_short |"
                         else
                             echo "| \`$vol\` | - | - | $vol_size | $vol_count | - |"
@@ -325,9 +325,9 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                          echo "DEBUG: Result: $meta_line" >> /tmp/report_debug.log
                          if [ -n "$meta_line" ]; then
                              IFS='|' read -r _ pvc_name namespace created last_backup meta_size <<< "$meta_line"
-                             # Format dates
-                             created_short=$(echo "$created" | cut -dT -f1)
-                             last_backup_short=$(echo "$last_backup" | cut -dT -f1)
+                             # Format dates (Readable: Jan 18, 2026)
+                             created_short=$(date -d "$created" +'%b %d, %Y' 2>/dev/null || echo "$created")
+                             last_backup_short=$(date -d "$last_backup" +'%b %d, %Y' 2>/dev/null || echo "$last_backup")
                              echo "| \`$vol_name\` | **$pvc_name** | \`$namespace\` | **$meta_size** | $created_short → $last_backup_short |"
                          else
                              echo "| \`$vol_name\` | - | - | $vol_size | - |"
@@ -543,6 +543,13 @@ cat <<EOF > "$HTML_FILE"
         a { color: var(--header-border); text-decoration: none; }
         a:hover { text-decoration: underline; }
         
+        /* Sorting Styles */
+        th { cursor: pointer; user-select: none; position: relative; }
+        th:hover { background: var(--border-color); }
+        th::after { content: ''; display: inline-block; margin-left: 5px; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; vertical-align: middle; opacity: 0.3; }
+        th.asc::after { border-bottom: 4px solid currentColor; opacity: 1; }
+        th.desc::after { border-top: 4px solid currentColor; opacity: 1; }
+        
         /* Chart.js overrides */
         .chart-wrapper { background: var(--bg-container); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-around; flex-wrap: wrap; }
         .chart-canvas-container { position: relative; width: 250px; height: 250px; }
@@ -606,16 +613,27 @@ BEGIN { in_table=0; in_code=0 }
 }
 /^\|/ { 
     if ($0 ~ /^\|[-|: ]+\|$/) next
-    if (!in_table) { print "<table>"; in_table=1 }
-    print "<tr>"
-    n=split($0, a, "|")
-    for (i=2; i<n; i++) {
-        # Check if header row (separator line usually follows)
-        # Simplified: first row is treated as header in this logic roughly
-        gsub(/^ +| +$/, "", a[i])
-        print "<td>" a[i] "</td>" 
+    if (!in_table) { 
+        print "<table class=\"sortable-table\">"
+        print "<thead><tr>"
+        n=split($0, a, "|")
+        for (i=2; i<n; i++) {
+             gsub(/^ +| +$/, "", a[i])
+             # Check if we should disable sorting for some columns? No, enable all.
+             # Remove markdown bold/code from header text for cleaner display if needed, but browser handles it.
+             print "<th onclick=\"sortTable(" i-2 ", this)\">" a[i] "</th>" 
+        }
+        print "</tr></thead><tbody>"
+        in_table=1 
+    } else {
+        print "<tr>"
+        n=split($0, a, "|")
+        for (i=2; i<n; i++) {
+            gsub(/^ +| +$/, "", a[i])
+            print "<td>" a[i] "</td>" 
+        }
+        print "</tr>"
     }
-    print "</tr>"
     next
 }
 /^\+/ {
@@ -691,6 +709,66 @@ cat <<'EOF' >> "$HTML_FILE"
             "End of Report.": "Fim do Relatório.",
             "Save as PDF": "Salvar como PDF"
         };
+
+        /* Sorting Logic */
+        function sortTable(n, header) {
+            const table = header.closest("table");
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.rows);
+            const isAsc = !header.classList.contains("asc");
+            
+            // Reset icons
+            table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
+            header.classList.toggle("asc", isAsc);
+            header.classList.toggle("desc", !isAsc);
+            
+            // Helper to parse size (10M, 2G, 500K) -> Bytes
+            function parseSize(str) {
+                const units = { 'K': 1024, 'M': 1024**2, 'G': 1024**3, 'T': 1024**4, 'P': 1024**5 };
+                const match = str.match(/([\d\.]+)\s*([KMGTP])/i);
+                if (match) {
+                    return parseFloat(match[1]) * (units[match[2].toUpperCase()] || 1);
+                }
+                if (!isNaN(parseFloat(str))) return parseFloat(str); // Plain number
+                return 0;
+            }
+            
+            // Helper to check if string looks like size
+            function isSize(str) { return /[\d\.]+\s*[KMGTP]B?$/i.test(str.trim()); }
+            
+            rows.sort((rA, rB) => {
+                let txtA = rA.cells[n].innerText.trim();
+                let txtB = rB.cells[n].innerText.trim();
+                
+                // Extract clean text (remove emoji?)
+                txtA = txtA.replace(/[^\w\s\.\-,]/g, "").trim(); 
+                txtB = txtB.replace(/[^\w\s\.\-,]/g, "").trim();
+                
+                // Detect type
+                let valA, valB;
+                
+                if (isSize(txtA) && isSize(txtB)) {
+                    valA = parseSize(txtA);
+                    valB = parseSize(txtB);
+                } else if (!isNaN(Date.parse(txtA)) && !isNaN(Date.parse(txtB)) && txtA.length > 5) {
+                    // Date (Jan 18, 2026) -> use Date.parse logic or new Date
+                    valA = new Date(txtA).getTime();
+                    valB = new Date(txtB).getTime();
+                } else if (!isNaN(parseFloat(txtA)) && !isNaN(parseFloat(txtB))) {
+                    valA = parseFloat(txtA);
+                    valB = parseFloat(txtB);
+                } else {
+                    valA = txtA.toLowerCase();
+                    valB = txtB.toLowerCase();
+                }
+                
+                if (valA < valB) return isAsc ? -1 : 1;
+                if (valA > valB) return isAsc ? 1 : -1;
+                return 0;
+            });
+            
+            tbody.append(...rows);
+        }
 
         function toggleTheme() {
             const html = document.documentElement;
