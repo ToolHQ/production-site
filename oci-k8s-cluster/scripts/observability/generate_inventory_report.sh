@@ -187,7 +187,10 @@ for vol_dir in /data/minio/k8s-backups/backupstore/volumes/*/; do
             last_backup=$(echo "$json" | jq -r '.LastBackupAt' 2>/dev/null)
             size=$(echo "$json" | jq -r '.Size' 2>/dev/null | numfmt --to=iec 2>/dev/null)
             
-            echo "$vol_hash|$pvc_name|$namespace|$created|$last_backup|$size"
+            # Count snapshot configs (backup_*.cfg)
+            snap_count=$(find "$vol_dir" -name "backup_*.cfg" | wc -l)
+            
+            echo "$vol_hash|$pvc_name|$namespace|$created|$last_backup|$size|$snap_count"
         fi
     fi
 done
@@ -216,6 +219,31 @@ done
 GDRIVE_METADATA_SCRIPT
 PIDS+=($!)
 
+
+# Extract Detailed Snapshot Data (Minio) - SYNCHRONOUS
+echo -e "${BLUE}📸 Extracting Snapshot Details...${NC}"
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master 'bash -s' <<'SNAPSHOT_SCRIPT' > "$TEMP_DIR/minio_snapshot_details.txt" 2>&1
+find /data/minio/k8s-backups/backupstore/volumes -path "*/backups/*/xl.meta" -type f 2>/dev/null | while read meta; do
+    # Extract Volume Hash: /data/.../volumes/<HASH>/<PVC_UID>/backups/...
+    vol_hash=$(echo "$meta" | awk -F'/' '{print $7}')
+    
+    # Safe Binary Extract
+    json=$(cat "$meta" | tr -d '\000' | grep -oP '\{.*\}' | head -n 1)
+    
+    if [ -n "$json" ]; then
+        s_date=$(echo "$json" | jq -r '.SnapshotCreatedAt' 2>/dev/null)
+        s_size=$(echo "$json" | jq -r '.Size' 2>/dev/null)
+        
+        if [ "$s_date" != "null" ]; then
+             echo "$vol_hash|$s_date|$s_size"
+        fi
+    fi
+done
+SNAPSHOT_SCRIPT
+
+# Verify Extraction
+line_count=$(wc -l < "$TEMP_DIR/minio_snapshot_details.txt" 2>/dev/null || echo 0)
+echo "DEBUG: Extracted $line_count snapshot records" >> /tmp/report_debug.log
 # ------------------------------------------------------------------------------
 # 4. WAIT FOR RESULTS
 # ------------------------------------------------------------------------------
@@ -253,18 +281,34 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                 echo "|"
                 echo "| 📂 **Backupstore Volumes Breakdown (Longhorn PVCs)** | | | | |"
                 echo "|---|---|---|---|---|"
-                echo "| Volume | PVC Name | Namespace | Size | Files | Created → Last Backup |"
-                echo "|---|---|---|---|---|---|"
+                echo "| Volume | PVC Name | Namespace | Size | Files | Snapshots | Created → Last Backup |"
+                echo "|---|---|---|---|---|---|---|"
                 while IFS='|' read -r vol vol_size vol_count; do
                     # Try to get metadata for this volume (Use Minio metadata as it shares the same Volume Hash/UUID)
                     if [ -s "$TEMP_DIR/minio_volume_metadata.txt" ]; then
                         meta_line=$(grep "^$vol|" "$TEMP_DIR/minio_volume_metadata.txt" 2>/dev/null)
                         if [ -n "$meta_line" ]; then
-                            IFS='|' read -r _ pvc_name namespace created last_backup meta_size <<< "$meta_line"
+                            IFS='|' read -r _ pvc_name namespace created last_backup meta_size snap_count <<< "$meta_line"
                             # Format dates (Readable: Jan 18, 2026)
                             created_short=$(date -d "$created" +'%b %d, %Y' 2>/dev/null || echo "$created")
                             last_backup_short=$(date -d "$last_backup" +'%b %d, %Y' 2>/dev/null || echo "$last_backup")
-                            echo "| \`$vol\` | **$pvc_name** | \`$namespace\` | **$meta_size** | $vol_count | $created_short → $last_backup_short |"
+                            echo "| \`$vol\` | **$pvc_name** | \`$namespace\` | **$meta_size** | $vol_count | $snap_count | $created_short → $last_backup_short |"
+                            
+                            # Embed Snapshot Details
+                            if [ -s "$TEMP_DIR/minio_snapshot_details.txt" ]; then
+                                snap_rows=$(grep "^$vol|" "$TEMP_DIR/minio_snapshot_details.txt" | sort -t'|' -k2 -r | head -n 10) # Show top 10 recent
+                                if [ -n "$snap_rows" ]; then
+                                    echo ""
+                                    echo "<details class='node-details'><summary>📜 View Recent Snapshots ($snap_count total)</summary><table class='snapshot-table'>"
+                                    echo "<thead><tr><th>Date</th><th>Size</th></tr></thead><tbody>"
+                                    while IFS='|' read -r _ s_date s_size; do
+                                        s_date_fmt=$(date -d "$s_date" +'%b %d, %Y %H:%M' 2>/dev/null || echo "$s_date")
+                                        s_size_fmt=$(numfmt --to=iec "$s_size" 2>/dev/null || echo "$s_size")
+                                        echo "<tr><td>$s_date_fmt</td><td>$s_size_fmt</td></tr>"
+                                    done <<< "$snap_rows"
+                                    echo "</tbody></table></details>"
+                                fi
+                            fi
                         else
                             echo "| \`$vol\` | - | - | $vol_size | $vol_count | - |"
                         fi
@@ -311,8 +355,8 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                  echo "|"
                  echo "| 📂 **k8s-backups/backupstore/volumes Breakdown (Longhorn PVCs)** | | |"
                  echo "|---|---|---|"
-                 echo "| Volume | PVC Name | Namespace | Size | Created → Last Backup |"
-                 echo "|---|---|---|---|---|"
+                 echo "| Volume | PVC Name | Namespace | Size | Snapshots | Created → Last Backup |"
+                 echo "|---|---|---|---|---|---|"
                  while read -r line; do
                      vol_size=$(echo "$line" | awk '{print $1}')
                      vol_path=$(echo "$line" | awk '{print $2}')
@@ -324,11 +368,27 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                          meta_line=$(grep "^$vol_name|" "$TEMP_DIR/minio_volume_metadata.txt")
                          echo "DEBUG: Result: $meta_line" >> /tmp/report_debug.log
                          if [ -n "$meta_line" ]; then
-                             IFS='|' read -r _ pvc_name namespace created last_backup meta_size <<< "$meta_line"
+                             IFS='|' read -r _ pvc_name namespace created last_backup meta_size snap_count <<< "$meta_line"
                              # Format dates (Readable: Jan 18, 2026)
                              created_short=$(date -d "$created" +'%b %d, %Y' 2>/dev/null || echo "$created")
                              last_backup_short=$(date -d "$last_backup" +'%b %d, %Y' 2>/dev/null || echo "$last_backup")
-                             echo "| \`$vol_name\` | **$pvc_name** | \`$namespace\` | **$meta_size** | $created_short → $last_backup_short |"
+                             echo "| \`$vol_name\` | **$pvc_name** | \`$namespace\` | **$meta_size** | $snap_count | $created_short → $last_backup_short |"
+                             
+                             # Embed Snapshot Details
+                             if [ -s "$TEMP_DIR/minio_snapshot_details.txt" ]; then
+                                 snap_rows=$(grep "^$vol_name|" "$TEMP_DIR/minio_snapshot_details.txt" | sort -t'|' -k2 -r | head -n 10)
+                                 if [ -n "$snap_rows" ]; then
+                                     echo ""
+                                     echo "<details class='node-details'><summary>📜 View Recent Snapshots ($snap_count total)</summary><table class='snapshot-table'>"
+                                     echo "<thead><tr><th>Date</th><th>Size</th></tr></thead><tbody>"
+                                     while IFS='|' read -r _ s_date s_size; do
+                                         s_date_fmt=$(date -d "$s_date" +'%b %d, %Y %H:%M' 2>/dev/null || echo "$s_date")
+                                         s_size_fmt=$(numfmt --to=iec "$s_size" 2>/dev/null || echo "$s_size")
+                                         echo "<tr><td>$s_date_fmt</td><td>$s_size_fmt</td></tr>"
+                                     done <<< "$snap_rows"
+                                     echo "</tbody></table></details>"
+                                 fi
+                             fi
                          else
                              echo "| \`$vol_name\` | - | - | $vol_size | - |"
                          fi
@@ -528,6 +588,9 @@ cat <<EOF > "$HTML_FILE"
         h1 { color: var(--text-main); border-bottom: 2px solid var(--header-border); padding-bottom: 15px; }
         h2 { color: var(--header-border); margin-top: 35px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
         h3 { color: var(--text-muted); margin-top: 25px; }
+
+        .snapshot-table { width: auto !important; margin: 10px 0; font-size: 0.9em; }
+
 
         table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 20px 0; background: var(--bg-container); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
         th, td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); text-align: left; }
@@ -1021,33 +1084,36 @@ cat <<'EOF' >> "$HTML_FILE"
 </html>
 EOF
 
+# ------------------------------------------------------------------------------
+# SERVE REPORT & NOTIFY
+# ------------------------------------------------------------------------------
+
+# Update 'latest' symlink for consistent serving
+REPORT_ROOT="./reports"
+LATEST_LINK="$REPORT_ROOT/latest"
+if [ -d "$REPORT_ROOT" ]; then
+    ln -sfn "$(basename "$OUTPUT_DIR")" "$LATEST_LINK"
+fi
+
+# Restart Python HTTP Server (Kill old -> Start new)
+if pgrep -f "http.server 8000" >/dev/null; then
+    pkill -f "http.server 8000" 2>/dev/null || true
+fi
+
+# Start Server in background (Quietly)
+nohup python3 -m http.server 8000 --directory "$LATEST_LINK" >/dev/null 2>&1 &
+SERVER_PID=$!
+
 echo -e "${GREEN}✨ Reports Generated:${NC}"
 echo -e "   📄 Markdown: $MD_FILE"
-echo -e "   🌐 HTML (PDF Ready): $HTML_FILE"
+echo -e "   🌐 HTML (PDF Ready): http://localhost:8000/inventory.html"
 echo -e ""
 echo -e "${BOLD}Use 'Save as PDF' in your browser to export the HTML report.${NC}"
 
-# ------------------------------------------------------------------------------
-# 7. SERVE REPORT (Auto-Refresh)
-# ------------------------------------------------------------------------------
-echo -e "\n${BOLD}🏁 Processing Complete!${NC}"
-
-# Kill previous server instance on port 8000
-echo -e "${YELLOW}♻️  Restarting report server...${NC}"
-pkill -f "python3 -m http.server 8000" >/dev/null 2>&1 || true
-
-# Update 'latest' symlink
-LATEST_LINK="./reports/latest"
-rm -f "$LATEST_LINK"
-ln -s "$(realpath "$OUTPUT_DIR")" "$LATEST_LINK"
-
-echo -e "${YELLOW}starting temporary web server (background)...${NC}"
-
-# Start server in background from the symlink directory
-# This allows the URL to remain constant
-nohup python3 -m http.server 8000 --directory "$LATEST_LINK" >/dev/null 2>&1 &
-
-# Get primary IP
-HOST_IP=$(hostname -I | awk '{print $1}')
-echo -e "${GREEN}👉 Local:   http://localhost:8000/inventory.html${NC}"
-[ -n "$HOST_IP" ] && echo -e "${GREEN}👉 Network: http://${HOST_IP}:8000/inventory.html${NC}"
+# Play Sound (Enhanced)
+if type alert_sound >/dev/null 2>&1; then
+    alert_sound
+    # Fallback/Extra for terminal bell
+    echo -e "\a"
+    if command -v tput >/dev/null; then tput bel; fi
+fi
