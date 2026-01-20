@@ -15,7 +15,14 @@ CLUSTER_NODES=("oci-k8s-master" "oci-k8s-node-1" "oci-k8s-node-2" "oci-k8s-node-
 OUTPUT_DIR="./reports/inventory_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$OUTPUT_DIR"
 TEMP_DIR=$(mktemp -d)
+# Trap removed for debugging, but we should clean up eventually
 # trap "rm -rf $TEMP_DIR" EXIT
+
+# Fetch Backup Policies (RecurringJobs & CronJobs)
+echo -e "   [master] Fetching Backup Policies..."
+ssh -T -o StrictHostKeyChecking=no "$MASTER_NODE" "kubectl get recurringjobs -n longhorn-system -o json > /tmp/recurring_jobs.json && kubectl get cronjobs -A -o json > /tmp/cron_jobs.json"
+scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/recurring_jobs.json" "$TEMP_DIR/recurring_jobs.json"
+scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/cron_jobs.json" "$TEMP_DIR/cron_jobs.json"
 
 # Colors
 GREEN='\033[0;32m'
@@ -532,8 +539,33 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             size_human=$size
         fi
         echo "| $ns | $name | $phase | $size_human | $vol |"
+        echo "| $ns | $name | $phase | $size_human | $vol |"
     done
     
+    echo ""
+    echo "## 5. Active Backup Policies"
+    echo "| Type | Name | Schedule | Retention | Target/Group |"
+    echo "|---|---|---|---|---|"
+    
+    # 1. Longhorn Recurring Jobs
+    if [ -s "$TEMP_DIR/recurring_jobs.json" ]; then
+        jq -r '.items[] | "Longhorn|\(.metadata.name)|\(.spec.cron)|\(.spec.retain)|\(.spec.task) (\(.spec.groups[0] // "default"))"' "$TEMP_DIR/recurring_jobs.json" | \
+        while IFS='|' read -r type name cron retain details; do
+             echo "| **$type** | $name | \`$cron\` | $retain | $details |"
+        done
+    fi
+    
+    # 2. System CronJobs (Etcd, Postgres, etc)
+    if [ -s "$TEMP_DIR/cron_jobs.json" ]; then
+        jq -r '.items[] | "CronJob|\(.metadata.name)|\(.spec.schedule)|-|\(.metadata.namespace)"' "$TEMP_DIR/cron_jobs.json" | \
+        while IFS='|' read -r type name cron retain ns; do
+             # Filter relevant backup jobs if needed, or show all
+             if [[ "$name" == *"backup"* ]] || [[ "$name" == *"snapshot"* ]]; then
+                 echo "| **$type** | $name | \`$cron\` | - | $ns |"
+             fi
+        done
+    fi
+
 } > "$MD_FILE"
 
 # ------------------------------------------------------------------------------
@@ -742,6 +774,12 @@ cat <<'EOF' >> "$HTML_FILE"
             "2. Minio Object Storage (Local)": "2. Armazenamento de Objetos Minio (Local)",
             "3. Node Inventory & Orphans (Potential Cleanup)": "3. Inventário de Nós & Órfãos (Limpeza Potencial)",
             "4. Kubernetes Volumes (PVCs)": "4. Volumes Kubernetes (PVCs)",
+            "5. Active Backup Policies": "5. Políticas de Backup Ativas",
+            "Type": "Tipo",
+            "Name": "Nome",
+            "Schedule": "Agendamento",
+            "Retention": "Retenção",
+            "Target/Group": "Alvo/Grupo",
             "Folder": "Pasta",
             "Real Size": "Tamanho Real",
             "Status & Sync": "Status e Sinc.",
