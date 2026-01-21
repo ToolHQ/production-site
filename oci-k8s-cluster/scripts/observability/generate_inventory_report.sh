@@ -10,8 +10,10 @@
 set -e
 
 # --- Configuration ---
-# CLUSTER_NODES=("oci-k8s-master" "oci-k8s-node-1" "oci-k8s-node-2" "oci-k8s-node-3")
+# Configuration
+MASTER_NODE="oci-k8s-master"
 CLUSTER_NODES=("oci-k8s-master" "oci-k8s-node-1" "oci-k8s-node-2" "oci-k8s-node-3")
+
 OUTPUT_DIR="./reports/inventory_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$OUTPUT_DIR"
 TEMP_DIR=$(mktemp -d)
@@ -22,7 +24,15 @@ TEMP_DIR=$(mktemp -d)
 echo -e "   [master] Fetching Backup Policies..."
 ssh -T -o StrictHostKeyChecking=no "$MASTER_NODE" "kubectl get recurringjobs -n longhorn-system -o json > /tmp/recurring_jobs.json && kubectl get cronjobs -A -o json > /tmp/cron_jobs.json"
 scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/recurring_jobs.json" "$TEMP_DIR/recurring_jobs.json"
+scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/recurring_jobs.json" "$TEMP_DIR/recurring_jobs.json"
 scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/cron_jobs.json" "$TEMP_DIR/cron_jobs.json"
+
+# Fetch Compute Metrics (Usage, Capacity, Pods)
+echo -e "   [master] Fetching Compute Metrics..."
+ssh -T -o StrictHostKeyChecking=no "$MASTER_NODE" "kubectl top nodes --no-headers > /tmp/nodes_usage.txt && kubectl get nodes -o json > /tmp/nodes_capacity.json && kubectl get pods -A -o json > /tmp/pods_resources.json"
+scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/nodes_usage.txt" "$TEMP_DIR/nodes_usage.txt"
+scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/nodes_capacity.json" "$TEMP_DIR/nodes_capacity.json"
+scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/pods_resources.json" "$TEMP_DIR/pods_resources.json"
 
 # Colors
 GREEN='\033[0;32m'
@@ -566,6 +576,63 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
         done
     fi
 
+    # --------------------------------------------------------------------------
+    # 6. Compute Resources (CPU/RAM)
+    # --------------------------------------------------------------------------
+    echo ""
+    echo "## 6. Compute Resources (CPU/RAM)"
+    echo "| Node | CPU Usage | CPU Req/Lim | Mem Usage | Mem Req/Lim | Status |"
+    echo "|---|---|---|---|---|---|"
+    
+    # Helper to convert to millicores/Mi
+    to_milli() {
+        val=$1
+        if [[ "$val" == *"m" ]]; then echo "${val%m}"; 
+        elif [[ "$val" =~ ^[0-9]+$ ]]; then echo "$((val * 1000))";
+        else echo "0"; fi
+    }
+    
+    to_mi() {
+        val=$1
+        if [[ "$val" == *"Ki" ]]; then echo $(( ${val%Ki} / 1024 ));
+        elif [[ "$val" == *"Mi" ]]; then echo "${val%Mi}"; 
+        elif [[ "$val" == *"Gi" ]]; then echo $(( ${val%Gi} * 1024 ));
+        else echo "0"; fi
+    }
+
+    if [ -f "$TEMP_DIR/nodes_usage.txt" ] && [ -f "$TEMP_DIR/pods_resources.json" ]; then
+        for node in "${CLUSTER_NODES[@]}"; do
+            # Usage (from top)
+            read -r _ u_cpu u_cpu_pct u_mem u_mem_pct <<< $(grep "$node" "$TEMP_DIR/nodes_usage.txt" || echo "0 0m 0% 0Mi 0%")
+            
+            # Capacity (from json) - simplified
+            # cap_cpu=$(jq -r --arg n "$node" '.items[] | select(.metadata.name==$n) | .status.capacity.cpu' "$TEMP_DIR/nodes_capacity.json")
+            # cap_mem=$(jq -r --arg n "$node" '.items[] | select(.metadata.name==$n) | .status.capacity.memory' "$TEMP_DIR/nodes_capacity.json")
+
+            # Requests/Limits (Sum from Pods)
+            cpu_stats=$(jq -r --arg n "$node" '[.items[] | select(.spec.nodeName==$n) | .spec.containers[]?.resources.requests.cpu // "0"] | map(if endswith("m") then tonumber else (tonumber? * 1000) end) | add' "$TEMP_DIR/pods_resources.json")
+            cpu_lims=$(jq -r --arg n "$node" '[.items[] | select(.spec.nodeName==$n) | .spec.containers[]?.resources.limits.cpu // "0"] | map(if endswith("m") then tonumber else (tonumber? * 1000) end) | add' "$TEMP_DIR/pods_resources.json")
+            
+            mem_stats=$(jq -r --arg n "$node" '[.items[] | select(.spec.nodeName==$n) | .spec.containers[]?.resources.requests.memory // "0"] | map(if endswith("Gi") then (tonumber * 1024) elif endswith("Mi") then tonumber elif endswith("Ki") then (tonumber / 1024) else 0 end) | add' "$TEMP_DIR/pods_resources.json")
+            mem_lims=$(jq -r --arg n "$node" '[.items[] | select(.spec.nodeName==$n) | .spec.containers[]?.resources.limits.memory // "0"] | map(if endswith("Gi") then (tonumber * 1024) elif endswith("Mi") then tonumber elif endswith("Ki") then (tonumber / 1024) else 0 end) | add' "$TEMP_DIR/pods_resources.json")
+
+            # Format (CPU in m, Mem in Mi)
+            cpu_req="${cpu_stats}m"
+            cpu_lim="${cpu_lims}m"
+            mem_req="${mem_stats}Mi"
+            mem_lim="${mem_lims}Mi"
+            
+            # Status Icon (Based on CPU/Mem %)
+            c_p=${u_cpu_pct%\%}
+            m_p=${u_mem_pct%\%}
+            icon="🟢"
+            if [ "$c_p" -gt 85 ] || [ "$m_p" -gt 85 ]; then icon="🔴"; elif [ "$c_p" -gt 70 ] || [ "$m_p" -gt 70 ]; then icon="🟡"; fi
+
+            echo "| **$node** | $u_cpu ($u_cpu_pct) | R: $cpu_req / L: $cpu_lim | $u_mem ($u_mem_pct) | R: $mem_req / L: $mem_lim | $icon |"
+        done
+    else
+        echo "| Scans failed | - | - | - | - | ❌ |"
+    fi
 } > "$MD_FILE"
 
 # ------------------------------------------------------------------------------
@@ -578,7 +645,7 @@ cat <<EOF > "$HTML_FILE"
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Storage Inventory</title>
+    <title>Cluster Inventory</title>
     <style>
         :root {
             --bg-body: #f4f4f4;
@@ -619,6 +686,16 @@ cat <<EOF > "$HTML_FILE"
 
         h1 { color: var(--text-main); border-bottom: 2px solid var(--header-border); padding-bottom: 15px; }
         h2 { color: var(--header-border); margin-top: 35px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        
+        /* Tabs */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+        .tab-btn { background: transparent; border: none; padding: 10px 20px; font-size: 1.1em; cursor: pointer; color: var(--text-muted); border-radius: 6px; transition: all 0.2s; font-weight: 600; }
+        .tab-btn:hover { background: var(--row-hover); color: var(--text-main); }
+        .tab-btn.active { background: var(--header-border); color: white; }
+        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
         h3 { color: var(--text-muted); margin-top: 25px; }
 
         .snapshot-table { width: auto !important; margin: 10px 0; font-size: 0.9em; }
@@ -701,6 +778,13 @@ sed -E 's/\*\*([^*]+)\*\*/<b>\1<\/b>/g' | \
 sed -E 's/`([^`]+)`/<code>\1<\/code>/g' | \
 awk '
 BEGIN { in_table=0; in_code=0 }
+/<h2>6. Compute Resources/ {
+    if (in_table) { print "</table>"; in_table=0 }
+    print "</div>"
+    print "<div id=\"tab-compute\" class=\"tab-content\">"
+    print $0
+    next
+}
 /^```/ { 
     if (in_code) { print "</pre>"; in_code=0 } 
     else { print "<pre>"; in_code=1 } 
@@ -742,7 +826,7 @@ BEGIN { in_table=0; in_code=0 }
     if (!in_code) print "<p>" $0 "</p>"
     else print $0
 }
-END { if (in_table) print "</table>" }
+END { if (in_table) print "</table>"; print "</div>" }
 ' >> "$HTML_FILE"
 
 # Prepare Chart Data JS
@@ -877,6 +961,20 @@ cat <<'EOF' >> "$HTML_FILE"
             const next = current === 'dark' ? 'light' : 'dark';
             html.setAttribute('data-theme', next);
             localStorage.setItem('theme', next);
+        }
+        
+        function openTab(tabName) {
+            var contents = document.getElementsByClassName("tab-content");
+            for (var i = 0; i < contents.length; i++) {
+                contents[i].className = contents[i].className.replace(" active", "");
+            }
+            var btns = document.getElementsByClassName("tab-btn");
+            for (var i = 0; i < btns.length; i++) {
+                btns[i].className = btns[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            setTimeout(function() { document.getElementById(tabName).className += " active"; }, 10);
+            document.getElementById("btn-" + tabName).className += " active";
         }
 
         function toggleLang() {
