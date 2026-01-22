@@ -606,15 +606,16 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             read -r _ u_cpu u_cpu_pct u_mem u_mem_pct <<< $(grep "$node" "$TEMP_DIR/nodes_usage.txt" || echo "0 0m 0% 0Mi 0%")
             
             # Capacity (from json) - simplified
-            # cap_cpu=$(jq -r --arg n "$node" '.items[] | select(.metadata.name==$n) | .status.capacity.cpu' "$TEMP_DIR/nodes_capacity.json")
-            # cap_mem=$(jq -r --arg n "$node" '.items[] | select(.metadata.name==$n) | .status.capacity.memory' "$TEMP_DIR/nodes_capacity.json")
+            # cap_cpu=$(jq -r --arg n "$node" ".items[] | select(.metadata.name==$n) | .status.capacity.cpu" "$TEMP_DIR/nodes_capacity.json")
+            # cap_mem=$(jq -r --arg n "$node" ".items[] | select(.metadata.name==$n) | .status.capacity.memory" "$TEMP_DIR/nodes_capacity.json")
 
             # Requests/Limits (Sum from Pods)
-            cpu_stats=$(jq -r --arg n "$node" '[.items[] | select(.spec.nodeName==$n) | .spec.containers[]?.resources.requests.cpu // "0"] | map(if endswith("m") then tonumber else (tonumber? * 1000) end) | add' "$TEMP_DIR/pods_resources.json")
-            cpu_lims=$(jq -r --arg n "$node" '[.items[] | select(.spec.nodeName==$n) | .spec.containers[]?.resources.limits.cpu // "0"] | map(if endswith("m") then tonumber else (tonumber? * 1000) end) | add' "$TEMP_DIR/pods_resources.json")
+            # Refined jq with fallback to 0 and improved unit parsing
+            cpu_stats=$(jq -r --arg n "$node" "[.items[] | select(.spec.nodeName==\$n) | .spec.containers[]?.resources.requests.cpu // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"m\") then (sub(\"m\"; \"\") | tonumber) else (tonumber? * 1000 // 0) end) | add // 0" "$TEMP_DIR/pods_resources.json")
+            cpu_lims=$(jq -r --arg n "$node" "[.items[] | select(.spec.nodeName==\$n) | .spec.containers[]?.resources.limits.cpu // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"m\") then (sub(\"m\"; \"\") | tonumber) else (tonumber? * 1000 // 0) end) | add // 0" "$TEMP_DIR/pods_resources.json")
             
-            mem_stats=$(jq -r --arg n "$node" '[.items[] | select(.spec.nodeName==$n) | .spec.containers[]?.resources.requests.memory // "0"] | map(if endswith("Gi") then (tonumber * 1024) elif endswith("Mi") then tonumber elif endswith("Ki") then (tonumber / 1024) else 0 end) | add' "$TEMP_DIR/pods_resources.json")
-            mem_lims=$(jq -r --arg n "$node" '[.items[] | select(.spec.nodeName==$n) | .spec.containers[]?.resources.limits.memory // "0"] | map(if endswith("Gi") then (tonumber * 1024) elif endswith("Mi") then tonumber elif endswith("Ki") then (tonumber / 1024) else 0 end) | add' "$TEMP_DIR/pods_resources.json")
+            mem_stats=$(jq -r --arg n "$node" "[.items[] | select(.spec.nodeName==\$n) | .spec.containers[]?.resources.requests.memory // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"Gi\") then (sub(\"Gi\"; \"\") | tonumber * 1024) elif endswith(\"Mi\") then (sub(\"Mi\"; \"\") | tonumber) elif endswith(\"Ki\") then (sub(\"Ki\"; \"\") | tonumber / 1024) else 0 end) | add // 0" "$TEMP_DIR/pods_resources.json")
+            mem_lims=$(jq -r --arg n "$node" "[.items[] | select(.spec.nodeName==\$n) | .spec.containers[]?.resources.limits.memory // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"Gi\") then (sub(\"Gi\"; \"\") | tonumber * 1024) elif endswith(\"Mi\") then (sub(\"Mi\"; \"\") | tonumber) elif endswith(\"Ki\") then (sub(\"Ki\"; \"\") | tonumber / 1024) else 0 end) | add // 0" "$TEMP_DIR/pods_resources.json")
 
             # Format (CPU in m, Mem in Mi)
             cpu_req="${cpu_stats}m"
@@ -629,6 +630,16 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             if [ "$c_p" -gt 85 ] || [ "$m_p" -gt 85 ]; then icon="🔴"; elif [ "$c_p" -gt 70 ] || [ "$m_p" -gt 70 ]; then icon="🟡"; fi
 
             echo "| **$node** | $u_cpu ($u_cpu_pct) | R: $cpu_req / L: $cpu_lim | $u_mem ($u_mem_pct) | R: $mem_req / L: $mem_lim | $icon |"
+        done
+
+        # Detailed Pod Breakdown (New Section)
+        echo ""
+        echo "## 7. Detailed Pod Resource Breakdown"
+        echo "| Namespace | Pod Name | CPU Req | Mem Req | Node |"
+        echo "|---|---|---|---|---|"
+        jq -r ".items[] | \"\(.metadata.namespace)|\(.metadata.name)|\(.spec.containers[]?.resources.requests.cpu // \"0\")|\(.spec.containers[]?.resources.requests.memory // \"0\")|\(.spec.nodeName)\"" "$TEMP_DIR/pods_resources.json" | \
+        while IFS='|' read -r ns name cpu mem p_node; do
+            echo "| $ns | \`$name\` | $cpu | $mem | $p_node |"
         done
     else
         echo "| Scans failed | - | - | - | - | ❌ |"
@@ -763,9 +774,11 @@ cat <<EOF > "$HTML_FILE"
             <span id="report-date" data-timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)">$(date -u)</span>
         </div>
         
-        <div id="chart-section" style="margin-top: 30px; display:none;">
-            <h2>📊 Storage Distribution (Visual)</h2>
-            <div id="charts-area" class="chart-grid"></div>
+        <div class="tabs">
+            <button class="tab-btn active" id="btn-tab-storage" onclick="openTab('tab-storage')">Storage</button>
+            <button class="tab-btn" id="btn-tab-compute" onclick="openTab('tab-compute')">Compute (CPU/RAM)</button>
+        </div>
+
         </div>
 EOF
 
@@ -777,7 +790,14 @@ sed -E 's/^### (.*)/<h3>\1<\/h3>/' | \
 sed -E 's/\*\*([^*]+)\*\*/<b>\1<\/b>/g' | \
 sed -E 's/`([^`]+)`/<code>\1<\/code>/g' | \
 awk '
-BEGIN { in_table=0; in_code=0 }
+BEGIN { 
+    print "<div id=\"tab-storage\" class=\"tab-content active\">";
+    print "<div id=\"chart-section\" style=\"margin-top: 30px; display:none;\">";
+    print "<h2>📊 Storage Distribution (Visual)</h2>";
+    print "<div id=\"charts-area\" class=\"chart-grid\"></div>";
+    print "</div>";
+    in_table=0; in_code=0 
+}
 /<h2>6. Compute Resources/ {
     if (in_table) { print "</table>"; in_table=0 }
     print "</div>"
@@ -964,17 +984,24 @@ cat <<'EOF' >> "$HTML_FILE"
         }
         
         function openTab(tabName) {
-            var contents = document.getElementsByClassName("tab-content");
-            for (var i = 0; i < contents.length; i++) {
-                contents[i].className = contents[i].className.replace(" active", "");
+            const contents = document.getElementsByClassName("tab-content");
+            for (let content of contents) {
+                content.style.display = "none";
+                content.classList.remove("active");
             }
-            var btns = document.getElementsByClassName("tab-btn");
-            for (var i = 0; i < btns.length; i++) {
-                btns[i].className = btns[i].className.replace(" active", "");
+            const btns = document.getElementsByClassName("tab-btn");
+            for (let btn of btns) {
+                btn.classList.remove("active");
             }
-            document.getElementById(tabName).style.display = "block";
-            setTimeout(function() { document.getElementById(tabName).className += " active"; }, 10);
-            document.getElementById("btn-" + tabName).className += " active";
+            
+            const target = document.getElementById(tabName);
+            if (target) {
+                target.style.display = "block";
+                setTimeout(() => target.classList.add("active"), 10);
+            }
+            
+            const btn = document.getElementById("btn-" + tabName);
+            if (btn) btn.classList.add("active");
         }
 
         function toggleLang() {
@@ -1213,6 +1240,9 @@ cat <<'EOF' >> "$HTML_FILE"
                 
                 // Render Charts
                 renderCharts();
+
+                // Open default tab
+                openTab('tab-storage');
             }, 50);
         })();
     </script>
