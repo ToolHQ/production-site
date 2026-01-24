@@ -588,6 +588,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     # Helper to convert to millicores/Mi
     to_milli() {
         val=$1
+        if [[ -z "$val" || "$val" == "null" || "$val" == "0" ]]; then echo "0"; return; fi
         if [[ "$val" == *"m" ]]; then echo "${val%m}"; 
         elif [[ "$val" =~ ^[0-9]+$ ]]; then echo "$((val * 1000))";
         else echo "0"; fi
@@ -595,10 +596,17 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     
     to_mi() {
         val=$1
+        if [[ -z "$val" || "$val" == "null" || "$val" == "0" ]]; then echo "0"; return; fi
         if [[ "$val" == *"Ki" ]]; then echo $(( ${val%Ki} / 1024 ));
         elif [[ "$val" == *"Mi" ]]; then echo "${val%Mi}"; 
         elif [[ "$val" == *"Gi" ]]; then echo $(( ${val%Gi} * 1024 ));
+        elif [[ "$val" =~ ^[0-9]+$ ]]; then echo $(( val / 1024 / 1024 ));
         else echo "0"; fi
+    }
+
+    format_limit() {
+        val=$1; unit=$2
+        if [[ "$val" == "0" ]]; then echo "∞"; else echo "${val}${unit}"; fi
     }
 
     if [ -f "$TEMP_DIR/nodes_usage.txt" ] && [ -f "$TEMP_DIR/pods_resources.json" ]; then
@@ -607,23 +615,25 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             k8s_node_name="${node#oci-}"
             read -r _ u_cpu u_cpu_pct u_mem u_mem_pct <<< $(grep "$k8s_node_name" "$TEMP_DIR/nodes_usage.txt" || echo "0 0m 0% 0Mi 0%")
             
-            # Capacity (from json) - simplified
-            # cap_cpu=$(jq -r --arg n "$node" ".items[] | select(.metadata.name==$n) | .status.capacity.cpu" "$TEMP_DIR/nodes_capacity.json")
-            # cap_mem=$(jq -r --arg n "$node" ".items[] | select(.metadata.name==$n) | .status.capacity.memory" "$TEMP_DIR/nodes_capacity.json")
+            # Node Capacity (Allocatable)
+            cap_cpu=$(jq -r --arg n "$k8s_node_name" '.items[] | select(.metadata.name==$n) | .status.allocatable.cpu' "$TEMP_DIR/nodes_capacity.json")
+            cap_mem=$(jq -r --arg n "$k8s_node_name" '.items[] | select(.metadata.name==$n) | .status.allocatable.memory' "$TEMP_DIR/nodes_capacity.json")
+            cap_cpu_m=$(to_milli "$cap_cpu")
+            cap_mem_mi=$(to_mi "$cap_mem")
 
-            # Requests/Limits (Sum from Pods)
-            # Use k8s_node_name for pod aggregation
-            cpu_stats=$(jq -r --arg n "$k8s_node_name" "[.items[] | select(.spec.nodeName==\$n) | .spec.containers[]?.resources.requests.cpu // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"m\") then (sub(\"m\"; \"\") | tonumber) else (tonumber? * 1000 // 0) end) | add // 0" "$TEMP_DIR/pods_resources.json")
-            cpu_lims=$(jq -r --arg n "$k8s_node_name" "[.items[] | select(.spec.nodeName==\$n) | .spec.containers[]?.resources.limits.cpu // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"m\") then (sub(\"m\"; \"\") | tonumber) else (tonumber? * 1000 // 0) end) | add // 0" "$TEMP_DIR/pods_resources.json")
+            # Requests/Limits (Sum from non-terminated Pods)
+            # Use k8s_node_name for pod aggregation and filter out ended pods
+            cpu_stats=$(jq -r --arg n "$k8s_node_name" "[.items[] | select(.spec.nodeName==\$n and .status.phase!=\"Succeeded\" and .status.phase!=\"Failed\") | .spec.containers[]?.resources.requests.cpu // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"m\") then (sub(\"m\"; \"\") | tonumber) else (tonumber? * 1000 // 0) end) | add // 0" "$TEMP_DIR/pods_resources.json")
+            cpu_lims=$(jq -r --arg n "$k8s_node_name" "[.items[] | select(.spec.nodeName==\$n and .status.phase!=\"Succeeded\" and .status.phase!=\"Failed\") | .spec.containers[]?.resources.limits.cpu // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"m\") then (sub(\"m\"; \"\") | tonumber) else (tonumber? * 1000 // 0) end) | add // 0" "$TEMP_DIR/pods_resources.json")
             
-            mem_stats=$(jq -r --arg n "$k8s_node_name" "[.items[] | select(.spec.nodeName==\$n) | .spec.containers[]?.resources.requests.memory // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"Gi\") then (sub(\"Gi\"; \"\") | tonumber * 1024) elif endswith(\"Mi\") then (sub(\"Mi\"; \"\") | tonumber) elif endswith(\"Ki\") then (sub(\"Ki\"; \"\") | tonumber / 1024) else 0 end) | add // 0" "$TEMP_DIR/pods_resources.json")
-            mem_lims=$(jq -r --arg n "$k8s_node_name" "[.items[] | select(.spec.nodeName==\$n) | .spec.containers[]?.resources.limits.memory // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"Gi\") then (sub(\"Gi\"; \"\") | tonumber * 1024) elif endswith(\"Mi\") then (sub(\"Mi\"; \"\") | tonumber) elif endswith(\"Ki\") then (sub(\"Ki\"; \"\") | tonumber / 1024) else 0 end) | add // 0" "$TEMP_DIR/pods_resources.json")
+            mem_stats=$(jq -r --arg n "$k8s_node_name" "[.items[] | select(.spec.nodeName==\$n and .status.phase!=\"Succeeded\" and .status.phase!=\"Failed\") | .spec.containers[]?.resources.requests.memory // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"Gi\") then (sub(\"Gi\"; \"\") | tonumber * 1024) elif endswith(\"Mi\") then (sub(\"Mi\"; \"\") | tonumber) elif endswith(\"Ki\") then (sub(\"Ki\"; \"\") | tonumber / 1024) else 0 end) | add // 0" "$TEMP_DIR/pods_resources.json")
+            mem_lims=$(jq -r --arg n "$k8s_node_name" "[.items[] | select(.spec.nodeName==\$n and .status.phase!=\"Succeeded\" and .status.phase!=\"Failed\") | .spec.containers[]?.resources.limits.memory // \"0\"] | map(if . == \"0\" then 0 elif endswith(\"Gi\") then (sub(\"Gi\"; \"\") | tonumber * 1024) elif endswith(\"Mi\") then (sub(\"Mi\"; \"\") | tonumber) elif endswith(\"Ki\") then (sub(\"Ki\"; \"\") | tonumber / 1024) else 0 end) | add // 0" "$TEMP_DIR/pods_resources.json")
 
             # Format (CPU in m, Mem in Mi)
             cpu_req="${cpu_stats}m"
-            cpu_lim="${cpu_lims}m"
+            cpu_lim=$(format_limit "$cpu_lims" "m")
             mem_req="${mem_stats}Mi"
-            mem_lim="${mem_lims}Mi"
+            mem_lim=$(format_limit "$mem_lims" "Mi")
             
             # Status Icon (Based on CPU/Mem %)
             c_p=${u_cpu_pct%\%}
@@ -631,14 +641,14 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             icon="🟢"
             if [ "$c_p" -gt 85 ] || [ "$m_p" -gt 85 ]; then icon="🔴"; elif [ "$c_p" -gt 70 ] || [ "$m_p" -gt 70 ]; then icon="🟡"; fi
 
-            echo "| **$node** | $u_cpu ($u_cpu_pct) | R: $cpu_req / L: $cpu_lim | $u_mem ($u_mem_pct) | R: $mem_req / L: $mem_lim | $icon |"
+            echo "| **$node** | $u_cpu ($u_cpu_pct / ${cap_cpu_m}m) | R: $cpu_req / L: $cpu_lim | $u_mem ($u_mem_pct / ${cap_mem_mi}Mi) | R: $mem_req / L: $mem_lim | $icon |"
         done
 
-        # Detailed Pod Breakdown (Enhanced)
+        # Detailed Pod Breakdown (Enhanced with Status & Alarms)
         echo ""
         echo "## 7. Detailed Pod Resource Breakdown"
-        echo "| Namespace | Pod Name | CPU (Usage/Req/Lim) | Mem (Usage/Req/Lim) | Efficiency (U/R) | Node |"
-        echo "|---|---|---|---|---|---|"
+        echo "| Namespace | Pod Name | CPU (Usage/Req/Lim) | CPU Eff | Mem (Usage/Req/Lim) | Mem Eff | Status | Node |"
+        echo "|---|---|---|---|---|---|---|---|"
         
         # Build pod usage map
         declare -A pod_cpu_usage
@@ -648,25 +658,47 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             pod_mem_usage["$ns/$name"]="$mem"
         done < "$TEMP_DIR/pods_usage.txt"
 
-        jq -r ".items[] | \"\(.metadata.namespace)|\(.metadata.name)|\(.spec.nodeName)|\((.spec.containers[]?.resources.requests.cpu // \"0\"))|\((.spec.containers[]?.resources.requests.memory // \"0\"))|\((.spec.containers[]?.resources.limits.cpu // \"0\"))|\((.spec.containers[]?.resources.limits.memory // \"0\"))\"" "$TEMP_DIR/pods_resources.json" | \
-        while IFS='|' read -r ns name p_node c_req m_req c_lim m_lim; do
+        # Include ALL pods in Section 7 breakdown, but flag their status
+        jq -r '.items[] | 
+               [ .metadata.namespace, 
+                 .metadata.name, 
+                 .spec.nodeName,
+                 ([.spec.containers[]?.resources.requests.cpu // "0"] | map(if endswith("m") then (sub("m";"")|tonumber) else (tonumber? // 0) * 1000 end) | add // 0),
+                 ([.spec.containers[]?.resources.requests.memory // "0"] | map(if endswith("Gi") then (sub("Gi";"")|tonumber*1024) elif endswith("Mi") then (sub("Mi";"")|tonumber) elif endswith("Ki") then (sub("Ki";"")|tonumber/1024) else (tonumber? // 0) / 1024 / 1024 end) | add // 0),
+                 ([.spec.containers[]?.resources.limits.cpu // "0"] | map(if endswith("m") then (sub("m";"")|tonumber) else (tonumber? // 0) * 1000 end) | add // 0),
+                 ([.spec.containers[]?.resources.limits.memory // "0"] | map(if endswith("Gi") then (sub("Gi";"")|tonumber*1024) elif endswith("Mi") then (sub("Mi";"")|tonumber) elif endswith("Ki") then (sub("Ki";"")|tonumber/1024) else (tonumber? // 0) / 1024 / 1024 end) | add // 0),
+                 .status.phase
+               ] | join("|")' "$TEMP_DIR/pods_resources.json" | \
+        while IFS='|' read -r ns name p_node c_req_m m_req_mi c_lim_m m_lim_mi status; do
             u_cpu=${pod_cpu_usage["$ns/$name"]:-"0m"}
             u_mem=${pod_mem_usage["$ns/$name"]:-"0Mi"}
             
-            # Normalize for display
-            c_req_m=$(to_milli "$c_req")
-            c_lim_m=$(to_milli "$c_lim")
-            m_req_mi=$(to_mi "$m_req")
-            m_lim_mi=$(to_mi "$m_lim")
+            u_cpu_m=$(to_milli "$u_cpu")
+            u_mem_mi=$(to_mi "$u_mem")
 
-            # Efficiency Calculation
-            u_val=$(to_milli "$u_cpu")
-            eff_cpu="-"
-            if [ "$c_req_m" -gt 0 ]; then
-                eff_cpu="$(( (u_val * 100) / c_req_m ))%"
-            fi
+            # Alarms for missing config
+            c_alarm=""; if [ "$c_req_m" -eq 0 ] || [ "$c_lim_m" -eq 0 ]; then c_alarm="🚩 "; fi
+            m_alarm=""; if [ "$m_req_mi" -eq 0 ] || [ "$m_lim_mi" -eq 0 ]; then m_alarm="🚩 "; fi
 
-            echo "| $ns | \`$name\` | $u_cpu / ${c_req_m}m / ${c_lim_m}m | $u_mem / ${m_req_mi}Mi / ${m_lim_mi}Mi | CPU: $eff_cpu | $p_node |"
+            # CPU Efficiency (Usage/Request)
+            eff_cpu="-"; if [ "$c_req_m" -gt 0 ]; then eff_cpu="$(( (u_cpu_m * 100) / c_req_m ))%"; fi
+            c_icon="🟢"; if [[ "$eff_cpu" != "-" ]]; then if [ "${eff_cpu%\%}" -lt 5 ]; then c_icon="📉"; elif [ "${eff_cpu%\%}" -gt 90 ]; then c_icon="⚠️"; fi; fi
+            if [ -n "$c_alarm" ]; then c_icon="🚩"; fi
+
+            # Mem Efficiency (Usage/Request)
+            eff_mem="-"; if [ "$m_req_mi" -gt 0 ]; then eff_mem="$(( (u_mem_mi * 100) / m_req_mi ))%"; fi
+            m_icon="🟢"; if [[ "$eff_mem" != "-" ]]; then if [ "${eff_mem%\%}" -lt 10 ]; then m_icon="📉"; elif [ "${eff_mem%\%}" -gt 90 ]; then m_icon="⚠️"; fi; fi
+            if [ -n "$m_alarm" ]; then m_icon="🚩"; fi
+
+            # Format Limits for table
+            c_lim_label=$(format_limit "$c_lim_m" "m")
+            m_lim_label=$(format_limit "$m_lim_mi" "Mi")
+            
+            # Status badge logic
+            st_color="gray"; if [ "$status" == "Running" ]; then st_color="green"; elif [ "$status" == "Failed" ]; then st_color="red"; fi
+            st_label="<span style=\"color:$st_color\">$status</span>"
+
+            echo "| $ns | \`$name\` | ${c_alarm}${u_cpu} / ${c_req_m}m / $c_lim_label | $c_icon $eff_cpu | ${m_alarm}${u_mem} / ${m_req_mi}Mi / $m_lim_label | $m_icon $eff_mem | $st_label | $p_node |"
         done
     else
         echo "| Scans failed | - | - | - | - | ❌ |"
