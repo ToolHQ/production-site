@@ -653,12 +653,12 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             icon="🟢"
             if [ "$c_p" -gt 85 ] || [ "$m_p" -gt 85 ]; then icon="🔴"; elif [ "$c_p" -gt 70 ] || [ "$m_p" -gt 70 ]; then icon="🟡"; fi
 
-            # Ephemeral Storage from stats summary
+            # Ephemeral Storage from stats summary (Fallback to .node.fs if specialized key missing)
             if [ -f "$TEMP_DIR/node_stats_$k8s_node_name.json" ]; then
-                eph_used_b=$(jq -r '.node["ephemeral-storage"].usedBytes // 0' "$TEMP_DIR/node_stats_$k8s_node_name.json")
-                eph_total_b=$(jq -r '.node["ephemeral-storage"].capacityBytes // 0' "$TEMP_DIR/node_stats_$k8s_node_name.json")
-                eph_used_h=$(numfmt --to=iec "$eph_used_b")
-                eph_total_h=$(numfmt --to=iec "$eph_total_b")
+                eph_used_b=$(jq -r '.node["ephemeral-storage"].usedBytes // .node.fs.usedBytes // 0' "$TEMP_DIR/node_stats_$k8s_node_name.json")
+                eph_total_b=$(jq -r '.node["ephemeral-storage"].capacityBytes // .node.fs.capacityBytes // 0' "$TEMP_DIR/node_stats_$k8s_node_name.json")
+                eph_used_h=$(numfmt --to=iec "$eph_used_b" 2>/dev/null || echo "0B")
+                eph_total_h=$(numfmt --to=iec "$eph_total_b" 2>/dev/null || echo "0B")
                 eph_pct="0"
                 if [ "$eph_total_b" -gt 0 ]; then eph_pct=$(( (eph_used_b * 100) / eph_total_b )); fi
                 eph_label="$eph_used_h ($eph_pct% / $eph_total_h)"
@@ -688,9 +688,9 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
         for node in "${CLUSTER_NODES[@]}"; do
             k8s_node_name="${node#oci-}"
             if [ -f "$TEMP_DIR/node_stats_$k8s_node_name.json" ]; then
-                jq -r '.pods[] | "\(.podRef.namespace)/\(.podRef.name) \(.["ephemeral-storage"].usedBytes // 0)"' "$TEMP_DIR/node_stats_$k8s_node_name.json" | while read cp_key cp_used; do
+                while read -r cp_key cp_used; do
                     pod_eph_usage["$cp_key"]="$cp_used"
-                done
+                done < <(jq -r '.pods[] | "\(.podRef.namespace)/\(.podRef.name) \(.["ephemeral-storage"].usedBytes // 0)"' "$TEMP_DIR/node_stats_$k8s_node_name.json")
             fi
         done
 
@@ -711,7 +711,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             u_cpu=${pod_cpu_usage["$ns/$name"]:-"0m"}
             u_mem=${pod_mem_usage["$ns/$name"]:-"0Mi"}
             u_eph_b=${pod_eph_usage["$ns/$name"]:-"0"}
-            u_eph_mi=$(( u_eph_b / 1024 / 1024 ))
+            u_eph_h=$(numfmt --to=iec "$u_eph_b" 2>/dev/null || echo "0B")
             
             u_cpu_m=$(to_milli "$u_cpu")
             u_mem_mi=$(to_mi "$u_mem")
@@ -740,7 +740,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             st_color="gray"; if [ "$status" == "Running" ]; then st_color="green"; elif [ "$status" == "Failed" ]; then st_color="red"; fi
             st_label="<span style=\"color:$st_color\">$status</span>"
 
-            echo "| $ns | \`$name\` | ${c_alarm}${u_cpu} / ${c_req_m}m / $c_lim_label | $c_icon $eff_cpu | ${m_alarm}${u_mem} / ${m_req_mi}Mi / $m_lim_label | $m_icon $eff_mem | ${e_alarm}${u_eph_mi}Mi / ${e_req_mi}Mi / $e_lim_label | $st_label | $p_node |"
+            echo "| $ns | \`$name\` | ${c_alarm}${u_cpu} / ${c_req_m}m / $c_lim_label | $c_icon $eff_cpu | ${m_alarm}${u_mem} / ${m_req_mi}Mi / $m_lim_label | $m_icon $eff_mem | ${e_alarm}${u_eph_h} / ${e_req_mi}Mi / $e_lim_label | $st_label | $p_node |"
         done
     else
         echo "| Scans failed | - | - | - | - | ❌ |"
