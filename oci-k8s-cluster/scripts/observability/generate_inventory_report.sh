@@ -972,6 +972,54 @@ BEGIN {
     print "</div>";
     in_table=0; in_code=0 
 }
+# Helper to extract sort value
+function get_sort_val(str) {
+    # 0. Clean HTML tags (e.g. spans with titles)
+    # Use global sub to match <...>
+    clean_html = str
+    gsub(/<[^>]+>/, "", clean_html)
+
+    # 1. Handle Multi-value (Usage / Req / Lim) - Take first part only!
+    split(clean_html, parts, /[\/()]/)
+    clean = parts[1]
+    
+    # 2. Handle Infinity
+    if (clean ~ /∞/) return "Infinity"
+    if (clean ~ /^[ \t-]*$/) return "-1"
+    
+    # 3. Extract number and unit
+    # Remove markdown **, _
+    gsub(/[*_`]/, "", clean)
+    # Remove leading icons/spaces until a number appears
+    sub(/^[^0-9-]*/, "", clean)
+    
+    # Match number
+    match(clean, /^-?[0-9]+([.][0-9]+)?/)
+    if (RSTART == 0) return "-1"
+    val = substr(clean, RSTART, RLENGTH)
+    
+    # Get Unit (rest of string after number)
+    rest = substr(clean, RSTART + RLENGTH)
+    # Trim leading space from unit
+    sub(/^[ \t]+/, "", rest)
+    # Extract just the unit part (letters/%/trailing stuff)
+    match(rest, /^[a-zA-Z%]+/)
+    unit = substr(rest, RSTART, RLENGTH)
+    
+    # Scale
+    num = val + 0
+    if (unit == "m") return num * 0.001
+    
+    u = tolower(unit)
+    if (index(u, "k") == 1) return num * 1024
+    if (index(u, "m") == 1) return num * 1048576
+    if (index(u, "g") == 1) return num * 1073741824
+    if (index(u, "t") == 1) return num * 1099511627776
+    if (index(u, "p") == 1) return num * 1125899906842624
+    
+    return num
+}
+
 /<h2>6. Compute Resources/ {
     if (in_table) { print "</table>"; in_table=0 }
     print "</div>"
@@ -992,7 +1040,7 @@ BEGIN {
         n=split($0, a, "|")
         for (i=2; i<n; i++) {
              gsub(/^ +| +$/, "", a[i])
-             print "<th><div class=\"filter-header\" onclick=\"sortTable(" i-2 ", this)\">"
+             print "<th><div class=\"filter-header\">"
              print "<span data-i18n=\"" a[i] "\">" a[i] "</span>"
              print "</div>"
              print "<select class=\"filter-select\" onchange=\"filterTable(this, " i-2 ")\" onclick=\"event.stopPropagation()\"><option value=\"\" data-i18n=\"All\">All</option></select></th>" 
@@ -1004,7 +1052,8 @@ BEGIN {
         n=split($0, a, "|")
         for (i=2; i<n; i++) {
             gsub(/^ +| +$/, "", a[i])
-            print "<td>" a[i] "</td>" 
+            sort_val = get_sort_val(a[i])
+            print "<td data-sort-value=\"" sort_val "\">" a[i] "</td>" 
         }
         print "</tr>"
     }
@@ -1013,7 +1062,7 @@ BEGIN {
 /^\+/ {
     # Detail Row (Deep Dive)
     # Remove "+ " prefix and inject raw HTML into a colspan row
-    print "<tr><td colspan=\"9\" style=\"padding:0; border-top:none;\">" substr($0, 3) "</td></tr>"
+    print "<tr class=\"detail-row\"><td colspan=\"9\" style=\"padding:0; border-top:none;\">" substr($0, 3) "</td></tr>"
     next
 }
 { 
@@ -1132,51 +1181,77 @@ cat <<'EOF' >> "$HTML_FILE"
 
         /* Sorting Logic */
         function sortTable(n, header) {
-            const th = header.closest("th");
-            const table = th.closest("table");
+            const table = header.closest("table");
             const tbody = table.querySelector("tbody");
-            const rows = Array.from(tbody.rows).filter(r => r.cells.length > 1); // Skip summary/detail rows
-            const isAsc = !th.classList.contains("asc");
+            const isAsc = !header.classList.contains("asc");
             
-            // Reset icons
-            table.querySelectorAll("th").forEach(t => t.classList.remove("asc", "desc"));
-            th.classList.toggle("asc", isAsc);
-            th.classList.toggle("desc", !isAsc);
-            
-            function parseSize(str) {
-                const units = { 'K': 1024, 'M': 1024**2, 'G': 1024**3, 'T': 1024**4, 'P': 1024**5 };
-                const match = str.match(/([\d\.]+)\s*([KMGTP])B?$/i);
-                if (match) return parseFloat(match[1]) * units[match[2].toUpperCase()];
-                if (!isNaN(parseFloat(str))) return parseFloat(str);
-                return 0;
-            }
-            
-            const isSize = (str) => /[\d\.]+\s*[KMGTP]B?$/i.test(str.trim());
-            const isPercent = (str) => /[\d\.]+\s*%$/i.test(str.trim());
-
-            rows.sort((rA, rB) => {
-                let cellA = rA.cells[n].innerText.trim();
-                let cellB = rB.cells[n].innerText.trim();
-                
-                let valA, valB;
-                if (isSize(cellA) && isSize(cellB)) {
-                    valA = parseSize(cellA); valB = parseSize(cellB);
-                } else if (isPercent(cellA) && isPercent(cellB)) {
-                    valA = parseFloat(cellA); valB = parseFloat(cellB);
-                } else if (!isNaN(Date.parse(cellA)) && !isNaN(Date.parse(cellB)) && cellA.length > 5) {
-                    valA = new Date(cellA); valB = new Date(cellB);
-                } else if (!isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB))) {
-                    valA = parseFloat(cellA); valB = parseFloat(cellB);
-                } else {
-                    valA = cellA.toLowerCase(); valB = cellB.toLowerCase();
+            // 1. Unified Parser using server-side attributes
+            function getSortValue(cell) {
+                // If data-sort-value exists (generated by AWK), use it directly!
+                if (cell.dataset.sortValue) {
+                    const attrVal = cell.dataset.sortValue;
+                    if (attrVal === "Infinity") return Infinity;
+                    const num = parseFloat(attrVal);
+                    // Use attribute if valid number, otherwise fall back to text
+                    if (!isNaN(num)) return num;
                 }
                 
-                if (valA < valB) return isAsc ? -1 : 1;
-                if (valA > valB) return isAsc ? 1 : -1;
-                return 0;
+                // Fallback for columns without calculated values (e.g. text columns)
+                const text = cell.innerText.trim();
+                if (!text || text === "-") return -1;
+                return text.toLowerCase();
+            }
+
+            // 2. Group Rows
+            const groups = [];
+            let currentGroup = null;
+            Array.from(tbody.rows).forEach(row => {
+                if (row.classList.contains("detail-row")) {
+                    if (currentGroup) currentGroup.details.push(row);
+                    else groups.push({ main: row, details: [], isOrphan: true });
+                } else {
+                    currentGroup = { main: row, details: [], sortValue: getSortValue(row.cells[n]) };
+                    groups.push(currentGroup);
+                }
             });
+
+            // 3. Sort Groups
+            groups.sort((a, b) => {
+                if (a.isOrphan || b.isOrphan) return 0;
+                const vA = a.sortValue;
+                const vB = b.sortValue;
+                
+                let res = 0;
+                if (typeof vA === 'number' && typeof vB === 'number') {
+                    res = vA - vB;
+                } else {
+                    res = String(vA).localeCompare(String(vB));
+                }
+                return isAsc ? res : -res;
+            });
+
+            // 4. Update UI & Appending
+            table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
+            header.classList.toggle("asc", isAsc);
+            header.classList.toggle("desc", !isAsc);
             
-            tbody.append(...rows);
+            groups.forEach(g => {
+                tbody.appendChild(g.main);
+                g.details.forEach(d => tbody.appendChild(d));
+            });
+        }
+
+        function initTables() {
+            const tables = document.querySelectorAll("table");
+            tables.forEach(table => {
+                table.classList.add("sortable-table");
+                const headers = table.querySelectorAll("th");
+                headers.forEach((th, i) => {
+                    th.style.cursor = "pointer";
+                    th.title = "Click to sort";
+                    th.addEventListener("click", () => sortTable(i, th));
+                });
+            });
         }
 
         /* Filter & Search Logic */
@@ -1515,10 +1590,13 @@ cat <<'EOF' >> "$HTML_FILE"
                 
                 // Render Charts
                 renderCharts();
-
+                
+                // Initialize Tables (Sorting)
+                initTables();
+ 
                 // Populate filters
                 populateFilters();
-
+ 
                 // Open default tab
                 openTab('tab-storage');
             }, 50);
