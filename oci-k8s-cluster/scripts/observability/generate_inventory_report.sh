@@ -35,6 +35,18 @@ scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/nodes_capacity.json" "$TEM
 scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/pods_resources.json" "$TEMP_DIR/pods_resources.json"
 scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/pods_usage.txt" "$TEMP_DIR/pods_usage.txt"
 
+# Fetch Node Statistics (for ephemeral storage usage)
+echo -e "   [master] Fetching Node Statistics..."
+for node in "${CLUSTER_NODES[@]}"; do
+    k8s_node_name="${node#oci-}"
+    ssh -T -o StrictHostKeyChecking=no "$MASTER_NODE" "kubectl get --raw /api/v1/nodes/$k8s_node_name/proxy/stats/summary > /tmp/node_stats_$k8s_node_name.json" 2>/dev/null &
+done
+wait
+for node in "${CLUSTER_NODES[@]}"; do
+    k8s_node_name="${node#oci-}"
+    scp -q -o StrictHostKeyChecking=no "$MASTER_NODE:/tmp/node_stats_$k8s_node_name.json" "$TEMP_DIR/node_stats_$k8s_node_name.json"
+done
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -581,9 +593,9 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     # 6. Compute Resources (CPU/RAM)
     # --------------------------------------------------------------------------
     echo ""
-    echo "## 6. Compute Resources (CPU/RAM)"
-    echo "| Node | CPU Usage | CPU Req/Lim | Mem Usage | Mem Req/Lim | Status |"
-    echo "|---|---|---|---|---|---|"
+    echo "## 6. Compute Resources (CPU/RAM/Disk)"
+    echo "| Node | CPU Usage | CPU Req/Lim | Mem Usage | Mem Req/Lim | Eph. Disk | Status |"
+    echo "|---|---|---|---|---|---|---|"
     
     # Helper to convert to millicores/Mi
     to_milli() {
@@ -641,22 +653,46 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             icon="🟢"
             if [ "$c_p" -gt 85 ] || [ "$m_p" -gt 85 ]; then icon="🔴"; elif [ "$c_p" -gt 70 ] || [ "$m_p" -gt 70 ]; then icon="🟡"; fi
 
-            echo "| **$node** | $u_cpu ($u_cpu_pct / ${cap_cpu_m}m) | R: $cpu_req / L: $cpu_lim | $u_mem ($u_mem_pct / ${cap_mem_mi}Mi) | R: $mem_req / L: $mem_lim | $icon |"
+            # Ephemeral Storage from stats summary
+            if [ -f "$TEMP_DIR/node_stats_$k8s_node_name.json" ]; then
+                eph_used_b=$(jq -r '.node["ephemeral-storage"].usedBytes // 0' "$TEMP_DIR/node_stats_$k8s_node_name.json")
+                eph_total_b=$(jq -r '.node["ephemeral-storage"].capacityBytes // 0' "$TEMP_DIR/node_stats_$k8s_node_name.json")
+                eph_used_h=$(numfmt --to=iec "$eph_used_b")
+                eph_total_h=$(numfmt --to=iec "$eph_total_b")
+                eph_pct="0"
+                if [ "$eph_total_b" -gt 0 ]; then eph_pct=$(( (eph_used_b * 100) / eph_total_b )); fi
+                eph_label="$eph_used_h ($eph_pct% / $eph_total_h)"
+            else
+                eph_label="-"
+            fi
+
+            echo "| **$node** | $u_cpu ($u_cpu_pct / ${cap_cpu_m}m) | R: $cpu_req / L: $cpu_lim | $u_mem ($u_mem_pct / ${cap_mem_mi}Mi) | R: $mem_req / L: $mem_lim | $eph_label | $icon |"
         done
 
         # Detailed Pod Breakdown (Enhanced with Status & Alarms)
         echo ""
         echo "## 7. Detailed Pod Resource Breakdown"
-        echo "| Namespace | Pod Name | CPU (Usage/Req/Lim) | CPU Eff | Mem (Usage/Req/Lim) | Mem Eff | Status | Node |"
-        echo "|---|---|---|---|---|---|---|---|"
+        echo "| Namespace | Pod Name | CPU (Usage/Req/Lim) | CPU Eff | Mem (Usage/Req/Lim) | Mem Eff | Eph. Disk (Usage/Req/Lim) | Status | Node |"
+        echo "|---|---|---|---|---|---|---|---|---|"
         
         # Build pod usage map
         declare -A pod_cpu_usage
         declare -A pod_mem_usage
+        declare -A pod_eph_usage
         while read -r ns name cpu mem; do
             pod_cpu_usage["$ns/$name"]="$cpu"
             pod_mem_usage["$ns/$name"]="$mem"
         done < "$TEMP_DIR/pods_usage.txt"
+
+        # Extract Ephemeral Usage from node stats
+        for node in "${CLUSTER_NODES[@]}"; do
+            k8s_node_name="${node#oci-}"
+            if [ -f "$TEMP_DIR/node_stats_$k8s_node_name.json" ]; then
+                jq -r '.pods[] | "\(.podRef.namespace)/\(.podRef.name) \(.["ephemeral-storage"].usedBytes // 0)"' "$TEMP_DIR/node_stats_$k8s_node_name.json" | while read cp_key cp_used; do
+                    pod_eph_usage["$cp_key"]="$cp_used"
+                done
+            fi
+        done
 
         # Include ALL pods in Section 7 breakdown, but flag their status
         jq -r '.items[] | 
@@ -667,11 +703,15 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                  ([.spec.containers[]?.resources.requests.memory // "0"] | map(if endswith("Gi") then (sub("Gi";"")|tonumber*1024) elif endswith("Mi") then (sub("Mi";"")|tonumber) elif endswith("Ki") then (sub("Ki";"")|tonumber/1024) else (tonumber? // 0) / 1024 / 1024 end) | add // 0),
                  ([.spec.containers[]?.resources.limits.cpu // "0"] | map(if endswith("m") then (sub("m";"")|tonumber) else (tonumber? // 0) * 1000 end) | add // 0),
                  ([.spec.containers[]?.resources.limits.memory // "0"] | map(if endswith("Gi") then (sub("Gi";"")|tonumber*1024) elif endswith("Mi") then (sub("Mi";"")|tonumber) elif endswith("Ki") then (sub("Ki";"")|tonumber/1024) else (tonumber? // 0) / 1024 / 1024 end) | add // 0),
+                 ([.spec.containers[]?.resources.requests["ephemeral-storage"] // "0"] | map(if endswith("Gi") then (sub("Gi";"")|tonumber*1024) elif endswith("Mi") then (sub("Mi";"")|tonumber) elif endswith("Ki") then (sub("Ki";"")|tonumber/1024) else (tonumber? // 0) / 1024 / 1024 end) | add // 0),
+                 ([.spec.containers[]?.resources.limits["ephemeral-storage"] // "0"] | map(if endswith("Gi") then (sub("Gi";"")|tonumber*1024) elif endswith("Mi") then (sub("Mi";"")|tonumber) elif endswith("Ki") then (sub("Ki";"")|tonumber/1024) else (tonumber? // 0) / 1024 / 1024 end) | add // 0),
                  .status.phase
                ] | join("|")' "$TEMP_DIR/pods_resources.json" | \
-        while IFS='|' read -r ns name p_node c_req_m m_req_mi c_lim_m m_lim_mi status; do
+        while IFS='|' read -r ns name p_node c_req_m m_req_mi c_lim_m m_lim_mi e_req_mi e_lim_mi status; do
             u_cpu=${pod_cpu_usage["$ns/$name"]:-"0m"}
             u_mem=${pod_mem_usage["$ns/$name"]:-"0Mi"}
+            u_eph_b=${pod_eph_usage["$ns/$name"]:-"0"}
+            u_eph_mi=$(( u_eph_b / 1024 / 1024 ))
             
             u_cpu_m=$(to_milli "$u_cpu")
             u_mem_mi=$(to_mi "$u_mem")
@@ -679,6 +719,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             # Alarms for missing config
             c_alarm=""; if [ "$c_req_m" -eq 0 ] || [ "$c_lim_m" -eq 0 ]; then c_alarm="🚩 "; fi
             m_alarm=""; if [ "$m_req_mi" -eq 0 ] || [ "$m_lim_mi" -eq 0 ]; then m_alarm="🚩 "; fi
+            e_alarm=""; if [ "$e_req_mi" -eq 0 ] || [ "$e_lim_mi" -eq 0 ]; then e_alarm="🚩 "; fi
 
             # CPU Efficiency (Usage/Request)
             eff_cpu="-"; if [ "$c_req_m" -gt 0 ]; then eff_cpu="$(( (u_cpu_m * 100) / c_req_m ))%"; fi
@@ -693,12 +734,13 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             # Format Limits for table
             c_lim_label=$(format_limit "$c_lim_m" "m")
             m_lim_label=$(format_limit "$m_lim_mi" "Mi")
+            e_lim_label=$(format_limit "$e_lim_mi" "Mi")
             
             # Status badge logic
             st_color="gray"; if [ "$status" == "Running" ]; then st_color="green"; elif [ "$status" == "Failed" ]; then st_color="red"; fi
             st_label="<span style=\"color:$st_color\">$status</span>"
 
-            echo "| $ns | \`$name\` | ${c_alarm}${u_cpu} / ${c_req_m}m / $c_lim_label | $c_icon $eff_cpu | ${m_alarm}${u_mem} / ${m_req_mi}Mi / $m_lim_label | $m_icon $eff_mem | $st_label | $p_node |"
+            echo "| $ns | \`$name\` | ${c_alarm}${u_cpu} / ${c_req_m}m / $c_lim_label | $c_icon $eff_cpu | ${m_alarm}${u_mem} / ${m_req_mi}Mi / $m_lim_label | $m_icon $eff_mem | ${e_alarm}${u_eph_mi}Mi / ${e_req_mi}Mi / $e_lim_label | $st_label | $p_node |"
         done
     else
         echo "| Scans failed | - | - | - | - | ❌ |"
@@ -746,27 +788,70 @@ cat <<EOF > "$HTML_FILE"
             --code-bg: #444444;
         }
 
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: var(--bg-body); color: var(--text-main); transition: background 0.3s; }
-        .container { background: var(--bg-container); padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1000px; margin: 0 auto; position: relative; }
+        body { 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            line-height: 1.5; 
+            background: var(--bg-body); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 0; 
+            display: flex;
+            justify-content: center;
+        }
+        .container { 
+            max-width: 1400px; 
+            width: 100%;
+            margin: 40px 20px;
+            background: var(--bg-container); 
+            padding: 40px 60px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12); 
+            border: 1px solid var(--border-color);
+            position: relative;
+        }
         
-        /* Settings Toggle */
-        .settings-panel { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; }
-        .btn-toggle { background: transparent; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 20px; cursor: pointer; color: var(--text-main); font-size: 1.1em; transition: all 0.2s; }
-        .btn-toggle:hover { background: var(--row-hover); transform: scale(1.1); }
+        /* Header & Navigation Area */
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--header-border);
+            padding-bottom: 20px;
+        }
+        .header-left h1 { margin: 0 0 10px 0; border: none; padding: 0; }
+        .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 15px; }
 
-        h1 { color: var(--text-main); border-bottom: 2px solid var(--header-border); padding-bottom: 15px; }
-        h2 { color: var(--header-border); margin-top: 35px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
-        
-        /* Tabs */
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
-        .tab-btn { background: transparent; border: none; padding: 10px 20px; font-size: 1.1em; cursor: pointer; color: var(--text-muted); border-radius: 6px; transition: all 0.2s; font-weight: 600; }
-        .tab-btn:hover { background: var(--row-hover); color: var(--text-main); }
-        .tab-btn.active { background: var(--header-border); color: white; }
-        .tab-content { display: none; animation: fadeIn 0.3s; }
-        .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .settings-panel { display: flex; gap: 12px; }
+        .btn-toggle { background: var(--bg-body); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 20px; cursor: pointer; color: var(--text-main); font-size: 1em; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .btn-toggle:hover { background: var(--th-bg); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 
-        h3 { color: var(--text-muted); margin-top: 25px; }
+        /* Tabs Redesign */
+        .tabs { display: flex; gap: 15px; margin-bottom: 0; border: none; padding: 0; }
+        .tab-btn { background: var(--bg-body); border: 1px solid var(--border-color); padding: 12px 24px; font-size: 1.05em; cursor: pointer; color: var(--text-muted); border-radius: 10px; transition: all 0.3s; font-weight: 600; }
+        .tab-btn:hover { background: var(--th-bg); color: var(--text-main); }
+        .tab-btn.active { background: var(--header-border); color: white; border-color: var(--header-border); box-shadow: 0 4px 12px rgba(41, 128, 185, 0.3); }
+
+        /* Toolbar Area (Search + Extra Info) */
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 20px;
+            align-items: center;
+            background: var(--bg-body);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            border: 1px solid var(--border-color);
+        }
+        .search-box { position: relative; width: 100%; max-width: 500px; }
+        .search-box input { width: 100%; padding: 14px 20px 14px 50px; border: 1.5px solid var(--border-color); border-radius: 10px; background: var(--bg-container); color: var(--text-main); font-size: 1.05em; outline: none; transition: all 0.3s; }
+        .search-box input:focus { border-color: var(--header-border); box-shadow: 0 0 0 4px rgba(41, 128, 185, 0.15); }
+        .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1.25em; pointer-events: none; }
+        .match-info { font-size: 0.95em; color: var(--text-muted); font-weight: 500; text-align: right; }
+
+        h2 { color: var(--header-border); margin: 50px 0 20px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; font-size: 1.6em; }
+        h3 { color: var(--text-muted); margin-top: 35px; font-size: 1.3em; }
 
         .snapshot-table { width: auto !important; margin: 10px 0; font-size: 0.9em; }
 
@@ -818,41 +903,71 @@ cat <<EOF > "$HTML_FILE"
         
         details.node-details summary { cursor: pointer; color: var(--header-border); font-weight: 600; margin-bottom: 10px; user-select: none; }
         details.node-details summary:hover { text-decoration: underline; }
+
+        /* Search & Filter UI - Cleanup old classes */
+        .filter-select { font-size: 0.8em; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-main); margin-top: 10px; width: 100%; display: none; font-weight: normal; }
+        th:hover .filter-select { display: block; }
+
+        /* Legend Card Style */
+        .legend-footer { margin-top: 60px; padding: 30px; background: var(--bg-body); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: inset 0 2px 10px rgba(0,0,0,0.05); }
+        .legend-footer h3 { margin-top: 0; color: var(--header-border); font-size: 1.2em; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
+        .legend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; }
+        .legend-group-title { font-weight: 700; font-size: 0.85em; margin-bottom: 15px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .legend-item-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 0.9em; line-height: 1.4; }
+        .icon-box { font-size: 1.3em; min-width: 30px; text-align: center; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
-        <div class="settings-panel">
-             <button class="btn-toggle" onclick="toggleLang()" title="Switch Language">🇧🇷/🇺🇸</button>
-             <button class="btn-toggle" onclick="toggleTheme()" title="Toggle Dark Mode">🌙/☀️</button>
-        </div>
-        <!-- Raw timestamp for JS -->
-        <div class="timestamp">
-            <span data-original="Generated:">Generated:</span> 
-            <span id="report-date" data-timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)">$(date -u)</span>
-        </div>
-        
-        <div class="tabs">
-            <button class="tab-btn active" id="btn-tab-storage" onclick="openTab('tab-storage')">Storage</button>
-            <button class="tab-btn" id="btn-tab-compute" onclick="openTab('tab-compute')">Compute (CPU/RAM)</button>
-        </div>
+        <header class="report-header">
+            <div class="header-left">
+                <h1 data-i18n="Storage Inventory Report">Storage Inventory Report</h1>
+                <div class="timestamp">
+                    <span data-i18n="Generated:">Generated:</span> 
+                    <span id="report-date" data-timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)">$(date -u)</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="settings-panel">
+                     <button class="btn-toggle" onclick="toggleLang()" title="Switch Language">🇧🇷 / 🇺🇸</button>
+                     <button class="btn-toggle" onclick="toggleTheme()" title="Toggle Dark Mode">🌙 / ☀️</button>
+                </div>
+                <nav class="tabs">
+                    <button id="btn-tab-storage" class="tab-btn active" onclick="openTab('tab-storage')" data-i18n="Storage">Storage</button>
+                    <button id="btn-tab-compute" class="tab-btn" onclick="openTab('tab-compute')" data-i18n="Compute (CPU/RAM/Disk)">Compute (CPU/RAM/Disk)</button>
+                </nav>
+            </div>
+        </header>
 
-        </div>
+        <section class="toolbar">
+            <div class="search-box">
+                <input type="text" id="global-search" onkeyup="globalSearch()" placeholder="Search in all tables..." data-i18n-placeholder="Search in all tables...">
+                <span class="search-icon">🔍</span>
+            </div>
+            <div id="match-count" class="match-info" data-i18n="Showing all rows">Showing all rows</div>
+        </section>
 EOF
 
 # Convert MD to basic HTML (Primitive parser for tables and headers)
-# Note: For a robust solution, pandoc is better, but this is dependency-free.
 sed -E 's/^# (.*)/<h1>\1<\/h1>/' "$MD_FILE" | \
 sed -E 's/^## (.*)/<h2>\1<\/h2>/' | \
 sed -E 's/^### (.*)/<h3>\1<\/h3>/' | \
 sed -E 's/\*\*([^*]+)\*\*/<b>\1<\/b>/g' | \
 sed -E 's/`([^`]+)`/<code>\1<\/code>/g' | \
+sed -E 's/🟢/<span title="Normal Status">🟢<\/span>/g' | \
+sed -E 's/🟡/<span title="Warning: High Usage">🟡<\/span>/g' | \
+sed -E 's/🔴/<span title="Critical: Danger">🔴<\/span>/g' | \
+sed -E 's/🚩/<span title="Alarm: Missing Resource Config (Requests\/Limits)">🚩<\/span>/g' | \
+sed -E 's/📉/<span title="Inefficient: Under-utilized resources">📉<\/span>/g' | \
+sed -E 's/⚠️/<span title="Pressure: Usage close to limits">⚠️<\/span>/g' | \
+sed -E 's/✅/<span title="Synced & Healthy">✅<\/span>/g' | \
+sed -E 's/❌/<span title="Error or Connection Issues">❌<\/span>/g' | \
 awk '
 BEGIN { 
     print "<div id=\"tab-storage\" class=\"tab-content active\">";
     print "<div id=\"chart-section\" style=\"margin-top: 30px; display:none;\">";
-    print "<h2>📊 Storage Distribution (Visual)</h2>";
+    print "<h2><span data-i18n=\"Storage Distribution (Visual)\">📊 Storage Distribution (Visual)</span></h2>";
     print "<div id=\"charts-area\" class=\"chart-grid\"></div>";
     print "</div>";
     in_table=0; in_code=0 
@@ -877,9 +992,10 @@ BEGIN {
         n=split($0, a, "|")
         for (i=2; i<n; i++) {
              gsub(/^ +| +$/, "", a[i])
-             # Check if we should disable sorting for some columns? No, enable all.
-             # Remove markdown bold/code from header text for cleaner display if needed, but browser handles it.
-             print "<th onclick=\"sortTable(" i-2 ", this)\">" a[i] "</th>" 
+             print "<th><div class=\"filter-header\" onclick=\"sortTable(" i-2 ", this)\">"
+             print "<span data-i18n=\"" a[i] "\">" a[i] "</span>"
+             print "</div>"
+             print "<select class=\"filter-select\" onchange=\"filterTable(this, " i-2 ")\" onclick=\"event.stopPropagation()\"><option value=\"\" data-i18n=\"All\">All</option></select></th>" 
         }
         print "</tr></thead><tbody>"
         in_table=1 
@@ -902,10 +1018,46 @@ BEGIN {
 }
 { 
     if (in_table) { print "</table>"; in_table=0 }
-    if (!in_code) print "<p>" $0 "</p>"
+    if (!in_code) {
+        if ($0 ~ /^<h[1-3]/) print $0
+        else {
+             # Clean any potential stray legend leftovers if moving them
+             if ($0 !~ /legend-footer|legend-grid/) print "<p>" $0 "</p>"
+        }
+    }
     else print $0
 }
-END { if (in_table) print "</table>"; print "</div>" }
+END { 
+    if (in_table) print "</table>";
+    print "    </div> <!-- End Container Content -->"
+    print "    <div class=\"legend-footer\" data-i18n-no-translate>"
+    print "        <h3><span data-i18n=\"📖 Report Legend & Icon Meanings\">📖 Report Legend & Icon Meanings</span></h3>"
+    print "        <div class=\"legend-grid\">"
+    print "            <div class=\"legend-column\">"
+    print "                <div class=\"legend-group-title\" data-i18n=\"Node & Storage Health\">Node & Storage Health</div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">🟢</span> <span data-i18n=\"Normal Status\">Normal Status</span></div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">🟡</span> <span data-i18n=\"Warning Usage\">Warning: High Usage (>70%)</span></div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">🔴</span> <span data-i18n=\"Critical Usage\">Critical: Danger (>85%)</span></div>"
+    print "            </div>"
+    print "            <div class=\"legend-column\">"
+    print "                <div class=\"legend-group-title\" data-i18n=\"Pod Alarms (Section 7)\">Pod Alarms (Section 7)</div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">🚩</span> <span data-i18n=\"Missing Config\">Missing Requests/Limits</span></div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">📉</span> <span data-i18n=\"Underutilized\">Under-utilized (<5% CPU, <10% RAM)</span></div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">⚠️</span> <span data-i18n=\"Close to Limit\">Close to Limit (>90% of Req)</span></div>"
+    print "            </div>"
+    print "            <div class=\"legend-column\">"
+    print "                <div class=\"legend-group-title\" data-i18n=\"Cloud & Connectivity\">Cloud & Connectivity</div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">✅</span> <span data-i18n=\"Synced Healthy\">Synced & Healthy</span></div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">❌</span> <span data-i18n=\"Connection Error\">Connection Error / Node Down</span></div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">📜</span> <span data-i18n=\"Snapshots View\">Click to view local snapshots</span></div>"
+    print "            </div>"
+    print "        </div>"
+    print "    </div>"
+    print "    <div class=\"footer\" style=\"text-align: center; margin-top: 60px; font-size: 0.95em; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 30px;\">"
+    print "        <p><span data-i18n=\"End of Report.\">End of Report.</span> <a href=\"javascript:window.print()\" data-i18n=\"Save as PDF\">Save as PDF</a></p>"
+    print "    </div>"
+    print "</div> <!-- End main container -->" 
+}
 ' >> "$HTML_FILE"
 
 # Prepare Chart Data JS
@@ -921,11 +1073,6 @@ fi
 CHART_JS_DATA="${CHART_JS_DATA}];"
 
 cat <<EOF >> "$HTML_FILE"
-    </div>
-    <div class="footer" style="text-align: center; margin-top: 40px; font-size: 0.9em; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 20px;">
-        <p>End of Report. <a href="javascript:window.print()">Save as PDF</a></p>
-    </div>
-
     <script>
         ${CHART_JS_DATA}
 EOF
@@ -938,92 +1085,90 @@ cat <<'EOF' >> "$HTML_FILE"
             "3. Node Inventory & Orphans (Potential Cleanup)": "3. Inventário de Nós & Órfãos (Limpeza Potencial)",
             "4. Kubernetes Volumes (PVCs)": "4. Volumes Kubernetes (PVCs)",
             "5. Active Backup Policies": "5. Políticas de Backup Ativas",
+            "6. Compute Resources (CPU/RAM/Disk)": "6. Recursos Computacionais (CPU/RAM/Disco)",
+            "7. Detailed Pod Resource Breakdown": "7. Detalhamento de Recursos dos Pods",
+            "📊 Storage Distribution (Visual)": "📊 Distribuição de Armazenamento (Visual)",
+            "Storage Distribution (Visual)": "Distribuição de Armazenamento (Visual)",
+            "Storage": "Armazenamento",
+            "Compute (CPU/RAM/Disk)": "Computação (CPU/RAM/Disco)",
+            "Search in all tables...": "Buscar em todas as tabelas...",
+            "Showing all rows": "Exibindo todas as linhas",
+            "Matched": "Encontrado",
+            "of": "de",
+            "rows": "linhas",
+            "All": "Tudo",
             "Type": "Tipo",
             "Name": "Nome",
+            "Namespace": "Namespace",
+            "Phase": "Fase",
+            "Status": "Status",
+            "Volume": "Volume",
+            "Folder": "Pasta",
+            "Real Size": "Tamanho Real",
+            "Size": "Tamanho",
+            "Usage": "Uso",
+            "System": "Sistema",
+            "Node": "Nó",
             "Schedule": "Agendamento",
             "Retention": "Retenção",
             "Target/Group": "Alvo/Grupo",
-            "Folder": "Pasta",
-            "Real Size": "Tamanho Real",
-            "Status & Sync": "Status e Sinc.",
-            "Status": "Status",
-            "Bucket": "Bucket",
-            "Size": "Tamanho",
-            "Node": "Nó",
-            "Usage": "Uso",
-            "System": "Sistema",
             "Generated:": "Gerado em:",
-            "Synced": "Sincronizado",
-            "✅ Synced": "✅ Sincronizado",
-            "Unreachable": "Inacessível",
-            "❌ Unreachable": "❌ Inacessível",
-            "❌ Error": "❌ Erro",
-            "Error": "Erro",
-            "Orphan Files": "Arquivos Órfãos",
-            "Namespace": "Namespace",
-            "Phase": "Fase",
-            "Volume": "Volume",
-            "Check": "Verificar",
-            "Timed out during scan": "Tempo esgotado na verificação",
-            "Slow I/O": "E/S Lenta",
-            "Review needed": "Revisão necessária",
-            "Skipped to speed up report": "Pulado para acelerar relatório",
-            "None": "Nenhum",
-            "No Data": "Sem Dados",
+            "📖 Report Legend & Icon Meanings": "📖 Legenda do Relatório & Significado dos Ícones",
+            "Node & Storage Health": "Saúde do Nó & Armazenamento",
+            "Pod Alarms (Section 7)": "Alarmes de Pods (Seção 7)",
+            "Cloud & Connectivity": "Nuvem & Conectividade",
+            "Normal Status": "Status Normal",
+            "Warning: High Usage (>70%)": "Aviso: Uso Alto (>70%)",
+            "Critical: Danger (>85%)": "Crítico: Perigo (>85%)",
+            "Missing Requests/Limits": "Faltam Requests/Limits",
+            "Under-utilized (<5% CPU, <10% RAM)": "Subutilizado (<5% CPU, <10% RAM)",
+            "Close to Limit (>90% of Req)": "Perto do Limite (>90% do Req)",
+            "Synced & Healthy": "Sincronizado & Saudável",
+            "Connection Error / Node Down": "Erro de Conexão / Nó Fora",
+            "Click to view local snapshots": "Clique para ver snapshots locais",
             "End of Report.": "Fim do Relatório.",
             "Save as PDF": "Salvar como PDF"
         };
 
         /* Sorting Logic */
         function sortTable(n, header) {
-            const table = header.closest("table");
+            const th = header.closest("th");
+            const table = th.closest("table");
             const tbody = table.querySelector("tbody");
-            const rows = Array.from(tbody.rows);
-            const isAsc = !header.classList.contains("asc");
+            const rows = Array.from(tbody.rows).filter(r => r.cells.length > 1); // Skip summary/detail rows
+            const isAsc = !th.classList.contains("asc");
             
             // Reset icons
-            table.querySelectorAll("th").forEach(th => th.classList.remove("asc", "desc"));
-            header.classList.toggle("asc", isAsc);
-            header.classList.toggle("desc", !isAsc);
+            table.querySelectorAll("th").forEach(t => t.classList.remove("asc", "desc"));
+            th.classList.toggle("asc", isAsc);
+            th.classList.toggle("desc", !isAsc);
             
-            // Helper to parse size (10M, 2G, 500K) -> Bytes
             function parseSize(str) {
                 const units = { 'K': 1024, 'M': 1024**2, 'G': 1024**3, 'T': 1024**4, 'P': 1024**5 };
-                const match = str.match(/([\d\.]+)\s*([KMGTP])/i);
-                if (match) {
-                    return parseFloat(match[1]) * (units[match[2].toUpperCase()] || 1);
-                }
-                if (!isNaN(parseFloat(str))) return parseFloat(str); // Plain number
+                const match = str.match(/([\d\.]+)\s*([KMGTP])B?$/i);
+                if (match) return parseFloat(match[1]) * units[match[2].toUpperCase()];
+                if (!isNaN(parseFloat(str))) return parseFloat(str);
                 return 0;
             }
             
-            // Helper to check if string looks like size
-            function isSize(str) { return /[\d\.]+\s*[KMGTP]B?$/i.test(str.trim()); }
-            
+            const isSize = (str) => /[\d\.]+\s*[KMGTP]B?$/i.test(str.trim());
+            const isPercent = (str) => /[\d\.]+\s*%$/i.test(str.trim());
+
             rows.sort((rA, rB) => {
-                let txtA = rA.cells[n].innerText.trim();
-                let txtB = rB.cells[n].innerText.trim();
+                let cellA = rA.cells[n].innerText.trim();
+                let cellB = rB.cells[n].innerText.trim();
                 
-                // Extract clean text (remove emoji?)
-                txtA = txtA.replace(/[^\w\s\.\-,]/g, "").trim(); 
-                txtB = txtB.replace(/[^\w\s\.\-,]/g, "").trim();
-                
-                // Detect type
                 let valA, valB;
-                
-                if (isSize(txtA) && isSize(txtB)) {
-                    valA = parseSize(txtA);
-                    valB = parseSize(txtB);
-                } else if (!isNaN(Date.parse(txtA)) && !isNaN(Date.parse(txtB)) && txtA.length > 5) {
-                    // Date (Jan 18, 2026) -> use Date.parse logic or new Date
-                    valA = new Date(txtA).getTime();
-                    valB = new Date(txtB).getTime();
-                } else if (!isNaN(parseFloat(txtA)) && !isNaN(parseFloat(txtB))) {
-                    valA = parseFloat(txtA);
-                    valB = parseFloat(txtB);
+                if (isSize(cellA) && isSize(cellB)) {
+                    valA = parseSize(cellA); valB = parseSize(cellB);
+                } else if (isPercent(cellA) && isPercent(cellB)) {
+                    valA = parseFloat(cellA); valB = parseFloat(cellB);
+                } else if (!isNaN(Date.parse(cellA)) && !isNaN(Date.parse(cellB)) && cellA.length > 5) {
+                    valA = new Date(cellA); valB = new Date(cellB);
+                } else if (!isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB))) {
+                    valA = parseFloat(cellA); valB = parseFloat(cellB);
                 } else {
-                    valA = txtA.toLowerCase();
-                    valB = txtB.toLowerCase();
+                    valA = cellA.toLowerCase(); valB = cellB.toLowerCase();
                 }
                 
                 if (valA < valB) return isAsc ? -1 : 1;
@@ -1032,6 +1177,89 @@ cat <<'EOF' >> "$HTML_FILE"
             });
             
             tbody.append(...rows);
+        }
+
+        /* Filter & Search Logic */
+        function globalSearch() {
+            const input = document.getElementById("global-search");
+            const filter = input.value.toLowerCase();
+            const tables = document.querySelectorAll(".sortable-table");
+            let totalMatch = 0;
+            let totalRows = 0;
+
+            tables.forEach(table => {
+                const rows = table.querySelectorAll("tbody tr");
+                rows.forEach(row => {
+                    // Skip detail rows (deep-dive) for search? Or include them?
+                    // Details rows usually have colspan.
+                    if (row.cells.length < 2) return; 
+
+                    const text = row.innerText.toLowerCase();
+                    const isMatch = text.includes(filter);
+                    row.style.display = isMatch ? "" : "none";
+                    if (isMatch) totalMatch++;
+                    totalRows++;
+                });
+            });
+
+            const countEl = document.getElementById("match-count");
+            const lang = localStorage.getItem('lang') || 'en';
+            if (filter === "") {
+                countEl.innerText = lang === 'pt' ? translations["Showing all rows"] : "Showing all rows";
+            } else {
+                if (lang === 'pt') {
+                    countEl.innerText = `${translations["Matched"]} ${totalMatch} ${translations["of"]} ${totalRows} ${translations["rows"]}`;
+                } else {
+                    countEl.innerText = `Matched ${totalMatch} of ${totalRows} rows`;
+                }
+            }
+        }
+
+        function filterTable(select, colIndex) {
+            const filter = select.value.toLowerCase();
+            const table = select.closest("table");
+            const rows = table.querySelectorAll("tbody tr");
+
+            rows.forEach(row => {
+                if (row.cells.length < 2) return; // Skip detail rows
+                const cellText = row.cells[colIndex].innerText.toLowerCase();
+                const matches = filter === "" || cellText === filter;
+                
+                // Note: This only works one-filter-at-a-time currently.
+                // For multi-filter, we need to track all active filters for the table.
+                row.style.display = matches ? "" : "none";
+            });
+        }
+
+        function populateFilters() {
+            const tables = document.querySelectorAll(".sortable-table");
+            tables.forEach(table => {
+                const headers = table.querySelectorAll("th");
+                const rows = Array.from(table.querySelectorAll("tbody tr")).filter(r => r.cells.length > 1);
+
+                headers.forEach((th, i) => {
+                    const select = th.querySelector(".filter-select");
+                    if (!select) return;
+
+                    // Collect unique values
+                    const values = new Set();
+                    rows.forEach(row => {
+                        const cell = row.cells[i];
+                        if (!cell) return;
+                        // For complex cells (with tooltips/badges), use textContent but avoid too long values
+                        const val = cell.textContent.trim();
+                        if (val && val.length < 50) values.add(val);
+                    });
+
+                    // Sort and add to select
+                    Array.from(values).sort().forEach(val => {
+                        const opt = document.createElement("option");
+                        opt.value = val;
+                        opt.innerText = val;
+                        select.appendChild(opt);
+                    });
+                });
+            });
         }
 
         function toggleTheme() {
@@ -1099,54 +1327,42 @@ cat <<'EOF' >> "$HTML_FILE"
         }
 
         function translatePage(lang) {
-            // Avoid selecting container div which destroys layout
-            const elements = document.querySelectorAll('h1, h2, h3, th, td, p, a, .timestamp, .footer');
-            
-            elements.forEach(el => {
-                // Ignore script/style/settings
-                if (el.classList.contains('settings-panel') || el.closest('.settings-panel')) return;
-                
-                // Store original HTML to preserve formatting (b, code, spans)
-                if (!el.dataset.originalHtml) el.dataset.originalHtml = el.innerHTML;
-                
-                const originalHtml = el.dataset.originalHtml;
-                // Use textContent for key lookup to match dictionary keys
-                const key = el.textContent.trim();
-                
-                if (lang === 'pt') {
-                    // Strategy: Perform replacement on the HTML string
-                    let newHtml = originalHtml;
-                    
-                    // 1. Exact match (Safety first)
-                    if (translations[key]) {
-                        // If exact match, we can just replace the text but we risk losing tags if key was pure text?
-                        // If key was pure text, innerHTML==key.
-                        // If element had tags, key != innerHTML.
-                        // For exact text matches usually headers/th, simple strings.
-                        newHtml = translations[key];
-                    } else {
-                        // 2. Partial Search & Replace logic
-                        // Only replace known phrases to avoid breaking HTML attributes
-                        // Sort by length to replace longest phrases first
-                        const sortedKeys = Object.keys(translations).sort((a,b) => b.length - a.length);
-                        
-                        for (const en of sortedKeys) {
-                            const pt = translations[en];
-                            if (newHtml.includes(en)) {
-                                // Simple string replace on HTML. 
-                                // Risk: replacing "Size" inside "font-size". 
-                                // Mitigation: Our keys are capitalized "Size", attributes are usually lowercase "font-size".
-                                newHtml = newHtml.replaceAll(en, pt);
-                            }
-                        }
-                    }
-                    el.innerHTML = newHtml;
+            const isPT = lang === 'pt';
 
-                } else {
-                    // Restore English (Original HTML)
-                    el.innerHTML = originalHtml;
+            // 1. Static Elements with data-i18n
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                const translation = translations[key];
+                
+                // Store original text for recovery
+                if (!el.dataset.original) el.dataset.original = el.innerText;
+                
+                if (isPT && translation) el.innerText = translation;
+                else el.innerText = el.dataset.original;
+            });
+
+            // 2. Placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                const translation = translations[key];
+                if (isPT && translation) el.placeholder = translation;
+                else el.placeholder = key;
+            });
+
+            // 3. Dynamic content (Tables & Legend)
+            // Strategy: Only translate known dictionary keys to preserve icons and special formatting
+            const dynElements = document.querySelectorAll('th span, td, .legend-item-row span');
+            dynElements.forEach(el => {
+                const text = el.innerText.trim();
+                if (translations[text]) {
+                    if (!el.dataset.original) el.dataset.original = el.innerHTML;
+                    if (isPT) el.innerText = translations[text];
+                    else el.innerHTML = el.dataset.original;
                 }
             });
+
+            // Update search result text context
+            globalSearch();
         }
 
         function renderCharts() {
@@ -1299,6 +1515,9 @@ cat <<'EOF' >> "$HTML_FILE"
                 
                 // Render Charts
                 renderCharts();
+
+                // Populate filters
+                populateFilters();
 
                 // Open default tab
                 openTab('tab-storage');
