@@ -1,56 +1,16 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/bash
+set -euo pipefail
 
-echo "💰 Setting up Kubecost (FinOps)..."
+echo "🚀 Deploying Kubecost with optimized resources..."
 
-# 1. Install Helm if missing
-if ! command -v helm &> /dev/null; then
-    echo "    📥 Installing Helm (Remote)..."
-    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-    chmod 700 get_helm.sh
-    ./get_helm.sh
-    rm get_helm.sh
-fi
+# Add repo if missing
+helm repo add cost-analyzer https://kubecost.github.io/cost-analyzer/ >/dev/null 2>&1 || true
+helm repo update >/dev/null 2>&1 || true
 
-# 2. Add Kubecost Repo
-echo "    ➕ Adding Kubecost Helm Repo..."
-helm repo add kubecost https://kubecost.github.io/cost-analyzer/
-helm repo update
+# Install/Upgrade
+helm upgrade --install kubecost cost-analyzer/cost-analyzer \
+    --namespace kubecost --create-namespace \
+    --values values.yaml \
+    --wait
 
-# 3. Create Namespace
-kubectl create ns kubecost --dry-run=client -o yaml | kubectl apply -f -
-
-# 4. Install/Upgrade Kubecost
-echo "    🚀 Deploying Kubecost (ARM64 Optimized)..."
-# We use a custom token or email. For free tier locally, we can use a placeholder
-# but the UI might nag.
-export KUBECOST_TOKEN="c2727142-2b6d-4952-b912-f0469b82142f" # Public example token often used in docs, or we ask user later.
-
-helm upgrade --install kubecost kubecost/cost-analyzer \
-    --namespace kubecost \
-    --version 1.108.1 \
-    --set kubecostToken="$KUBECOST_TOKEN" \
-    --set global.grafana.enabled=false \
-    --set global.grafana.proxy=false \
-    --set persistentVolume.size="2Gi" \
-    --set prometheus.server.persistentVolume.size="2Gi" \
-    --set prometheus.server.resources.requests.memory=128Mi \
-    --set prometheus.server.resources.requests.cpu=60m \
-    --set kubecostModel.resources.requests.memory=64Mi \
-    --set kubecostModel.resources.requests.cpu=90m \
-    --set networkCosts.enabled=false \
-    --set serviceMonitor.enabled=false \
-    --set prometheus.kube-state-metrics.disabled=false \
-    --set ingress.enabled=false 
-
-# 5. Apply Ingress
-echo "    🌐 Configuring Ingress..."
-if [ -d "manifests" ]; then
-    kubectl apply -f manifests/
-else
-    # Fallback if flat
-    kubectl apply -f .
-fi
-
-echo "✅ Kubecost deployment triggered."
-echo "    ⏳ It may take a few minutes for pods to be Ready."
+echo "✅ Kubecost deployed."

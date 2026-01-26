@@ -50,9 +50,12 @@ spec:
           resources:
             limits:
               memory: 2Gi
+              cpu: 1000m
+              ephemeral-storage: 8Gi
             requests:
               memory: 1536Mi
               cpu: 100m
+
           readinessProbe:
             exec:
               command:

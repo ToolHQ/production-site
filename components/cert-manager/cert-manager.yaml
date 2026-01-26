@@ -5364,6 +5364,16 @@ spec:
         - name: cert-manager-cainjector
           image: "quay.io/jetstack/cert-manager-cainjector:v1.13.0"
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 80Mi
+              ephemeral-storage: 2Mi
+
+            limits:
+              cpu: 200m
+              memory: 512Mi
+              ephemeral-storage: 128Mi
           args:
           - --v=2
           - --leader-election-namespace=kube-system
@@ -5422,6 +5432,16 @@ spec:
         - name: cert-manager-controller
           image: "quay.io/jetstack/cert-manager-controller:v1.13.0"
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 80Mi
+              ephemeral-storage: 2Mi
+
+            limits:
+              cpu: 200m
+              memory: 256Mi
+              ephemeral-storage: 128Mi
           args:
           - --v=2
           - --cluster-resource-namespace=$(POD_NAMESPACE)
@@ -5486,6 +5506,16 @@ spec:
         - name: cert-manager-webhook
           image: "quay.io/jetstack/cert-manager-webhook:v1.13.0"
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+              ephemeral-storage: 2Mi
+
+            limits:
+              cpu: 200m
+              memory: 256Mi
+              ephemeral-storage: 128Mi
           args:
           - --v=2
           - --secure-port=10250
