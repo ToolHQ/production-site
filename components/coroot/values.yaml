@@ -12,7 +12,9 @@ corootCE:
       cpu: 50m
       memory: 256Mi
     limits:
+      cpu: 500m
       memory: 512Mi
+      ephemeral-storage: 1Gi
   # Persistence and Ingress from original
   persistentVolume:
     size: 2Gi
@@ -38,6 +40,7 @@ corootClusterAgent:
       cpu: 30m
       memory: 256Mi
     limits:
+      cpu: 200m
       memory: 512Mi
 
 node-agent:
@@ -47,10 +50,23 @@ node-agent:
       cpu: 40m
       memory: 256Mi
     limits:
+      cpu: 200m
       memory: 512Mi
 
 clickhouse:
-  enabled: false
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+      ephemeral-storage: 8Gi
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: longhorn-2
 
 prometheus:
   enabled: true
@@ -60,6 +76,7 @@ prometheus:
         cpu: 30m
         memory: 256Mi
       limits:
+        cpu: 200m
         memory: 512Mi
     persistentVolume:
       enabled: true

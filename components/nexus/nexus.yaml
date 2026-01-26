@@ -28,10 +28,13 @@ spec:
             - name: INSTALL4J_ADD_VM_PARAMS
               value: "-Xms512m -Xmx512m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
           resources:
-            limits:
-              memory: 1280Mi
             requests:
-              memory: 768Mi
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+              ephemeral-storage: 8Gi
           volumeMounts:
             - mountPath: /nexus-data
               name: nexusdata

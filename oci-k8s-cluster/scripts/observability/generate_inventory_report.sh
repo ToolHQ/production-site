@@ -71,7 +71,8 @@ scan_node() {
     ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=45 "$node" "bash -s" <<'EOF' > "$2" 2>/dev/null &
     # 3. Deep Dive Analysis
     echo "--- SYSTEM_TOP ---"
-    du -xSh / 2>/dev/null | grep -vE '/var/lib/docker|/var/lib/containerd|/var/lib/longhorn|/var/lib/etcd|/var/backup|/data' | sort -rh | head -n 10 | awk '{print $1, substr($2, length($2)-50)}' || echo "Error scanning system"
+    echo "--- SYSTEM_TOP ---"
+    du -xSh / --exclude='/var/lib/docker' --exclude='/var/lib/containerd' --exclude='/var/lib/longhorn' --exclude='/var/lib/etcd' --exclude='/var/backup' --exclude='/data' --exclude='/proc' --exclude='/sys' 2>/dev/null | sort -rh | head -n 10 | awk '{print $1, substr($2, length($2)-50)}' || echo "Error scanning system"
 
     echo "--- DOCKER_TOP ---"
     du -xSh /var/lib/docker /var/lib/containerd 2>/dev/null | sort -rh | head -n 10 | awk '{print $1, substr($2, length($2)-50)}' || echo "Error scanning docker"
@@ -132,19 +133,10 @@ scan_node() {
     # Exclude legitimate backup path: /data/minio/k8s-backups
     echo "--- ORPHANS ---"
     sudo find /home /root /tmp /var/backups /data \
-        -type f \
+        \( -path "/proc" -o -path "/sys" -o -path "/run" -o -path "/var/lib/docker" -o -path "/var/lib/kubelet" -o -path "/var/lib/containerd" -o -path "/var/lib/longhorn" -o -path "/data/minio/k8s-backups" \) -prune \
+        -o -type f \
         \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.sql" -o -name "*.db" -o -name "*.bak" -o -name "*.tar" \) \
         -size +50M \
-        -not -path "/proc/*" \
-        -not -path "/sys/*" \
-        -not -path "/run/*" \
-        -not -path "/var/lib/docker/*" \
-        -not -path "*/overlay2/*" \
-        -not -path "*/containers/*" \
-        -not -path "/var/lib/kubelet/*" \
-        -not -path "/var/lib/containerd/*" \
-        -not -path "/var/lib/longhorn/*" \
-        -not -path "/data/minio/k8s-backups/*" \
         -exec ls -lh {} \; 2>/dev/null | awk '{print $5, $9}' || echo "None"
         
 EOF
@@ -189,12 +181,19 @@ done" > "$TEMP_DIR/gdrive_usage.txt" 2>&1 &
 PIDS+=($!)
 
 # Deep dive: backupstore/volumes breakdown (GDrive)
-ssh -T -o StrictHostKeyChecking=no oci-k8s-master "sudo rclone lsd gdrive:k8s-backups/backupstore/volumes --config /root/.config/rclone/rclone.conf | awk '{print \$5}' | while read vol; do 
-    size_json=\$(sudo rclone size gdrive:k8s-backups/backupstore/volumes/\$vol --config /root/.config/rclone/rclone.conf --json); 
-    bytes=\$(echo \$size_json | jq .bytes | numfmt --to=iec); 
-    count=\$(echo \$size_json | jq .count); 
-    echo \"\$vol|\$bytes|\$count\"; 
-done" > "$TEMP_DIR/gdrive_backupstore_volumes.txt" 2>&1 &
+# Deep dive: backupstore/volumes breakdown (GDrive) - Parallelized
+ssh -T -o StrictHostKeyChecking=no oci-k8s-master 'bash -s' <<'EndSSH' > "$TEMP_DIR/gdrive_backupstore_volumes.txt" 2>&1 &
+    fetch_size() {
+        vol="$1"
+        size_json=$(sudo rclone size "gdrive:k8s-backups/backupstore/volumes/$vol" --config /root/.config/rclone/rclone.conf --json 2>/dev/null)
+        bytes=$(echo "$size_json" | jq .bytes 2>/dev/null | numfmt --to=iec 2>/dev/null)
+        count=$(echo "$size_json" | jq .count 2>/dev/null)
+        echo "$vol|$bytes|$count"
+    }
+    export -f fetch_size
+    # List volumes and run in parallel (max 5 jobs)
+    sudo rclone lsd gdrive:k8s-backups/backupstore/volumes --config /root/.config/rclone/rclone.conf 2>/dev/null | awk '{print $5}' | xargs -P 5 -I {} bash -c 'fetch_size "{}"'
+EndSSH
 PIDS+=($!)
 
 # Deep dive: backupstore/volumes breakdown (Minio)
@@ -227,25 +226,26 @@ done
 METADATA_SCRIPT
 PIDS+=($!)
 
-# Extract Longhorn metadata from GDrive backupstore
+# Extract Longhorn metadata from GDrive backupstore - Parallelized
 ssh -T -o StrictHostKeyChecking=no oci-k8s-master 'bash -s' <<'GDRIVE_METADATA_SCRIPT' > "$TEMP_DIR/gdrive_volume_metadata.txt" 2>&1 &
-for vol in $(sudo rclone lsd gdrive:k8s-backups/backupstore/volumes --config /root/.config/rclone/rclone.conf | awk '{print $5}'); do
-    # Download volume.cfg/xl.meta from GDrive
-    pvc_path=$(sudo rclone lsf gdrive:k8s-backups/backupstore/volumes/$vol --dirs-only --config /root/.config/rclone/rclone.conf | head -n 1 | sed 's|/$||')
-    if [ -n "$pvc_path" ]; then
-        sudo rclone cat "gdrive:k8s-backups/backupstore/volumes/$vol/$pvc_path/volume.cfg/xl.meta" --config /root/.config/rclone/rclone.conf 2>/dev/null | tr -d '\000' | grep -oP '\{.*\}' | head -n 1 > /tmp/vol_meta_$vol.json 2>/dev/null
-        if [ -s /tmp/vol_meta_$vol.json ]; then
-            pvc_name=$(jq -r '.Labels.KubernetesStatus' /tmp/vol_meta_$vol.json | jq -r '.pvcName' 2>/dev/null)
-            namespace=$(jq -r '.Labels.KubernetesStatus' /tmp/vol_meta_$vol.json | jq -r '.namespace' 2>/dev/null)
-            created=$(jq -r '.CreatedTime' /tmp/vol_meta_$vol.json 2>/dev/null)
-            last_backup=$(jq -r '.LastBackupAt' /tmp/vol_meta_$vol.json 2>/dev/null)
-            size=$(jq -r '.Size' /tmp/vol_meta_$vol.json 2>/dev/null | numfmt --to=iec 2>/dev/null)
-            
-            echo "$vol|$pvc_name|$namespace|$created|$last_backup|$size"
-            rm -f /tmp/vol_meta_$vol.json
+    fetch_meta() {
+        vol="$1"
+        # Download volume.cfg/xl.meta from GDrive
+        pvc_path=$(sudo rclone lsf "gdrive:k8s-backups/backupstore/volumes/$vol" --dirs-only --config /root/.config/rclone/rclone.conf 2>/dev/null | head -n 1 | sed 's|/$||')
+        if [ -n "$pvc_path" ]; then
+            meta=$(sudo rclone cat "gdrive:k8s-backups/backupstore/volumes/$vol/$pvc_path/volume.cfg/xl.meta" --config /root/.config/rclone/rclone.conf 2>/dev/null | tr -d '\000' | grep -oP '\{.*\}' | head -n 1)
+            if [ -n "$meta" ]; then
+                pvc_name=$(echo "$meta" | jq -r '.Labels.KubernetesStatus.pvcName' 2>/dev/null)
+                namespace=$(echo "$meta" | jq -r '.Labels.KubernetesStatus.namespace' 2>/dev/null)
+                created=$(echo "$meta" | jq -r '.CreatedTime' 2>/dev/null)
+                last_backup=$(echo "$meta" | jq -r '.LastBackupAt' 2>/dev/null)
+                size=$(echo "$meta" | jq -r '.Size' 2>/dev/null | numfmt --to=iec 2>/dev/null)
+                echo "$vol|$pvc_name|$namespace|$created|$last_backup|$size"
+            fi
         fi
-    fi
-done
+    }
+    export -f fetch_meta
+    sudo rclone lsd gdrive:k8s-backups/backupstore/volumes --config /root/.config/rclone/rclone.conf 2>/dev/null | awk '{print $5}' | xargs -P 8 -I {} bash -c 'fetch_meta "{}"'
 GDRIVE_METADATA_SCRIPT
 PIDS+=($!)
 
@@ -672,8 +672,8 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
         # Detailed Pod Breakdown (Enhanced with Status & Alarms)
         echo ""
         echo "## 7. Detailed Pod Resource Breakdown"
-        echo "| Namespace | Pod Name | CPU (Usage/Req/Lim) | CPU Eff | Mem (Usage/Req/Lim) | Mem Eff | Eph. Disk (Usage/Req/Lim) | Status | Node |"
-        echo "|---|---|---|---|---|---|---|---|---|"
+        echo "| Namespace | Pod Name | CPU (Usage/Req/Lim) | CPU Eff | Mem (Usage/Req/Lim) | Mem Eff | Eph. Disk (Usage/Req/Lim) | Disk Eff | Total Eff | Status | Node |"
+        echo "|---|---|---|---|---|---|---|---|---|---|---|"
         
         # Build pod usage map
         declare -A pod_cpu_usage
@@ -721,15 +721,86 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             m_alarm=""; if [ "$m_req_mi" -eq 0 ] || [ "$m_lim_mi" -eq 0 ]; then m_alarm="🚩 "; fi
             e_alarm=""; if [ "$e_req_mi" -eq 0 ] || [ "$e_lim_mi" -eq 0 ]; then e_alarm="🚩 "; fi
 
-            # CPU Efficiency (Usage/Request)
-            eff_cpu="-"; if [ "$c_req_m" -gt 0 ]; then eff_cpu="$(( (u_cpu_m * 100) / c_req_m ))%"; fi
-            c_icon="🟢"; if [[ "$eff_cpu" != "-" ]]; then if [ "${eff_cpu%\%}" -lt 5 ]; then c_icon="📉"; elif [ "${eff_cpu%\%}" -gt 90 ]; then c_icon="⚠️"; fi; fi
+            # Helper for displaying percentage
+            fmt_pct() {
+                local u=$1
+                local r=$2
+                if [ "$r" -eq 0 ]; then echo "-"; return; fi
+                local p=$(( (u * 100) / r ))
+                if [ "$p" -eq 0 ] && [ "$u" -gt 0 ]; then echo "<1%"; else echo "${p}%"; fi
+            }
+
+            # CPU Efficiency
+            eff_cpu=$(fmt_pct "$u_cpu_m" "$c_req_m")
+            c_icon="🟢"
+            # Only flag low efficiency if request is significant (> 100m)
+            if [[ "$eff_cpu" != "-" ]]; then
+                val=${eff_cpu%\%}; val=${val#<}
+                if [ "$val" -lt 5 ]; then c_icon="📉"
+                elif [ "$val" -gt 90 ]; then c_icon="⚠️"; fi
+            fi
             if [ -n "$c_alarm" ]; then c_icon="🚩"; fi
 
-            # Mem Efficiency (Usage/Request)
-            eff_mem="-"; if [ "$m_req_mi" -gt 0 ]; then eff_mem="$(( (u_mem_mi * 100) / m_req_mi ))%"; fi
-            m_icon="🟢"; if [[ "$eff_mem" != "-" ]]; then if [ "${eff_mem%\%}" -lt 10 ]; then m_icon="📉"; elif [ "${eff_mem%\%}" -gt 90 ]; then m_icon="⚠️"; fi; fi
+            # Mem Efficiency
+            eff_mem=$(fmt_pct "$u_mem_mi" "$m_req_mi")
+            m_icon="🟢"
+            # Only flag low efficiency if request is significant (> 256Mi)
+            if [[ "$eff_mem" != "-" ]]; then
+                val=${eff_mem%\%}; val=${val#<}
+                if [ "$val" -lt 10 ]; then m_icon="📉"
+                elif [ "$val" -gt 90 ]; then m_icon="⚠️"; fi
+            fi
             if [ -n "$m_alarm" ]; then m_icon="🚩"; fi
+
+            # Eph Disk Efficiency (Usage/Request)
+            # Use KB for better precision on small usage (avoid 0% when used > 0)
+            u_eph_kb=$(( u_eph_b / 1024 ))
+            e_req_kb=$(( e_req_mi * 1024 ))
+            
+            eff_eph="-"
+            e_icon="⚪" # Default to Neutral/Idle
+            
+            if [ "$e_req_kb" -gt 0 ]; then
+                pct=$(( (u_eph_kb * 100) / e_req_kb ))
+                if [ "$pct" -eq 0 ] && [ "$u_eph_kb" -gt 0 ]; then
+                    eff_eph="<1%"
+                    e_icon="🟢" # Tiny usage is fine/good
+                elif [ "$pct" -eq 0 ]; then
+                     eff_eph="0%"
+                     e_icon="⚪" # Truly empty/idle
+                else
+                    eff_eph="${pct}%"
+                    e_icon="🟢" # Normal usage
+                    if [ "$pct" -gt 80 ]; then e_icon="⚠️"; fi # Saturation warning
+                fi
+            fi
+            
+            if [ -n "$e_alarm" ]; then e_icon="🚩"; eff_eph="-"; fi
+            
+            # Total Efficiency (Avg of CPU & Mem only - Disk is excluded)
+            # We want to know how well we sized the COMPUTE.
+            total_sum=0
+            total_count=0
+            
+            if [[ "$eff_cpu" != "-" ]]; then 
+                val=${eff_cpu%\%}; val=${val#<}
+                total_sum=$((total_sum + val))
+                total_count=$((total_count+1))
+            fi
+            if [[ "$eff_mem" != "-" ]]; then 
+                val=${eff_mem%\%}; val=${val#<}
+                total_sum=$((total_sum + val))
+                total_count=$((total_count+1))
+            fi
+            
+            eff_total="-"
+            t_icon="⚪"
+            if [ "$total_count" -gt 0 ]; then
+                raw_total=$(( total_sum / total_count ))
+                eff_total="${raw_total}%"
+                # Total efficiency low warning only if significant waste
+                if [ "$raw_total" -lt 10 ]; then t_icon="📉"; elif [ "$raw_total" -gt 85 ]; then t_icon="⚠️"; else t_icon="🟢"; fi
+            fi
 
             # Format Limits for table
             c_lim_label=$(format_limit "$c_lim_m" "m")
@@ -740,7 +811,7 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             st_color="gray"; if [ "$status" == "Running" ]; then st_color="green"; elif [ "$status" == "Failed" ]; then st_color="red"; fi
             st_label="<span style=\"color:$st_color\">$status</span>"
 
-            echo "| $ns | \`$name\` | ${c_alarm}${u_cpu} / ${c_req_m}m / $c_lim_label | $c_icon $eff_cpu | ${m_alarm}${u_mem} / ${m_req_mi}Mi / $m_lim_label | $m_icon $eff_mem | ${e_alarm}${u_eph_h} / ${e_req_mi}Mi / $e_lim_label | $st_label | $p_node |"
+            echo "| $ns | \`$name\` | ${c_alarm}${u_cpu} / ${c_req_m}m / $c_lim_label | $c_icon $eff_cpu | ${m_alarm}${u_mem} / ${m_req_mi}Mi / $m_lim_label | $m_icon $eff_mem | ${e_alarm}${u_eph_h} / ${e_req_mi}Mi / $e_lim_label | $e_icon $eff_eph | $t_icon $eff_total | $st_label | $p_node |"
         done
     else
         echo "| Scans failed | - | - | - | - | ❌ |"
