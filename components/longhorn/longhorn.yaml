@@ -1,109 +1,134 @@
+---
+# Builtin: "helm template" does not respect --create-namespace
 apiVersion: v1
 kind: Namespace
 metadata:
   name: longhorn-system
 ---
+# Source: longhorn/templates/priorityclass.yaml
 apiVersion: scheduling.k8s.io/v1
-description: Ensure Longhorn pods have the highest priority to prevent any unexpected
-  eviction by the Kubernetes scheduler under node pressure
-globalDefault: false
 kind: PriorityClass
 metadata:
+  name: "longhorn-critical"
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-  name: longhorn-critical
+description: "Ensure Longhorn pods have the highest priority to prevent any unexpected eviction by the Kubernetes scheduler under node pressure"
+globalDefault: false
 preemptionPolicy: PreemptLowerPriority
 value: 1000000000
 ---
+# Source: longhorn/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-service-account
   namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 ---
+# Source: longhorn/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-ui-service-account
   namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 ---
+# Source: longhorn/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-support-bundle
   namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 ---
+# Source: longhorn/templates/default-resource.yaml
 apiVersion: v1
-data:
-  default-resource.yaml: ''
 kind: ConfigMap
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-default-resource
   namespace: longhorn-system
----
-apiVersion: v1
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 data:
-  default-setting.yaml: 'priority-class: "longhorn-critical"
-
-    disable-revision-counter: "{\"v1\":\"true\"}"'
-  storage-minimal-available-percentage: '15'
-  storage-over-provisioning-percentage: '200'
-  guaranteed-instance-manager-cpu: '9'
+  default-resource.yaml: |-
+---
+# Source: longhorn/templates/default-setting.yaml
+apiVersion: v1
 kind: ConfigMap
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-default-setting
   namespace: longhorn-system
----
-apiVersion: v1
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 data:
-  storageclass.yaml: "kind: StorageClass\napiVersion: storage.k8s.io/v1\nmetadata:\n\
-    \  name: longhorn\n  annotations:\n    storageclass.kubernetes.io/is-default-class:\
-    \ \"true\"\nprovisioner: driver.longhorn.io\nallowVolumeExpansion: true\nreclaimPolicy:\
-    \ \"Delete\"\nvolumeBindingMode: Immediate\nparameters:\n  numberOfReplicas: \"\
-    3\"\n  staleReplicaTimeout: \"30\"\n  fromBackup: \"\"\n  fsType: \"ext4\"\n \
-    \ dataLocality: \"disabled\"\n  unmapMarkSnapChainRemoved: \"ignored\"\n  disableRevisionCounter:\
-    \ \"true\"\n  dataEngine: \"v1\"\n  backupTargetName: \"default\"\n"
+  default-setting.yaml: |-
+    priority-class: "longhorn-critical"
+    disable-revision-counter: "{\"v1\":\"true\"}"
+    default-instance-manager-cpu-limit: "500"
+    default-instance-manager-cpu-request: "100"
+    default-instance-manager-memory-limit: "512"
+    guaranteed-instance-manager-cpu: "10"
+---
+# Source: longhorn/templates/storageclass.yaml
+apiVersion: v1
 kind: ConfigMap
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-storageclass
   namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
+data:
+  storageclass.yaml: |
+    kind: StorageClass
+    apiVersion: storage.k8s.io/v1
+    metadata:
+      name: longhorn
+      annotations:
+        storageclass.kubernetes.io/is-default-class: "true"
+    provisioner: driver.longhorn.io
+    allowVolumeExpansion: true
+    reclaimPolicy: "Delete"
+    volumeBindingMode: Immediate
+    parameters:
+      numberOfReplicas: "3"
+      staleReplicaTimeout: "30"
+      fromBackup: ""
+      fsType: "ext4"
+      dataLocality: "disabled"
+      unmapMarkSnapChainRemoved: "ignored"
+      disableRevisionCounter: "true"
+      dataEngine: "v1"
+      backupTargetName: "default"
 ---
+# Source: longhorn/templates/crds.yaml
+# Generated crds.yaml from github.com/longhorn/longhorn-manager/k8s/pkg/apis and the crds.yaml will be copied to longhorn/longhorn chart/templates and cannot be directly used by kubectl apply.
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: backingimagedatasources.longhorn.io
 spec:
   group: longhorn.io
@@ -152,28 +177,19 @@ spec:
           data source object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -239,16 +255,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: backingimagemanagers.longhorn.io
 spec:
   group: longhorn.io
@@ -292,28 +309,19 @@ spec:
           object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -388,16 +396,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: backingimages.longhorn.io
 spec:
   group: longhorn.io
@@ -436,28 +445,19 @@ spec:
         description: BackingImage is where Longhorn stores backing image object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -579,16 +579,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: backupbackingimages.longhorn.io
 spec:
   group: longhorn.io
@@ -629,28 +630,19 @@ spec:
           object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -744,9 +736,9 @@ spec:
                 format: int64
                 type: integer
               state:
-                description: 'The backing image backup creation state.
-
-                  Can be "", "InProgress", "Completed", "Error", "Unknown".'
+                description: |-
+                  The backing image backup creation state.
+                  Can be "", "InProgress", "Completed", "Error", "Unknown".
                 type: string
               url:
                 description: The backing image backup URL.
@@ -758,16 +750,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: backups.longhorn.io
 spec:
   group: longhorn.io
@@ -811,28 +804,19 @@ spec:
         description: Backup is where Longhorn stores backup object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -843,19 +827,19 @@ spec:
                 description: The backup block size. 0 means the legacy default size
                   2MiB, and -1 indicate the block size is invalid.
                 enum:
-                - '-1'
-                - '2097152'
-                - '16777216'
+                - "-1"
+                - "2097152"
+                - "16777216"
                 format: int64
                 type: string
               backupMode:
-                description: 'The backup mode of this backup.
-
-                  Can be "full" or "incremental"'
+                description: |-
+                  The backup mode of this backup.
+                  Can be "full" or "incremental"
                 enum:
                 - full
                 - incremental
-                - ''
+                - ""
                 type: string
               labels:
                 additionalProperties:
@@ -931,9 +915,9 @@ spec:
                 description: The snapshot name.
                 type: string
               state:
-                description: 'The backup creation state.
-
-                  Can be "", "InProgress", "Completed", "Error", "Unknown".'
+                description: |-
+                  The backup creation state.
+                  Can be "", "InProgress", "Completed", "Error", "Unknown".
                 type: string
               url:
                 description: The snapshot backup URL.
@@ -957,16 +941,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: backuptargets.longhorn.io
 spec:
   group: longhorn.io
@@ -1006,28 +991,19 @@ spec:
         description: BackupTarget is where Longhorn stores backup target object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1079,9 +1055,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -1106,16 +1082,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: backupvolumes.longhorn.io
 spec:
   group: longhorn.io
@@ -1155,28 +1132,19 @@ spec:
         description: BackupVolume is where Longhorn stores backup volume object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1260,16 +1228,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: engineimages.longhorn.io
 spec:
   group: longhorn.io
@@ -1312,28 +1281,19 @@ spec:
         description: EngineImage is where Longhorn stores engine image object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1376,9 +1336,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -1420,16 +1380,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: engines.longhorn.io
 spec:
   group: longhorn.io
@@ -1472,28 +1433,19 @@ spec:
         description: Engine is where Longhorn stores engine object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1519,7 +1471,7 @@ spec:
                 - iscsi
                 - nvmf
                 - ublk
-                - ''
+                - ""
                 type: string
               image:
                 type: string
@@ -1614,9 +1566,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -1697,14 +1649,10 @@ spec:
               replicaTransitionTimeMap:
                 additionalProperties:
                   type: string
-                description: 'ReplicaTransitionTimeMap records the time a replica
-                  in ReplicaModeMap transitions from one mode to another (or
-
-                  from not being in the ReplicaModeMap to being in it). This information
-                  is sometimes required by other controllers
-
-                  (e.g. the volume controller uses it to determine the correct value
-                  for replica.Spec.lastHealthyAt).'
+                description: |-
+                  ReplicaTransitionTimeMap records the time a replica in ReplicaModeMap transitions from one mode to another (or
+                  from not being in the ReplicaModeMap to being in it). This information is sometimes required by other controllers
+                  (e.g. the volume controller uses it to determine the correct value for replica.Spec.lastHealthyAt).
                 type: object
               restoreStatus:
                 additionalProperties:
@@ -1785,16 +1733,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: instancemanagers.longhorn.io
 spec:
   group: longhorn.io
@@ -1833,28 +1782,19 @@ spec:
         description: InstanceManager is where Longhorn stores instance manager object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -1923,17 +1863,14 @@ spec:
                       cpuMask:
                         type: string
                       interruptModeEnabled:
-                        description: 'InterruptModeEnabled indicates whether the V2
-                          data engine is running in
-
-                          interrupt mode (true) or polling mode (false). Set by Longhorn
-                          manager;
-
-                          read-only to users.'
+                        description: |-
+                          InterruptModeEnabled indicates whether the V2 data engine is running in
+                          interrupt mode (true) or polling mode (false). Set by Longhorn manager;
+                          read-only to users.
                         enum:
-                        - ''
-                        - 'true'
-                        - 'false'
+                        - ""
+                        - "true"
+                        - "false"
                         type: string
                     type: object
                 type: object
@@ -2106,16 +2043,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: nodes.longhorn.io
 spec:
   group: longhorn.io
@@ -2151,28 +2089,19 @@ spec:
         description: Node is where Longhorn stores Longhorn node object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -2188,7 +2117,7 @@ spec:
                       type: boolean
                     diskDriver:
                       enum:
-                      - ''
+                      - ""
                       - auto
                       - aio
                       - nvme
@@ -2246,9 +2175,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -2278,9 +2207,9 @@ spec:
                               condition's last transition.
                             type: string
                           status:
-                            description: 'Status is the status of the condition.
-
-                              Can be True, False, Unknown.'
+                            description: |-
+                              Status is the status of the condition.
+                              Can be True, False, Unknown.
                             type: string
                           type:
                             description: Type is the type of the condition.
@@ -2343,16 +2272,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: orphans.longhorn.io
 spec:
   group: longhorn.io
@@ -2380,28 +2310,19 @@ spec:
         description: Orphan is where Longhorn stores orphan object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -2410,9 +2331,9 @@ spec:
               data
             properties:
               dataEngine:
-                description: 'The type of data engine for instance orphan.
-
-                  Can be "v1", "v2".'
+                description: |-
+                  The type of data engine for instance orphan.
+                  Can be "v1", "v2".
                 enum:
                 - v1
                 - v2
@@ -2422,9 +2343,9 @@ spec:
                   reconcile this orphan CR.
                 type: string
               orphanType:
-                description: 'The type of the orphaned data.
-
-                  Can be "replica".'
+                description: |-
+                  The type of the orphaned data.
+                  Can be "replica".
                 type: string
               parameters:
                 additionalProperties:
@@ -2455,9 +2376,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -2474,16 +2395,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: recurringjobs.longhorn.io
 spec:
   group: longhorn.io
@@ -2532,28 +2454,19 @@ spec:
         description: RecurringJob is where Longhorn stores recurring job object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -2583,19 +2496,17 @@ spec:
               parameters:
                 additionalProperties:
                   type: string
-                description: 'The parameters of the snapshot/backup.
-
-                  Support parameters: "full-backup-interval", "volume-backup-policy".'
+                description: |-
+                  The parameters of the snapshot/backup.
+                  Support parameters: "full-backup-interval", "volume-backup-policy".
                 type: object
               retain:
                 description: The retain count of the snapshot/backup.
                 type: integer
               task:
-                description: 'The recurring job task.
-
-                  Can be "snapshot", "snapshot-force-create", "snapshot-cleanup",
-                  "snapshot-delete", "backup", "backup-force-create", "filesystem-trim"
-                  or "system-backup".'
+                description: |-
+                  The recurring job task.
+                  Can be "snapshot", "snapshot-force-create", "snapshot-cleanup", "snapshot-delete", "backup", "backup-force-create", "filesystem-trim" or "system-backup".
                 enum:
                 - snapshot
                 - snapshot-force-create
@@ -2625,16 +2536,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: replicas.longhorn.io
 spec:
   group: longhorn.io
@@ -2681,28 +2593,19 @@ spec:
         description: Replica is where Longhorn stores replica object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -2731,85 +2634,50 @@ spec:
               evictionRequested:
                 type: boolean
               failedAt:
-                description: 'FailedAt is set when a running replica fails or when
-                  a running engine is unable to use a replica for any reason.
-
-                  FailedAt indicates the time the failure occurred. When FailedAt
-                  is set, a replica is likely to have useful
-
-                  (though possibly stale) data. A replica with FailedAt set must be
-                  rebuilt from a non-failed replica (or it can
-
-                  be used in a salvage if all replicas are failed). FailedAt is cleared
-                  before a rebuild or salvage. FailedAt may
-
-                  be later than the corresponding entry in an engine''s replicaTransitionTimeMap
-                  because it is set when the volume
-
-                  controller acknowledges the change.'
+                description: |-
+                  FailedAt is set when a running replica fails or when a running engine is unable to use a replica for any reason.
+                  FailedAt indicates the time the failure occurred. When FailedAt is set, a replica is likely to have useful
+                  (though possibly stale) data. A replica with FailedAt set must be rebuilt from a non-failed replica (or it can
+                  be used in a salvage if all replicas are failed). FailedAt is cleared before a rebuild or salvage. FailedAt may
+                  be later than the corresponding entry in an engine's replicaTransitionTimeMap because it is set when the volume
+                  controller acknowledges the change.
                 type: string
               hardNodeAffinity:
                 type: string
               healthyAt:
-                description: 'HealthyAt is set the first time a replica becomes read/write
-                  in an engine after creation or rebuild. HealthyAt
-
-                  indicates the time the last successful rebuild occurred. When HealthyAt
-                  is set, a replica is likely to have
-
-                  useful (though possibly stale) data. HealthyAt is cleared before
-                  a rebuild. HealthyAt may be later than the
-
-                  corresponding entry in an engine''s replicaTransitionTimeMap because
-                  it is set when the volume controller
-
-                  acknowledges the change.'
+                description: |-
+                  HealthyAt is set the first time a replica becomes read/write in an engine after creation or rebuild. HealthyAt
+                  indicates the time the last successful rebuild occurred. When HealthyAt is set, a replica is likely to have
+                  useful (though possibly stale) data. HealthyAt is cleared before a rebuild. HealthyAt may be later than the
+                  corresponding entry in an engine's replicaTransitionTimeMap because it is set when the volume controller
+                  acknowledges the change.
                 type: string
               image:
                 type: string
               lastFailedAt:
-                description: 'LastFailedAt is always set at the same time as FailedAt.
-                  Unlike FailedAt, LastFailedAt is never cleared.
-
-                  LastFailedAt is not a reliable indicator of the state of a replica''s
-                  data. For example, a replica with
-
-                  LastFailedAt may already be healthy and in use again. However, because
-                  it is never cleared, it can be compared to
-
-                  LastHealthyAt to help prevent dangerous replica deletion in some
-                  corner cases. LastFailedAt may be later than the
-
-                  corresponding entry in an engine''s replicaTransitionTimeMap because
-                  it is set when the volume controller
-
-                  acknowledges the change.'
+                description: |-
+                  LastFailedAt is always set at the same time as FailedAt. Unlike FailedAt, LastFailedAt is never cleared.
+                  LastFailedAt is not a reliable indicator of the state of a replica's data. For example, a replica with
+                  LastFailedAt may already be healthy and in use again. However, because it is never cleared, it can be compared to
+                  LastHealthyAt to help prevent dangerous replica deletion in some corner cases. LastFailedAt may be later than the
+                  corresponding entry in an engine's replicaTransitionTimeMap because it is set when the volume controller
+                  acknowledges the change.
                 type: string
               lastHealthyAt:
-                description: 'LastHealthyAt is set every time a replica becomes read/write
-                  in an engine. Unlike HealthyAt, LastHealthyAt is
-
-                  never cleared. LastHealthyAt is not a reliable indicator of the
-                  state of a replica''s data. For example, a
-
-                  replica with LastHealthyAt set may be in the middle of a rebuild.
-                  However, because it is never cleared, it can be
-
-                  compared to LastFailedAt to help prevent dangerous replica deletion
-                  in some corner cases. LastHealthyAt may be
-
-                  later than the corresponding entry in an engine''s replicaTransitionTimeMap
-                  because it is set when the volume
-
-                  controller acknowledges the change.'
+                description: |-
+                  LastHealthyAt is set every time a replica becomes read/write in an engine. Unlike HealthyAt, LastHealthyAt is
+                  never cleared. LastHealthyAt is not a reliable indicator of the state of a replica's data. For example, a
+                  replica with LastHealthyAt set may be in the middle of a rebuild. However, because it is never cleared, it can be
+                  compared to LastFailedAt to help prevent dangerous replica deletion in some corner cases. LastHealthyAt may be
+                  later than the corresponding entry in an engine's replicaTransitionTimeMap because it is set when the volume
+                  controller acknowledges the change.
                 type: string
               logRequested:
                 type: boolean
               migrationEngineName:
-                description: 'MigrationEngineName is indicating the migrating engine
-                  which current connected to this replica. This is only
-
-                  used for live migration of v2 data engine'
+                description: |-
+                  MigrationEngineName is indicating the migrating engine which current connected to this replica. This is only
+                  used for live migration of v2 data engine
                 type: string
               nodeID:
                 type: string
@@ -2855,9 +2723,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -2899,16 +2767,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: settings.longhorn.io
 spec:
   group: longhorn.io
@@ -2939,28 +2808,19 @@ spec:
         description: Setting is where Longhorn stores setting object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -2974,13 +2834,10 @@ spec:
             - applied
             type: object
           value:
-            description: 'The value of the setting.
-
-              - It can be a non-JSON formatted string that is applied to all the applicable
-              data engines listed in the setting definition.
-
-              - It can be a JSON formatted string that contains values for applicable
-              data engines listed in the setting definition''s Default.'
+            description: |-
+              The value of the setting.
+              - It can be a non-JSON formatted string that is applied to all the applicable data engines listed in the setting definition.
+              - It can be a JSON formatted string that contains values for applicable data engines listed in the setting definition's Default.
             type: string
         required:
         - value
@@ -2990,16 +2847,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: sharemanagers.longhorn.io
 spec:
   group: longhorn.io
@@ -3030,28 +2888,19 @@ spec:
         description: ShareManager is where Longhorn stores share manager object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -3086,16 +2935,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: snapshots.longhorn.io
 spec:
   group: longhorn.io
@@ -3140,28 +2990,19 @@ spec:
         description: Snapshot is the Schema for the snapshots API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -3178,9 +3019,9 @@ spec:
                 nullable: true
                 type: object
               volume:
-                description: 'the volume that this snapshot belongs to.
-
-                  This field is immutable after creation.'
+                description: |-
+                  the volume that this snapshot belongs to.
+                  This field is immutable after creation.
                 type: string
             required:
             - volume
@@ -3227,16 +3068,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: supportbundles.longhorn.io
 spec:
   group: longhorn.io
@@ -3271,28 +3113,19 @@ spec:
         description: SupportBundle is where Longhorn stores support bundle object
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -3336,9 +3169,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -3370,16 +3203,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: systembackups.longhorn.io
 spec:
   group: longhorn.io
@@ -3415,28 +3249,19 @@ spec:
         description: SystemBackup is where Longhorn stores system backup object
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -3445,9 +3270,9 @@ spec:
               SystemBackup
             properties:
               volumeBackupPolicy:
-                description: 'The create volume backup policy
-
-                  Can be "if-not-present", "always" or "disabled"'
+                description: |-
+                  The create volume backup policy
+                  Can be "if-not-present", "always" or "disabled"
                 nullable: true
                 type: string
             type: object
@@ -3474,9 +3299,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -3519,16 +3344,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: systemrestores.longhorn.io
 spec:
   group: longhorn.io
@@ -3555,28 +3381,19 @@ spec:
         description: SystemRestore is where Longhorn stores system restore object
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -3613,9 +3430,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -3640,16 +3457,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: volumeattachments.longhorn.io
 spec:
   group: longhorn.io
@@ -3673,28 +3491,19 @@ spec:
           volume
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -3706,10 +3515,9 @@ spec:
                 additionalProperties:
                   properties:
                     generation:
-                      description: 'A sequence number representing a specific generation
-                        of the desired state.
-
-                        Populated by the system. Read-only.'
+                      description: |-
+                        A sequence number representing a specific generation of the desired state.
+                        Populated by the system. Read-only.
                       format: int64
                       type: integer
                     id:
@@ -3761,9 +3569,9 @@ spec:
                               condition's last transition.
                             type: string
                           status:
-                            description: 'Status is the status of the condition.
-
-                              Can be True, False, Unknown.'
+                            description: |-
+                              Status is the status of the condition.
+                              Can be True, False, Unknown.
                             type: string
                           type:
                             description: Type is the type of the condition.
@@ -3772,10 +3580,9 @@ spec:
                       nullable: true
                       type: array
                     generation:
-                      description: 'A sequence number representing a specific generation
-                        of the desired state.
-
-                        Populated by the system. Read-only.'
+                      description: |-
+                        A sequence number representing a specific generation of the desired state.
+                        Populated by the system. Read-only.
                       format: int64
                       type: integer
                     id:
@@ -3798,16 +3605,17 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/crds.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.1
   labels:
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
-    longhorn-manager: ''
+    longhorn-manager: ""
   name: volumes.longhorn.io
 spec:
   group: longhorn.io
@@ -3854,28 +3662,19 @@ spec:
         description: Volume is where Longhorn stores volume object.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object.
-
-              Servers should convert recognized schemas to the latest internal value,
-              and
-
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
               may reject unrecognized values.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents.
-
-              Servers may infer this from the endpoint the client submits requests
-              to.
-
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
               Cannot be updated.
-
               In CamelCase.
-
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -3895,8 +3694,8 @@ spec:
                 description: BackupBlockSize indicate the block size to create backups.
                   The block size is immutable.
                 enum:
-                - '2097152'
-                - '16777216'
+                - "2097152"
+                - "16777216"
                 format: int64
                 type: string
               backupCompressionMethod:
@@ -3911,7 +3710,7 @@ spec:
                 type: string
               cloneMode:
                 enum:
-                - ''
+                - ""
                 - full-copy
                 - linked-clone
                 type: string
@@ -3952,7 +3751,7 @@ spec:
                 - iscsi
                 - nvmf
                 - ublk
-                - ''
+                - ""
                 type: string
               image:
                 type: string
@@ -3971,16 +3770,11 @@ spec:
               numberOfReplicas:
                 type: integer
               offlineRebuilding:
-                description: 'Specifies whether Longhorn should rebuild replicas while
-                  the detached volume is degraded.
-
+                description: |-
+                  Specifies whether Longhorn should rebuild replicas while the detached volume is degraded.
                   - ignored: Use the global setting for offline replica rebuilding.
-
-                  - enabled: Enable offline rebuilding for this volume, regardless
-                  of the global setting.
-
-                  - disabled: Disable offline rebuilding for this volume, regardless
-                  of the global setting'
+                  - enabled: Enable offline rebuilding for this volume, regardless of the global setting.
+                  - disabled: Disable offline rebuilding for this volume, regardless of the global setting
                 enum:
                 - ignored
                 - disabled
@@ -4095,9 +3889,9 @@ spec:
                         last transition.
                       type: string
                     status:
-                      description: 'Status is the status of the condition.
-
-                        Can be True, False, Unknown.'
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
                       type: string
                     type:
                       description: Type is the type of the condition.
@@ -4178,232 +3972,93 @@ spec:
     subresources:
       status: {}
 ---
+# Source: longhorn/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-role
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 rules:
 - apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
   verbs:
-  - '*'
-- apiGroups:
-  - ''
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - deletecollection
-- apiGroups:
-  - ''
-  resources:
-  - secrets
-  - services
-  - endpoints
-  - configmaps
-  - serviceaccounts
-  - pods/log
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ''
-  resources:
-  - events
-  - persistentvolumes
-  - persistentvolumeclaims
-  - persistentvolumeclaims/status
-  - nodes
-  verbs:
-  - '*'
-- apiGroups:
-  - ''
-  resources:
-  - namespaces
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  - statefulsets
-  - deployments
-  - replicasets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  - cronjobs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - scheduling.k8s.io
-  resources:
-  - priorityclasses
-  verbs:
-  - watch
-  - list
-- apiGroups:
-  - storage.k8s.io
-  resources:
-  - storageclasses
-  - volumeattachments
-  - volumeattachments/status
-  - csinodes
-  - csidrivers
-  - csistoragecapacities
-  verbs:
-  - '*'
-- apiGroups:
-  - snapshot.storage.k8s.io
-  resources:
-  - volumesnapshotclasses
-  - volumesnapshots
-  - volumesnapshotcontents
-  - volumesnapshotcontents/status
-  verbs:
-  - '*'
-- apiGroups:
-  - longhorn.io
-  resources:
-  - volumes
-  - volumes/status
-  - engines
-  - engines/status
-  - replicas
-  - replicas/status
-  - settings
-  - settings/status
-  - engineimages
-  - engineimages/status
-  - nodes
-  - nodes/status
-  - instancemanagers
-  - instancemanagers/status
-  - sharemanagers
-  - sharemanagers/status
-  - backingimages
-  - backingimages/status
-  - backingimagemanagers
-  - backingimagemanagers/status
-  - backingimagedatasources
-  - backingimagedatasources/status
-  - backuptargets
-  - backuptargets/status
-  - backupvolumes
-  - backupvolumes/status
-  - backups
-  - backups/status
-  - recurringjobs
-  - recurringjobs/status
-  - orphans
-  - orphans/status
-  - snapshots
-  - snapshots/status
-  - supportbundles
-  - supportbundles/status
-  - systembackups
-  - systembackups/status
-  - systemrestores
-  - systemrestores/status
-  - volumeattachments
-  - volumeattachments/status
-  - backupbackingimages
-  - backupbackingimages/status
-  verbs:
-  - '*'
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - metrics.k8s.io
-  resources:
-  - pods
-  - nodes
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - apiregistration.k8s.io
-  resources:
-  - apiservices
-  verbs:
-  - list
-  - watch
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - get
-  - list
-  - create
-  - patch
-  - delete
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - roles
-  - rolebindings
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - discovery.k8s.io
-  resources:
-  - endpointslices
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  - clusterroles
-  verbs:
-  - '*'
+  - "*"
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete", "deletecollection"]
+- apiGroups: [""]
+  resources: ["secrets", "services", "endpoints", "configmaps", "serviceaccounts", "pods/log"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["events", "persistentvolumes", "persistentvolumeclaims", "persistentvolumeclaims/status", "nodes"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets", "statefulsets", "deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["scheduling.k8s.io"]
+  resources: ["priorityclasses"]
+  verbs: ["watch", "list"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses", "volumeattachments", "volumeattachments/status", "csinodes", "csidrivers", "csistoragecapacities"]
+  verbs: ["*"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshotclasses", "volumesnapshots", "volumesnapshotcontents", "volumesnapshotcontents/status"]
+  verbs: ["*"]
+- apiGroups: ["longhorn.io"]
+  resources: ["volumes", "volumes/status", "engines", "engines/status", "replicas", "replicas/status", "settings", "settings/status",
+              "engineimages", "engineimages/status", "nodes", "nodes/status", "instancemanagers", "instancemanagers/status",
+              "sharemanagers", "sharemanagers/status", "backingimages", "backingimages/status",
+              "backingimagemanagers", "backingimagemanagers/status", "backingimagedatasources", "backingimagedatasources/status",
+              "backuptargets", "backuptargets/status", "backupvolumes", "backupvolumes/status", "backups", "backups/status",
+              "recurringjobs", "recurringjobs/status", "orphans", "orphans/status", "snapshots", "snapshots/status",
+              "supportbundles", "supportbundles/status", "systembackups", "systembackups/status", "systemrestores", "systemrestores/status",
+              "volumeattachments", "volumeattachments/status", "backupbackingimages", "backupbackingimages/status"]
+  verbs: ["*"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list"]
+- apiGroups: ["apiregistration.k8s.io"]
+  resources: ["apiservices"]
+  verbs: ["list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
+  verbs: ["get", "list", "create", "patch", "delete"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["clusterrolebindings", "clusterroles"]
+  verbs: ["*"]
 ---
+# Source: longhorn/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-bind
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -4413,14 +4068,15 @@ subjects:
   name: longhorn-service-account
   namespace: longhorn-system
 ---
+# Source: longhorn/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-support-bundle
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -4430,73 +4086,40 @@ subjects:
   name: longhorn-support-bundle
   namespace: longhorn-system
 ---
+# Source: longhorn/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn
   namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 rules:
-- apiGroups:
-  - ''
-  resources:
-  - pods
-  - pods/log
-  - events
-  - secrets
-  - services
-  - endpoints
-  - configmaps
-  - serviceaccounts
-  - persistentvolumeclaims
-  - persistentvolumeclaims/status
-  verbs:
-  - '*'
-- apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  - deployments
-  - statefulsets
-  - replicasets
-  verbs:
-  - '*'
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  - cronjobs
-  verbs:
-  - '*'
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - '*'
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - '*'
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - roles
-  - rolebindings
-  verbs:
-  - '*'
-- apiGroups:
-  - discovery.k8s.io
-  resources:
-  - endpointslices
-  verbs:
-  - '*'
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "events", "secrets", "services", "endpoints", "configmaps", "serviceaccounts", "persistentvolumeclaims", "persistentvolumeclaims/status"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets", "deployments", "statefulsets", "replicasets"]
+  verbs: ["*"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["*"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["*"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["*"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["*"]
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["*"]
 ---
+# Source: longhorn/templates/rolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -4511,91 +4134,96 @@ subjects:
   name: longhorn-service-account
   namespace: longhorn-system
 ---
+# Source: longhorn/templates/daemonset-sa.yaml
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: longhorn-manager
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
+    app: longhorn-manager
   name: longhorn-backend
   namespace: longhorn-system
 spec:
+  type: ClusterIP
+  selector:
+    app: longhorn-manager
   ports:
   - name: manager
     port: 9500
     targetPort: manager
-  selector:
-    app: longhorn-manager
-  type: ClusterIP
 ---
-apiVersion: v1
+# Source: longhorn/templates/deployment-ui.yaml
 kind: Service
+apiVersion: v1
 metadata:
   labels:
-    app: longhorn-ui
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
+    app: longhorn-ui
   name: longhorn-frontend
   namespace: longhorn-system
 spec:
-  ports:
-  - name: http
-    nodePort: null
-    port: 80
-    targetPort: http
+  type: ClusterIP
   selector:
     app: longhorn-ui
-  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    nodePort: null
 ---
+# Source: longhorn/templates/services.yaml
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: longhorn-admission-webhook
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
+    app: longhorn-admission-webhook
   name: longhorn-admission-webhook
   namespace: longhorn-system
 spec:
+  type: ClusterIP
+  selector:
+    longhorn.io/admission-webhook: longhorn-admission-webhook
   ports:
   - name: admission-webhook
     port: 9502
     targetPort: admission-wh
-  selector:
-    longhorn.io/admission-webhook: longhorn-admission-webhook
-  type: ClusterIP
 ---
+# Source: longhorn/templates/services.yaml
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: longhorn-recovery-backend
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
+    app: longhorn-recovery-backend
   name: longhorn-recovery-backend
   namespace: longhorn-system
 spec:
+  type: ClusterIP
+  selector:
+    longhorn.io/recovery-backend: longhorn-recovery-backend
   ports:
   - name: recovery-backend
     port: 9503
     targetPort: recov-backend
-  selector:
-    longhorn.io/recovery-backend: longhorn-recovery-backend
-  type: ClusterIP
 ---
+# Source: longhorn/templates/daemonset-sa.yaml
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: longhorn-manager
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
+    app: longhorn-manager
   name: longhorn-manager
   namespace: longhorn-system
 spec:
@@ -4605,31 +4233,65 @@ spec:
   template:
     metadata:
       labels:
-        app: longhorn-manager
-        app.kubernetes.io/instance: longhorn
         app.kubernetes.io/name: longhorn
+        app.kubernetes.io/instance: longhorn
         app.kubernetes.io/version: v1.10.1
+        app: longhorn-manager
     spec:
       containers:
-      - command:
+      - name: longhorn-manager
+        image: longhornio/longhorn-manager:v1.10.1
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        command:
         - longhorn-manager
         - -d
         - daemon
         - --engine-image
-        - longhornio/longhorn-engine:v1.10.1
+        - "longhornio/longhorn-engine:v1.10.1"
         - --instance-manager-image
-        - longhornio/longhorn-instance-manager:v1.10.1
+        - "longhornio/longhorn-instance-manager:v1.10.1"
         - --share-manager-image
-        - longhornio/longhorn-share-manager:v1.10.1
+        - "longhornio/longhorn-share-manager:v1.10.1"
         - --backing-image-manager-image
-        - longhornio/backing-image-manager:v1.10.1
+        - "longhornio/backing-image-manager:v1.10.1"
         - --support-bundle-manager-image
-        - longhornio/support-bundle-kit:v0.0.71
+        - "longhornio/support-bundle-kit:v0.0.71"
         - --manager-image
-        - longhornio/longhorn-manager:v1.10.1
+        - "longhornio/longhorn-manager:v1.10.1"
         - --service-account
         - longhorn-service-account
         - --upgrade-version-check
+        ports:
+        - containerPort: 9500
+          name: manager
+        - containerPort: 9502
+          name: admission-wh
+        - containerPort: 9503
+          name: recov-backend
+        readinessProbe:
+          httpGet:
+            path: /v1/healthz
+            port: 9502
+            scheme: HTTPS
+        volumeMounts:
+        - name: boot
+          mountPath: /host/boot/
+          readOnly: true
+        - name: dev
+          mountPath: /host/dev/
+        - name: proc
+          mountPath: /host/proc/
+          readOnly: true
+        - name: etc
+          mountPath: /host/etc/
+          readOnly: true
+        - name: longhorn
+          mountPath: /var/lib/longhorn/
+          mountPropagation: Bidirectional
+        - name: longhorn-grpc-tls
+          mountPath: /tls-files/
         env:
         - name: POD_NAME
           valueFrom:
@@ -4647,89 +4309,46 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: longhornio/longhorn-manager:v1.10.1
+      - name: pre-pull-share-manager-image
         imagePullPolicy: IfNotPresent
-        name: longhorn-manager
-        ports:
-        - containerPort: 9500
-          name: manager
-        - containerPort: 9502
-          name: admission-wh
-        - containerPort: 9503
-          name: recov-backend
-        readinessProbe:
-          httpGet:
-            path: /v1/healthz
-            port: 9502
-            scheme: HTTPS
-        resources:
-          limits:
-            cpu: 200m
-            memory: 512Mi
-          requests:
-            cpu: 50m
-            memory: 256Mi
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - mountPath: /host/boot/
-          name: boot
-          readOnly: true
-        - mountPath: /host/dev/
-          name: dev
-        - mountPath: /host/proc/
-          name: proc
-          readOnly: true
-        - mountPath: /host/etc/
-          name: etc
-          readOnly: true
-        - mountPath: /var/lib/longhorn/
-          mountPropagation: Bidirectional
-          name: longhorn
-        - mountPath: /tls-files/
-          name: longhorn-grpc-tls
-      - command:
-        - sh
-        - -c
-        - echo share-manager image pulled && sleep infinity
         image: longhornio/longhorn-share-manager:v1.10.1
-        imagePullPolicy: IfNotPresent
-        name: pre-pull-share-manager-image
-      priorityClassName: longhorn-critical
-      serviceAccountName: longhorn-service-account
+        command: ["sh", "-c", "echo share-manager image pulled && sleep infinity"]
       volumes:
-      - hostPath:
+      - name: boot
+        hostPath:
           path: /boot/
-        name: boot
-      - hostPath:
+      - name: dev
+        hostPath:
           path: /dev/
-        name: dev
-      - hostPath:
+      - name: proc
+        hostPath:
           path: /proc/
-        name: proc
-      - hostPath:
+      - name: etc
+        hostPath:
           path: /etc/
-        name: etc
-      - hostPath:
+      - name: longhorn
+        hostPath:
           path: /var/lib/longhorn/
-        name: longhorn
       - name: longhorn-grpc-tls
         secret:
-          optional: true
           secretName: longhorn-grpc-tls
+          optional: true
+      priorityClassName: "longhorn-critical"
+      serviceAccountName: longhorn-service-account
   updateStrategy:
     rollingUpdate:
-      maxUnavailable: 100%
+      maxUnavailable: "100%"
 ---
+# Source: longhorn/templates/deployment-driver.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  labels:
-    app.kubernetes.io/instance: longhorn
-    app.kubernetes.io/name: longhorn
-    app.kubernetes.io/version: v1.10.1
   name: longhorn-driver-deployer
   namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
+    app.kubernetes.io/version: v1.10.1
 spec:
   replicas: 1
   selector:
@@ -4738,69 +4357,66 @@ spec:
   template:
     metadata:
       labels:
-        app: longhorn-driver-deployer
-        app.kubernetes.io/instance: longhorn
         app.kubernetes.io/name: longhorn
+        app.kubernetes.io/instance: longhorn
         app.kubernetes.io/version: v1.10.1
+        app: longhorn-driver-deployer
     spec:
-      containers:
-      - command:
-        - longhorn-manager
-        - -d
-        - deploy-driver
-        - --manager-image
-        - longhornio/longhorn-manager:v1.10.1
-        - --manager-url
-        - http://longhorn-backend:9500/v1
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.serviceAccountName
-        - name: CSI_ATTACHER_IMAGE
-          value: longhornio/csi-attacher:v4.10.0-20251030
-        - name: CSI_PROVISIONER_IMAGE
-          value: longhornio/csi-provisioner:v5.3.0-20251030
-        - name: CSI_NODE_DRIVER_REGISTRAR_IMAGE
-          value: longhornio/csi-node-driver-registrar:v2.15.0-20251030
-        - name: CSI_RESIZER_IMAGE
-          value: longhornio/csi-resizer:v1.14.0-20251030
-        - name: CSI_SNAPSHOTTER_IMAGE
-          value: longhornio/csi-snapshotter:v8.4.0-20251030
-        - name: CSI_LIVENESS_PROBE_IMAGE
-          value: longhornio/livenessprobe:v2.17.0-20251030
-        image: longhornio/longhorn-manager:v1.10.1
-        imagePullPolicy: IfNotPresent
-        name: longhorn-driver-deployer
       initContainers:
-      - command:
-        - sh
-        - -c
-        - while [ $(curl -m 1 -s -o /dev/null -w "%{http_code}" http://longhorn-backend:9500/v1)
-          != "200" ]; do echo waiting; sleep 2; done
-        image: longhornio/longhorn-manager:v1.10.1
-        name: wait-longhorn-manager
-      priorityClassName: longhorn-critical
+        - name: wait-longhorn-manager
+          image: longhornio/longhorn-manager:v1.10.1
+          command: ['sh', '-c', 'while [ $(curl -m 1 -s -o /dev/null -w "%{http_code}" http://longhorn-backend:9500/v1) != "200" ]; do echo waiting; sleep 2; done']
+      containers:
+        - name: longhorn-driver-deployer
+          image: longhornio/longhorn-manager:v1.10.1
+          imagePullPolicy: IfNotPresent
+          command:
+          - longhorn-manager
+          - -d
+          - deploy-driver
+          - --manager-image
+          - "longhornio/longhorn-manager:v1.10.1"
+          - --manager-url
+          - http://longhorn-backend:9500/v1
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
+          - name: CSI_ATTACHER_IMAGE
+            value: "longhornio/csi-attacher:v4.10.0-20251030"
+          - name: CSI_PROVISIONER_IMAGE
+            value: "longhornio/csi-provisioner:v5.3.0-20251030"
+          - name: CSI_NODE_DRIVER_REGISTRAR_IMAGE
+            value: "longhornio/csi-node-driver-registrar:v2.15.0-20251030"
+          - name: CSI_RESIZER_IMAGE
+            value: "longhornio/csi-resizer:v1.14.0-20251030"
+          - name: CSI_SNAPSHOTTER_IMAGE
+            value: "longhornio/csi-snapshotter:v8.4.0-20251030"
+          - name: CSI_LIVENESS_PROBE_IMAGE
+            value: "longhornio/livenessprobe:v2.17.0-20251030"
+      priorityClassName: "longhorn-critical"
+      serviceAccountName: longhorn-service-account
       securityContext:
         runAsUser: 0
-      serviceAccountName: longhorn-service-account
 ---
+# Source: longhorn/templates/deployment-ui.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: longhorn-ui
-    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/name: longhorn
+    app.kubernetes.io/instance: longhorn
     app.kubernetes.io/version: v1.10.1
+    app: longhorn-ui
   name: longhorn-ui
   namespace: longhorn-system
 spec:
@@ -4811,48 +4427,43 @@ spec:
   template:
     metadata:
       labels:
-        app: longhorn-ui
-        app.kubernetes.io/instance: longhorn
         app.kubernetes.io/name: longhorn
+        app.kubernetes.io/instance: longhorn
         app.kubernetes.io/version: v1.10.1
+        app: longhorn-ui
     spec:
+      serviceAccountName: longhorn-ui-service-account
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - longhorn-ui
-            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - longhorn-ui
+              topologyKey: kubernetes.io/hostname
+            weight: 1
       containers:
-      - env:
-        - name: LONGHORN_MANAGER_IP
-          value: http://longhorn-backend:9500
-        - name: LONGHORN_UI_PORT
-          value: '8000'
+      - name: longhorn-ui
         image: longhornio/longhorn-ui:v1.10.1
         imagePullPolicy: IfNotPresent
-        name: longhorn-ui
+        volumeMounts:
+        - name: nginx-cache
+          mountPath: /var/cache/nginx/
+        - name: nginx-config
+          mountPath: /var/config/nginx/
+        - name: var-run
+          mountPath: /var/run/
         ports:
         - containerPort: 8000
           name: http
-        resources:
-          limits:
-            memory: 256Mi
-          requests:
-            cpu: 50m
-            memory: 64Mi
-        volumeMounts:
-        - mountPath: /var/cache/nginx/
-          name: nginx-cache
-        - mountPath: /var/config/nginx/
-          name: nginx-config
-        - mountPath: /var/run/
-          name: var-run
-      priorityClassName: longhorn-critical
-      serviceAccountName: longhorn-ui-service-account
+        env:
+          - name: LONGHORN_MANAGER_IP
+            value: "http://longhorn-backend:9500"
+          - name: LONGHORN_UI_PORT
+            value: "8000"
       volumes:
       - emptyDir: {}
         name: nginx-cache
@@ -4860,3 +4471,7 @@ spec:
         name: nginx-config
       - emptyDir: {}
         name: var-run
+      priorityClassName: "longhorn-critical"
+---
+# Source: longhorn/templates/validate-psp-install.yaml
+#

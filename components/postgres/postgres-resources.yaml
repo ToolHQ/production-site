@@ -70,6 +70,14 @@ spec:
           # Custom Image from Nexus (registry.local:31444)
           image: registry.local:31444/repository/docker-repo/postgres:16-alpine-6d98ea7
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+              ephemeral-storage: 1Gi
           ports:
             - containerPort: 5432
               protocol: TCP

@@ -133,6 +133,13 @@ spec:
                   name: minio-secret
                   key: MINIO_ROOT_PASSWORD
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
           ports:
             - containerPort: 9000
               protocol: TCP
