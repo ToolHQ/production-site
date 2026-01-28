@@ -133,7 +133,7 @@ tune_control_plane_resources() {
     # Etcd (128Mi)
     if [ -f /etc/kubernetes/manifests/etcd.yaml ]; then
       echo "  - Tuning etcd..."
-      sudo sed -i "s/memory: 100Mi/memory: 128Mi/" /etc/kubernetes/manifests/etcd.yaml || true
+      sudo sed -i "s/memory: 100Mi/memory: 512Mi/" /etc/kubernetes/manifests/etcd.yaml || true
     fi
     
     echo "✅ Control plane resources tuned."
@@ -663,7 +663,14 @@ cilium_install_master() {
         --set routingMode=direct \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=true \\
-        --set ipam.mode=kubernetes \\
+        --set kubeProxyReplacement=true \
+        --set ipam.mode=kubernetes \
+        --set resources.requests.cpu=150m \
+        --set resources.requests.memory=512Mi \
+        --set operator.resources.requests.cpu=50m \
+        --set operator.resources.requests.memory=128Mi \
+        --set envoy.resources.requests.cpu=50m \
+        --set envoy.resources.requests.memory=64Mi \\
         --set rollOutCiliumPods=true \\
         --set mtu=\$DP_MTU \\
         --set bpf.masquerade=true \\
@@ -746,7 +753,14 @@ cilium_install_master() {
             --wait=false \\
             --set tunnelProtocol=vxlan \\
             --set kubeProxyReplacement=false \\
-            --set ipam.mode=kubernetes \\
+            --set ipam.mode=kubernetes \
+            --set rollOutCiliumPods=true \
+            --set resources.requests.cpu=150m \
+            --set resources.requests.memory=512Mi \
+            --set operator.resources.requests.cpu=50m \
+            --set operator.resources.requests.memory=128Mi \
+            --set envoy.resources.requests.cpu=50m \
+            --set envoy.resources.requests.memory=64Mi \\
             --set rollOutCiliumPods=true \\
             --set mtu=\$DP_MTU \\
             --set hubble.relay.enabled=true \\
@@ -1561,7 +1575,7 @@ if kubectl -n local-path-storage get deploy local-path-provisioner >/dev/null 2>
   echo "✅ Local Path Provisioner already installed — skipping."
 else
   echo "🚀 Deploying Local Path Provisioner..."
-  kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
+  kubectl apply -f "$(dirname "$0")/../components/local-path-provisioner/local-path.yaml"
   echo "⏳ Waiting for Local Path Provisioner to become ready..."
   kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=2m || true
   echo "✅ Local Path Provisioner installed."
@@ -1666,7 +1680,7 @@ if kubectl -n longhorn-system get deploy longhorn-driver-deployer >/dev/null 2>&
   echo '✅ Longhorn already installed — skipping.'
 else
   echo '🚀 Deploying Longhorn v${LONGHORN_VERSION}...'
-  kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v${LONGHORN_VERSION}/deploy/longhorn.yaml
+  kubectl apply -f "$(dirname "$0")/../components/longhorn/longhorn.yaml"
   
   echo '⏳ Waiting for Longhorn system to become ready...'
   kubectl -n longhorn-system rollout status deploy/longhorn-driver-deployer --timeout=5m || true
@@ -1973,7 +1987,7 @@ UNINSTALL_EOF
     
     run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail <<'UNINSTALL_EOF'
 echo \"🗑️  Removing Local Path Provisioner components...\"
-kubectl delete -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml 2>/dev/null || true
+kubectl delete -f "$(dirname "$0")/../components/local-path-provisioner/local-path.yaml" 2>/dev/null || true
 kubectl delete namespace local-path-storage --timeout=120s 2>/dev/null || true
 echo \"✅ Local Path Provisioner uninstalled\"
 UNINSTALL_EOF
@@ -2023,7 +2037,7 @@ UPDATE_EOF
 echo \"📦 Updating Local Path Provisioner...\"
 
 # The local-path-provisioner typically uses 'master' branch, so we just reapply
-if kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml; then
+if kubectl apply -f "$(dirname "$0")/../components/local-path-provisioner/local-path.yaml"; then
   echo \"⏳ Waiting for Local Path Provisioner to update...\"
   kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=3m || {
     echo \"❌ Local Path Provisioner update failed\"
