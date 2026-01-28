@@ -743,9 +743,11 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
                 if [ "$val" -gt 90 ]; then
                      c_icon="⚠️"
                 elif [ "$c_req_m" -le 50 ]; then
-                     c_icon="🟢" # User Exemption: 50m is the floor, even if 2m used, it's green.
+                     c_icon="🟢" # Floor Exemption: 50m
                 elif [ "$val" -lt 5 ]; then 
                      c_icon="📉"
+                else
+                     c_icon="🟢"
                 fi
             fi
             if [ -n "$c_alarm" ]; then c_icon="🚩"; fi
@@ -756,7 +758,9 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             # Only flag low efficiency if request is significant (> 256Mi)
             if [[ "$eff_mem" != "-" ]]; then
                 val=${eff_mem%\%}; val=${val#<}
-                if [ "$val" -lt 10 ]; then m_icon="📉"
+                if [ "$val" -lt 10 ]; then 
+                     # Floor Exemption for Memory (<= 64Mi)
+                     if [ "$m_req_mi" -le 64 ]; then m_icon="🟢"; else m_icon="📉"; fi
                 elif [ "$val" -gt 90 ]; then m_icon="⚠️"; fi
             fi
             if [ -n "$m_alarm" ]; then m_icon="🚩"; fi
@@ -1171,7 +1175,8 @@ END {
     print "            <div class=\"legend-column\">"
     print "                <div class=\"legend-group-title\" data-i18n=\"Pod Alarms (Section 7)\">Pod Alarms (Section 7)</div>"
     print "                <div class=\"legend-item-row\"><span class=\"icon-box\">🚩</span> <span data-i18n=\"Missing Config\">Missing Requests/Limits</span></div>"
-    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">📉</span> <span data-i18n=\"Underutilized\">Under-utilized (<5% CPU, <10% RAM)</span></div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">📉</span> <span data-i18n=\"Underutilized\">Under-utilized (<5% CPU, <10% RAM) [Above Floor]</span></div>"
+    print "                <div class=\"legend-item-row\"><span class=\"icon-box\">🟢</span> <span data-i18n=\"Normal Status\">Normal / Floor (CPU≤50m, RAM≤64Mi)</span></div>"
     print "                <div class=\"legend-item-row\"><span class=\"icon-box\">⚠️</span> <span data-i18n=\"Close to Limit\">Close to Limit (>90% of Req)</span></div>"
     print "            </div>"
     print "            <div class=\"legend-column\">"
@@ -1250,7 +1255,9 @@ cat <<'EOF' >> "$HTML_FILE"
             "Warning: High Usage (>70%)": "Aviso: Uso Alto (>70%)",
             "Critical: Danger (>85%)": "Crítico: Perigo (>85%)",
             "Missing Requests/Limits": "Faltam Requests/Limits",
-            "Under-utilized (<5% CPU, <10% RAM)": "Subutilizado (<5% CPU, <10% RAM)",
+            "Missing Requests/Limits": "Faltam Requests/Limits",
+            "Under-utilized (<5% CPU, <10% RAM) [Above Floor]": "Subutilizado (<5% CPU, <10% RAM) [Acima do Piso]",
+            "Normal / Floor (CPU≤50m, RAM≤64Mi)": "Normal / Piso Mínimo (CPU≤50m, RAM≤64Mi)",
             "Close to Limit (>90% of Req)": "Perto do Limite (>90% do Req)",
             "Synced & Healthy": "Sincronizado & Saudável",
             "Connection Error / Node Down": "Erro de Conexão / Nó Fora",
