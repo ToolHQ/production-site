@@ -733,11 +733,20 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
             # CPU Efficiency
             eff_cpu=$(fmt_pct "$u_cpu_m" "$c_req_m")
             c_icon="🟢"
-            # Only flag low efficiency if request is significant (> 100m)
+            # EFFICIENCY CHECK:
+            # 1. If Usage > 90% -> Warning (⚠️)
+            # 2. If Request <= 50m -> Accept Low Efficiency/Idle (🟢) per user rule (Min alloc = 50m)
+            # 3. If Efficiency < 5% -> Waste (📉)
             if [[ "$eff_cpu" != "-" ]]; then
                 val=${eff_cpu%\%}; val=${val#<}
-                if [ "$val" -lt 5 ]; then c_icon="📉"
-                elif [ "$val" -gt 90 ]; then c_icon="⚠️"; fi
+                
+                if [ "$val" -gt 90 ]; then
+                     c_icon="⚠️"
+                elif [ "$c_req_m" -le 50 ]; then
+                     c_icon="🟢" # User Exemption: 50m is the floor, even if 2m used, it's green.
+                elif [ "$val" -lt 5 ]; then 
+                     c_icon="📉"
+                fi
             fi
             if [ -n "$c_alarm" ]; then c_icon="🚩"; fi
 

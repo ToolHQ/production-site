@@ -4242,6 +4242,10 @@ spec:
       - name: longhorn-manager
         image: longhornio/longhorn-manager:v1.10.1
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
         securityContext:
           privileged: true
         command:
@@ -4311,6 +4315,10 @@ spec:
               fieldPath: spec.nodeName
       - name: pre-pull-share-manager-image
         imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
         image: longhornio/longhorn-share-manager:v1.10.1
         command: ["sh", "-c", "echo share-manager image pulled && sleep infinity"]
       volumes:
@@ -4370,6 +4378,10 @@ spec:
         - name: longhorn-driver-deployer
           image: longhornio/longhorn-manager:v1.10.1
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
           command:
           - longhorn-manager
           - -d
@@ -4448,6 +4460,10 @@ spec:
       containers:
       - name: longhorn-ui
         image: longhornio/longhorn-ui:v1.10.1
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: nginx-cache

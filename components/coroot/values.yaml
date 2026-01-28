@@ -37,7 +37,7 @@ corootCE:
 corootClusterAgent:
   resources:
     requests:
-      cpu: 30m
+      cpu: 50m
       memory: 256Mi
     limits:
       cpu: 200m
@@ -47,7 +47,7 @@ node-agent:
   priorityClassName: system-node-critical
   resources:
     requests:
-      cpu: 40m
+      cpu: 50m
       memory: 256Mi
     limits:
       cpu: 200m
@@ -73,7 +73,7 @@ prometheus:
   server:
     resources:
       requests:
-        cpu: 30m
+        cpu: 50m
         memory: 256Mi
       limits:
         cpu: 200m
