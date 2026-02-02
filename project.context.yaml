@@ -1,0 +1,22 @@
+project:
+  name: production-site
+  description: Monorepo multi-linguagem orquestrado em Kubernetes OCI via TUI customizada.
+  core_component: "oci-k8s-cluster (TUI & Ops Scripts)"
+
+stack:
+  infrastructure:
+    orchestrator: "kubernetes-oci"
+    container_registry: "nexus.localhost:8081"
+    storage: "longhorn (v1.10.1)"
+    network: "cilium (vxlan)"
+    ingress: "ingress-nginx (declarative)"
+  
+  observability: 
+    - "elastic-apm (traces)"
+    - "kibana (logs)"
+    - "coroot (metrics/topology)"
+    - "inventory_report (html status)"
+
+  automation:
+    tui_entrypoint: "./k8s_ops_menu.sh"
+    deploy_script: "./deploy.sh"
