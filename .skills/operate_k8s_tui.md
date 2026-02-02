@@ -5,6 +5,11 @@ description: Guia de uso da interface principal de operações (k8s_ops_menu.sh)
 
 # K8s Ops Menu
 
+> [!IMPORTANT]
+> **Governança**: Toda operação no cluster deve ser feita através deste menu.
+> Se você precisar rodar um comando manual repetidamente, transforme-o em um script na pasta `scripts/` e integre-o aqui.
+> **Não execute comandos ad-hoc fora da TUI.**
+
 A TUI é o ponto de entrada para todas as operações administrativas.
 Localização: `oci-k8s-cluster/k8s_ops_menu.sh`
 
