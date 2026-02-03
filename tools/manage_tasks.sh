@@ -41,10 +41,14 @@ function add_task() {
 - **Estimation**: $est
 
 ## Context
-Added via tools/manage_tasks.sh
+# TODO: Explique o contexto técnico, o problema e a solução proposta aqui.
+# Use links para arquivos relevantes: [file.sh](file:///path/to/file.sh)
 
 ## Tasks
+# TODO: Quebre em tarefas menores e marque o progresso.
 - [ ] Initial investigation
+- [ ] Implement focus area 1
+- [ ] Validate and test
 EOF
 
     # Add to KANBAN.md (Backlog section starts at line 10-ish)
