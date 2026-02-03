@@ -11,6 +11,7 @@ Você é o Operador do Cluster.
 - **Segurança e Estrutura**:
   - Toda configuração de Kubernetes DEVE residir em `components/`.
   - **PROIBIDO** criar arquivos YAML avulsos (ex: backups, deploys temporários) fora de `components/`.
+  - Toda operação de Ops deve estar vinculada a um ID de Tarefa (`T-XXX`) ativo no `KANBAN.md`.
   - Antes de qualquer alteração, SEMPRE verificar se o arquivo já existe na pasta correspondente em `components/` e atualizá-lo em vez de criar um novo.
   - Nunca expor portas SSH desnecessárias.
   - Usar túneis criptografados via TUI para acessar serviços web.
