@@ -16,6 +16,7 @@
 ## ✅ Done
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-094](T-094-Reorganize-Tasks-and-Tools.md) | **Reorganize Tasks and Tools** | 🚨 Critical | Ops | 2h |
 | [T-054](T-054-Cluster-Stabilization.md) | **Cluster Stabilization & IaC Audit** | 🔼 High | Infra | 3h |
 | [T-053](T-053-Resource-Optimization-V3.md) | **Resource Optimization V3 (Elastic/Longhorn/Coroot)** | 🔼 High | Infra | 2h |
 | [T-037](T-037-Deep-Space-Cleanup.md) | **Deep Space Cleanup (Docker/Journald)** | 🔽 Low | Ops | 4h |
