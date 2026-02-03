@@ -20,3 +20,4 @@ stack:
   automation:
     tui_entrypoint: "./k8s_ops_menu.sh"
     deploy_script: "./deploy.sh"
+    manifests_root: "components/" # Single source of truth for all K8s resources
