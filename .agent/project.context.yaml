@@ -20,4 +20,8 @@ stack:
   automation:
     tui_entrypoint: "./k8s_ops_menu.sh"
     deploy_script: "./deploy.sh"
-    manifests_root: "components/" # Single source of truth for all K8s resources
+    manifests_root: "components/"
+    tasks_root: "tasks/"
+    kanban_file: "tasks/KANBAN.md"
+    tools:
+      task_manager: "tools/manage_tasks.sh"
