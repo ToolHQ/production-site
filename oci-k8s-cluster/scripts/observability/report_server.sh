@@ -16,6 +16,12 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 status() {
+    # Check systemd status first
+    if systemctl --user is-active --quiet inventory-report 2>/dev/null; then
+        echo -e "${GREEN}●${NC} Report server is running via systemd on http://$HOST:$PORT"
+        return 0
+    fi
+
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
         if ps -p "$PID" > /dev/null 2>&1; then
@@ -32,41 +38,55 @@ status() {
 }
 
 stop() {
+    if systemctl --user is-active --quiet inventory-report 2>/dev/null; then
+        echo -e "${YELLOW}Stopping systemd report server...${NC}"
+        systemctl --user stop inventory-report.service
+    fi
+
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
-        echo -e "${YELLOW}Stopping report server (PID: $PID)...${NC}"
+        echo -e "${YELLOW}Stopping manual report server (PID: $PID)...${NC}"
         kill "$PID" 2>/dev/null || true
         rm -f "$PID_FILE"
-        # Cleanup any orphaned python http servers on this port just in case
-        pkill -f "python3 -m http.server $PORT" 2>/dev/null || true
-    else
-        echo "No PID file found. Cleaning up processes..."
-        pkill -f "python3 -m http.server $PORT" 2>/dev/null || true
     fi
+    
+    # Final cleanup
+    pkill -f "python3 -m http.server $PORT" 2>/dev/null || true
 }
 
 start() {
-    if status >/dev/null 2>&1; then
-        echo "Server is already running."
-        return 0
-    fi
-
     if [ ! -d "$LATEST_LINK" ]; then
         echo -e "${RED}Error: $LATEST_LINK directory not found. Generate a report first.${NC}"
         return 1
     fi
 
-    echo -e "${GREEN}Starting report server on http://$HOST:$PORT...${NC}"
+    if status >/dev/null 2>&1; then
+        echo "Server is already running."
+        return 0
+    fi
+
+    # Try starting via systemd if service file exists
+    if systemctl --user list-unit-files inventory-report.service >/dev/null 2>&1; then
+        echo -e "${GREEN}Starting report server via systemd...${NC}"
+        systemctl --user start inventory-report.service
+        sleep 1
+        if systemctl --user is-active --quiet inventory-report; then
+            echo -e "${GREEN}✅ Server started successfully via systemd.${NC}"
+            return 0
+        fi
+    fi
+
+    # Fallback to manual execution
+    echo -e "${GREEN}Starting report server manually on http://$HOST:$PORT...${NC}"
     nohup python3 -m http.server $PORT --bind $HOST --directory "$LATEST_LINK" >/dev/null 2>&1 &
     NEW_PID=$!
     echo "$NEW_PID" > "$PID_FILE"
     
-    # Verify startup
     sleep 1
     if ps -p "$NEW_PID" > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ Server started successfully.${NC}"
+        echo -e "${GREEN}✅ Server started manually successfully.${NC}"
     else
-        echo -e "${RED}❌ Failed to start server.${NC}"
+        echo -e "${RED}❌ Failed to start server manually.${NC}"
         rm -f "$PID_FILE"
         return 1
     fi
