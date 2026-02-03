@@ -1704,14 +1704,9 @@ if [ -d "$REPORT_ROOT" ]; then
     ln -sfn "$(basename "$OUTPUT_DIR")" "$LATEST_LINK"
 fi
 
-# Restart Python HTTP Server (Kill old -> Start new)
-if pgrep -f "http.server 8000" >/dev/null; then
-    pkill -f "http.server 8000" 2>/dev/null || true
-fi
-
-# Start Server in background (Quietly)
-nohup python3 -m http.server 8000 --directory "$LATEST_LINK" >/dev/null 2>&1 &
-SERVER_PID=$!
+# Restart Python HTTP Server via managed helper
+SCRIPT_DIR_INTERNAL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$SCRIPT_DIR_INTERNAL/report_server.sh" restart
 
 echo -e "${GREEN}✨ Reports Generated:${NC}"
 echo -e "   📄 Markdown: $MD_FILE"

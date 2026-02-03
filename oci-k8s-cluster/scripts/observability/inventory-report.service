@@ -1,0 +1,13 @@
+[Unit]
+Description=TUI Inventory Report Server
+After=network.target
+
+[Service]
+Type=simple
+# Adjust the path to match your actual installation
+ExecStart=/usr/bin/python3 -m http.server 8000 --bind 127.0.0.1 --directory /home/dnorio/production-site/oci-k8s-cluster/scripts/observability/reports/latest
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
