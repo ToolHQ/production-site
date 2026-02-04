@@ -5371,7 +5371,7 @@ spec:
               ephemeral-storage: 2Mi
 
             limits:
-              cpu: 200m
+              cpu: 100m
               memory: 512Mi
               ephemeral-storage: 128Mi
           args:
@@ -5439,7 +5439,7 @@ spec:
               ephemeral-storage: 2Mi
 
             limits:
-              cpu: 200m
+              cpu: 100m
               memory: 256Mi
               ephemeral-storage: 128Mi
           args:
@@ -5513,7 +5513,7 @@ spec:
               ephemeral-storage: 2Mi
 
             limits:
-              cpu: 200m
+              cpu: 100m
               memory: 256Mi
               ephemeral-storage: 128Mi
           args:

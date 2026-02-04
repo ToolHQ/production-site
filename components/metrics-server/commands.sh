@@ -8,10 +8,10 @@ echo "🚀 Deploying Metrics Server (Optimized)..."
 # Often metrics-server needs --kubelet-insecure-tls on DIY clusters.
 # Let's add it via sed just in case, safe to be idempotent.
 
-if ! grep -q "kubelet-insecure-tls" metrics-server.yaml; then
-  sed -i '/args:/a \        - --kubelet-insecure-tls' metrics-server.yaml
+if ! grep -q "kubelet-insecure-tls" components.yaml; then
+  sed -i '/args:/a \        - --kubelet-insecure-tls' components.yaml
 fi
 
-kubectl apply -f metrics-server.yaml
+kubectl apply -f components.yaml
 
 echo "✅ Metrics Server deployed."
