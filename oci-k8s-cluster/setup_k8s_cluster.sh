@@ -102,41 +102,15 @@ tune_control_plane_resources() {
   local h=$1
   echo "⚖️  Tuning Control Plane Resources on $h..."
   
+  # Copy the modular tuning script
+  scp -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+      "$(dirname "$0")/../components/kube-system/commands.sh" "$h:/tmp/tune_control_plane.sh" >/dev/null 2>&1
+      
   run_remote "$h" '
     set -e
-    # Kube Controller Manager (100m / 64Mi)
-    if [ -f /etc/kubernetes/manifests/kube-controller-manager.yaml ]; then
-      echo "  - Tuning kube-controller-manager..."
-      # Check if resources block exists, if not, careful with replacement
-      # This simple sed works if "cpu: 200m" is the default pattern, otherwise we use a more robust append if needed.
-      # Given we already patched it, we want this to be idempotent.
-      # We will use "kubectl set resources" logic on the static pod manifest file content via sed if feasible, 
-      # but standardizing the manifest is safer.
-      
-      # Strategy: Ensure requests are set.
-      sudo sed -i "s/cpu: 200m/cpu: 100m/" /etc/kubernetes/manifests/kube-controller-manager.yaml || true
-      if ! grep -q "memory: 64Mi" /etc/kubernetes/manifests/kube-controller-manager.yaml; then
-         # Insert memory request after cpu request
-         sudo sed -i "/cpu: 100m/a \        memory: 64Mi" /etc/kubernetes/manifests/kube-controller-manager.yaml
-      fi
-    fi
-
-    # Kube Scheduler (50m / 32Mi)
-    if [ -f /etc/kubernetes/manifests/kube-scheduler.yaml ]; then
-      echo "  - Tuning kube-scheduler..."
-      sudo sed -i "s/cpu: 100m/cpu: 50m/" /etc/kubernetes/manifests/kube-scheduler.yaml || true
-      if ! grep -q "memory: 32Mi" /etc/kubernetes/manifests/kube-scheduler.yaml; then
-         sudo sed -i "/cpu: 50m/a \        memory: 32Mi" /etc/kubernetes/manifests/kube-scheduler.yaml
-      fi
-    fi
-    
-    # Etcd (128Mi)
-    if [ -f /etc/kubernetes/manifests/etcd.yaml ]; then
-      echo "  - Tuning etcd..."
-      sudo sed -i "s/memory: 100Mi/memory: 512Mi/" /etc/kubernetes/manifests/etcd.yaml || true
-    fi
-    
-    echo "✅ Control plane resources tuned."
+    sudo chmod +x /tmp/tune_control_plane.sh
+    sudo /tmp/tune_control_plane.sh
+    rm /tmp/tune_control_plane.sh
   '
 }
 
@@ -625,6 +599,7 @@ ensure_pod_cidrs() {
 }
 
 cilium_install_master() {
+  scp -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$(dirname "$0")/../components/cilium/cilium-values.yaml" "$MASTER_NODE:/tmp/cilium-values.yaml" >/dev/null 2>&1
   ensure_pod_cidrs
   install_cilium_cli "$MASTER_NODE"
 
@@ -665,12 +640,7 @@ cilium_install_master() {
         --set kubeProxyReplacement=true \\
         --set kubeProxyReplacement=true \
         --set ipam.mode=kubernetes \
-        --set resources.requests.cpu=150m \
-        --set resources.requests.memory=512Mi \
-        --set operator.resources.requests.cpu=50m \
-        --set operator.resources.requests.memory=128Mi \
-        --set envoy.resources.requests.cpu=50m \
-        --set envoy.resources.requests.memory=64Mi \\
+        --values /tmp/cilium-values.yaml \
         --set rollOutCiliumPods=true \\
         --set mtu=\$DP_MTU \\
         --set bpf.masquerade=true \\
@@ -755,12 +725,7 @@ cilium_install_master() {
             --set kubeProxyReplacement=false \\
             --set ipam.mode=kubernetes \
             --set rollOutCiliumPods=true \
-            --set resources.requests.cpu=150m \
-            --set resources.requests.memory=512Mi \
-            --set operator.resources.requests.cpu=50m \
-            --set operator.resources.requests.memory=128Mi \
-            --set envoy.resources.requests.cpu=50m \
-            --set envoy.resources.requests.memory=64Mi \\
+            --values /tmp/cilium-values.yaml \
             --set rollOutCiliumPods=true \\
             --set mtu=\$DP_MTU \\
             --set hubble.relay.enabled=true \\
