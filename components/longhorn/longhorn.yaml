@@ -4244,7 +4244,7 @@ spec:
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-            cpu: 100m
+            cpu: 150m
             memory: 512Mi
         securityContext:
           privileged: true
@@ -4317,7 +4317,7 @@ spec:
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-            cpu: 100m
+            cpu: 150m
             memory: 512Mi
         image: longhornio/longhorn-share-manager:v1.10.1
         command: ["sh", "-c", "echo share-manager image pulled && sleep infinity"]

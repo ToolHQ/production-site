@@ -9,11 +9,11 @@ corootCE:
       value: "clickhouse:9000"
   resources:
     requests:
-      cpu: 50m
-      memory: 256Mi
+      cpu: 100m
+      memory: 400Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 300m
+      memory: 600Mi
       ephemeral-storage: 1Gi
   # Persistence and Ingress from original
   persistentVolume:
@@ -37,31 +37,31 @@ corootCE:
 corootClusterAgent:
   resources:
     requests:
-      cpu: 50m
-      memory: 256Mi
+      cpu: 60m
+      memory: 400Mi
     limits:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 150m
+      memory: 600Mi
 
 node-agent:
   priorityClassName: system-node-critical
   resources:
     requests:
-      cpu: 50m
-      memory: 256Mi
+      cpu: 60m
+      memory: 400Mi
     limits:
-      cpu: 200m
-      memory: 512Mi
+      cpu: 150m
+      memory: 600Mi
 
 clickhouse:
   enabled: true
   resources:
     requests:
-      cpu: 100m
-      memory: 512Mi
+      cpu: 150m
+      memory: 1024Mi
     limits:
       cpu: 500m
-      memory: 1024Mi
+      memory: 2048Mi
       ephemeral-storage: 8Gi
   persistence:
     enabled: true
@@ -73,11 +73,11 @@ prometheus:
   server:
     resources:
       requests:
-        cpu: 50m
-        memory: 256Mi
+        cpu: 100m
+        memory: 400Mi
       limits:
-        cpu: 200m
-        memory: 512Mi
+        cpu: 300m
+        memory: 600Mi
     persistentVolume:
       enabled: true
       size: 2Gi

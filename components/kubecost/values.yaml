@@ -1,16 +1,16 @@
 cost-analyzer:
   resources:
     requests:
-      cpu: 80m
-      memory: 300Mi
+      cpu: 100m
+      memory: 400Mi
     limits:
-      cpu: 500m
-      memory: 1Gi
+      cpu: 300m
+      memory: 600Mi
   
   frontend:
     resources:
       requests:
-        cpu: 15m
+        cpu: 20m
         memory: 32Mi
       limits:
         cpu: 100m
@@ -23,6 +23,6 @@ prometheus:
         cpu: 100m
         memory: 256Mi
       limits:
-        cpu: 500m
-        memory: 1Gi
+        cpu: 300m
+        memory: 512Mi
     retention: 5d # Reduce retention to save disk space if configured
