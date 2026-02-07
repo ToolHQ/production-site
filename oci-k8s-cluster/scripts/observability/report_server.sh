@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORT_ROOT="$SCRIPT_DIR/reports"
 LATEST_LINK="$REPORT_ROOT/latest"
 PORT=8000
-HOST="127.0.0.1"
+HOST="0.0.0.0"
 PID_FILE="$SCRIPT_DIR/.report_server.pid"
 
 # Colors

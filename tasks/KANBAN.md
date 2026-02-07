@@ -16,6 +16,7 @@
 ## ✅ Done
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-098](task.md) | **WSL Native Chrome MCP Setup** | 🌟 Feature | DevExp | 4h |
 | [T-095](T-095-Fix-Inventory-Report-Exposure.md) | **Fix Inventory Report Exposure** | 🚨 Critical | Ops | 2h |
 | [T-094](T-094-Reorganize-Tasks-and-Tools.md) | **Reorganize Tasks and Tools** | 🚨 Critical | Ops | 2h |
 | [T-054](T-054-Cluster-Stabilization.md) | **Cluster Stabilization & IaC Audit** | 🔼 High | Infra | 3h |
