@@ -13,5 +13,7 @@ if ! grep -q "kubelet-insecure-tls" components.yaml; then
 fi
 
 kubectl apply -f components.yaml
+# T-100: Zero-Waste Patch
+kubectl patch deployment metrics-server -n kube-system --patch-file patch-resources.yaml
 
 echo "✅ Metrics Server deployed."

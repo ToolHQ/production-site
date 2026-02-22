@@ -5,6 +5,8 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+
+| [T-100](T-100-Zero-Waste-Resource-Lockdown.md) | **Zero-Waste Resource Lockdown & Completeness Audit** | 🚨 Critical | Ops | 6h |
 | [T-023](T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
 
 ## 📅 Backlog (To Do)

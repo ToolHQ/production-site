@@ -4,6 +4,7 @@ metadata:
   name: etcd-backup
   namespace: kube-system
 spec:
+  suspend: true
   schedule: "0 */6 * * *"
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3

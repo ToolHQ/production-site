@@ -36,3 +36,13 @@ patch_manifest "/etc/kubernetes/manifests/kube-scheduler.yaml" "kube-scheduler" 
 patch_manifest "/etc/kubernetes/manifests/etcd.yaml" "etcd" "100m" "512Mi" "200m" "1Gi"
 
 echo "✅ Control plane tuning complete."
+
+# --- T-100: Zero-Waste Lockdown ---
+echo "🔒 Applying Resource LimitRange for kube-system..."
+
+if [ -f "limit-range.yaml" ]; then
+    kubectl apply -f limit-range.yaml
+    echo "  - Applied limit-range.yaml"
+fi
+
+

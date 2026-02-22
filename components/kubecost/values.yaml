@@ -26,3 +26,11 @@ prometheus:
         cpu: 300m
         memory: 512Mi
     retention: 5d # Reduce retention to save disk space if configured
+  nodeExporter:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 50m
+        memory: 64Mi

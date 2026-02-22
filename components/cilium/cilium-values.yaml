@@ -13,16 +13,16 @@ operator:
 envoy:
   resources:
     requests:
-      cpu: 50m
-      memory: 64Mi
+      cpu: 10m
+      memory: 50Mi
     limits:
       cpu: 150m
       memory: 128Mi
 
 resources:
   requests:
-    cpu: 150m
-    memory: 512Mi
+    cpu: 50m
+    memory: 128Mi
   limits:
     cpu: 450m
     memory: 768Mi
