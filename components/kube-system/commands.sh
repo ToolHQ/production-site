@@ -45,4 +45,10 @@ if [ -f "limit-range.yaml" ]; then
     echo "  - Applied limit-range.yaml"
 fi
 
+echo "🛡️ Deploying ResourceQuotas for all namespaces..."
+if [ -f "resource-quotas.yaml" ]; then
+    kubectl apply -f resource-quotas.yaml
+    echo "  - Applied resource-quotas.yaml"
+fi
+
 
