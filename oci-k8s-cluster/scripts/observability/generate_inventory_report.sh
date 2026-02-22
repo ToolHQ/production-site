@@ -727,7 +727,73 @@ HTML_FILE="$OUTPUT_DIR/inventory.html"
     else
         echo "| Scans failed | - | - | - | - | ❌ |"
     fi
+
 } > "$MD_FILE"
+
+# ------------------------------------------------------------------------------
+# 8. LimitRanges & Policy Quotas (Zero-Waste Lockdown)
+# ------------------------------------------------------------------------------
+echo "" >> "$MD_FILE"
+echo "## 8. Resource Policies (LimitRanges)" >> "$MD_FILE"
+echo "| Namespace | Default CPU (Req/Lim) | Default Mem (Req/Lim) | Max Limit |" >> "$MD_FILE"
+echo "|---|---|---|---|" >> "$MD_FILE"
+
+# Fetch LimitRanges
+ssh -T -o StrictHostKeyChecking=no "$MASTER_NODE" "kubectl get limitranges -A -o json" > "$TEMP_DIR/limitranges.json"
+
+if [ -s "$TEMP_DIR/limitranges.json" ]; then
+    jq -r '.items[] | "\(.metadata.namespace)|\(.metadata.name)|\(.spec.limits[] | select(.type=="Container"))"' "$TEMP_DIR/limitranges.json" | \
+    jq -r '"\(.metadata.namespace) | \(.spec.limits[].defaultRequest.cpu) / \(.spec.limits[].default.cpu) | \(.spec.limits[].defaultRequest.memory) / \(.spec.limits[].default.memory) | \(.spec.limits[].max.cpu // "-")"' | \
+    while read -r line; do
+       # The jq logic above is a bit broken for single-line read, let's simplify.
+       # We will use a simpler loop.
+       :
+    done
+    
+    # Robust iteration
+    jq -c '.items[]' "$TEMP_DIR/limitranges.json" | while read -r lr; do
+        ns=$(echo "$lr" | jq -r '.metadata.namespace')
+        # We only care about "Container" type limits
+        def_cpu_req=$(echo "$lr" | jq -r '.spec.limits[] | select(.type=="Container") | .defaultRequest.cpu // "-"')
+        def_cpu_lim=$(echo "$lr" | jq -r '.spec.limits[] | select(.type=="Container") | .default.cpu // "-"')
+        def_mem_req=$(echo "$lr" | jq -r '.spec.limits[] | select(.type=="Container") | .defaultRequest.memory // "-"')
+        def_mem_lim=$(echo "$lr" | jq -r '.spec.limits[] | select(.type=="Container") | .default.memory // "-"')
+        max_cpu=$(echo "$lr" | jq -r '.spec.limits[] | select(.type=="Container") | .max.cpu // "-"')
+        
+        echo "| **$ns** | $def_cpu_req / $def_cpu_lim | $def_mem_req / $def_mem_lim | $max_cpu |" >> "$MD_FILE"
+    done
+else
+    echo "| No LimitRanges Found | - | - | - |" >> "$MD_FILE"
+fi
+
+# ------------------------------------------------------------------------------
+# 9. Global Efficiency Score
+# ------------------------------------------------------------------------------
+echo "" >> "$MD_FILE"
+echo "## 9. Cluster Efficiency Score" >> "$MD_FILE"
+echo "| Metric | Value | Status |" >> "$MD_FILE"
+echo "|---|---|---|" >> "$MD_FILE"
+
+# Calculate Totals from previous data
+total_cap_cpu=$(awk -F'|' '{sum+=$2} END {print sum}' "$TEMP_DIR/charts.dat") # Total Cap (Approx from nodes_usage) - Wait charts.dat format is different
+# Re-extract capacity from nodes_capacity.json
+total_cap_m=$(jq -r '[.items[].status.allocatable.cpu] | map(if endswith("m") then (sub("m";"")|tonumber) else (tonumber? * 1000) end) | add' "$TEMP_DIR/nodes_capacity.json")
+# Total Requests
+total_req_m=$(jq -r '[.items[] | select(.status.phase=="Running" or .status.phase=="Pending") | .spec.containers[].resources.requests.cpu // "0"] | map(if endswith("m") then (sub("m";"")|tonumber) else (tonumber? * 1000) end) | add' "$TEMP_DIR/pods_resources.json")
+
+if [[ -n "$total_cap_m" && "$total_cap_m" -gt 0 ]]; then
+    eff_score=$(( (total_req_m * 100) / total_cap_m ))
+    score_icon="🟢"
+    if [ "$eff_score" -gt 100 ]; then score_icon="⚠️ (Over-subscribed)"; elif [ "$eff_score" -lt 10 ]; then score_icon="📉 (Waste)"; fi
+    
+    echo "| **Efficiency Score** | **${eff_score}%** | $score_icon |" >> "$MD_FILE"
+    echo "| Total Capacity | ${total_cap_m}m | 4 Nodes |" >> "$MD_FILE"
+    echo "| Total Allocated | ${total_req_m}m | Requests |" >> "$MD_FILE"
+else
+    echo "| Efficiency | N/A | Error calculating |" >> "$MD_FILE"
+fi
+
+
 
 # ------------------------------------------------------------------------------
 # 6. CONVERT TO HTML

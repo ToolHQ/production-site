@@ -1,0 +1,15 @@
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: system-limits
+  namespace: kube-system
+spec:
+  limits:
+  - default:
+      cpu: 150m
+      memory: 128Mi
+    defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+    type: Container

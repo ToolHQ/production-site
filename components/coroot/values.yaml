@@ -9,8 +9,8 @@ corootCE:
       value: "clickhouse:9000"
   resources:
     requests:
-      cpu: 100m
-      memory: 400Mi
+      cpu: 10m
+      memory: 50Mi
     limits:
       cpu: 300m
       memory: 600Mi
@@ -37,8 +37,8 @@ corootCE:
 corootClusterAgent:
   resources:
     requests:
-      cpu: 60m
-      memory: 400Mi
+      cpu: 10m
+      memory: 50Mi
     limits:
       cpu: 150m
       memory: 600Mi
@@ -47,17 +47,23 @@ node-agent:
   priorityClassName: system-node-critical
   resources:
     requests:
-      cpu: 60m
-      memory: 400Mi
+      cpu: 10m
+      memory: 50Mi
     limits:
       cpu: 150m
       memory: 600Mi
 
 clickhouse:
   enabled: true
+  command: []
+  image:
+    registry: "docker.io"
+    repository: "clickhouse/clickhouse-server"
+    tag: "24.3"
+  resourcesPreset: "none"
   resources:
     requests:
-      cpu: 150m
+      cpu: 50m
       memory: 1024Mi
     limits:
       cpu: 500m
