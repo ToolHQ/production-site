@@ -11,6 +11,7 @@ helm repo update >/dev/null 2>&1 || true
 helm upgrade --install kubecost cost-analyzer/cost-analyzer \
     --namespace kubecost --create-namespace \
     --values values.yaml \
+    --set global.clusterId=oci-k8s-cluster \
     --wait
 
 echo "✅ Kubecost deployed."

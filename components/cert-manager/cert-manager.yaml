@@ -5366,8 +5366,8 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 50m
-              memory: 80Mi
+              cpu: 10m
+              memory: 50Mi
               ephemeral-storage: 2Mi
 
             limits:
@@ -5434,8 +5434,8 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 50m
-              memory: 80Mi
+              cpu: 10m
+              memory: 50Mi
               ephemeral-storage: 2Mi
 
             limits:
@@ -5508,8 +5508,8 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 10m
+              memory: 50Mi
               ephemeral-storage: 2Mi
 
             limits:

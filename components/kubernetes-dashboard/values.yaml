@@ -5,8 +5,8 @@ metricsScraper:
       cpu: 100m
       memory: 64Mi
     requests:
-      cpu: 50m
-      memory: 32Mi
+      cpu: 10m
+      memory: 50Mi
 
 app:
   resources:
@@ -14,8 +14,8 @@ app:
       cpu: 250m
       memory: 128Mi
     requests:
-      cpu: 50m
-      memory: 64Mi
+      cpu: 10m
+      memory: 50Mi
 
 auth:
   resources:
@@ -23,8 +23,8 @@ auth:
       cpu: 200m
       memory: 128Mi
     requests:
-      cpu: 50m
-      memory: 64Mi
+      cpu: 10m
+      memory: 50Mi
 
 kong:
   enabled: false # We use our own Ingress (nginx) usually, but dashboard chart might enforce it. 
@@ -37,5 +37,5 @@ kong:
          cpu: 200m
          memory: 256Mi
       requests:
-         cpu: 50m
-         memory: 128Mi
+         cpu: 10m
+         memory: 50Mi
