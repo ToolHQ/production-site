@@ -8,7 +8,9 @@ spec:
   - default:
       cpu: 200m
       memory: 256Mi
+      ephemeral-storage: 1Gi
     defaultRequest:
         cpu: 50m
         memory: 64Mi
+        ephemeral-storage: 50Mi
     type: Container
