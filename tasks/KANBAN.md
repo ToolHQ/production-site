@@ -6,7 +6,6 @@
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
 
-| [T-100](T-100-Zero-Waste-Resource-Lockdown.md) | **Zero-Waste Resource Lockdown & Completeness Audit** | 🚨 Critical | Ops | 6h |
 | [T-023](T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
 
 ## 📅 Backlog (To Do)
@@ -18,6 +17,7 @@
 ## ✅ Done
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-100](T-100-Zero-Waste-Resource-Lockdown.md) | **Zero-Waste Resource Lockdown & Completeness Audit** | 🚨 Critical | Ops | 6h |
 | [T-098](task.md) | **WSL Native Chrome MCP Setup** | 🌟 Feature | DevExp | 4h |
 | [T-095](T-095-Fix-Inventory-Report-Exposure.md) | **Fix Inventory Report Exposure** | 🚨 Critical | Ops | 2h |
 | [T-094](T-094-Reorganize-Tasks-and-Tools.md) | **Reorganize Tasks and Tools** | 🚨 Critical | Ops | 2h |
