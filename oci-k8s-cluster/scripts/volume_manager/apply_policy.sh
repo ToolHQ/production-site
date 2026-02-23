@@ -10,24 +10,9 @@ POLICY_NAME="gold-standard"
 
 log "🛡️  Initializing Backup Policy Manager..."
 
-# 1. Define the RecurringJobs (Snapshot + Backup)
-# - Snapshot: Every 1h, Keep 5
+# 1. Define the RecurringJobs (Backup only)
 # - Backup: Every day at 03:00, Keep 7
 cat <<EOF > /tmp/longhorn_policy.yaml
-apiVersion: longhorn.io/v1beta2
-kind: RecurringJob
-metadata:
-  name: snapshot-hourly
-  namespace: longhorn-system
-  labels:
-    recurring-job-group.longhorn.io/gold-standard: "enabled"
-spec:
-  cron: "0 * * * *"
-  task: "snapshot"
-  groups: ["gold-standard"]
-  retain: 5
-  concurrency: 1
----
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
@@ -44,7 +29,7 @@ spec:
 EOF
 
 # 2. Apply CRDs
-log "📝 Applying RecurringJobs (Snapshot: 1h/5, Backup: 1d/7)..."
+log "📝 Applying RecurringJobs (Backup: 1d/7)..."
 scp -q -o StrictHostKeyChecking=no /tmp/longhorn_policy.yaml oci-k8s-master:/tmp/longhorn_policy.yaml
 ssh oci-k8s-master "kubectl apply -f /tmp/longhorn_policy.yaml"
 rm /tmp/longhorn_policy.yaml
@@ -63,4 +48,4 @@ for vol in $VOLUMES; do
 done
 
 log "✅ Policy Applied Successfully!"
-log "   All volumes will now auto-snapshot (1h) and auto-backup (Daily)."
+log "   All volumes will now auto-backup (Daily)."

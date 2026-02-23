@@ -17,6 +17,7 @@
 ## ✅ Done
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-101](T-101-Storage-Strategy-Pivot-Remote-over-Local.md) | **T-101 Storage Strategy Pivot: Remote over Local** | high | Epic-ZeroWaste | 1 hour |
 | [T-100](T-100-Zero-Waste-Resource-Lockdown.md) | **Zero-Waste Resource Lockdown & Completeness Audit** | 🚨 Critical | Ops | 6h |
 | [T-098](task.md) | **WSL Native Chrome MCP Setup** | 🌟 Feature | DevExp | 4h |
 | [T-095](T-095-Fix-Inventory-Report-Exposure.md) | **Fix Inventory Report Exposure** | 🚨 Critical | Ops | 2h |
