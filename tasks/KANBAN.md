@@ -6,17 +6,16 @@
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
 
-| [T-023](T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
-
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
 |:--:|:---|:--:|:---|:--:|
-| [T-040](T-040-Master-Stability-Proactive.md) | **Proactive Master Stabilization (PLEG/QoS)** | 🔼 High | Infra | 1d |
 
 
 ## ✅ Done
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
+| [T-040](T-040-Master-Stability-Proactive.md) | **Proactive Master Stabilization (PLEG/QoS)** | 🔼 High | Infra | 1d |
+| [T-023](T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
 | [T-101](T-101-Storage-Strategy-Pivot-Remote-over-Local.md) | **T-101 Storage Strategy Pivot: Remote over Local** | high | Epic-ZeroWaste | 1 hour |
 | [T-100](T-100-Zero-Waste-Resource-Lockdown.md) | **Zero-Waste Resource Lockdown & Completeness Audit** | 🚨 Critical | Ops | 6h |
 | [T-098](task.md) | **WSL Native Chrome MCP Setup** | 🌟 Feature | DevExp | 4h |

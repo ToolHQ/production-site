@@ -1,0 +1,12 @@
+# Antigravity Context Handoff (Ralph Loop)
+
+## Learnings from T-023 (Storage Resilience)
+- **Cluster Connection**: `kubectl` usually requires an SSH tunnel: `ssh -f -N -L 6445:localhost:6443 oci-k8s-master`. If `kubectl` times out, establish this tunnel.
+- **Node Aliases**: Nodes are available via `oci-k8s-master`, `oci-k8s-node-1`, etc., as configured in `~/.ssh/config`.
+- **BuildKit**: It runs as a native `systemd --user` service on the Host OS (not inside Kubernetes). The installer is at `oci-k8s-cluster/install_buildkit.sh`. We added IO limits (`Nice=19`) to prevent IO starvation.
+- **iSCSI/Multipath**: Timeouts are already well-configured (15s login/logout, 20s replacement). Multipath is disabled. Kernel panic-on-oops and watchdog are active.
+
+## Learnings from T-040 (Master Stabilization)
+- **Kubelet QoS**: ConfigMap `kubelet-config` in `kube-system` holds the global configuration. However, we patched `/var/lib/kubelet/config.yaml` dynamically on the nodes using SSH to immediately apply `systemReserved` and `kubeReserved` (100m CPU / 256Mi RAM) and restarted `kubelet`. We also updated the ConfigMap for future joining nodes.
+- **PLEG Monitor**: A script `monitor_pleg.sh` was deployed to `.agent/scripts` to quickly check for Containerd/Kubelet desynchronization without heavy external dependencies.
+- **Node Problem Detector**: Skipped daemonset installation due to the strict 1 vCPU hardware constraints as defined in the `agents.md` rulebook.
