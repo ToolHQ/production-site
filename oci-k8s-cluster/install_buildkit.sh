@@ -281,6 +281,10 @@ Documentation=https://github.com/moby/buildkit
 
 [Service]
 Environment="PATH=/home/ubuntu/bin:/usr/local/bin:/usr/bin:/bin"
+# Storage QoS / Process Niceness to prevent node IO freezes during heavy builds
+Nice=19
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
 # Delegate=yes is CRITICAL for rootlesskit to manage cgroups (fixes "operation not permitted")
 Delegate=yes
 KillMode=mixed

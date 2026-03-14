@@ -21,6 +21,8 @@ if kubectl -n coroot get secret coroot-clickhouse >/dev/null 2>&1; then
 fi
 
 echo "🚀 Upgrading Coroot..."
+kubectl apply -f "$dir/coroot-sa.yaml"
+
 # Prepare args
 ARGS=("--namespace" "coroot" "--values" "$dir/values.yaml" "--timeout" "5m" "--wait")
 if [ -n "$CH_PASSWORD" ]; then
