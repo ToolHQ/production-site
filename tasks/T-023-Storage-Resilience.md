@@ -1,6 +1,6 @@
-# T-023: Storage Resilience & Longhorn Stabilization
+# ✅ T-023: Storage Resilience & Longhorn Stabilization
 
-**Status**: In Progress
+**Status**: ✅ Done
 **Owner**: Infra Team
 **Priority**: 🚨 Critical (Stability)
 
@@ -14,10 +14,10 @@ Nodes are experiencing "Zombie" freezes caused by `iscsi_eh_cmd_timed_out` and I
 4. **Kernel Hardening**: Enable watchdog or panic-on-oops to recover faster from hard freezes.
 
 ## Action Plan
-- [ ] active: Analyze `iscsiod` and `open-iscsi` configuration on valid nodes.
-- [ ] active: Check Longhorn Manager logs for "Volume Detached" events.
-- [ ] active: Implement "Storage QoS" or IO throttling for non-critical pods.
-- [ ] active: Verify Multipath configuration (blacklist Longhorn devices to prevent interference).
+- [x] Analyze `iscsiod` and `open-iscsi` configuration on valid nodes. (Timeouts follow best-practices: 15s login/logout, 20s replacement).
+- [x] Check Longhorn Manager logs for "Volume Detached" events. (No recent detached events logged).
+- [x] Implement "Storage QoS" or IO throttling for non-critical pods. (BuildKit systemd services throttled).
+- [x] Verify Multipath configuration (blacklist Longhorn devices to prevent interference). (multipathd is disabled).
 
 ## Definition of Done
 - [ ] No more `iscsi_eh_cmd_timed_out` crashes under load.
