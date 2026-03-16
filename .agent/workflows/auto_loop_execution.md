@@ -9,7 +9,7 @@ description: Auto-Loop Execution (Headless Autonomous Loop)
 
 ## Phase 1: Context Loading & PRD Gathering
 1. Identify the task ID you have been assigned (e.g., `T-040`).
-2. Read the corresponding task definition file: `tasks/{TASK_ID}-*.md`.
+2. Read the corresponding task definition file (this will be located recursively under `tasks/`, for example `tasks/2026/Q1/{TASK_ID}-*.md`).
    - If the task requires a PRD (Product Requirements Document) to be broken down, break the task into small execution steps within the T-XXX file first.
    - Keep tasks *small*. If the task is too large for one context window, split the task file into sub-tasks (e.g., `T-040.1`, `T-040.2`) and update `KANBAN.md` accordingly. Focus only on the first small chunk.
 3. Read `tasks/KANBAN.md` to see where this task sits.
@@ -28,7 +28,7 @@ description: Auto-Loop Execution (Headless Autonomous Loop)
 5. You must leave the codebase/cluster in a **Green / Stable** state before exiting.
 
 ## Phase 3: State Management (Critical)
-1. Once fully verified, update the task file (`tasks/{TASK_ID}-*.md`) marking it `✅ Done`.
+1. Once fully verified, update the task file marking it `✅ Done`.
 2. Move the task in `tasks/KANBAN.md` to the `## ✅ Done` section.
 
 ## Phase 4: Knowledge Handoff
