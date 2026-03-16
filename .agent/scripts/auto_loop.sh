@@ -61,8 +61,8 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     echo "🎯 Picked Task: $NEXT_TASK"
     
     # Check if task file exists just to be safe
-    TASK_PATTERN="${WORKSPACE_DIR}/tasks/${NEXT_TASK}*.md"
-    TASK_FILE=$(ls $TASK_PATTERN 2>/dev/null | head -n 1 || true)
+    # Using find to search recursively inside tasks/ just in case it sits anywhere
+    TASK_FILE=$(find "${WORKSPACE_DIR}/tasks" -name "${NEXT_TASK}*.md" 2>/dev/null | head -n 1)
     
     if [[ -z "$TASK_FILE" ]]; then
         echo "⚠️ Warning: Could not find a markdown file for $NEXT_TASK in tasks/"
