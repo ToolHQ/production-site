@@ -12,13 +12,18 @@ from Coroot to right-size requests without sacrificing stability.
 
 ## 🔍 Problem Analysis
 
-### Current CPU Request Utilization (2026-04-03)
-| Node | Used | Capacity | % | Headroom |
-|---|---|---|---|---|
-| k8s-master | 740m | ~804m | 92% | 64m |
-| k8s-node-1 | 750m | 800m | 93% | **50m** ← caused failure |
-| k8s-node-2 | 750m | 800m | 93% | 50m |
-| k8s-node-3 | 970m | 800m | 121% | **over-committed** |
+### CPU Request Utilization snapshot (2026-04-03, at time of incident investigation)
+Numbers shifted after recovery (new replicas scheduled on node-1, nexus/ingress-nginx fixed).
+
+| Node | Used (incident) | Used (post-fix) | Capacity | % post-fix | Headroom |
+|---|---|---|---|---|---|
+| k8s-master | 740m | ~790m | ~804m | ~98% | ~14m |
+| k8s-node-1 | 750m | ~820m | 800m | ~102% | **over-committed** |
+| k8s-node-2 | 750m | ~750m | 800m | ~93% | ~50m |
+| k8s-node-3 | 970m | 870m | 800m | **108%** | **over-committed** |
+
+> ⚠️ Post-fix, node-1 and node-3 are over-committed (Longhorn instance-manager + new replicas
+> added CPU pressure). Run `kubectl describe nodes` for current numbers before executing Phase 2.
 
 ### Why this matters
 CPU *requests* determine **scheduling** and Kubernetes uses them to decide if a pod fits on a

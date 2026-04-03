@@ -13,22 +13,35 @@ can restart independently.
 
 ## 🔍 Problem Analysis
 
-### Dependency Chain
+### What actually happened
+postgres already uses `imagePullPolicy: IfNotPresent`. The ErrImagePull on `postgres-1` on
+2026-04-03 was NOT caused by 19 days of Nexus downtime. The sequence was:
+
+1. To break the volume attach deadlock, postgres was scaled to 0 replicas (both pods deleted)
+2. Scaled back to 2 replicas — `postgres-1` was scheduled on `k8s-node-2`
+3. The image `registry.local:31444/.../postgres:16-alpine-6d98ea7` was **not cached on node-2**
+   (pod was freshly assigned there; `IfNotPresent` only helps if the image was previously pulled
+   on that specific node)
+4. Nexus had just come back up and was still initializing (Java startup ~2–3 min) → pull failed
+
+The real gap: **images are only cached on nodes where they were previously run**. If a pod
+migrates to a new node (after scale-down/up, node drain, rescheduling), it will pull again.
+
+### Dependency Chain (corrected)
 ```
-postgres-1 restart → pull image from registry.local:31444 → Nexus down → ErrImagePull
+scale-down → scale-up → pod scheduled on node without cached image
+→ Nexus still initializing → ErrImagePull (resolved within ~3 min)
 ```
 
-### Affected workloads
-All pods using images from `registry.local:31444` (the Nexus Docker registry):
-- `postgres` (custom Alpine image with extensions)
-- `back-end` (Node.js app image)
-- `py-back-end` (Python app image)
-- `rs-axum-back-end` (Rust app image)
+### Affected workloads (need verification)
+Images from `registry.local:31444` (Nexus Docker registry):
+- `postgres` — confirmed, uses internal image with versioned tag ✓
+- `back-end`, `py-back-end`, `rs-axum-back-end` — likely use internal registry (verify)
 - Any image built locally and pushed to Nexus
 
 ### Non-affected
-Pods using public images directly (`registry.k8s.io`, `docker.io`) — these were fine during
-the outage and should be preferred for infrastructure components.
+Pods using public images directly (`registry.k8s.io`, `docker.io`) — these pull directly
+and don't depend on Nexus availability.
 
 ## 📋 Execution Plan
 
@@ -37,17 +50,15 @@ the outage and should be preferred for infrastructure components.
 - [ ] Classify each image: public registry vs `registry.local` vs `nexus.dnor.io`
 - [ ] Identify critical stateful workloads that use internal images (highest risk)
 
-### Phase 2: `imagePullPolicy` Audit & Fix
-Kubernetes `imagePullPolicy: IfNotPresent` means the node uses a cached image if available,
-only pulling when the image is missing. `Always` forces a pull on every pod start.
+### Phase 2: `imagePullPolicy` Audit
+postgres already uses `IfNotPresent` with versioned tags — correct. Audit remaining workloads.
 
 - [ ] Audit all Deployments/StatefulSets for `imagePullPolicy` setting
-- [ ] For stable, versioned images (postgres, infrastructure): change to `IfNotPresent`
-  - Once pulled once per node, Nexus downtime won't affect restarts
-  - Risk: stale images — mitigated by using explicit image tags (not `latest`)
-- [ ] For app images that change frequently: keep `IfNotPresent` but ensure image tags are
-  immutable (no reuse of the same tag for different content)
-- [ ] Document which images use which policy and why
+- [ ] Confirm all internal-registry images use versioned (non-`latest`) tags — `latest` forces
+  `Always` pull by default regardless of the explicit policy setting
+- [ ] For any workload still using `imagePullPolicy: Always` with internal images: change to
+  `IfNotPresent` and confirm it uses an immutable tag
+- [ ] Document findings — expected outcome: no changes needed if all use versioned tags
 
 ### Phase 3: Pre-Pull Critical Images on All Nodes
 For the most critical stateful workloads (postgres, etc.), ensure the image is pre-pulled
