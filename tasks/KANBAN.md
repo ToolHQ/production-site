@@ -1,6 +1,10 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟢 Healthy | **Next Milestone**: Foundation Stability
+**System Status**: 🟡 Recovering | **Next Milestone**: Observability & Resilience (Q2 2026)
+
+> **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
+> (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
+> Volumes rebuilding replicas. See T-102/T-103/T-104 for follow-up hardening.
 
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
@@ -9,6 +13,10 @@
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
 |:--:|:---|:--:|:---|:--:|
+| [T-102](2026/Q2/T-102-Cluster-Health-Watchdog.md) | **Cluster Health Watchdog & Proactive Alerting** | 🚨 Critical | Observability | 6h |
+| [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md) | **CPU Headroom Recovery & Sustained Margin Policy** | 🔼 High | Infra | 3h |
+| [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md) | **Longhorn Replica Integrity Hardening** | 🔼 High | Storage | 2h |
+| [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** | 🔽 Medium | Infra | 2h |
 
 
 ## ✅ Done
