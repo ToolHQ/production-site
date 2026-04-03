@@ -3,9 +3,9 @@
 **Status**: [ ] Backlog | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
 
 ## 🎯 Objective
-All 4 nodes are operating at 70–93% CPU *request* utilization with zero margin for system
-components like the Longhorn instance-manager (needs 72m to start). This directly caused
-the 132-day cascade failure discovered on 2026-04-03.
+Nodes are operating at up to 108% CPU *request* utilization (node-3 post-fix) with zero
+margin for system components like the Longhorn instance-manager (needs 72m to start). This
+directly caused the 132-day cascade failure discovered on 2026-04-03.
 
 Establish and enforce a **20% CPU headroom policy** on every node, using actual usage data
 from Coroot to right-size requests without sacrificing stability.
@@ -81,9 +81,10 @@ with the new headroom policy — quotas may need tightening after Phase 2 reduct
   - 🟢 < 75%, 🟡 75–85%, 🔴 > 85%
 
 ## ✅ Definition of Done
-- [ ] No node exceeds **90% CPU requests** (80% is unachievable without removing workloads —
-  node-1 at 99% needs ~92m reduction to reach 90%; safe candidates yield ~85–95m)
-- [ ] Every node has **≥ 100m free** at all times (Longhorn instance-manager floor)
+- [ ] Every node has **≥ 100m free** at all times (Longhorn instance-manager floor — implies
+  ≤ 700m used on 800m nodes; node-3 at 870m needs ~170m reduction, node-1 at 792m needs ~92m)
+  Note: 100m floor is the single binding constraint — "90%" (720m) is more lenient and is
+  subsumed by this rule.
 - [ ] ResourceQuota ceilings reviewed and aligned with actual usage + 30% buffer
 - [ ] Node status TUI shows headroom % with 🟢/🟡/🔴 coloring
 
