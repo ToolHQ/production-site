@@ -31,7 +31,7 @@ spec:
               value: "-Xms512m -Xmx512m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
           resources:
             requests:
-              cpu: 200m
+              cpu: 170m
               memory: 1Gi
             limits:
               cpu: 600m
