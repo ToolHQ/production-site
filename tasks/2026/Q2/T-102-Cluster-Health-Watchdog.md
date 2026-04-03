@@ -34,7 +34,9 @@ Implement a `cluster_health_check.sh` script covering the highest-impact gaps fo
 - [ ] Check all `instancemanager.longhorn.io` objects: alert if any state != `running`
 - [ ] Check all `volume.longhorn.io` objects: alert if state is `attaching` for > 30 minutes
 - [ ] Check all `volume.longhorn.io` objects: alert if robustness is `faulted`
-- [ ] Check replica counts: alert if actual replicas < spec `numberOfReplicas` for > 1 hour
+- [ ] Check replica counts: alert if `running replicas < spec.numberOfReplicas` AND volume
+  state is not `attaching`/`detaching` (exclude transitional states to avoid false positives
+  during normal attach cycles — a stateless script cannot track duration)
 - [ ] Check `engine.longhorn.io` objects: alert if any state is `error`
 
 #### 1.2 Pod Stuck Detection
@@ -70,8 +72,12 @@ and direct access to the cluster API.
 ## ✅ Definition of Done
 - [ ] `cluster_health_check.sh` detects the exact failures from 2026-04-03 retroactively (dry-run test)
 - [ ] TUI shows health report in < 10 seconds
-- [ ] CronJob runs every 30 minutes without errors for 7 consecutive days
+- [ ] systemd timer runs every 30 minutes without errors for 7 consecutive days
 - [ ] A simulated stuck instance-manager is detected within the next scan window
+
+> ⚠️ **Deploy T-102 and T-103 together**: the CPU headroom detector (Phase 1.3) will
+> immediately fire 🔴 Critical alerts on node-1 (99%) and node-3 (108%) until T-103 is
+> executed. Deploy both in the same session to avoid alert fatigue from known issues.
 
 ## 🔗 Context
 - Root cause fix applied: `components/nexus/nexus.yaml` cpu 200m→170m, `components/ingress-nginx/deploy.yaml` cpu 100m→50m (commit `7f6b920`)

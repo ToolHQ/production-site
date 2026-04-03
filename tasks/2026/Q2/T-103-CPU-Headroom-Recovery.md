@@ -48,26 +48,32 @@ Use Coroot or `kubectl top` to compare requested vs actual CPU for every running
 
 ### Phase 2: Request Reduction (Safe Candidates)
 
-Priority targets on `k8s-node-1` (most critical, 93%):
-- [ ] **coroot-clickhouse** (50m req): Check actual usage; reduce to 25m if P99 < 20m
-- [ ] **longhorn-manager** (150m req): Check actual usage; potentially reduce to 100m
-- [ ] **kubecost-grafana** (20m req): Minor; check if removable if Coroot covers observability
-- [ ] **kubernetes-dashboard-auth** (10m req): Check if it's actually used
+Priority targets on `k8s-node-1` (currently **99%** = 792m/800m):
+- [ ] **longhorn-ui** (50m req): Low risk — UI only, not data path. Reduce to 25m if P99 < 15m
+- [ ] **kubecost-grafana** (20m req): Reduce to 10m or evaluate removing if Coroot covers dashboards
+- [ ] **longhorn-manager** (150m req): ⚠️ HIGH RISK — critical control plane for storage. Only
+  reduce if Coroot confirms sustained P99 < 80m. Do not reduce below 100m.
+- [ ] **coroot-clickhouse** (50m req): ⚠️ RISK — ClickHouse is a columnar DB; query spikes can
+  exceed 50m. Verify with Coroot before any reduction. Do NOT reduce below 30m.
 
-Priority targets on `k8s-node-3` (over-committed at 121%):
-- [ ] Identify highest-request pods and audit actual usage
-- [ ] Investigate if node-3 has more allocatable CPU than others (or if there's a LimitRange issue)
+Priority targets on `k8s-node-3` (currently **108%** = 870m/800m):
+- [ ] **coroot-prometheus-server** (110m req): Evaluate — Coroot uses ClickHouse for metrics;
+  verify if Prometheus is still needed or can be replaced by Coroot's native collection
+- [ ] **kubecost-cost-analyzer** (120m req): Evaluate — if Kubecost is superseded by Coroot,
+  this is the largest safe saving on node-3
+- [ ] Identify remaining highest-request pods and audit actual usage vs request
 
 Apply same approach to master and node-2 to reach < 75% requests.
 
-### Phase 3: ResourceQuota Enforcement
-Prevent future CPU creep by adding per-namespace CPU *request* quotas that enforce the
-headroom policy at the API level.
+### Phase 3: ResourceQuota Review
+ResourceQuotas already exist for all key namespaces (deployed in T-100). Review alignment
+with the new headroom policy — quotas may need tightening after Phase 2 reductions.
 
-- [ ] Audit current `ResourceQuota` objects per namespace
-- [ ] Add/tighten `requests.cpu` quotas for namespaces that are over-allocated
-- [ ] Add a `kube-system` quota cap for non-static-pod components (cilium, coredns, etc.)
-- [ ] Document the quota rationale so future changes are intentional
+- [ ] Review existing quotas vs. actual usage post-Phase-2 reductions
+- [ ] Tighten `requests.cpu` quotas where the current ceiling is well above actual+buffer
+- [ ] Note: `kube-system` quota already exists (1310m/2000m used). Do NOT reduce the ceiling
+  below the current usage — static pods (etcd, apiserver) bypass quotas but non-static pods
+  (cilium, coredns) are bound by it. Any reduction must account for planned burst headroom.
 
 ### Phase 4: Policy Documentation
 - [ ] Add "CPU Headroom Policy" to `oci-k8s-cluster/` governance docs
@@ -75,10 +81,11 @@ headroom policy at the API level.
   - 🟢 < 75%, 🟡 75–85%, 🔴 > 85%
 
 ## ✅ Definition of Done
-- [ ] No node exceeds 80% CPU requests
-- [ ] `k8s-node-1` has ≥ 150m free (enough for instance-manager + one emergency pod)
-- [ ] ResourceQuotas prevent any single namespace from exceeding its budget
-- [ ] Node status TUI shows headroom visually
+- [ ] No node exceeds **90% CPU requests** (80% is unachievable without removing workloads —
+  node-1 at 99% needs ~92m reduction to reach 90%; safe candidates yield ~85–95m)
+- [ ] Every node has **≥ 100m free** at all times (Longhorn instance-manager floor)
+- [ ] ResourceQuota ceilings reviewed and aligned with actual usage + 30% buffer
+- [ ] Node status TUI shows headroom % with 🟢/🟡/🔴 coloring
 
 ## 🔗 Context
 - Immediate fix applied: nexus 200m→170m freed 30m on node-1 (commit `7f6b920`)

@@ -3,13 +3,13 @@
 **Status**: [ ] Backlog | **Priority**: 🔽 Medium | **Owner**: Infra | **Est**: 2h
 
 ## 🎯 Objective
-When Nexus was down for 19 days (stuck in `Init:0/1`), `postgres-1` failed with `ErrImagePull`
-because it pulls its image from `registry.local:31444` (the internal Nexus registry). Any
-workload using custom-built or proxied images becomes a single-point-of-failure dependency
-on Nexus availability.
+Any workload using images from the internal Nexus registry (`registry.local:31444`) depends
+on Nexus being reachable at the moment a pod is scheduled on a node that doesn't have the
+image cached. This happened on 2026-04-03: after a scale-down/up cycle, `postgres-1` was
+scheduled on a node without the cached image, and Nexus was still initializing → ErrImagePull.
 
-Reduce the blast radius of Nexus downtime so critical stateful workloads (postgres, etc.)
-can restart independently.
+Ensure that critical stateful workloads can restart on any node regardless of Nexus availability,
+by guaranteeing images are pre-cached across all worker nodes.
 
 ## 🔍 Problem Analysis
 
@@ -61,14 +61,17 @@ postgres already uses `IfNotPresent` with versioned tags — correct. Audit rema
 - [ ] Document findings — expected outcome: no changes needed if all use versioned tags
 
 ### Phase 3: Pre-Pull Critical Images on All Nodes
-For the most critical stateful workloads (postgres, etc.), ensure the image is pre-pulled
-on all worker nodes so restarts never depend on Nexus being up.
+Ensure images are cached on all nodes so rescheduling never triggers a pull.
 
-- [ ] Identify the postgres image tag currently in use
-- [ ] Add a DaemonSet or init Job that pre-pulls critical images on all nodes on cluster startup
-- [ ] Alternatively: add a manual pre-pull step to `k8s_ops_menu.sh` under "Maintenance"
-- [ ] Verify: with Nexus down, `kubectl delete pod postgres-0 -n postgres` → pod restarts
-  successfully using cached image
+- [ ] Identify all internal-registry image tags for critical stateful workloads (postgres, etc.)
+- [ ] **Preferred approach**: add a `pre-pull-images` option to `k8s_ops_menu.sh` under
+  "Maintenance" — runs `kubectl create job` per node using `nodeSelector` to force pulls.
+  Run this after any Nexus restart or before a planned maintenance window.
+- [ ] **Avoid**: a permanent pre-pull DaemonSet — it adds a pod per node, consuming CPU
+  on an already saturated cluster, for a benefit that only matters occasionally.
+- [ ] Verify: scale postgres to 0 then back to 2 with Nexus at 0 replicas. `postgres-1`
+  must start successfully using cached image. ⚠️ Run this test only when `postgres-0` is
+  confirmed Running and healthy first (replica handles traffic during the test).
 
 ### Phase 4: Nexus Health Integration
 - [ ] Add Nexus pod readiness to T-102 watchdog: alert if Nexus is not ready
