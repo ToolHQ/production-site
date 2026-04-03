@@ -65,7 +65,15 @@ Ensure images are cached on all nodes so rescheduling never triggers a pull.
 
 - [ ] Identify all internal-registry image tags for critical stateful workloads (postgres, etc.)
 - [ ] **Preferred approach**: add a `pre-pull-images` option to `k8s_ops_menu.sh` under
-  "Maintenance" — runs `kubectl create job` per node using `nodeSelector` to force pulls.
+  "Maintenance" — for each target node, run a short-lived pod with the target image and a
+  matching `nodeSelector` to force the kubelet to pull and cache it:
+  ```
+  kubectl run pre-pull-NODE --image=registry.local:31444/.../postgres:TAG \
+    --restart=Never \
+    --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"k8s-node-X"}}}' \
+    --command -- echo done
+  kubectl delete pod pre-pull-NODE
+  ```
   Run this after any Nexus restart or before a planned maintenance window.
 - [ ] **Avoid**: a permanent pre-pull DaemonSet — it adds a pod per node, consuming CPU
   on an already saturated cluster, for a benefit that only matters occasionally.
@@ -75,14 +83,18 @@ Ensure images are cached on all nodes so rescheduling never triggers a pull.
 
 ### Phase 4: Nexus Health Integration
 - [ ] Add Nexus pod readiness to T-102 watchdog: alert if Nexus is not ready
-- [ ] Add Nexus to TUI "Port Forward" menu with health check URL
+- [ ] Verify/add Nexus to TUI "Port Forward" menu with health check URL
 - [ ] Verify the Nexus `readinessProbe` in `components/nexus/nexus.yaml` is properly configured
   and actually checks registry API (not just HTTP 200 on root)
 
 ## ✅ Definition of Done
 - [ ] All stateful workloads use `imagePullPolicy: IfNotPresent` with explicit versioned tags
 - [ ] Critical images (postgres, etc.) are pre-pulled on all nodes
-- [ ] With Nexus at 0 replicas: `kubectl delete pod postgres-0` → pod restarts successfully
+- [ ] With Nexus at 0 replicas: scale postgres to 0 then back to 2 (forces rescheduling);
+  `postgres-1` must start successfully using cached image on whatever node it lands on.
+  ⚠️ Run only when `postgres-0` is confirmed Running first — one replica handles traffic
+  during the test. Do NOT use `kubectl delete pod postgres-0` (StatefulSet recreates on
+  same node — doesn't test cross-node caching).
 - [ ] Nexus health included in T-102 watchdog output
 
 ## 🔗 Context
