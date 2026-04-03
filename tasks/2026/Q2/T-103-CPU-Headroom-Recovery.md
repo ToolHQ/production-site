@@ -36,6 +36,11 @@ down for 19 days.
 - **Critical threshold**: node CPU requests > 85% → hard block on new deployments
 - **Floor**: always keep ≥ 100m free on every node (Longhorn headroom)
 
+> **Reconciliation**: the 75%/85% thresholds are the ideal long-term targets. The DoD uses
+> ≥ 100m free as the pragmatic minimum (≈ 87.5% on 800m nodes). Reaching 85% requires removing
+> workloads (Kubecost, Prometheus) which is out of scope here — Phase 2 will reduce pressure
+> as much as safely possible, targeting the 100m floor as the first binding goal.
+
 ## 📋 Execution Plan
 
 ### Phase 1: Actual Usage Audit
