@@ -10,9 +10,11 @@ finish rebuilding, and hardens the replica scheduling to prevent single-node con
 
 ## 🔍 Problem Analysis
 
-### Current State (post-incident)
-- 3 volumes attached but `degraded` — replicas rebuilding after the instance-manager recovery
-- `pvc-23ab203e` (clickhouse): spec=2, was running with 1 replica (node-2 only)
+### Current State (verified 2026-04-03, ~2h post-fix)
+All 8 volumes recovered to `attached/healthy` within hours of the fix. Replicas rebuilt
+successfully across node-1, node-2, node-3. No volumes remain degraded.
+
+- `pvc-23ab203e` (clickhouse): was running with 1 replica during incident → now 2 replicas ✓
 - The Longhorn instance-manager on node-1 was `error` for 132 days → any replica that
   was scheduled there became unreachable → volumes degraded silently
 
@@ -46,9 +48,10 @@ As of 2026-04-03 post-fix, volumes completed rebuilding quickly. Verify and docu
 ### Phase 2: Engine / Instance-Manager Resilience
 The real hardening: prevent a single instance-manager failure from silently blocking volumes.
 
-- [ ] Confirm Longhorn `Settings` for `replica-soft-anti-affinity` — verify current value and
-  document whether changing to `hard` makes sense given we only have 3 worker nodes and some
-  volumes have 2 replicas (hard anti-affinity could block scheduling if a node is unavailable)
+- [ ] Confirm Longhorn `Settings` for `replica-soft-anti-affinity` — verify current value.
+  With 3 worker nodes and 2-replica volumes: hard anti-affinity is safe and recommended
+  (replicas go to 2 different nodes; if one node fails, Longhorn rebuilds on the third).
+  Document the decision regardless of outcome.
 - [ ] Verify that each volume with replicas=2 has replicas on 2 different nodes ✓ (already true)
 - [ ] Verify that each volume with replicas=3 has replicas on 3 different nodes ✓ (already true)
 - [ ] Add instance-manager health check to T-102 watchdog as top priority detector
@@ -69,7 +72,8 @@ The instance-manager issue masked disk health information for node-1 for 132 day
 
 - [ ] Verify Longhorn disk status for all nodes via: `kubectl get node.longhorn.io -n longhorn-system`
 - [ ] Check `disk.schedulable` is `true` on all nodes
-- [ ] Check `disk.storageAvailable` — flag if any node has < 10GB free on Longhorn disk
+- [ ] Check `disk.storageAvailable` — current state: node-1=24GB, node-2=14GB, node-3=10.6GB
+  Thresholds: 🟡 Warning < 15GB, 🔴 Critical < 10GB. **node-3 is near warning now.**
 - [ ] Add disk health check to T-102 watchdog
 
 ## ✅ Definition of Done
