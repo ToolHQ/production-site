@@ -39,7 +39,8 @@ Implement a `cluster_health_check.sh` script covering the highest-impact gaps fo
 
 #### 1.2 Pod Stuck Detection
 - [ ] Alert if any pod has been in `ContainerCreating` / `Pending` / `Init:*` for > 2 hours
-- [ ] Alert if any pod has `restartCount > 10` in the last 24h (CrashLoop indicator)
+- [ ] Alert if any pod has `restartCount > 20` total (kubectl only exposes cumulative count,
+  not per-day — use this as a proxy for CrashLoop; combine with pod age for rate estimation)
 - [ ] Alert if any pod has been in `Error` state for > 30 minutes
 
 #### 1.3 CPU Headroom per Node
@@ -57,9 +58,14 @@ Implement a `cluster_health_check.sh` script covering the highest-impact gaps fo
 - [ ] Output should include "Time in current state" for stuck resources
 
 ### Phase 3: Automated Scheduled Scan
-- [ ] Deploy as a CronJob in the cluster running every 30 minutes
-- [ ] Log output to a persistent location (ConfigMap or PV in `kube-system`)
-- [ ] Optional: send to Longhorn's Slack webhook or write to a `NodeCondition` visible in k9s
+Run as a **systemd timer on the master node** — not a Kubernetes CronJob. The cluster is CPU-
+saturated and a CronJob pod adds scheduling pressure. The master already has kubectl configured
+and direct access to the cluster API.
+
+- [ ] Install `cluster_health_check.sh` to `/opt/k8s-ops/` on the master
+- [ ] Create a `systemd` timer unit: `k8s-health-check.timer` running every 30 minutes
+- [ ] Log output to `/var/log/k8s-health-check.log` with rotation (`logrotate` rule)
+- [ ] Optional: append a summary line to a `NodeCondition` or Longhorn annotation visible in k9s
 
 ## ✅ Definition of Done
 - [ ] `cluster_health_check.sh` detects the exact failures from 2026-04-03 retroactively (dry-run test)
