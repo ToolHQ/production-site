@@ -8,7 +8,7 @@ instance-manager on `k8s-node-1` was in `error` state for **132 days** without d
 causing postgres, nexus, and coroot-clickhouse to be stuck for 19+ days.
 
 The goal is a lightweight watchdog that runs continuously and surfaces critical anomalies
-**before they compound** — no external services, just shell + kubectl + cron.
+**before they compound** — no external services, just shell + kubectl + systemd timer.
 
 ## 🔍 Problem Analysis (Post-Mortem 2026-04-03)
 
@@ -42,14 +42,19 @@ Implement a `cluster_health_check.sh` script covering the highest-impact gaps fo
 - [ ] Check `engine.longhorn.io` objects: alert if any state is `error`
 
 #### 1.2 Pod Stuck Detection
-- [ ] Alert if any pod has been in `ContainerCreating` / `Pending` / `Init:*` for > 2 hours
+- [ ] Alert if any pod is in `ContainerCreating` / `Pending` / `Init:*` AND
+  `pod.metadata.creationTimestamp` is older than 2 hours — pod never reached Running, so
+  creation time is the correct duration proxy (compare with `date -u` in the script)
 - [ ] Alert if any pod has `restartCount > 20` total (kubectl only exposes cumulative count,
   not per-day — use this as a proxy for CrashLoop; combine with pod age for rate estimation)
-- [ ] Alert if any pod has been in `Error` state for > 30 minutes
+- [ ] Alert if any pod is in `Error` state AND
+  `status.containerStatuses[*].state.terminated.finishedAt` is older than 30 minutes —
+  use terminated timestamp (not creationTimestamp) because the pod may have run fine before
+  erroring; `kubectl get pod -o jsonpath='{.status.containerStatuses[0].state.terminated.finishedAt}'`
 
 #### 1.3 CPU Headroom per Node
-- [ ] Alert if any node has `cpu requests > 80%` of allocatable
-- [ ] Alert if any node has `cpu requests > 90%` (critical — Longhorn instance-manager cannot start)
+- [ ] 🟡 Alert if any node has `cpu requests > 75%` of allocatable (T-103 warning threshold)
+- [ ] 🔴 Alert if any node has `cpu requests > 85%` (T-103 critical threshold — Longhorn instance-manager at risk)
 - [ ] Log headroom trend per node (to detect slow creep before it becomes a problem)
 
 #### 1.4 Nexus / Registry Health
