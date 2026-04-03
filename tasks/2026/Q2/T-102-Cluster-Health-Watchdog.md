@@ -32,7 +32,9 @@ Implement a `cluster_health_check.sh` script covering the highest-impact gaps fo
 
 #### 1.1 Longhorn Component Health
 - [ ] Check all `instancemanager.longhorn.io` objects: alert if any state != `running`
-- [ ] Check all `volume.longhorn.io` objects: alert if state is `attaching` for > 30 minutes
+- [ ] Check all `volume.longhorn.io` objects: alert if state is `attaching` AND the corresponding
+  `volumeattachment` has `creationTimestamp` older than 30 minutes (use `kubectl get volumeattachment
+  -o jsonpath` to compare timestamps — avoids false positives during normal attach cycles)
 - [ ] Check all `volume.longhorn.io` objects: alert if robustness is `faulted`
 - [ ] Check replica counts: alert if `running replicas < spec.numberOfReplicas` AND volume
   state is not `attaching`/`detaching` (exclude transitional states to avoid false positives
