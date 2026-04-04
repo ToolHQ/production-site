@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Kubernetes Cluster Health Watchdog every 30 minutes
+Requires=k8s-health-check.service
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -10,7 +10,7 @@ kubecostModel:
 kubecostFrontend:
   resources:
     requests:
-      cpu: 20m
+      cpu: 10m   # was 20m — dashboard UI only (T-103)
       memory: 32Mi
     limits:
       cpu: 100m
