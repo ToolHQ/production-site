@@ -47,6 +47,7 @@ t() {
                 "menu_parca_uninstall") echo "26. Desinstalar Parca 🗑️" ;;
                 "menu_cloud_rescue") echo "27. Cloud Rescue (OCI) 🚁" ;;
                 "menu_preferences") echo "28. Preferências ⚙️" ;;
+                "menu_health") echo "29. Relatório de Saúde do Cluster 🏥" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -170,6 +171,7 @@ t() {
                 "menu_parca_uninstall") echo "25. Parca Uninstall 🗑️" ;;
                 "menu_cloud_rescue") echo "26. Cloud Rescue (OCI) 🚑" ;;
                 "menu_preferences") echo "27. Preferences ⚙️" ;;
+                "menu_health") echo "28. Cluster Health Report 🏥" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
