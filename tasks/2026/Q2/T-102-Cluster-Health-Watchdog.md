@@ -1,6 +1,6 @@
 # T-102: Cluster Health Watchdog & Proactive Alerting
 
-**Status**: [ ] Backlog | **Priority**: 🚨 Critical | **Owner**: Infra | **Est**: 6h
+**Status**: [x] Done | **Priority**: 🚨 Critical | **Owner**: Infra | **Est**: 6h | **Closed**: 2026-04-04
 
 ## 🎯 Objective
 Prevent silent, long-running failures like the one discovered on 2026-04-03: the Longhorn
