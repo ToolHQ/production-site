@@ -1,6 +1,6 @@
 # T-103: CPU Headroom Recovery & Sustained Margin Policy
 
-**Status**: [ ] Backlog | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
+**Status**: [~] In Progress | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
 
 ## 🎯 Objective
 Nodes are operating at up to 108% CPU *request* utilization (node-3 post-fix) with zero
