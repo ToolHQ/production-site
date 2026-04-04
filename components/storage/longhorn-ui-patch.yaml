@@ -6,7 +6,7 @@ spec:
       - name: longhorn-ui
         resources:
           requests:
-            cpu: 50m
+            cpu: 25m   # was 50m — UI only, not data path (T-103)
             memory: 64Mi
           limits:
             cpu: 150m

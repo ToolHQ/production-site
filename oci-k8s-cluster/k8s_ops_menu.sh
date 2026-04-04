@@ -3883,6 +3883,7 @@ $(t "menu_parca_install")
 $(t "menu_parca_uninstall")
 $(t "menu_cloud_rescue")
 $(t "menu_preferences")
+$(t "menu_health")
 $(t "menu_exit")"
 
     local selected
@@ -4018,14 +4019,28 @@ $(t "menu_exit")"
                 clear
                 echo -e "${BLUE}=== Resource Usage: $selected_node ===${NC}"
                 echo ""
-                echo -e "${YELLOW}CPU & Memory:${NC}"
+                echo -e "${YELLOW}CPU & Memory (actual usage):${NC}"
                 run_kubectl "top node $selected_node" 2>/dev/null || echo "Metrics server not available"
                 echo ""
-                echo -e "${YELLOW}Capacity:${NC}"
-                run_kubectl "get node $selected_node -o jsonpath='{\"CPU: \"}{.status.capacity.cpu}{\" Memory: \"}{.status.capacity.memory}{\"\\n\"}'"
+                echo -e "${YELLOW}CPU Headroom (requests vs allocatable):${NC}"
+                # Parse 'kubectl describe node' for pre-computed request %
+                alloc_line=$(run_kubectl_silent "describe node $selected_node" | \
+                    awk '/^Allocated resources:/,/^Events:/' | grep '^ *cpu ')
+                req_raw=$(echo "$alloc_line"  | awk '{print $2}')
+                req_pct=$(echo "$alloc_line"  | awk '{print $3}' | tr -d '(%)')
+                alloc_raw=$(run_kubectl_silent "get node $selected_node -o jsonpath='{.status.allocatable.cpu}'")
+                if [[ "$alloc_raw" == *m ]]; then alloc_m="${alloc_raw%m}"; else alloc_m=$(( ${alloc_raw:-1} * 1000 )); fi
+                if [[ "$req_raw"   == *m ]]; then req_m="${req_raw%m}";     else req_m=$(( ${req_raw:-0} * 1000 )); fi
+                headroom_m=$(( alloc_m - req_m ))
+                pct="${req_pct:-$(( req_m * 100 / alloc_m ))}"
+                if   (( pct >= 85 )); then color="${RED}";    icon="🔴"
+                elif (( pct >= 75 )); then color="${YELLOW}"; icon="🟡"
+                else                       color="${GREEN}";  icon="🟢"; fi
+                echo -e "  ${icon} ${color}${req_m}m/${alloc_m}m requested (${pct}% used, ${headroom_m}m free)${NC}"
+                echo -e "     Thresholds: 🟢 <75%  🟡 75–85%  🔴 >85%  (floor: ≥100m free)"
                 echo ""
-                echo -e "${YELLOW}Allocatable:${NC}"
-                run_kubectl "get node $selected_node -o jsonpath='{\"CPU: \"}{.status.allocatable.cpu}{\" Memory: \"}{.status.allocatable.memory}{\"\\n\"}'"
+                echo -e "${YELLOW}Memory Allocatable:${NC}"
+                run_kubectl "get node $selected_node -o jsonpath='{\"CPU: \"}{.status.allocatable.cpu}{\"  Memory: \"}{.status.allocatable.memory}{\"\\n\"}'"
                 echo ""
                 read -p "Press Enter to continue..."
                 ;;
@@ -4190,6 +4205,19 @@ $(t "menu_exit")"
         ;;
       27)
         preferences_menu
+        ;;
+      28)
+        # Cluster Health Report (T-102)
+        clear
+        echo -e "${BLUE}Running health check on master node...${NC}"
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$MASTER_NODE" \
+            "bash /opt/k8s-ops/cluster_health_check.sh 2>/dev/null || \
+             bash ~/cluster_health_check.sh 2>/dev/null || \
+             echo '⚠️  cluster_health_check.sh not installed on master. Run: scripts/observability/install_health_watchdog.sh'" \
+            || true
+        echo ""
+        read -p "$(t 'press_enter')"
         ;;
 
       0)
