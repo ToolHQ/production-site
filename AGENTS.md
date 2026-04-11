@@ -9,6 +9,9 @@
 - **Infrastructure**: Bare-metal/VM ARM64 nodes (Oracle Ampere).
 - **Constraints**: Extremely resource-constrained environment (1 vCPU/6GB RAM per node).
 - **Philosophy**: "Stability First". Prefer proven, lightweight solutions over complex, resource-heavy ones.
+- **Cost Policy**: **Zero Variable Cost** — only free-tier or already-provisioned services are permitted.
+  OCI Object Storage, managed databases, and any metered cloud APIs are **off-limits**.
+  Approved free alternatives: self-hosted MinIO (in-cluster), Google Drive via rclone, NFS on cluster nodes.
 - **Tools**: You operate primarily via the TUI (`k8s_ops_menu.sh`) or direct `kubectl`/`ssh` when necessary.
 
 **Responsibilities**:
