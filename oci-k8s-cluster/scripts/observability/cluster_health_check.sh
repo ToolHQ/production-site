@@ -295,8 +295,47 @@ done < <(kubectl get node.longhorn.io -n longhorn-system -o json 2>/dev/null | \
     ] | @tsv' 2>/dev/null || true)
 
 # ══════════════════════════════════════════════════════════════════════════
-# SUMMARY
+# PKI — Certificate Expiry & Chain Integrity
 # ══════════════════════════════════════════════════════════════════════════
+section "PKI — Certificate Expiry & Chain Integrity"
+
+NOW_EPOCH=$(date +%s)
+
+# Check all cert-manager Certificate resources
+while IFS='|' read -r CERT_NAME CERT_NS NOT_AFTER SECRET_NAME; do
+    [[ -z "$CERT_NAME" ]] && continue
+
+    EXPIRY_EPOCH=$(date -d "$NOT_AFTER" +%s 2>/dev/null || echo 0)
+    if (( EXPIRY_EPOCH == 0 )); then
+        report_warn "cert $CERT_NS/$CERT_NAME — could not parse notAfter: $NOT_AFTER"
+        continue
+    fi
+
+    DAYS_LEFT=$(( (EXPIRY_EPOCH - NOW_EPOCH) / 86400 ))
+
+    if (( DAYS_LEFT < 7 )); then
+        report_crit "cert $CERT_NS/$CERT_NAME — expires in ${DAYS_LEFT}d ($NOT_AFTER)"
+    elif (( DAYS_LEFT < 30 )); then
+        report_warn "cert $CERT_NS/$CERT_NAME — expires in ${DAYS_LEFT}d ($NOT_AFTER)"
+    else
+        report_ok  "cert $CERT_NS/$CERT_NAME — expires in ${DAYS_LEFT}d"
+    fi
+
+    # Chain integrity: TLS secret must have >= 2 certs
+    if [[ -n "$SECRET_NAME" ]]; then
+        TLS_CRT=$(kubectl get secret "$SECRET_NAME" -n "$CERT_NS" \
+            -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d 2>/dev/null || true)
+        CERT_COUNT=$(echo "$TLS_CRT" | grep -c "BEGIN CERTIFICATE" 2>/dev/null || echo 0)
+        if (( CERT_COUNT < 2 )); then
+            report_warn "chain $CERT_NS/$SECRET_NAME — incomplete chain (${CERT_COUNT} cert). chain-repair will fix at 02:00 UTC"
+        fi
+    fi
+
+done < <(kubectl get certificates -A \
+    -o jsonpath='{range .items[*]}{.metadata.name}|{.metadata.namespace}|{.status.notAfter}|{.spec.secretName}{"\n"}{end}' \
+    2>/dev/null || true)
+
+
 echo ""
 echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
 if   (( ISSUES == 0 && WARNINGS == 0 )); then

@@ -1,0 +1,127 @@
+---
+# Repairs TLS secrets that are missing the CA cert in their chain.
+#
+# Problem: cert-manager renews a leaf cert → new tls.crt has only 1 cert (the leaf).
+# Browsers need the full chain (leaf + CA) to build trust, even with the CA installed.
+# This CronJob detects and patches any cert-manager-managed TLS Secret whose tls.crt
+# contains fewer than 2 certificates, appending the CA from dnor-root-ca-tls.
+#
+# Schedule: daily at 02:00 UTC (after backup-daily at 01:00).
+# Resources: minimal — 10m CPU / 32Mi RAM.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chain-repair
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: chain-repair
+rules:
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: chain-repair
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: chain-repair
+subjects:
+  - kind: ServiceAccount
+    name: chain-repair
+    namespace: default
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: chain-repair
+  namespace: default
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: chain-repair
+          restartPolicy: OnFailure
+          containers:
+            - name: repair
+              image: bitnami/kubectl:latest
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -euo pipefail
+
+                  echo "=== chain-repair $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+
+                  # Get CA cert from the root CA secret (always in cert-manager ns)
+                  CA_CERT=$(kubectl get secret dnor-root-ca-tls -n cert-manager \
+                    -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+                  if [[ -z "$CA_CERT" ]]; then
+                    echo "ERROR: could not retrieve ca.crt from dnor-root-ca-tls" >&2
+                    exit 1
+                  fi
+
+                  PATCHED=0
+                  SKIPPED=0
+
+                  # Iterate over all cert-manager Certificate resources
+                  while IFS='|' read -r NAME NAMESPACE SECRET_NAME; do
+                    # Get current tls.crt
+                    TLS_CRT_B64=$(kubectl get secret "$SECRET_NAME" -n "$NAMESPACE" \
+                      -o jsonpath='{.data.tls\.crt}' 2>/dev/null || true)
+
+                    if [[ -z "$TLS_CRT_B64" ]]; then
+                      echo "SKIP $NAMESPACE/$SECRET_NAME — secret not found or no tls.crt"
+                      SKIPPED=$((SKIPPED+1))
+                      continue
+                    fi
+
+                    TLS_CRT=$(echo "$TLS_CRT_B64" | base64 -d)
+
+                    # Count number of certs in the chain
+                    CERT_COUNT=$(echo "$TLS_CRT" | grep -c "BEGIN CERTIFICATE" || true)
+
+                    if [[ "$CERT_COUNT" -ge 2 ]]; then
+                      echo "OK   $NAMESPACE/$SECRET_NAME — chain has $CERT_COUNT certs"
+                      SKIPPED=$((SKIPPED+1))
+                      continue
+                    fi
+
+                    echo "FIX  $NAMESPACE/$SECRET_NAME — only $CERT_COUNT cert(s), appending CA"
+
+                    # Build new chain: leaf + CA
+                    NEW_CHAIN=$(printf '%s\n%s\n' "$TLS_CRT" "$CA_CERT" | base64 -w 0)
+
+                    # Patch secret
+                    kubectl patch secret "$SECRET_NAME" -n "$NAMESPACE" \
+                      --type=json \
+                      -p "[{\"op\":\"replace\",\"path\":\"/data/tls.crt\",\"value\":\"$NEW_CHAIN\"}]"
+
+                    echo "     → patched"
+                    PATCHED=$((PATCHED+1))
+
+                  done < <(kubectl get certificates -A \
+                    -o jsonpath='{range .items[*]}{.metadata.name}|{.metadata.namespace}|{.spec.secretName}{"\n"}{end}')
+
+                  echo "=== done — patched=$PATCHED skipped=$SKIPPED ==="
