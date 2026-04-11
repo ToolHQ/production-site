@@ -16,6 +16,7 @@
 
 |                      ID                       | Task Name                                | Priority  | Epic  | Est. |
 | :-------------------------------------------: | :--------------------------------------- | :-------: | :---- | :--: |
+| [T-107](2026/Q2/T-107-PKI-Hardening.md) | **PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows** | 🔼 High | Infra |  2h  |
 | [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** | 🔽 Medium | Infra |  2h  |
 
 ## ✅ Done
