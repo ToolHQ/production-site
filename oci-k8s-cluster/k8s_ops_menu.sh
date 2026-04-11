@@ -1907,6 +1907,7 @@ $(t "sec_audit_log")
 $(t "sec_force_renew")
 $(t "sec_export_ca")
 $(t "sec_install_ca")
+$(t "sec_rebuild_chains")
 $(t "back")"
 
         local selected
@@ -1918,11 +1919,25 @@ $(t "back")"
 
         case "${selected%%.*}" in
             1)
-                echo -e "${BLUE}📜 Certificates:${NC}"
-                run_kubectl "get certificate -A"
+                echo -e "${BLUE}📜 Certificate Expiry Status:${NC}"
                 echo ""
-                echo -e "${BLUE}📜 Certificate Requests:${NC}"
-                run_kubectl "get certificaterequest -A"
+                local now_epoch
+                now_epoch=$(date +%s)
+                printf "  %-30s %-20s %-10s %s\n" "NAMESPACE/NAME" "EXPIRES" "DAYS" "CHAIN"
+                printf "  %-30s %-20s %-10s %s\n" "------------------------------" "--------------------" "----------" "-------"
+                while IFS='|' read -r cert_name cert_ns not_after secret_name; do
+                    [[ -z "$cert_name" ]] && continue
+                    local exp_epoch days_left label chain_ok
+                    exp_epoch=$(date -d "$not_after" +%s 2>/dev/null || echo 0)
+                    days_left=$(( (exp_epoch - now_epoch) / 86400 ))
+                    if   (( days_left < 7  )); then label="${RED}${days_left}d 🔴${NC}"
+                    elif (( days_left < 30 )); then label="${YELLOW}${days_left}d 🟡${NC}"
+                    else label="${GREEN}${days_left}d 🟢${NC}"; fi
+                    local tls_crt
+                    tls_crt=$(run_remote_raw "$MASTER_NODE" "kubectl get secret $secret_name -n $cert_ns -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d 2>/dev/null | grep -c 'BEGIN CERTIFICATE' 2>/dev/null || echo 0")
+                    if (( tls_crt >= 2 )); then chain_ok="${GREEN}OK${NC}"; else chain_ok="${RED}BROKEN${NC}"; fi
+                    printf "  %-30s %-20s %-10b %b\n" "$cert_ns/$cert_name" "$not_after" "$label" "$chain_ok"
+                done < <(run_remote_raw "$MASTER_NODE" "kubectl get certificates -A -o jsonpath='{range .items[*]}{.metadata.name}|{.metadata.namespace}|{.status.notAfter}|{.spec.secretName}{\"\\n\"}{end}'")
                 echo ""
                 echo -e "${BLUE}📜 Cluster Issuers:${NC}"
                 run_kubectl "get clusterissuer"
@@ -2006,11 +2021,43 @@ $(t "back")"
                     
                     echo -e "${GREEN}✅ Certificate saved to: $(pwd)/${selected_issuer}.crt${NC}"
                     echo ""
-                    echo -e "${YELLOW}👉 How to Import:${NC}"
-                    echo "1. Copy '${selected_issuer}.crt' to your local machine."
-                    echo "2. Windows: Double-click > Install Certificate > Local Machine > Place in 'Trusted Root Certification Authorities'."
-                    echo "3. Chrome: Settings > Privacy and security > Security > Manage certificates > Authorities > Import."
-                    echo "4. Linux: Copy to /usr/local/share/ca-certificates/ and run 'update-ca-certificates'."
+                    echo -e "${YELLOW}👉 Manual import:${NC}"
+                    echo "  Windows: Double-click > Install Certificate > Local Machine > Trusted Root Certification Authorities"
+                    echo "  Chrome:  Settings > Privacy and security > Security > Manage certificates > Authorities > Import"
+                    echo "  Linux:   Copy to /usr/local/share/ca-certificates/ and run 'update-ca-certificates'"
+                    echo ""
+                    read -p "$(echo -e "${BLUE}Install automatically on this machine now? [y/N]: ${NC}")" install_now
+                    if [[ "${install_now,,}" == "y" ]]; then
+                        # Inline install flow (same as option 6 but with the just-exported file)
+                        local install_crt="${selected_issuer}.crt"
+                        # WSL/Linux
+                        if [ -d "/usr/local/share/ca-certificates" ]; then
+                            sudo cp "$install_crt" "/usr/local/share/ca-certificates/$install_crt"
+                            sudo update-ca-certificates
+                            echo -e "${GREEN}✅ Installed in system CA store.${NC}"
+                        fi
+                        # Windows via certutil
+                        if command -v cmd.exe >/dev/null 2>&1; then
+                            echo -e "${BLUE}🪟 Installing on Windows (Trusted Root)...${NC}"
+                            echo -e "${YELLOW}⚠️  You may see a Windows prompt asking for permission.${NC}"
+                            local win_temp wsl_temp cert_win_path
+                            win_temp=$(cmd.exe /c "echo %TEMP%" 2>/dev/null | tr -d '\r' || true)
+                            if [ -n "$win_temp" ]; then
+                                wsl_temp=$(wslpath -u "$win_temp")
+                                cp "$install_crt" "$wsl_temp/$install_crt"
+                                cert_win_path=$(wslpath -w "$wsl_temp/$install_crt" | tr -d '\r\n')
+                                certutil.exe -user -addstore Root "$cert_win_path" || \
+                                    cmd.exe /c "certutil -user -addstore Root \"$cert_win_path\"" || true
+                                rm -f "$wsl_temp/$install_crt"
+                                echo -e "${GREEN}✅ Windows import command executed.${NC}"
+                                echo -e "${BLUE}ℹ️  Verify in Chrome: Settings > Security > Manage certificates > Trusted Root${NC}"
+                            else
+                                echo -e "${RED}❌ Could not determine Windows Temp path.${NC}"
+                            fi
+                        else
+                            echo -e "${YELLOW}⚠️  cmd.exe not found — skipping Windows install (not running in WSL?).${NC}"
+                        fi
+                    fi
                 else
                     echo -e "${RED}❌ Secret '$secret_name' not found.${NC}"
                 fi
@@ -2029,7 +2076,7 @@ $(t "back")"
                 if [ -n "$crt_files" ]; then
                      selected_crt=$(echo "$crt_files" | "$FZF_BIN" --height=20% --layout=reverse --border --prompt="Select Certificate File > " --header="Choose certificate to install" || true)
                 else
-                     echo -e "${YELLOW}No local .crt files found. Please use Option 4 to export one first.${NC}"
+                     echo -e "${YELLOW}No local .crt files found. Please use Option 5 to export one first.${NC}"
                      read -p "$(t "press_enter")"
                      continue
                 fi
@@ -2095,6 +2142,21 @@ $(t "back")"
                     echo -e "${YELLOW}⚠️  Windows interop (cmd.exe) not found. Skipping Windows install.${NC}"
                 fi
                 
+                read -p "$(t "press_enter")"
+                ;;
+            7)
+                # Manual chain rebuild: trigger chain-repair job on-demand
+                echo -e "${BLUE}🔗 Triggering chain-repair job...${NC}"
+                local job_name="chain-repair-manual-$(date +%s)"
+                run_kubectl "create job -n default $job_name --from=cronjob/chain-repair"
+                echo -e "${YELLOW}Waiting for job to complete (max 2min)...${NC}"
+                if run_kubectl "wait job/$job_name -n default --for=condition=complete --timeout=120s"; then
+                    echo -e "${GREEN}✅ Chain rebuild complete. Logs:${NC}"
+                    run_kubectl "logs -n default -l job-name=$job_name"
+                else
+                    echo -e "${RED}❌ Job did not complete in time. Check: kubectl logs -n default -l job-name=$job_name${NC}"
+                fi
+                run_kubectl "delete job $job_name -n default --ignore-not-found" >/dev/null 2>&1 || true
                 read -p "$(t "press_enter")"
                 ;;
             0)

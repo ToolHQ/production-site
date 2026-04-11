@@ -33,6 +33,8 @@ spec:
   isCA: true
   commonName: dnor-root-ca
   secretName: dnor-root-ca-tls
+  duration: 8760h      # 1 year — prevents quarterly CA rotations breaking browser trust
+  renewBefore: 720h    # renew 30 days before expiry (default would be 60 days)
   privateKey:
     algorithm: ECDSA
     size: 256

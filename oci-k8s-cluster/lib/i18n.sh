@@ -122,6 +122,7 @@ t() {
                 "sec_force_renew") echo "3. Forçar Renovação de Certificados 🔄" ;;
                 "sec_export_ca") echo "4. Exportar CA Raiz (Para Importar no Navegador) 📥" ;;
                 "sec_install_ca") echo "5. Instalar CA Raiz Automaticamente (Windows/WSL) 🪄" ;;
+                "sec_rebuild_chains") echo "7. Reconstruir Chains de Todos os Certificados 🔗" ;;
                 
                 # Backup Menu
                 "menu_backup") echo "15. Backup & Recuperação de Desastres 💾" ;;
@@ -247,6 +248,7 @@ t() {
                 "sec_force_renew") echo "4. Force Certificate Renewal 🔄" ;;
                 "sec_export_ca") echo "5. Export CA (kubeconfig) 📤" ;;
                 "sec_install_ca") echo "6. Install CA (Local Trust) 📥" ;;
+                "sec_rebuild_chains") echo "7. Rebuild All Cert Chains 🔗" ;;
                 
                 # Backup Menu
                 "menu_backup") echo "15. Backup & Disaster Recovery 💾" ;;

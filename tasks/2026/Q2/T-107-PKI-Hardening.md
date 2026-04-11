@@ -1,8 +1,9 @@
 # T-107: PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows
 
-**Status**: [ ] To Do | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 2h
+**Status**: [x] Done | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 2h
 
 ## 🎯 Objective
+
 Three compounding PKI problems were discovered on 2026-04-11 when Chrome stopped trusting
 `*.dnor.io` after a CA rotation:
 
@@ -17,14 +18,14 @@ Incident cost: ~1h of debugging. Recurrence interval: every 90 days (next: ~2026
 
 ## 🔍 Current State
 
-| Item | Current | Problem |
-|---|---|---|
-| CA `duration` | 90d (default, not set) | Rotates every ~3 months |
-| CA `renewBefore` | not set (default: 2/3) | Renews at day 60 → Windows still has day-0 cert |
-| Leaf cert chain | leaf only (1 cert in `tls.crt`) | Browser can't build chain |
-| Watchdog | no cert checks | No alert before expiry |
-| TUI export | reads `ca.crt` key ✅ (key exists) | Export works but chain fix is manual |
-| TUI auto-install | option 6 exists (WSL+Windows) | Works but not triggered after renewal |
+| Item             | Current                            | Problem                                         |
+| ---------------- | ---------------------------------- | ----------------------------------------------- |
+| CA `duration`    | 90d (default, not set)             | Rotates every ~3 months                         |
+| CA `renewBefore` | not set (default: 2/3)             | Renews at day 60 → Windows still has day-0 cert |
+| Leaf cert chain  | leaf only (1 cert in `tls.crt`)    | Browser can't build chain                       |
+| Watchdog         | no cert checks                     | No alert before expiry                          |
+| TUI export       | reads `ca.crt` key ✅ (key exists) | Export works but chain fix is manual            |
+| TUI auto-install | option 6 exists (WSL+Windows)      | Works but not triggered after renewal           |
 
 ## 📋 Execution Plan
 
@@ -41,7 +42,7 @@ Incident cost: ~1h of debugging. Recurrence interval: every 90 days (next: ~2026
     '{"spec":{"duration":"8760h","renewBefore":"720h"}}'
   ```
 - [ ] Update `components/cert-manager/cert-manager.yaml` (or create a separate
-  `components/cert-manager/dnor-root-ca.yaml`) to reflect this — avoid config drift.
+      `components/cert-manager/dnor-root-ca.yaml`) to reflect this — avoid config drift.
 - [ ] Verify `notAfter` is ~1 year out after patch.
 
 ### Phase 2: Automatic Chain Rebuild on Renewal
@@ -78,7 +79,7 @@ Current: option 5 = Export CA (works), option 6 = Auto-install (exists but manua
 
 - [ ] After export (option 5), auto-offer to install on Windows immediately (merge with opt 6)
 - [ ] Add cert expiry dashboard to option 1 (Check Certs): show days remaining per cert,
-  color-coded (green >30d, yellow 10-30d, red <10d)
+      color-coded (green >30d, yellow 10-30d, red <10d)
 - [ ] Add option to rebuild all chains manually (one-click version of the 2026-04-11 fix)
 
 ## ✅ Definition of Done
@@ -92,6 +93,7 @@ Current: option 5 = Export CA (works), option 6 = Auto-install (exists but manua
 - [ ] Verified: browser trusts `*.dnor.io` after a simulated chain-only renewal
 
 ## 🔗 Context
+
 - Incident 2026-04-11: Chrome `NET::ERR_CERT_DATE_INVALID` / `NET::ERR_CERT_AUTHORITY_INVALID`
   Root cause: CA rotated 2026-03-25, chain never included CA cert, old CA removed from Windows
 - CA next renewal: **2026-05-24** (60 days from now) — hard deadline for Phase 1
