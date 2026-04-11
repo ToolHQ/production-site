@@ -1,5 +1,5 @@
 ---
-name: Deploy Service
+name: deploy-service
 description: Padrão "Build & Apply" usando deploy.sh.
 ---
 
@@ -17,6 +17,7 @@ kubectl apply -f k8s/deploy.yaml
 ```
 
 **Regras**:
+
 1. Sempre use `./deploy.sh` na raiz do serviço.
 2. Não comite o arquivo YAML pós-sed (com a tag numérica).
 3. O script cuida do `docker push` para o Nexus local (`nexus.localhost`).
