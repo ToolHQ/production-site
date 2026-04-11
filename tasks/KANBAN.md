@@ -14,29 +14,29 @@
 
 ## 📅 Backlog (To Do)
 
-|                      ID                       | Task Name                                                         | Priority  | Epic  | Est. |
-| :-------------------------------------------: | :---------------------------------------------------------------- | :-------: | :---- | :--: |
-| [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience**                          | 🔽 Medium | Infra |  2h  |
+|                      ID                       | Task Name                                | Priority  | Epic  | Est. |
+| :-------------------------------------------: | :--------------------------------------- | :-------: | :---- | :--: |
+| [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** | 🔽 Medium | Infra |  2h  |
 
 ## ✅ Done
 
-|                                 ID                                 | Task Name                                              |  Priority   |     Owner      |  Est.  |
-| :----------------------------------------------------------------: | :----------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
-|          [T-107](2026/Q2/T-107-PKI-Hardening.md)                   | **PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows**  |   🔼 High   |     Infra      |   2h   |
-|         [T-106](2026/Q2/T-106-Backup-IaC-Codification.md)          | **Backup Infrastructure Codification (IaC Gap)**       |   🔼 High   |     Infra      |   1h   |
-|        [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md)        | **Longhorn Replica Integrity Hardening**               |   🔼 High   |    Storage     |   2h   |     | [T-102](2026/Q2/T-102-Cluster-Health-Watchdog.md) | **Cluster Health Watchdog & Proactive Alerting** | 🚨 Critical | Observability | 6h  |
-|        [T-040](2026/Q1/T-040-Master-Stability-Proactive.md)        | **Proactive Master Stabilization (PLEG/QoS)**          |   🔼 High   |     Infra      |   1d   |
-|            [T-023](2026/Q1/T-023-Storage-Resilience.md)            | **Storage Resilience & Longhorn Stabilization**        | 🚨 Critical |     Infra      |   4h   |
-| [T-101](2026/Q1/T-101-Storage-Strategy-Pivot-Remote-over-Local.md) | **T-101 Storage Strategy Pivot: Remote over Local**    |    high     | Epic-ZeroWaste | 1 hour |
-|       [T-100](2026/Q1/T-100-Zero-Waste-Resource-Lockdown.md)       | **Zero-Waste Resource Lockdown & Completeness Audit**  | 🚨 Critical |      Ops       |   6h   |
-|                          [T-098](task.md)                          | **WSL Native Chrome MCP Setup**                        | 🌟 Feature  |     DevExp     |   4h   |
-|      [T-095](2026/Q1/T-095-Fix-Inventory-Report-Exposure.md)       | **Fix Inventory Report Exposure**                      | 🚨 Critical |      Ops       |   2h   |
-|        [T-094](2026/Q1/T-094-Reorganize-Tasks-and-Tools.md)        | **Reorganize Tasks and Tools**                         | 🚨 Critical |      Ops       |   2h   |
-|          [T-054](2026/Q1/T-054-Cluster-Stabilization.md)           | **Cluster Stabilization & IaC Audit**                  |   🔼 High   |     Infra      |   3h   |
-|         [T-053](2026/Q1/T-053-Resource-Optimization-V3.md)         | **Resource Optimization V3 (Elastic/Longhorn/Coroot)** |   🔼 High   |     Infra      |   2h   |
-|            [T-037](2026/Q1/T-037-Deep-Space-Cleanup.md)            | **Deep Space Cleanup (Docker/Journald)**               |   🔽 Low    |      Ops       |   4h   |
-|           [T-015](2025/Q4/T-015-Pyroscope-Profiling.md)            | **Deploy Pyroscope (Continuous Profiling)**            |   🔼 Med    |      Obs.      |   4h   |
-|              [T-011](2025/Q4/T-011-Secrets-Review.md)              | **Secrets & GitOps Audit**                             |   🔒 Sec    |      Sec       |   2h   |
+|                                 ID                                 | Task Name                                                         |  Priority   |     Owner      |  Est.  |
+| :----------------------------------------------------------------: | :---------------------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
+|              [T-107](2026/Q2/T-107-PKI-Hardening.md)               | **PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows** |   🔼 High   |     Infra      |   2h   |
+|         [T-106](2026/Q2/T-106-Backup-IaC-Codification.md)          | **Backup Infrastructure Codification (IaC Gap)**                  |   🔼 High   |     Infra      |   1h   |
+|        [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md)        | **Longhorn Replica Integrity Hardening**                          |   🔼 High   |    Storage     |   2h   |     | [T-102](2026/Q2/T-102-Cluster-Health-Watchdog.md) | **Cluster Health Watchdog & Proactive Alerting** | 🚨 Critical | Observability | 6h  |
+|        [T-040](2026/Q1/T-040-Master-Stability-Proactive.md)        | **Proactive Master Stabilization (PLEG/QoS)**                     |   🔼 High   |     Infra      |   1d   |
+|            [T-023](2026/Q1/T-023-Storage-Resilience.md)            | **Storage Resilience & Longhorn Stabilization**                   | 🚨 Critical |     Infra      |   4h   |
+| [T-101](2026/Q1/T-101-Storage-Strategy-Pivot-Remote-over-Local.md) | **T-101 Storage Strategy Pivot: Remote over Local**               |    high     | Epic-ZeroWaste | 1 hour |
+|       [T-100](2026/Q1/T-100-Zero-Waste-Resource-Lockdown.md)       | **Zero-Waste Resource Lockdown & Completeness Audit**             | 🚨 Critical |      Ops       |   6h   |
+|                          [T-098](task.md)                          | **WSL Native Chrome MCP Setup**                                   | 🌟 Feature  |     DevExp     |   4h   |
+|      [T-095](2026/Q1/T-095-Fix-Inventory-Report-Exposure.md)       | **Fix Inventory Report Exposure**                                 | 🚨 Critical |      Ops       |   2h   |
+|        [T-094](2026/Q1/T-094-Reorganize-Tasks-and-Tools.md)        | **Reorganize Tasks and Tools**                                    | 🚨 Critical |      Ops       |   2h   |
+|          [T-054](2026/Q1/T-054-Cluster-Stabilization.md)           | **Cluster Stabilization & IaC Audit**                             |   🔼 High   |     Infra      |   3h   |
+|         [T-053](2026/Q1/T-053-Resource-Optimization-V3.md)         | **Resource Optimization V3 (Elastic/Longhorn/Coroot)**            |   🔼 High   |     Infra      |   2h   |
+|            [T-037](2026/Q1/T-037-Deep-Space-Cleanup.md)            | **Deep Space Cleanup (Docker/Journald)**                          |   🔽 Low    |      Ops       |   4h   |
+|           [T-015](2025/Q4/T-015-Pyroscope-Profiling.md)            | **Deploy Pyroscope (Continuous Profiling)**                       |   🔼 Med    |      Obs.      |   4h   |
+|              [T-011](2025/Q4/T-011-Secrets-Review.md)              | **Secrets & GitOps Audit**                                        |   🔒 Sec    |      Sec       |   2h   |
 
 - [x] **[T-052](2026/Q1/T-052-Resource-Optimization-V2.md) Resource Optimization V2 (Tuning & Versioning)**
 - [x] **Cleaned up legacy scripts (`patch_longhorn.py`, `reinstall_longhorn.sh` etc)**
