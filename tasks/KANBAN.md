@@ -14,15 +14,15 @@
 
 ## 📅 Backlog (To Do)
 
-|                      ID                       | Task Name                                | Priority  | Epic  | Est. |
-| :-------------------------------------------: | :--------------------------------------- | :-------: | :---- | :--: |
-| [T-107](2026/Q2/T-107-PKI-Hardening.md) | **PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows** | 🔼 High | Infra |  2h  |
-| [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** | 🔽 Medium | Infra |  2h  |
+|                      ID                       | Task Name                                                         | Priority  | Epic  | Est. |
+| :-------------------------------------------: | :---------------------------------------------------------------- | :-------: | :---- | :--: |
+| [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience**                          | 🔽 Medium | Infra |  2h  |
 
 ## ✅ Done
 
 |                                 ID                                 | Task Name                                              |  Priority   |     Owner      |  Est.  |
 | :----------------------------------------------------------------: | :----------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
+|          [T-107](2026/Q2/T-107-PKI-Hardening.md)                   | **PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows**  |   🔼 High   |     Infra      |   2h   |
 |         [T-106](2026/Q2/T-106-Backup-IaC-Codification.md)          | **Backup Infrastructure Codification (IaC Gap)**       |   🔼 High   |     Infra      |   1h   |
 |        [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md)        | **Longhorn Replica Integrity Hardening**               |   🔼 High   |    Storage     |   2h   |     | [T-102](2026/Q2/T-102-Cluster-Health-Watchdog.md) | **Cluster Health Watchdog & Proactive Alerting** | 🚨 Critical | Observability | 6h  |
 |        [T-040](2026/Q1/T-040-Master-Stability-Proactive.md)        | **Proactive Master Stabilization (PLEG/QoS)**          |   🔼 High   |     Infra      |   1d   |
