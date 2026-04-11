@@ -24,11 +24,15 @@ pub mod context;
 pub mod logger;
 
 pub fn set_listener(f: impl Fn(String, Option<Value>) + Send + Sync + 'static) {
-    LISTENER.lock().unwrap().replace(Arc::new(Mutex::new(f)));
+    if let Ok(mut guard) = LISTENER.lock() {
+        guard.replace(Arc::new(Mutex::new(f)));
+    }
 }
 
 pub fn set_wrap_query_handler(f: impl Fn(&str) -> String + Send + Sync + 'static) {
-    WRAP_QUERY_HANDLER.lock().unwrap().replace(Arc::new(Mutex::new(f)));
+    if let Ok(mut guard) = WRAP_QUERY_HANDLER.lock() {
+        guard.replace(Arc::new(Mutex::new(f)));
+    }
 }
 
 pub async fn query(
@@ -41,9 +45,12 @@ pub async fn query(
 
     let wrapped_sql = WRAP_QUERY_HANDLER
         .lock()
-        .unwrap()
-        .as_ref()
-        .map(|f| f.lock().unwrap()(sql))
+        .ok()
+        .and_then(|guard| {
+            guard.as_ref().and_then(|f| {
+                f.lock().ok().map(|handler| handler(sql))
+            })
+        })
         .unwrap_or_else(|| sql.to_string());
 
     let start_time = Instant::now();
@@ -85,8 +92,12 @@ pub async fn query(
     let logger = JsonLogger::from_location(location.file(), location.line());
     logger.info("DB QUERY", Some(ctx.clone()));
 
-    if let Some(listener) = LISTENER.lock().unwrap().as_ref() {
-        listener.lock().unwrap()("DB QUERY".to_string(), Some(ctx));
+    if let Ok(guard) = LISTENER.lock() {
+        if let Some(listener) = guard.as_ref() {
+            if let Ok(f) = listener.lock() {
+                f("DB QUERY".to_string(), Some(ctx));
+            }
+        }
     }
 
     Ok(result)

@@ -79,7 +79,7 @@ prometheus:
   server:
     resources:
       requests:
-        cpu: 100m
+        cpu: 70m  # was 100m — actual P99 ~64m (T-103)
         memory: 400Mi
       limits:
         cpu: 300m

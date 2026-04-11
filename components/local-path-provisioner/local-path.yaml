@@ -92,7 +92,7 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 50m
+              cpu: 10m  # was 50m — idle provisioner on node-3 (T-103)
               memory: 64Mi
           command:
             - local-path-provisioner
@@ -165,5 +165,5 @@ data:
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-             cpu: 50m
+             cpu: 10m  # was 50m (T-103)
              memory: 32Mi

@@ -6,7 +6,7 @@ spec:
       - name: metrics-server
         resources:
           requests:
-            cpu: 50m
+            cpu: 25m  # was 50m — actual usage ~3m (T-103)
             memory: 64Mi
           limits:
             cpu: 150m

@@ -69,7 +69,13 @@ async fn hello_world() -> &'static str {
 )]
 async fn env() -> Json<serde_json::Value> {
     let vars: std::collections::HashMap<String, String> = std::env::vars().collect();
-    Json(serde_json::to_value(vars).unwrap())
+    match serde_json::to_value(vars) {
+        Ok(val) => Json(val),
+        Err(e) => {
+            JsonLogger::new().error(&format!("Failed to serialize env vars: {:?}", e), None);
+            Json(serde_json::json!({ "error": "Failed to serialize environment variables" }))
+        }
+    }
 }
 
 #[utoipa::path(
@@ -190,7 +196,16 @@ async fn main() {
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("🚀 Server running at http://{}/", addr);
 
-    axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(addr).await
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to bind to {}: {}", addr, e);
+            std::process::exit(1);
+        });
+
+    axum::serve(listener, app.into_make_service())
         .await
-        .unwrap();
+        .unwrap_or_else(|e| {
+            eprintln!("Server error: {}", e);
+            std::process::exit(1);
+        });
 }
