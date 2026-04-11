@@ -1,6 +1,6 @@
 # T-103: CPU Headroom Recovery & Sustained Margin Policy
 
-**Status**: [~] In Progress (Phase 2 done, Phase 3-4 pending) | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
+**Status**: [~] In Progress (Phases 1-4 done; monitoring window ongoing) | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
 
 ## 🎯 Objective
 Nodes are operating at up to 108% CPU *request* utilization (node-3 post-fix) with zero
@@ -74,24 +74,30 @@ Master / all nodes:
 ResourceQuotas already exist for all key namespaces (deployed in T-100). Review alignment
 with the new headroom policy — quotas may need tightening after Phase 2 reductions.
 
-- [ ] Review existing quotas vs. actual usage post-Phase-2 reductions
-- [ ] Tighten `requests.cpu` quotas where the current ceiling is well above actual+buffer
-- [ ] Note: `kube-system` quota already exists (1310m/2000m used). Do NOT reduce the ceiling
+- [x] Review existing quotas vs. actual usage post-Phase-2 reductions
+- [x] Tighten `requests.cpu` quotas where the current ceiling is well above actual+buffer
+  (longhorn-system 1200m→1000m, nexus 400m→150m, postgres 500m→300m, minio 300m→50m,
+  coroot 500m→300m, kubecost 500m→150m, ingress-nginx 300m→50m, cert-manager 200m→100m,
+  kubernetes-dashboard 200m→150m — all set to actual+30% buffer)
+- [x] Note: `kube-system` quota already exists (1310m/2000m used). Do NOT reduce the ceiling
   below the current usage — static pods (etcd, apiserver) bypass quotas but non-static pods
   (cilium, coredns) are bound by it. Any reduction must account for planned burst headroom.
 
 ### Phase 4: Policy Documentation
-- [ ] Add "CPU Headroom Policy" to `oci-k8s-cluster/` governance docs
-- [ ] Update `k8s_ops_menu.sh` node status view to show headroom % with color coding
+- [x] Add "CPU Headroom Policy" to `oci-k8s-cluster/` governance docs
+  (`oci-k8s-cluster/docs/CPU_HEADROOM_POLICY.md` — thresholds, right-sizing process, current baseline)
+- [x] Update `k8s_ops_menu.sh` node status view to show headroom % with color coding
   - 🟢 < 75%, 🟡 75–85%, 🔴 > 85%
+- [x] Add Option 10 "Pre-Pull Internal Images on All Nodes" to maintenance menu (T-105 precursor)
 
 ## ✅ Definition of Done
 - [x] Every node has **≥ 100m free** at all times (Longhorn instance-manager floor — implies
   ≤ 700m used on 800m nodes; node-3 at 870m needs ~170m reduction, node-1 at 792m needs ~92m)
   Note: 100m floor is the single binding constraint — "90%" (720m) is more lenient and is
   subsumed by this rule.
-- [ ] ResourceQuota ceilings reviewed and aligned with actual usage + 30% buffer
-- [ ] Node status TUI shows headroom % with 🟢/🟡/🔴 coloring
+- [x] ResourceQuota ceilings reviewed and aligned with actual usage + 30% buffer
+- [x] Node status TUI shows headroom % with 🟢/🟡/🔴 coloring
+- [ ] ⏳ ≥ 100m demonstrated on all nodes for 7 days (T-102 watchdog running — monitoring window ongoing)
 
 ## 🔗 Context
 - Immediate fix applied: nexus 200m→170m freed 30m on node-1 (commit `7f6b920`)
