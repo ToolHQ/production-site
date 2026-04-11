@@ -2602,6 +2602,8 @@ EOF
                     run_kubectl "patch backuptargets.longhorn.io default -n longhorn-system --type=merge -p '{\"spec\":{\"backupTargetURL\":\"$target_url\",\"credentialSecret\":\"minio-secret\"}}'"
                     
                     echo -e "${GREEN}✅ Backup Target Updated!${NC}"
+                    echo -e "${YELLOW}ℹ️  Declarative manifest: components/backup/longhorn-backup-target.yaml${NC}"
+                    echo -e "${YELLOW}   If you changed the bucket/region, update the manifest to keep IaC in sync.${NC}"
                 else
                     echo -e "${RED}❌ Invalid input.${NC}"
                 fi
