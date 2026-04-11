@@ -10,18 +10,18 @@
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
 | [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md) | **CPU Headroom Recovery & Sustained Margin Policy** *(monitoring window)* | 🔼 High | Infra | 3h |
-| [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md) | **Longhorn Replica Integrity Hardening** *(blocked: backup target)* | 🔼 High | Storage | 2h |
+
 
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
 |:--:|:---|:--:|:---|:--:|
+| [T-106](2026/Q2/T-106-Backup-IaC-Codification.md) | **Backup Infrastructure Codification (IaC Gap)** | 🔼 High | Infra | 1h |
 | [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** | 🔽 Medium | Infra | 2h |
 
 
 ## ✅ Done
 | ID | Task Name | Priority | Owner | Est. |
-|:--:|:---|:--:|:--:|:--:|
-| [T-102](2026/Q2/T-102-Cluster-Health-Watchdog.md) | **Cluster Health Watchdog & Proactive Alerting** | 🚨 Critical | Observability | 6h |
+|:--:|:---|:--:|:--:|:--:|| [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md) | **Longhorn Replica Integrity Hardening** | 🔼 High | Storage | 2h || [T-102](2026/Q2/T-102-Cluster-Health-Watchdog.md) | **Cluster Health Watchdog & Proactive Alerting** | 🚨 Critical | Observability | 6h |
 | [T-040](2026/Q1/T-040-Master-Stability-Proactive.md) | **Proactive Master Stabilization (PLEG/QoS)** | 🔼 High | Infra | 1d |
 | [T-023](2026/Q1/T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
 | [T-101](2026/Q1/T-101-Storage-Strategy-Pivot-Remote-over-Local.md) | **T-101 Storage Strategy Pivot: Remote over Local** | high | Epic-ZeroWaste | 1 hour |
