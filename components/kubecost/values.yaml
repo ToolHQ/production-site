@@ -1,7 +1,7 @@
 kubecostModel:
   resources:
     requests:
-      cpu: 100m
+      cpu: 30m  # was 100m — actual usage ~3m (T-103)
       memory: 400Mi
     limits:
       cpu: 300m

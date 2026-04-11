@@ -1,6 +1,6 @@
 use axum::{
     extract::Multipart,
-    http::{header},
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
 use bytes::Bytes;
@@ -23,6 +23,7 @@ use arrow2::{
     datatypes::{DataType},
 };
 use arrow2::io::parquet::read::{read_metadata as read_parquet_metadata, infer_schema, FileReader};
+use crate::logger::JsonLogger;
 
 #[derive(Deserialize, ToSchema)]
 pub struct UploadForm {
@@ -49,20 +50,50 @@ pub struct JsonRowResponse {
     responses((status = 200, description = "Streamed JSON rows", body = [JsonRowResponse])),
     tag = "Parquet"
 )]
-pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoResponse {
+pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> Result<impl IntoResponse, StatusCode> {
+    let logger = JsonLogger::new();
     let mut temp_path = std::env::temp_dir();
     temp_path.push(format!(".tmp{}.parquet", uuid::Uuid::new_v4()));
 
-    let mut parquet_file = tokio::fs::File::create(&temp_path).await.unwrap();
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let chunk = field.bytes().await.unwrap();
-        parquet_file.write_all(&chunk).await.unwrap();
-    }
-    parquet_file.flush().await.unwrap();
+    let mut parquet_file = tokio::fs::File::create(&temp_path).await.map_err(|e| {
+        logger.error(&format!("Failed to create temp file: {:?}", e), None);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
-    let file = File::open(&temp_path).unwrap();
-    let metadata = read_parquet_metadata(&mut file.try_clone().unwrap()).unwrap();
-    let schema = infer_schema(&metadata).unwrap();
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        logger.error(&format!("Failed to read multipart field: {:?}", e), None);
+        StatusCode::BAD_REQUEST
+    })? {
+        let chunk = field.bytes().await.map_err(|e| {
+            logger.error(&format!("Failed to read field bytes: {:?}", e), None);
+            StatusCode::BAD_REQUEST
+        })?;
+        parquet_file.write_all(&chunk).await.map_err(|e| {
+            logger.error(&format!("Failed to write chunk to temp file: {:?}", e), None);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    }
+    parquet_file.flush().await.map_err(|e| {
+        logger.error(&format!("Failed to flush temp file: {:?}", e), None);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let file = File::open(&temp_path).map_err(|e| {
+        logger.error(&format!("Failed to open temp parquet file: {:?}", e), None);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let cloned_file = file.try_clone().map_err(|e| {
+        logger.error(&format!("Failed to clone file handle: {:?}", e), None);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let metadata = read_parquet_metadata(&mut { cloned_file }).map_err(|e| {
+        logger.error(&format!("Failed to read parquet metadata: {:?}", e), None);
+        StatusCode::UNPROCESSABLE_ENTITY
+    })?;
+    let schema = infer_schema(&metadata).map_err(|e| {
+        logger.error(&format!("Failed to infer parquet schema: {:?}", e), None);
+        StatusCode::UNPROCESSABLE_ENTITY
+    })?;
     let row_groups = metadata.row_groups.clone();
     let projection = None;
 
@@ -74,7 +105,14 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoRes
         let _ = tx.send(Ok(Bytes::from("["))).await;
 
         for maybe_batch in reader {
-            let batch = maybe_batch.unwrap();
+            let batch = match maybe_batch {
+                Ok(b) => b,
+                Err(e) => {
+                    JsonLogger::new().error(&format!("Failed to read parquet batch: {:?}", e), None);
+                    let _ = tx.send(Err(std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))).await;
+                    return;
+                }
+            };
             let columns = batch.columns();
             let names = schema.fields.iter().map(|f| f.name.as_str()).collect::<Vec<_>>();
 
@@ -87,12 +125,18 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoRes
                         .unwrap_or_else(|| format!("col_{}", col_idx));
                     let value = match schema.fields[col_idx].data_type {
                         DataType::Utf8 => {
-                            let arr = col.as_any().downcast_ref::<Utf8Array<i32>>().unwrap();
-                            Value::from(arr.value(row_idx))
+                            if let Some(arr) = col.as_any().downcast_ref::<Utf8Array<i32>>() {
+                                Value::from(arr.value(row_idx))
+                            } else {
+                                Value::Null
+                            }
                         }
                         DataType::Int32 => {
-                            let arr = col.as_any().downcast_ref::<PrimitiveArray<i32>>().unwrap();
-                            Value::from(arr.value(row_idx))
+                            if let Some(arr) = col.as_any().downcast_ref::<PrimitiveArray<i32>>() {
+                                Value::from(arr.value(row_idx))
+                            } else {
+                                Value::Null
+                            }
                         }
                         _ => Value::Null,
                     };
@@ -119,5 +163,8 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> impl IntoRes
     Response::builder()
         .header(header::CONTENT_TYPE, "application/json")
         .body(body)
-        .unwrap()
+        .map_err(|e| {
+            JsonLogger::new().error(&format!("Failed to build response: {:?}", e), None);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
 }

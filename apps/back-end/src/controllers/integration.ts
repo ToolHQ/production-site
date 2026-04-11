@@ -98,13 +98,17 @@ const payload: {
   ? samplePayloads.get(process.env.TEST_PAYLOAD)!
   : defaultPayload!;
 
-export const testHttp: RequestHandler = async (_req, res) => {
-  const streamReturn = await httpClient.callHTTP(payload);
-  res.setHeader('Content-Type', 'application/json');
-  if (streamReturn.body) {
-    Readable.fromWeb(streamReturn.body).pipe(res);
-  } else {
-    res.end();
+export const testHttp: RequestHandler = async (_req, res, next) => {
+  try {
+    const streamReturn = await httpClient.callHTTP(payload);
+    res.setHeader('Content-Type', 'application/json');
+    if (streamReturn.body) {
+      Readable.fromWeb(streamReturn.body).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (error) {
+    next(error);
   }
 };
 

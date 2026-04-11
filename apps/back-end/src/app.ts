@@ -41,7 +41,8 @@ app.disable('x-powered-by');
 addSwaggerToExpress(app);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((error: Error, req: Request, res: Response, _2: NextFunction): void => {
+app.use((error: Error & { status?: number; statusCode?: number }, req: Request, res: Response, _2: NextFunction): void => {
+  const statusCode = error.status ?? error.statusCode ?? 500;
   logger.errorEvent('Server ERROR', {
     method: req.method,
     path: req.path,
@@ -49,8 +50,12 @@ app.use((error: Error, req: Request, res: Response, _2: NextFunction): void => {
     stack: error.stack,
     message: error.message,
     cause: error.cause,
+    statusCode,
   });
-  res.status(500).json({ message: error.message });
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.status(statusCode).json({
+    message: isProduction && statusCode === 500 ? 'Internal Server Error' : error.message,
+  });
 });
 
 app.listen(port, () => {

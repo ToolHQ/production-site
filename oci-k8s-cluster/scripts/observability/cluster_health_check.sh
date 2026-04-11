@@ -268,6 +268,33 @@ done < <(kubectl get pods -A \
 (( pull_errs == 0 )) && report_ok "No image pull errors (>10m)"
 
 # ══════════════════════════════════════════════════════════════════════════
+# 1.5  LONGHORN NODE DISK HEALTH  (T-104)
+# ══════════════════════════════════════════════════════════════════════════
+section "Longhorn Node Disk Health"
+
+DISK_WARN_BYTES=$(( 15 * 1024 * 1024 * 1024 ))   # 15 GB
+DISK_CRIT_BYTES=$(( 10 * 1024 * 1024 * 1024 ))   # 10 GB
+
+while IFS=$'\t' read -r node schedulable avail; do
+    [[ -z "$node" ]] && continue
+    avail_gb=$(( avail / 1024 / 1024 / 1024 ))
+    if [[ "$schedulable" != "true" ]]; then
+        report_crit "Longhorn disk on $node: schedulable=false (no new replicas can be placed)"
+    elif (( avail < DISK_CRIT_BYTES )); then
+        report_crit "Longhorn disk on $node: ${avail_gb} GB available (<10 GB critical)"
+    elif (( avail < DISK_WARN_BYTES )); then
+        report_warn "Longhorn disk on $node: ${avail_gb} GB available (<15 GB warning)"
+    else
+        report_ok "Longhorn disk on $node: ${avail_gb} GB available"
+    fi
+done < <(kubectl get node.longhorn.io -n longhorn-system -o json 2>/dev/null | \
+    jq -r '.items[] | [
+        .metadata.name,
+        (.spec.disks | to_entries[0].value.allowScheduling | tostring),
+        (.status.diskStatus | to_entries[0].value.storageAvailable | tostring)
+    ] | @tsv' 2>/dev/null || true)
+
+# ══════════════════════════════════════════════════════════════════════════
 # SUMMARY
 # ══════════════════════════════════════════════════════════════════════════
 echo ""
