@@ -1919,25 +1919,50 @@ $(t "back")"
 
         case "${selected%%.*}" in
             1)
-                echo -e "${BLUE}📜 Certificate Expiry Status:${NC}"
+                echo -e "${BLUE}📜 Fetching certificate status...${NC}"
+
+                # Single SSH call: returns lines of "name|ns|notAfter|secret|chainCount"
+                local raw_data
+                raw_data=$(ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
+                    -n -T "$MASTER_NODE" '
+                    kubectl get certificates -A \
+                      -o jsonpath='"'"'{range .items[*]}{.metadata.name}|{.metadata.namespace}|{.status.notAfter}|{.spec.secretName}{"\n"}{end}'"'"' 2>/dev/null \
+                    | while IFS="|" read -r name ns not_after secret; do
+                        count=$(kubectl get secret "$secret" -n "$ns" \
+                          -o jsonpath='"'"'{.data.tls\.crt}'"'"' 2>/dev/null \
+                          | base64 -d 2>/dev/null \
+                          | grep -c "BEGIN CERTIFICATE" 2>/dev/null || echo 0)
+                        echo "${name}|${ns}|${not_after}|${secret}|${count}"
+                    done
+                    ')
+
+                echo -e "\033[1A\033[2K"  # clear "Fetching..." line
                 echo ""
+                printf "  ${BOLD}%-35s  %-10s  %-12s  %s${NC}\n" "CERT" "DAYS LEFT" "EXPIRES" "CHAIN"
+                printf "  %s\n" "$(printf '─%.0s' {1..72})"
+
                 local now_epoch
                 now_epoch=$(date +%s)
-                printf "  %-30s %-20s %-10s %s\n" "NAMESPACE/NAME" "EXPIRES" "DAYS" "CHAIN"
-                printf "  %-30s %-20s %-10s %s\n" "------------------------------" "--------------------" "----------" "-------"
-                while IFS='|' read -r cert_name cert_ns not_after secret_name; do
+                while IFS='|' read -r cert_name cert_ns not_after secret_name chain_count; do
                     [[ -z "$cert_name" ]] && continue
-                    local exp_epoch days_left label chain_ok
+                    local exp_epoch days_left day_label chain_label
                     exp_epoch=$(date -d "$not_after" +%s 2>/dev/null || echo 0)
                     days_left=$(( (exp_epoch - now_epoch) / 86400 ))
-                    if   (( days_left < 7  )); then label="${RED}${days_left}d 🔴${NC}"
-                    elif (( days_left < 30 )); then label="${YELLOW}${days_left}d 🟡${NC}"
-                    else label="${GREEN}${days_left}d 🟢${NC}"; fi
-                    local tls_crt
-                    tls_crt=$(run_remote_raw "$MASTER_NODE" "kubectl get secret $secret_name -n $cert_ns -o jsonpath='{.data.tls\.crt}' 2>/dev/null | base64 -d 2>/dev/null | grep -c 'BEGIN CERTIFICATE' 2>/dev/null || echo 0")
-                    if (( tls_crt >= 2 )); then chain_ok="${GREEN}OK${NC}"; else chain_ok="${RED}BROKEN${NC}"; fi
-                    printf "  %-30s %-20s %-10b %b\n" "$cert_ns/$cert_name" "$not_after" "$label" "$chain_ok"
-                done < <(run_remote_raw "$MASTER_NODE" "kubectl get certificates -A -o jsonpath='{range .items[*]}{.metadata.name}|{.metadata.namespace}|{.status.notAfter}|{.spec.secretName}{\"\\n\"}{end}'")
+
+                    if   (( days_left <  7 )); then day_label="${RED}${days_left}d 🔴${NC}"
+                    elif (( days_left < 30 )); then day_label="${YELLOW}${days_left}d 🟡${NC}"
+                    else                            day_label="${GREEN}${days_left}d 🟢${NC}"; fi
+
+                    if (( chain_count >= 2 )); then chain_label="${GREEN}✔ OK${NC}"
+                    else                          chain_label="${RED}✘ BROKEN (run opt 7)${NC}"; fi
+
+                    # Short expires date: strip T and seconds
+                    local expires_short="${not_after%%T*}"
+                    printf "  %-35s  %-10b  %-12s  %b\n" \
+                        "$cert_ns/$cert_name" "$day_label" "$expires_short" "$chain_label"
+                done <<< "$raw_data"
+
+                printf "  %s\n" "$(printf '─%.0s' {1..72})"
                 echo ""
                 echo -e "${BLUE}📜 Cluster Issuers:${NC}"
                 run_kubectl "get clusterissuer"
