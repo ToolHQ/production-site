@@ -1,0 +1,9 @@
+apiVersion: longhorn.io/v1beta2
+kind: BackupTarget
+metadata:
+  name: default
+  namespace: longhorn-system
+spec:
+  backupTargetURL: s3://k8s-backups@us-east-1/
+  credentialSecret: minio-secret
+  pollInterval: 5m0s
