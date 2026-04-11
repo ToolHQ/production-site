@@ -9,12 +9,12 @@
 ## 🏎️ In Progress
 | ID | Task Name | Priority | Owner | Est. |
 |:--:|:---|:--:|:--:|:--:|
-| [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md) | **CPU Headroom Recovery & Sustained Margin Policy** | 🔼 High | Infra | 3h |
+| [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md) | **CPU Headroom Recovery & Sustained Margin Policy** *(monitoring window)* | 🔼 High | Infra | 3h |
+| [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md) | **Longhorn Replica Integrity Hardening** *(blocked: backup target)* | 🔼 High | Storage | 2h |
 
 ## 📅 Backlog (To Do)
 | ID | Task Name | Priority | Epic | Est. |
 |:--:|:---|:--:|:---|:--:|
-| [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md) | **Longhorn Replica Integrity Hardening** | 🔼 High | Storage | 2h |
 | [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** | 🔽 Medium | Infra | 2h |
 
 
