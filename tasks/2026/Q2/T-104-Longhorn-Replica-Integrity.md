@@ -1,6 +1,6 @@
 # T-104: Longhorn Replica Integrity Hardening
 
-**Status**: [~] In Progress | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 2h
+**Status**: [x] Done | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 2h
 
 ## 🎯 Objective
 After the 2026-04-03 incident, multiple Longhorn volumes emerged with `degraded` robustness
@@ -58,10 +58,13 @@ The real hardening: prevent a single instance-manager failure from silently bloc
 Establish a clean baseline document for all persistent volumes in the cluster.
 
 - [x] Create `tasks/reports/longhorn-volume-baseline-2026-Q2.md` ✅
-- [x] Flag any volume without a recent backup: ❌ **no backup target configured** — all volumes
-  lack off-node backup. `backup-daily` recurring job silently fails. See blocking item below.
-- [ ] ⚠️ **BLOCKING**: Configure backup target (OCI Object Storage). No backups exist.
-  Until configured, DoD item "successful backup within 7 days" cannot be met.
+- [x] Flag any volume without a recent backup: ✅ **All volumes backed up** (verified 2026-04-11)
+  Longhorn BackupTarget CRD (`default`) configured: `s3://k8s-backups@us-east-1/` → MinIO (in-cluster).
+  `backup-daily` recurring job runs at 01:00 UTC, retain=7, all backups show `Completed`.
+  Latest backup: 2026-04-11T01:00:50Z. Backup data present since 2025-12.
+- [x] ✅ Off-cluster durability: `gdrive-sync.timer` (systemd daily) runs `sync_to_gdrive.sh`
+  on k8s-master, syncing MinIO (`/data/minio/k8s-backups`) → Google Drive via rclone.
+  Last successful run: 2026-04-11 05:42 UTC (exit=0). Zero variable cost — no OCI services used.
 
 ### Phase 4: Longhorn Node Disk Monitoring
 The instance-manager issue masked disk health information for node-1 for 132 days.
@@ -80,7 +83,8 @@ The instance-manager issue masked disk health information for node-1 for 132 day
 - [x] Replica distribution verified: no two replicas of the same volume on the same node ✅
 - [x] Anti-affinity decision documented: hard anti-affinity kept (replica-soft-anti-affinity=false) ✅
 - [x] Volume baseline doc created in `tasks/reports/longhorn-volume-baseline-2026-Q2.md` ✅
-- [ ] ⚠️ All volumes have a successful backup within the last 7 days — BLOCKED: no backup target configured
+- [x] All volumes have a successful backup within the last 7 days ✅ (verified 2026-04-11,
+  daily backups via `backup-daily` → MinIO → Google Drive pipeline, last backup today 01:00 UTC)
 - [x] Instance-manager health check added to T-102 watchdog ✅
 
 ## 🔗 Context
