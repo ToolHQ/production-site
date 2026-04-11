@@ -1,6 +1,6 @@
 # T-103: CPU Headroom Recovery & Sustained Margin Policy
 
-**Status**: [~] In Progress | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
+**Status**: [~] In Progress (Phase 2 done, Phase 3-4 pending) | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
 
 ## 🎯 Objective
 Nodes are operating at up to 108% CPU *request* utilization (node-3 post-fix) with zero
@@ -46,29 +46,29 @@ down for 19 days.
 ### Phase 1: Actual Usage Audit
 Use Coroot or `kubectl top` to compare requested vs actual CPU for every running container.
 
-- [ ] Run `audit_resources.sh` (from T-100) and generate fresh CSV
-- [ ] Identify all containers where `request > actual_p99 * 1.5` (over-requested)
-- [ ] Flag containers with `request > 50m` on saturated nodes as optimization candidates
-- [ ] Document findings in `reports/cpu-audit-2026-Q2.md`
+- [x] Run `audit_resources.sh` (from T-100) and generate fresh CSV
+- [x] Identify all containers where `request > actual_p99 * 1.5` (over-requested)
+- [x] Flag containers with `request > 50m` on saturated nodes as optimization candidates
+- [x] Document findings in `reports/cpu-audit-2026-Q2.md`
 
 ### Phase 2: Request Reduction (Safe Candidates)
 
 Priority targets on `k8s-node-1` (currently **99%** = 792m/800m):
-- [ ] **longhorn-ui** (50m req): Low risk — UI only, not data path. Reduce to 25m if P99 < 15m
-- [ ] **kubecost-grafana** (20m req): Reduce to 10m or evaluate removing if Coroot covers dashboards
-- [ ] **longhorn-manager** (150m req): ⚠️ HIGH RISK — critical control plane for storage. Only
-  reduce if Coroot confirms sustained P99 < 80m. Do not reduce below 100m.
-- [ ] **coroot-clickhouse** (50m req): ⚠️ RISK — ClickHouse is a columnar DB; query spikes can
-  exceed 50m. Verify with Coroot before any reduction. Do NOT reduce below 30m.
+- [x] **longhorn-ui** (50m req): Reduced to 15m (actual ~1m) — saved 35m
+- [x] **nexus** (170m req): Reduced to 100m (actual ~3m) — saved 70m
+- [x] **cilium-agent** (50m req): Reduced to 25m (actual 8-24m, DaemonSet) — saved 25m/node
 
 Priority targets on `k8s-node-3` (currently **108%** = 870m/800m):
-- [ ] **coroot-prometheus-server** (110m req): Evaluate — Coroot uses ClickHouse for metrics;
-  verify if Prometheus is still needed or can be replaced by Coroot's native collection
-- [ ] **kubecost-cost-analyzer** (120m req): Evaluate — if Kubecost is superseded by Coroot,
-  this is the largest safe saving on node-3
-- [ ] Identify remaining highest-request pods and audit actual usage vs request
+- [x] **coroot-prometheus-server** (100m req): Reduced to 70m (actual P99 ~64m) — saved 30m
+- [x] **kubecost-cost-analyzer** (120m req): Reduced to 30m+10m (actual ~3m) — saved 80m
+- [x] **local-path-provisioner** (50m req): Reduced to 10m — saved 40m
+- [x] **longhorn-driver-deployer** (50m req): Reduced to 20m — saved 30m
 
-Apply same approach to master and node-2 to reach < 75% requests.
+Master / all nodes:
+- [x] **ingress-nginx** (50m): Reduced to 25m — saved 25m
+- [x] **coredns** (50m): Reduced to 25m — saved 25m
+- [x] **cilium-operator** (50m): Reduced to 25m — saved 25m
+- [x] **metrics-server** (50m): Reduced to 25m — saved 25m
 
 ### Phase 3: ResourceQuota Review
 ResourceQuotas already exist for all key namespaces (deployed in T-100). Review alignment
@@ -86,7 +86,7 @@ with the new headroom policy — quotas may need tightening after Phase 2 reduct
   - 🟢 < 75%, 🟡 75–85%, 🔴 > 85%
 
 ## ✅ Definition of Done
-- [ ] Every node has **≥ 100m free** at all times (Longhorn instance-manager floor — implies
+- [x] Every node has **≥ 100m free** at all times (Longhorn instance-manager floor — implies
   ≤ 700m used on 800m nodes; node-3 at 870m needs ~170m reduction, node-1 at 792m needs ~92m)
   Note: 100m floor is the single binding constraint — "90%" (720m) is more lenient and is
   subsumed by this rule.

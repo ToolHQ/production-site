@@ -153,12 +153,15 @@ pub async fn convert_parquet_into_arrow(mut multipart: Multipart) -> Result<Resp
     let _ = tokio::fs::remove_file(cleanup_path).await;
   });
 
-  Ok(Response::builder()
+  Response::builder()
     .status(StatusCode::OK)
     .header(header::CONTENT_TYPE, "application/vnd.apache.arrow.file")
     .header(header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", file_name.replace(".parquet", ".arrow")))
     .body(body)
-    .unwrap())
+    .map_err(|e| {
+      JsonLogger::new().error(&format!("Error building response: {:?}", e), None);
+      StatusCode::INTERNAL_SERVER_ERROR
+    })
 }
 
 #[utoipa::path(
@@ -301,12 +304,15 @@ pub async fn convert_arrow_into_ndjson(mut multipart: Multipart) -> Result<Respo
   let stream = ReaderStream::new(file);
   let body = Body::from_stream(stream);
 
-  Ok(Response::builder()
+  Response::builder()
     .header(header::CONTENT_TYPE, "application/x-ndjson")
     .header(
       header::CONTENT_DISPOSITION,
       format!("attachment; filename=\"{}.ndjson\"", file_name.replace(".arrow", "")),
     )
     .body(body)
-    .unwrap())
+    .map_err(|e| {
+      logger.error(&format!("Error building NDJSON response: {:?}", e), None);
+      StatusCode::INTERNAL_SERVER_ERROR
+    })
 }

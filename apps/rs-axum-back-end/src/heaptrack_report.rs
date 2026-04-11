@@ -20,18 +20,23 @@ async fn get_heaptrack_report() -> Result<Response, StatusCode> {
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
   let stream = ReaderStream::new(file);
 
-  Ok(Response::builder()
+  let file_name = latest
+    .file_name()
+    .map(|n| n.to_string_lossy().into_owned())
+    .unwrap_or_else(|| "heaptrack.gz".to_string());
+
+  Response::builder()
     .status(StatusCode::OK)
     .header(header::CONTENT_TYPE, "application/gzip")
     .header(
       header::CONTENT_DISPOSITION,
-      format!(
-        "attachment; filename=\"{}\"",
-        latest.file_name().unwrap().to_string_lossy()
-      ),
+      format!("attachment; filename=\"{}\"", file_name),
     )
     .body(Body::from_stream(stream))
-    .unwrap())
+    .map_err(|e| {
+      JsonLogger::new().error(&format!("Error building heaptrack response: {:?}", e), None);
+      StatusCode::INTERNAL_SERVER_ERROR
+    })
 }
 
 /// GET /heaptrack-stats
@@ -63,8 +68,13 @@ async fn get_heaptrack_stats() -> Result<impl IntoResponse, StatusCode> {
   let stdout = String::from_utf8_lossy(&output.stdout);
   let lines: Vec<String> = stdout.lines().map(|s| s.trim().to_string()).collect();
 
+  let file_name = latest
+    .file_name()
+    .map(|n| n.to_string_lossy().into_owned())
+    .unwrap_or_else(|| "heaptrack.gz".to_string());
+
   Ok(axum::Json(json!({
-    "file": latest.file_name().unwrap().to_string_lossy(),
+    "file": file_name,
     "summary": lines,
   })))
 }

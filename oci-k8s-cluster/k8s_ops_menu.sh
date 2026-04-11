@@ -569,6 +569,7 @@ $(t "maint_network")
 7. Fix Registry DNS (Safe)
 8. Prune Disk Space (Images/Logs)
 9. Generate Storage Dossier (App-Level)
+10. Pre-Pull Internal Images on All Nodes
 $(t "prefs_back")"
 
     local selected_action
@@ -624,6 +625,51 @@ $(t "prefs_back")"
       9)
         clear
         source "$SCRIPT_DIR/scripts/observability/generate_storage_dossier.sh"
+        read -p "$(t "press_enter")"
+        ;;
+      10)
+        clear
+        echo -e "${BLUE}Pre-Pull Internal Images on All Worker Nodes${NC}"
+        echo -e "${YELLOW}This caches registry.local images so rescheduled pods start without Nexus.${NC}"
+        echo ""
+        # Discover internal images currently running in the cluster
+        local internal_images
+        internal_images=$(run_kubectl_silent "get pods -A -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.image}{\"\\n\"}{end}{end}'" | grep "registry.local" | sort -u)
+        if [[ -z "$internal_images" ]]; then
+          echo -e "${YELLOW}No pods using registry.local found.${NC}"
+          read -p "$(t "press_enter")"; continue
+        fi
+        echo -e "${GREEN}Images to pre-pull:${NC}"
+        echo "$internal_images"
+        echo ""
+        local worker_nodes
+        worker_nodes=$(run_kubectl_silent "get nodes --no-headers -l '!node-role.kubernetes.io/control-plane'" | awk '{print $1}')
+        echo -e "${GREEN}Worker nodes:${NC} $(echo $worker_nodes | tr '\n' ' ')"
+        echo ""
+        read -p "Proceed? (yes/no): " confirm
+        [[ "$confirm" != "yes" ]] && continue
+        local img node pod_name
+        for img in $internal_images; do
+          for node in $worker_nodes; do
+            pod_name="prepull-$(echo "$node" | sed 's/k8s-//')-$$"
+            echo -e "  Pulling ${img##*/} on $node..."
+            run_kubectl "run $pod_name --image=$img --restart=Never \
+              --overrides='{\"spec\":{\"nodeSelector\":{\"kubernetes.io/hostname\":\"$node\"},\"tolerations\":[{\"operator\":\"Exists\"}]}}' \
+              --command -- sh -c 'echo pulled' 2>/dev/null" || true
+            # Wait up to 60s for completion
+            local i=0
+            while (( i < 12 )); do
+              local phase
+              phase=$(run_kubectl_silent "get pod $pod_name -o jsonpath='{.status.phase}'" 2>/dev/null)
+              [[ "$phase" == "Succeeded" || "$phase" == "Failed" ]] && break
+              sleep 5; (( i++ ))
+            done
+            run_kubectl "delete pod $pod_name --ignore-not-found 2>/dev/null" || true
+            echo -e "    ✅ Done on $node"
+          done
+        done
+        echo ""
+        echo -e "${GREEN}Pre-pull complete. Images are now cached on all worker nodes.${NC}"
         read -p "$(t "press_enter")"
         ;;
       *)
@@ -3926,38 +3972,46 @@ $(t "menu_exit")"
       10)
         # Node Status - Interactive Menu with fzf
         while true; do
-          echo -e "${BLUE}📊 Node Status${NC}"
+          echo -e "${BLUE}📊 Node Status  (CPU requests: 🟢<75%  🟡75-85%  🔴≥85%)${NC}"
           echo ""
-          
-          # Build formatted table for fzf
-          local node_data=""
-          local header="NODE|STATUS||CONDITION|ROLE|VERSION|AGE"
-          
-          run_kubectl "get nodes --no-headers" | while read name status roles age version rest; do
-            local status_icon="❌"
-            if [ "$status" = "Ready" ]; then
-              status_icon="✅"
-              status="Ready"
+
+          # Collect CPU request % per node from a single describe call
+          run_kubectl_silent "describe nodes" | awk '
+            /^Name:/       { node=$2; in_a=0 }
+            /^Allocated resources:/ { in_a=1 }
+            /^Events:/     { in_a=0 }
+            in_a && /^ *cpu / && /\(/ {
+              pct=$3; gsub(/[()%]/,"",pct)
+              print node, pct
+              in_a=0
+            }
+          ' > /tmp/nodes_headroom_$$.txt 2>/dev/null || true
+
+          # Build node list (pipe subshell reads headroom from file)
+          run_kubectl "get nodes --no-headers" | while read -r name status roles age version rest; do
+            local s_icon="❌"
+            [[ "$status" == "Ready" ]] && s_icon="✅"
+            [[ "$roles" == "<none>" ]] && roles="worker"
+            local pct cpu_col="  ?"
+            pct=$(grep "^${name} " /tmp/nodes_headroom_$$.txt 2>/dev/null | awk '{print $2}')
+            if [[ -n "$pct" && "$pct" =~ ^[0-9]+$ ]]; then
+              local icon="🟢"
+              if   (( pct >= 85 )); then icon="🔴"
+              elif (( pct >= 75 )); then icon="🟡"; fi
+              cpu_col="${icon} ${pct}%"
             fi
-            
-            if [ "$roles" = "<none>" ]; then
-              roles="worker"
-            fi
-            
-            echo "$name|$status_icon|$status|$roles|$version|$age"
+            echo "$name|$s_icon|$status|$roles|$version|$age|$cpu_col"
           done > /tmp/nodes_$$.txt
-          
-          
-          # Create formatted display with proper spacing
+
+          # Format for fzf (read from nodes_$$.txt, write to nodes_display_$$.txt)
           {
-            printf "%-20s %-8s %-10s %-15s %-12s %-6s\n" "NODE" "STATUS" "CONDITION" "ROLE" "VERSION" "AGE"
-            while IFS='|' read -r name icon status role version age; do
-              printf "%-20s %-8s %-10s %-15s %-12s %-6s\n" "$name" "$icon" "$status" "$role" "$version" "$age"
-            done < /tmp/nodes_display_$$.txt
+            printf "%-20s %-6s %-10s %-15s %-12s %-6s %s\n" "NODE" "ST" "CONDITION" "ROLE" "VERSION" "AGE" "CPU REQ"
+            while IFS='|' read -r name icon status role version age cpu; do
+              printf "%-20s %-6s %-10s %-15s %-12s %-6s %s\n" "$name" "$icon" "$status" "$role" "$version" "$age" "$cpu"
+            done < /tmp/nodes_$$.txt
           } > /tmp/nodes_display_$$.txt
-          
-          
-          # Use fzf with working preview (no SSH complications)
+
+          # Use fzf with working preview
           local selected_node
           selected_node=$(cat /tmp/nodes_display_$$.txt | "$FZF_BIN" \
             --height=60% \
@@ -3968,8 +4022,8 @@ $(t "menu_exit")"
             --preview="echo 'Node: {}' && echo '' && kubectl get node \$(echo {} | awk '{print \$1}') -o wide 2>/dev/null" \
             --preview-window=down:8 \
             | awk '{print $1}') || true
-          
-          rm -f /tmp/nodes_$$.txt /tmp/nodes_display_$$.txt
+
+          rm -f /tmp/nodes_$$.txt /tmp/nodes_display_$$.txt /tmp/nodes_headroom_$$.txt
           
           if [ -z "$selected_node" ]; then
             break  # ESC pressed

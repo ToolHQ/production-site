@@ -4,7 +4,7 @@
 operator:
   resources:
     requests:
-      cpu: 50m
+      cpu: 25m  # was 50m — actual usage ~2m (T-103)
       memory: 128Mi
     limits:
       cpu: 150m
@@ -21,7 +21,7 @@ envoy:
 
 resources:
   requests:
-    cpu: 50m
+    cpu: 25m  # was 50m — actual usage ~8-24m across nodes (T-103)
     memory: 128Mi
   limits:
     cpu: 450m

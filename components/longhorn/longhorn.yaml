@@ -4380,7 +4380,7 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 50m
+              cpu: 20m  # was 50m — idle deployer (T-103)
               memory: 64Mi
           command:
           - longhorn-manager
@@ -4462,7 +4462,7 @@ spec:
         image: longhornio/longhorn-ui:v1.10.1
         resources:
           requests:
-            cpu: 50m
+            cpu: 15m  # was 50m — UI only, actual usage ~1m (T-103)
             memory: 128Mi
         imagePullPolicy: IfNotPresent
         volumeMounts:

@@ -5,6 +5,7 @@ import uuid
 from psycopg2 import ProgrammingError
 from sqlalchemy import create_engine, text, Engine, event
 from sqlalchemy.engine import CursorResult
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 import cx_Oracle
 
 from app.libs.logger import CustomLogger
@@ -67,7 +68,13 @@ class DBConnection:
         return final_result
     except ProgrammingError as e:
       db_query_connection_error_logger.error(f"Failed to connect using DSN: {e} -> {self.engine.url}")
-      raise e
+      raise
+    except OperationalError as e:
+      db_query_connection_error_logger.error(f"Database connection failed: {e} -> {self.engine.url}")
+      raise
+    except SQLAlchemyError as e:
+      db_query_connection_error_logger.error(f"Query execution failed: {e} -> {self.engine.url}")
+      raise
 
   def execute_raw_query_with_logging(self, query, params=None):
     start_time = time.time()
@@ -90,10 +97,16 @@ class DBConnection:
             yield row
     except ProgrammingError as e:
       db_query_connection_error_logger.error(f"Failed to connect using DSN: {e} -> {self.engine.url}")
-      raise e
+      raise
+    except OperationalError as e:
+      db_query_connection_error_logger.error(f"Database connection failed: {e} -> {self.engine.url}")
+      raise
+    except SQLAlchemyError as e:
+      db_query_connection_error_logger.error(f"Query execution failed: {e} -> {self.engine.url}")
+      raise
     except Exception as e:
-      db_query_connection_error_logger.error(f"Failed to execute query: {e} -> {self.engine.url}")
-      raise e
+      db_query_connection_error_logger.error(f"Unexpected error executing query: {e} -> {self.engine.url}")
+      raise
 
 def get_connection (
   host_env: str,
