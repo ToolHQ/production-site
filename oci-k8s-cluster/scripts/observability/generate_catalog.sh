@@ -154,6 +154,13 @@ scan_apps() {
         fi
         # Note: "deployed" state is set later in cross_reference, stored in xref
 
+        # --- Deploy command ---
+        local deploy_cmd="" deploy_script_path=""
+        if [[ -n "$deploy_script" ]]; then
+            deploy_script_path="apps/$name/$deploy_script"
+            deploy_cmd="cd apps/$name && bash $deploy_script"
+        fi
+
         # --- Build JSON entry ---
         $first && first=false || json_arr+=","
         json_arr+=$(cat <<JEOF
@@ -168,6 +175,8 @@ scan_apps() {
   "k8s_manifests": $has_k8s,
   "k8s_kinds": "$k8s_kinds",
   "deploy_script": "$deploy_script",
+  "deploy_cmd": "$deploy_cmd",
+  "deploy_script_path": "$deploy_script_path",
   "has_readme": $has_readme,
   "has_commands_sh": $has_commands,
   "exposed_port": "$exposed_port",
@@ -873,6 +882,12 @@ tbody tr.detail-row td{background:var(--card2);padding:14px 20px;font-size:.85em
 .missing-tag{background:rgba(248,81,73,.1);color:var(--red);border-radius:4px;padding:1px 6px;font-size:.78em;margin-left:4px}
 /* Drift */
 .drift-sync{color:var(--green);font-size:.82em}.drift-drift{color:var(--yellow);font-size:.82em}.drift-unknown{color:var(--dim);font-size:.82em}
+/* Deploy action */
+.cmd-line{display:block;background:#0d1117;border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-family:monospace;font-size:.85em;color:var(--green);margin-bottom:6px;word-break:break-all}
+.btn-copy{background:rgba(88,166,255,.1);border:1px solid var(--blue);color:var(--blue);padding:4px 10px;border-radius:5px;font-size:.8em;cursor:pointer;transition:background .15s}
+.btn-copy:hover{background:rgba(88,166,255,.25)}
+.btn-link{background:rgba(63,185,80,.1);border:1px solid var(--green);color:var(--green);padding:4px 10px;border-radius:5px;font-size:.8em;text-decoration:none;transition:background .15s}
+.btn-link:hover{background:rgba(63,185,80,.25)}
 </style>
 </head>
 <body>
@@ -917,7 +932,7 @@ HTMLEOF
         <th data-col="0">App</th><th data-col="1">Language</th><th data-col="2">Framework</th>
         <th data-col="3">Version</th><th data-col="4">Port</th>
         <th data-col="5">Dockerfile</th><th data-col="6">K8s</th><th data-col="7">Deploy</th>
-        <th data-col="8">Docs</th><th data-col="9">Readiness</th>
+        <th data-col="8">Docs</th><th data-col="9">Readiness</th><th data-col="10">Action</th>
       </tr></thead>
       <tbody id="apps-tbody"></tbody>
     </table>
@@ -1020,12 +1035,27 @@ const langs=[...new Set(C.apps.map(a=>a.language).filter(Boolean))].sort();
 const lf=document.getElementById('apps-lang');
 langs.forEach(l=>{const o=document.createElement('option');o.textContent=l;lf.appendChild(o);});
 
+function copyCmd(btn,cmd){
+  navigator.clipboard.writeText(cmd).then(()=>{
+    const orig=btn.textContent;
+    btn.textContent='✅ Copied!';
+    setTimeout(()=>btn.textContent=orig,2000);
+  }).catch(()=>{
+    btn.textContent='⚠️ Failed';
+    setTimeout(()=>btn.textContent='📋 Copy',2000);
+  });
+}
+
 function buildAppsRows(data){
   const tb=document.getElementById('apps-tbody');
   tb.innerHTML='';
   data.forEach((a,i)=>{
     const r=a.deploy_readiness||'wip';
+    const canDeploy=!!(a.deploy_cmd);
     const missingHtml=a.readiness_missing?a.readiness_missing.split(',').map(m=>`<span class="missing-tag">${m.trim()}</span>`).join(' '):'';
+    const actionHtml=canDeploy
+      ?`<button class="btn-copy" onclick="event.stopPropagation();copyCmd(this,${JSON.stringify(a.deploy_cmd)})">📋 Copy</button>`
+      :'<span style="color:var(--dim)">—</span>';
     const dataRow=document.createElement('tr');
     dataRow.className='data-row';
     dataRow.dataset.idx=i;
@@ -1039,16 +1069,26 @@ function buildAppsRows(data){
       <td>${a.k8s_manifests?Y:N}</td>
       <td>${a.deploy_script?Y:N}</td>
       <td>${a.has_readme?Y:N}</td>
-      <td>${readinessBadge(r)}</td>`;
+      <td>${readinessBadge(r)}</td>
+      <td>${actionHtml}</td>`;
+    const deploySection=canDeploy?`
+      <div><dt>Deploy Command</dt><dd>
+        <code class="cmd-line">${esc(a.deploy_cmd)}</code>
+        <span style="display:inline-flex;gap:8px;margin-top:6px">
+          <button class="btn-copy" onclick="copyCmd(this,${JSON.stringify(a.deploy_cmd)})">📋 Copy command</button>
+          <button class="btn-link" onclick="copyCmd(this,${JSON.stringify(a.deploy_script_path)});event.stopPropagation()">📄 Copy path</button>
+        </span>
+      </dd></div>`:'';
     const detailRow=document.createElement('tr');
     detailRow.className='detail-row';
-    detailRow.innerHTML=`<td colspan="10"><div class="detail-grid">
+    detailRow.innerHTML=`<td colspan="11"><div class="detail-grid">
       <div><dt>Base Image</dt><dd>${esc(a.base_image||'-')}</dd></div>
       <div><dt>Key Deps</dt><dd>${esc(Array.isArray(a.key_deps)?a.key_deps.join(', '):(a.key_deps||'-'))}</dd></div>
       <div><dt>K8s Kinds</dt><dd>${esc(Array.isArray(a.k8s_kinds)?a.k8s_kinds.join(', '):(a.k8s_kinds||'-'))}</dd></div>
       <div><dt>Exposed Port</dt><dd>${esc(a.exposed_port||'-')}</dd></div>
       <div><dt>Has Commands</dt><dd>${a.has_commands_sh?Y:N}</dd></div>
       <div><dt>Readiness Missing</dt><dd>${esc(a.readiness_missing||'-')}</dd></div>
+      ${deploySection}
     </div></td>`;
     dataRow.addEventListener('click',()=>detailRow.classList.toggle('open'));
     tb.appendChild(dataRow);
