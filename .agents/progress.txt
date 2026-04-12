@@ -8,5 +8,5 @@
 
 ## Learnings from T-040 (Master Stabilization)
 - **Kubelet QoS**: ConfigMap `kubelet-config` in `kube-system` holds the global configuration. However, we patched `/var/lib/kubelet/config.yaml` dynamically on the nodes using SSH to immediately apply `systemReserved` and `kubeReserved` (100m CPU / 256Mi RAM) and restarted `kubelet`. We also updated the ConfigMap for future joining nodes.
-- **PLEG Monitor**: A script `monitor_pleg.sh` was deployed to `.agent/scripts` to quickly check for Containerd/Kubelet desynchronization without heavy external dependencies.
+- **PLEG Monitor**: A script `monitor_pleg.sh` was deployed to `.agents/scripts` to quickly check for Containerd/Kubelet desynchronization without heavy external dependencies.
 - **Node Problem Detector**: Skipped daemonset installation due to the strict 1 vCPU hardware constraints as defined in the `agents.md` rulebook.
