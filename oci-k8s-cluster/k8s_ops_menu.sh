@@ -4114,6 +4114,7 @@ $(t "menu_parca_uninstall")
 $(t "menu_cloud_rescue")
 $(t "menu_preferences")
 $(t "menu_health")
+$(t "menu_catalog")
 $(t "menu_exit")"
 
     local selected
@@ -4457,6 +4458,9 @@ $(t "menu_exit")"
         echo ""
         read -p "$(t 'press_enter')"
         ;;
+      29)
+        catalog_menu
+        ;;
 
       0)
         echo "Bye!"
@@ -4464,6 +4468,175 @@ $(t "menu_exit")"
         ;;
     esac
   done
+}
+
+# ==============================================================================
+# 📚 Inventory & Catalog Menu (T-110)
+# ==============================================================================
+catalog_menu() {
+    local catalog_script="$SCRIPT_DIR/scripts/observability/generate_catalog.sh"
+    local report_root
+    report_root="$(cd "$SCRIPT_DIR/.." && pwd)/reports"
+    local latest_link="$report_root/latest-catalog"
+    local catalog_json="$latest_link/catalog.json"
+
+    while true; do
+        local stale_msg=""
+        if [ -f "$catalog_json" ]; then
+            local age=$(( $(date +%s) - $(stat -c %Y "$catalog_json" 2>/dev/null || echo 0) ))
+            if [ $age -gt 86400 ]; then
+                stale_msg=" ⚠️ (stale: $(( age / 3600 ))h ago)"
+            else
+                stale_msg=" ✅ ($(( age / 60 ))min ago)"
+            fi
+        else
+            stale_msg=" ❌ (no catalog yet)"
+        fi
+
+        local actions="$(t "cat_view_apps")
+$(t "cat_view_components")
+$(t "cat_cross_ref")
+$(t "cat_generate")
+$(t "cat_open_html")
+$(t "prefs_back")"
+
+        local selected_action
+        selected_action=$(echo "$actions" | "$FZF_BIN" --height=40% --layout=reverse --border --prompt="$(t 'cat_menu_title')${stale_msg} > ") || true
+
+        if [ -z "$selected_action" ]; then
+            return
+        fi
+
+        case "${selected_action%%.*}" in
+            1)
+                # View Apps Catalog
+                clear
+                if [ ! -f "$catalog_json" ]; then
+                    echo -e "${YELLOW}No catalog found. Generating...${NC}"
+                    bash "$catalog_script"
+                    catalog_json="$latest_link/catalog.json"
+                fi
+                echo -e "${BOLD}${BLUE}📦 Applications Catalog${NC}"
+                echo -e "${BLUE}$(printf '─%.0s' {1..70})${NC}"
+                jq -r '.apps[] |
+                    "\(.name)" + "\t" +
+                    "\(.language)" + "\t" +
+                    "\(.framework // "-")" + "\t" +
+                    "\(.version // "-")" + "\t" +
+                    (if .dockerfile then "✅" else "❌" end) + "\t" +
+                    (if .k8s_manifests then "✅" else "❌" end) + "\t" +
+                    (if .deploy_readiness == "ready" then "🟢 Ready"
+                     elif .deploy_readiness == "partial" then "🟡 Partial"
+                     else "🔴 None" end)
+                ' "$catalog_json" | column -t -s $'\t' -N "APP,LANG,FRAMEWORK,VERSION,DOCKER,K8S,READINESS"
+                echo ""
+                read -p "$(t 'press_enter')"
+                ;;
+            2)
+                # View Components Catalog
+                clear
+                if [ ! -f "$catalog_json" ]; then
+                    echo -e "${YELLOW}No catalog found. Generating...${NC}"
+                    bash "$catalog_script"
+                    catalog_json="$latest_link/catalog.json"
+                fi
+                echo -e "${BOLD}${BLUE}⚙️  Components Catalog${NC}"
+                echo -e "${BLUE}$(printf '─%.0s' {1..80})${NC}"
+                jq -r '.components[] |
+                    "\(.name)" + "\t" +
+                    "\(.category)" + "\t" +
+                    "\(.namespace // "-")" + "\t" +
+                    "\(.version // "-")" + "\t" +
+                    "\(.deploy_method)" + "\t" +
+                    (if .has_commands_sh then "✅" else "❌" end) + "\t" +
+                    (if .has_readme then "✅" else "❌" end) + "\t" +
+                    (if .deprecated then "🗑️" else "-" end)
+                ' "$catalog_json" | column -t -s $'\t' -N "COMPONENT,CATEGORY,NAMESPACE,VERSION,METHOD,CMDS,DOCS,DEPR"
+                echo ""
+                read -p "$(t 'press_enter')"
+                ;;
+            3)
+                # Cross-Reference
+                clear
+                if [ ! -f "$catalog_json" ]; then
+                    echo -e "${YELLOW}No catalog found. Generating...${NC}"
+                    bash "$catalog_script"
+                    catalog_json="$latest_link/catalog.json"
+                fi
+                echo -e "${BOLD}${BLUE}🔄 Cross-Reference: Repo ↔ Cluster${NC}"
+                echo -e "${BLUE}$(printf '─%.0s' {1..70})${NC}"
+
+                local online=$(jq -r '.cluster_online' "$catalog_json")
+                if [ "$online" != "true" ]; then
+                    echo -e "${YELLOW}⚠️  Cluster was offline when catalog was generated. Re-generate with tunnel active.${NC}"
+                    echo ""
+                fi
+
+                echo -e "${GREEN}${BOLD}✅ Deployed & Tracked:${NC}"
+                jq -r '.cross_reference.deployed_tracked[] |
+                    "  " + (if .status == "healthy" then "🟢" else "⚠️" end) +
+                    " \(.name) (\(.source)) → \(.cluster_workloads | join(", "))"
+                ' "$catalog_json"
+                echo ""
+
+                echo -e "${YELLOW}${BOLD}📦 Repo-Only (Not Deployed):${NC}"
+                jq -r '.cross_reference.repo_only.apps[] |
+                    "  📦 \(.name) (\(.language), \(.readiness))"
+                ' "$catalog_json"
+                jq -r '.cross_reference.repo_only.components[] |
+                    "  📦 \(.name) (\(.category))"
+                ' "$catalog_json"
+                echo ""
+
+                local co=$(jq '.cross_reference.cluster_only | length' "$catalog_json")
+                if [ "$co" -gt 0 ]; then
+                    echo -e "${RED}${BOLD}🔴 Cluster-Only (Untracked):${NC}"
+                    jq -r '.cross_reference.cluster_only[] |
+                        "  🔴 \(.name) (\(.kind), \(.namespace))"
+                    ' "$catalog_json"
+                    echo ""
+                fi
+
+                echo -e "${YELLOW}${BOLD}📊 Gap Analysis:${NC}"
+                local nd=$(jq '.cross_reference.gaps.no_docs | length' "$catalog_json")
+                local ns=$(jq '.cross_reference.gaps.no_deploy_script | length' "$catalog_json")
+                local nf=$(jq '.cross_reference.gaps.no_dockerfile | length' "$catalog_json")
+                local nc=$(jq '.cross_reference.gaps.no_commands_sh | length' "$catalog_json")
+                echo -e "  📝 Missing docs: $nd  |  🔧 Missing deploy: $ns  |  🐳 Missing Dockerfile: $nf  |  ⚙️ Missing commands.sh: $nc"
+                echo ""
+                read -p "$(t 'press_enter')"
+                ;;
+            4)
+                # Generate Full Report
+                clear
+                bash "$catalog_script"
+                catalog_json="$latest_link/catalog.json"
+                echo ""
+                read -p "$(t 'press_enter')"
+                ;;
+            5)
+                # Open HTML in browser
+                local html="$latest_link/catalog.html"
+                if [ ! -f "$html" ]; then
+                    echo -e "${YELLOW}No HTML report found. Generate first (option 4).${NC}"
+                    read -p "$(t 'press_enter')"
+                    continue
+                fi
+                if command -v explorer.exe &>/dev/null; then
+                    explorer.exe "$(wslpath -w "$html")" 2>/dev/null &
+                elif command -v xdg-open &>/dev/null; then
+                    xdg-open "$html" 2>/dev/null &
+                else
+                    echo -e "${BLUE}Open: file://$html${NC}"
+                fi
+                echo -e "${GREEN}✅ Opened in browser${NC}"
+                sleep 1
+                ;;
+            0)
+                return
+                ;;
+        esac
+    done
 }
 
 # Start

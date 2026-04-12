@@ -31,23 +31,23 @@ t() {
                 "menu_nodes") echo "10. Status dos Nós" ;;
                 "menu_update") echo "11. Atualização Segura de Nó (OS/Kernel) 🔄" ;;
                 "menu_maintenance") echo "12. Manutenção do Cluster (Setup/Reparo/Restaurar) 🛠️" ;;
-                "menu_preferences") echo "13. Preferências ⚙️" ;;
-                "menu_security") echo "14. Segurança & TLS (Certificados/Políticas) 🔒" ;;
-                "menu_backup") echo "15. Backup & Recuperação de Desastres 💾" ;;
-                "menu_volumes") echo "16. Gerenciar Volumes (Resize/Snapshots) 💿" ;;
-                "menu_node_maintenance") echo "17. Manutenção de Nós (Limpeza/Reparo/Hardening) 🏗️" ;;
-                "menu_kubecost") echo "18. Cost Optimization (Kubecost Reports) 💰" ;;
-                "menu_deepflow") echo "19. DeepFlow (Observabilidade eBPF) 🕵️‍♂️" ;;
-                "menu_deepflow_uninstall") echo "20. Desinstalar DeepFlow 🗑️" ;;
-                "menu_pixie_install") echo "21. Instalar Pixie 🧚" ;;
-                "menu_pixie_uninstall") echo "22. Desinstalar Pixie 🗑️" ;;
-                "menu_coroot_install") echo "23. Instalar Coroot (Community) 🦉" ;;
-                "menu_coroot_uninstall") echo "24. Desinstalar Coroot 🗑️" ;;
-                "menu_parca_install") echo "25. Instalar Parca (Profiler) 🔥" ;;
-                "menu_parca_uninstall") echo "26. Desinstalar Parca 🗑️" ;;
-                "menu_cloud_rescue") echo "27. Cloud Rescue (OCI) 🚁" ;;
-                "menu_preferences") echo "28. Preferências ⚙️" ;;
-                "menu_health") echo "29. Relatório de Saúde do Cluster 🏥" ;;
+                "menu_security") echo "13. Segurança & TLS (Certificados/Políticas) 🔒" ;;
+                "menu_backup") echo "14. Backup & Recuperação de Desastres 💾" ;;
+                "menu_volumes") echo "15. Gerenciar Volumes (Resize/Snapshots) 💿" ;;
+                "menu_node_maintenance") echo "16. Manutenção de Nós (Limpeza/Reparo/Hardening) 🏗️" ;;
+                "menu_kubecost") echo "17. Cost Optimization (Kubecost Reports) 💰" ;;
+                "menu_deepflow") echo "18. DeepFlow (Observabilidade eBPF) 🕵️‍♂️" ;;
+                "menu_deepflow_uninstall") echo "19. Desinstalar DeepFlow 🗑️" ;;
+                "menu_pixie_install") echo "20. Instalar Pixie 🧚" ;;
+                "menu_pixie_uninstall") echo "21. Desinstalar Pixie 🗑️" ;;
+                "menu_coroot_install") echo "22. Instalar Coroot (Community) 🦉" ;;
+                "menu_coroot_uninstall") echo "23. Desinstalar Coroot 🗑️" ;;
+                "menu_parca_install") echo "24. Instalar Parca (Profiler) 🔥" ;;
+                "menu_parca_uninstall") echo "25. Desinstalar Parca 🗑️" ;;
+                "menu_cloud_rescue") echo "26. Cloud Rescue (OCI) 🚁" ;;
+                "menu_preferences") echo "27. Preferências ⚙️" ;;
+                "menu_health") echo "28. Relatório de Saúde do Cluster 🏥" ;;
+                "menu_catalog") echo "29. Inventário & Catálogo 📚" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -115,7 +115,6 @@ t() {
                 "access_manage_tunnels") echo "2. Gerenciar Túneis Ativos 📋" ;;
                 
                 # Security Menu
-                "menu_security") echo "14. Segurança & TLS (Certificados/Políticas) 🔒" ;;
                 "sec_menu_title") echo "Gerenciamento de Segurança & TLS" ;;
                 "sec_check_certs") echo "1. Verificar Status dos Certificados 📜" ;;
                 "sec_view_policies") echo "2. Ver Políticas de Rede 🛡️" ;;
@@ -125,8 +124,6 @@ t() {
                 "sec_rebuild_chains") echo "7. Reconstruir Chains de Todos os Certificados 🔗" ;;
                 
                 # Backup Menu
-                "menu_backup") echo "15. Backup & Recuperação de Desastres 💾" ;;
-                "menu_volumes") echo "16. Gerenciar Volumes (Resize/Snapshots) 💿" ;;
                 "bkp_menu_title") echo "Backup & Recuperação de Desastres" ;;
                 "bkp_etcd_now") echo "1. Executar Backup do etcd AGORA ⚡" ;;
                 "bkp_etcd_list") echo "2. Listar Backups do etcd 📜" ;;
@@ -137,6 +134,14 @@ t() {
                 "svc_nexus_init") echo "2. Inicializar Nexus (Blob Store + Repositório Docker) 📦" ;;
                 "svc_nexus_reset") echo "3. Resetar Nexus (Limpar Dados & Reiniciar) 🔄" ;;
                 "svc_auto_init") echo "4. Auto-Inicializar Tudo (Minio → Nexus) 🚀" ;;
+                
+                # Catalog Menu
+                "cat_menu_title") echo "📚 Inventário & Catálogo" ;;
+                "cat_view_apps") echo "1. Ver Catálogo de Apps 📦" ;;
+                "cat_view_components") echo "2. Ver Catálogo de Componentes ⚙️" ;;
+                "cat_cross_ref") echo "3. Referência Cruzada (Repo ↔ Cluster) 🔄" ;;
+                "cat_generate") echo "4. Gerar Relatório Completo 📊" ;;
+                "cat_open_html") echo "5. Abrir Último Relatório (Browser) 🌐" ;;
                 
                 *) echo "$key" ;;  # Fallback to key if not found
             esac
@@ -173,6 +178,7 @@ t() {
                 "menu_cloud_rescue") echo "26. Cloud Rescue (OCI) 🚑" ;;
                 "menu_preferences") echo "27. Preferences ⚙️" ;;
                 "menu_health") echo "28. Cluster Health Report 🏥" ;;
+                "menu_catalog") echo "29. Inventory & Catalog 📚" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
@@ -263,6 +269,14 @@ t() {
                 "svc_nexus_init") echo "2. Initialize Nexus (Blob Store + Docker Repo) 📦" ;;
                 "svc_nexus_reset") echo "3. Reset Nexus (Wipe Data & Restart) 🔄" ;;
                 "svc_auto_init") echo "4. Auto-Initialize All (Minio → Nexus) 🚀" ;;
+                
+                # Catalog Menu
+                "cat_menu_title") echo "📚 Inventory & Catalog" ;;
+                "cat_view_apps") echo "1. View Apps Catalog 📦" ;;
+                "cat_view_components") echo "2. View Components Catalog ⚙️" ;;
+                "cat_cross_ref") echo "3. Cross-Reference (Repo ↔ Cluster) 🔄" ;;
+                "cat_generate") echo "4. Generate Full Report 📊" ;;
+                "cat_open_html") echo "5. Open Last Report (Browser) 🌐" ;;
                 
                 *) echo "$key" ;;  # Fallback to key if not found
             esac
