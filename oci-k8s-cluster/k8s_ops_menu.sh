@@ -1465,6 +1465,7 @@ ingress_menu() {
         echo -e "${GRAY}────────────────────────────────────────${NC}"
         echo "1. Start Ingress Tunnel (All Ports) 🚀"
         echo "2. Update /etc/hosts (Ingress + Postgres) 📝"
+        echo "3. Mobile Access via Tailscale 📱"
         echo "0. Back"
         echo ""
         read -p "$(t "choose_option") " choice
@@ -1535,10 +1536,104 @@ ingress_menu() {
                 fi
                 
                 echo -e "${GREEN}$(t "ingress_tunnel_running")${NC}"
+                
+                # Auto-start Tailscale mobile access if tailscale0 is up
+                local ts_ip
+                ts_ip=$(ip -4 addr show tailscale0 2>/dev/null | grep -oP 'inet \K[0-9.]+')
+                [ -z "$ts_ip" ] && ts_ip=$(tailscale ip -4 2>/dev/null)
+                
+                if [ -n "$ts_ip" ]; then
+                    echo ""
+                    echo -e "${BLUE}📱 Tailscale detected ($ts_ip) — starting mobile access...${NC}"
+                    
+                    # Mobile HTTPS tunnel (bind on Tailscale IP)
+                    if ! ss -tln | grep -q "${ts_ip}:443"; then
+                        start_tunnel "$ns" "$name" "443" "443" "Mobile HTTPS (Tailscale)" "true" "$ts_ip" "127.0.0.1" "true"
+                    else
+                        echo -e "${GREEN}  ✅ Mobile tunnel already active on ${ts_ip}:443${NC}"
+                    fi
+                    
+                    # CoreDNS (auto-start if not running)
+                    local coredns_dir
+                    coredns_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../tools/coredns" 2>/dev/null && pwd)"
+                    if [ -d "$coredns_dir" ] && [ -x "$coredns_dir/start.sh" ]; then
+                        if ! sudo ss -tulnp 2>/dev/null | grep -q "${ts_ip}:53"; then
+                            echo -e "${BLUE}  🌐 Starting CoreDNS for *.dnor.io → ${ts_ip}${NC}"
+                            sudo bash "$coredns_dir/start.sh" 53 2>&1 | grep -E "running|FAIL|ERROR" || true
+                        else
+                            echo -e "${GREEN}  ✅ CoreDNS already active on ${ts_ip}:53${NC}"
+                        fi
+                    fi
+                    
+                    echo -e "${GREEN}  📱 Mobile ready: https://*.dnor.io via Tailscale${NC}"
+                fi
+                
                 read -p "$(t "press_enter")"
                 ;;
             2)
                 update_hosts_file
+                ;;
+            3)
+                # Mobile access: HTTPS tunnel bound to Tailscale IP
+                local ts_ip
+                ts_ip=$(ip -4 addr show tailscale0 2>/dev/null | grep -oP 'inet \K[0-9.]+')
+                if [ -z "$ts_ip" ]; then
+                    ts_ip=$(tailscale ip -4 2>/dev/null)
+                fi
+                
+                if [ -z "$ts_ip" ]; then
+                    echo -e "${RED}❌ Tailscale not active — cannot find tailscale0 IP.${NC}"
+                    echo "   Run: tailscale up"
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                echo -e "${GREEN}📱 Tailscale IP: $ts_ip${NC}"
+                
+                if [ -z "$ingress_info" ]; then
+                    echo "$(t "ingress_not_found")"
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                local https_port
+                https_port=$(echo "$ports" | grep -oP 'https:\K[0-9]+')
+                if [ -z "$https_port" ]; then
+                    https_port=$(echo "$ports" | cut -d',' -f2 | cut -d':' -f2)
+                fi
+                
+                if [ -z "$https_port" ]; then
+                    echo -e "${RED}❌ Could not detect HTTPS NodePort.${NC}"
+                    read -p "$(t "press_enter")"
+                    continue
+                fi
+                
+                # Start tunnel: Tailscale_IP:443 → master:443
+                echo -e "${BLUE}Starting HTTPS tunnel on ${ts_ip}:443 → $MASTER_NODE:443 ...${NC}"
+                start_tunnel "$ns" "$name" "443" "443" "Mobile HTTPS (Tailscale)" "true" "$ts_ip" "127.0.0.1" "true"
+                
+                echo ""
+                echo -e "${GREEN}✅ Mobile access ready!${NC}"
+                echo -e "   Tunnel: ${CYAN}${ts_ip}:443${NC} → cluster ingress"
+                echo ""
+                echo -e "${YELLOW}📋 Next steps for your phone:${NC}"
+                echo "   1. Tailscale must be active on your phone"
+                echo "   2. Configure DNS (see option below) or add to /etc/hosts:"
+                echo "      ${ts_ip}  coroot.dnor.io nexus.dnor.io k8s.dnor.io longhorn.dnor.io minio.dnor.io"
+                echo "   3. Install the CA certificate on Android:"
+                echo "      Settings → Security → Encryption & credentials → Install a certificate → CA certificate"
+                echo "   4. Open https://coroot.dnor.io in Chrome"
+                echo ""
+                
+                # Check if CoreDNS is already running
+                if pgrep -f "coredns.*Corefile" >/dev/null 2>&1; then
+                    echo -e "${GREEN}✅ CoreDNS is running — phone should resolve *.dnor.io automatically.${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  CoreDNS not running. Phone will need manual /etc/hosts or Tailscale split DNS.${NC}"
+                    echo "   To start CoreDNS: cd tools/coredns && ./start.sh"
+                fi
+                
+                read -p "$(t "press_enter")"
                 ;;
             0)
                 return

@@ -7,31 +7,32 @@
 Acessar `coroot.dnor.io`, `nexus.dnor.io`, `k8s.dnor.io` etc. no Chrome do celular, de
 qualquer lugar, com segurança — sem expor nada publicamente.
 
-## 🏛️ Arquitetura Alvo
+## 🏛️ Arquitetura Real (Simplificada!)
+
+Descoberta: **Tailscale roda dentro do WSL2**, não no Windows. O IP `100.100.107.124`
+pertence diretamente ao WSL2. `netsh portproxy` é desnecessário.
 
 ```
 📱 Chrome (Android, Tailscale ativo)
-  └─ https://coroot.dnor.io  →  resolve para 100.100.107.124 (Tailscale)
-        └─ Windows netsh portproxy :443 → WSL2 :8443
-              └─ SSH tunnel (WSL2) :8443 → oci-k8s-master :443
-                    └─ nginx → ingress-nginx → Coroot / Nexus / etc
+  └─ https://coroot.dnor.io → CoreDNS (100.100.107.124:53) → 100.100.107.124
+        └─ SSH tunnel (WSL2, bind 100.100.107.124:443) → oci-k8s-master:443
+              └─ nginx → ingress-nginx → Coroot / Nexus / etc
 ```
 
-Tudo trafega pela VPN mesh do Tailscale. IP `100.100.107.124` não é roteável na internet —
-só dispositivos no seu Tailnet conseguem alcançar.
+Tudo trafega pela VPN mesh do Tailscale. Nada é público.
 
 ## 📦 Dependências / Estado Atual
 
-| Item | Estado |
-|---|---|
-| Tailscale no PC (dnorio-base) | ✅ ativo — IP `100.100.107.124` |
-| Tailscale no celular | ✅ ativo |
-| SSH tunnel kubectl (6445→6443) | ✅ ativo via TUI |
-| SSH tunnel HTTPS (8443→443) | ❌ falta |
-| `netsh portproxy` no Windows | ❌ falta |
-| CoreDNS (WSL2, responde `*.dnor.io`) | ❌ falta |
-| Tailscale split DNS → CoreDNS | ❌ falta |
-| CA cert instalada no Android | ❌ falta |
+| Item                                 | Estado                               |
+| ------------------------------------ | ------------------------------------ |
+| Tailscale no WSL2 (dnorio-base)      | ✅ ativo — IP `100.100.107.124`      |
+| Bind no IP Tailscale                 | ✅ testado, funciona sem portproxy   |
+| Tailscale no celular                 | ✅ ativo                             |
+| SSH tunnel kubectl (6445→6443)       | ✅ ativo via TUI                     |
+| TUI: Mobile Access (Ingress Menu 3)  | ✅ implementado                      |
+| CoreDNS `*.dnor.io` (WSL2, porta 53) | ✅ `tools/coredns/` testado          |
+| Tailscale split DNS → CoreDNS        | ❌ falta configurar no admin console |
+| CA cert instalada no Android         | ❌ falta instalar no celular         |
 
 ## 📋 Fases
 
@@ -40,6 +41,7 @@ só dispositivos no seu Tailnet conseguem alcançar.
 Adicionar a porta 443 ao tunnel existente. Opção a definir:
 
 **Opção A — manual ad-hoc** (mais simples, sem persistência):
+
 ```bash
 ssh -L 6445:localhost:6443 -L 8443:localhost:443 oci-k8s-master
 ```
@@ -107,14 +109,11 @@ Tailnet recebem essa resolução. Para o resto da internet, `*.dnor.io` continua
 - [ ] Criar `tools/coredns/Corefile` e `tools/coredns/dnor.io.db`
 - [ ] Iniciar CoreDNS como systemd unit no WSL2 (`tools/coredns/coredns.service`)
 - [ ] Configurar portproxy UDP 53 (netsh suporta UDP via `protocol=udp`):
-      ```powershell
-      netsh interface portproxy add v4toudpv4 `
-          listenaddress=100.100.107.124 listenport=53 `
-          connectaddress=$wsl connectport=5353
-      ```
-      > Nota: `netsh portproxy` só suporta TCP nativamente. Para UDP/53, alternativa mais
-      > robusta é rodar o CoreDNS diretamente ouvindo no IP Tailscale do Windows usando
-      > WSL2 mirrored networking (Windows 11) ou via `socat` para bridge UDP.
+      ``powershell
+  netsh interface portproxy add v4toudpv4 `
+      listenaddress=100.100.107.124 listenport=53 `
+      connectaddress=$wsl connectport=5353
+  `` > Nota: `netsh portproxy` só suporta TCP nativamente. Para UDP/53, alternativa mais > robusta é rodar o CoreDNS diretamente ouvindo no IP Tailscale do Windows usando > WSL2 mirrored networking (Windows 11) ou via `socat` para bridge UDP.
 - [ ] Testar resolução do celular: `dig coroot.dnor.io @100.100.107.124`
 - [ ] Configurar Tailscale split DNS: admin.tailscale.com → DNS → Nameservers → Add
       custom nameserver: `100.100.107.124` para domínio `dnor.io`
@@ -140,11 +139,13 @@ Para o Chrome não exibir aviso de certificado:
 
 ## ✅ Definition of Done
 
+- [x] TUI Ingress Menu opção 3 "Mobile Access via Tailscale" — tunnel com bind no IP Tailscale
+- [x] CoreDNS configurado em `tools/coredns/` (Corefile, start.sh, stop.sh)
+- [x] CoreDNS responde `*.dnor.io → 100.100.107.124` na porta 53
+- [ ] Tailscale split DNS configurado: admin.tailscale.com → dnor.io → 100.100.107.124
 - [ ] `curl https://coroot.dnor.io` no celular (com Tailscale ativo) abre a interface
 - [ ] Sem alerta de certificado no Chrome (ou alerta apenas cosmético do Android CA)
 - [ ] Desligar Tailscale no celular → URL para de funcionar (confirma que não é público)
-- [ ] Script `tools/setup-mobile-access.ps1` documentado e funcional
-- [ ] CoreDNS configurado em `tools/coredns/`
 
 ## 🔗 Contexto
 

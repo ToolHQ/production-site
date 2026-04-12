@@ -14,10 +14,10 @@
 
 ## 📅 Backlog (To Do)
 
-|                         ID                          | Task Name                                                     | Priority   | Epic    | Est. |
-| :-------------------------------------------------: | :------------------------------------------------------------ | :--------: | :------ | :--: |
-| [T-108](2026/Q2/T-108-Tailscale-Mobile-Access.md)  | **Acesso Mobile às Ferramentas do Cluster via Tailscale**     | 🌟 Feature | DevExp  |  2h  |
-|  [T-105](2026/Q2/T-105-Registry-Resilience.md)     | **Internal Registry (Nexus) Resilience**                      | 🔽 Medium  | Infra   |  2h  |
+|                        ID                         | Task Name                                                 |  Priority  | Epic   | Est. |
+| :-----------------------------------------------: | :-------------------------------------------------------- | :--------: | :----- | :--: |
+| [T-108](2026/Q2/T-108-Tailscale-Mobile-Access.md) | **Acesso Mobile às Ferramentas do Cluster via Tailscale** | 🌟 Feature | DevExp |  2h  |
+|   [T-105](2026/Q2/T-105-Registry-Resilience.md)   | **Internal Registry (Nexus) Resilience**                  | 🔽 Medium  | Infra  |  2h  |
 
 ## ✅ Done
 

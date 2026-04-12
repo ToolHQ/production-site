@@ -1,0 +1,21 @@
+# Corefile — resolves *.dnor.io to the local Tailscale IP.
+# All other queries are forwarded to Cloudflare DNS (1.1.1.1).
+#
+# Bind is set to the Tailscale IP only, to avoid conflicts with
+# systemd-resolved (127.0.0.53:53) and Tailscale's own DNS (10.255.255.254:53).
+
+dnor.io {
+    bind {$TAILSCALE_IP}
+    template IN A {
+        answer "{{ .Name }} 60 IN A {$TAILSCALE_IP}"
+        fallthrough
+    }
+    log
+}
+
+. {
+    bind {$TAILSCALE_IP}
+    forward . 1.1.1.1 8.8.8.8
+    cache 300
+    log
+}
