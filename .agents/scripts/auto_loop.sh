@@ -14,7 +14,7 @@ MAX_ITERATIONS="${MAX_ITERATIONS:-10}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="$(cd "$DIR/../.." && pwd)"
 KANBAN_FILE="${WORKSPACE_DIR}/tasks/KANBAN.md"
-WORKFLOW_FILE="${WORKSPACE_DIR}/.agent/workflows/auto_loop_execution.md"
+WORKFLOW_FILE="${WORKSPACE_DIR}/.agents/workflows/auto_loop_execution.md"
 
 # CLI arguments
 DRY_RUN=false

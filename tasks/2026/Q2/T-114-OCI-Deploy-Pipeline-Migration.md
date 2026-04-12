@@ -14,13 +14,13 @@ Auditoria disparada pela revisão do app `apps/nginx/`. Descoberta: **todos os 5
 
 ### Apps afetados
 
-| App | Script | Manifesto |
-|-----|--------|-----------|
-| `apps/nginx` | `publish.sh` | `k8s/minikube/my-site-nginx.yaml` |
-| `apps/back-end` | `deploy.sh` | `k8s/minikube/my-site-back-end.yaml` |
-| `apps/py-back-end` | `deploy.sh` | `k8s/minikube/my-site-py-back-end.yaml` |
-| `apps/rs-axum-back-end` | `deploy.sh` | `k8s/minikube/my-site-rs-back-end.yaml` |
-| `apps/tor` | `deploy.sh` | `k8s/minikube/torproxy.yaml` |
+| App                     | Script       | Manifesto                               |
+| ----------------------- | ------------ | --------------------------------------- |
+| `apps/nginx`            | `publish.sh` | `k8s/minikube/my-site-nginx.yaml`       |
+| `apps/back-end`         | `deploy.sh`  | `k8s/minikube/my-site-back-end.yaml`    |
+| `apps/py-back-end`      | `deploy.sh`  | `k8s/minikube/my-site-py-back-end.yaml` |
+| `apps/rs-axum-back-end` | `deploy.sh`  | `k8s/minikube/my-site-rs-back-end.yaml` |
+| `apps/tor`              | `deploy.sh`  | `k8s/minikube/torproxy.yaml`            |
 
 ### Problemas identificados
 
@@ -28,7 +28,7 @@ Auditoria disparada pela revisão do app `apps/nginx/`. Descoberta: **todos os 5
 2. **`--add-host` flags minikube**: `--add-host=docker-nexus.localhost:192.168.49.2`, `nexus.localhost:192.168.49.2`, `minio.localhost:192.168.49.2` — específicos do minikube.
 3. **Manifesto em `k8s/minikube/`**: caminho esperado no OCI é `k8s/<app>.yaml` (plano, sem subpasta).
 4. **Image ref no manifesto**: usa `docker-nexus.localhost/repository/docker-repo/...` — esse hostname não resolve nos nós OCI sem configuração adicional.
-5. **Skill doc desatualizada**: `.agent/skills/deploy-service/SKILL.md` ainda referencia `nexus.localhost`.
+5. **Skill doc desatualizada**: `.agents/skills/deploy-service/SKILL.md` ainda referencia `nexus.localhost`.
 
 ### Infraestrutura real do OCI
 
@@ -71,7 +71,7 @@ Auditoria disparada pela revisão do app `apps/nginx/`. Descoberta: **todos os 5
 
 ### 6. Atualizar a skill `deploy-service`
 
-- [x] Reescrito `.agent/skills/deploy-service/SKILL.md` com padrão OCI + tabela de registries + regras
+- [x] Reescrito `.agents/skills/deploy-service/SKILL.md` com padrão OCI + tabela de registries + regras
 
 ### 7. Validar nginx no cluster (pós-migração)
 

@@ -15,7 +15,7 @@ description: Auto-Loop Execution (Headless Autonomous Loop)
    - Keep tasks _small_. If the task is too large for one context window, split the task file into sub-tasks (e.g., `T-040.1`, `T-040.2`) and update `KANBAN.md` accordingly. Focus only on the first small chunk.
 3. Read `tasks/KANBAN.md` to see where this task sits.
 4. Read `AGENTS.md` to remind yourself of the environment, cluster constraints, and your fundamental rules.
-5. Review `AGENTS.md` or `.agent/progress.txt` for any learned context from the previous loop iteration.
+5. Review `AGENTS.md` or `.agents/progress.txt` for any learned context from the previous loop iteration.
 
 ## Phase 2: Action & Verification
 
@@ -36,7 +36,7 @@ description: Auto-Loop Execution (Headless Autonomous Loop)
 
 ## Phase 4: Knowledge Handoff
 
-1. Because the next loop starts with a clean context, append your learnings (gotchas, newly established patterns, file locations) to `.agent/progress.txt` or `AGENTS.md`.
+1. Because the next loop starts with a clean context, append your learnings (gotchas, newly established patterns, file locations) to `.agents/progress.txt` or `AGENTS.md`.
 2. Say exactly what the _next_ agent needs to know.
 
 **Exit Strategy**: Finish up quickly and exit with a code `0`. The bash loop script `auto_loop.sh` will then pick up the next task based on the updated `KANBAN.md`.

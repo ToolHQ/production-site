@@ -31,4 +31,4 @@ Quando o usuário disser **"Como estamos aqui meu caro?"**:
 - **Storage**: Longhorn (verificar replicas após incidentes de CPU starvation)
 - **Registry**: Nexus interno
 - **Observability**: Coroot + ClickHouse
-- **Secrets**: Ver `.agent/` para inventário de credenciais
+- **Secrets**: Ver `.agents/` para inventário de credenciais
