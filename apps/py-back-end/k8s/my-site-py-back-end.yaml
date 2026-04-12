@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-site-py-back-end-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-site-py-back-end
+  template:
+    metadata:
+      labels:
+        app: my-site-py-back-end
+    spec:
+      imagePullSecrets:
+        - name: regsecret
+      containers:
+        - name: my-site-py-back-end
+          image: registry.local:31444/repository/docker-repo/my-site-py-back-end:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              memory: 72Mi
+              cpu: 0.3
+            limits:
+              memory: 256Mi
+              cpu: 0.6
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PYTHON_COLORS
+              value: "0"
+            - name: SERVICE_NAME
+              value: my-site-py-back-end
+            - name: SWAGGER_ROOT_PATH
+              value: /api/py
+            - name: PYDEVD_DISABLE_FILE_VALIDATION
+              value: "1"
+            - name: DB_DNORIO_POSTGRES_HOST
+              value: postgres-service.postgres
+            - name: DB_DNORIO_POSTGRES_DATABASE
+              value: toolhq
+            - name: DB_DNORIO_POSTGRES_SCHEMA
+              value: toolhq
+            - name: DB_DNORIO_POSTGRES_USER
+              value: svc_toolhq
+            - name: DB_DNORIO_POSTGRES_PASS
+              value: svc_toolhq_pwd
+            - name: MINIO_ENDPOINT
+              value: minio-service.minio.svc.cluster.local
+            - name: MINIO_ACCESS_KEY
+              value: XvnHgD3ZJjLq4WPdU1xI
+            - name: MINIO_SECRET_KEY
+              value: p3WC3shSYHmn0OMkimapWphxOfAfYsMKba7O68JK
+            - name: AWS_DEFAULT_REGION
+              value: us-east-1
+            - name: PARQUET_S3_BUCKET
+              value: toolhq-archived-data
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 3
+            timeoutSeconds: 5
+            failureThreshold: 5
+            successThreshold: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-site-py-back-end-service
+spec:
+  selector:
+    app: my-site-py-back-end
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: my-site-py-back-end-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-site-py-back-end-deployment
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 90
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 90

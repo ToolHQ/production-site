@@ -1,30 +1,35 @@
-#! /bin/sh
+#!/bin/sh
+# OCI Deploy — my-site-back-end
+# Pré-requisitos:
+#   kubectl: export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+#   push:    localhost:31444 disponível (nativo no nó master; remoto: ssh -L 31444:localhost:31444 oci-k8s-master -N)
 
-# Remove existing Buildx instance
-# docker buildx rm minikubebuilder
+set -e
 
-# Create a new Buildx instance
-# docker buildx create --name minikubebuilder --driver docker-container --driver-opt network=minikube
-
-# Use the new Buildx instance
-# docker buildx use minikubebuilder
-
-## Clean build
 npm cache clean -f && rm -rf node_modules/ && NODE_TLS_REJECT_UNAUTHORIZED=0 npm i
 npm run build
 
-# Define Docker tag
 TAG_VERSION=$(date +%s)
-DOCKER_REGISTRY_HOST=docker-nexus.localhost
-DOCKER_TAG=$DOCKER_REGISTRY_HOST/repository/docker-repo/my-site-back-end:$TAG_VERSION
-DOCKER_TAG_LATEST=$DOCKER_REGISTRY_HOST/repository/docker-repo/my-site-back-end:latest
+PUSH_REGISTRY=localhost:31444
+K8S_REGISTRY=registry.local:31444
+REPO=repository/docker-repo
+SERVICE=my-site-back-end
 
-# Build the Docker image using Buildx
-docker buildx build --load --add-host=docker-nexus.localhost:192.168.49.2 --add-host=nexus.localhost:192.168.49.2 --add-host=minio.localhost:192.168.49.2 -t $DOCKER_TAG .
-docker push $DOCKER_TAG
-docker tag $DOCKER_TAG $DOCKER_TAG_LATEST
-docker push $DOCKER_TAG_LATEST
+PUSH_TAG=$PUSH_REGISTRY/$REPO/$SERVICE:$TAG_VERSION
+PUSH_LATEST=$PUSH_REGISTRY/$REPO/$SERVICE:latest
+K8S_TAG=$K8S_REGISTRY/$REPO/$SERVICE:$TAG_VERSION
 
-sed -i "s|image: .*|image: $DOCKER_TAG|" ./k8s/minikube/my-site-back-end.yaml
+docker buildx build \
+  --platform linux/arm64 \
+  --load \
+  -t $PUSH_TAG \
+  -t $PUSH_LATEST \
+  .
 
-kubectl apply -f ./k8s/minikube/my-site-back-end.yaml
+docker push $PUSH_TAG
+docker push $PUSH_LATEST
+
+sed -i "s|image: .*|image: $K8S_TAG|" ./k8s/my-site-back-end.yaml
+
+export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
+kubectl apply -f ./k8s/my-site-back-end.yaml
