@@ -24,10 +24,10 @@ spec:
           resources:
             requests:
               memory: 72Mi
-              cpu: 0.3
+              cpu: 60m
             limits:
               memory: 256Mi
-              cpu: 0.6
+              cpu: 160m
           env:
             - name: NODE_ENV
               value: production

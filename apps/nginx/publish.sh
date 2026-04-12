@@ -1,32 +1,28 @@
 #!/bin/sh
 # OCI Deploy — my-site-nginx (frontend reverse proxy)
 # Pré-requisitos:
-#   kubectl: export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
-#   push:    localhost:31444 disponível (nativo no nó master; remoto: ssh -L 31444:localhost:31444 oci-k8s-master -N)
+#   oci-builder: ~/production-site/oci-k8s-cluster/scripts/setup-dev-deploy.sh
+#   kubectl:     export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
 
 set -e
 
 TAG_VERSION=$(date +%s)
-PUSH_REGISTRY=localhost:31444
-K8S_REGISTRY=registry.local:31444
+REGISTRY=registry.local:31444
 REPO=repository/docker-repo
 SERVICE=my-site-nginx
 
-PUSH_TAG=$PUSH_REGISTRY/$REPO/$SERVICE:$TAG_VERSION
-PUSH_LATEST=$PUSH_REGISTRY/$REPO/$SERVICE:latest
-K8S_TAG=$K8S_REGISTRY/$REPO/$SERVICE:$TAG_VERSION
+IMAGE_TAG=$REGISTRY/$REPO/$SERVICE:$TAG_VERSION
+IMAGE_LATEST=$REGISTRY/$REPO/$SERVICE:latest
 
 docker buildx build \
+  --builder oci-builder \
   --platform linux/arm64 \
-  --load \
-  -t $PUSH_TAG \
-  -t $PUSH_LATEST \
+  --push \
+  -t $IMAGE_TAG \
+  -t $IMAGE_LATEST \
   .
 
-docker push $PUSH_TAG
-docker push $PUSH_LATEST
-
-sed -i "s|image: .*|image: $K8S_TAG|" ./k8s/my-site-nginx.yaml
+sed -i "s|image: .*|image: $IMAGE_TAG|" ./k8s/my-site-nginx.yaml
 
 export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
 kubectl apply -f ./k8s/my-site-nginx.yaml

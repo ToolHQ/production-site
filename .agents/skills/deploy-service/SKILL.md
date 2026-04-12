@@ -10,21 +10,34 @@ Todo serviço em `apps/<service>` possui um `deploy.sh` (nginx usa `publish.sh`)
 ## Pré-requisitos
 
 ```bash
-# 1. kubectl apontado para o cluster OCI
+# Executar UMA VEZ por sessão (configura oci-builder + tunnels + auth)
+cd ~/production-site
+source oci-k8s-cluster/scripts/setup-dev-deploy.sh
 export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+```
 
-# 2. Registry Nexus acessível em localhost:31444
-#    → No nó master: disponível nativamente (NodePort 31444)
-#    → De máquina remota: ssh -L 31444:localhost:31444 oci-k8s-master -N
+## Arquitetura de Build/Push
+
+```
+dev local ──(SSH socket fwd)──► buildkitd ARM64 (oci-k8s-master)
+  docker buildx                 /home/ubuntu/.local/share/buildkit/buildkitd.sock
+  --builder oci-builder              │
+  --push                             └──push──► registry.local:31444 (NodePort Nexus)
+                                                    │
+                                               k8s imagePull
 ```
 
 ## Registries
 
-| Uso                        | Host                   | Observação                                                                    |
-| -------------------------- | ---------------------- | ----------------------------------------------------------------------------- |
-| `docker push` (build time) | `localhost:31444`      | Sempre aceito como insecure pelo Docker                                       |
-| K8s image ref (manifesto)  | `registry.local:31444` | Resolve para `127.0.0.1` nos nós via `/etc/hosts` + containerd `hosts.toml`   |
-| Pull secret                | `regsecret`            | Configurado com `registry.local:31444`; apply via `create_registry_secret.sh` |
+| Uso                           | Host                   | Observação                                                                    |
+| ----------------------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| `--push` do buildkitd         | `registry.local:31444` | buildkitd usa slirp4netns NAT → localhost:31444 não funciona (rootlesskit --disable-host-loopback) |
+| K8s image ref (manifesto)     | `registry.local:31444` | Resolve para `127.0.0.1` nos nós via `/etc/hosts` + containerd `hosts.toml`   |
+| `docker login` local          | `localhost:31444`      | Via tunnel SSH `-L 31444:localhost:31444 oci-k8s-master`                      |
+| Pull secret                   | `regsecret`            | Configurado com `registry.local:31444`; apply via `create_registry_secret.sh` |
+
+> **IMPORTANTE**: `oci-builder` é um buildx remote driver apontando para o buildkitd do master.  
+> Não é binfmt local — é execução nativa ARM64 no nó.
 
 ## Padrão Canônico
 
@@ -33,26 +46,22 @@ export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
 set -e
 
 TAG_VERSION=$(date +%s)
-PUSH_REGISTRY=localhost:31444         # push via NodePort (nativo no master)
-K8S_REGISTRY=registry.local:31444    # pull in-cluster
+REGISTRY=registry.local:31444    # único registry: buildkitd push + k8s pull
 REPO=repository/docker-repo
 SERVICE=my-site-<nome>
 
-PUSH_TAG=$PUSH_REGISTRY/$REPO/$SERVICE:$TAG_VERSION
-PUSH_LATEST=$PUSH_REGISTRY/$REPO/$SERVICE:latest
-K8S_TAG=$K8S_REGISTRY/$REPO/$SERVICE:$TAG_VERSION
+IMAGE_TAG=$REGISTRY/$REPO/$SERVICE:$TAG_VERSION
+IMAGE_LATEST=$REGISTRY/$REPO/$SERVICE:latest
 
 docker buildx build \
+  --builder oci-builder \
   --platform linux/arm64 \
-  --load \
-  -t $PUSH_TAG \
-  -t $PUSH_LATEST \
+  --push \
+  -t $IMAGE_TAG \
+  -t $IMAGE_LATEST \
   .
 
-docker push $PUSH_TAG
-docker push $PUSH_LATEST
-
-sed -i "s|image: .*|image: $K8S_TAG|" ./k8s/<service>.yaml
+sed -i "s|image: .*|image: $IMAGE_TAG|" ./k8s/<service>.yaml
 
 export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
 kubectl apply -f ./k8s/<service>.yaml
