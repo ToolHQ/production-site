@@ -17,13 +17,13 @@
 |                               ID                                | Task Name                                                                  | Priority  | Epic   | Est. |
 | :-------------------------------------------------------------: | :------------------------------------------------------------------------- | :-------: | :----- | :--: |
 |        [T-113](2026/Q2/T-113-Catalog-Deploy-Actions.md)         | **Catalog: Deploy Actions para apps deployable** _(copy cmd, vscode link)_ | 🔽 Medium | DevExp |  3h  |
-| [T-112](2026/Q2/T-112-Catalog-Namespace-And-ClusterOnly-Fix.md) | **Catalog: Namespace extraction fix & cluster-only zero**                  | 🔽 Medium | DevExp |  2h  |
 |          [T-105](2026/Q2/T-105-Registry-Resilience.md)          | **Internal Registry (Nexus) Resilience**                                   | 🔽 Medium | Infra  |  2h  |
 
 ## ✅ Done
 
 |                                 ID                                 | Task Name                                                                           |  Priority   |     Owner      |  Est.  |
 | :----------------------------------------------------------------: | :---------------------------------------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
+|            [T-112](2026/Q2/T-112-Catalog-Namespace-And-ClusterOnly-Fix.md) | **Catalog: Namespace extraction fix & cluster-only zero** _(chain-repair → cert-manager)_ | 🔽 Medium | DevExp | 2h |
 |            [T-111](2026/Q2/T-111-Catalog-Enrichment.md)            | **Catalog & Inventory Enrichment** _(HTML SPA, drift detection, 5-state readiness)_ |   🔼 High   |     DevExp     |   4h   |
 |        [T-110](2026/Q2/T-110-Unified-Catalog-Inventory.md)         | **Unified Catalog & Inventory Automation**                                          |   🔼 High   |   DevExp/Ops   |   6h   |
 |     [T-109](2026/Q2/T-109-Postgres-Snapshot-Image-Recovery.md)     | **Postgres Snapshot Job Image Recovery**                                            | 🚨 Critical |     Infra      |   1h   |
