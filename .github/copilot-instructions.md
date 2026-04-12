@@ -16,7 +16,7 @@ Quando o usuário disser **"Como estamos aqui meu caro?"**:
    - Leia `tasks/KANBAN.md` e resuma: Em andamento / Backlog crítico / Concluídos recentes
    - Status dos serviços do cluster (Longhorn, Nexus, Postgres, Coroot, Ingress)
    - Síntese: cor do sistema 🟢/🟡/🔴, principal risco, próxima ação
-3. Use o formato definido em `.agent/agents.md` (seção "Protocolo de Saudação Executiva").
+3. Use o formato definido em `AGENTS.md` (seção "Protocolo de Saudação Executiva").
 
 ## Regras Operacionais
 
