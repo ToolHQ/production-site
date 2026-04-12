@@ -1,6 +1,6 @@
 # T-108: Acesso Mobile às Ferramentas do Cluster via Tailscale
 
-**Status**: [ ] To Do | **Priority**: 🌟 Feature | **Owner**: Infra | **Est**: 2h
+**Status**: ✅ Done (2026-04-12) | **Priority**: 🌟 Feature | **Owner**: Infra | **Est**: 2h
 
 ## 🎯 Objetivo
 
@@ -110,10 +110,10 @@ Tailnet recebem essa resolução. Para o resto da internet, `*.dnor.io` continua
 - [ ] Iniciar CoreDNS como systemd unit no WSL2 (`tools/coredns/coredns.service`)
 - [ ] Configurar portproxy UDP 53 (netsh suporta UDP via `protocol=udp`):
       ``powershell
-  netsh interface portproxy add v4toudpv4 `
-      listenaddress=100.100.107.124 listenport=53 `
-      connectaddress=$wsl connectport=5353
-  `` > Nota: `netsh portproxy` só suporta TCP nativamente. Para UDP/53, alternativa mais > robusta é rodar o CoreDNS diretamente ouvindo no IP Tailscale do Windows usando > WSL2 mirrored networking (Windows 11) ou via `socat` para bridge UDP.
+netsh interface portproxy add v4toudpv4 `
+    listenaddress=100.100.107.124 listenport=53 `
+    connectaddress=$wsl connectport=5353
+`` > Nota: `netsh portproxy` só suporta TCP nativamente. Para UDP/53, alternativa mais > robusta é rodar o CoreDNS diretamente ouvindo no IP Tailscale do Windows usando > WSL2 mirrored networking (Windows 11) ou via `socat` para bridge UDP.
 - [ ] Testar resolução do celular: `dig coroot.dnor.io @100.100.107.124`
 - [ ] Configurar Tailscale split DNS: admin.tailscale.com → DNS → Nameservers → Add
       custom nameserver: `100.100.107.124` para domínio `dnor.io`
