@@ -20,12 +20,12 @@ Para cada app com `deploy_readiness: deployable`, o relatório HTML deve mostrar
 
 ## Contexto de Viabilidade
 
-| Feature | Viabilidade | Mecanismo |
-|---|---|---|
-| Mostrar comando | ✅ Trivial | campo `deploy_script` já no JSON |
-| Copy to clipboard | ✅ 100% estático | `navigator.clipboard.writeText()` |
-| Open VS Code terminal | ✅ No VS Code | `vscode://vscode.buildfromfile?...` ou `vscode://ms-vscode.remote...` |
-| Executar via browser puro | ❌ Impossível | Browsers não têm acesso ao shell |
+| Feature                   | Viabilidade      | Mecanismo                                                             |
+| ------------------------- | ---------------- | --------------------------------------------------------------------- |
+| Mostrar comando           | ✅ Trivial       | campo `deploy_script` já no JSON                                      |
+| Copy to clipboard         | ✅ 100% estático | `navigator.clipboard.writeText()`                                     |
+| Open VS Code terminal     | ✅ No VS Code    | `vscode://vscode.buildfromfile?...` ou `vscode://ms-vscode.remote...` |
+| Executar via browser puro | ❌ Impossível    | Browsers não têm acesso ao shell                                      |
 
 ---
 
@@ -45,6 +45,7 @@ fi
 ```
 
 Campos adicionados ao JSON:
+
 ```json
 {
   "deploy_cmd": "cd apps/back-end && bash deploy.sh",
@@ -61,8 +62,12 @@ Quando o usuário clica em um app `deployable`, o accordion de detalhes mostra:
   <dt>Deploy Command</dt>
   <dd>
     <code class="cmd-line">cd apps/back-end && bash deploy.sh</code>
-    <button onclick="copyCmd(this, 'cd apps/back-end && bash deploy.sh')">📋 Copy</button>
-    <a href="vscode://file/home/dnorio/production-site/apps/back-end/deploy.sh">🔗 Open Script</a>
+    <button onclick="copyCmd(this, 'cd apps/back-end && bash deploy.sh')">
+      📋 Copy
+    </button>
+    <a href="vscode://file/home/dnorio/production-site/apps/back-end/deploy.sh"
+      >🔗 Open Script</a
+    >
   </dd>
 </div>
 ```
@@ -84,8 +89,8 @@ Adicionar coluna **"Deploy"** com ícone de ação para apps `deployable`:
 ```js
 function copyCmd(btn, cmd) {
   navigator.clipboard.writeText(cmd).then(() => {
-    btn.textContent = '✅ Copied!';
-    setTimeout(() => btn.textContent = '📋 Copy', 2000);
+    btn.textContent = "✅ Copied!";
+    setTimeout(() => (btn.textContent = "📋 Copy"), 2000);
   });
 }
 ```
