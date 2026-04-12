@@ -20,11 +20,11 @@ export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
 
 ## Registries
 
-| Uso                        | Host                   | Observação                                                                    |
-| -------------------------- | ---------------------- | ----------------------------------------------------------------------------- |
-| `docker push` (build time) | `localhost:31444`      | Sempre aceito como insecure pelo Docker                                       |
-| K8s image ref (manifesto)  | `registry.local:31444` | Resolve para `127.0.0.1` nos nós via `/etc/hosts` + containerd `hosts.toml`   |
-| Pull secret                | `regsecret`            | Configurado com `registry.local:31444`; apply via `create_registry_secret.sh` |
+| Uso | Host | Observação |
+|-----|------|------------|
+| `docker push` (build time) | `localhost:31444` | Sempre aceito como insecure pelo Docker |
+| K8s image ref (manifesto) | `registry.local:31444` | Resolve para `127.0.0.1` nos nós via `/etc/hosts` + containerd `hosts.toml` |
+| Pull secret | `regsecret` | Configurado com `registry.local:31444`; apply via `create_registry_secret.sh` |
 
 ## Padrão Canônico
 

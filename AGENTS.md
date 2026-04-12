@@ -72,7 +72,7 @@ Reinaldinho, briefing de [DATA]:
 ```
 
 > **⚠️ Cluster Access**: Antes de executar qualquer `kubectl` no briefing, garantir tunnel ativo.
-> Ver skill: `.agent/skills/connect_to_cluster/SKILL.md`
+> Ver skill: `.agents/skills/connect_to_cluster/SKILL.md`
 
 ---
 
@@ -80,13 +80,13 @@ Reinaldinho, briefing de [DATA]:
 
 > Carregar a skill correspondente antes de executar tarefas específicas.
 
-| Skill                       | Arquivo                                                | Quando usar                                                                   |
-| --------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| **Connect to Cluster**      | `.agent/skills/connect-to-cluster/SKILL.md`            | **SEMPRE** — início de qualquer sessão com `kubectl`. Tunnel SSH obrigatório. |
-| **Cluster Maintenance**     | `.agent/skills/cluster-maintenance-protocols/SKILL.md` | Operações de manutenção, drain, cordon, upgrades de nó                        |
-| **Storage Operations**      | `.agent/skills/storage-operations/SKILL.md`            | Longhorn, PVC, migração de volumes                                            |
-| **Deploy Service**          | `.agent/skills/deploy-service/SKILL.md`                | Deploy de novos workloads no cluster                                          |
-| **Operational Safety**      | `.agent/skills/operational-safety/SKILL.md`            | Antes de qualquer ação destrutiva/irreversível                                |
-| **Observability Reporting** | `.agent/skills/observability-reporting/SKILL.md`       | Coroot, ClickHouse, alertas                                                   |
-| **Manage Tasks**            | `.agent/skills/manage-tasks/SKILL.md`                  | Atualizar KANBAN.md, criar tasks                                              |
-| **Operate K8s TUI**         | `.agent/skills/operate-k8s-tui/SKILL.md`               | Usar o `k8s_ops_menu.sh`                                                      |
+| Skill                       | Arquivo                                                 | Quando usar                                                                   |
+| --------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **Connect to Cluster**      | `.agents/skills/connect-to-cluster/SKILL.md`            | **SEMPRE** — início de qualquer sessão com `kubectl`. Tunnel SSH obrigatório. |
+| **Cluster Maintenance**     | `.agents/skills/cluster-maintenance-protocols/SKILL.md` | Operações de manutenção, drain, cordon, upgrades de nó                        |
+| **Storage Operations**      | `.agents/skills/storage-operations/SKILL.md`            | Longhorn, PVC, migração de volumes                                            |
+| **Deploy Service**          | `.agents/skills/deploy-service/SKILL.md`                | Deploy de novos workloads no cluster                                          |
+| **Operational Safety**      | `.agents/skills/operational-safety/SKILL.md`            | Antes de qualquer ação destrutiva/irreversível                                |
+| **Observability Reporting** | `.agents/skills/observability-reporting/SKILL.md`       | Coroot, ClickHouse, alertas                                                   |
+| **Manage Tasks**            | `.agents/skills/manage-tasks/SKILL.md`                  | Atualizar KANBAN.md, criar tasks                                              |
+| **Operate K8s TUI**         | `.agents/skills/operate-k8s-tui/SKILL.md`               | Usar o `k8s_ops_menu.sh`                                                      |
