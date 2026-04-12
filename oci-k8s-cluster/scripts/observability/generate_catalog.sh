@@ -229,8 +229,15 @@ scan_components() {
             # K8s kinds
             k8s_kinds=$(echo "$all_yamls" | xargs grep -h '^kind:' 2>/dev/null | awk '{print $2}' | sort -u | tr '\n' ',' | sed 's/,$//' || true)
 
-            # Namespace (first non-system one found)
-            namespace=$(echo "$all_yamls" | xargs grep -h 'namespace:' 2>/dev/null | head -5 | awk '{print $2}' | grep -v '^$' | sort | uniq -c | sort -rn | head -1 | awk '{print $2}' || true)
+            # Namespace: prefer namespace of Deployment/StatefulSet/DaemonSet/CronJob
+            namespace=$(echo "$all_yamls" | xargs grep -h -A8 'kind: Deployment\|kind: StatefulSet\|kind: DaemonSet\|kind: CronJob' 2>/dev/null \
+                | grep 'namespace:' | awk '{print $2}' | grep -v '^$\|^default$' | sort | uniq -c | sort -rn | head -1 | awk '{print $2}' || true)
+            # Fall back: most frequent non-default namespace across all files
+            if [[ -z "$namespace" ]]; then
+                namespace=$(echo "$all_yamls" | xargs grep -h 'namespace:' 2>/dev/null \
+                    | awk '{print $2}' | grep -v '^$\|^default$' | sort | uniq -c | sort -rn | head -1 | awk '{print $2}' || true)
+            fi
+            [[ -z "$namespace" ]] && namespace="default"
 
             # Images
             images=$(echo "$all_yamls" | xargs grep -h 'image:' 2>/dev/null | grep -v '#' | sed 's/.*image:\s*//' | tr -d '"' | tr -d "'" | sort -u | head -10 | tr '\n' ',' | sed 's/,$//' || true)
