@@ -23,11 +23,11 @@ spec:
             - containerPort: 3000
           resources:
             requests:
-              memory: 8Mi
-              cpu: 0.1
-            limits:
               memory: 16Mi
-              cpu: 0.4
+              cpu: 20m
+            limits:
+              memory: 64Mi
+              cpu: 80m
           env:
             - name: NODE_ENV
               value: production

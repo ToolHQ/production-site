@@ -17,17 +17,17 @@ spec:
         - name: regsecret
       containers:
         - name: torproxy
-          image: registry.local:31444/repository/docker-repo/torproxy:latest
+          image: registry.local:31444/repository/docker-repo/torproxy:1776037562
           imagePullPolicy: Always
           ports:
             - containerPort: 9050
           resources:
             requests:
-              memory: 120Mi
-              cpu: 0.4
+              memory: 64Mi
+              cpu: 30m
             limits:
-              memory: 256Mi
-              cpu: 0.6
+              memory: 128Mi
+              cpu: 100m
           livenessProbe:
             tcpSocket:
               port: 9050
