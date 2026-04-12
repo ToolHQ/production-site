@@ -17,7 +17,7 @@ spec:
         - name: regsecret
       containers:
         - name: torproxy
-          image: registry.local:31444/repository/docker-repo/torproxy:1776037562
+          image: registry.local:31444/repository/docker-repo/torproxy:1776038212
           imagePullPolicy: Always
           ports:
             - containerPort: 9050
