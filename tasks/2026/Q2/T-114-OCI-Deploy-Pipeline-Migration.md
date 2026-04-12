@@ -43,65 +43,42 @@ Auditoria disparada pela revisão do app `apps/nginx/`. Descoberta: **todos os 5
 
 ### 1. Definir o padrão canônico de push/pull para OCI
 
-- [ ] **Decisão**: como o dev local empurra imagens ao Nexus OCI?
-  - **Opção A** (recomendada): SSH tunnel `ssh -L 31444:localhost:31444 oci-k8s-master -N` → push para `registry.local:31444/...` como HTTP inseguro (já configurado no containerd)
-  - **Opção B**: push para `docker-nexus.dnor.io` (requer `--insecure-registry=docker-nexus.dnor.io` no docker daemon local ou TLS válido)
-  - **Opção C**: SSH no master node + build remoto via BuildKit → push local `registry.local:31444/...` diretamente do nó
-- [ ] Documentar a escolha no `deploy-service/SKILL.md`
+- [x] **Decisão**: **Opção A escolhida** — `localhost:31444` via NodePort (nativo no nó master; SSH tunnel `-L 31444` para dev remoto)
+- [x] Documentar a escolha no `deploy-service/SKILL.md`
 
 ### 2. Criar padrão OCI de `deploy.sh` (template)
 
-- [ ] Criar `oci-k8s-cluster/scripts/templates/deploy-template.sh` com:
-  ```sh
-  #!/bin/sh
-  TAG=$(date +%s)
-  REGISTRY="registry.local:31444"        # OCI NodePort — tunnel: ssh -L 31444:localhost:31444 oci-k8s-master -N
-  REPO="repository/docker-repo"
-  IMAGE="$REGISTRY/$REPO/<service-name>"
-  
-  docker buildx build --platform linux/arm64 -t "$IMAGE:$TAG" -t "$IMAGE:latest" --push .
-  
-  sed -i "s|image: .*|image: $IMAGE:$TAG|" ./k8s/<service>.yaml
-  kubectl apply -f ./k8s/<service>.yaml
-  ```
-- [ ] Confirmar que `--platform linux/arm64` é necessário (build em x86 dev machine → cluster ARM64)
+- [x] Criar `oci-k8s-cluster/scripts/templates/deploy-template.sh` com padrão canônico
+- [x] Confirmado: `--platform linux/arm64` obrigatório (OCI Ampere ARM64)
 
 ### 3. Migrar `apps/nginx` (nginx — publish.sh + manifesto)
 
-- [ ] Atualizar `apps/nginx/publish.sh`:
-  - `DOCKER_REGISTRY_HOST=registry.local:31444` (ou equivalente OCI)
-  - Remover todos os `--add-host` do minikube
-  - Adicionar `--platform linux/arm64`
-  - Atualizar `sed` para apontar para `./k8s/my-site-nginx.yaml`
-  - `kubectl apply -f ./k8s/my-site-nginx.yaml`
-- [ ] Criar `apps/nginx/k8s/my-site-nginx.yaml` a partir de `k8s/minikube/my-site-nginx.yaml`:
-  - Namespace: `default` (apps ficam em `default`? definir padrão)
-  - Image: `registry.local:31444/repository/docker-repo/my-site-nginx:latest` (placeholder — sed atualiza no deploy)
-  - Remover `host: my-site.localhost` → host OCI correto (verificar ingress atual do cluster)
-  - Manter `imagePullSecrets: regsecret`
-- [ ] Manter `k8s/minikube/` como histórico (não deletar ainda)
+- [x] Atualizar `apps/nginx/publish.sh` → OCI (registry.local, sem --add-host, com --platform linux/arm64)
+- [x] Criar `apps/nginx/k8s/my-site-nginx.yaml` — ingress host `dnor.io`, image `registry.local:31444`
+- [x] Manter `k8s/minikube/` como histórico
 
 ### 4. Migrar `apps/back-end` (deploy.sh + manifesto)
 
-- [ ] Mesmas alterações de publish.sh acima, adaptadas para `deploy.sh` do back-end
-- [ ] Criar `apps/back-end/k8s/my-site-back-end.yaml` (OCI)
-- [ ] Verificar variáveis de ambiente: `DB_DNORIO_POSTGRES_*` — senhas em plaintext no manifesto (risco de segurança → usar Secrets)
+- [x] Atualizar `apps/back-end/deploy.sh` → OCI
+- [x] Criar `apps/back-end/k8s/my-site-back-end.yaml` (OCI)
+- [ ] ⚠️ DB passwords em plaintext no manifesto → migrar para K8s Secrets (tarefa separada)
 
 ### 5. Migrar `apps/py-back-end`, `apps/rs-axum-back-end`, `apps/tor`
 
-- [ ] Mesmas migrações para os 3 apps restantes
+- [x] `apps/py-back-end/deploy.sh` + `k8s/my-site-py-back-end.yaml` (OCI; `MINIO_ENDPOINT` → `minio-service.minio.svc.cluster.local`)
+- [x] `apps/rs-axum-back-end/deploy.sh` + `k8s/my-site-rs-back-end.yaml` (OCI)
+- [x] `apps/tor/deploy.sh` + `k8s/torproxy.yaml` (OCI)
 
 ### 6. Atualizar a skill `deploy-service`
 
-- [ ] Reescrever `.agent/skills/deploy-service/SKILL.md` com padrão OCI definido
-- [ ] Incluir passo de tunnel SSH e flag ARM64
+- [x] Reescrito `.agent/skills/deploy-service/SKILL.md` com padrão OCI + tabela de registries + regras
 
 ### 7. Validar nginx no cluster (pós-migração)
 
 - [ ] `docker buildx build --platform linux/arm64 --push ...` bem-sucedido
 - [ ] `kubectl rollout status deployment/my-site-nginx-deployment -n default` → OK
-- [ ] Verificar que pod consegue fazer pull da imagem (`Events` sem ImagePullBackOff)
-- [ ] Testar Ingress (`curl https://<host>` ou equivalente OCI)
+- [ ] Verificar pod pull sem ImagePullBackOff
+- [ ] Testar Ingress `https://dnor.io`
 
 ---
 

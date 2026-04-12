@@ -1,0 +1,99 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+  name: my-site-ingress
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: dnor.io
+      http:
+        paths:
+          - path: /(.*)
+            backend:
+              service:
+                name: my-site-nginx-service
+                port:
+                  number: 80
+            pathType: ImplementationSpecific
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-site-nginx-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-site-nginx
+  template:
+    metadata:
+      labels:
+        app: my-site-nginx
+    spec:
+      imagePullSecrets:
+        - name: regsecret
+      containers:
+        - name: my-site-nginx
+          image: registry.local:31444/repository/docker-repo/my-site-nginx:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: 8Mi
+              cpu: 0.1
+            limits:
+              memory: 16Mi
+              cpu: 0.4
+          env:
+            - name: STATIC_PROXY_HOST_HEADER
+              value: "$host"
+            - name: STATIC_SERVICE
+              value: http://minio-service.minio.svc.cluster.local:9000
+            - name: BACK_END_SERVICE
+              value: http://my-site-back-end-service.default.svc.cluster.local
+            - name: PY_BACK_END_SERVICE
+              value: http://my-site-py-back-end-service.default.svc.cluster.local
+            - name: DNS_RESOLVER
+              value: kube-dns.kube-system.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-site-nginx-service
+spec:
+  selector:
+    app: my-site-nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: my-site-nginx-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-site-nginx-deployment
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

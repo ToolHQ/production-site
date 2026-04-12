@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: torproxy-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: torproxy
+  template:
+    metadata:
+      labels:
+        app: torproxy
+    spec:
+      imagePullSecrets:
+        - name: regsecret
+      containers:
+        - name: torproxy
+          image: registry.local:31444/repository/docker-repo/torproxy:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9050
+          resources:
+            requests:
+              memory: 120Mi
+              cpu: 0.4
+            limits:
+              memory: 256Mi
+              cpu: 0.6
+          livenessProbe:
+            tcpSocket:
+              port: 9050
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            tcpSocket:
+              port: 9050
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          startupProbe:
+            tcpSocket:
+              port: 9050
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+            successThreshold: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: torproxy-service
+spec:
+  selector:
+    app: torproxy
+  ports:
+    - protocol: TCP
+      port: 9050
+      targetPort: 9050
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: torproxy-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: torproxy-deployment
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 90
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 90
