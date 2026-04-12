@@ -19,6 +19,7 @@ porque o parser pega o **primeiro** `namespace:` que aparece nos manifests YAML 
 ClusterRoleBindings e ServiceAccounts em `default`, não o namespace real do Deployment.
 
 **Evidência**:
+
 ```json
 { "name": "cert-manager", "namespace": "default" }   ← scan_components()
 { "name": "cert-manager", "namespace": "cert-manager" } ← cross_reference() (fallback correto)
@@ -34,6 +35,7 @@ Este job é o **chain repair do cert-manager** (imagem `bitnami/kubectl`, rotaci
 Está em `default` porque os manifests originais do cert-manager o deployam ali.
 
 Dois caminhos de resolução:
+
 - **(A) Mover o CronJob para `cert-manager` namespace** no manifest do repo (infra fix)
 - **(B) Mapear no catalog**: permitir que componentes declarem `satellite_namespaces` adicionais
   para que o cross_reference os absorva em vez de listá-los como cluster-only
@@ -74,7 +76,7 @@ Editar `components/cert-manager/` para mudar o `namespace:` do CronJob de `defau
 
 ## Critérios de Aceite
 
-- [ ] `cert-manager` aparece com `namespace: cert-manager` na aba Components do HTML  
-- [ ] Cluster-Only count = 0 (ou apenas itens legítimos sem owner no repo)  
-- [ ] `chain-repair` CronJob está no namespace `cert-manager` no cluster  
+- [ ] `cert-manager` aparece com `namespace: cert-manager` na aba Components do HTML
+- [ ] Cluster-Only count = 0 (ou apenas itens legítimos sem owner no repo)
+- [ ] `chain-repair` CronJob está no namespace `cert-manager` no cluster
 - [ ] Nenhum outro componente com namespace incorreto (validar top-5 com `default`)
