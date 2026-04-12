@@ -22,6 +22,7 @@
 
 |                                 ID                                 | Task Name                                                         |  Priority   |     Owner      |  Est.  |
 | :----------------------------------------------------------------: | :---------------------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
+| [T-109](2026/Q2/T-109-Postgres-Snapshot-Image-Recovery.md) | **Postgres Snapshot Job Image Recovery** | 🚨 Critical | Infra | 1h |
 |         [T-108](2026/Q2/T-108-Tailscale-Mobile-Access.md)          | **Acesso Mobile às Ferramentas do Cluster via Tailscale**         | 🌟 Feature  |     DevExp     |   2h   |
 |              [T-107](2026/Q2/T-107-PKI-Hardening.md)               | **PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows** |   🔼 High   |     Infra      |   2h   |
 |         [T-106](2026/Q2/T-106-Backup-IaC-Codification.md)          | **Backup Infrastructure Codification (IaC Gap)**                  |   🔼 High   |     Infra      |   1h   |

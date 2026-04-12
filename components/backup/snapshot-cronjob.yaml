@@ -5,7 +5,7 @@
 # Configuration:
 # - Schedule: 0 */6 * * * (every 6 hours)
 # - Retention: Keep last 7 snapshots
-# - Target: postgres-pvc in postgres namespace
+# - Target: postgres-data-postgres-0 in postgres namespace
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -30,14 +30,18 @@ spec:
             app: postgres
             component: backup-job
         spec:
+          hostNetwork: true
+          dnsPolicy: ClusterFirstWithHostNet
           serviceAccountName: snapshot-creator
           restartPolicy: OnFailure
           containers:
           - name: snapshot-creator
-            image: bitnami/kubectl:1.28
+            # bitnami/kubectl:1.28 no longer resolves on Docker Hub; use the same
+            # working image family already proven by the chain-repair CronJob.
+            image: bitnami/kubectl:latest
             env:
             - name: PVC_NAME
-              value: "postgres-pvc"
+              value: "postgres-data-postgres-0"
             - name: NAMESPACE
               valueFrom:
                 fieldRef:
@@ -45,10 +49,13 @@ spec:
             - name: RETENTION_COUNT
               value: "7"  # Keep last 7 automated snapshots
             command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
-              set -e
+              set -euo pipefail
+              TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              K=(kubectl --server=https://10.0.1.100:6443 --token="$TOKEN" --certificate-authority="$CA")
               
               echo "=== Automated Snapshot Creator ==="
               echo "PVC: $PVC_NAME"
@@ -62,7 +69,7 @@ spec:
               
               echo "📸 Creating snapshot: $SNAPSHOT_NAME"
               
-              cat <<EOF | kubectl apply -f -
+              cat <<EOF | "${K[@]}" create --validate=false -f -
               apiVersion: snapshot.storage.k8s.io/v1
               kind: VolumeSnapshot
               metadata:
@@ -82,7 +89,7 @@ spec:
               EOF
               
               echo "⏳ Waiting for snapshot to be ready..."
-              kubectl wait --for=jsonpath='{.status.readyToUse}'=true \
+              "${K[@]}" wait --for=jsonpath='{.status.readyToUse}'=true \
                 volumesnapshot/$SNAPSHOT_NAME -n $NAMESPACE --timeout=10m
               
               echo "✅ Snapshot $SNAPSHOT_NAME is ready"
@@ -92,7 +99,7 @@ spec:
               echo "🧹 Applying retention policy (keep last $RETENTION_COUNT)..."
               
               # Get all automated snapshots sorted by creation time (oldest first)
-              SNAPSHOTS=$(kubectl get volumesnapshot -n $NAMESPACE \
+              SNAPSHOTS=$("${K[@]}" get volumesnapshot -n $NAMESPACE \
                 -l snapshot-type=automated,pvc-source=$PVC_NAME \
                 --sort-by=.metadata.creationTimestamp \
                 -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
@@ -110,7 +117,7 @@ spec:
                 for ((i=0; i<$DELETE_COUNT; i++)); do
                   OLD_SNAP="${SNAPSHOT_ARRAY[$i]}"
                   echo "  - Deleting: $OLD_SNAP"
-                  kubectl delete volumesnapshot $OLD_SNAP -n $NAMESPACE --ignore-not-found=true
+                  "${K[@]}" delete volumesnapshot $OLD_SNAP -n $NAMESPACE --ignore-not-found=true
                 done
                 
                 echo "✅ Retention cleanup complete"
