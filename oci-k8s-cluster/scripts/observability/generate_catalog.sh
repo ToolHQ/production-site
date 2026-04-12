@@ -125,13 +125,34 @@ scan_apps() {
         [[ -f "$app_dir/README.md" ]] && has_readme=true
         [[ -f "$app_dir/commands.sh" ]] && has_commands=true
 
-        # --- Deploy Readiness ---
-        local readiness="not-deployable"
+        # --- Exposed port (Dockerfile EXPOSE + K8s containerPort) ---
+        local exposed_port=""
+        if $has_dockerfile; then
+            exposed_port=$(grep -i '^EXPOSE' "$app_dir/Dockerfile" 2>/dev/null | awk '{print $2}' | head -1 || true)
+        fi
+        if [[ -z "$exposed_port" ]] && $has_k8s; then
+            exposed_port=$(find "$app_dir" -name '*.yaml' -o -name '*.yml' 2>/dev/null \
+                | xargs grep -h 'containerPort:' 2>/dev/null | awk '{print $NF}' | head -1 || true)
+        fi
+
+        # --- Deploy Readiness (5-state semantic) ---
+        local readiness="" readiness_missing=""
+        local missing_parts=""
+        $has_dockerfile || missing_parts+="dockerfile,"
+        $has_k8s        || missing_parts+="k8s-manifest,"
+        $has_deploy     || missing_parts+="deploy-script,"
+        readiness_missing="${missing_parts%,}"
+
         if $has_dockerfile && $has_k8s && $has_deploy; then
-            readiness="ready"
+            readiness="deployable"
         elif $has_dockerfile || $has_k8s; then
             readiness="partial"
+        elif [[ "$language" == "unknown" ]]; then
+            readiness="infra-only"
+        else
+            readiness="wip"
         fi
+        # Note: "deployed" state is set later in cross_reference, stored in xref
 
         # --- Build JSON entry ---
         $first && first=false || json_arr+=","
@@ -149,7 +170,9 @@ scan_apps() {
   "deploy_script": "$deploy_script",
   "has_readme": $has_readme,
   "has_commands_sh": $has_commands,
+  "exposed_port": "$exposed_port",
   "deploy_readiness": "$readiness",
+  "readiness_missing": "$readiness_missing",
   "description": $(echo "$description" | jq -Rs '.')
 }
 JEOF
@@ -277,7 +300,7 @@ scan_cluster() {
     ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
         "$MASTER_NODE" bash <<'REMOTE_EOF' > "$TEMP_DIR/cluster_raw.json"
 set -e
-echo '{"workloads":' 
+echo '{"workloads":'
 kubectl get deploy,sts,ds,cronjob -A -o json 2>/dev/null | jq '[.items[] | {
     kind: .kind,
     name: .metadata.name,
@@ -309,10 +332,11 @@ kubectl get pods -A -o json 2>/dev/null | jq '[.items[] | {
     namespace: .metadata.namespace,
     status: .status.phase,
     images: [.spec.containers[]?.image // empty],
-    restarts: ([.status.containerStatuses[]?.restartCount // 0] | add),
+    restarts: ([.status.containerStatuses[]?.restartCount // 0] | add // 0),
     ready: ((.status.containerStatuses // []) | map(select(.ready == true)) | length),
     total: ((.status.containerStatuses // []) | length),
-    node: .spec.nodeName
+    node: .spec.nodeName,
+    started: .status.startTime
 }]'
 echo '}'
 REMOTE_EOF
@@ -385,14 +409,54 @@ cross_reference() {
             local cluster_wl_json=$(echo "$match_lines" | grep -v '^$' | cut -d'|' -f2 | sort -u | jq -R . | jq -s '.')
             local cluster_ns=$(echo "$match_lines" | grep -v '^$' | head -1 | cut -d'|' -f1)
             echo "$cluster_ns" >> "$TEMP_DIR/xr_matched_ns.txt"
+
+            # Replica counts: sum ready/desired across all workloads in namespace
+            local ready_r=$(jq --arg ns "$cluster_ns" \
+                '[.[] | select(.namespace == $ns) | .ready_replicas // 0] | add // 0' \
+                "$TEMP_DIR/cluster_workloads.json")
+            local desired_r=$(jq --arg ns "$cluster_ns" \
+                '[.[] | select(.namespace == $ns) | .replicas // 0] | add // 0' \
+                "$TEMP_DIR/cluster_workloads.json")
+
+            # Total restarts across pods in namespace
+            local restarts=$(jq --arg ns "$cluster_ns" \
+                '[.[] | select(.namespace == $ns) | .restarts // 0] | add // 0' \
+                "$TEMP_DIR/cluster_pods.json")
+
+            # Ingress hosts for this namespace
+            local ingress_hosts_json=$(jq --arg ns "$cluster_ns" \
+                '[.[] | select(.namespace == $ns) | .hosts[]] | unique' \
+                "$TEMP_DIR/cluster_ingresses.json")
+
+            # Drift: repo version vs cluster image tag
+            local repo_ver=$(echo "$app_json" | jq -r '.version // ""')
+            local cluster_img=$(echo "$match_lines" | grep -v '^$' | head -1 | cut -d'|' -f4)
+            local cluster_tag="${cluster_img##*:}"
+            local drift="unknown"
+            if [[ -n "$repo_ver" && -n "$cluster_tag" && "$cluster_tag" != "latest" ]]; then
+                [[ "$cluster_tag" == *"$repo_ver"* ]] && drift="in-sync" || drift="drift"
+            fi
+
             jq --arg name "$app_name" --arg lang "$app_lang" --arg fw "$app_framework" \
                 --argjson wl "$cluster_wl_json" --arg ns "$cluster_ns" \
-                '. + [{source:"app", name:$name, language:$lang, framework:$fw, cluster_workloads:$wl, cluster_namespace:$ns, status:"healthy"}]' \
-                "$TEMP_DIR/xr_deployed.json" > "$TEMP_DIR/xr_deployed.tmp" && mv "$TEMP_DIR/xr_deployed.tmp" "$TEMP_DIR/xr_deployed.json"
+                --argjson ready "$ready_r" --argjson desired "$desired_r" \
+                --argjson restarts "$restarts" \
+                --argjson ingress_hosts "$ingress_hosts_json" \
+                --arg drift "$drift" --arg cluster_img "$cluster_img" \
+                '. + [{source:"app", name:$name, language:$lang, framework:$fw,
+                       cluster_workloads:$wl, cluster_namespace:$ns, status:"healthy",
+                       replicas_ready:$ready, replicas_desired:$desired,
+                       total_restarts:$restarts, ingress_hosts:$ingress_hosts,
+                       cluster_image:$cluster_img, version_drift:$drift}]' \
+                "$TEMP_DIR/xr_deployed.json" > "$TEMP_DIR/xr_deployed.tmp" \
+                && mv "$TEMP_DIR/xr_deployed.tmp" "$TEMP_DIR/xr_deployed.json"
         else
-            jq --arg name "$app_name" --arg lang "$app_lang" --arg readiness "$app_readiness" \
-                '. + [{name:$name, language:$lang, readiness:$readiness}]' \
-                "$TEMP_DIR/xr_repo_only_apps.json" > "$TEMP_DIR/xr_roa.tmp" && mv "$TEMP_DIR/xr_roa.tmp" "$TEMP_DIR/xr_repo_only_apps.json"
+            local app_missing=$(echo "$app_json" | jq -r '.readiness_missing // ""')
+            jq --arg name "$app_name" --arg lang "$app_lang" \
+                --arg readiness "$app_readiness" --arg missing "$app_missing" \
+                '. + [{name:$name, language:$lang, readiness:$readiness, readiness_missing:$missing}]' \
+                "$TEMP_DIR/xr_repo_only_apps.json" > "$TEMP_DIR/xr_roa.tmp" \
+                && mv "$TEMP_DIR/xr_roa.tmp" "$TEMP_DIR/xr_repo_only_apps.json"
         fi
     done
 
@@ -421,9 +485,29 @@ cross_reference() {
         if [ -n "$effective_ns" ] && grep -q "^${effective_ns}|" "$wl_names" 2>/dev/null && [ "$CLUSTER_ONLINE" = "true" ]; then
             local cluster_wl_json=$(grep "^${effective_ns}|" "$wl_names" | cut -d'|' -f2 | sort -u | jq -R . | jq -s '.')
             echo "$effective_ns" >> "$TEMP_DIR/xr_matched_ns.txt"
+
+            local c_ready_r=$(jq --arg ns "$effective_ns" \
+                '[.[] | select(.namespace == $ns) | .ready_replicas // 0] | add // 0' \
+                "$TEMP_DIR/cluster_workloads.json")
+            local c_desired_r=$(jq --arg ns "$effective_ns" \
+                '[.[] | select(.namespace == $ns) | .replicas // 0] | add // 0' \
+                "$TEMP_DIR/cluster_workloads.json")
+            local c_restarts=$(jq --arg ns "$effective_ns" \
+                '[.[] | select(.namespace == $ns) | .restarts // 0] | add // 0' \
+                "$TEMP_DIR/cluster_pods.json")
+            local c_ing_hosts=$(jq --arg ns "$effective_ns" \
+                '[.[] | select(.namespace == $ns) | .hosts[]] | unique' \
+                "$TEMP_DIR/cluster_ingresses.json")
+
             jq --arg name "$comp_name" --arg cat "$comp_cat" --arg ns "$effective_ns" \
                 --argjson wl "$cluster_wl_json" \
-                '. + [{source:"component", name:$name, category:$cat, namespace:$ns, cluster_workloads:$wl, status:"healthy"}]' \
+                --argjson ready "$c_ready_r" --argjson desired "$c_desired_r" \
+                --argjson restarts "$c_restarts" \
+                --argjson ingress_hosts "$c_ing_hosts" \
+                '. + [{source:"component", name:$name, category:$cat, namespace:$ns,
+                       cluster_workloads:$wl, status:"healthy",
+                       replicas_ready:$ready, replicas_desired:$desired,
+                       total_restarts:$restarts, ingress_hosts:$ingress_hosts}]' \
                 "$TEMP_DIR/xr_deployed.json" > "$TEMP_DIR/xr_deployed.tmp" && mv "$TEMP_DIR/xr_deployed.tmp" "$TEMP_DIR/xr_deployed.json"
         else
             jq --arg name "$comp_name" --arg cat "$comp_cat" --arg ns "$comp_ns" \
@@ -533,7 +617,7 @@ render_markdown() {
 
     local apps_total=$(jq '.apps | length' "$CATALOG_JSON")
     local comps_total=$(jq '.components | length' "$CATALOG_JSON")
-    local apps_ready=$(jq '[.apps[] | select(.deploy_readiness == "ready")] | length' "$CATALOG_JSON")
+    local apps_deployable=$(jq '[.apps[] | select(.deploy_readiness == "deployable" or .deploy_readiness == "deployed")] | length' "$CATALOG_JSON")
     local cluster_wl=$(jq '.cluster_state.workloads | length' "$CATALOG_JSON")
     local deployed=$(jq '.cross_reference.deployed_tracked | length' "$CATALOG_JSON")
     local repo_only=$(jq '(.cross_reference.repo_only.apps | length) + (.cross_reference.repo_only.components | length)' "$CATALOG_JSON")
@@ -554,7 +638,7 @@ render_markdown() {
         echo ""
         echo "| Metric | Count |"
         echo "|--------|-------|"
-        echo "| **Applications** (apps/) | $apps_total total ($apps_ready deploy-ready) |"
+        echo "| **Applications** (apps/) | $apps_total total ($apps_deployable deployable/deployed) |"
         echo "| **Components** (components/) | $comps_total total |"
         echo "| **Cluster Workloads** | $cluster_wl |"
         echo "| ✅ Deployed & Tracked | $deployed |"
@@ -568,17 +652,16 @@ render_markdown() {
         # --- Apps ---
         echo "## 🚀 Applications (\`apps/\`)"
         echo ""
-        echo "| App | Language | Framework | Version | Dockerfile | K8s | Deploy | Docs | Readiness |"
-        echo "|-----|----------|-----------|---------|-----------|-----|--------|------|-----------|"
+        echo "| App | Language | Framework | Version | Port | Dockerfile | K8s | Deploy | Docs | Readiness | Missing |"
+        echo "|-----|----------|-----------|---------|------|-----------|-----|--------|------|-----------|---------||"
         jq -r '.apps[] |
-            "| **\(.name)** | \(.language) | \(.framework // "-") | \(.version // "-") | " +
+            "| **\(.name)** | \(.language) | \(.framework // "-") | \(.version // "-") | \(.exposed_port // "-") | " +
             (if .dockerfile then "✅" else "❌" end) + " | " +
             (if .k8s_manifests then "✅" else "❌" end) + " | " +
             (if .deploy_script != "" then "✅" else "❌" end) + " | " +
             (if .has_readme then "✅" else "❌" end) + " | " +
-            (if .deploy_readiness == "ready" then "🟢 Ready"
-             elif .deploy_readiness == "partial" then "🟡 Partial"
-             else "🔴 None" end) + " |"
+            (.deploy_readiness // "wip") + " | " +
+            (.readiness_missing // "-") + " |"
         ' "$CATALOG_JSON"
         echo ""
 
@@ -631,11 +714,14 @@ render_markdown() {
         echo "### ✅ Deployed & Tracked ($deployed)"
         echo ""
         if [ "$deployed" -gt 0 ]; then
-            echo "| Source | Name | Namespace | Cluster Workloads | Status |"
-            echo "|--------|------|-----------|-------------------|--------|"
+            echo "| Source | Name | Namespace | Replicas | Restarts | Drift | Workloads |"
+            echo "|--------|------|-----------|----------|----------|-------|----------|"
             jq -r '.cross_reference.deployed_tracked[] |
-                "| \(.source) | **\(.name)** | \(.cluster_namespace // .namespace // "-") | \(.cluster_workloads | join(", ")) | " +
-                (if .status == "healthy" then "🟢" else "⚠️" end) + " |"
+                "| \(.source) | **\(.name)** | \(.cluster_namespace // .namespace // "-") | " +
+                "\(.replicas_ready // 0)/\(.replicas_desired // 0) | " +
+                "\(.total_restarts // 0) | " +
+                (if .version_drift == "in-sync" then "🟢" elif .version_drift == "drift" then "🟡" else "-" end) + " | " +
+                ((.cluster_workloads // []) | join(", ")) + " |"
             ' "$CATALOG_JSON"
         fi
         echo ""
@@ -647,7 +733,8 @@ render_markdown() {
             echo "**Apps:**"
             echo ""
             jq -r '.cross_reference.repo_only.apps[] |
-                "- \(.name) (\(.language), readiness: \(.readiness))"
+                "- \(.name) (\(.language), readiness: \(.readiness))" +
+                (if (.readiness_missing // "") != "" then " — missing: \(.readiness_missing)" else "" end)
             ' "$CATALOG_JSON"
             echo ""
         fi
@@ -705,11 +792,12 @@ render_markdown() {
 }
 
 # ==============================================================================
-# PHASE 6: RENDER HTML
+# PHASE 6: RENDER HTML (SPA)
 # ==============================================================================
 render_html() {
-    echo -e "${BLUE}🌐 Rendering HTML report...${NC}"
-    cat > "$CATALOG_HTML" <<'HTML_HEAD'
+    echo -e "${BLUE}🌐 Rendering HTML SPA report...${NC}"
+
+    cat > "$CATALOG_HTML" <<'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -717,177 +805,442 @@ render_html() {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Infrastructure Catalog</title>
 <style>
-:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#c9d1d9;--text-dim:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff;--purple:#bc8cff}
+:root{--bg:#0d1117;--card:#161b22;--card2:#1c2128;--border:#30363d;--text:#c9d1d9;--dim:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff;--purple:#bc8cff;--orange:#f0883e}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);padding:20px;line-height:1.5}
-h1{color:var(--blue);margin-bottom:5px}h2{color:var(--purple);margin:30px 0 15px;border-bottom:1px solid var(--border);padding-bottom:8px}h3{color:var(--text);margin:20px 0 10px}
-.meta{color:var(--text-dim);margin-bottom:25px;font-size:.9em}
-.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:15px 0 30px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
-.card .num{font-size:2em;font-weight:700}.card .label{font-size:.85em;color:var(--text-dim)}
-.card.green .num{color:var(--green)}.card.yellow .num{color:var(--yellow)}.card.red .num{color:var(--red)}.card.blue .num{color:var(--blue)}
-table{width:100%;border-collapse:collapse;margin:10px 0 20px;font-size:.9em}
-th{background:var(--card);color:var(--blue);text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
-th:hover{color:var(--purple)}th::after{content:" ⇅";color:var(--text-dim);font-size:.7em}
-td{padding:8px 12px;border-bottom:1px solid var(--border)}
-tr:hover{background:rgba(88,166,255,.05)}
-.ready{color:var(--green)}.partial{color:var(--yellow)}.none{color:var(--red)}.healthy{color:var(--green)}.degraded{color:var(--yellow)}
-.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.8em;font-weight:600}
-.badge-green{background:rgba(63,185,80,.15);color:var(--green)}.badge-yellow{background:rgba(210,153,34,.15);color:var(--yellow)}.badge-red{background:rgba(248,81,73,.15);color:var(--red)}
-input.search{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;width:300px;margin:10px 0;font-size:.9em}
-input.search:focus{outline:none;border-color:var(--blue)}
-ul{margin:5px 0 15px 20px; list-style:none} ul li::before{content:"• ";color:var(--yellow)}
-.gap-item{color:var(--yellow)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+a{color:var(--blue);text-decoration:none}
+/* Layout */
+.header{padding:20px 24px 0;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100}
+.title-row{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+h1{color:var(--blue);font-size:1.4em}
+.meta{color:var(--dim);font-size:.85em;margin-bottom:12px}
+.tabs{display:flex;gap:0;margin-bottom:-1px}
+.tab{padding:10px 20px;cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;font-size:.9em;color:var(--dim);user-select:none;transition:background .15s}
+.tab:hover{background:var(--card2);color:var(--text)}
+.tab.active{background:var(--card);color:var(--blue);border-color:var(--border)}
+.content{padding:20px 24px}
+/* Summary cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:border-color .15s}
+.card:hover{border-color:var(--blue)}
+.card .n{font-size:1.8em;font-weight:700}.card .l{font-size:.8em;color:var(--dim);margin-top:2px}
+.cn-green .n{color:var(--green)}.cn-yellow .n{color:var(--yellow)}.cn-red .n{color:var(--red)}.cn-blue .n{color:var(--blue)}.cn-purple .n{color:var(--purple)}
+/* Toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.search-box{background:var(--card);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:6px;width:260px;font-size:.88em}
+.search-box:focus{outline:none;border-color:var(--blue)}
+.filter-sel{background:var(--card);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:.88em;cursor:pointer}
+.filter-sel:focus{outline:none;border-color:var(--blue)}
+/* Tables */
+table{width:100%;border-collapse:collapse;font-size:.88em}
+thead th{background:var(--card);color:var(--blue);text-align:left;padding:9px 12px;border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--purple)}thead th.sorted-asc::after{content:" ↑";opacity:.7}thead th.sorted-desc::after{content:" ↓";opacity:.7}
+tbody td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+tbody tr.data-row{cursor:pointer}tbody tr.data-row:hover td{background:rgba(88,166,255,.05)}
+tbody tr.detail-row{display:none}tbody tr.detail-row.open{display:table-row}
+tbody tr.detail-row td{background:var(--card2);padding:14px 20px;font-size:.85em}
+/* Badges */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.78em;font-weight:600;vertical-align:middle}
+.b-green{background:rgba(63,185,80,.15);color:var(--green)}
+.b-blue{background:rgba(88,166,255,.15);color:var(--blue)}
+.b-yellow{background:rgba(210,153,34,.15);color:var(--yellow)}
+.b-red{background:rgba(248,81,73,.15);color:var(--red)}
+.b-dim{background:rgba(139,148,158,.1);color:var(--dim)}
+.b-orange{background:rgba(240,136,62,.15);color:var(--orange)}
+/* Replica badge */
+.rep{font-weight:600;font-size:.85em}
+.rep-ok{color:var(--green)}.rep-bad{color:var(--red)}.rep-zero{color:var(--dim)}
+/* Detail grid */
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px 24px}
+.detail-grid dt{color:var(--dim);font-size:.8em;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.detail-grid dd{color:var(--text);margin-bottom:8px;word-break:break-all}
+/* Tab panes */
+.pane{display:none}.pane.active{display:block}
+/* Ingresses */
+.hosts{display:flex;flex-wrap:wrap;gap:6px}
+.host-chip{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.2);color:var(--green);padding:2px 8px;border-radius:4px;font-size:.82em}
+/* Gaps */
+.gap-list{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;margin-bottom:16px}
+.gap-list li{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:.88em;color:var(--yellow)}
+/* Missing badge */
+.missing-tag{background:rgba(248,81,73,.1);color:var(--red);border-radius:4px;padding:1px 6px;font-size:.78em;margin-left:4px}
+/* Drift */
+.drift-sync{color:var(--green);font-size:.82em}.drift-drift{color:var(--yellow);font-size:.82em}.drift-unknown{color:var(--dim);font-size:.82em}
 </style>
 </head>
 <body>
-HTML_HEAD
+HTMLEOF
 
-    # Inject data and render with inline JS
-    echo "<script>const CATALOG=$(cat "$CATALOG_JSON");</script>" >> "$CATALOG_HTML"
+    echo "<script>const CATALOG=" >> "$CATALOG_HTML"
+    cat "$CATALOG_JSON" >> "$CATALOG_HTML"
+    echo ";</script>" >> "$CATALOG_HTML"
 
-    cat >> "$CATALOG_HTML" <<'HTML_BODY'
-<h1>📚 Infrastructure Catalog</h1>
-<p class="meta" id="meta"></p>
+    cat >> "$CATALOG_HTML" <<'HTMLBODY'
+<div class="header">
+  <div class="title-row">
+    <h1>📚 Infrastructure Catalog</h1>
+    <span id="online-badge"></span>
+  </div>
+  <div class="meta" id="meta"></div>
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('apps')">🚀 Apps</div>
+    <div class="tab" onclick="showTab('components')">⚙️ Components</div>
+    <div class="tab" onclick="showTab('cluster')">☸️ Cluster</div>
+    <div class="tab" onclick="showTab('xref')">🔄 Cross-Ref</div>
+    <div class="tab" onclick="showTab('gaps')">📊 Gaps</div>
+  </div>
+</div>
 
-<h2>Executive Summary</h2>
-<div class="summary" id="summary"></div>
+<div class="content">
+  <!-- Cards shown on all tabs -->
+  <div class="cards" id="summary-cards"></div>
 
-<h2>🚀 Applications (<code>apps/</code>)</h2>
-<input class="search" id="app-search" placeholder="Filter apps..." oninput="filterTable('apps-table',this.value)">
-<table id="apps-table"><thead><tr>
-<th onclick="sortTable('apps-table',0)">App</th>
-<th onclick="sortTable('apps-table',1)">Language</th>
-<th onclick="sortTable('apps-table',2)">Framework</th>
-<th onclick="sortTable('apps-table',3)">Version</th>
-<th onclick="sortTable('apps-table',4)">Dockerfile</th>
-<th onclick="sortTable('apps-table',5)">K8s</th>
-<th onclick="sortTable('apps-table',6)">Deploy</th>
-<th onclick="sortTable('apps-table',7)">Docs</th>
-<th onclick="sortTable('apps-table',8)">Readiness</th>
-</tr></thead><tbody></tbody></table>
+  <!-- APPS TAB -->
+  <div id="pane-apps" class="pane active">
+    <div class="toolbar">
+      <input id="apps-search" class="search-box" placeholder="Search apps…" oninput="applyFilters('apps')">
+      <select id="apps-lang" class="filter-sel" onchange="applyFilters('apps')"><option value="">All languages</option></select>
+      <select id="apps-readiness" class="filter-sel" onchange="applyFilters('apps')">
+        <option value="">All readiness</option>
+        <option>deployed</option><option>deployable</option><option>partial</option><option>wip</option><option>infra-only</option>
+      </select>
+    </div>
+    <table id="apps-table">
+      <thead><tr>
+        <th data-col="0">App</th><th data-col="1">Language</th><th data-col="2">Framework</th>
+        <th data-col="3">Version</th><th data-col="4">Port</th>
+        <th data-col="5">Dockerfile</th><th data-col="6">K8s</th><th data-col="7">Deploy</th>
+        <th data-col="8">Docs</th><th data-col="9">Readiness</th>
+      </tr></thead>
+      <tbody id="apps-tbody"></tbody>
+    </table>
+  </div>
 
-<h2>⚙️ Infrastructure Components (<code>components/</code>)</h2>
-<input class="search" id="comp-search" placeholder="Filter components..." oninput="filterTable('comp-table',this.value)">
-<table id="comp-table"><thead><tr>
-<th onclick="sortTable('comp-table',0)">Component</th>
-<th onclick="sortTable('comp-table',1)">Category</th>
-<th onclick="sortTable('comp-table',2)">Namespace</th>
-<th onclick="sortTable('comp-table',3)">Version</th>
-<th onclick="sortTable('comp-table',4)">Method</th>
-<th onclick="sortTable('comp-table',5)">commands.sh</th>
-<th onclick="sortTable('comp-table',6)">Docs</th>
-</tr></thead><tbody></tbody></table>
+  <!-- COMPONENTS TAB -->
+  <div id="pane-components" class="pane">
+    <div class="toolbar">
+      <input id="comp-search" class="search-box" placeholder="Search components…" oninput="applyFilters('comp')">
+      <select id="comp-cat" class="filter-sel" onchange="applyFilters('comp')"><option value="">All categories</option></select>
+    </div>
+    <table id="comp-table">
+      <thead><tr>
+        <th data-col="0">Component</th><th data-col="1">Category</th><th data-col="2">Namespace</th>
+        <th data-col="3">Version</th><th data-col="4">Method</th>
+        <th data-col="5">commands.sh</th><th data-col="6">Docs</th>
+      </tr></thead>
+      <tbody id="comp-tbody"></tbody>
+    </table>
+  </div>
 
-<div id="cluster-section"></div>
-<div id="xref-section"></div>
-<div id="gaps-section"></div>
+  <!-- CLUSTER TAB -->
+  <div id="pane-cluster" class="pane">
+    <div id="cluster-content"></div>
+  </div>
+
+  <!-- CROSS-REF TAB -->
+  <div id="pane-xref" class="pane">
+    <div id="xref-content"></div>
+  </div>
+
+  <!-- GAPS TAB -->
+  <div id="pane-gaps" class="pane">
+    <div id="gaps-content"></div>
+  </div>
+</div>
 
 <script>
 const Y='✅', N='❌';
-document.getElementById('meta').textContent=`Generated: ${CATALOG.generated_at} | Cluster: ${CATALOG.cluster} | Online: ${CATALOG.cluster_online?'🟢 Yes':'🔴 Offline'}`;
+const C=CATALOG, xr=C.cross_reference, g=xr.gaps;
 
-// Summary cards
-const xr=CATALOG.cross_reference, g=xr.gaps;
-const cards=[
-  {n:CATALOG.apps.length,l:'Applications',c:'blue'},
-  {n:CATALOG.components.length,l:'Components',c:'blue'},
-  {n:CATALOG.cluster_state.workloads.length,l:'Cluster Workloads',c:'blue'},
-  {n:xr.deployed_tracked.length,l:'Deployed & Tracked',c:'green'},
-  {n:xr.repo_only.apps.length+xr.repo_only.components.length,l:'Repo-Only',c:'yellow'},
-  {n:xr.cluster_only.length,l:'Cluster-Only',c:'red'},
-  {n:g.no_docs.length,l:'Missing Docs',c:g.no_docs.length?'yellow':'green'},
-  {n:g.no_dockerfile.length,l:'Missing Dockerfile',c:g.no_dockerfile.length?'yellow':'green'}
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function badge(t,cls){return`<span class="badge ${cls}">${t}</span>`;}
+function readinessBadge(r){
+  const m={deployed:'b-green',deployable:'b-blue',partial:'b-yellow',wip:'b-orange','infra-only':'b-dim'};
+  return badge(r,m[r]||'b-dim');
+}
+function repBadge(rdy,des){
+  if(des===0||des==null) return`<span class="rep rep-zero">—</span>`;
+  const ok=rdy>=des;
+  return`<span class="rep ${ok?'rep-ok':'rep-bad'}">${rdy}/${des}</span>`;
+}
+function driftBadge(d,img){
+  if(!d||d==='unknown') return'';
+  if(d==='in-sync') return`<span class="drift-sync" title="${img||''}">🟢 in-sync</span>`;
+  return`<span class="drift-drift" title="${img||''}">🟡 drift</span>`;
+}
+function hostChips(hosts){
+  if(!hosts||!hosts.length) return'—';
+  return`<div class="hosts">${hosts.map(h=>`<a class="host-chip" href="https://${h}" target="_blank">${h}</a>`).join('')}</div>`;
+}
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+// ── Meta / Online badge ───────────────────────────────────────────────────────
+document.getElementById('meta').textContent=`Generated: ${C.generated_at} | Cluster: ${C.cluster}`;
+document.getElementById('online-badge').innerHTML=C.cluster_online
+  ?badge('🟢 Cluster Online','b-green')
+  :badge('🔴 Cluster Offline','b-red');
+
+// ── Summary Cards ─────────────────────────────────────────────────────────────
+const cardsDef=[
+  {n:C.apps.length,l:'Apps',c:'cn-blue',tab:'apps'},
+  {n:C.components.length,l:'Components',c:'cn-blue',tab:'components'},
+  {n:C.cluster_state.workloads.length,l:'Workloads',c:'cn-blue',tab:'cluster'},
+  {n:xr.deployed_tracked.length,l:'Deployed',c:'cn-green',tab:'xref'},
+  {n:xr.repo_only.apps.length+xr.repo_only.components.length,l:'Repo-Only',c:'cn-yellow',tab:'xref'},
+  {n:xr.cluster_only.length,l:'Cluster-Only',c:'cn-red',tab:'xref'},
+  {n:g.no_docs.length,l:'Missing Docs',c:g.no_docs.length?'cn-yellow':'cn-green',tab:'gaps'},
+  {n:g.no_dockerfile.length,l:'No Dockerfile',c:g.no_dockerfile.length?'cn-yellow':'cn-green',tab:'gaps'},
 ];
-document.getElementById('summary').innerHTML=cards.map(c=>`<div class="card ${c.c}"><div class="num">${c.n}</div><div class="label">${c.l}</div></div>`).join('');
+document.getElementById('summary-cards').innerHTML=cardsDef.map(c=>
+  `<div class="card ${c.c}" onclick="showTab('${c.tab}')"><div class="n">${c.n}</div><div class="l">${c.l}</div></div>`
+).join('');
 
-// Apps table
-const at=document.querySelector('#apps-table tbody');
-CATALOG.apps.forEach(a=>{
-  const r=a.deploy_readiness;
-  at.innerHTML+=`<tr><td><b>${a.name}</b></td><td>${a.language}</td><td>${a.framework||'-'}</td><td>${a.version||'-'}</td>
-  <td>${a.dockerfile?Y:N}</td><td>${a.k8s_manifests?Y:N}</td><td>${a.deploy_script?Y:N}</td><td>${a.has_readme?Y:N}</td>
-  <td><span class="badge badge-${r==='ready'?'green':r==='partial'?'yellow':'red'}">${r}</span></td></tr>`;
-});
+// ── Tab switching ─────────────────────────────────────────────────────────────
+let currentTab='apps';
+function showTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const tabs=['apps','components','cluster','xref','gaps'];
+    t.classList.toggle('active',tabs[i]===name);
+  });
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  currentTab=name;
+}
 
-// Components table
-const ct=document.querySelector('#comp-table tbody');
-CATALOG.components.forEach(c=>{
-  ct.innerHTML+=`<tr><td><b>${c.name}</b>${c.deprecated?' 🗑️':''}</td><td>${c.category}</td><td>${c.namespace||'-'}</td>
-  <td>${c.version||'-'}</td><td>${c.deploy_method}</td><td>${c.has_commands_sh?Y:N}</td><td>${c.has_readme?Y:N}</td></tr>`;
-});
+// ── Apps table ────────────────────────────────────────────────────────────────
+// Populate language filter
+const langs=[...new Set(C.apps.map(a=>a.language).filter(Boolean))].sort();
+const lf=document.getElementById('apps-lang');
+langs.forEach(l=>{const o=document.createElement('option');o.textContent=l;lf.appendChild(o);});
 
-// Cluster section
-if(CATALOG.cluster_online){
-  let h='<h2>☸️ Cluster State (Live)</h2><table><thead><tr><th>Workload</th><th>Kind</th><th>Namespace</th><th>Image</th><th>Replicas</th><th>Status</th></tr></thead><tbody>';
-  CATALOG.cluster_state.workloads.forEach(w=>{
-    const ok=(w.ready_replicas||0)>=(w.replicas||1);
-    h+=`<tr><td>${w.name}</td><td>${w.kind}</td><td>${w.namespace}</td><td style="font-size:.8em">${(w.images||['?'])[0]}</td>
-    <td>${w.ready_replicas??'?'}/${w.replicas??'?'}</td><td class="${ok?'healthy':'degraded'}">${ok?'✅':'⚠️'}</td></tr>`;
+function buildAppsRows(data){
+  const tb=document.getElementById('apps-tbody');
+  tb.innerHTML='';
+  data.forEach((a,i)=>{
+    const r=a.deploy_readiness||'wip';
+    const missingHtml=a.readiness_missing?a.readiness_missing.split(',').map(m=>`<span class="missing-tag">${m.trim()}</span>`).join(' '):'';
+    const dataRow=document.createElement('tr');
+    dataRow.className='data-row';
+    dataRow.dataset.idx=i;
+    dataRow.innerHTML=`
+      <td><b>${esc(a.name)}</b>${missingHtml}</td>
+      <td>${esc(a.language)}</td>
+      <td>${esc(a.framework||'-')}</td>
+      <td>${esc(a.version||'-')}</td>
+      <td>${esc(a.exposed_port||'-')}</td>
+      <td>${a.dockerfile?Y:N}</td>
+      <td>${a.k8s_manifests?Y:N}</td>
+      <td>${a.deploy_script?Y:N}</td>
+      <td>${a.has_readme?Y:N}</td>
+      <td>${readinessBadge(r)}</td>`;
+    const detailRow=document.createElement('tr');
+    detailRow.className='detail-row';
+    detailRow.innerHTML=`<td colspan="10"><div class="detail-grid">
+      <div><dt>Base Image</dt><dd>${esc(a.base_image||'-')}</dd></div>
+      <div><dt>Key Deps</dt><dd>${esc(Array.isArray(a.key_deps)?a.key_deps.join(', '):(a.key_deps||'-'))}</dd></div>
+      <div><dt>K8s Kinds</dt><dd>${esc(Array.isArray(a.k8s_kinds)?a.k8s_kinds.join(', '):(a.k8s_kinds||'-'))}</dd></div>
+      <div><dt>Exposed Port</dt><dd>${esc(a.exposed_port||'-')}</dd></div>
+      <div><dt>Has Commands</dt><dd>${a.has_commands_sh?Y:N}</dd></div>
+      <div><dt>Readiness Missing</dt><dd>${esc(a.readiness_missing||'-')}</dd></div>
+    </div></td>`;
+    dataRow.addEventListener('click',()=>detailRow.classList.toggle('open'));
+    tb.appendChild(dataRow);
+    tb.appendChild(detailRow);
+  });
+}
+buildAppsRows(C.apps);
+setupSort('apps-table','apps');
+
+function applyFilters(scope){
+  if(scope==='apps'){
+    const q=(document.getElementById('apps-search').value||'').toLowerCase();
+    const langF=document.getElementById('apps-lang').value;
+    const readF=document.getElementById('apps-readiness').value;
+    const filtered=C.apps.filter(a=>{
+      if(langF&&a.language!==langF)return false;
+      if(readF&&(a.deploy_readiness||'wip')!==readF)return false;
+      if(q&&!JSON.stringify(a).toLowerCase().includes(q))return false;
+      return true;
+    });
+    buildAppsRows(filtered);
+  } else {
+    const q=(document.getElementById('comp-search').value||'').toLowerCase();
+    const catF=document.getElementById('comp-cat').value;
+    const filtered=C.components.filter(c=>{
+      if(c.deprecated)return false;
+      if(catF&&c.category!==catF)return false;
+      if(q&&!JSON.stringify(c).toLowerCase().includes(q))return false;
+      return true;
+    });
+    buildCompRows(filtered);
+  }
+}
+
+// ── Components table ──────────────────────────────────────────────────────────
+const cats=[...new Set(C.components.map(c=>c.category).filter(Boolean))].sort();
+const cf=document.getElementById('comp-cat');
+cats.forEach(c=>{const o=document.createElement('option');o.textContent=c;cf.appendChild(o);});
+
+function buildCompRows(data){
+  const tb=document.getElementById('comp-tbody');
+  tb.innerHTML='';
+  data.forEach(c=>{
+    const dataRow=document.createElement('tr');
+    dataRow.className='data-row';
+    dataRow.innerHTML=`
+      <td><b>${esc(c.name)}</b>${c.deprecated?' 🗑️':''}</td>
+      <td>${esc(c.category)}</td>
+      <td>${esc(c.namespace||'-')}</td>
+      <td>${esc(c.version||'-')}</td>
+      <td>${esc(c.deploy_method)}</td>
+      <td>${c.has_commands_sh?Y:N}</td>
+      <td>${c.has_readme?Y:N}</td>`;
+    const detailRow=document.createElement('tr');
+    detailRow.className='detail-row';
+    detailRow.innerHTML=`<td colspan="7"><div class="detail-grid">
+      <div><dt>Images</dt><dd>${esc(Array.isArray(c.images)?c.images.join(', '):(c.images||'-'))}</dd></div>
+      <div><dt>K8s Kinds</dt><dd>${esc(Array.isArray(c.k8s_kinds)?c.k8s_kinds.join(', '):(c.k8s_kinds||'-'))}</dd></div>
+      <div><dt>Storage PVCs</dt><dd>${esc(c.storage_pvcs||'-')}</dd></div>
+    </div></td>`;
+    dataRow.addEventListener('click',()=>detailRow.classList.toggle('open'));
+    tb.appendChild(dataRow);
+    tb.appendChild(detailRow);
+  });
+}
+buildCompRows(C.components.filter(c=>!c.deprecated));
+setupSort('comp-table','comp');
+
+// ── Cluster tab ───────────────────────────────────────────────────────────────
+(function(){
+  const el=document.getElementById('cluster-content');
+  if(!C.cluster_online){
+    el.innerHTML='<p style="color:var(--red);padding:16px">🔴 Cluster offline — connect tunnel and re-run.</p>';
+    return;
+  }
+  let h='<h2 style="margin:0 0 16px">☸️ Workloads</h2>';
+  h+='<table><thead><tr><th>Workload</th><th>Kind</th><th>Namespace</th><th>Replicas</th><th>Restarts</th><th>Image</th></tr></thead><tbody>';
+  C.cluster_state.workloads.forEach(w=>{
+    const ok=(w.ready_replicas||0)>=(w.replicas||1)&&(w.replicas||0)>0;
+    h+=`<tr><td><b>${esc(w.name)}</b></td><td>${esc(w.kind)}</td><td>${esc(w.namespace)}</td>
+      <td>${repBadge(w.ready_replicas??0,w.replicas??0)}</td>
+      <td style="color:${(w.restarts||0)>0?'var(--yellow)':'var(--dim)'}">${w.restarts??0}</td>
+      <td style="font-size:.8em">${esc((w.images||['?'])[0])}</td></tr>`;
   });
   h+='</tbody></table>';
-  if(CATALOG.cluster_state.ingresses.length){
-    h+='<h3>Ingresses</h3><table><thead><tr><th>Name</th><th>Namespace</th><th>Hosts</th><th>TLS</th></tr></thead><tbody>';
-    CATALOG.cluster_state.ingresses.forEach(i=>{h+=`<tr><td>${i.name}</td><td>${i.namespace}</td><td>${i.hosts.join(', ')}</td><td>${i.tls?'🔒':N}</td></tr>`;});
+  if(C.cluster_state.ingresses.length){
+    h+='<h2 style="margin:24px 0 16px">🌐 Ingresses</h2>';
+    h+='<table><thead><tr><th>Name</th><th>Namespace</th><th>Hosts</th><th>TLS</th></tr></thead><tbody>';
+    C.cluster_state.ingresses.forEach(i=>{
+      h+=`<tr><td><b>${esc(i.name)}</b></td><td>${esc(i.namespace)}</td><td>${hostChips(i.hosts)}</td><td>${i.tls?'🔒':N}</td></tr>`;
+    });
     h+='</tbody></table>';
   }
-  document.getElementById('cluster-section').innerHTML=h;
-}else{
-  document.getElementById('cluster-section').innerHTML='<h2>☸️ Cluster State</h2><p style="color:var(--red)">🔴 Cluster offline — connect tunnel and re-run.</p>';
-}
+  el.innerHTML=h;
+})();
 
-// Cross-reference
-let xh='<h2>🔄 Cross-Reference</h2>';
-xh+=`<h3>✅ Deployed & Tracked (${xr.deployed_tracked.length})</h3>`;
-if(xr.deployed_tracked.length){
-  xh+='<table><thead><tr><th>Source</th><th>Name</th><th>Namespace</th><th>Cluster Workloads</th><th>Status</th></tr></thead><tbody>';
-  xr.deployed_tracked.forEach(d=>{xh+=`<tr><td>${d.source}</td><td><b>${d.name}</b></td><td>${d.cluster_namespace||d.namespace||'-'}</td><td style="font-size:.85em">${d.cluster_workloads.join(', ')}</td><td class="${d.status}">${d.status==='healthy'?'🟢':'⚠️'}</td></tr>`;});
-  xh+='</tbody></table>';
-}
-const ro=xr.repo_only;
-xh+=`<h3>📦 Repo-Only (${ro.apps.length+ro.components.length})</h3>`;
-if(ro.apps.length){xh+='<b>Apps:</b><ul>'+ro.apps.map(a=>`<li>${a.name} (${a.language}, ${a.readiness})</li>`).join('')+'</ul>';}
-if(ro.components.length){xh+='<b>Components:</b><ul>'+ro.components.map(c=>`<li>${c.name} (${c.category})</li>`).join('')+'</ul>';}
-if(xr.cluster_only.length){
-  xh+=`<h3 style="color:var(--red)">🔴 Cluster-Only (${xr.cluster_only.length})</h3>`;
-  xh+='<table><thead><tr><th>Kind</th><th>Name</th><th>Namespace</th><th>Image</th></tr></thead><tbody>';
-  xr.cluster_only.forEach(w=>{xh+=`<tr><td>${w.kind}</td><td>${w.name}</td><td>${w.namespace}</td><td style="font-size:.85em">${(w.images||['?'])[0]}</td></tr>`;});
-  xh+='</tbody></table>';
-}
-document.getElementById('xref-section').innerHTML=xh;
+// ── Cross-ref tab ─────────────────────────────────────────────────────────────
+(function(){
+  const el=document.getElementById('xref-content');
+  let h='';
 
-// Gaps
-let gh='<h2>📊 Gap Analysis</h2>';
-const gapSections=[
-  {title:'📝 Missing Documentation',items:g.no_docs},
-  {title:'🔧 Missing Deploy Script',items:g.no_deploy_script},
-  {title:'🐳 Missing Dockerfile',items:g.no_dockerfile},
-  {title:'⚙️ Missing commands.sh',items:g.no_commands_sh},
-  {title:'🗑️ Deprecated',items:g.deprecated}
-];
-gapSections.forEach(s=>{
-  if(s.items.length){
-    gh+=`<h3>${s.title} (${s.items.length})</h3><ul>${s.items.map(i=>`<li class="gap-item">${i}</li>`).join('')}</ul>`;
+  // Deployed & tracked
+  h+=`<h2 style="margin:0 0 12px">✅ Deployed &amp; Tracked (${xr.deployed_tracked.length})</h2>`;
+  if(xr.deployed_tracked.length){
+    h+='<table><thead><tr><th>Source</th><th>Name</th><th>Namespace</th><th>Replicas</th><th>Restarts</th><th>Hosts</th><th>Drift</th><th>Workloads</th></tr></thead><tbody>';
+    xr.deployed_tracked.forEach(d=>{
+      const ns=d.cluster_namespace||d.namespace||'-';
+      h+=`<tr>
+        <td>${badge(d.source,d.source==='app'?'b-blue':'b-purple')}</td>
+        <td><b>${esc(d.name)}</b></td>
+        <td>${esc(ns)}</td>
+        <td>${repBadge(d.replicas_ready??0,d.replicas_desired??0)}</td>
+        <td style="color:${(d.total_restarts||0)>0?'var(--yellow)':'var(--dim)'}">${d.total_restarts??0}</td>
+        <td>${hostChips(d.ingress_hosts)}</td>
+        <td>${driftBadge(d.version_drift,d.cluster_image)}</td>
+        <td style="font-size:.82em">${(d.cluster_workloads||[]).join(', ')}</td></tr>`;
+    });
+    h+='</tbody></table>';
   }
-});
-document.getElementById('gaps-section').innerHTML=gh;
 
-// Sorting
-function sortTable(id,col){
-  const t=document.getElementById(id),b=t.tBodies[0],rows=[...b.rows];
-  const dir=t.dataset.sortCol==col&&t.dataset.sortDir==='asc'?'desc':'asc';
-  t.dataset.sortCol=col;t.dataset.sortDir=dir;
-  rows.sort((a,b)=>{const x=a.cells[col].textContent,y=b.cells[col].textContent;return dir==='asc'?x.localeCompare(y):y.localeCompare(x);});
-  rows.forEach(r=>b.appendChild(r));
-}
-function filterTable(id,q){
-  const rows=document.querySelectorAll(`#${id} tbody tr`);
-  q=q.toLowerCase();
-  rows.forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});
+  // Repo-only
+  const ro=xr.repo_only;
+  const roTotal=ro.apps.length+ro.components.length;
+  h+=`<h2 style="margin:24px 0 12px">📦 Repo-Only (${roTotal})</h2>`;
+  if(ro.apps.length){
+    h+='<h3 style="margin:0 0 8px;color:var(--dim)">Apps</h3><table><thead><tr><th>Name</th><th>Language</th><th>Readiness</th><th>Missing</th></tr></thead><tbody>';
+    ro.apps.forEach(a=>{
+      h+=`<tr><td>${esc(a.name)}</td><td>${esc(a.language)}</td><td>${readinessBadge(a.readiness||'wip')}</td><td style="color:var(--red);font-size:.85em">${esc(a.readiness_missing||'-')}</td></tr>`;
+    });
+    h+='</tbody></table>';
+  }
+  if(ro.components.length){
+    h+='<h3 style="margin:16px 0 8px;color:var(--dim)">Components</h3><table><thead><tr><th>Name</th><th>Category</th><th>Namespace</th></tr></thead><tbody>';
+    ro.components.forEach(c=>{
+      h+=`<tr><td>${esc(c.name)}</td><td>${esc(c.category)}</td><td>${esc(c.namespace||'-')}</td></tr>`;
+    });
+    h+='</tbody></table>';
+  }
+
+  // Cluster-only
+  if(xr.cluster_only.length){
+    h+=`<h2 style="margin:24px 0 12px;color:var(--red)">🔴 Cluster-Only (${xr.cluster_only.length})</h2>`;
+    h+='<table><thead><tr><th>Kind</th><th>Name</th><th>Namespace</th><th>Image</th></tr></thead><tbody>';
+    xr.cluster_only.forEach(w=>{
+      h+=`<tr><td>${esc(w.kind)}</td><td>${esc(w.name)}</td><td>${esc(w.namespace)}</td><td style="font-size:.8em">${esc((w.images||['?'])[0])}</td></tr>`;
+    });
+    h+='</tbody></table>';
+  }
+  el.innerHTML=h;
+})();
+
+// ── Gaps tab ──────────────────────────────────────────────────────────────────
+(function(){
+  const el=document.getElementById('gaps-content');
+  const sections=[
+    {title:'📝 Missing Documentation',items:g.no_docs,color:'var(--yellow)'},
+    {title:'🔧 Missing Deploy Script',items:g.no_deploy_script,color:'var(--orange)'},
+    {title:'🐳 Missing Dockerfile',items:g.no_dockerfile,color:'var(--orange)'},
+    {title:'⚙️ Missing commands.sh',items:g.no_commands_sh,color:'var(--dim)'},
+    {title:'🗑️ Deprecated',items:g.deprecated,color:'var(--dim)'},
+  ];
+  let h='';
+  sections.forEach(s=>{
+    if(!s.items.length) return;
+    h+=`<h2 style="margin:${h?'24px':0} 0 10px;color:${s.color}">${s.title} (${s.items.length})</h2>`;
+    h+=`<ul class="gap-list">${s.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>`;
+  });
+  if(!h) h='<p style="color:var(--green);padding:16px">🟢 No gaps detected!</p>';
+  el.innerHTML=h;
+})();
+
+// ── Sorting ───────────────────────────────────────────────────────────────────
+function setupSort(tableId,scope){
+  const ths=document.querySelectorAll(`#${tableId} thead th`);
+  ths.forEach((th,colIdx)=>{
+    th.addEventListener('click',()=>{
+      const t=document.getElementById(tableId);
+      const asc=th.classList.contains('sorted-asc');
+      ths.forEach(h=>h.classList.remove('sorted-asc','sorted-desc'));
+      th.classList.add(asc?'sorted-desc':'sorted-asc');
+      // Collect data rows only (skip detail rows)
+      const tb=t.tBodies[0];
+      const pairs=[];
+      for(let i=0;i<tb.rows.length;i+=2){
+        pairs.push([tb.rows[i],tb.rows[i+1]]);
+      }
+      const dir=asc?-1:1;
+      pairs.sort((a,b)=>{
+        const x=a[0].cells[colIdx]?a[0].cells[colIdx].textContent:'';
+        const y=b[0].cells[colIdx]?b[0].cells[colIdx].textContent:'';
+        return dir*x.localeCompare(y,undefined,{numeric:true});
+      });
+      pairs.forEach(([dr,dtr])=>{tb.appendChild(dr);tb.appendChild(dtr);});
+    });
+  });
 }
 </script>
 </body></html>
-HTML_BODY
+HTMLBODY
 
     echo -e "  ${GREEN}✓${NC} $CATALOG_HTML"
 }
