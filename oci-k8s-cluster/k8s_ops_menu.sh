@@ -2268,13 +2268,13 @@ $(t "back")"
                 # Manual chain rebuild: trigger chain-repair job on-demand
                 echo -e "${BLUE}🔗 Triggering chain-repair job...${NC}"
                 local job_name="chain-repair-manual-$(date +%s)"
-                run_kubectl "create job -n default $job_name --from=cronjob/chain-repair"
+                run_kubectl "create job -n cert-manager $job_name --from=cronjob/chain-repair"
                 echo -e "${YELLOW}Waiting for job to complete (max 2min)...${NC}"
-                if run_kubectl "wait job/$job_name -n default --for=condition=complete --timeout=120s"; then
+                if run_kubectl "wait job/$job_name -n cert-manager --for=condition=complete --timeout=120s"; then
                     echo -e "${GREEN}✅ Chain rebuild complete. Logs:${NC}"
-                    run_kubectl "logs -n default -l job-name=$job_name"
+                    run_kubectl "logs -n cert-manager -l job-name=$job_name"
                 else
-                    echo -e "${RED}❌ Job did not complete in time. Check: kubectl logs -n default -l job-name=$job_name${NC}"
+                    echo -e "${RED}❌ Job did not complete in time. Check: kubectl logs -n cert-manager -l job-name=$job_name${NC}"
                 fi
                 run_kubectl "delete job $job_name -n default --ignore-not-found" >/dev/null 2>&1 || true
                 read -p "$(t "press_enter")"
