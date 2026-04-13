@@ -1,6 +1,6 @@
 # T-117 — Publicar @dnorio/* no Nexus npm-repo + Atualizar js-libs
 
-**Status**: 📋 Backlog  
+**Status**: ✅ Done  
 **Priority**: 🚨 Critical  
 **Epic**: DevOps  
 **Estimate**: 1h  
