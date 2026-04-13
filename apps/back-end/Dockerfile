@@ -11,7 +11,7 @@ ARG NPM_OMIT_DEV=dev
 ENV NPM_OMIT_DEV=$NPM_OMIT_DEV
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 COPY .npmrc package*.json tsconfig.json ./
-RUN npm ci --omit=optional --omit=peer --omit=$NPM_OMIT_DEV --no-audit --no-fund --verbose
+RUN npm install --omit=optional --omit=peer --omit=$NPM_OMIT_DEV --no-audit --no-fund --verbose
 COPY --chown=node:node . .
 RUN ["npm", "run", "build"]
 
