@@ -12,6 +12,13 @@
 | :---------------------------------------------: | :------------------------------------------------------------------------ | :------: | :---: | :--: |
 | [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md) | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_ | 🔼 High  | Infra |  3h  |
 
+## 🔥 Blocker (Deploy back-end travado)
+
+|                           ID                            | Task Name                                                                              | Priority    | Epic   | Est. |
+| :-----------------------------------------------------: | :------------------------------------------------------------------------------------- | :---------: | :----- | :--: |
+| [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(criar npm-repo/proxy/group + token + porta)_      | 🚨 Critical | DevOps |  2h  |
+|   [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)  | **Publicar @dnorio/* no Nexus** _(8 libs Lerna v0.0.175 paradas desde minikube era)_ | 🚨 Critical | DevOps |  1h  |
+
 ## 📅 Backlog (To Do)
 
 |                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
