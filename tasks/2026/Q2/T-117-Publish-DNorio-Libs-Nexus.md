@@ -7,6 +7,7 @@
 **Created**: 2026-04-13  
 **Depends on**: T-116 (npm-repo criado no Nexus)  
 **Blocks**: deploy de back-end, py-back-end e qualquer app que use @dnorio/*  
+**Scope**: Apenas publish mecânico — integração TUI está em T-118  
 
 ---
 

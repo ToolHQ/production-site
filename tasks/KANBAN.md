@@ -16,13 +16,14 @@
 
 |                           ID                            | Task Name                                                                              | Priority    | Epic   | Est. |
 | :-----------------------------------------------------: | :------------------------------------------------------------------------------------- | :---------: | :----- | :--: |
-| [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(criar npm-repo/proxy/group + token + porta)_      | 🚨 Critical | DevOps |  2h  |
-|   [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)  | **Publicar @dnorio/* no Nexus** _(8 libs Lerna v0.0.175 paradas desde minikube era)_ | 🚨 Critical | DevOps |  1h  |
+| [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅ | 🚨 Critical | DevOps |  2h  |
+|   [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)  | **Publicar @dnorio/* no Nexus** _(8 libs Lerna v0.0.175 paradas desde minikube era)_  | 🚨 Critical | DevOps |  1h  |
 
 ## 📅 Backlog (To Do)
 
 |                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
 | :-----------------------------------------------------: | :---------------------------------------------------------------------------------------------------------- | :-------: | :----- | :--: |
+|     [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)        | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
 |      [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md)      | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_       | 🔽 Medium | DevOps |  3h  |
 | [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ |  🔼 High  | DevOps |  4h  |
 |      [T-105](2026/Q2/T-105-Registry-Resilience.md)      | **Internal Registry (Nexus) Resilience**                                                                    | 🔽 Medium | Infra  |  2h  |

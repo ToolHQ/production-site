@@ -276,6 +276,200 @@ EOF
     fi
 }
 
+# Enable NPM Token realm in Nexus
+# Must be active for npm login/publish to work
+# Usage: nexus_enable_npm_realm
+nexus_enable_npm_realm() {
+    nexus_check_tunnel || return 1
+    local password
+    password=$(nexus_get_admin_password)
+
+    echo "Activating NPM Token realm..." >&2
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -u "admin:$password" \
+        -X PUT "$NEXUS_API_BASE/service/rest/v1/security/realms/active" \
+        -H "Content-Type: application/json" \
+        -d '["NexusAuthenticatingRealm","NpmToken"]' 2>&1 || true)
+
+    local http_code
+    http_code=$(echo "$response" | tail -n 1)
+
+    if [ "$http_code" = "204" ] || [ "$http_code" = "200" ]; then
+        echo "✓ NpmToken realm activated" >&2
+        return 0
+    else
+        echo "Error: Failed to activate NpmToken realm (HTTP $http_code)" >&2
+        echo "$response" | head -n -1 >&2
+        return 1
+    fi
+}
+
+# Create NPM hosted repository (stores @dnorio/* private packages)
+# Usage: nexus_create_npm_hosted <repo_name> <blobstore_name>
+nexus_create_npm_hosted() {
+    local repo_name="${1:-npm-repo}"
+    local blobstore_name="${2:-minio}"
+
+    nexus_check_tunnel || return 1
+    local password
+    password=$(nexus_get_admin_password)
+
+    echo "Creating NPM hosted repository '$repo_name'..." >&2
+
+    local payload
+    payload=$(cat <<EOF
+{
+  "name": "$repo_name",
+  "online": true,
+  "storage": {
+    "blobStoreName": "$blobstore_name",
+    "strictContentTypeValidation": true,
+    "writePolicy": "ALLOW"
+  },
+  "cleanup": null,
+  "npm": {
+    "removeQuarantined": true
+  }
+}
+EOF
+)
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -u "admin:$password" \
+        -X POST "$NEXUS_API_BASE/service/rest/v1/repositories/npm/hosted" \
+        -H "Content-Type: application/json" \
+        -d "$payload" 2>&1 || true)
+
+    local http_code
+    http_code=$(echo "$response" | tail -n 1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "204" ]; then
+        echo "✓ NPM hosted repository '$repo_name' created" >&2
+        return 0
+    elif [ "$http_code" = "400" ] && echo "$response" | grep -qi "already exists"; then
+        echo "✓ NPM hosted repository '$repo_name' already exists" >&2
+        return 0
+    else
+        echo "Error: Failed to create NPM hosted repository (HTTP $http_code)" >&2
+        echo "$response" | head -n -1 >&2
+        return 1
+    fi
+}
+
+# Create NPM proxy repository (caches registry.npmjs.org)
+# Usage: nexus_create_npm_proxy <repo_name> <blobstore_name>
+nexus_create_npm_proxy() {
+    local repo_name="${1:-npm-proxy}"
+    local blobstore_name="${2:-minio}"
+
+    nexus_check_tunnel || return 1
+    local password
+    password=$(nexus_get_admin_password)
+
+    echo "Creating NPM proxy repository '$repo_name'..." >&2
+
+    local payload
+    payload=$(cat <<EOF
+{
+  "name": "$repo_name",
+  "online": true,
+  "storage": {
+    "blobStoreName": "$blobstore_name",
+    "strictContentTypeValidation": true
+  },
+  "proxy": {
+    "remoteUrl": "https://registry.npmjs.org",
+    "contentMaxAge": 1440,
+    "metadataMaxAge": 1440
+  },
+  "negativeCache": {
+    "enabled": true,
+    "timeToLive": 1440
+  },
+  "httpClient": {
+    "blocked": false,
+    "autoBlock": true
+  },
+  "npm": {
+    "removeQuarantined": true
+  }
+}
+EOF
+)
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -u "admin:$password" \
+        -X POST "$NEXUS_API_BASE/service/rest/v1/repositories/npm/proxy" \
+        -H "Content-Type: application/json" \
+        -d "$payload" 2>&1 || true)
+
+    local http_code
+    http_code=$(echo "$response" | tail -n 1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "204" ]; then
+        echo "✓ NPM proxy repository '$repo_name' created" >&2
+        return 0
+    elif [ "$http_code" = "400" ] && echo "$response" | grep -qi "already exists"; then
+        echo "✓ NPM proxy repository '$repo_name' already exists" >&2
+        return 0
+    else
+        echo "Error: Failed to create NPM proxy repository (HTTP $http_code)" >&2
+        echo "$response" | head -n -1 >&2
+        return 1
+    fi
+}
+
+# Create NPM group repository (single endpoint: npm-proxy + npm-repo)
+# Usage: nexus_create_npm_group <group_name> <blobstore_name>
+nexus_create_npm_group() {
+    local group_name="${1:-npm-group}"
+    local blobstore_name="${2:-minio}"
+
+    nexus_check_tunnel || return 1
+    local password
+    password=$(nexus_get_admin_password)
+
+    echo "Creating NPM group repository '$group_name' (npm-proxy + npm-repo)..." >&2
+
+    local payload
+    payload=$(cat <<EOF
+{
+  "name": "$group_name",
+  "online": true,
+  "storage": {
+    "blobStoreName": "$blobstore_name",
+    "strictContentTypeValidation": true
+  },
+  "group": {
+    "memberNames": ["npm-proxy", "npm-repo"]
+  }
+}
+EOF
+)
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -u "admin:$password" \
+        -X POST "$NEXUS_API_BASE/service/rest/v1/repositories/npm/group" \
+        -H "Content-Type: application/json" \
+        -d "$payload" 2>&1 || true)
+
+    local http_code
+    http_code=$(echo "$response" | tail -n 1)
+
+    if [ "$http_code" = "201" ] || [ "$http_code" = "204" ]; then
+        echo "✓ NPM group repository '$group_name' created" >&2
+        return 0
+    elif [ "$http_code" = "400" ] && echo "$response" | grep -qi "already exists"; then
+        echo "✓ NPM group repository '$group_name' already exists" >&2
+        return 0
+    else
+        echo "Error: Failed to create NPM group repository (HTTP $http_code)" >&2
+        echo "$response" | head -n -1 >&2
+        return 1
+    fi
+}
+
 # Full initialization: password + S3 blob store + Docker repo
 # Usage: nexus_initialize
 nexus_initialize() {
@@ -319,18 +513,41 @@ nexus_initialize() {
     echo ""
     
     # Step 3: Create S3 blob store
-    echo "Step 3/4: Creating S3 blob store 'minio'..."
+    echo "Step 3/8: Creating S3 blob store 'minio'..."
     nexus_create_s3_blobstore "minio" "nexus" "$access_key" "$secret_key"
     echo ""
-    
+
     # Step 4: Create Docker repository
-    echo "Step 4/4: Creating Docker hosted repository..."
+    echo "Step 4/8: Creating Docker hosted repository..."
     nexus_create_docker_repo "docker-repo" "minio" 18444
     echo ""
-    
+
+    # Step 5: Activate NPM Token realm
+    echo "Step 5/8: Activating NPM Token realm..."
+    nexus_enable_npm_realm
+    echo ""
+
+    # Step 6: Create NPM hosted repository (@dnorio/* private packages)
+    echo "Step 6/8: Creating NPM hosted repository..."
+    nexus_create_npm_hosted "npm-repo" "minio"
+    echo ""
+
+    # Step 7: Create NPM proxy repository (public packages cache)
+    echo "Step 7/8: Creating NPM proxy repository..."
+    nexus_create_npm_proxy "npm-proxy" "minio"
+    echo ""
+
+    # Step 8: Create NPM group repository (single endpoint)
+    echo "Step 8/8: Creating NPM group repository..."
+    nexus_create_npm_group "npm-group" "minio"
+    echo ""
+
     echo "=== Nexus Initialization Complete ==="
     echo "Blob Store: minio (S3 backed by Minio)"
     echo "Docker Repository: docker-repo (port 18444)"
+    echo "NPM Hosted: npm-repo (private @dnorio/* packages)"
+    echo "NPM Proxy:  npm-proxy (cache for registry.npmjs.org)"
+    echo "NPM Group:  npm-group (single endpoint: registry=http://localhost:8081/repository/npm-group)"
     echo "Admin Password: ${password:0:8}**********"
     echo ""
     echo "Credentials saved to credstore (view with 'View Credentials' menu)"
