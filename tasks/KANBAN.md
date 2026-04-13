@@ -17,7 +17,7 @@
 |                           ID                           | Task Name                                                                              |  Priority   | Epic   | Est. |
 | :----------------------------------------------------: | :------------------------------------------------------------------------------------- | :---------: | :----- | :--: |
 | [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅ | 🚨 Critical | DevOps |  2h  |
-|   [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)  | **Publicar @dnorio/* no Nexus** _(8/8 @dnorio/* publicados — v0.0.175)_ ✅            | 🚨 Critical | DevOps |  1h  |
+|  [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)   | **Publicar @dnorio/\* no Nexus** _(8/8 @dnorio/\* publicados — v0.0.175)_ ✅           | 🚨 Critical | DevOps |  1h  |
 
 ## 📅 Backlog (To Do)
 
