@@ -1,4 +1,4 @@
-# T-118 — TUI: Gerenciador de js-libs (@dnorio/*)
+# T-118 — TUI: Gerenciador de js-libs (@dnorio/\*)
 
 **Status**: 📋 Backlog  
 **Priority**: 🔼 High  
@@ -6,7 +6,7 @@
 **Estimate**: 2h  
 **Created**: 2026-04-13  
 **Depends on**: T-116 (npm-group no Nexus), T-117 (primeira publicação)  
-**Blocks**: —  
+**Blocks**: —
 
 ---
 
@@ -17,6 +17,7 @@ um submenu dedicado na TUI (`k8s_ops_menu.sh`) para gerenciar o ciclo de vida da
 libs `@dnorio/*` do monorepo Lerna em `~/js-libs`.
 
 O objetivo é que o Lead DevOps consiga, sem sair da TUI:
+
 - Ver o estado atual das libs (versão local vs. versão no Nexus)
 - Publicar versões novas via Lerna
 - Verificar se o Nexus está saudável para receber publicações
@@ -154,10 +155,10 @@ jslibs_check_nexus() {
 
 ## Arquivos Afetados
 
-| Arquivo | Mudança |
-|---|---|
+| Arquivo                           | Mudança                                                        |
+| --------------------------------- | -------------------------------------------------------------- |
 | `oci-k8s-cluster/k8s_ops_menu.sh` | nova função `jslibs_menu()` + submenus + item no `main_menu()` |
-| `oci-k8s-cluster/lib/i18n.sh` | string `menu_jslibs` |
+| `oci-k8s-cluster/lib/i18n.sh`     | string `menu_jslibs`                                           |
 
 ---
 
