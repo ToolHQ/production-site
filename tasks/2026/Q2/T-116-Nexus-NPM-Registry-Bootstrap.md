@@ -1,6 +1,6 @@
 # T-116 — Nexus: Bootstrap NPM Registry (hosted + proxy + group)
 
-**Status**: 🚨 Blocker  
+**Status**: ✅ Done  
 **Priority**: 🚨 Critical  
 **Epic**: DevOps  
 **Estimate**: 2h  
