@@ -6,9 +6,6 @@
 
 set -e
 
-npm cache clean -f && rm -rf node_modules/ && NODE_TLS_REJECT_UNAUTHORIZED=0 npm i
-npm run build
-
 TAG_VERSION=$(date +%s)
 REGISTRY=registry.local:31444
 REPO=repository/docker-repo
