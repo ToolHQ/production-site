@@ -10,6 +10,9 @@ FROM base AS intermediate
 ARG NPM_OMIT_DEV=dev
 ENV NPM_OMIT_DEV=$NPM_OMIT_DEV
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+USER root
+RUN apk add --no-cache git make g++ python3
+USER node
 COPY .npmrc package.json tsconfig.json ./
 RUN npm install --omit=optional --omit=peer --omit=$NPM_OMIT_DEV --no-audit --no-fund
 COPY --chown=node:node . .
