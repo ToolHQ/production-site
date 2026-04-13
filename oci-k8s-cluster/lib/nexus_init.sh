@@ -620,5 +620,8 @@ nexus_reset() {
 
 # Export functions if sourced
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-    export -f nexus_check_tunnel nexus_get_initial_password nexus_get_admin_password nexus_change_password nexus_create_s3_blobstore nexus_create_docker_repo nexus_initialize nexus_reset
+    export -f nexus_check_tunnel nexus_get_initial_password nexus_get_admin_password nexus_change_password \
+        nexus_create_s3_blobstore nexus_create_docker_repo \
+        nexus_enable_npm_realm nexus_create_npm_hosted nexus_create_npm_proxy nexus_create_npm_group \
+        nexus_initialize nexus_reset
 fi
