@@ -5,7 +5,7 @@
 **Epic**: DevOps  
 **Estimate**: 2h  
 **Created**: 2026-04-13  
-**Blocks**: T-117 (publish @dnorio/*), deploy do back-end  
+**Blocks**: T-117 (publish @dnorio/\*), deploy do back-end
 
 ---
 
@@ -90,6 +90,7 @@ curl -s -u "$AUTH" -X PUT "$NEXUS/service/rest/v1/security/realms/active" \
 ```
 
 Depois `npm login`:
+
 ```bash
 npm login --registry=http://nexus.localhost:31081/repository/npm-repo/
 # → gera token, salvar no .npmrc como //nexus.localhost:31081/repository/:_authToken=NpmToken.xxx
@@ -98,6 +99,7 @@ npm login --registry=http://nexus.localhost:31081/repository/npm-repo/
 ### Passo 3 — Atualizar `nexus_init.sh`
 
 Adicionar funções:
+
 - `nexus_create_npm_hosted()` — cria `npm-repo`
 - `nexus_create_npm_proxy()` — cria `npm-proxy`
 - `nexus_create_npm_group()` — cria `npm-group`
@@ -117,12 +119,12 @@ registry=http://nexus.localhost:31081/repository/npm-group
 
 ## Arquivos Afetados
 
-| Arquivo | Mudança |
-|---|---|
+| Arquivo                             | Mudança                                         |
+| ----------------------------------- | ----------------------------------------------- |
 | `oci-k8s-cluster/lib/nexus_init.sh` | +4 funções npm + integrar em `nexus_initialize` |
-| `apps/back-end/.npmrc` | porta `:31081` explícita |
-| `~/js-libs/.npmrc` | porta `:31081` + auth token atualizado |
-| `~/js-libs/packages/*/package.json` | `publishConfig.registry` com porta `:31081` |
+| `apps/back-end/.npmrc`              | porta `:31081` explícita                        |
+| `~/js-libs/.npmrc`                  | porta `:31081` + auth token atualizado          |
+| `~/js-libs/packages/*/package.json` | `publishConfig.registry` com porta `:31081`     |
 
 ---
 

@@ -1,4 +1,4 @@
-# T-117 — Publicar @dnorio/* no Nexus npm-repo + Atualizar js-libs
+# T-117 — Publicar @dnorio/\* no Nexus npm-repo + Atualizar js-libs
 
 **Status**: ✅ Done  
 **Priority**: 🚨 Critical  
@@ -6,8 +6,8 @@
 **Estimate**: 1h  
 **Created**: 2026-04-13  
 **Depends on**: T-116 (npm-repo criado no Nexus)  
-**Blocks**: deploy de back-end, py-back-end e qualquer app que use @dnorio/*  
-**Scope**: Apenas publish mecânico — integração TUI está em T-118  
+**Blocks**: deploy de back-end, py-back-end e qualquer app que use @dnorio/\*  
+**Scope**: Apenas publish mecânico — integração TUI está em T-118
 
 ---
 
@@ -100,9 +100,9 @@ cd ~/production-site/apps/back-end
 
 ## Arquivos Afetados
 
-| Arquivo | Mudança |
-|---|---|
-| `~/js-libs/.npmrc` | porta `:31081` + token de publish |
+| Arquivo                             | Mudança                            |
+| ----------------------------------- | ---------------------------------- |
+| `~/js-libs/.npmrc`                  | porta `:31081` + token de publish  |
 | `~/js-libs/packages/*/package.json` | `publishConfig.registry` com porta |
 
 > `~/js-libs` não está no repositório `production-site` — alterações são locais.
