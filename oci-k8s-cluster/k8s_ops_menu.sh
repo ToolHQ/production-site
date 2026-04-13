@@ -4074,6 +4074,178 @@ show_hardening_menu() {
   done
 }
 
+# ==============================================================================
+# 🚀 App Deploy Menu (T-115)
+# Descobre apps dynamicamente via deploy.sh/publish.sh + mostra status do pod
+# ==============================================================================
+_app_get_label() {
+  # Extrai o valor do label app: do primeiro yaml em k8s/ (excluindo subpastas minikube)
+  local app_dir="$1"
+  find "$app_dir/k8s" -maxdepth 1 -name "*.yaml" 2>/dev/null | head -1 | \
+    xargs grep -m1 "app:" 2>/dev/null | awk '{print $2}' | tr -d '"'
+}
+
+_app_get_status() {
+  local app_label="$1"
+  if [ -z "$app_label" ]; then echo "no-manifest"; return; fi
+  local ready
+  ready=$(kubectl get deployment -A -l "app=$app_label" --no-headers 2>/dev/null | awk '{print $3"/"$4}' | head -1)
+  if [ -z "$ready" ]; then
+    # fallback: procurar pelo nome
+    ready=$(kubectl get deployment -A --no-headers 2>/dev/null | grep "$app_label" | awk '{print $3"/"$4}' | head -1)
+  fi
+  [ -n "$ready" ] && echo "$ready" || echo "not deployed"
+}
+
+_app_action_menu() {
+  local app_name="$1"
+  local app_dir="$2"
+  local app_label="$3"
+
+  local deploy_script="$app_dir/deploy.sh"
+  [ -f "$deploy_script" ] || deploy_script="$app_dir/publish.sh"
+
+  while true; do
+    # Status atualizado a cada entrada no submenu
+    local pod_status
+    pod_status=$(_app_get_status "$app_label")
+
+    local actions="🚀 Deploy / Rebuild
+📋 Rollout Status
+📜 View Logs (tail -200)
+🔄 Restart Deployment
+← Back"
+
+    local selected
+    selected=$(echo "$actions" | "$FZF_BIN" \
+      --height=40% --layout=reverse --border \
+      --prompt="$app_name > " \
+      --header="App: $app_name  |  Pod: $pod_status") || true
+    [ -z "$selected" ] && return
+
+    case "$selected" in
+      "🚀 Deploy / Rebuild")
+        # Verificar oci-builder antes de buildar
+        if ! docker buildx inspect oci-builder &>/dev/null 2>&1; then
+          echo -e "${YELLOW}⚠️  oci-builder não encontrado.${NC}"
+          read -p "Executar setup-dev-deploy.sh? [y/N] " yn
+          if [[ "$yn" =~ ^[Yy]$ ]]; then
+            source "$SCRIPT_DIR/scripts/setup-dev-deploy.sh"
+          else
+            read -p "$(t "press_enter")"
+            continue
+          fi
+        fi
+        clear
+        echo -e "${CYAN}🚀 Deploying $app_name...${NC}"
+        echo ""
+        pushd "$app_dir" > /dev/null
+        if bash "$(basename "$deploy_script")"; then
+          echo -e "\n${GREEN}✅ $app_name deployed successfully${NC}"
+        else
+          echo -e "\n${RED}❌ Deploy failed — check output above${NC}"
+        fi
+        popd > /dev/null
+        read -p "$(t "press_enter")"
+        ;;
+      "📋 Rollout Status")
+        clear
+        echo -e "${CYAN}📋 Rollout status: $app_name${NC}"
+        echo ""
+        run_kubectl "rollout status deployment -l app=$app_label -n default" 2>/dev/null || \
+          run_kubectl "get deployment -l app=$app_label -A -o wide" 2>/dev/null || \
+          echo "No deployment found for app=$app_label"
+        echo ""
+        read -p "$(t "press_enter")"
+        ;;
+      "📜 View Logs (tail -200)")
+        run_kubectl "logs -l app=$app_label -n default --tail=200 -f" 2>/dev/null | less -SR || true
+        ;;
+      "🔄 Restart Deployment")
+        echo -e "${YELLOW}Restarting $app_name...${NC}"
+        if run_kubectl "rollout restart deployment -l app=$app_label -n default" 2>/dev/null; then
+          echo -e "${GREEN}✅ Restart triggered${NC}"
+        else
+          echo -e "${RED}❌ No deployment found for app=$app_label${NC}"
+        fi
+        read -p "$(t "press_enter")"
+        ;;
+      *) return ;;
+    esac
+  done
+}
+
+app_deploy_menu() {
+  local apps_dir="$SCRIPT_DIR/../apps"
+
+  while true; do
+    # Descobrir apps com deploy.sh ou publish.sh
+    local app_names=()
+    local app_dirs=()
+    local app_labels=()
+    for script in "$apps_dir"/*/deploy.sh "$apps_dir"/*/publish.sh; do
+      [ -f "$script" ] || continue
+      local dir
+      dir="$(dirname "$script")"
+      local name
+      name="$(basename "$dir")"
+      # Evitar duplicatas (caso tenha ambos deploy.sh e publish.sh)
+      local already=0
+      for n in "${app_names[@]:-}"; do [[ "$n" == "$name" ]] && already=1 && break; done
+      [ "$already" -eq 1 ] && continue
+      app_names+=("$name")
+      app_dirs+=("$dir")
+      app_labels+=("$(_app_get_label "$dir")")
+    done
+
+    if [ ${#app_names[@]} -eq 0 ]; then
+      echo -e "${YELLOW}Nenhum app com deploy.sh encontrado em $apps_dir${NC}"
+      read -p "$(t "press_enter")"
+      return
+    fi
+
+    # Construir lista com status em linha (leitura rápida em paralelo)
+    local menu_items="← Back\n"
+    for i in "${!app_names[@]}"; do
+      local lbl="${app_labels[$i]:-?}"
+      local pod_status
+      pod_status=$(_app_get_status "$lbl")
+      local icon="⬜"
+      case "$pod_status" in
+        *"/"*)
+          local ready_n="${pod_status%%/*}"
+          local total_n="${pod_status##*/}"
+          [[ "$ready_n" == "$total_n" && "$ready_n" != "0" ]] && icon="🟢" || icon="🟡"
+          ;;
+        "not deployed") icon="⬜" ;;
+        *) icon="❓" ;;
+      esac
+      menu_items+="${icon} ${app_names[$i]}  [${pod_status}]\n"
+    done
+
+    local selected
+    selected=$(printf "%b" "$menu_items" | "$FZF_BIN" \
+      --height=60% --layout=reverse --border \
+      --prompt="Deploy App > " \
+      --header="$(printf '%-4s %-25s %s' 'ST' 'APP' 'POD STATUS')") || true
+
+    [ -z "$selected" ] || [[ "$selected" == "← Back" ]] && return
+
+    # Extrair nome do app (remover ícone e status)
+    local chosen_name
+    chosen_name=$(echo "$selected" | awk '{print $2}')
+
+    # Encontrar índice
+    local idx=-1
+    for i in "${!app_names[@]}"; do
+      [[ "${app_names[$i]}" == "$chosen_name" ]] && idx=$i && break
+    done
+    [ "$idx" -ge 0 ] || continue
+
+    _app_action_menu "${app_names[$idx]}" "${app_dirs[$idx]}" "${app_labels[$idx]}"
+  done
+}
+
 main_menu() {
   ensure_fzf
   
@@ -4091,6 +4263,7 @@ $(t "menu_port_forward")
 $(t "menu_service_config")
 $(t "menu_credentials")
 $(t "menu_components")
+$(t "menu_deploy_apps")
 $(t "menu_dashboard")
 $(printf "$(t "menu_namespace")" "$CURRENT_NS")
 $(t "menu_pod")
@@ -4142,19 +4315,22 @@ $(t "menu_exit")"
         component_management_menu
         ;;
       6)
-        open_dashboard
+        app_deploy_menu
         ;;
       7)
-        select_namespace
+        open_dashboard
         ;;
       8)
-        select_pod
+        select_namespace
         ;;
       9)
+        select_pod
+        ;;
+      10)
         clear
         run_kubectl "get pods -A -o wide" | less -S
         ;;
-      10)
+      11)
         # Node Status - Interactive Menu with fzf
         while true; do
           echo -e "${BLUE}📊 Node Status  (CPU requests: 🟢<75%  🟡75-85%  🔴≥85%)${NC}"
@@ -4357,95 +4533,95 @@ $(t "menu_exit")"
           done
         done
         ;;
-      11)
+      12)
         clear
         ./safe_node_update.sh
         ;;
-      12)
+      13)
         cluster_maintenance_menu
         ;;
-      13)
+      14)
         security_menu # Now includes audit functionality
         ;;
-      14)
+      15)
         backup_menu
         ;;
-      15)
+      16)
         # Volume Manager (T-017)
         source scripts/volume_manager/tui_functions.sh
         manage_volumes
         ;;
-      16)
+      17)
         # Node Maintenance & Hardening
         node_maintenance_menu
         ;;
-      17)
+      18)
         # Kubecost
         source scripts/finops/kubecost_view.sh
         kubecost_menu
         ;;
-      18)
+      19)
         # DeepFlow
         source "$SCRIPT_DIR/scripts/observability/install_deepflow.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      19)
+      20)
         # Uninstall DeepFlow
         source "$SCRIPT_DIR/scripts/observability/uninstall_deepflow.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      20)
+      21)
         # Install Pixie
         source "$SCRIPT_DIR/scripts/observability/install_pixie.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      21)
+      22)
         # Uninstall Pixie
         source "$SCRIPT_DIR/scripts/observability/uninstall_pixie.sh"
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      22)
+      23)
         # Install Coroot
         source "$SCRIPT_DIR/scripts/observability/install_coroot.sh"
         install_coroot
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      23)
+      24)
         # Uninstall Coroot
         source "$SCRIPT_DIR/scripts/observability/uninstall_coroot.sh"
         uninstall_coroot
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      24)
+      25)
         # Install Parca
         source "$SCRIPT_DIR/scripts/observability/install_parca.sh"
         install_parca
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      25)
+      26)
         # Uninstall Parca
         source "$SCRIPT_DIR/scripts/observability/uninstall_parca.sh"
         uninstall_parca
         echo ""
         read -p "$(t "press_enter")"
         ;;
-      26)
-        # Cloud Rescue (Renumbered)
+      27)
+        # Cloud Rescue
         source "$SCRIPT_DIR/lib/oci_wrapper.sh"
         source "$SCRIPT_DIR/scripts/cloud_ops/tui_cloud.sh"
         cloud_ops_menu
         ;;
-      27)
+      28)
         preferences_menu
         ;;
-      28)
+      29)
         # Cluster Health Report (T-102)
         clear
         echo -e "${BLUE}Running health check on master node...${NC}"
@@ -4458,7 +4634,7 @@ $(t "menu_exit")"
         echo ""
         read -p "$(t 'press_enter')"
         ;;
-      29)
+      30)
         catalog_menu
         ;;
 
