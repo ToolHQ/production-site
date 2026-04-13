@@ -17,7 +17,6 @@ IMAGE_LATEST=$REGISTRY/$REPO/$SERVICE:latest
 docker buildx build \
   --builder oci-builder \
   --platform linux/arm64 \
-  --add-host=nexus.localhost:10.0.1.100 \
   --push \
   -t $IMAGE_TAG \
   -t $IMAGE_LATEST \
