@@ -4082,8 +4082,10 @@ show_hardening_menu() {
 _app_get_label() {
   # Extrai o valor do label app: do primeiro yaml em k8s/ (excluindo subpastas minikube)
   local app_dir="$1"
-  find "$app_dir/k8s" -maxdepth 1 -name "*.yaml" 2>/dev/null | head -1 | \
-    xargs grep -m1 "app:" 2>/dev/null | awk '{print $2}' | tr -d '"'
+  local yaml
+  yaml=$(find "$app_dir/k8s" -maxdepth 1 -name "*.yaml" 2>/dev/null | head -1)
+  [ -n "$yaml" ] || return 0
+  grep -m1 "app:" "$yaml" 2>/dev/null | awk '{print $2}' | tr -d '"'
 }
 
 _app_get_status() {
