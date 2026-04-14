@@ -4097,10 +4097,10 @@ _app_get_status() {
   fi
   if [ -z "$app_label" ]; then echo "no-manifest"; return; fi
   local ready
-  ready=$(timeout 5 kubectl get deployment -A -l "app=$app_label" --no-headers 2>/dev/null | awk '{print $3"/"$4}' | head -1)
+  ready=$(timeout 5 kubectl get deployment -A -l "app=$app_label" --no-headers 2>/dev/null | awk '{print $3"/"$4}' | head -1) || true
   if [ -z "$ready" ]; then
     # fallback: procurar pelo nome
-    ready=$(timeout 5 kubectl get deployment -A --no-headers 2>/dev/null | grep "$app_label" | awk '{print $3"/"$4}' | head -1)
+    ready=$(timeout 5 kubectl get deployment -A --no-headers 2>/dev/null | grep "$app_label" | awk '{print $3"/"$4}' | head -1) || true
   fi
   [ -n "$ready" ] && echo "$ready" || echo "not deployed"
 }
