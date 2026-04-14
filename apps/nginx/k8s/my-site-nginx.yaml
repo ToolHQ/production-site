@@ -2,11 +2,16 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
+    cert-manager.io/cluster-issuer: dnor-ca-issuer
     nginx.ingress.kubernetes.io/use-regex: "true"
   name: my-site-ingress
   namespace: default
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - dnor.io
+      secretName: my-site-ingress-tls
   rules:
     - host: dnor.io
       http:
@@ -38,7 +43,7 @@ spec:
         - name: regsecret
       containers:
         - name: my-site-nginx
-          image: registry.local:31444/repository/docker-repo/my-site-nginx:latest
+          image: registry.local:31444/repository/docker-repo/my-site-nginx:1776097074
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

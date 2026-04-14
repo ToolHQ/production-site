@@ -982,6 +982,7 @@ configure_tls_ingress() {
 
     # Patch known Ingresses
     patch_ingress_tls \"kubernetes-dashboard\" \"dashboard-ingress\" \"k8s.dnor.io\" \"k8s-tls\"
+    patch_ingress_tls \"default\" \"my-site-ingress\" \"dnor.io\" \"my-site-ingress-tls\"
     patch_ingress_tls \"longhorn-system\" \"longhorn-ingress\" \"longhorn.dnor.io\"
     patch_ingress_tls \"kube-system\" \"hubble-ingress\" \"hubble.dnor.io\"
     patch_ingress_tls \"minio\" \"minio-ingress\" \"minio.dnor.io\"
