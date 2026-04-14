@@ -48,6 +48,7 @@ actsellistbox=black,cyan
 CURRENT_NS="default"
 CURRENT_POD=""
 FZF_BIN="/tmp/k8s_ops_fzf"
+APP_DEPLOY_LAST_LOG_FILE=""
 
 # --- FZF SETUP (Local) ---
 ensure_fzf() {
@@ -4087,20 +4088,219 @@ _app_get_label() {
 
 _app_get_status() {
   local app_label="$1"
+  local app_kind="${2:-workload}"
+  if [ "$app_kind" = "static" ]; then
+    echo "static/minio"
+    return
+  fi
   if [ -z "$app_label" ]; then echo "no-manifest"; return; fi
   local ready
-  ready=$(kubectl get deployment -A -l "app=$app_label" --no-headers 2>/dev/null | awk '{print $3"/"$4}' | head -1)
+  ready=$(timeout 5 kubectl get deployment -A -l "app=$app_label" --no-headers 2>/dev/null | awk '{print $3"/"$4}' | head -1)
   if [ -z "$ready" ]; then
     # fallback: procurar pelo nome
-    ready=$(kubectl get deployment -A --no-headers 2>/dev/null | grep "$app_label" | awk '{print $3"/"$4}' | head -1)
+    ready=$(timeout 5 kubectl get deployment -A --no-headers 2>/dev/null | grep "$app_label" | awk '{print $3"/"$4}' | head -1)
   fi
   [ -n "$ready" ] && echo "$ready" || echo "not deployed"
+}
+
+_app_deploy_logs_dir() {
+  echo "${TUI_APP_DEPLOY_LOG_DIR:-$SCRIPT_DIR/../logs/tui-app-deploy}"
+}
+
+_app_local_bash() {
+  if [ -x /usr/bin/bash ]; then
+    echo "/usr/bin/bash"
+  elif [ -x /bin/bash ]; then
+    echo "/bin/bash"
+  else
+    echo "bash"
+  fi
+}
+
+_app_slugify() {
+  local value="${1:-unknown}"
+  value=$(echo "$value" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]._-' '-')
+  value="${value#-}"
+  value="${value%-}"
+  [ -n "$value" ] && echo "$value" || echo "unknown"
+}
+
+_app_new_deploy_log_file() {
+  local app_name="$1"
+  local script_name="$2"
+  local logs_dir
+  logs_dir=$(_app_deploy_logs_dir)
+  mkdir -p "$logs_dir"
+  printf "%s/%s_%s_%s.log\n" \
+    "$logs_dir" \
+    "$(date +%Y%m%d_%H%M%S)" \
+    "$(_app_slugify "$app_name")" \
+    "$(_app_slugify "${script_name%.sh}")"
+}
+
+_app_log_line() {
+  local log_file="$1"
+  shift
+  printf '%s\n' "$*" | tee -a "$log_file"
+}
+
+_app_init_deploy_log() {
+  local log_file="$1"
+  local app_name="$2"
+  local app_dir="$3"
+  local deploy_script="$4"
+
+  : > "$log_file"
+  _app_log_line "$log_file" "=== TUI App Deploy Execution Log ==="
+  _app_log_line "$log_file" "Started: $(date -Iseconds)"
+  _app_log_line "$log_file" "App: $app_name"
+  _app_log_line "$log_file" "Directory: $app_dir"
+  _app_log_line "$log_file" "Script: $(basename "$deploy_script")"
+  _app_log_line "$log_file" "Log file: $log_file"
+  _app_log_line "$log_file" "---"
+}
+
+_app_check_oci_builder_logged() {
+  local log_file="$1"
+
+  _app_log_line "$log_file" "Checking docker/buildx builder: oci-builder"
+  if ! command -v docker >/dev/null 2>&1; then
+    _app_log_line "$log_file" "ERROR: docker not found in PATH"
+    return 127
+  fi
+
+  set +e
+  docker buildx inspect oci-builder 2>&1 | tee -a "$log_file"
+  local status=${PIPESTATUS[0]}
+  set -e
+  return "$status"
+}
+
+_app_run_setup_dev_deploy_logged() {
+  local log_file="$1"
+  local setup_script="$SCRIPT_DIR/scripts/setup-dev-deploy.sh"
+  local bash_bin
+  bash_bin=$(_app_local_bash)
+
+  _app_log_line "$log_file" "Running setup helper: $setup_script"
+  set +e
+  "$bash_bin" "$setup_script" 2>&1 | tee -a "$log_file"
+  local status=${PIPESTATUS[0]}
+  set -e
+
+  if [ "$status" -eq 0 ]; then
+    export KUBECONFIG="$SCRIPT_DIR/kubeconfig_tunnel.yaml"
+    _app_log_line "$log_file" "Exported KUBECONFIG=$KUBECONFIG"
+  fi
+
+  return "$status"
+}
+
+_app_run_deploy_logged() {
+  local app_name="$1"
+  local app_dir="$2"
+  local deploy_script="$3"
+  local log_file="$4"
+  local script_name
+  local bash_bin
+  script_name="$(basename "$deploy_script")"
+  bash_bin=$(_app_local_bash)
+
+  _app_log_line "$log_file" "Running deploy command: cd $app_dir && $bash_bin $script_name"
+  _app_log_line "$log_file" "---"
+
+  set +e
+  (
+    cd "$app_dir"
+    "$bash_bin" "$script_name"
+  ) 2>&1 | tee -a "$log_file"
+  local status=${PIPESTATUS[0]}
+  set -e
+
+  _app_log_line "$log_file" "---"
+  _app_log_line "$log_file" "Finished: $(date -Iseconds)"
+  _app_log_line "$log_file" "Exit code: $status"
+
+  return "$status"
+}
+
+_app_has_npm_script() {
+  local app_dir="$1"
+  local script_name="$2"
+  local package_json="$app_dir/package.json"
+
+  [ -f "$package_json" ] || return 1
+  jq -er --arg script_name "$script_name" '.scripts[$script_name] // empty' "$package_json" >/dev/null 2>&1
+}
+
+_app_check_static_prereqs_logged() {
+  local app_dir="$1"
+  local log_file="$2"
+
+  _app_log_line "$log_file" "Checking static deploy prerequisites"
+
+  local cmd
+  local missing=0
+  for cmd in node npm aws jq; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      _app_log_line "$log_file" "OK: $cmd found at $(command -v "$cmd")"
+    else
+      _app_log_line "$log_file" "ERROR: $cmd not found in PATH"
+      missing=1
+    fi
+  done
+
+  if [ ! -f "$app_dir/package.json" ]; then
+    _app_log_line "$log_file" "ERROR: package.json not found in $app_dir"
+    return 1
+  fi
+
+  if ! _app_has_npm_script "$app_dir" "build-and-upload"; then
+    _app_log_line "$log_file" "ERROR: npm script build-and-upload not found in $app_dir/package.json"
+    return 1
+  fi
+
+  if command -v getent >/dev/null 2>&1; then
+    if getent hosts minio.localhost >/dev/null 2>&1; then
+      _app_log_line "$log_file" "OK: minio.localhost resolves locally"
+    else
+      _app_log_line "$log_file" "ERROR: minio.localhost is not resolvable on this host"
+      missing=1
+    fi
+  fi
+
+  [ "$missing" -eq 0 ]
+}
+
+_app_run_npm_script_logged() {
+  local app_name="$1"
+  local app_dir="$2"
+  local script_name="$3"
+  local log_file="$4"
+
+  _app_log_line "$log_file" "Running static deploy command: cd $app_dir && npm run $script_name"
+  _app_log_line "$log_file" "---"
+
+  set +e
+  (
+    cd "$app_dir"
+    npm run "$script_name"
+  ) 2>&1 | tee -a "$log_file"
+  local status=${PIPESTATUS[0]}
+  set -e
+
+  _app_log_line "$log_file" "---"
+  _app_log_line "$log_file" "Finished: $(date -Iseconds)"
+  _app_log_line "$log_file" "Exit code: $status"
+
+  return "$status"
 }
 
 _app_action_menu() {
   local app_name="$1"
   local app_dir="$2"
   local app_label="$3"
+  local app_kind="${4:-workload}"
 
   local deploy_script="$app_dir/deploy.sh"
   [ -f "$deploy_script" ] || deploy_script="$app_dir/publish.sh"
@@ -4108,44 +4308,111 @@ _app_action_menu() {
   while true; do
     # Status atualizado a cada entrada no submenu
     local pod_status
-    pod_status=$(_app_get_status "$app_label")
+    pod_status=$(_app_get_status "$app_label" "$app_kind")
 
-    local actions="🚀 Deploy / Rebuild
+    local actions
+    local header
+    if [ "$app_kind" = "static" ]; then
+      actions="🚀 Build + Upload Static
+📂 Show dist files
+← Back"
+      header="App: $app_name  |  Target: s3://my-site/static/"
+    else
+      actions="🚀 Deploy / Rebuild
 📋 Rollout Status
 📜 View Logs (tail -200)
 🔄 Restart Deployment
 ← Back"
+      header="App: $app_name  |  Pod: $pod_status"
+    fi
 
     local selected
     selected=$(echo "$actions" | "$FZF_BIN" \
       --height=40% --layout=reverse --border \
       --prompt="$app_name > " \
-      --header="App: $app_name  |  Pod: $pod_status") || true
+      --header="$header") || true
     [ -z "$selected" ] && return
 
     case "$selected" in
+      "🚀 Build + Upload Static")
+        local static_log_file
+        static_log_file=$(_app_new_deploy_log_file "$app_name" "build-and-upload")
+        APP_DEPLOY_LAST_LOG_FILE="$static_log_file"
+        _app_init_deploy_log "$static_log_file" "$app_name" "$app_dir" "npm run build-and-upload"
+
+        if ! _app_check_static_prereqs_logged "$app_dir" "$static_log_file"; then
+          echo -e "\n${RED}❌ Static deploy prerequisites failed${NC}"
+          echo -e "${GRAY}Log saved to: $static_log_file${NC}"
+          read -p "$(t "press_enter")"
+          continue
+        fi
+
+        clear
+        echo -e "${CYAN}📦 Building and uploading static assets for $app_name...${NC}"
+        echo -e "${GRAY}Log: $static_log_file${NC}"
+        echo ""
+        if _app_run_npm_script_logged "$app_name" "$app_dir" "build-and-upload" "$static_log_file"; then
+          echo -e "\n${GREEN}✅ Static assets uploaded successfully${NC}"
+        else
+          echo -e "\n${RED}❌ Static deploy failed — check output above${NC}"
+        fi
+        echo -e "${GRAY}Log saved to: $static_log_file${NC}"
+        read -p "$(t "press_enter")"
+        ;;
       "🚀 Deploy / Rebuild")
+        local deploy_log_file
+        deploy_log_file=$(_app_new_deploy_log_file "$app_name" "$(basename "$deploy_script")")
+        APP_DEPLOY_LAST_LOG_FILE="$deploy_log_file"
+        _app_init_deploy_log "$deploy_log_file" "$app_name" "$app_dir" "$deploy_script"
+
         # Verificar oci-builder antes de buildar
-        if ! docker buildx inspect oci-builder &>/dev/null 2>&1; then
+        if ! _app_check_oci_builder_logged "$deploy_log_file"; then
           echo -e "${YELLOW}⚠️  oci-builder não encontrado.${NC}"
+          echo -e "${GRAY}Log: $deploy_log_file${NC}"
           read -p "Executar setup-dev-deploy.sh? [y/N] " yn
+          _app_log_line "$deploy_log_file" "User response to setup-dev-deploy prompt: ${yn:-N}"
           if [[ "$yn" =~ ^[Yy]$ ]]; then
-            source "$SCRIPT_DIR/scripts/setup-dev-deploy.sh"
+            if ! _app_run_setup_dev_deploy_logged "$deploy_log_file"; then
+              echo -e "\n${RED}❌ setup-dev-deploy.sh failed${NC}"
+              echo -e "${GRAY}Log saved to: $deploy_log_file${NC}"
+              read -p "$(t "press_enter")"
+              continue
+            fi
+            if ! _app_check_oci_builder_logged "$deploy_log_file"; then
+              echo -e "\n${RED}❌ oci-builder ainda indisponível após setup${NC}"
+              echo -e "${GRAY}Log saved to: $deploy_log_file${NC}"
+              read -p "$(t "press_enter")"
+              continue
+            fi
           else
+            _app_log_line "$deploy_log_file" "Setup helper skipped by user."
+            echo -e "${GRAY}Log saved to: $deploy_log_file${NC}"
             read -p "$(t "press_enter")"
             continue
           fi
         fi
         clear
         echo -e "${CYAN}🚀 Deploying $app_name...${NC}"
+        echo -e "${GRAY}Log: $deploy_log_file${NC}"
         echo ""
-        pushd "$app_dir" > /dev/null
-        if bash "$(basename "$deploy_script")"; then
+        if _app_run_deploy_logged "$app_name" "$app_dir" "$deploy_script" "$deploy_log_file"; then
           echo -e "\n${GREEN}✅ $app_name deployed successfully${NC}"
         else
           echo -e "\n${RED}❌ Deploy failed — check output above${NC}"
         fi
-        popd > /dev/null
+        echo -e "${GRAY}Log saved to: $deploy_log_file${NC}"
+        read -p "$(t "press_enter")"
+        ;;
+      "📂 Show dist files")
+        clear
+        echo -e "${CYAN}📂 dist/ preview: $app_name${NC}"
+        echo ""
+        if [ -d "$app_dir/dist" ]; then
+          find "$app_dir/dist" -maxdepth 2 -type f | sort | sed -n '1,200p'
+        else
+          echo "dist/ not found yet. Run build/upload first."
+        fi
+        echo ""
         read -p "$(t "press_enter")"
         ;;
       "📋 Rollout Status")
@@ -4183,6 +4450,7 @@ app_deploy_menu() {
     local app_names=()
     local app_dirs=()
     local app_labels=()
+    local app_kinds=()
     for script in "$apps_dir"/*/deploy.sh "$apps_dir"/*/publish.sh; do
       [ -f "$script" ] || continue
       local dir
@@ -4196,10 +4464,27 @@ app_deploy_menu() {
       app_names+=("$name")
       app_dirs+=("$dir")
       app_labels+=("$(_app_get_label "$dir")")
+      app_kinds+=("workload")
+    done
+
+    for package_json in "$apps_dir"/*/package.json; do
+      [ -f "$package_json" ] || continue
+      local dir
+      dir="$(dirname "$package_json")"
+      local name
+      name="$(basename "$dir")"
+      local already=0
+      for n in "${app_names[@]:-}"; do [[ "$n" == "$name" ]] && already=1 && break; done
+      [ "$already" -eq 1 ] && continue
+      _app_has_npm_script "$dir" "build-and-upload" || continue
+      app_names+=("$name")
+      app_dirs+=("$dir")
+      app_labels+=("$(_app_get_label "$dir")")
+      app_kinds+=("static")
     done
 
     if [ ${#app_names[@]} -eq 0 ]; then
-      echo -e "${YELLOW}Nenhum app com deploy.sh encontrado em $apps_dir${NC}"
+      echo -e "${YELLOW}Nenhum app deployável encontrado em $apps_dir${NC}"
       read -p "$(t "press_enter")"
       return
     fi
@@ -4208,18 +4493,23 @@ app_deploy_menu() {
     local menu_items="← Back\n"
     for i in "${!app_names[@]}"; do
       local lbl="${app_labels[$i]:-?}"
+      local kind="${app_kinds[$i]:-workload}"
       local pod_status
-      pod_status=$(_app_get_status "$lbl")
+      pod_status=$(_app_get_status "$lbl" "$kind")
       local icon="⬜"
-      case "$pod_status" in
-        *"/"*)
-          local ready_n="${pod_status%%/*}"
-          local total_n="${pod_status##*/}"
-          [[ "$ready_n" == "$total_n" && "$ready_n" != "0" ]] && icon="🟢" || icon="🟡"
-          ;;
-        "not deployed") icon="⬜" ;;
-        *) icon="❓" ;;
-      esac
+      if [ "$kind" = "static" ]; then
+        icon="📦"
+      else
+        case "$pod_status" in
+          *"/"*)
+            local ready_n="${pod_status%%/*}"
+            local total_n="${pod_status##*/}"
+            [[ "$ready_n" == "$total_n" && "$ready_n" != "0" ]] && icon="🟢" || icon="🟡"
+            ;;
+          "not deployed") icon="⬜" ;;
+          *) icon="❓" ;;
+        esac
+      fi
       menu_items+="${icon} ${app_names[$i]}  [${pod_status}]\n"
     done
 
@@ -4242,7 +4532,7 @@ app_deploy_menu() {
     done
     [ "$idx" -ge 0 ] || continue
 
-    _app_action_menu "${app_names[$idx]}" "${app_dirs[$idx]}" "${app_labels[$idx]}"
+    _app_action_menu "${app_names[$idx]}" "${app_dirs[$idx]}" "${app_labels[$idx]}" "${app_kinds[$idx]}"
   done
 }
 
