@@ -1,5 +1,6 @@
 FROM golang:1.22.3-alpine3.19 AS base
-RUN go install github.com/maxmind/geoipupdate/v7/cmd/geoipupdate@latest
+ENV GEOIPUPDATE_VERSION=7.1.0
+RUN go install github.com/maxmind/geoipupdate/v7/cmd/geoipupdate@v${GEOIPUPDATE_VERSION}
 
 # Based on https://github.com/bubelov/nginx-alpine-geoip2/blob/master/Dockerfile
 FROM alpine:3.19.1
