@@ -1,6 +1,6 @@
 # T-125: Back-End — APM optional + service recovery
 
-- **Status**: 📋 Backlog
+- **Status**: ✅ Done
 - **Priority**: 🚨 Critical
 - **Owner**: DevOps
 - **Est.**: 1h
@@ -66,12 +66,12 @@ a forma semântica correta para dependências opcionais de observabilidade.
 
 ## Tasks
 
-- [ ] Adicionar `optional: true` ao `secretKeyRef` de `ELASTIC_APM_SERVER_TOKEN` em `apps/back-end/k8s/my-site-back-end.yaml`
-- [ ] Adicionar comentário inline no yaml explicando que APM server está desativado (sem Elastic Stack no cluster)
-- [ ] `kubectl apply -f apps/back-end/k8s/my-site-back-end.yaml` e aguardar pod `Running`
-- [ ] Verificar `kubectl logs` — confirmar startup limpo sem APM fatal
-- [ ] Verificar `GET /health` via ingress ou port-forward
-- [ ] Commit + push do manifesto corrigido
+- [x] Adicionar `optional: true` ao `secretKeyRef` de `ELASTIC_APM_SERVER_TOKEN` em `apps/back-end/k8s/my-site-back-end.yaml`
+- [x] Adicionar comentário inline no yaml explicando que APM server está desativado (sem Elastic Stack no cluster)
+- [x] `kubectl apply -f apps/back-end/k8s/my-site-back-end.yaml` e aguardar pod `Running`
+- [x] Verificar `kubectl logs` — confirmar startup limpo sem APM fatal
+- [x] Verificar `GET /health` via ingress ou port-forward
+- [x] Commit + push do manifesto corrigido
 
 ---
 

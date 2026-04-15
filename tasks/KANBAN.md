@@ -26,7 +26,7 @@
 
 |                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
 | :-----------------------------------------------------: | :---------------------------------------------------------------------------------------------------------- | :-------: | :----- | :--: |
-| [T-125](2026/Q2/T-125-Back-End-APM-Optional-and-Service-Recovery.md) | **Back-End: APM optional + service recovery** _(`optional: true` no secretKeyRef — back-end em CreateContainerConfigError 39h+)_ | 🚨 Critical | DevOps | 1h |
+
 | [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(etcd quebrado 53d, GDrive desatualizado 4m, coroot-data 3.9GiB, kubecost 1.3GiB)_ | 🚨 Critical | Infra | 3h |
 | [T-126](2026/Q2/T-126-MinIO-Bucket-Provisioning-IaC.md) | **MinIO: Provisionamento de bucket `my-site` via IaC** _(bucket + policy public-read criados manualmente — perda garantida em re-deploy)_ | 🔼 High | DevOps / Infra | 1h |
 |      [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)       | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
@@ -38,6 +38,7 @@
 
 |                                 ID                                 | Task Name                                                                                 |  Priority   |     Owner      |  Est.  |
 | :----------------------------------------------------------------: | :---------------------------------------------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
+| [T-125](2026/Q2/T-125-Back-End-APM-Optional-and-Service-Recovery.md) | **Back-End: APM optional + service recovery** _(`optional: true` no APM secretKeyRef — back-end Running após 39h em CreateContainerConfigError)_ | 🚨 Critical | DevOps | 1h |
 | [T-123](2026/Q2/T-123-Static-Deploy-Endpoint-Review-and-Env-Unblock.md) | **Static Deploy: endpoint review + env unblock** _(migrar de `minio.localhost` para `minio.dnor.io` — bucket criado + upload validado `dnor.io` HTTP 200)_ | 🚨 Critical | DevOps / TUI | 2h |
 | [T-119](2026/Q2/T-119-TUI-App-Deploy-Execution-Logs.md) | **TUI: App Deploy Execution Logs** _(stream ao vivo + persistencia local no host)_ | 🔼 High | DevOps | 2h |
 |          [T-113](2026/Q2/T-113-Catalog-Deploy-Actions.md)          | **Catalog: Deploy Actions para apps deployable** _(copy cmd, vscode link)_                |  🔽 Medium  |     DevExp     |   3h   |
