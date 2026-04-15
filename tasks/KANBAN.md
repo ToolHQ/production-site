@@ -10,6 +10,7 @@
 
 |                       ID                        | Task Name                                                                 | Priority | Owner | Est. |
 | :---------------------------------------------: | :------------------------------------------------------------------------ | :------: | :---: | :--: |
+| [T-127](2026/Q2/T-127-Backup-Retention-Review-MinIO-vs-GDrive.md) | **Backup Retention Review — MinIO vs GDrive** _(GDrive espelha quase 1:1 o MinIO; retain=7 nao bate com 17-20 backups; revisar Coroot/Kubecost/ETCD)_ | 🚨 Critical | Infra | 3h |
 | [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md) | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_ | 🔼 High | DevOps / TUI | 3h |
 | [T-121](2026/Q2/T-121-My-Site-Ingress-TLS-for-dnor.io.md) | **My Site Ingress: TLS para `dnor.io`** _(cert-manager + trust da CA interna)_ | 🚨 Critical | DevOps | 2h |
 | [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_ | 🚨 Critical | DevOps | 2h |
@@ -26,6 +27,7 @@
 
 |                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
 | :-----------------------------------------------------: | :---------------------------------------------------------------------------------------------------------- | :-------: | :----- | :--: |
+
 
 | [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(etcd quebrado 53d, GDrive desatualizado 4m, coroot-data 3.9GiB, kubecost 1.3GiB)_ | 🚨 Critical | Infra | 3h |
 
