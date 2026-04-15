@@ -25,8 +25,8 @@
 ## 📅 Backlog (To Do)
 
 |                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
-| [T-001](T-001-T-124.md) | **T-124** | Backup Retention Audit & ETCD Recovery | High |  |
 | :-----------------------------------------------------: | :---------------------------------------------------------------------------------------------------------- | :-------: | :----- | :--: |
+| [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(etcd quebrado 53d, GDrive desatualizado 4m, coroot-data 3.9GiB, kubecost 1.3GiB)_ | 🚨 Critical | Infra | 3h |
 |      [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)       | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
 |      [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md)      | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_       | 🔽 Medium | DevOps |  3h  |
 | [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ |  🔼 High  | DevOps |  4h  |
