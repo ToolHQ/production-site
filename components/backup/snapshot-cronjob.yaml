@@ -6,6 +6,10 @@
 # - Schedule: 0 */6 * * * (every 6 hours)
 # - Retention: Keep last 7 snapshots
 # - Target: postgres-data-postgres-0 in postgres namespace
+# Important:
+# - Longhorn exposes these CSI snapshots with `bak://...` handles.
+# - Each retained snapshot therefore creates a Longhorn backup object in backupstore.
+# - This job intentionally gives postgres-primary a denser restore window than `backup-daily`.
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -83,7 +87,7 @@ spec:
                   created-by: "cronjob"
                   pvc-source: "$PVC_NAME"
               spec:
-                volumeSnapshotClassName: longhorn-snapshot-vsc
+                volumeSnapshotClassName: longhorn-snapshot-vsc  # Backup-backed Longhorn CSI snapshots
                 source:
                   persistentVolumeClaimName: $PVC_NAME
               EOF

@@ -13,19 +13,23 @@ echo "💾 Deploying Backup Infrastructure..."
 echo "  - Applying RecurringJob (backup-daily)..."
 kubectl apply -f longhorn-recurring-job.yaml
 
-# 2. Longhorn BackupTarget (MinIO S3)
+# 2. Longhorn Recurring Job (backup-observability-daily)
+echo "  - Applying RecurringJob (backup-observability-daily)..."
+kubectl apply -f longhorn-recurring-job-observability.yaml
+
+# 3. Longhorn BackupTarget (MinIO S3)
 echo "  - Applying BackupTarget (MinIO S3)..."
 kubectl apply -f longhorn-backup-target.yaml
 
-# 3. Postgres Snapshot RBAC
+# 4. Postgres Snapshot RBAC
 echo "  - Applying Snapshot RBAC..."
 kubectl apply -f snapshot-automation-rbac.yaml
 
-# 4. Postgres Snapshot CronJob
+# 5. Postgres Snapshot CronJob
 echo "  - Applying Snapshot CronJob..."
 kubectl apply -f snapshot-cronjob.yaml
 
-# 5. Verify minio-secret exists in longhorn-system
+# 6. Verify minio-secret exists in longhorn-system
 if kubectl get secret minio-secret -n longhorn-system &>/dev/null; then
     echo "  - ✅ minio-secret exists in longhorn-system"
 else
@@ -42,5 +46,8 @@ else
     echo ""
     echo "     See: components/backup/longhorn-backup-secret.template.yaml"
 fi
+
+echo "  - ℹ️  Per-PVC backup groups: components/backup/apply-volume-backup-policy.sh"
+echo "  - ℹ️  Offsite archive install: oci-k8s-cluster/scripts/cloud_ops/install_gdrive_sync.sh"
 
 echo "✅ Backup infrastructure deployed."
