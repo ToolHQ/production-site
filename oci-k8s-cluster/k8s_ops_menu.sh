@@ -4235,6 +4235,48 @@ _app_has_npm_script() {
   jq -er --arg script_name "$script_name" '.scripts[$script_name] // empty' "$package_json" >/dev/null 2>&1
 }
 
+_app_static_upload_endpoint_url() {
+  echo "${STATIC_UPLOAD_ENDPOINT_URL:-https://minio.dnor.io}"
+}
+
+_app_static_upload_endpoint_host() {
+  local endpoint_url
+  local endpoint_host
+
+  endpoint_url=$(_app_static_upload_endpoint_url)
+  endpoint_host="${endpoint_url#*://}"
+  endpoint_host="${endpoint_host%%/*}"
+  endpoint_host="${endpoint_host%%:*}"
+
+  echo "$endpoint_host"
+}
+
+_app_static_ca_bundle() {
+  if [ -n "${AWS_CA_BUNDLE:-}" ]; then
+    echo "$AWS_CA_BUNDLE"
+    return
+  fi
+
+  local default_ca_bundle="$SCRIPT_DIR/dnor-ca-issuer.crt"
+  if [ -f "$default_ca_bundle" ]; then
+    echo "$default_ca_bundle"
+  fi
+}
+
+_app_static_minio_credentials() {
+  if [ -n "${MINIO_ACCESS_KEY:-}" ] && [ -n "${MINIO_SECRET_KEY:-}" ]; then
+    echo "${MINIO_ACCESS_KEY}|${MINIO_SECRET_KEY}"
+    return 0
+  fi
+
+  if [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+    echo "${AWS_ACCESS_KEY_ID}|${AWS_SECRET_ACCESS_KEY}"
+    return 0
+  fi
+
+  minio_get_credentials 2>/dev/null
+}
+
 _app_check_static_prereqs_logged() {
   local app_dir="$1"
   local log_file="$2"
@@ -4243,6 +4285,16 @@ _app_check_static_prereqs_logged() {
 
   local cmd
   local missing=0
+  local endpoint_url
+  local endpoint_host
+  local ca_bundle
+  local minio_creds
+
+  endpoint_url=$(_app_static_upload_endpoint_url)
+  endpoint_host=$(_app_static_upload_endpoint_host)
+  ca_bundle=$(_app_static_ca_bundle)
+  minio_creds=$(_app_static_minio_credentials || true)
+
   for cmd in node npm aws jq; do
     if command -v "$cmd" >/dev/null 2>&1; then
       _app_log_line "$log_file" "OK: $cmd found at $(command -v "$cmd")"
@@ -4262,13 +4314,40 @@ _app_check_static_prereqs_logged() {
     return 1
   fi
 
+  _app_log_line "$log_file" "Static upload endpoint: $endpoint_url"
+
+  if [ -z "$endpoint_host" ]; then
+    _app_log_line "$log_file" "ERROR: could not determine host from static upload endpoint"
+    missing=1
+  fi
+
   if command -v getent >/dev/null 2>&1; then
-    if getent hosts minio.localhost >/dev/null 2>&1; then
-      _app_log_line "$log_file" "OK: minio.localhost resolves locally"
+    if getent hosts "$endpoint_host" >/dev/null 2>&1; then
+      _app_log_line "$log_file" "OK: $endpoint_host resolves locally"
     else
-      _app_log_line "$log_file" "ERROR: minio.localhost is not resolvable on this host"
+      _app_log_line "$log_file" "ERROR: $endpoint_host is not resolvable on this host"
       missing=1
     fi
+  fi
+
+  case "$endpoint_url" in
+    https://*)
+      if [ -n "${AWS_CA_BUNDLE:-}" ] && [ ! -f "${AWS_CA_BUNDLE}" ]; then
+        _app_log_line "$log_file" "ERROR: AWS_CA_BUNDLE points to a missing file: ${AWS_CA_BUNDLE}"
+        missing=1
+      elif [ -n "$ca_bundle" ]; then
+        _app_log_line "$log_file" "OK: CA bundle available at $ca_bundle"
+      else
+        _app_log_line "$log_file" "WARN: no CA bundle configured for HTTPS endpoint; host trust must already be installed"
+      fi
+      ;;
+  esac
+
+  if [ -n "$minio_creds" ]; then
+    _app_log_line "$log_file" "OK: MinIO credentials available for static upload"
+  else
+    _app_log_line "$log_file" "ERROR: could not resolve MinIO credentials for static upload"
+    missing=1
   fi
 
   [ "$missing" -eq 0 ]
@@ -4279,13 +4358,33 @@ _app_run_npm_script_logged() {
   local app_dir="$2"
   local script_name="$3"
   local log_file="$4"
+  local minio_creds
+  local minio_access_key
+  local minio_secret_key
 
   _app_log_line "$log_file" "Running static deploy command: cd $app_dir && npm run $script_name"
   _app_log_line "$log_file" "---"
 
+  minio_creds=$(_app_static_minio_credentials || true)
+  if [ -z "$minio_creds" ]; then
+    _app_log_line "$log_file" "ERROR: could not resolve MinIO credentials for static upload"
+    _app_log_line "$log_file" "---"
+    _app_log_line "$log_file" "Finished: $(date -Iseconds)"
+    _app_log_line "$log_file" "Exit code: 1"
+    return 1
+  fi
+
+  minio_access_key="${minio_creds%%|*}"
+  minio_secret_key="${minio_creds#*|}"
+
   set +e
   (
     cd "$app_dir"
+    export MINIO_ACCESS_KEY="$minio_access_key"
+    export MINIO_SECRET_KEY="$minio_secret_key"
+    export AWS_ACCESS_KEY_ID="$minio_access_key"
+    export AWS_SECRET_ACCESS_KEY="$minio_secret_key"
+    unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_SESSION_TOKEN
     npm run "$script_name"
   ) 2>&1 | tee -a "$log_file"
   local status=${PIPESTATUS[0]}
