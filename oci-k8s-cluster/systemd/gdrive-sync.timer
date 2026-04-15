@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Google Drive Backup Sync after Longhorn backup windows
+Requires=gdrive-sync.service
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+AccuracySec=15min
+
+[Install]
+WantedBy=timers.target

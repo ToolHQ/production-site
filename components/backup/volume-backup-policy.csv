@@ -1,0 +1,9 @@
+# namespace,pvc,recurring_group,notes
+postgres,postgres-data-postgres-0,default,Primary also has 6h backup-backed VolumeSnapshots.
+postgres,postgres-data-postgres-1,default,Replica keeps daily Longhorn backups.
+nexus,nexus-pvc,default,Registry state is operationally important.
+coroot,coroot-data,observability,Observability state can be shortened safely.
+coroot,coroot-prometheus-server,observability,Regenerable metrics data.
+coroot,data-coroot-clickhouse-shard0-0,observability,Regenerable observability store.
+kubecost,kubecost-prometheus-server,observability,Cost telemetry is non-critical.
+kubecost,kubecost-cost-analyzer,observability,Cost telemetry is non-critical.

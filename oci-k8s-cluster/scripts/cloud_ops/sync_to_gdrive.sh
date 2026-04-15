@@ -1,49 +1,78 @@
 #!/bin/bash
-# Sync K8s Backups from Minio (Host Mount) to Google Drive
-# Running via Systemd Timer
+# Sync K8s backups from MinIO on the master node to Google Drive.
+# Runs via systemd timer on the master and is safe to execute manually.
 
-set -e
+set -euo pipefail
 
-BACKUP_SRC="/data/minio/k8s-backups"
-BACKUP_DEST="gdrive:/k8s-backups"
-LOG_FILE="/var/log/gdrive-sync.log"
+BACKUP_ROOT="${BACKUP_ROOT:-/data/minio/k8s-backups}"
+BACKUP_DEST="${BACKUP_DEST:-gdrive:k8s-backups}"
+BACKUPSTORE_DIR="${BACKUPSTORE_DIR:-$BACKUP_ROOT/backupstore}"
+ETCD_DIR="${ETCD_DIR:-$BACKUP_ROOT/etcd}"
+LOG_FILE="${LOG_FILE:-/var/log/gdrive-sync.log}"
+LOCK_FILE="${LOCK_FILE:-/var/lock/gdrive-sync.lock}"
 
-LOG_FILE="./gdrive-sync.log"
+RCLONE_BIN="${RCLONE_BIN:-rclone}"
+TRANSFERS="${TRANSFERS:-4}"
+CHECKERS="${CHECKERS:-8}"
+BWLIMIT="${BWLIMIT:-5M}"
+RCLONE_RETRIES="${RCLONE_RETRIES:-3}"
+RCLONE_LOW_LEVEL_RETRIES="${RCLONE_LOW_LEVEL_RETRIES:-10}"
+ETCD_REMOTE_RETENTION_DAYS="${ETCD_REMOTE_RETENTION_DAYS:-30}"
+ETCD_LOCAL_RETENTION_DAYS="${ETCD_LOCAL_RETENTION_DAYS:-7}"
 
-echo "$(date '+%Y-%m-%d %H:%M:%S'): Starting Backup Routine..." >> "$LOG_FILE"
+mkdir -p "$(dirname "$LOG_FILE")"
+mkdir -p "$(dirname "$LOCK_FILE")"
 
-# ---------------------------------------------------------
-# 1. MIRROR STRATEGY (Longhorn, Nexus)
-# Integrity is priority. GDrive reflects Minio exactly.
-# Exclude 'etcd' because we want to treat it differently (Archive).
-# ---------------------------------------------------------
-echo "$(date '+%Y-%m-%d %H:%M:%S'): [Job 1/3] Syncing General Backups (Longhorn/Nexus)..." >> "$LOG_FILE"
-rclone sync "$BACKUP_SRC" "$BACKUP_DEST" \
-    --exclude "/etcd/**" \
-    --transfers=4 \
-    --checkers=8 \
-    --bwlimit=5M \
-    >> "$LOG_FILE" 2>&1
+log() {
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "$timestamp: $*" | tee -a "$LOG_FILE"
+}
 
-# ---------------------------------------------------------
-# 2. ARCHIVE STRATEGY (Etcd)
-# We want longer history on Cloud (30d) vs Local (7d).
-# ---------------------------------------------------------
-echo "$(date '+%Y-%m-%d %H:%M:%S'): [Job 2/3] Archiving Etcd (Copy + Cloud Retention)..." >> "$LOG_FILE"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+    log "Another gdrive sync run is already active. Exiting."
+    exit 0
+fi
 
-# Step A: Copy new files (Do NOT delete anything on GDrive yet)
-rclone copy "$BACKUP_SRC/etcd" "$BACKUP_DEST/etcd" >> "$LOG_FILE" 2>&1
+common_rclone_args=(
+    "--transfers=${TRANSFERS}"
+    "--checkers=${CHECKERS}"
+    "--bwlimit=${BWLIMIT}"
+    "--retries=${RCLONE_RETRIES}"
+    "--low-level-retries=${RCLONE_LOW_LEVEL_RETRIES}"
+)
 
-# Step B: Apply Cloud Retention (Delete GDrive files older than 30 days)
-echo "$(date '+%Y-%m-%d %H:%M:%S'): [Policy] Pruning GDrive Etcd > 30 days..." >> "$LOG_FILE"
-rclone delete "$BACKUP_DEST/etcd" --min-age 30d >> "$LOG_FILE" 2>&1
+run_rclone_copy() {
+    local source_path="$1"
+    local destination_path="$2"
 
-# ---------------------------------------------------------
-# 3. LOCAL CLEANUP (Free up Minio Space)
-# ---------------------------------------------------------
-echo "$(date '+%Y-%m-%d %H:%M:%S'): [Job 3/3] Pruning Local Etcd > 7 days..." >> "$LOG_FILE"
-# Only delete if we successfully uploaded (rclone exit code 0 preferred, but 'set -e' handles failures above)
-# Finding and deleting local Etcd snapshots older than 7 days
-find "$BACKUP_SRC/etcd" -type f -name "etcd-*.db" -mtime +7 -exec rm -v {} \; >> "$LOG_FILE" 2>&1
+    "$RCLONE_BIN" copy "$source_path" "$destination_path" "${common_rclone_args[@]}" >> "$LOG_FILE" 2>&1
+}
 
-echo "$(date '+%Y-%m-%d %H:%M:%S'): Backup Routine Complete." >> "$LOG_FILE"
+log "Starting backup archive sync."
+
+if [[ -d "$BACKUPSTORE_DIR" ]]; then
+    log "[Job 1/3] Archiving Longhorn backupstore to Google Drive (append-only)."
+    # Longhorn backupstore is block-deduplicated. We archive with copy semantics and
+    # avoid remote deletes so the offsite copy can serve as a longer-lived archive.
+    run_rclone_copy "$BACKUPSTORE_DIR" "${BACKUP_DEST}/backupstore"
+else
+    log "[Job 1/3] Skipped: ${BACKUPSTORE_DIR} not found."
+fi
+
+if [[ -d "$ETCD_DIR" ]]; then
+    log "[Job 2/3] Archiving etcd snapshots to Google Drive."
+    run_rclone_copy "$ETCD_DIR" "${BACKUP_DEST}/etcd"
+
+    log "[Policy] Pruning Google Drive etcd snapshots older than ${ETCD_REMOTE_RETENTION_DAYS} days."
+    "$RCLONE_BIN" delete "${BACKUP_DEST}/etcd" --min-age "${ETCD_REMOTE_RETENTION_DAYS}d" >> "$LOG_FILE" 2>&1
+
+    log "[Job 3/3] Pruning local etcd snapshots older than ${ETCD_LOCAL_RETENTION_DAYS} days."
+    find "$ETCD_DIR" -type f -name 'etcd-*.db' -mtime "+${ETCD_LOCAL_RETENTION_DAYS}" -print -delete >> "$LOG_FILE" 2>&1
+else
+    log "[Job 2/3] Skipped: ${ETCD_DIR} not found."
+    log "[Job 3/3] Skipped: ${ETCD_DIR} not found."
+fi
+
+log "Backup archive sync complete."
