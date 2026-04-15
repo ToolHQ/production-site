@@ -25,7 +25,7 @@
 ## 📅 Backlog (To Do)
 
 |                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
-| [T-123](2026/Q2/T-123-Static-Deploy-Endpoint-Review-and-Env-Unblock.md) | **Static Deploy: endpoint review + env unblock** _(migrar de `minio.localhost` para `minio.dnor.io`)_ | 🚨 Critical | DevOps / TUI | 2h |
+| [T-001](T-001-T-124.md) | **T-124** | Backup Retention Audit & ETCD Recovery | High |  |
 | :-----------------------------------------------------: | :---------------------------------------------------------------------------------------------------------- | :-------: | :----- | :--: |
 |      [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)       | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
 |      [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md)      | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_       | 🔽 Medium | DevOps |  3h  |
@@ -36,6 +36,7 @@
 
 |                                 ID                                 | Task Name                                                                                 |  Priority   |     Owner      |  Est.  |
 | :----------------------------------------------------------------: | :---------------------------------------------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
+| [T-123](2026/Q2/T-123-Static-Deploy-Endpoint-Review-and-Env-Unblock.md) | **Static Deploy: endpoint review + env unblock** _(migrar de `minio.localhost` para `minio.dnor.io` — bucket criado + upload validado `dnor.io` HTTP 200)_ | 🚨 Critical | DevOps / TUI | 2h |
 | [T-119](2026/Q2/T-119-TUI-App-Deploy-Execution-Logs.md) | **TUI: App Deploy Execution Logs** _(stream ao vivo + persistencia local no host)_ | 🔼 High | DevOps | 2h |
 |          [T-113](2026/Q2/T-113-Catalog-Deploy-Actions.md)          | **Catalog: Deploy Actions para apps deployable** _(copy cmd, vscode link)_                |  🔽 Medium  |     DevExp     |   3h   |
 |  [T-112](2026/Q2/T-112-Catalog-Namespace-And-ClusterOnly-Fix.md)   | **Catalog: Namespace extraction fix & cluster-only zero** _(chain-repair → cert-manager)_ |  🔽 Medium  |     DevExp     |   2h   |

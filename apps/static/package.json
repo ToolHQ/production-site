@@ -2,7 +2,7 @@
   "name": "static",
   "version": "1.0.0",
   "scripts": {
-    "upload": "aws --endpoint-url http://minio.localhost s3 sync --delete ./dist s3://my-site/static/",
+    "upload": "sh ./upload.sh dist",
     "copy-assets": "cp *.css dist/ && cp *.html dist/ && cp *.ico dist/",
     "ts-build": "tsc && npm run copy-assets",
     "ts-build-and-upload": "npm run ts-build && npm run upload",

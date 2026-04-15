@@ -79,6 +79,8 @@ default|kubernetes|https:443,"
 
 @test "_app_run_npm_script_logged: streams output and persists npm script execution" {
     export TUI_APP_DEPLOY_LOG_DIR="$BATS_TEST_TMPDIR/tui-app-deploy"
+    export MINIO_ACCESS_KEY="test-access"
+    export MINIO_SECRET_KEY="test-secret"
     local app_dir="$BATS_TEST_TMPDIR/apps/static"
     mkdir -p "$app_dir" "$BATS_TEST_TMPDIR/bin"
 
@@ -115,5 +117,60 @@ EOF
     run grep -F "static upload ok" "$log_file"
     assert_success
     run grep -F "Exit code: 0" "$log_file"
+    assert_success
+}
+
+@test "_app_check_static_prereqs_logged: validates real MinIO endpoint and CA bundle" {
+    export TUI_APP_DEPLOY_LOG_DIR="$BATS_TEST_TMPDIR/tui-app-deploy"
+    export STATIC_UPLOAD_ENDPOINT_URL="https://minio.dnor.io"
+    export AWS_CA_BUNDLE="$BATS_TEST_TMPDIR/dnor-ca.crt"
+    export MINIO_ACCESS_KEY="test-access"
+    export MINIO_SECRET_KEY="test-secret"
+    touch "$AWS_CA_BUNDLE"
+
+    local app_dir="$BATS_TEST_TMPDIR/apps/static"
+    mkdir -p "$app_dir" "$BATS_TEST_TMPDIR/bin"
+
+    cat > "$app_dir/package.json" <<'EOF'
+{
+  "scripts": {
+    "build-and-upload": "echo noop"
+  }
+}
+EOF
+
+    for cmd in node npm aws jq; do
+        cat > "$BATS_TEST_TMPDIR/bin/$cmd" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+        chmod +x "$BATS_TEST_TMPDIR/bin/$cmd"
+    done
+
+    cat > "$BATS_TEST_TMPDIR/bin/getent" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = "hosts" ] && [ "$2" = "minio.dnor.io" ]; then
+  echo "10.0.1.100 minio.dnor.io"
+  exit 0
+fi
+exit 1
+EOF
+    chmod +x "$BATS_TEST_TMPDIR/bin/getent"
+    export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+
+    local log_file
+    log_file=$(_app_new_deploy_log_file "static" "build-and-upload")
+    _app_init_deploy_log "$log_file" "static" "$app_dir" "npm run build-and-upload" >/dev/null
+
+    run _app_check_static_prereqs_logged "$app_dir" "$log_file"
+
+    assert_success
+    run grep -F "Static upload endpoint: https://minio.dnor.io" "$log_file"
+    assert_success
+    run grep -F "OK: minio.dnor.io resolves locally" "$log_file"
+    assert_success
+    run grep -F "OK: CA bundle available at $AWS_CA_BUNDLE" "$log_file"
+    assert_success
+    run grep -F "OK: MinIO credentials available for static upload" "$log_file"
     assert_success
 }
