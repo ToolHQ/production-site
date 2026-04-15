@@ -221,3 +221,49 @@ spec:
                 port:
                   number: 9001
             pathType: Prefix
+---
+# Idempotent bootstrap: creates bucket 'my-site' and sets public-read on static/*
+# Re-run safely: mc mb --ignore-existing and mc anonymous set are idempotent
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-bootstrap-buckets
+  namespace: minio
+  annotations:
+    description: "Provisionamento idempotente do bucket my-site com policy public-read em static/*"
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mc alias set local http://minio-service.minio.svc.cluster.local:9000 \
+                "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && \
+              mc mb --ignore-existing local/my-site && \
+              mc anonymous set download local/my-site/static/ && \
+              echo "Bootstrap complete."
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_PASSWORD
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

@@ -1,6 +1,6 @@
 # T-126: MinIO — Provisionamento de Bucket `my-site` via IaC
 
-- **Status**: 📋 Backlog
+- **Status**: ✅ Done
 - **Priority**: 🔼 High
 - **Owner**: DevOps / Infra
 - **Est.**: 1h
@@ -70,12 +70,26 @@ escopo desta task — são cobertos por T-124 (backup retention audit).
 
 ## Tasks
 
-- [ ] Decidir mecanismo: Job pós-deploy vs InitContainer no minio-deployment vs script idempotente manual incluso no TUI
-- [ ] Implementar Job de bootstrap do bucket `my-site` usando secret `minio-secret` existente
-- [ ] Aplicar a policy public-read em `s3://my-site/static/*` no mesmo Job
-- [ ] Testar re-execução (idempotência: sem erros em bucket/policy já existentes)
-- [ ] Documentar o padrão em `components/minio/` para reuso em novos buckets
-- [ ] Commit + push
+- [x] Decidir mecanismo: **Job pós-deploy** com imagem `minio/mc:latest`
+- [x] Implementar Job de bootstrap do bucket `my-site` usando secret `minio-secret` existente
+- [x] Aplicar a policy public-read em `s3://my-site/static/*` no mesmo Job
+- [x] Testar re-execução (idempotência: sem erros em bucket/policy já existentes)
+- [x] Documentar o padrão em `components/minio/` para reuso em novos buckets
+- [x] Commit + push
+
+## Resultado
+
+- Job `minio-bootstrap-buckets` adicionado ao fim de `components/minio/minio-resources.yaml`
+- Executado com sucesso em 2026-04-15:
+  ```
+  Added `local` successfully.
+  Bucket created successfully `local/my-site`.
+  Access permission for `local/my-site/static/` is set to `download`
+  Bootstrap complete.
+  ```
+- `ttlSecondsAfterFinished: 300` — Job removido automaticamente após 5 min
+- `mc mb --ignore-existing` + `mc anonymous set download` garantem idempotência
+- Credenciais via `secretKeyRef` no `minio-secret` existente (sem hardcode)
 
 ---
 
