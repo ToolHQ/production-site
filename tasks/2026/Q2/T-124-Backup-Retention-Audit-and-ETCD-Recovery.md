@@ -1,6 +1,6 @@
 # T-124: Backup Retention Audit & ETCD Recovery
 
-- **Status**: In Progress
+- **Status**: In Progress (ETCD local + MinIO path recovered; off-site freshness still pending)
 - **Priority**: 🚨 Critical
 - **Owner**: Infra
 - **Est.**: 3h
@@ -125,6 +125,15 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
   - namespaces `ingress-nginx` e `minio` ficaram sem pods `Failed` remanescentes;
   - o `kubecost-prometheus-server` exigiu limpeza manual de um attachment órfão do Longhorn (`attachmentTickets[""]` do tipo `longhorn-api`) antes de voltar a anexar o PVC em `k8s-node-2`.
 
+### Update 2026-04-18 — ETCD path back online
+
+- O CronJob voltou a produzir snapshot local no master: `/var/backup/etcd/etcd-20260418-180018.db`.
+- O run `etcd-backup-29608920` concluiu com sucesso e o objeto correspondente apareceu no MinIO em
+  `k8s-backups/etcd/etcd-20260418-180018.db`.
+- O job `etcd-backup-29604240` permanece apenas como histórico falho anterior; nao representa backlog ativo.
+- O `gdrive-sync.timer` esta habilitado e aguardando a proxima janela em `2026-04-19 03:30 UTC`.
+  A validacao off-site continua sendo o gate final de fechamento da task.
+
 ---
 
 ## Tasks
@@ -143,7 +152,7 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
 - [x] **1.4** Validar: executar job manualmente e confirmar upload no MinIO
 - [x] **1.5** Atualizar `components/backup/etcd-backup-cronjob.yaml` com a correção
 - [x] **1.6** Corrigir backlog guard do CronJob e reduzir staging local para rootfs apertado
-- [/] **1.7** Restaurar novo run bem-sucedido após o master sair de `DiskPressure`
+- [x] **1.7** Restaurar novo run bem-sucedido após o master sair de `DiskPressure`
 
 ### 🟡 Fase 2 — GDrive Sync Recovery
 
@@ -175,7 +184,7 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
 
 - [ ] **4.1** Confirmar tamanho total MinIO após limpeza (target: < 8 GiB em k8s-backups)
 - [ ] **4.2** Confirmar GDrive sync funcionando com conteúdo recente
-- [ ] **4.3** Confirmar etcd backup com arquivo no MinIO `k8s-backups/etcd/`
+- [x] **4.3** Confirmar etcd backup com arquivo no MinIO `k8s-backups/etcd/`
 - [ ] **4.4** Atualizar KANBAN.md com task concluída
 
 ---

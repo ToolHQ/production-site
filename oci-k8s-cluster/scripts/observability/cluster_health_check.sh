@@ -109,19 +109,30 @@ done < <(kubectl get volume.longhorn.io -n longhorn-system \
 (( bad_deg == 0 )) && report_ok "No attached Longhorn volumes degraded"
 
 # 1.1e  VolumeAttachments stuck attaching > 30 min
-# Uses VolumeAttachment creationTimestamp — avoids stateless limitation
+# Require an unattached VolumeAttachment, no deletion in progress, and the
+# corresponding Longhorn volume still in state=attaching.
 THRESH_ATTACH=1800
 bad_attach=0
-while IFS=$'\t' read -r va_name created attached; do
-    [[ -z "$created" ]] && continue
+declare -A LONGHORN_VOLUME_STATE=()
+while IFS=$'\t' read -r volume_name volume_state; do
+    [[ -z "$volume_name" ]] && continue
+    LONGHORN_VOLUME_STATE["$volume_name"]="$volume_state"
+done < <(kubectl get volume.longhorn.io -n longhorn-system \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.state}{"\n"}{end}' \
+    2>/dev/null || true)
+
+while IFS=$'\t' read -r va_name created attached deleting volume_name; do
+    [[ -z "$created" || -z "$volume_name" ]] && continue
     [[ "$attached" == "true" ]] && continue
+    [[ -n "$deleting" ]] && continue
+    [[ "${LONGHORN_VOLUME_STATE[$volume_name]:-unknown}" != "attaching" ]] && continue
     age=$(age_seconds "$created") || continue
     if (( age > THRESH_ATTACH )); then
-        report_crit "VolumeAttachment $va_name: stuck attaching for $(fmt_age $age) (>30m)"
+        report_crit "VolumeAttachment $va_name: volume=$volume_name stuck attaching for $(fmt_age $age) (>30m)"
         (( bad_attach++ )) || true
     fi
 done < <(kubectl get volumeattachment \
-    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\t"}{.status.attached}{"\n"}{end}' \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\t"}{.status.attached}{"\t"}{.metadata.deletionTimestamp}{"\t"}{.spec.source.persistentVolumeName}{"\n"}{end}' \
     2>/dev/null || true)
 (( bad_attach == 0 )) && report_ok "No VolumeAttachments stuck attaching (>30m)"
 
@@ -133,6 +144,7 @@ section "Pod Stuck Detection"
 THRESH_STUCK=7200   # 2h  — ContainerCreating / Pending / Init:*
 THRESH_ERROR=1800   # 30m — Error state (terminated.finishedAt)
 THRESH_RESTART=20   # cumulative restart count proxy for CrashLoop
+THRESH_RESTART_ACTIVE=86400  # 24h — ignore historical lifetime restarts with no recent churn
 
 stuck=0; crashloop=0
 
@@ -185,18 +197,27 @@ done < <(kubectl get pods -A \
     2>/dev/null | grep -v $'\t$' || true)
 (( err_pods == 0 )) && report_ok "No pods in Error/terminated state (>30m)"
 
-# CrashLoop proxy: restartCount > 20 (kubectl only exposes cumulative count)
-while IFS=$'\t' read -r ns pod restarts created; do
+# CrashLoop proxy: restartCount > 20 plus active recent restart activity
+while IFS=$'\t' read -r ns pod phase ready restarts last_finished created; do
     [[ -z "$restarts" || "$restarts" == "0" ]] && continue
-    if (( restarts > THRESH_RESTART )); then
-        age=$(age_seconds "$created" 2>/dev/null) && age_str="age=$(fmt_age $age)" || age_str=""
-        report_warn "pod $ns/$pod: restartCount=$restarts >20 (CrashLoop proxy; $age_str)"
+    (( restarts > THRESH_RESTART )) || continue
+
+    if [[ "$phase" != "Running" || "$ready" != "true" ]]; then
+        report_warn "pod $ns/$pod: restartCount=$restarts >20 (CrashLoop proxy; phase=$phase ready=$ready)"
+        (( crashloop++ )) || true
+        continue
+    fi
+
+    [[ -n "$last_finished" ]] || continue
+    age=$(age_seconds "$last_finished" 2>/dev/null) || continue
+    if (( age <= THRESH_RESTART_ACTIVE )); then
+        report_warn "pod $ns/$pod: restartCount=$restarts >20 (last restart $(fmt_age $age) ago)"
         (( crashloop++ )) || true
     fi
 done < <(kubectl get pods -A \
-    -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.status.containerStatuses[0].restartCount}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' \
+    -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.status.containerStatuses[0].ready}{"\t"}{.status.containerStatuses[0].restartCount}{"\t"}{.status.containerStatuses[0].lastState.terminated.finishedAt}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' \
     2>/dev/null || true)
-(( crashloop == 0 )) && report_ok "No pods with excessive restarts (>20)"
+(( crashloop == 0 )) && report_ok "No pods with recent excessive restarts (>20)"
 
 # ══════════════════════════════════════════════════════════════════════════
 # 1.3  CPU HEADROOM PER NODE
