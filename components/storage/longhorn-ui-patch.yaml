@@ -1,13 +1,12 @@
-
 spec:
   template:
     spec:
       containers:
-      - name: longhorn-ui
-        resources:
-          requests:
-            cpu: 25m   # was 50m — UI only, not data path (T-103)
-            memory: 64Mi
-          limits:
-            cpu: 150m
-            memory: 128Mi
+        - name: longhorn-ui
+          resources:
+            requests:
+              cpu: 10m # was 50m, then 15-25m — UI only, not data path (T-103)
+              memory: 64Mi
+            limits:
+              cpu: 150m
+              memory: 128Mi

@@ -15,11 +15,11 @@ CPU requests with no room for the instance-manager.
 
 ## Thresholds
 
-| Level | Node CPU Requests | Action |
-|:---:|:---|:---|
-| 🟢 Green | < 75% (< 600m on 800m nodes) | Healthy — no action |
-| 🟡 Yellow | 75–87.5% (600m–700m) | Warning — review recent workload changes |
-| 🔴 Red | > 87.5% (> 700m, i.e., < 100m free) | **Block new deployments** — immediate right-sizing required |
+|   Level   | Node CPU Requests                   | Action                                                      |
+| :-------: | :---------------------------------- | :---------------------------------------------------------- |
+| 🟢 Green  | < 75% (< 600m on 800m nodes)        | Healthy — no action                                         |
+| 🟡 Yellow | 75–87.5% (600m–700m)                | Warning — review recent workload changes                    |
+|  🔴 Red   | > 87.5% (> 700m, i.e., < 100m free) | **Block new deployments** — immediate right-sizing required |
 
 > The 75%/85% thresholds represent the ideal long-term target. 87.5% (= 700m on 800m nodes)
 > is the pragmatic enforcement boundary enforcing the 100m floor.
@@ -28,22 +28,23 @@ CPU requests with no room for the instance-manager.
 
 All worker nodes (k8s-node-1/2/3) and master: **800m allocatable CPU**.
 
-| State | Requests Used | Free | Status |
-|:---|:---|:---|:---:|
-| Green | ≤ 600m | ≥ 200m | 🟢 |
-| Yellow | 601–700m | 100–199m | 🟡 |
-| Red | > 700m | < 100m | 🔴 |
+| State  | Requests Used | Free     | Status |
+| :----- | :------------ | :------- | :----: |
+| Green  | ≤ 600m        | ≥ 200m   |   🟢   |
+| Yellow | 601–700m      | 100–199m |   🟡   |
+| Red    | > 700m        | < 100m   |   🔴   |
 
-## Current Baseline (2026-04-04, post T-103 Phase 2)
+## Current Baseline (2026-04-18, post recovery pass)
 
-| Node | CPU Requests | Free | Status |
-|:---|:---|:---|:---:|
-| k8s-master | ~665m (83%) | ~135m | 🟡 |
-| k8s-node-1 | ~697m (87%) | ~103m | 🟡 |
-| k8s-node-2 | ~660m (82%) | ~140m | 🟡 |
-| k8s-node-3 | ~645m (80%) | ~155m | 🟡 |
+| Node       | CPU Requests | Free | Status |
+| :--------- | :----------- | :--- | :----: |
+| k8s-master | 665m (83%)   | 135m |   🟡   |
+| k8s-node-1 | 667m (83%)   | 133m |   🟡   |
+| k8s-node-2 | 660m (82%)   | 140m |   🟡   |
+| k8s-node-3 | 650m (81%)   | 150m |   🟡   |
 
-All nodes are in the Yellow band — meeting the 100m floor requirement.
+All nodes are in the Yellow band and above the 100m floor requirement after the 2026-04-18
+recovery pass.
 
 ## Enforcement
 
@@ -56,6 +57,7 @@ All nodes are in the Yellow band — meeting the 100m floor requirement.
 ## Right-Sizing Process
 
 When a node enters 🔴:
+
 1. Run `kubectl top pods -A --sort-by=cpu` to find top consumers.
 2. Compare requests vs actual in Coroot (or via the T-100 audit script).
 3. For any pod where `request > actual_p99 × 1.5`, reduce the request in the component YAML.

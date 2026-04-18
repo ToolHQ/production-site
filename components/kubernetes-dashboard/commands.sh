@@ -13,6 +13,14 @@ helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dash
   --values values.yaml \
   --wait
 
+for patch in dashboard-api-patch.yaml dashboard-web-patch.yaml dashboard-metrics-scraper-patch.yaml; do
+  if [ -f "$patch" ]; then
+    target="${patch%-patch.yaml}"
+    kubectl -n kubernetes-dashboard patch deployment "$target" --patch-file "$patch"
+    echo "  - Patched $target"
+  fi
+done
+
 echo "✅ Dashboard deployed."
 
 # Ensure admin token
