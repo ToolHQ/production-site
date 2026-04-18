@@ -1,6 +1,6 @@
 # T-129: Observability Report Modularization and API Readiness
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: DevExp / Infra
 - **Est.**: 6h
@@ -41,53 +41,64 @@ Revisar e redesenhar os relatórios para funções bem encapsuladas, testáveis 
 - Filosofia `Stability First`: sem reinventar tudo, sem over-engineering e sem serviços pesados.
 - A TUI atual continua sendo uma interface operacional útil e não deve ser quebrada durante a transição.
 
+### Update 2026-04-18 — Deliverable concluído
+
+- Foi produzido o ADR `oci-k8s-cluster/docs/OBSERVABILITY_API_MIGRATION_ADR.md` com:
+  - mapa atual dos entrypoints e acoplamentos
+  - fronteiras por camada (`collect -> normalize -> evaluate -> render -> serve`)
+  - contratos canônicos para `health-report` e `inventory-catalog`
+  - estratégia de testes por fixtures e regressão
+  - comparação de runtime (`shell`, `Python`, `Node`, `Go`)
+  - recomendação de thin slice: collectors shell + backend Python leve + SPA estática
+  - rollout incremental preservando a TUI
+
 ---
 
 ## Tasks
 
 ### Fase 1 — mapear a arquitetura atual
 
-- [/] Levantar entrypoints, responsabilidades e acoplamentos em `cluster_health_check.sh`, `generate_catalog.sh`, `generate_inventory_report.sh` e `k8s_ops_menu.sh`.
-- [ ] Classificar cada trecho em: collector, normalizer, rules engine, renderer, transport, cache/snapshot e glue de TUI.
-- [ ] Identificar dependências escondidas: `ssh`, `kubectl`, `jq`, diretórios de report, links `latest-*`, cores ANSI e assumptions de ambiente.
-- [ ] Registrar quais contratos de saída já são consumidos hoje por TUI, HTML e markdown.
+- [x] Levantar entrypoints, responsabilidades e acoplamentos em `cluster_health_check.sh`, `generate_catalog.sh`, `generate_inventory_report.sh` e `k8s_ops_menu.sh`.
+- [x] Classificar cada trecho em: collector, normalizer, rules engine, renderer, transport, cache/snapshot e glue de TUI.
+- [x] Identificar dependências escondidas: `ssh`, `kubectl`, `jq`, diretórios de report, links `latest-*`, cores ANSI e assumptions de ambiente.
+- [x] Registrar quais contratos de saída já são consumidos hoje por TUI, HTML e markdown.
 
 ### Fase 2 — definir fronteiras testáveis
 
-- [ ] Propor contratos canônicos para dois domínios: `health-report` e `inventory-catalog`.
-- [ ] Definir claramente quais funções podem ser puras e quais devem permanecer como side effects de coleta.
-- [ ] Separar o pipeline lógico em: `collect -> normalize -> evaluate -> render -> serve`.
-- [ ] Identificar o menor conjunto inicial de extrações que já melhora testabilidade sem obrigar rewrite completo.
+- [x] Propor contratos canônicos para dois domínios: `health-report` e `inventory-catalog`.
+- [x] Definir claramente quais funções podem ser puras e quais devem permanecer como side effects de coleta.
+- [x] Separar o pipeline lógico em: `collect -> normalize -> evaluate -> render -> serve`.
+- [x] Identificar o menor conjunto inicial de extrações que já melhora testabilidade sem obrigar rewrite completo.
 
 ### Fase 3 — planejar a camada de testes
 
-- [ ] Definir fixtures reprodutíveis a partir de `kubectl get ... -o json` e snapshots locais de `apps/` e `components/`.
-- [ ] Definir testes unitários para regras e transformações puras.
-- [ ] Definir testes de integração para collectors com cluster online e modo offline controlado.
-- [ ] Definir testes de regressão comparando o output atual com os novos payloads estruturados.
+- [x] Definir fixtures reprodutíveis a partir de `kubectl get ... -o json` e snapshots locais de `apps/` e `components/`.
+- [x] Definir testes unitários para regras e transformações puras.
+- [x] Definir testes de integração para collectors com cluster online e modo offline controlado.
+- [x] Definir testes de regressão comparando o output atual com os novos payloads estruturados.
 
 ### Fase 4 — desenhar a migração para API interna
 
-- [ ] Comparar opções de runtime para o backend sob restrição real de CPU/memória e operação: shell + adapter, Python, Node, Go.
-- [ ] Definir a recomendação de arquitetura para uma API interna simples, estável e barata de operar.
-- [ ] Definir como o frontend futuro vai consumir esses contratos sem depender do filesystem local ou da TUI.
-- [ ] Propor rollout em fases: estabilizar contrato JSON, extrair domínio reutilizável, adicionar API, então anexar UI web mantendo a TUI como fallback.
+- [x] Comparar opções de runtime para o backend sob restrição real de CPU/memória e operação: shell + adapter, Python, Node, Go.
+- [x] Definir a recomendação de arquitetura para uma API interna simples, estável e barata de operar.
+- [x] Definir como o frontend futuro vai consumir esses contratos sem depender do filesystem local ou da TUI.
+- [x] Propor rollout em fases: estabilizar contrato JSON, extrair domínio reutilizável, adicionar API, então anexar UI web mantendo a TUI como fallback.
 
 ### Fase 5 — entregável de decisão
 
-- [ ] Produzir um documento de arquitetura/ADR com fronteiras, riscos, trade-offs e ordem de implementação.
-- [ ] Definir a primeira thin slice recomendada para a migração, preferencialmente reutilizando o `catalog.json` como base.
-- [ ] Registrar o que fica explicitamente fora da primeira fase para evitar escopo inflado.
+- [x] Produzir um documento de arquitetura/ADR com fronteiras, riscos, trade-offs e ordem de implementação.
+- [x] Definir a primeira thin slice recomendada para a migração, preferencialmente reutilizando o `catalog.json` como base.
+- [x] Registrar o que fica explicitamente fora da primeira fase para evitar escopo inflado.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Existe um mapa claro das responsabilidades e acoplamentos dos relatórios atuais.
-- [ ] Existe um contrato-alvo explícito para `health-report` e `inventory-catalog`.
-- [ ] Existe estratégia de testes com fixtures e regressão definida.
-- [ ] Existe recomendação técnica de backend/API compatível com o cluster atual.
-- [ ] A migração proposta preserva a TUI durante a transição e evita rewrite big bang.
+- [x] Existe um mapa claro das responsabilidades e acoplamentos dos relatórios atuais.
+- [x] Existe um contrato-alvo explícito para `health-report` e `inventory-catalog`.
+- [x] Existe estratégia de testes com fixtures e regressão definida.
+- [x] Existe recomendação técnica de backend/API compatível com o cluster atual.
+- [x] A migração proposta preserva a TUI durante a transição e evita rewrite big bang.
 
 ---
 
@@ -97,6 +108,7 @@ Revisar e redesenhar os relatórios para funções bem encapsuladas, testáveis 
 - `oci-k8s-cluster/scripts/observability/generate_catalog.sh`
 - `oci-k8s-cluster/scripts/observability/generate_inventory_report.sh`
 - `oci-k8s-cluster/k8s_ops_menu.sh`
+- `oci-k8s-cluster/docs/OBSERVABILITY_API_MIGRATION_ADR.md`
 - `tasks/2026/Q2/T-102-Cluster-Health-Watchdog.md`
 - `tasks/2026/Q2/T-110-Unified-Catalog-Inventory.md`
 - `tasks/2026/Q2/T-111-Catalog-Enrichment.md`
