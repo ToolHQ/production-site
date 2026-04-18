@@ -1,6 +1,6 @@
 # T-127: Backup Retention Review — MinIO vs GDrive
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🚨 Critical
 - **Owner**: Infra
 - **Est.**: 3h
@@ -150,6 +150,20 @@ Mesmo assim, volumes atuais importantes estao acima disso:
     `kubecost-prometheus-server`
 - Script preparado para a limpeza: `oci-k8s-cluster/scripts/cloud_ops/cleanup_gdrive_etcd_legacy.sh`
 
+### Cleanup applied (2026-04-18)
+
+- O purge remoto do ETCD em `gdrive:k8s-backups/etcd/` foi executado com sucesso.
+- Foram removidos os diretorios invalidos herdados do fluxo antigo (`*.db/` com `xl.meta`), os
+  artefatos de teste (`perm-check-*`, `test-write.txt`) e o arquivo auxiliar `latest_snapshot`.
+- O acervo remoto de ETCD ficou reduzido para `9` objetos validos / `2.237 GiB`, sem entradas em
+  formato de diretorio.
+- O cleanup dos `11` `BackupVolume` historicos do Longhorn tambem foi executado apos validacao dos
+  candidatos.
+- O inventario final ficou em `8` `BackupVolume`, exatamente o mesmo total dos `8` volumes vivos do
+  Longhorn; a diferenca residual (`STALE AFTER DELETE`) ficou vazia.
+- O reclaim remoto do backupstore agora fica a cargo do garbage collection do proprio Longhorn,
+  portanto a liberacao fisica no target pode aparecer de forma assincrona.
+
 ### Entregas aplicadas nesta rodada
 
 - `backup-observability-daily` foi criado no cluster com `retain: 3` para
@@ -193,21 +207,22 @@ Mesmo assim, volumes atuais importantes estao acima disso:
   - [x] Propor como materializar isso sem custo variavel
   - [x] Especificar criterio de corte (dias / quantidade / classes de volume)
 
-- [ ] Revisar ETCD retention em paralelo
+- [x] Revisar ETCD retention em paralelo
   - [x] Reativar / corrigir o pipeline do `etcd-backup` - `spec.suspend` reaberto no manifesto versionado - drift do container de upload identificado no cluster - colisao entre staging local e datadir do MinIO identificada
   - [x] Garantir que MinIO e GDrive passem a receber arquivos de ETCD
     - MinIO validado com snapshots completos de `2026-04-15` e `2026-04-16`
     - GDrive validado com `etcd-20260416-000005.db` em `266883104` bytes
-    - restam apenas artefatos legados do fluxo antigo para cleanup remoto
+    - cleanup remoto aplicado em `2026-04-18`; acervo atual com `9` snapshots validos / `2.237 GiB`
   - [x] Definir retencao separada para control plane backups
     - staging local: `7d`
     - GDrive: `30d`
 
-- [ ] Entregar recomendacao final
+- [x] Entregar recomendacao final
   - [x] Tabela final: volume -> criticidade -> destino -> retencao MinIO -> retencao GDrive
-  - [/] Plano de limpeza segura do backlog atual - candidate set remoto do GDrive isolado - utilitario dry-run preparado para purge + dedupe
-    - backlog legado do Longhorn quantificado
-    - impacto do purge remoto do GDrive quantificado
+  - [x] Plano de limpeza segura do backlog atual - purge remoto do GDrive executado e revalidado
+    - backlog legado do Longhorn removido do inventario de `BackupVolume`
+    - impacto do purge remoto do GDrive confirmado no acervo final (`9` objetos / `2.237 GiB`)
+    - inventario final do Longhorn alinhado com `8` volumes vivos / `8` `BackupVolume`
   - [x] Estimativa de reducao de storage sem comprometer recoverability
 
 ---
