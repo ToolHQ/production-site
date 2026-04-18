@@ -112,15 +112,16 @@ done < <(kubectl get volume.longhorn.io -n longhorn-system \
 # Uses VolumeAttachment creationTimestamp — avoids stateless limitation
 THRESH_ATTACH=1800
 bad_attach=0
-while IFS=$'\t' read -r va_name created; do
+while IFS=$'\t' read -r va_name created attached; do
     [[ -z "$created" ]] && continue
+    [[ "$attached" == "true" ]] && continue
     age=$(age_seconds "$created") || continue
     if (( age > THRESH_ATTACH )); then
         report_crit "VolumeAttachment $va_name: stuck attaching for $(fmt_age $age) (>30m)"
         (( bad_attach++ )) || true
     fi
 done < <(kubectl get volumeattachment \
-    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.creationTimestamp}{"\t"}{.status.attached}{"\n"}{end}' \
     2>/dev/null || true)
 (( bad_attach == 0 )) && report_ok "No VolumeAttachments stuck attaching (>30m)"
 
@@ -137,9 +138,10 @@ stuck=0; crashloop=0
 
 # ContainerCreating / Pending / Init:* — use pod creationTimestamp
 # (pod never reached Running, so creation time is the correct duration proxy)
-while IFS=$'\t' read -r ns pod reason created; do
+while IFS=$'\t' read -r ns pod phase reason created; do
     [[ -z "$ns" || -z "$created" ]] && continue
     [[ -z "$reason" ]] && continue
+    [[ "$phase" == "Failed" || "$phase" == "Succeeded" ]] && continue
     # Only target stuck-starting states
     case "$reason" in
         ContainerCreating|Pending|*Init*) ;;
@@ -151,7 +153,7 @@ while IFS=$'\t' read -r ns pod reason created; do
         (( stuck++ )) || true
     fi
 done < <(kubectl get pods -A \
-    -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.status.containerStatuses[0].state.waiting.reason}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' \
+    -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.status.containerStatuses[0].state.waiting.reason}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' \
     2>/dev/null | grep -v $'\t\t' || true)
 # Also catch Pending pods with no containerStatuses yet (never scheduled)
 while IFS=$'\t' read -r ns pod phase created; do
@@ -169,15 +171,17 @@ done < <(kubectl get pods -A \
 
 # Error state — use terminated.finishedAt (accurate: pod may have run fine before erroring)
 err_pods=0
-while IFS=$'\t' read -r ns pod finished; do
+while IFS=$'\t' read -r ns pod phase term_reason finished; do
     [[ -z "$ns" || -z "$finished" ]] && continue
+    [[ "$phase" == "Failed" || "$phase" == "Succeeded" ]] && continue
+    [[ "$term_reason" == "Completed" || "$term_reason" == "Evicted" ]] && continue
     age=$(age_seconds "$finished") || continue
     if (( age > THRESH_ERROR )); then
         report_warn "pod $ns/$pod: container terminated/errored $(fmt_age $age) ago (>30m)"
         (( err_pods++ )) || true
     fi
 done < <(kubectl get pods -A \
-    -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.status.containerStatuses[0].state.terminated.finishedAt}{"\n"}{end}' \
+    -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.status.containerStatuses[0].state.terminated.reason}{"\t"}{.status.containerStatuses[0].state.terminated.finishedAt}{"\n"}{end}' \
     2>/dev/null | grep -v $'\t$' || true)
 (( err_pods == 0 )) && report_ok "No pods in Error/terminated state (>30m)"
 

@@ -22,13 +22,14 @@
 | `data-coroot-clickhouse-shard0-0` | Observability | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Lower restore priority than core services.                                             |
 | `kubecost-prometheus-server`      | Low           | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Cost telemetry is non-critical.                                                        |
 | `kubecost-cost-analyzer`          | Low           | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Cost telemetry is non-critical.                                                        |
-| `etcd`                            | Control plane | `etcd-backup`                                         | 7 local days                                   | 30 cloud days       | Separate file-based pipeline; active again and synced offsite from `/var/backup/etcd`. |
+| `etcd`                            | Control plane | `etcd-backup`                                         | 4 local snapshots (~24h)                       | 30 cloud days       | Separate file-based pipeline; active again and synced offsite from `/var/backup/etcd`. |
 
 ## Operational notes
 
 - Do not prune `backupstore/` by file age. Longhorn backupstore is block-deduplicated and requires Longhorn-aware cleanup.
 - The offsite copy is intentionally append-only for Longhorn data. Retention reduction happens at the MinIO generation layer by assigning the correct recurring job group per PVC.
 - ETCD offsite sync must read snapshots from `/var/backup/etcd`, not from `/data/minio/k8s-backups/etcd`.
+- On 2026-04-18 the master hit `DiskPressure=True` with `/var/backup` at `2.1G`; the ETCD CronJob was hardened to keep only the four newest local snapshots so the staging area does not keep growing on the root filesystem.
 - Legacy GDrive entries created by copying the MinIO backend directly can appear as bogus directories containing `xl.meta`. The directed ETCD cleanup pass was executed on `2026-04-18`; the remote now holds `9` valid snapshots / `2.237 GiB`.
 - The stale `BackupVolume` cleanup pass was also executed on `2026-04-18`; the cluster inventory now shows `8` `BackupVolume` for `8` live Longhorn volumes.
 - Longhorn may release the underlying backupstore payload asynchronously after the CR deletions, so storage reclaim is expected to lag the inventory cleanup.
