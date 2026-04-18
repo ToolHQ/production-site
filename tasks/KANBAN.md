@@ -8,12 +8,11 @@
 
 ## 🏎️ In Progress
 
-|                                ID                                 | Task Name                                                                                                                                             |  Priority   |    Owner     | Est. |
-| :---------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: | :--: |
-| [T-127](2026/Q2/T-127-Backup-Retention-Review-MinIO-vs-GDrive.md) | **Backup Retention Review — MinIO vs GDrive** _(GDrive espelha quase 1:1 o MinIO; retain=7 nao bate com 17-20 backups; revisar Coroot/Kubecost/ETCD)_ | 🚨 Critical |    Infra     |  3h  |
-|       [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)        | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                                              |   🔼 High   | DevOps / TUI |  3h  |
-|   [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md)   | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                                         | 🚨 Critical |    DevOps    |  2h  |
-|          [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)          | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                                                                             |   🔼 High   |    Infra     |  3h  |
+|                              ID                               | Task Name                                                                                     |  Priority   |    Owner     | Est. |
+| :-----------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :---------: | :----------: | :--: |
+|     [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)      | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_      |   🔼 High   | DevOps / TUI |  3h  |
+| [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_ | 🚨 Critical |    DevOps    |  2h  |
+|        [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)        | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                     |   🔼 High   |    Infra     |  3h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -38,6 +37,7 @@
 
 |                                   ID                                    | Task Name                                                                                                                                                  |  Priority   |     Owner      |  Est.  |
 | :---------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
+|    [T-127](2026/Q2/T-127-Backup-Retention-Review-MinIO-vs-GDrive.md)    | **Backup Retention Review — MinIO vs GDrive** _(GDrive espelha quase 1:1 o MinIO; retain=7 nao bate com 17-20 backups; revisar Coroot/Kubecost/ETCD)_      | 🚨 Critical |     Infra      |   3h   |
 |         [T-126](2026/Q2/T-126-MinIO-Bucket-Provisioning-IaC.md)         | **MinIO: Provisionamento de bucket `my-site` via IaC** _(Job `minio-bootstrap-buckets` — idempotente, mc anonymous set download, ttl 5min)_                |   🔼 High   | DevOps / Infra |   1h   |
 |        [T-121](2026/Q2/T-121-My-Site-Ingress-TLS-for-dnor.io.md)        | **My Site Ingress: TLS para `dnor.io`** _(Ingress com cert-manager interno Ready; borda publica validada com certificado confiavel)_                       | 🚨 Critical |     DevOps     |   2h   |
 |  [T-125](2026/Q2/T-125-Back-End-APM-Optional-and-Service-Recovery.md)   | **Back-End: APM optional + service recovery** _(`optional: true` no APM secretKeyRef — back-end Running após 39h em CreateContainerConfigError)_           | 🚨 Critical |     DevOps     |   1h   |
