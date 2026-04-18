@@ -48,6 +48,8 @@ else
 fi
 
 echo "  - ℹ️  Per-PVC backup groups: components/backup/apply-volume-backup-policy.sh"
+echo "  - ℹ️  Legacy Longhorn cleanup audit: components/backup/cleanup-longhorn-stale-backupvolumes.sh"
+echo "  - ℹ️  Legacy GDrive ETCD cleanup: oci-k8s-cluster/scripts/cloud_ops/cleanup_gdrive_etcd_legacy.sh"
 echo "  - ℹ️  Offsite archive install: oci-k8s-cluster/scripts/cloud_ops/install_gdrive_sync.sh"
 
 echo "✅ Backup infrastructure deployed."

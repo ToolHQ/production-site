@@ -1,6 +1,6 @@
 # T-121 — My Site Ingress: TLS para `dnor.io`
 
-**Status**: 🏎️ In Progress  
+**Status**: ✅ Done  
 **Priority**: 🚨 Critical  
 **Epic**: DevOps  
 **Estimate**: 2h  
@@ -46,7 +46,7 @@ confiança da CA no browser local.
 - [x] Avaliar se `oci-k8s-cluster/setup_k8s_cluster.sh` também deve passar a patchar `my-site-ingress`
 - [x] Aplicar a mudança no cluster e verificar criação de `Certificate`, `Secret` e readiness do Ingress
 - [x] Exportar ou reaproveitar a CA raiz `dnor-ca-issuer` para import no browser local
-- [ ] Validar acesso a `https://dnor.io` após trust da CA e registrar resultado final
+- [x] Validar acesso a `https://dnor.io` e registrar resultado final
 
 ---
 
@@ -63,7 +63,8 @@ confiança da CA no browser local.
 ## Notas
 
 - O cluster usa CA interna (`dnor-ca-issuer`), não ACME público.
-- Mesmo com o certificado emitido corretamente, o browser só vai parar de alertar após confiar na CA raiz exportada do cluster.
+- Mesmo com o certificado interno emitido corretamente, o browser só vai parar de alertar após confiar na CA raiz exportada do cluster quando esse certificado for o apresentado ao cliente.
 - A TUI já possui fluxo de export da CA em `Security & TLS`.
 - O arquivo versionado `oci-k8s-cluster/dnor-ca-issuer.crt` não bate com a CA atual do cluster; para trust local, exportar novamente do secret `cert-manager/dnor-root-ca-tls` ou via TUI.
 - Atualização aplicada: `my-site-ingress-tls` foi emitido com sucesso para `DNS:dnor.io`, e o arquivo `oci-k8s-cluster/dnor-ca-issuer.crt` foi refreshado a partir da CA atual do cluster.
+- Validação real em 2026-04-15: o Ingress do cluster segue com `cert-manager.io/cluster-issuer: dnor-ca-issuer` e `Certificate` Ready, mas o endpoint publico `https://dnor.io` hoje apresenta certificado valido da cadeia GoDaddy. Ou seja: o acesso confiavel no browser foi resolvido do ponto de vista do usuario, ainda que a borda publica nao esteja expondo a CA interna.
