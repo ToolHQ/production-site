@@ -18,7 +18,7 @@ metadata:
   namespace: longhorn-system
 spec:
   hard:
-    requests.cpu: "1000m"  # was 1200m; used 752m (2026-04-04), 248m headroom for replica ops
+    requests.cpu: "1000m" # was 1200m; used 752m (2026-04-04), 248m headroom for replica ops
     requests.memory: "2Gi"
     limits.cpu: "3500m"
     limits.memory: "5Gi"
@@ -30,7 +30,7 @@ metadata:
   namespace: nexus
 spec:
   hard:
-    requests.cpu: "150m"  # was 200m; used 100m → +30%=130m → ceiling 150m (T-103-Ph3)
+    requests.cpu: "150m" # was 200m; used 100m → +30%=130m → ceiling 150m (T-103-Ph3)
     requests.memory: "2Gi"
     limits.cpu: "1000m"
     limits.memory: "4Gi"
@@ -42,7 +42,7 @@ metadata:
   namespace: postgres
 spec:
   hard:
-    requests.cpu: "300m"  # was 500m; used 200m (2 pods × 100m, 2026-04-04)
+    requests.cpu: "300m" # was 500m; used 200m (2 pods × 100m, 2026-04-04)
     requests.memory: "1Gi"
     limits.cpu: "1500m"
     limits.memory: "3Gi"
@@ -54,7 +54,7 @@ metadata:
   namespace: minio
 spec:
   hard:
-    requests.cpu: "50m"   # was 100m; used 10m → +30%=13m → ceiling 50m (T-103-Ph3)
+    requests.cpu: "50m" # was 100m; used 10m → +30%=13m → ceiling 50m (T-103-Ph3)
     requests.memory: "1Gi"
     limits.cpu: "1000m"
     limits.memory: "2Gi"
@@ -66,7 +66,7 @@ metadata:
   namespace: coroot
 spec:
   hard:
-    requests.cpu: "300m"  # was 500m; used 190m (2026-04-04 post-T-103-Ph2)
+    requests.cpu: "300m" # was 500m; used 190m (2026-04-04 post-T-103-Ph2)
     requests.memory: "3Gi"
     limits.cpu: "5000m"
     limits.memory: "8Gi"
@@ -78,8 +78,8 @@ metadata:
   namespace: kubecost
 spec:
   hard:
-    requests.cpu: "150m"  # was 200m; used 90m → +30%=117m → ceiling 150m (T-103-Ph3)
-    requests.memory: "1Gi"
+    requests.cpu: "250m" # kubecost baseline is 90m; internal Prometheus needs +100m, so 250m preserves ~30% headroom
+    requests.memory: "1536Mi" # kubecost baseline is 784Mi; internal Prometheus needs +384Mi, so 1536Mi preserves ~30% headroom
     limits.cpu: "1500m"
     limits.memory: "3Gi"
 ---
@@ -90,7 +90,7 @@ metadata:
   namespace: ingress-nginx
 spec:
   hard:
-    requests.cpu: "50m"   # was 100m; used 25m → +30%=32.5m → ceiling 50m (T-103-Ph3)
+    requests.cpu: "50m" # was 100m; used 25m → +30%=32.5m → ceiling 50m (T-103-Ph3)
     requests.memory: "512Mi"
     limits.cpu: "800m"
     limits.memory: "1Gi"
@@ -102,7 +102,7 @@ metadata:
   namespace: cert-manager
 spec:
   hard:
-    requests.cpu: "100m"  # was 200m; used 30m (3 pods, 2026-04-04)
+    requests.cpu: "100m" # was 200m; used 30m (3 pods, 2026-04-04)
     requests.memory: "512Mi"
     limits.cpu: "600m"
     limits.memory: "1Gi"
@@ -114,7 +114,7 @@ metadata:
   namespace: kubernetes-dashboard
 spec:
   hard:
-    requests.cpu: "150m"  # was 200m; used 50m (2026-04-04)
+    requests.cpu: "150m" # was 200m; used 50m (2026-04-04)
     requests.memory: "512Mi"
     limits.cpu: "1500m"
     limits.memory: "3Gi"
