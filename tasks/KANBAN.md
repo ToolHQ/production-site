@@ -8,12 +8,13 @@
 
 ## 🏎️ In Progress
 
-|                                 ID                                 | Task Name                                                                                                                      |  Priority   |    Owner     | Est. |
-| :----------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: | :--: |
-| [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(etcd quebrado 53d, GDrive desatualizado 4m, coroot-data 3.9GiB, kubecost 1.3GiB)_ | 🚨 Critical |    Infra     |  3h  |
-|        [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)        | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                       |   🔼 High   | DevOps / TUI |  3h  |
-|   [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md)    | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                  | 🚨 Critical |    DevOps    |  2h  |
-|          [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)           | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                                                      |   🔼 High   |    Infra     |  3h  |
+|                                       ID                                        | Task Name                                                                                                                                   |  Priority   |     Owner      | Est. |
+| :-----------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :------------: | :--: |
+| [T-129](2026/Q2/T-129-Observability-Report-Modularization-and-API-Readiness.md) | **Observability Report Modularization & API Readiness** _(health report + catalog desacoplados, testáveis e prontos para backend/frontend)_ |   🔼 High   | DevExp / Infra |  6h  |
+|       [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md)        | **Backup Retention Audit & ETCD Recovery** _(etcd quebrado 53d, GDrive desatualizado 4m, coroot-data 3.9GiB, kubecost 1.3GiB)_              | 🚨 Critical |     Infra      |  3h  |
+|              [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)               | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                                    |   🔼 High   |  DevOps / TUI  |  3h  |
+|          [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md)          | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                               | 🚨 Critical |     DevOps     |  2h  |
+|                 [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)                 | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                                                                   |   🔼 High   |     Infra      |  3h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -24,18 +25,18 @@
 
 ## 📅 Backlog (To Do)
 
-| ID  | Task Name | Priority | Epic | Est. |
-| :-: | :-------- | :------: | :--- | :--: |
-
-| [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md) | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_ | 🔼 High | DevOps | 2h |
-| [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md) | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_ | 🔽 Medium | DevOps | 3h |
-| [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ | 🔼 High | DevOps | 4h |
-| [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** | 🔽 Medium | Infra | 2h |
+|                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
+| :-----------------------------------------------------: | :---------------------------------------------------------------------------------------------------------- | :-------: | :----- | :--: |
+|      [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)       | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
+|      [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md)      | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_       | 🔽 Medium | DevOps |  3h  |
+| [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ |  🔼 High  | DevOps |  4h  |
+|      [T-105](2026/Q2/T-105-Registry-Resilience.md)      | **Internal Registry (Nexus) Resilience**                                                                    | 🔽 Medium | Infra  |  2h  |
 
 ## ✅ Done
 
 |                                   ID                                    | Task Name                                                                                                                                                  |  Priority   |     Owner      |  Est.  |
 | :---------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------: | :----: | --- | ------------------------------------------------- | ------------------------------------------------ | ----------- | ------------- | --- |
+|         [T-128](2026/Q2/T-128-Cluster-Yellow-State-Cleanup.md)          | **Cluster Yellow-State Cleanup** _(kube-apiserver probe, cert-manager quota, postgres snapshot warnings)_                                                  |   🔼 High   |     Infra      |   4h   |
 |    [T-127](2026/Q2/T-127-Backup-Retention-Review-MinIO-vs-GDrive.md)    | **Backup Retention Review — MinIO vs GDrive** _(GDrive espelha quase 1:1 o MinIO; retain=7 nao bate com 17-20 backups; revisar Coroot/Kubecost/ETCD)_      | 🚨 Critical |     Infra      |   3h   |
 |         [T-126](2026/Q2/T-126-MinIO-Bucket-Provisioning-IaC.md)         | **MinIO: Provisionamento de bucket `my-site` via IaC** _(Job `minio-bootstrap-buckets` — idempotente, mc anonymous set download, ttl 5min)_                |   🔼 High   | DevOps / Infra |   1h   |
 |        [T-121](2026/Q2/T-121-My-Site-Ingress-TLS-for-dnor.io.md)        | **My Site Ingress: TLS para `dnor.io`** _(Ingress com cert-manager interno Ready; borda publica validada com certificado confiavel)_                       | 🚨 Critical |     DevOps     |   2h   |
