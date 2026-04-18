@@ -1,6 +1,6 @@
 # T-103: CPU Headroom Recovery & Sustained Margin Policy
 
-**Status**: [~] In Progress (Phases 1-4 done; 2026-04-18 re-baseline shows nodes 1/2/3 below the 100m floor) | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
+**Status**: [~] In Progress (Phases 1-4 done; 2026-04-18 recovery pass restored the 100m floor, 7-day monitoring still pending) | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
 
 ## 🎯 Objective
 
@@ -44,6 +44,37 @@ but the scheduling margin regressed after the recovery and rescheduling work.
   allocation policy, not steady-state CPU burn.
 - Next execution pass must prioritize request cuts or placement changes on node-2 first, then
   restore the 100m floor on node-3 and node-1.
+
+### Update 2026-04-18 — Recovery pass completed
+
+Second-pass reductions were applied and validated live until every node returned above the
+Longhorn floor:
+
+| Node       | CPU requests    | Free | Policy status  | Actual CPU (`kubectl top`) |
+| ---------- | --------------- | ---- | -------------- | -------------------------- |
+| k8s-master | 665m/800m (83%) | 135m | 🟡 Above floor | 143m (17%)                 |
+| k8s-node-1 | 667m/800m (83%) | 133m | 🟡 Above floor | 221m\*                     |
+| k8s-node-2 | 660m/800m (82%) | 140m | 🟡 Above floor | 445m (55%)                 |
+| k8s-node-3 | 650m/800m (81%) | 150m | 🟡 Above floor | 270m (33%)                 |
+
+`*` Node-1 runtime usage fluctuated during the final rollouts; the binding check for T-103 is the
+scheduler floor (free millicores), which stayed recovered after convergence.
+
+Executed reductions in this recovery pass:
+
+- [x] `pre-pull-share-manager-image` (embedded in `longhorn-manager`): 50m -> 10m
+- [x] `snapshot-controller`: 50m -> 10m per replica
+- [x] `nexus`: 100m -> 80m
+- [x] `longhorn-ui`: 15m -> 10m
+- [x] `metrics-server`: 25m -> 20m
+- [x] `local-path-provisioner`: 10m -> 5m
+- [x] `kubernetes-dashboard-api/web/metrics-scraper`: 10m -> 5m each
+
+Operational note from the attempt matrix:
+
+- A brief attempt to cut `my-site-back-end` and `torproxy` requests was reverted after it created
+  noisy rollout blockers (`ImagePullBackOff` on `registry.local` and temporary `default-quota`
+  pressure). The stable solution stayed on infrastructure/auxiliary workloads instead.
 
 ### Why this matters
 
@@ -96,6 +127,16 @@ Master / all nodes:
 - [x] **cilium-operator** (50m): Reduced to 25m — saved 25m
 - [x] **metrics-server** (50m): Reduced to 25m — saved 25m
 
+Recovery pass (2026-04-18):
+
+- [x] **longhorn pre-pull helper** (50m): Reduced to 10m — saved 40m/node
+- [x] **snapshot-controller** (50m/replica): Reduced to 10m — saved 40m total vs two replicas
+- [x] **nexus** (100m): Reduced to 80m — saved 20m
+- [x] **longhorn-ui** (15m): Reduced to 10m — saved 5m
+- [x] **metrics-server** (25m): Reduced to 20m — saved 5m
+- [x] **local-path-provisioner** (10m): Reduced to 5m — saved 5m
+- [x] **dashboard api/web/metrics** (10m each): Reduced to 5m each — saved 15m total
+
 ### Phase 3: ResourceQuota Review
 
 ResourceQuotas already exist for all key namespaces (deployed in T-100). Review alignment
@@ -120,11 +161,11 @@ with the new headroom policy — quotas may need tightening after Phase 2 reduct
 
 ## ✅ Definition of Done
 
-- [ ] Every node has **≥ 100m free** at all times (Longhorn instance-manager floor — implies
+- [x] Every node has **≥ 100m free** at all times (Longhorn instance-manager floor — implies
       ≤ 700m used on 800m nodes; node-3 at 870m needs ~170m reduction, node-1 at 792m needs ~92m)
       Note: 100m floor is the single binding constraint — "90%" (720m) is more lenient and is
-      subsumed by this rule. Re-baseline 2026-04-18: master 135m free, node-1 93m, node-2 10m,
-      node-3 65m.
+      subsumed by this rule. Validated after the 2026-04-18 recovery pass: master 135m free,
+      node-1 133m, node-2 140m, node-3 150m.
 - [x] ResourceQuota ceilings reviewed and aligned with actual usage + 30% buffer
 - [x] Node status TUI shows headroom % with 🟢/🟡/🔴 coloring
 - [ ] ⏳ ≥ 100m demonstrated on all nodes for 7 days (T-102 watchdog running — monitoring window ongoing)

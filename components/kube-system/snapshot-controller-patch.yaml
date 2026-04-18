@@ -2,10 +2,10 @@ spec:
   template:
     spec:
       containers:
-        - name: metrics-server
+        - name: snapshot-controller
           resources:
             requests:
-              cpu: 20m # was 50m, then 25m — actual usage ~4m (T-103)
+              cpu: 10m
               memory: 64Mi
             limits:
               cpu: 150m

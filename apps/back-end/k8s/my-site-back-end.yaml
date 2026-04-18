@@ -72,7 +72,7 @@ spec:
                 secretKeyRef:
                   name: apm-server-quickstart-apm-token
                   key: secret-token
-                  optional: true  # Elastic APM stack desativado (restrição CPU/RAM); reativar quando ECK for re-deployado
+                  optional: true # Elastic APM stack desativado (restrição CPU/RAM); reativar quando ECK for re-deployado
             - name: ELASTIC_APM_SERVER_URL
               value: https://apm-server-quickstart-apm-http.default.svc.cluster.local:8200
           livenessProbe:

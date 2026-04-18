@@ -31,7 +31,7 @@ spec:
               value: "-Xms512m -Xmx512m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
           resources:
             requests:
-              cpu: 100m  # was 170m — actual usage ~3m (T-103)
+              cpu: 80m # was 170m, then 100m — actual usage ~4m (T-103)
               memory: 1Gi
             limits:
               cpu: 600m
@@ -52,9 +52,9 @@ spec:
           persistentVolumeClaim:
             claimName: nexus-pvc
       tolerations:
-      - key: "node.kubernetes.io/disk-pressure"
-        operator: "Exists"
-        effect: "NoSchedule"
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoSchedule"
 ---
 apiVersion: v1
 kind: Service
