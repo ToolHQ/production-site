@@ -28,7 +28,8 @@ metadata:
   name: local-path-provisioner-role
 rules:
   - apiGroups: [""]
-    resources: ["nodes", "persistentvolumeclaims", "configmaps", "pods", "pods/log"]
+    resources:
+      ["nodes", "persistentvolumeclaims", "configmaps", "pods", "pods/log"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["persistentvolumes"]
@@ -92,7 +93,7 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              cpu: 10m  # was 50m — idle provisioner on node-3 (T-103)
+              cpu: 5m # was 50m, then 10m — idle provisioner on node-3 (T-103)
               memory: 64Mi
           command:
             - local-path-provisioner
@@ -165,5 +166,5 @@ data:
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-             cpu: 10m  # was 50m (T-103)
+             cpu: 5m  # was 50m, then 10m (T-103)
              memory: 32Mi

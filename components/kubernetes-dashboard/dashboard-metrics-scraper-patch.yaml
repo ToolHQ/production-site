@@ -1,0 +1,9 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: kubernetes-dashboard-metrics-scraper
+          resources:
+            requests:
+              cpu: 5m
+              memory: 50Mi

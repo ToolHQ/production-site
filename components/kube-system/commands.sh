@@ -45,6 +45,11 @@ if [ -f "limit-range.yaml" ]; then
     echo "  - Applied limit-range.yaml"
 fi
 
+if [ -f "snapshot-controller-patch.yaml" ] && kubectl get deployment -n kube-system snapshot-controller >/dev/null 2>&1; then
+  kubectl patch deployment -n kube-system snapshot-controller --patch-file snapshot-controller-patch.yaml
+  echo "  - Patched snapshot-controller"
+fi
+
 echo "🛡️ Deploying ResourceQuotas for all namespaces..."
 if [ -f "resource-quotas.yaml" ]; then
     kubectl apply -f resource-quotas.yaml
