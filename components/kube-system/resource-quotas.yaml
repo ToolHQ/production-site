@@ -105,7 +105,7 @@ spec:
     requests.cpu: "100m" # was 200m; used 30m (3 pods, 2026-04-04)
     requests.memory: "512Mi"
     limits.cpu: "600m"
-    limits.memory: "1Gi"
+    limits.memory: "1280Mi" # steady-state pods already consume 1Gi; chain-repair needs +64Mi without reopening the namespace too far
 ---
 apiVersion: v1
 kind: ResourceQuota
