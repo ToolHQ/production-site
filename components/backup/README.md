@@ -12,17 +12,17 @@
 
 ## Target policy
 
-| Volume / scope | Criticality | Producer / group | MinIO retention | GDrive retention | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `postgres-data-postgres-0` | Critical | `backup-daily` / `default` + `postgres-auto-snapshot` | 7 daily backups + 7 backup-backed 6h snapshots | Append-only archive | Primary gets the densest restore window. |
-| `postgres-data-postgres-1` | Critical | `backup-daily` / `default` | 7 daily backups | Append-only archive | Replica keeps daily protection only. |
-| `nexus-pvc` | Critical | `backup-daily` / `default` | 7 daily backups | Append-only archive | Internal registry state. |
-| `coroot-data` | Observability | `backup-observability-daily` / `observability` | 3 daily backups | Append-only archive | Regenerable observability data. |
-| `coroot-prometheus-server` | Observability | `backup-observability-daily` / `observability` | 3 daily backups | Append-only archive | Lower restore priority than core services. |
-| `data-coroot-clickhouse-shard0-0` | Observability | `backup-observability-daily` / `observability` | 3 daily backups | Append-only archive | Lower restore priority than core services. |
-| `kubecost-prometheus-server` | Low | `backup-observability-daily` / `observability` | 3 daily backups | Append-only archive | Cost telemetry is non-critical. |
-| `kubecost-cost-analyzer` | Low | `backup-observability-daily` / `observability` | 3 daily backups | Append-only archive | Cost telemetry is non-critical. |
-| `etcd` | Control plane | `etcd-backup` | 7 local days | 30 cloud days | Separate file-based pipeline; active again and synced offsite from `/var/backup/etcd`. |
+| Volume / scope                    | Criticality   | Producer / group                                      | MinIO retention                                | GDrive retention    | Notes                                                                                  |
+| --------------------------------- | ------------- | ----------------------------------------------------- | ---------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------- |
+| `postgres-data-postgres-0`        | Critical      | `backup-daily` / `default` + `postgres-auto-snapshot` | 7 daily backups + 7 backup-backed 6h snapshots | Append-only archive | Primary gets the densest restore window.                                               |
+| `postgres-data-postgres-1`        | Critical      | `backup-daily` / `default`                            | 7 daily backups                                | Append-only archive | Replica keeps daily protection only.                                                   |
+| `nexus-pvc`                       | Critical      | `backup-daily` / `default`                            | 7 daily backups                                | Append-only archive | Internal registry state.                                                               |
+| `coroot-data`                     | Observability | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Regenerable observability data.                                                        |
+| `coroot-prometheus-server`        | Observability | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Lower restore priority than core services.                                             |
+| `data-coroot-clickhouse-shard0-0` | Observability | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Lower restore priority than core services.                                             |
+| `kubecost-prometheus-server`      | Low           | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Cost telemetry is non-critical.                                                        |
+| `kubecost-cost-analyzer`          | Low           | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Cost telemetry is non-critical.                                                        |
+| `etcd`                            | Control plane | `etcd-backup`                                         | 7 local days                                   | 30 cloud days       | Separate file-based pipeline; active again and synced offsite from `/var/backup/etcd`. |
 
 ## Operational notes
 
