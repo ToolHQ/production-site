@@ -22,13 +22,17 @@
 | `data-coroot-clickhouse-shard0-0` | Observability | `backup-observability-daily` / `observability` | 3 daily backups | Append-only archive | Lower restore priority than core services. |
 | `kubecost-prometheus-server` | Low | `backup-observability-daily` / `observability` | 3 daily backups | Append-only archive | Cost telemetry is non-critical. |
 | `kubecost-cost-analyzer` | Low | `backup-observability-daily` / `observability` | 3 daily backups | Append-only archive | Cost telemetry is non-critical. |
-| `etcd` | Control plane | `etcd-backup` | 7 local days | 30 cloud days | Separate file-based pipeline; currently suspended and must be reactivated. |
+| `etcd` | Control plane | `etcd-backup` | 7 local days | 30 cloud days | Separate file-based pipeline; active again and synced offsite from `/var/backup/etcd`. |
 
 ## Operational notes
 
 - Do not prune `backupstore/` by file age. Longhorn backupstore is block-deduplicated and requires Longhorn-aware cleanup.
 - The offsite copy is intentionally append-only for Longhorn data. Retention reduction happens at the MinIO generation layer by assigning the correct recurring job group per PVC.
+- ETCD offsite sync must read snapshots from `/var/backup/etcd`, not from `/data/minio/k8s-backups/etcd`.
+- Legacy GDrive entries created by copying the MinIO backend directly can appear as bogus directories containing `xl.meta`. Remove them only with an explicit cleanup pass.
 - Stale `BackupVolume` generations from old PVCs still need a manual cleanup pass after validation of their restore value.
+- Current measured backlog on 2026-04-18: `11` stale `BackupVolume` objects / `88` inherited backups / `~5.57 GiB` of `dataStored`.
+- Current measured ETCD GDrive cleanup impact on 2026-04-18: `~1.24 GiB` of legacy directory garbage plus one duplicate `254.52 MiB` snapshot.
 
 ## Apply
 
@@ -56,4 +60,16 @@ Install the offsite sync on the master:
 
 ```bash
 oci-k8s-cluster/scripts/cloud_ops/install_gdrive_sync.sh
+```
+
+Audit stale Longhorn backup generations:
+
+```bash
+components/backup/cleanup-longhorn-stale-backupvolumes.sh
+```
+
+Audit legacy ETCD artifacts in Google Drive:
+
+```bash
+oci-k8s-cluster/scripts/cloud_ops/cleanup_gdrive_etcd_legacy.sh
 ```

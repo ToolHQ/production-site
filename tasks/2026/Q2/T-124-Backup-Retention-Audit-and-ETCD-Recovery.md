@@ -60,7 +60,13 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
    - **Risco**: perda total do control plane sem backup recuperável
    - Diagnóstico necessário: o job está falhando silenciosamente? O snapshot etcd deixou de ser gerado no host?
 
-2. **GDrive sync desatualizado (~4 meses)**
+2. **Pipeline ETCD com staging incorreto**
+   - O CronJob atual monta `/data/minio/k8s-backups` como `hostPath`
+   - Isso grava snapshots diretamente no backend filesystem do bucket MinIO
+   - O upload subsequente via `mc cp` tenta reenviar o mesmo objeto e falha com `AccessDenied`
+   - O staging correto precisa ficar fora do datadir do MinIO (ex.: `/var/backup`)
+
+3. **GDrive sync desatualizado (~4 meses)**
    - `backupstore/` no GDrive não é atualizado desde Nov/2025
    - Não há rclone cronjob visível no cluster
    - Off-site backup essencialmente inexistente

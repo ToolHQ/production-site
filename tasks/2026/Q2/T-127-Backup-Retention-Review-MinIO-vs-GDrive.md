@@ -64,10 +64,11 @@ Mesmo assim, volumes atuais importantes estao acima disso:
    - `coroot-data` tambem esta acima do racional para observabilidade
    - Em cluster de 1 vCPU / 6 GB por no, isso nao parece justificavel
 
-4. **ETCD continua sem acervo armazenado**
-   - O problema correto nao e "falha silenciosa"
-   - O CronJob `etcd-backup` esta com `spec.suspend=true`
-   - Resultado: `k8s-backups/etcd/` vazio em ambas as camadas
+4. **ETCD continua sem pipeline saudavel**
+   - O problema nao e ausencia total de path local
+   - O CronJob `etcd-backup` ficou suspenso por longo periodo
+   - O acervo local tambem ficou inconsistente, com `latest_snapshot` parado em
+     `2026-02-21` e dezenas de arquivos `.part` de `2026-02-02`
 
 ### Hipoteses a validar
 
@@ -100,6 +101,54 @@ Mesmo assim, volumes atuais importantes estao acima disso:
   - `BackupVolume` herdados de geracoes antigas de PVC (principalmente dez/2025 -> jan/2026);
   - `postgres-auto-snapshot`, cujos `VolumeSnapshotContents` usam handle `bak://...` e
     geram backups adicionais do Longhorn a cada 6 horas para `postgres-data-postgres-0`.
+- O `etcd-backup` nao estava apenas suspenso: um run manual em `2026-04-15` confirmou que
+  o init container ainda cria snapshot valido (`etcd-20260415-161757.db`), mas o upload
+  falha por `ImagePullBackOff`.
+- A causa do `ImagePullBackOff` e drift no cluster: o container `s3-upload` ativo tenta
+  puxar `registry.local:31444/repository/docker-repo/etcd:3.5.17-debian-12-r0` sem
+  credencial, enquanto o manifesto versionado no repo usa `minio/mc`.
+- A segunda causa validada foi estrutural: o CronJob estava montando `/data/minio/k8s-backups`
+  como `hostPath` de staging. Na pratica, o snapshot era salvo direto no backend filesystem do
+  bucket e depois o `mc cp` tentava enviar o mesmo objeto via S3, produzindo `AccessDenied`.
+- O staging correto precisa ficar fora do datadir do MinIO (ajuste aplicado no manifesto para
+  `/var/backup`).
+- Com o staging movido para `/var/backup`, um run manual (`etcd-backup-manual-5`) concluiu com
+  sucesso em `2026-04-15`, gerando `etcd-20260415-164937.db` e enviando `254.52 MiB` ao bucket
+  `k8s-backups/etcd/`.
+- Em `2026-04-16`, o `gdrive-sync` foi corrigido para copiar ETCD a partir de
+  `/var/backup/etcd` em vez de ler o datadir do MinIO; o snapshot
+  `etcd-20260416-000005.db` foi validado no GDrive com `266883104` bytes.
+- Restam artefatos remotos legados criados pelo fluxo antigo (`*.db/` com `xl.meta`, alem de
+  `perm-check-*` e `test-write.txt`), que precisam de limpeza dirigida no GDrive antes de
+  reutilizar alguns nomes historicos.
+
+### Cleanup candidate set (2026-04-18)
+
+- Diretorios remotos invalidos em `gdrive:k8s-backups/etcd/`:
+  - `etcd-20260112-131425.db/`
+  - `etcd-20260112-131444.db/`
+  - `etcd-20260415-164937.db/`
+  - `etcd-20260415-180005.db/`
+  - `etcd-20260416-000005.db/`
+  - `etcd-20260416-060005.db/`
+  - `perm-check-1776270602.txt/`
+  - `test-write.txt/`
+- Arquivo auxiliar remoto sem valor de restore:
+  - `latest_snapshot`
+- Colisao remota de nome a deduplicar apos o purge:
+  - `etcd-20260416-000005.db` (2 copias validas de `266883104` bytes)
+- Impacto estimado do cleanup remoto no GDrive ETCD:
+  - remoto atual: `81` objetos / `3.480 GiB`
+  - purge dos diretorios legados + artefatos de teste: `~1.24 GiB`
+  - dedupe adicional: `266883104` bytes (`254.52 MiB`)
+  - `latest_snapshot`: `24` bytes
+- Backlog legado confirmado no Longhorn backupstore:
+  - `11` `BackupVolume` historicos sem volume vivo correspondente
+  - `88` backups herdados de geracoes antigas de PVC
+  - `~5.57 GiB` ainda ocupados no target `default`
+  - maiores candidatos: geracoes antigas de `elasticsearch-data-oci-logs-es-default-{0,1}` e
+    `kubecost-prometheus-server`
+- Script preparado para a limpeza: `oci-k8s-cluster/scripts/cloud_ops/cleanup_gdrive_etcd_legacy.sh`
 
 ### Entregas aplicadas nesta rodada
 
@@ -111,6 +160,7 @@ Mesmo assim, volumes atuais importantes estao acima disso:
   `backupstore`, mantendo `etcd` com retencao separada.
 - Units systemd + instalador do `gdrive-sync` foram versionados em Git e instalados no
   master; proximo disparo agendado para `03:30 UTC`.
+- O script no master foi atualizado para usar `/var/backup/etcd` como fonte offsite de ETCD.
 
 ---
 
@@ -146,14 +196,26 @@ Mesmo assim, volumes atuais importantes estao acima disso:
   - [x] Especificar criterio de corte (dias / quantidade / classes de volume)
 
 - [ ] Revisar ETCD retention em paralelo
-  - [ ] Reativar / corrigir o pipeline do `etcd-backup`
-  - [ ] Garantir que MinIO e GDrive passem a receber arquivos de ETCD
-  - [ ] Definir retencao separada para control plane backups
+  - [x] Reativar / corrigir o pipeline do `etcd-backup`
+        - `spec.suspend` reaberto no manifesto versionado
+        - drift do container de upload identificado no cluster
+        - colisao entre staging local e datadir do MinIO identificada
+  - [x] Garantir que MinIO e GDrive passem a receber arquivos de ETCD
+    - MinIO validado com snapshots completos de `2026-04-15` e `2026-04-16`
+    - GDrive validado com `etcd-20260416-000005.db` em `266883104` bytes
+    - restam apenas artefatos legados do fluxo antigo para cleanup remoto
+  - [x] Definir retencao separada para control plane backups
+    - staging local: `7d`
+    - GDrive: `30d`
 
 - [ ] Entregar recomendacao final
   - [x] Tabela final: volume -> criticidade -> destino -> retencao MinIO -> retencao GDrive
-  - [ ] Plano de limpeza segura do backlog atual
-  - [ ] Estimativa de reducao de storage sem comprometer recoverability
+  - [/] Plano de limpeza segura do backlog atual
+        - candidate set remoto do GDrive isolado
+        - utilitario dry-run preparado para purge + dedupe
+    - backlog legado do Longhorn quantificado
+    - impacto do purge remoto do GDrive quantificado
+  - [x] Estimativa de reducao de storage sem comprometer recoverability
 
 ---
 
