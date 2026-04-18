@@ -18,12 +18,12 @@ espelhando o mesmo acervo do MinIO.
 
 #### Capacidade / acervo
 
-| Camada | Escopo | Estado atual |
-| --- | --- | --- |
-| MinIO | `/data/k8s-backups` | ~14.64 GiB em disco |
-| GDrive | `gdrive:k8s-backups` | 22,741 objetos / 12.45 GiB |
-| MinIO | `nexus` | ~4.33 GiB (nao e backup Longhorn) |
-| ETCD | `k8s-backups/etcd` | vazio em MinIO e GDrive |
+| Camada | Escopo               | Estado atual                      |
+| ------ | -------------------- | --------------------------------- |
+| MinIO  | `/data/k8s-backups`  | ~14.64 GiB em disco               |
+| GDrive | `gdrive:k8s-backups` | 22,741 objetos / 12.45 GiB        |
+| MinIO  | `nexus`              | ~4.33 GiB (nao e backup Longhorn) |
+| ETCD   | `k8s-backups/etcd`   | vazio em MinIO e GDrive           |
 
 #### Janela observada
 
@@ -42,12 +42,12 @@ espelhando o mesmo acervo do MinIO.
 
 Mesmo assim, volumes atuais importantes estao acima disso:
 
-| Volume atual | MinIO | GDrive | Observacao |
-| --- | ---: | ---: | --- |
-| `coroot-prometheus-server` | 19 backups | 20 entradas | maior consumidor |
-| `coroot-data` | 17 backups | 18 entradas | acima do esperado |
+| Volume atual                 |      MinIO |      GDrive | Observacao        |
+| ---------------------------- | ---------: | ----------: | ----------------- |
+| `coroot-prometheus-server`   | 19 backups | 20 entradas | maior consumidor  |
+| `coroot-data`                | 17 backups | 18 entradas | acima do esperado |
 | `kubecost-prometheus-server` | 20 backups | 21 entradas | acima do esperado |
-| `nexus-pvc` | 19 backups | 20 entradas | acima do esperado |
+| `nexus-pvc`                  | 19 backups | 20 entradas | acima do esperado |
 
 ### Principais achados
 
@@ -189,17 +189,12 @@ Mesmo assim, volumes atuais importantes estao acima disso:
   - [x] Definir se devem sair do backup-daily ou ter retencao menor
 
 - [x] Corrigir a estrategia entre MinIO e GDrive
-  - [x] Definir objetivo oficial:
-        - MinIO = curto prazo
-        - GDrive = historico estendido
+  - [x] Definir objetivo oficial: - MinIO = curto prazo - GDrive = historico estendido
   - [x] Propor como materializar isso sem custo variavel
   - [x] Especificar criterio de corte (dias / quantidade / classes de volume)
 
 - [ ] Revisar ETCD retention em paralelo
-  - [x] Reativar / corrigir o pipeline do `etcd-backup`
-        - `spec.suspend` reaberto no manifesto versionado
-        - drift do container de upload identificado no cluster
-        - colisao entre staging local e datadir do MinIO identificada
+  - [x] Reativar / corrigir o pipeline do `etcd-backup` - `spec.suspend` reaberto no manifesto versionado - drift do container de upload identificado no cluster - colisao entre staging local e datadir do MinIO identificada
   - [x] Garantir que MinIO e GDrive passem a receber arquivos de ETCD
     - MinIO validado com snapshots completos de `2026-04-15` e `2026-04-16`
     - GDrive validado com `etcd-20260416-000005.db` em `266883104` bytes
@@ -210,9 +205,7 @@ Mesmo assim, volumes atuais importantes estao acima disso:
 
 - [ ] Entregar recomendacao final
   - [x] Tabela final: volume -> criticidade -> destino -> retencao MinIO -> retencao GDrive
-  - [/] Plano de limpeza segura do backlog atual
-        - candidate set remoto do GDrive isolado
-        - utilitario dry-run preparado para purge + dedupe
+  - [/] Plano de limpeza segura do backlog atual - candidate set remoto do GDrive isolado - utilitario dry-run preparado para purge + dedupe
     - backlog legado do Longhorn quantificado
     - impacto do purge remoto do GDrive quantificado
   - [x] Estimativa de reducao de storage sem comprometer recoverability
