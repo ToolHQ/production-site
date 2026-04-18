@@ -6,10 +6,15 @@ metadata:
 spec:
   suspend: false
   schedule: "0 */6 * * *"
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 21600
       template:
         spec:
           restartPolicy: OnFailure
@@ -37,28 +42,42 @@ spec:
                   set -e
                   echo "Installing etcdctl..."
                   apk add --no-cache etcd-ctl || apk add --no-cache etcd
-                  
+
                   BACKUP_DIR="/host-backup/etcd"
                   mkdir -p $BACKUP_DIR
-                  
+
                   SNAPSHOT_NAME="etcd-$(date +%Y%m%d-%H%M%S).db"
                   SNAPSHOT_PATH="$BACKUP_DIR/$SNAPSHOT_NAME"
-                  
+
                   echo "Creating snapshot: $SNAPSHOT_PATH"
-                  
+
                   etcdctl snapshot save "$SNAPSHOT_PATH" \
                     --endpoints=https://127.0.0.1:2379 \
                     --cacert=/etc/kubernetes/pki/etcd/ca.crt \
                     --cert=/etc/kubernetes/pki/etcd/server.crt \
                     --key=/etc/kubernetes/pki/etcd/server.key
-                  
+
                   # Save filename for the upload container
                   echo "$SNAPSHOT_NAME" > "$BACKUP_DIR/latest_snapshot"
-                  
-                  # Cleanup old backups (Keep 3 days)
-                  find "$BACKUP_DIR" -name "etcd-*.db" -mtime +3 -delete
-                  
+
+                  # Keep only the four newest local snapshots (~24h); longer retention lives in MinIO/GDrive.
+                  set -- "$BACKUP_DIR"/etcd-*.db
+                  if [ -e "$1" ]; then
+                      ls -1t "$BACKUP_DIR"/etcd-*.db | awk 'NR > 4' | while IFS= read -r old_snapshot; do
+                          rm -f "$old_snapshot"
+                      done
+                  fi
+
                   echo "Snapshot Success."
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                  ephemeral-storage: 50Mi
+                limits:
+                  cpu: 150m
+                  memory: 128Mi
+                  ephemeral-storage: 1Gi
               volumeMounts:
                 - name: etcd-certs
                   mountPath: /etc/kubernetes/pki/etcd
@@ -92,9 +111,9 @@ spec:
                   set -e
                   # Configure alias
                   mc alias set myminio $MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
-                  
+
                   BACKUP_DIR="/host-backup/etcd"
-                  
+
                   if [ -f "$BACKUP_DIR/latest_snapshot" ]; then
                       SNAPSHOT_NAME=$(cat "$BACKUP_DIR/latest_snapshot")
                       echo "Found snapshot: $SNAPSHOT_NAME. Uploading..."
@@ -105,6 +124,15 @@ spec:
                       echo "No snapshot definition found ($BACKUP_DIR/latest_snapshot). Skipping upload."
                       exit 1
                   fi
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                  ephemeral-storage: 50Mi
+                limits:
+                  cpu: 150m
+                  memory: 128Mi
+                  ephemeral-storage: 1Gi
               volumeMounts:
                 - name: backup
                   mountPath: /host-backup

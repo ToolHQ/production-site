@@ -8,11 +8,12 @@
 
 ## 🏎️ In Progress
 
-|                              ID                               | Task Name                                                                                     |  Priority   |    Owner     | Est. |
-| :-----------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :---------: | :----------: | :--: |
-|     [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)      | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_      |   🔼 High   | DevOps / TUI |  3h  |
-| [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_ | 🚨 Critical |    DevOps    |  2h  |
-|        [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)        | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                     |   🔼 High   |    Infra     |  3h  |
+|                                 ID                                 | Task Name                                                                                                                      |  Priority   |    Owner     | Est. |
+| :----------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: | :--: |
+| [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(etcd quebrado 53d, GDrive desatualizado 4m, coroot-data 3.9GiB, kubecost 1.3GiB)_ | 🚨 Critical |    Infra     |  3h  |
+|        [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)        | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                       |   🔼 High   | DevOps / TUI |  3h  |
+|   [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md)    | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                  | 🚨 Critical |    DevOps    |  2h  |
+|          [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)           | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                                                      |   🔼 High   |    Infra     |  3h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -25,8 +26,6 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-
-| [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(etcd quebrado 53d, GDrive desatualizado 4m, coroot-data 3.9GiB, kubecost 1.3GiB)_ | 🚨 Critical | Infra | 3h |
 
 | [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md) | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_ | 🔼 High | DevOps | 2h |
 | [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md) | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_ | 🔽 Medium | DevOps | 3h |
