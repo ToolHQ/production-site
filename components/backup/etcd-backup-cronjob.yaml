@@ -121,12 +121,24 @@ spec:
                       mc cp "$BACKUP_DIR/$SNAPSHOT_NAME" "myminio/k8s-backups/etcd/$SNAPSHOT_NAME"
 
                       echo "Pruning MinIO etcd snapshots down to the four newest objects..."
-                      mc ls myminio/k8s-backups/etcd | awk '/etcd-.*\.db$/ {print $NF}' | sort -r | awk 'NR > 4' | while IFS= read -r old_snapshot; do
+                      mc ls myminio/k8s-backups/etcd | while read -r _ _ _ _ object_name; do
+                        case "$object_name" in
+                          etcd-*.db)
+                            echo "$object_name"
+                            ;;
+                        esac
+                      done | sort -r | tail -n +5 | while IFS= read -r old_snapshot; do
                         mc rm --force "myminio/k8s-backups/etcd/$old_snapshot"
                       done
 
                       echo "Cleaning legacy ETCD upload artifacts from the bucket..."
-                      mc ls myminio/k8s-backups/etcd | awk '/(etcd-.*\.db\.part|latest_snapshot|test-write\.txt|perm-check-.*\.txt)$/ {print $NF}' | while IFS= read -r legacy_object; do
+                      mc ls myminio/k8s-backups/etcd | while read -r _ _ _ _ object_name; do
+                        case "$object_name" in
+                          *.db.part|latest_snapshot|test-write.txt|perm-check-*.txt)
+                            echo "$object_name"
+                            ;;
+                        esac
+                      done | while IFS= read -r legacy_object; do
                         mc rm --force "myminio/k8s-backups/etcd/$legacy_object"
                       done
 
