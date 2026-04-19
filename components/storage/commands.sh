@@ -19,4 +19,10 @@ if kubectl get deployment -n longhorn-system longhorn-ui >/dev/null 2>&1; then
     echo "  - Patched longhorn-ui"
 fi
 
+# 4. Patch Driver Deployer (Deployment)
+if kubectl get deployment -n longhorn-system longhorn-driver-deployer >/dev/null 2>&1; then
+    kubectl patch deployment -n longhorn-system longhorn-driver-deployer --patch-file longhorn-driver-deployer-patch.yaml
+    echo "  - Patched longhorn-driver-deployer"
+fi
+
 echo "✅ Longhorn resources tuned."

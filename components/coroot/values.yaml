@@ -79,7 +79,7 @@ prometheus:
   server:
     resources:
       requests:
-        cpu: 70m  # was 100m — actual P99 ~64m (T-103)
+        cpu: 60m  # was 70m — actual usage recently ~80m incl. reload sidecar (T-103 follow-up)
         memory: 400Mi
       limits:
         cpu: 300m

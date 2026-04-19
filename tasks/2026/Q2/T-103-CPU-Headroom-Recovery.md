@@ -76,6 +76,45 @@ Operational note from the attempt matrix:
   noisy rollout blockers (`ImagePullBackOff` on `registry.local` and temporary `default-quota`
   pressure). The stable solution stayed on infrastructure/auxiliary workloads instead.
 
+### Update 2026-04-19 — Post-access regression recovery
+
+After OCI SSH access was restored, the live watchdog exposed a second regression that had been
+masked while the master was executing the watchdog via `sudo` without a working kubeconfig.
+Once the watchdog bootstrap was fixed, the cluster showed real CPU pressure again:
+
+| Node       | CPU requests    | Free | Policy status              |
+| ---------- | --------------- | ---- | -------------------------- |
+| k8s-master | 675m/800m (84%) | 125m | 🟡 Above floor / under 85% |
+| k8s-node-1 | 472m/800m (59%) | 328m | 🟢 Comfortable margin      |
+| k8s-node-2 | 640m/800m (80%) | 160m | 🟡 Above floor / under 85% |
+| k8s-node-3 | 610m/800m (76%) | 190m | 🟡 Above floor / under 85% |
+
+Validated live from `/opt/k8s-ops/cluster_health_check.sh` at `2026-04-19 17:23 UTC`:
+
+- No CPU criticals remain in the watchdog.
+- Headroom floor (≥100m free) is restored on all nodes again.
+- Residual report state is now warning-only: historical restart churn plus Longhorn disk warning
+  on `k8s-node-2` (<15 GiB free).
+
+Executed reductions in this follow-up pass:
+
+- [x] `ingress-nginx-controller`: 25m -> 10m
+- [x] `longhorn-manager`: 100m -> 60m per node
+- [x] `longhorn-driver-deployer`: 20m -> 10m
+- [x] `metrics-server`: 20m -> 10m
+- [x] `kubecost-prometheus-server`: 100m -> 30m
+- [x] `kubecost-grafana`: explicit 5m + 5m requests for main container and sidecar
+- [x] `coroot-prometheus-server`: 70m -> 60m
+
+Operational notes:
+
+- `components/metrics-server/commands.sh` is currently blocked by a manifest re-apply error on the
+  upstream `components.yaml` (`Duplicate value: "https"` on container ports). The live request
+  reduction was applied safely via direct `kubectl patch` instead of the broken full re-apply.
+- `components/kubecost/commands.sh` and repo values were updated, but the immediate live recovery
+  for `kubecost-prometheus-server` / `kubecost-grafana` also required direct deployment patches to
+  converge within the current maintenance window.
+
 ### Why this matters
 
 CPU _requests_ determine **scheduling** and Kubernetes uses them to decide if a pod fits on a
@@ -137,6 +176,17 @@ Recovery pass (2026-04-18):
 - [x] **local-path-provisioner** (10m): Reduced to 5m — saved 5m
 - [x] **dashboard api/web/metrics** (10m each): Reduced to 5m each — saved 15m total
 
+Recovery follow-up (2026-04-19):
+
+- [x] **ingress-nginx** (25m): Reduced to 10m — saved 15m on master
+- [x] **longhorn-manager** (100m): Reduced to 60m — saved 40m per node
+- [x] **longhorn-driver-deployer** (20m): Reduced to 10m — saved 10m
+- [x] **metrics-server** (20m): Reduced to 10m — saved 10m
+- [x] **kubecost-prometheus-server** (100m): Reduced to 30m — saved 70m
+- [x] **kubecost-grafana sidecar + main** (default 10m + 10m): Reduced to 5m + 5m — saved 10m
+- [x] **coroot-prometheus-server** (70m): Reduced to 60m — saved 10m while keeping the request
+      closer to live usage observed during the follow-up window
+
 ### Phase 3: ResourceQuota Review
 
 ResourceQuotas already exist for all key namespaces (deployed in T-100). Review alignment
@@ -165,7 +215,8 @@ with the new headroom policy — quotas may need tightening after Phase 2 reduct
       ≤ 700m used on 800m nodes; node-3 at 870m needs ~170m reduction, node-1 at 792m needs ~92m)
       Note: 100m floor is the single binding constraint — "90%" (720m) is more lenient and is
       subsumed by this rule. Validated after the 2026-04-18 recovery pass: master 135m free,
-      node-1 133m, node-2 140m, node-3 150m.
+      node-1 133m, node-2 140m, node-3 150m. Re-validated after the 2026-04-19 follow-up:
+      master 125m free, node-1 328m, node-2 160m, node-3 190m.
 - [x] ResourceQuota ceilings reviewed and aligned with actual usage + 30% buffer
 - [x] Node status TUI shows headroom % with 🟢/🟡/🔴 coloring
 - [ ] ⏳ ≥ 100m demonstrated on all nodes for 7 days (T-102 watchdog running — monitoring window ongoing)
