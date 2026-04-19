@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
+
+dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "🚀 Deploying Metrics Server (Optimized)..."
 
@@ -8,12 +10,12 @@ echo "🚀 Deploying Metrics Server (Optimized)..."
 # Often metrics-server needs --kubelet-insecure-tls on DIY clusters.
 # Let's add it via sed just in case, safe to be idempotent.
 
-if ! grep -q "kubelet-insecure-tls" components.yaml; then
-  sed -i '/args:/a \        - --kubelet-insecure-tls' components.yaml
+if ! grep -q "kubelet-insecure-tls" "$dir/components.yaml"; then
+  sed -i '/args:/a \        - --kubelet-insecure-tls' "$dir/components.yaml"
 fi
 
-kubectl apply -f components.yaml
+kubectl apply -f "$dir/components.yaml"
 # T-100: Zero-Waste Patch
-kubectl patch deployment metrics-server -n kube-system --patch-file patch-resources.yaml
+kubectl patch deployment metrics-server -n kube-system --patch-file "$dir/patch-resources.yaml"
 
 echo "✅ Metrics Server deployed."
