@@ -49,6 +49,8 @@ Current policy:
 4. Treat `npm-proxy` as cache data that is eligible for future Nexus-native cleanup if storage pressure returns, but do not prune it directly at MinIO level.
 5. Any future retention automation for Nexus must be implemented through Nexus cleanup policies or repository-level policy attachment, not through bucket/object expiry.
 
+See `docs/nexus-cleanup-policy.md` for the repo-side automation follow-up and the recommended first live policy target.
+
 ## Operational guidance
 
 - If `k8s-backups` grows, audit Longhorn `Backup`, `BackupVolume`, and `VolumeSnapshot` objects first.
