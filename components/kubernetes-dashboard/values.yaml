@@ -1,41 +1,40 @@
-metricsScraper:
-  enabled: true
-  resources:
-    limits:
-      cpu: 100m
-      memory: 64Mi
-    requests:
-      cpu: 10m
-      memory: 50Mi
-
-app:
-  resources:
-    limits:
-      cpu: 250m
-      memory: 128Mi
-    requests:
-      cpu: 10m
-      memory: 50Mi
+api:
+  containers:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 50Mi
+      limits:
+        cpu: 250m
+        memory: 128Mi
 
 auth:
-  resources:
-    limits:
-      cpu: 200m
-      memory: 128Mi
-    requests:
-      cpu: 10m
-      memory: 50Mi
-
-kong:
-  enabled: false # We use our own Ingress (nginx) usually, but dashboard chart might enforce it. 
-  # Actually, the standard chart often bundles kong. If we can disable it and use standard ingress, better. 
-  # But for now, let's stick to resource tuning. 
-  # If kong is enabled by default, we should tune it too.
-  proxy:
+  containers:
     resources:
-      limits:
-         cpu: 200m
-         memory: 256Mi
       requests:
-         cpu: 10m
-         memory: 50Mi
+        cpu: 10m
+        memory: 50Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+web:
+  containers:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 50Mi
+      limits:
+        cpu: 250m
+        memory: 128Mi
+
+metricsScraper:
+  enabled: true
+  containers:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 50Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
