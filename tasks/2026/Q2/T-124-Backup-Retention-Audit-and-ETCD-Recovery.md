@@ -1,6 +1,6 @@
 # T-124: Backup Retention Audit & ETCD Recovery
 
-- **Status**: In Progress (off-site freshness validated; Longhorn/MinIO retention cleanup still pending)
+- **Status**: In Progress (retention converged; remaining follow-up is Nexus policy/doc codification)
 - **Priority**: 🚨 Critical
 - **Owner**: Infra
 - **Est.**: 3h
@@ -185,10 +185,36 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
     `BackupVolume` correspondente foi deletado.
 - Inventario Longhorn apos a convergencia desta rodada: `8` `BackupVolume`, todos correspondentes aos `8`
   volumes live do cluster.
-- Residual apos esta rodada:
-  - `backupstore` ainda mede ~`17 GiB`, portanto a task ainda nao atinge o alvo `< 8 GiB`;
-  - o backlog agora ficou concentrado nos volumes criticos do grupo `default` e no excesso de backups do
-    `postgres-data-postgres-0` (`14`), alem dos snapshots manuais antigos do namespace `postgres`.
+- Residual imediato apos esta rodada:
+  - `backupstore` ainda media ~`17 GiB` antes da auditoria final do namespace `postgres`;
+  - o backlog restante ficou reduzido aos snapshots manuais antigos do namespace `postgres` e a validacao
+    de que o `postgres-data-postgres-0` com `14` backups era ou nao aderente a politica atual.
+
+### Update 2026-04-19 — Postgres residual fechado e meta de capacidade atingida
+
+- Os `VolumeSnapshot` manuais legados do namespace `postgres` foram removidos com criterio conservador:
+  - `manual-20251201-090155` (`postgres-pvc`)
+  - `manual-20251201-091805` (`postgres-pvc-green`)
+  - `postgres-pvc-restored-snap-20251213-125934` (`postgres-pvc-restored`)
+- Os tres PVCs de origem ja nao existem no cluster, e os `VolumeSnapshotContent` correspondentes usavam
+  `deletionPolicy: Delete`; o garbage collection removeu os tres conteúdos CSI imediatamente apos o delete.
+- Nao restaram `backups.longhorn.io` associados aos handles antigos, entao essa limpeza ficou restrita a
+  artefatos historicos de recuperacao e nao afetou a politica ativa.
+- O `postgres-data-postgres-0` permaneceu com `14` backups, e isso foi validado como comportamento esperado:
+  `7` backups diarios do `backup-daily` + `7` backups criados pelos `VolumeSnapshot` de 6h (`bak://...`).
+- Medicao final validada diretamente no pod do MinIO:
+  - `/data/k8s-backups` = `8055 MiB`
+  - `/data/k8s-backups/backupstore` = `7036 MiB`
+  - `/data/k8s-backups/etcd` = `1019 MiB`
+- Com isso, a meta operacional da task para `k8s-backups` ficou atendida (`8055 MiB < 8192 MiB`, isto e,
+  abaixo de `8 GiB`).
+- Residual observado no control-plane do Longhorn: o sync do `BackupTarget` recriou `10` `BackupVolume`
+  vazios (sem `lastBackupName`, `size` ou `dataStored`) a partir de metadata residual. Eles nao representam
+  payload retido ativo e nao impedem a convergencia de capacidade.
+- Pendencias reais que ainda sobraram nesta task:
+  - definir/documentar politica do bucket `nexus`;
+  - consolidar a documentacao dedicada da politica de backup (`docs/backup-policy.md`);
+  - atualizar o KANBAN quando a task for formalmente encerrada.
 
 ---
 
@@ -232,13 +258,13 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
 - [ ] **3.4** Definir política de retenção do bucket `nexus` no MinIO
   - Longhorn `backup-daily` não cobre nexus (10 GiB PVC — muito grande)
   - Nexus tem bucket próprio (4.3 GiB) — investigar o que está acumulando
-- [ ] **3.5** Remover VolumeSnapshots manuais obsoletos do postgres (dez/2025)
+- [x] **3.5** Remover VolumeSnapshots manuais obsoletos do postgres (dez/2025)
   - `kubectl delete volumesnapshot manual-20251201-090155 manual-20251201-091805 ... -n postgres`
 - [ ] **3.6** Documentar tabela de política de retenção por serviço em `docs/backup-policy.md`
 
 ### ✅ Fase 4 — Validação Final
 
-- [ ] **4.1** Confirmar tamanho total MinIO após limpeza (target: < 8 GiB em k8s-backups)
+- [x] **4.1** Confirmar tamanho total MinIO após limpeza (target: < 8 GiB em k8s-backups)
 - [x] **4.2** Confirmar GDrive sync funcionando com conteúdo recente
 - [x] **4.3** Confirmar etcd backup com arquivo no MinIO `k8s-backups/etcd/`
 - [ ] **4.4** Atualizar KANBAN.md com task concluída

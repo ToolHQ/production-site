@@ -227,5 +227,18 @@ Execution result:
   - `etcd-20260419-221343.db`
   - `etcd-20260419-221527.db`
 - All five observability volumes converged to `3` backups each.
-- The stale Longhorn `BackupVolume` inventory converged back to the `8` live roots.
-- Residual storage after this round: `backupstore ~17 GiB`, `etcd ~1019 MiB`.
+- The three obsolete postgres manual `VolumeSnapshot` objects were deleted safely:
+  - `manual-20251201-090155`
+  - `manual-20251201-091805`
+  - `postgres-pvc-restored-snap-20251213-125934`
+- Their bound `VolumeSnapshotContent` objects were garbage-collected immediately, and no `backups.longhorn.io`
+  remained for the legacy volume handles.
+- `postgres-data-postgres-0` was intentionally left at `14` backups after validation that the live count
+  matches the current policy: `7` daily backups + `7` backup-backed `VolumeSnapshot` restores.
+- Measured MinIO usage after the postgres cleanup pass:
+  - `k8s-backups = 8055 MiB`
+  - `backupstore = 7036 MiB`
+  - `etcd = 1019 MiB`
+- The Longhorn payload converged to the active retained data set, but backup-target sync recreated `10`
+  empty `BackupVolume` CRs with blank status fields from residual backend metadata. Treat them as metadata-only
+  residue rather than active stored backups.
