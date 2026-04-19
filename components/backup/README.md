@@ -14,7 +14,7 @@
 
 | Volume / scope                    | Criticality   | Producer / group                                      | MinIO retention                                | GDrive retention    | Notes                                                                                                        |
 | --------------------------------- | ------------- | ----------------------------------------------------- | ---------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `postgres-data-postgres-0`        | Critical      | `backup-daily` / `default` + `postgres-auto-snapshot` | 7 daily backups + 7 backup-backed 6h snapshots | Append-only archive | Primary gets the densest restore window.                                                                     |
+| `postgres-data-postgres-0`        | Critical      | `backup-daily` / `default` + `postgres-auto-snapshot` | 7 daily backups + 7 backup-backed 6h snapshots | Append-only archive | Primary gets the densest restore window; a live count of 14 backups is expected under this policy.           |
 | `postgres-data-postgres-1`        | Critical      | `backup-daily` / `default`                            | 7 daily backups                                | Append-only archive | Replica keeps daily protection only.                                                                         |
 | `nexus-pvc`                       | Critical      | `backup-daily` / `default`                            | 7 daily backups                                | Append-only archive | Internal registry state.                                                                                     |
 | `coroot-data`                     | Observability | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Regenerable observability data.                                                                              |
@@ -33,8 +33,10 @@
 - Legacy ETCD artifacts written directly into the MinIO backend filesystem may survive outside the S3 API view. If `mc ls` no longer shows them but they still exist under `/data/minio/k8s-backups/etcd/`, treat them as one-off backend garbage and remove them explicitly on the master after validating the four retained snapshots.
 - On 2026-04-18 the master hit `DiskPressure=True` with `/var/backup` at `2.1G`; the ETCD CronJob was hardened to keep only the four newest local snapshots so the staging area does not keep growing on the root filesystem.
 - Legacy GDrive entries created by copying the MinIO backend directly can appear as bogus directories containing `xl.meta`. The directed ETCD cleanup pass was executed on `2026-04-18`; the remote now holds `9` valid snapshots / `2.237 GiB`.
-- The stale `BackupVolume` cleanup pass was also executed on `2026-04-18`; the cluster inventory now shows `8` `BackupVolume` for `8` live Longhorn volumes.
+- The three obsolete postgres manual `VolumeSnapshot` objects from Dec/2025 were deleted on `2026-04-19`; their `VolumeSnapshotContent` objects disappeared immediately because the class uses `deletionPolicy: Delete`.
+- The stale `BackupVolume` cleanup pass removed the historical payload, but Longhorn backup-target sync may recreate empty `BackupVolume` CRs with blank `lastBackupName` / `size` from residual backend metadata. Treat those as control-plane residue unless they regain stored bytes or live backup references.
 - Longhorn may release the underlying backupstore payload asynchronously after the CR deletions, so storage reclaim is expected to lag the inventory cleanup.
+- Current measured MinIO usage on `2026-04-19` after the retention cleanup: `k8s-backups = 8055 MiB`, split as `backupstore = 7036 MiB` and `etcd = 1019 MiB`; the `< 8 GiB` target is satisfied for the full bucket.
 - Current measured ETCD GDrive cleanup impact on 2026-04-18: `~1.24 GiB` of legacy directory garbage plus one duplicate `254.52 MiB` snapshot; cleanup already applied and revalidated.
 
 ## Apply
