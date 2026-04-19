@@ -119,6 +119,17 @@ spec:
                       echo "Found snapshot: $SNAPSHOT_NAME. Uploading..."
                       
                       mc cp "$BACKUP_DIR/$SNAPSHOT_NAME" "myminio/k8s-backups/etcd/$SNAPSHOT_NAME"
+
+                      echo "Pruning MinIO etcd snapshots down to the four newest objects..."
+                      mc ls myminio/k8s-backups/etcd | awk '/etcd-.*\.db$/ {print $NF}' | sort -r | awk 'NR > 4' | while IFS= read -r old_snapshot; do
+                        mc rm --force "myminio/k8s-backups/etcd/$old_snapshot"
+                      done
+
+                      echo "Cleaning legacy ETCD upload artifacts from the bucket..."
+                      mc ls myminio/k8s-backups/etcd | awk '/(etcd-.*\.db\.part|latest_snapshot|test-write\.txt|perm-check-.*\.txt)$/ {print $NF}' | while IFS= read -r legacy_object; do
+                        mc rm --force "myminio/k8s-backups/etcd/$legacy_object"
+                      done
+
                       echo "Upload complete."
                   else
                       echo "No snapshot definition found ($BACKUP_DIR/latest_snapshot). Skipping upload."

@@ -1,6 +1,6 @@
 # T-124: Backup Retention Audit & ETCD Recovery
 
-- **Status**: In Progress (ETCD local + MinIO path recovered; off-site freshness still pending)
+- **Status**: In Progress (off-site freshness validated; Longhorn/MinIO retention cleanup still pending)
 - **Priority**: 🚨 Critical
 - **Owner**: Infra
 - **Est.**: 3h
@@ -134,6 +134,30 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
 - O `gdrive-sync.timer` esta habilitado e aguardando a proxima janela em `2026-04-19 03:30 UTC`.
   A validacao off-site continua sendo o gate final de fechamento da task.
 
+### Update 2026-04-19 — Off-site freshness revalidated, retention drift isolated
+
+- O `gdrive-sync.service` no master falhou nos ciclos de `2026-04-17` e `2026-04-18`, mas o run de
+  `2026-04-19 03:30 UTC` concluiu com sucesso, incluindo archive do `backupstore`, upload de ETCD,
+  prune remoto no GDrive e prune local no staging.
+- O remoto `gdrive:k8s-backups/etcd` agora mostra snapshots recentes ate `etcd-20260419-060005.db`
+  e tamanho total de `2.983 GiB` (`12` objetos), o que fecha o gate de frescor off-site.
+- O mapeamento live de `volumes.longhorn.io` esta coerente com a politica do repo:
+  - `nexus` e `postgres` seguem no grupo `default`;
+  - `coroot` e `kubecost` ja estao rotulados no grupo `observability`.
+- O backlog residual em `k8s-backups` ficou isolado em duas frentes:
+  - volumes de observability ainda carregam `10` backups historicos herdados do periodo anterior ao
+    split `default` -> `observability`, portanto exigem cleanup retroativo se quisermos convergir para `retain: 3` agora;
+  - `k8s-backups/etcd/` no MinIO ainda acumulava snapshots antigos e artefatos legados `*.db.part`,
+    porque o CronJob podava apenas o staging local e o GDrive, nao o prefixo ETCD no bucket MinIO.
+- O inventario de `BackupVolume` continua com `11` roots sem volume Longhorn live correspondente,
+  todos candidatos a cleanup historico separado:
+  `pvc-024bef7e-a0a8-49cc-8632-f8827260217c`, `pvc-07028b00-5d63-4112-84e9-126faee4f6ce`,
+  `pvc-527009d1-6f72-4e1d-91e7-7bf74a60bd09`, `pvc-587154bf-86a4-40d4-8339-f33a0e082fd5`,
+  `pvc-6a1e78ec-ca37-4d2d-91ae-61eb15be0e3a`, `pvc-70ca900b-bf13-4b79-9cc7-91e35dc06f71`,
+  `pvc-76d32043-c899-4346-a276-c4ad0b20a030`, `pvc-8849d366-6900-489d-94bd-88e17ef269f9`,
+  `pvc-9457cf3d-b57a-4148-9935-922998049c99`, `pvc-b48937cd-c9ee-40e1-ab42-ddc5b3130478`,
+  `pvc-c6f50016-a36d-410b-bc17-292f9e4ff805`.
+
 ---
 
 ## Tasks
@@ -167,9 +191,9 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
 
 ### 🟠 Fase 3 — Política de Retenção por Serviço
 
-- [ ] **3.1** Auditar Longhorn RecurringJobs: confirmar quais PVCs estão no grupo `default`
+- [x] **3.1** Auditar Longhorn RecurringJobs: confirmar quais PVCs estão no grupo `default`
   - `kubectl get recurringjob -n longhorn-system -o yaml`
-- [ ] **3.2** Remover kubecost volumes do grupo `default` de backup (ou reduzir retain=3)
+- [x] **3.2** Remover kubecost volumes do grupo `default` de backup (ou reduzir retain=3)
   - kubecost não é dado crítico; 1.3 GiB em backup é desperdício
 - [ ] **3.3** Avaliar coroot-data: verificar se 3.9 GiB é esperado com retain=7
   - Se >7 backups existem para coroot-data, forçar limpeza manual
@@ -183,9 +207,14 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
 ### ✅ Fase 4 — Validação Final
 
 - [ ] **4.1** Confirmar tamanho total MinIO após limpeza (target: < 8 GiB em k8s-backups)
-- [ ] **4.2** Confirmar GDrive sync funcionando com conteúdo recente
+- [x] **4.2** Confirmar GDrive sync funcionando com conteúdo recente
 - [x] **4.3** Confirmar etcd backup com arquivo no MinIO `k8s-backups/etcd/`
 - [ ] **4.4** Atualizar KANBAN.md com task concluída
+
+### 🔧 Follow-up descoberto no re-audit de 2026-04-19
+
+- [ ] **1.8** Podar o prefixo `k8s-backups/etcd/` no MinIO para os quatro snapshots mais novos e remover artefatos legados `*.db.part`
+- [ ] **3.7** Planejar/validar cleanup retroativo dos `BackupVolume` órfãos e dos backups históricos de observability herdados do antigo `backup-daily`
 
 ---
 
