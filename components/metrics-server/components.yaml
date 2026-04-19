@@ -133,6 +133,7 @@ spec:
     spec:
       containers:
       - args:
+        - --kubelet-insecure-tls
         - --cert-dir=/tmp
         - --secure-port=10250
         - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname

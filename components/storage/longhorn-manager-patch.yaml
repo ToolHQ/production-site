@@ -5,7 +5,7 @@ spec:
         - name: longhorn-manager
           resources:
             requests:
-              cpu: 100m
+              cpu: 60m
               memory: 256Mi
             limits:
               cpu: 500m

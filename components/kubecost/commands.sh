@@ -14,4 +14,9 @@ helm upgrade --install kubecost cost-analyzer/cost-analyzer \
     --values values.yaml \
     --wait
 
+if kubectl get deployment -n kubecost kubecost-grafana >/dev/null 2>&1; then
+    kubectl patch deployment -n kubecost kubecost-grafana --patch-file kubecost-grafana-patch.yaml
+    echo "  - Patched kubecost-grafana"
+fi
+
 echo "✅ Kubecost deployed."

@@ -51,6 +51,26 @@ Operational note:
   - Longhorn disk headroom on nodes 2/3 (T-104)
   - recent restart activity on `kube-controller-manager` and `csi-provisioner`
 
+## Update 2026-04-19 — Follow-up fix
+
+An additional false-positive root cause surfaced after SSH access was restored and the live
+watchdog was executed again from the master:
+
+- The TUI/master path was invoking `/opt/k8s-ops/cluster_health_check.sh` via `sudo`, but the
+  script did not bootstrap a valid kubeconfig for the elevated shell.
+- As a result, several `kubectl` calls failed silently (`2>/dev/null || true`) and the report could
+  look partially healthy while still emitting `Nexus registry: phase=Unknown ready=unknown`.
+
+Follow-up remediation applied on 2026-04-19:
+
+- Added kubeconfig auto-discovery/bootstrap to `cluster_health_check.sh`, preferring a valid
+  readable config (`/etc/kubernetes/admin.conf`, `$HOME/.kube/config`, `/home/ubuntu/.kube/config`).
+- Made the watchdog fail closed when no working kubeconfig is available, instead of silently
+  masking most checks.
+- Re-synced the corrected watchdog to `/opt/k8s-ops/cluster_health_check.sh` on the master.
+- Re-validated the live report: `Nexus registry` now resolves correctly as `Running and ready`, and
+  the overall state dropped to warning-only after T-103 follow-up tuning (`0 critical / 8 warning(s)`).
+
 ## 📋 Execution Plan
 
 ### Phase 1 — Baseline Capture
