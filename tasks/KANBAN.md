@@ -8,11 +8,11 @@
 
 ## 🏎️ In Progress
 
-|                                 ID                                 | Task Name                                                                                                                                    |  Priority   |    Owner     | Est. |
-| :----------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: | :--: |
-|        [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)        | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                                     |   🔼 High   | DevOps / TUI |  3h  |
-|   [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md)    | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                                | 🚨 Critical |    DevOps    |  2h  |
-|          [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)           | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                                                                    |   🔼 High   |    Infra     |  3h  |
+|                              ID                               | Task Name                                                                                     |  Priority   |    Owner     | Est. |
+| :-----------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :---------: | :----------: | :--: |
+|     [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)      | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_      |   🔼 High   | DevOps / TUI |  3h  |
+| [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_ | 🚨 Critical |    DevOps    |  2h  |
+|        [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)        | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                     |   🔼 High   |    Infra     |  3h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -34,7 +34,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
-| [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(ETCD/GDrive restaurados, `k8s-backups` em 8055 MiB, política do bucket Nexus documentada)_ | 🚨 Critical | Infra | 3h |
+|       [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md)        | **Backup Retention Audit & ETCD Recovery** _(ETCD/GDrive restaurados, `k8s-backups` em 8055 MiB, política do bucket Nexus documentada)_                    | 🚨 Critical |         Infra         |   3h   |
 |         [T-131](2026/Q2/T-131-Helm-Tunnel-Kubeconfig-Compatibility.md)          | **Helm Tunnel Kubeconfig Compatibility** _(local Helm `v3.14.3` incompatível com `kubeconfig_tunnel.yaml`; wrapper `v3.19.0` fixado no repo)_              | 🚨 Critical |    Infra / DevOps     |   2h   |
 |  [T-130](2026/Q2/T-130-Watchdog-Signal-Quality-and-False-Positive-Cleanup.md)   | **Watchdog Signal Quality and False Positive Cleanup** _(VolumeAttachment/job/restart signal cleanup)_                                                     |   🔼 High   | Observability / Infra |   4h   |
 | [T-129](2026/Q2/T-129-Observability-Report-Modularization-and-API-Readiness.md) | **Observability Report Modularization & API Readiness** _(health report + catalog desacoplados, testáveis e prontos para backend/frontend)_                |   🔼 High   |    DevExp / Infra     |   6h   |

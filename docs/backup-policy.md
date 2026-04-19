@@ -16,23 +16,23 @@ Core rules:
 
 ## Live state validated on 2026-04-19
 
-| Scope | Measured state | Notes |
-| --- | --- | --- |
-| `k8s-backups` | `8055 MiB` total | Below the `< 8 GiB` target for T-124. |
-| `k8s-backups/backupstore` | `7036 MiB` | Longhorn backup payload after observability + postgres legacy cleanup. |
-| `k8s-backups/etcd` | `1019 MiB` | Exactly four retained ETCD snapshots. |
-| `nexus` bucket | `4.3 GiB`, `3908` objects | Live Nexus S3 blob store; payload currently lives under `nexus/content`. |
+| Scope                     | Measured state            | Notes                                                                    |
+| ------------------------- | ------------------------- | ------------------------------------------------------------------------ |
+| `k8s-backups`             | `8055 MiB` total          | Below the `< 8 GiB` target for T-124.                                    |
+| `k8s-backups/backupstore` | `7036 MiB`                | Longhorn backup payload after observability + postgres legacy cleanup.   |
+| `k8s-backups/etcd`        | `1019 MiB`                | Exactly four retained ETCD snapshots.                                    |
+| `nexus` bucket            | `4.3 GiB`, `3908` objects | Live Nexus S3 blob store; payload currently lives under `nexus/content`. |
 
 ## Retention matrix
 
-| Scope | Producer / owner | Backend | Target retention | Enforcement | Delete path |
-| --- | --- | --- | --- | --- | --- |
-| `postgres-data-postgres-0` | Longhorn `backup-daily` + `postgres-auto-snapshot` | MinIO `k8s-backups/backupstore` | `7` daily backups + `7` backup-backed 6h snapshots | Live IaC + snapshot CronJob | Longhorn `Backup` / `VolumeSnapshot` objects only |
-| `postgres-data-postgres-1` | Longhorn `backup-daily` | MinIO `k8s-backups/backupstore` | `7` daily backups | Live IaC | Longhorn `Backup` objects only |
-| `nexus-pvc` | Longhorn `backup-daily` | MinIO `k8s-backups/backupstore` | `7` daily backups | Live IaC | Longhorn `Backup` objects only |
-| Observability PVCs (`coroot*`, `kubecost*`) | Longhorn `backup-observability-daily` | MinIO `k8s-backups/backupstore` | `3` daily backups | Live IaC | Longhorn `Backup` objects only |
-| ETCD | `etcd-backup` CronJob + `gdrive-sync` | MinIO `k8s-backups/etcd` + GDrive | `4` MinIO snapshots, `4` local staged snapshots, `30` cloud days | Live IaC | `etcd-backup` prune logic + GDrive prune |
-| Nexus blob store `minio` (`nexus/`) | Nexus repositories (`docker-repo`, `npm-repo`, `npm-proxy`, `npm-group`) | MinIO bucket `nexus` | No MinIO-side expiration; retain all hosted artifacts until an explicit Nexus cleanup rule exists | Documented policy only | Nexus-native cleanup policies only |
+| Scope                                       | Producer / owner                                                         | Backend                           | Target retention                                                                                  | Enforcement                 | Delete path                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------- |
+| `postgres-data-postgres-0`                  | Longhorn `backup-daily` + `postgres-auto-snapshot`                       | MinIO `k8s-backups/backupstore`   | `7` daily backups + `7` backup-backed 6h snapshots                                                | Live IaC + snapshot CronJob | Longhorn `Backup` / `VolumeSnapshot` objects only |
+| `postgres-data-postgres-1`                  | Longhorn `backup-daily`                                                  | MinIO `k8s-backups/backupstore`   | `7` daily backups                                                                                 | Live IaC                    | Longhorn `Backup` objects only                    |
+| `nexus-pvc`                                 | Longhorn `backup-daily`                                                  | MinIO `k8s-backups/backupstore`   | `7` daily backups                                                                                 | Live IaC                    | Longhorn `Backup` objects only                    |
+| Observability PVCs (`coroot*`, `kubecost*`) | Longhorn `backup-observability-daily`                                    | MinIO `k8s-backups/backupstore`   | `3` daily backups                                                                                 | Live IaC                    | Longhorn `Backup` objects only                    |
+| ETCD                                        | `etcd-backup` CronJob + `gdrive-sync`                                    | MinIO `k8s-backups/etcd` + GDrive | `4` MinIO snapshots, `4` local staged snapshots, `30` cloud days                                  | Live IaC                    | `etcd-backup` prune logic + GDrive prune          |
+| Nexus blob store `minio` (`nexus/`)         | Nexus repositories (`docker-repo`, `npm-repo`, `npm-proxy`, `npm-group`) | MinIO bucket `nexus`              | No MinIO-side expiration; retain all hosted artifacts until an explicit Nexus cleanup rule exists | Documented policy only      | Nexus-native cleanup policies only                |
 
 ## Nexus policy
 
