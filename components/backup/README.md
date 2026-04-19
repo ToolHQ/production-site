@@ -28,6 +28,7 @@
 
 - Do not prune `backupstore/` by file age. Longhorn backupstore is block-deduplicated and requires Longhorn-aware cleanup.
 - The offsite copy is intentionally append-only for Longhorn data. Retention reduction happens at the MinIO generation layer by assigning the correct recurring job group per PVC.
+- The MinIO bucket `nexus/` is active Nexus blob-store data, not backup payload. Keep bucket expiration disabled and manage any future retention from Nexus itself, never by deleting MinIO objects directly.
 - ETCD offsite sync must read snapshots from `/var/backup/etcd`, not from `/data/minio/k8s-backups/etcd`.
 - The `etcd-backup` upload step is responsible for pruning the MinIO `k8s-backups/etcd/` prefix to the four newest `etcd-*.db` objects and deleting legacy `*.db.part` / probe artifacts.
 - Legacy ETCD artifacts written directly into the MinIO backend filesystem may survive outside the S3 API view. If `mc ls` no longer shows them but they still exist under `/data/minio/k8s-backups/etcd/`, treat them as one-off backend garbage and remove them explicitly on the master after validating the four retained snapshots.
@@ -37,7 +38,10 @@
 - The stale `BackupVolume` cleanup pass removed the historical payload, but Longhorn backup-target sync may recreate empty `BackupVolume` CRs with blank `lastBackupName` / `size` from residual backend metadata. Treat those as control-plane residue unless they regain stored bytes or live backup references.
 - Longhorn may release the underlying backupstore payload asynchronously after the CR deletions, so storage reclaim is expected to lag the inventory cleanup.
 - Current measured MinIO usage on `2026-04-19` after the retention cleanup: `k8s-backups = 8055 MiB`, split as `backupstore = 7036 MiB` and `etcd = 1019 MiB`; the `< 8 GiB` target is satisfied for the full bucket.
+- Current measured Nexus blob-store usage on `2026-04-19`: bucket `nexus = 4.3 GiB / 3908 objects`; treat this as live registry/package state, not as generic MinIO backlog.
 - Current measured ETCD GDrive cleanup impact on 2026-04-18: `~1.24 GiB` of legacy directory garbage plus one duplicate `254.52 MiB` snapshot; cleanup already applied and revalidated.
+
+See `docs/backup-policy.md` for the consolidated policy, including the Nexus bucket decision.
 
 ## Apply
 

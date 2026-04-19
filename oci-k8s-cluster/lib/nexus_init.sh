@@ -160,6 +160,8 @@ nexus_create_s3_blobstore() {
     # Minio endpoint (ClusterIP service)
     local minio_endpoint="http://minio-service.minio.svc.cluster.local:9000"
     
+    # Bucket expiration stays disabled intentionally. The MinIO bucket backs live Nexus blob data,
+    # so retention must be handled from Nexus policies rather than raw MinIO object deletion.
     # Build JSON payload based on user's config images
     local payload
     payload=$(cat <<EOF
@@ -228,7 +230,11 @@ nexus_create_docker_repo() {
     
     echo "Creating Docker hosted repository '$repo_name'..." >&2
     
+    # Hosted repo retention is intentionally left unmanaged at bucket level. If cleanup is ever
+    # introduced, it must be attached as a Nexus cleanup policy instead of pruning the MinIO bucket.
     # Build JSON payload
+    # Hosted NPM versions are rollback material. Keep cleanup unset here until a Nexus-native policy
+    # is explicitly designed and attached.
     local payload
     payload=$(cat <<EOF
 {
@@ -317,6 +323,8 @@ nexus_create_npm_hosted() {
 
     echo "Creating NPM hosted repository '$repo_name'..." >&2
 
+    # Proxy freshness is handled by Nexus proxy cache settings below. Do not add MinIO bucket-level
+    # expiry for this content because it would bypass Nexus metadata.
     local payload
     payload=$(cat <<EOF
 {
