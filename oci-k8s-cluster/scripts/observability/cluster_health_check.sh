@@ -27,6 +27,24 @@ report_warn() { echo -e "  ${WARN} ${YELLOW}${*}${NC}"; (( WARNINGS++ )) || true
 report_crit() { echo -e "  ${CRIT} ${RED}${*}${NC}";   (( ISSUES++   )) || true; }
 section()     { echo -e "\n${BOLD}── ${*} ${NC}"; }
 
+resolve_kubeconfig() {
+    local candidate
+    local -a candidates=()
+
+    [[ -n "${KUBECONFIG:-}" ]] && candidates+=("$KUBECONFIG")
+    candidates+=("/etc/kubernetes/admin.conf" "$HOME/.kube/config" "/home/ubuntu/.kube/config")
+
+    for candidate in "${candidates[@]}"; do
+        [[ -n "$candidate" && -r "$candidate" ]] || continue
+        if KUBECONFIG="$candidate" kubectl version --request-timeout=10s >/dev/null 2>&1; then
+            export KUBECONFIG="$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 # Returns age in seconds for an ISO8601 timestamp (2026-04-03T12:00:00Z)
 age_seconds() {
     local ts="$1"
@@ -49,6 +67,19 @@ echo ""
 echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
 echo -e "${BOLD}  🏥 Cluster Health Report — $(date -u '+%Y-%m-%d %H:%M UTC')${NC}"
 echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
+
+section "Kubectl Access"
+
+if resolve_kubeconfig; then
+    report_ok "kubectl API access available via $KUBECONFIG"
+else
+    report_crit "kubectl API access unavailable: no readable working kubeconfig found"
+    echo ""
+    echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
+    echo -e "${BOLD}  ${CRIT} ${ISSUES} critical, ${WARNINGS} warning(s) — action required${NC}"
+    echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
+    exit 2
+fi
 
 # ══════════════════════════════════════════════════════════════════════════
 # 1.1  LONGHORN COMPONENT HEALTH
