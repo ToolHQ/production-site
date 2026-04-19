@@ -117,9 +117,10 @@ Operational notes:
 - `components/kubecost/commands.sh` and repo values were updated, but the immediate live recovery
   for `kubecost-prometheus-server` / `kubecost-grafana` also required direct deployment patches to
   converge within the current maintenance window.
-- Follow-up caveat: local `helm` validation against `oci-k8s-cluster/kubeconfig_tunnel.yaml` still
-  fails with `tls: failed to parse private key`; this is a client/kubeconfig compatibility issue,
-  not a missing IaC reference or patch-file wiring issue.
+- Follow-up resolved in T-131: local Helm `v3.14.3` was incompatible with
+  `oci-k8s-cluster/kubeconfig_tunnel.yaml`, while Helm `v3.19.0` succeeded against the same tunnel.
+  The repo now routes Helm-managed component workflows through `tools/helm_compat.sh`, which pins a
+  compatible Helm version when the local system binary is too old.
 
 ### Why this matters
 

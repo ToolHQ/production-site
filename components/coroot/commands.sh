@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
-dir="$(dirname "$0")"
+dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$dir/../.." && pwd)"
+helm_cmd="$repo_root/tools/helm_compat.sh"
 
 echo "🔭 Installing Coroot Observability..."
 
 # Check Repo
-if ! helm repo list | grep -q coroot; then
-    helm repo add coroot https://coroot.github.io/helm-charts
+if ! "$helm_cmd" repo list | grep -q coroot; then
+    "$helm_cmd" repo add coroot https://coroot.github.io/helm-charts
 fi
-helm repo update coroot
+"$helm_cmd" repo update coroot
 
 # Deploy
 kubectl create ns coroot --dry-run=client -o yaml | kubectl apply -f -
@@ -29,7 +31,7 @@ if [ -n "$CH_PASSWORD" ]; then
     ARGS+=("--set" "clickhouse.auth.password=$CH_PASSWORD")
 fi
 
-helm upgrade --install coroot coroot/coroot "${ARGS[@]}"
+"$helm_cmd" upgrade --install coroot coroot/coroot "${ARGS[@]}"
 
 
 echo "✅ Coroot installed."
