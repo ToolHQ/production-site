@@ -7,6 +7,6 @@ spec:
   cron: "0 2 * * *"
   task: "backup"
   groups:
-  - observability
+    - observability
   retain: 3
   concurrency: 1

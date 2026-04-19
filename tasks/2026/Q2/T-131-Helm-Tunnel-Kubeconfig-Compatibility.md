@@ -95,6 +95,35 @@ This removes dependence on the workstation's preinstalled Helm version.
 - `./components/kubecost/commands.sh` succeeded from the repo root and upgraded the release to
   revision `13`
 
+### 4. End-to-end follow-up
+
+Post-wrapper validation across the other active Helm-managed workflows confirmed that the
+original tunnel/kubeconfig problem was resolved and exposed two unrelated downstream blockers:
+
+- `components/kubernetes-dashboard/commands.sh` was still using the dead chart repo URL
+  `https://kubernetes.github.io/dashboard/` and its local `values.yaml` no longer matched the
+  current 7.x chart schema.
+- `components/coroot/commands.sh` was no longer blocked by Helm compatibility; instead,
+  `coroot-prometheus-server` was crashing because its Longhorn PVC had filled to `100%` and the
+  Prometheus process faulted during `queries.active` mmap initialization.
+
+Applied follow-up fixes:
+
+- switched the Dashboard workflow to the official GitHub release chart tarball
+  (`kubernetes-dashboard-7.14.0.tgz`) and aligned the repo values file with the chart's real
+  `api/auth/web/metricsScraper.*.containers.resources` schema;
+- corrected the post-Helm Dashboard patch targets to the actual deployment names
+  (`kubernetes-dashboard-*`);
+- increased Coroot Prometheus PVC size from `2Gi` to `4Gi` and added
+  `storage.tsdb.retention.size=1500MB` alongside the existing 1-day retention window.
+
+Follow-up validation result:
+
+- `./components/kubernetes-dashboard/commands.sh` succeeded and upgraded the release to
+  revision `57`; all Dashboard deployments were `1/1 Running`.
+- `./components/coroot/commands.sh` succeeded and upgraded the release to revision `10`;
+  `coroot-prometheus-server` recovered to `2/2 Running`.
+
 ## 📋 Execution Log
 
 - [x] Reproduced local Helm failure with `kubeconfig_tunnel.yaml`
@@ -105,13 +134,18 @@ This removes dependence on the workstation's preinstalled Helm version.
 - [x] Added `tools/helm_compat.sh`
 - [x] Updated active Helm-managed component scripts to use the wrapper
 - [x] Validated the repaired `kubecost` workflow from the repo root
+- [x] Validated the repaired `kubernetes-dashboard` workflow from the repo root
+- [x] Validated the repaired `coroot` workflow from the repo root after fixing the downstream
+  storage blocker
 
 ## 🔗 Files
 
 - `tools/helm_compat.sh`
 - `components/kubecost/commands.sh`
 - `components/coroot/commands.sh`
+- `components/coroot/values.yaml`
 - `components/kubernetes-dashboard/commands.sh`
+- `components/kubernetes-dashboard/values.yaml`
 - `oci-k8s-cluster/kubeconfig_tunnel.yaml`
 
 ## Notes
