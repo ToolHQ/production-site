@@ -1,6 +1,6 @@
 # T-124: Backup Retention Audit & ETCD Recovery
 
-- **Status**: In Progress (retention converged; remaining follow-up is Nexus policy/doc codification)
+- **Status**: Done (ETCD/GDrive recovered; retention converged; Nexus policy documented)
 - **Priority**: 🚨 Critical
 - **Owner**: Infra
 - **Est.**: 3h
@@ -216,6 +216,22 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
   - consolidar a documentacao dedicada da politica de backup (`docs/backup-policy.md`);
   - atualizar o KANBAN quando a task for formalmente encerrada.
 
+### Update 2026-04-19 — Politica do bucket Nexus codificada
+
+- O bucket `nexus` no MinIO foi validado como storage ativo do blob store S3 `minio` do Nexus, nao como
+  backlog de backup: inventario live medido em `4.3 GiB` e `3908` objetos, todos sob o prefixo
+  `nexus/content`.
+- O repo ja criava esse blob store via `oci-k8s-cluster/lib/nexus_init.sh` apontando o bucket `nexus`
+  com `expiration: -1`, e os repositorios `docker-repo`, `npm-repo`, `npm-proxy` e `npm-group` seguem
+  amarrados a esse blob store.
+- Politica definida: nao existe pruning por idade/tamanho no nivel do MinIO para `nexus/`; qualquer
+  retencao futura precisa acontecer por cleanup policy do proprio Nexus, nunca por `mc rm` ou delete
+  direto no backend do bucket.
+- Foi criada a documentacao consolidada em `docs/backup-policy.md`, incluindo a distincao entre dados de
+  backup (`k8s-backups`) e dados operacionais vivos do Nexus (`nexus`).
+- Com isso, o escopo tecnico de T-124 fica encerrado: a convergencia de capacidade do `k8s-backups` foi
+  validada, o bucket `nexus` foi classificado corretamente, e a politica resultante ficou documentada.
+
 ---
 
 ## Tasks
@@ -255,19 +271,19 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
   - kubecost não é dado crítico; 1.3 GiB em backup é desperdício
 - [x] **3.3** Avaliar coroot-data: verificar se 3.9 GiB é esperado com retain=7
   - Se >7 backups existem para coroot-data, forçar limpeza manual
-- [ ] **3.4** Definir política de retenção do bucket `nexus` no MinIO
+- [x] **3.4** Definir política de retenção do bucket `nexus` no MinIO
   - Longhorn `backup-daily` não cobre nexus (10 GiB PVC — muito grande)
   - Nexus tem bucket próprio (4.3 GiB) — investigar o que está acumulando
 - [x] **3.5** Remover VolumeSnapshots manuais obsoletos do postgres (dez/2025)
   - `kubectl delete volumesnapshot manual-20251201-090155 manual-20251201-091805 ... -n postgres`
-- [ ] **3.6** Documentar tabela de política de retenção por serviço em `docs/backup-policy.md`
+- [x] **3.6** Documentar tabela de política de retenção por serviço em `docs/backup-policy.md`
 
 ### ✅ Fase 4 — Validação Final
 
 - [x] **4.1** Confirmar tamanho total MinIO após limpeza (target: < 8 GiB em k8s-backups)
 - [x] **4.2** Confirmar GDrive sync funcionando com conteúdo recente
 - [x] **4.3** Confirmar etcd backup com arquivo no MinIO `k8s-backups/etcd/`
-- [ ] **4.4** Atualizar KANBAN.md com task concluída
+- [x] **4.4** Atualizar KANBAN.md com task concluída
 
 ### 🔧 Follow-up descoberto no re-audit de 2026-04-19
 
