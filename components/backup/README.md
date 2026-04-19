@@ -30,6 +30,7 @@
 - The offsite copy is intentionally append-only for Longhorn data. Retention reduction happens at the MinIO generation layer by assigning the correct recurring job group per PVC.
 - ETCD offsite sync must read snapshots from `/var/backup/etcd`, not from `/data/minio/k8s-backups/etcd`.
 - The `etcd-backup` upload step is responsible for pruning the MinIO `k8s-backups/etcd/` prefix to the four newest `etcd-*.db` objects and deleting legacy `*.db.part` / probe artifacts.
+- Legacy ETCD artifacts written directly into the MinIO backend filesystem may survive outside the S3 API view. If `mc ls` no longer shows them but they still exist under `/data/minio/k8s-backups/etcd/`, treat them as one-off backend garbage and remove them explicitly on the master after validating the four retained snapshots.
 - On 2026-04-18 the master hit `DiskPressure=True` with `/var/backup` at `2.1G`; the ETCD CronJob was hardened to keep only the four newest local snapshots so the staging area does not keep growing on the root filesystem.
 - Legacy GDrive entries created by copying the MinIO backend directly can appear as bogus directories containing `xl.meta`. The directed ETCD cleanup pass was executed on `2026-04-18`; the remote now holds `9` valid snapshots / `2.237 GiB`.
 - The stale `BackupVolume` cleanup pass was also executed on `2026-04-18`; the cluster inventory now shows `8` `BackupVolume` for `8` live Longhorn volumes.

@@ -158,6 +158,38 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
   `pvc-9457cf3d-b57a-4148-9935-922998049c99`, `pvc-b48937cd-c9ee-40e1-ab42-ddc5b3130478`,
   `pvc-c6f50016-a36d-410b-bc17-292f9e4ff805`.
 
+### Update 2026-04-19 — Cleanup execution after approval
+
+- O `CronJob` `etcd-backup` foi reaplicado com pruning no upload para MinIO; o primeiro rerun manual
+  revelou que a imagem `minio/mc` nao tem `awk`, entao o manifest foi corrigido para parsing shell puro.
+- Foram executados dois Jobs manuais (`etcd-backup-manual-191337` e `etcd-backup-manual-rerun-191521`) para
+  validar o path suportado; os snapshots novos `etcd-20260419-221343.db` e `etcd-20260419-221527.db`
+  ficaram preservados.
+- O prefixo ETCD no backend local foi limpo com criterio conservador e ficou reduzido a exatamente quatro
+  snapshots validos:
+  - `etcd-20260419-120005.db`
+  - `etcd-20260419-180005.db`
+  - `etcd-20260419-221343.db`
+  - `etcd-20260419-221527.db`
+- Artefatos legados de backend (`*.db.part`, `latest_snapshot` e snapshots antigos que ja nao existiam via API)
+  foram removidos explicitamente do master apos validacao de que nao estavam mais expostos pelo S3 API.
+- Os cinco volumes de observability convergiram imediatamente para `3` backups cada:
+  - `coroot-clickhouse` (`pvc-23ab203e...`) -> `3`
+  - `coroot-prometheus-server` (`pvc-2b52212e...`) -> `3`
+  - `kubecost-cost-analyzer` (`pvc-3a209369...`) -> `3`
+  - `kubecost-prometheus-server` (`pvc-76755523...`) -> `3`
+  - `coroot-data` (`pvc-efbe8d2c...`) -> `3`
+- Os `11` roots orfaos de `BackupVolume` foram tratados:
+  - `10` roots vazios foram deletados diretamente;
+  - o root remanescente `pvc-76d32043...` (Elastic historico) teve seus `6` backups antigos removidos e o
+    `BackupVolume` correspondente foi deletado.
+- Inventario Longhorn apos a convergencia desta rodada: `8` `BackupVolume`, todos correspondentes aos `8`
+  volumes live do cluster.
+- Residual apos esta rodada:
+  - `backupstore` ainda mede ~`17 GiB`, portanto a task ainda nao atinge o alvo `< 8 GiB`;
+  - o backlog agora ficou concentrado nos volumes criticos do grupo `default` e no excesso de backups do
+    `postgres-data-postgres-0` (`14`), alem dos snapshots manuais antigos do namespace `postgres`.
+
 ---
 
 ## Tasks
@@ -195,7 +227,7 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
   - `kubectl get recurringjob -n longhorn-system -o yaml`
 - [x] **3.2** Remover kubecost volumes do grupo `default` de backup (ou reduzir retain=3)
   - kubecost não é dado crítico; 1.3 GiB em backup é desperdício
-- [ ] **3.3** Avaliar coroot-data: verificar se 3.9 GiB é esperado com retain=7
+- [x] **3.3** Avaliar coroot-data: verificar se 3.9 GiB é esperado com retain=7
   - Se >7 backups existem para coroot-data, forçar limpeza manual
 - [ ] **3.4** Definir política de retenção do bucket `nexus` no MinIO
   - Longhorn `backup-daily` não cobre nexus (10 GiB PVC — muito grande)
@@ -213,8 +245,8 @@ Análise executiva do storage de backup revelou problemas críticos e oportunida
 
 ### 🔧 Follow-up descoberto no re-audit de 2026-04-19
 
-- [ ] **1.8** Podar o prefixo `k8s-backups/etcd/` no MinIO para os quatro snapshots mais novos e remover artefatos legados `*.db.part`
-- [ ] **3.7** Planejar/validar cleanup retroativo dos `BackupVolume` órfãos e dos backups históricos de observability herdados do antigo `backup-daily`
+- [x] **1.8** Podar o prefixo `k8s-backups/etcd/` no MinIO para os quatro snapshots mais novos e remover artefatos legados `*.db.part`
+- [x] **3.7** Planejar/validar cleanup retroativo dos `BackupVolume` órfãos e dos backups históricos de observability herdados do antigo `backup-daily`
 
 ---
 
