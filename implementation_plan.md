@@ -239,6 +239,9 @@ Execution result:
   - `k8s-backups = 8055 MiB`
   - `backupstore = 7036 MiB`
   - `etcd = 1019 MiB`
+- Nexus follow-up concluded without destructive cleanup:
+  - bucket `nexus` was validated as the active Nexus S3 blob store (`~4.3 GiB`, `3908` objects)
+  - policy codified as `no MinIO-side pruning`; any future retention must be enforced from Nexus cleanup policies
 - The Longhorn payload converged to the active retained data set, but backup-target sync recreated `10`
   empty `BackupVolume` CRs with blank status fields from residual backend metadata. Treat them as metadata-only
   residue rather than active stored backups.
