@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
+
+dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "🚀 Deploying Kubecost with optimized resources..."
 
@@ -11,11 +13,11 @@ helm repo update >/dev/null 2>&1 || true
 helm upgrade --install kubecost cost-analyzer/cost-analyzer \
     --namespace kubecost --create-namespace \
     --version 1.108.1 \
-    --values values.yaml \
+    --values "$dir/values.yaml" \
     --wait
 
 if kubectl get deployment -n kubecost kubecost-grafana >/dev/null 2>&1; then
-    kubectl patch deployment -n kubecost kubecost-grafana --patch-file kubecost-grafana-patch.yaml
+    kubectl patch deployment -n kubecost kubecost-grafana --patch-file "$dir/kubecost-grafana-patch.yaml"
     echo "  - Patched kubecost-grafana"
 fi
 
