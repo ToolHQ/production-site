@@ -67,12 +67,30 @@ cd /home/dnorio/production-site/oci-k8s-cluster
 ```
 
 A TUI gerencia tunnels automaticamente para Dashboard (porta 8443) e port-forwards de serviços.
+Ela também expõe o fluxo de resgate de conectividade OCI quando a porta 22 estiver bloqueada para o seu IP atual.
+
+## Resgate de SSH bloqueado
+
+Use este fluxo quando as instâncias continuarem `RUNNING`, mas `ssh oci-k8s-master` e afins falharem por timeout ou bloqueio na porta 22.
+
+```bash
+cd /home/dnorio/production-site/oci-k8s-cluster
+./k8s_ops_menu.sh
+```
+
+Na TUI:
+
+1. Entrar em `Cloud Rescue`
+2. Selecionar o nó afetado
+3. Executar `Whitelist My IP (Fix SSH Block)`
+
+Esse caminho chama a rotina OCI `whitelist_my_ip()` e adiciona o IP público atual da workstation como regra `/32` na Security List do subnet, liberando SSH na porta 22 sem depender de acesso prévio ao nó.
 
 ## Troubleshooting
 
-| Sintoma                            | Causa                               | Solução                                              |
-| ---------------------------------- | ----------------------------------- | ---------------------------------------------------- |
-| `connection refused` na porta 6445 | Tunnel não ativo                    | Executar Passo 1 acima                               |
-| `connection refused` na porta 6443 | Tunnel ativo mas porta errada       | Usar `kubeconfig_tunnel.yaml`, não `kubeconfig.yaml` |
-| SSH timeout                        | IP público mudou (raro no OCI Free) | Verificar IP em `common.sh: MASTER_PUBLIC_IP`        |
-| `certificate expired`              | Certs kubeadm vencidos (>1 ano)     | `kubectl certificate renew` no master                |
+| Sintoma                            | Causa                                             | Solução                                                       |
+| ---------------------------------- | ------------------------------------------------- | ------------------------------------------------------------- |
+| `connection refused` na porta 6445 | Tunnel não ativo                                  | Executar Passo 1 acima                                        |
+| `connection refused` na porta 6443 | Tunnel ativo mas porta errada                     | Usar `kubeconfig_tunnel.yaml`, não `kubeconfig.yaml`          |
+| SSH timeout                        | Security List OCI sem o seu IP / IP público mudou | Usar TUI → `Cloud Rescue` → `Whitelist My IP (Fix SSH Block)` |
+| `certificate expired`              | Certs kubeadm vencidos (>1 ano)                   | `kubectl certificate renew` no master                         |
