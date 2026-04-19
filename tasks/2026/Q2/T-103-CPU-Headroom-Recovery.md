@@ -108,12 +108,18 @@ Executed reductions in this follow-up pass:
 
 Operational notes:
 
-- `components/metrics-server/commands.sh` is currently blocked by a manifest re-apply error on the
-  upstream `components.yaml` (`Duplicate value: "https"` on container ports). The live request
-  reduction was applied safely via direct `kubectl patch` instead of the broken full re-apply.
+- `components/metrics-server/commands.sh` is reproducible again after aligning
+  `components/metrics-server/components.yaml` to the stable in-cluster port `4443`, which removed
+  the `Duplicate value: "https"` failure from the `kubectl apply` path.
+- Component scripts that depend on patch files (`components/storage/commands.sh`,
+  `components/metrics-server/commands.sh`, `components/kubecost/commands.sh`) now resolve those
+  files relative to the component directory instead of depending on the caller's `cwd`.
 - `components/kubecost/commands.sh` and repo values were updated, but the immediate live recovery
   for `kubecost-prometheus-server` / `kubecost-grafana` also required direct deployment patches to
   converge within the current maintenance window.
+- Follow-up caveat: local `helm` validation against `oci-k8s-cluster/kubeconfig_tunnel.yaml` still
+  fails with `tls: failed to parse private key`; this is a client/kubeconfig compatibility issue,
+  not a missing IaC reference or patch-file wiring issue.
 
 ### Why this matters
 
