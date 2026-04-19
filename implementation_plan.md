@@ -245,3 +245,27 @@ Execution result:
 - The Longhorn payload converged to the active retained data set, but backup-target sync recreated `10`
   empty `BackupVolume` CRs with blank status fields from residual backend metadata. Treat them as metadata-only
   residue rather than active stored backups.
+
+---
+
+# T-132 Nexus Cleanup Policy Automation
+
+Date: 2026-04-19
+
+Validated live state:
+
+- `docker-repo`, `npm-repo`, `npm-proxy`, and `npm-group` all currently expose `cleanup: null`.
+- Built-in cleanup tasks already exist in the live Nexus task inventory:
+  - `repository.cleanup`
+  - `assetBlob.cleanup` for `docker`
+  - `assetBlob.cleanup` for `npm`
+- No compact-blob-store task was observed during the live API audit used for this pass.
+- Swagger confirms repository `PUT` payloads support `cleanup.policyNames`, but does not expose cleanup-policy creation or task creation endpoints.
+- Script API is enabled on the live Nexus instance (`GET /service/rest/v1/script -> HTTP 200`).
+
+Safe implementation boundary for this round:
+
+1. Add repo-side helpers to audit cleanup attachment and attach already-existing cleanup policy names.
+2. Keep `docker-repo` and `npm-repo` conservative until explicit rollback/deprecation policy exists.
+3. Treat `npm-proxy` as the first cleanup-policy candidate because it is cache data.
+4. Keep policy creation and compact-task creation as explicit follow-up work until a vetted Script API implementation is committed.
