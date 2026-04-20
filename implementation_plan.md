@@ -261,11 +261,15 @@ Validated live state:
   - `assetBlob.cleanup` for `npm`
 - No compact-blob-store task was observed during the live API audit used for this pass.
 - Swagger confirms repository `PUT` payloads support `cleanup.policyNames`, but does not expose cleanup-policy creation or task creation endpoints.
-- Script API is enabled on the live Nexus instance (`GET /service/rest/v1/script -> HTTP 200`).
+- The internal cleanup-policy resource `/service/rest/internal/cleanup-policies` is live and responds `200` for list/create/update/preview.
+- Script API browse is enabled, but script create/update currently returns `410` (`Creating and updating scripts is disable`).
 
-Safe implementation boundary for this round:
+Execution outcome:
 
-1. Add repo-side helpers to audit cleanup attachment and attach already-existing cleanup policy names.
-2. Keep `docker-repo` and `npm-repo` conservative until explicit rollback/deprecation policy exists.
-3. Treat `npm-proxy` as the first cleanup-policy candidate because it is cache data.
-4. Keep policy creation and compact-task creation as explicit follow-up work until a vetted Script API implementation is committed.
+1. Added internal cleanup-policy helpers plus npm-proxy convenience wrappers in `oci-k8s-cluster/lib/nexus_init.sh`.
+2. Committed fallback Groovy upsert script at `oci-k8s-cluster/scripts/registry/nexus_cleanup_policy_upsert.groovy`.
+3. Created live policy `npm-proxy-unused-30d` with `criteriaLastDownloaded = 30`.
+4. Attached `npm-proxy-unused-30d` to `npm-proxy`; live repo JSON now returns `cleanup.policyNames=["npm-proxy-unused-30d"]`.
+5. Readback of the policy reports `inUseCount = 1`.
+6. Preview endpoint returned `200` with an empty sample (`{"total":-1,"results":[]}`) at validation time.
+7. Decision: do not add blob-store compaction yet; revisit only after a future cleanup run produces measurable soft-deleted blobs.
