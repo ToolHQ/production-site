@@ -18,8 +18,6 @@
 
 |                           ID                           | Task Name                                                                              |  Priority   | Epic   | Est. |
 | :----------------------------------------------------: | :------------------------------------------------------------------------------------- | :---------: | :----- | :--: |
-| [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅ | 🚨 Critical | DevOps |  2h  |
-|  [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)   | **Publicar @dnorio/\* no Nexus** _(8/8 @dnorio/\* publicados — v0.0.175)_ ✅           | 🚨 Critical | DevOps |  1h  |
 
 ## 📅 Backlog (To Do)
 
@@ -34,6 +32,8 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+|  [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)   | **Publicar @dnorio/* no Nexus** _(8/8 @dnorio/* publicados — v0.0.175)_ ✅           | 🚨 Critical | DevOps |  1h  |
+| [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅ | 🚨 Critical | DevOps |  2h  |
 |   [T-132](2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md)   | **Nexus: Cleanup Policy Automation** _(audit/attach helpers for existing policies; `npm-proxy` first, hosted repos conservative)_ |   🔼 High   | Infra / DevOps |  3h  |
 |       [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md)        | **Backup Retention Audit & ETCD Recovery** _(ETCD/GDrive restaurados, `k8s-backups` em 8055 MiB, política do bucket Nexus documentada)_                    | 🚨 Critical |         Infra         |   3h   |
 |         [T-131](2026/Q2/T-131-Helm-Tunnel-Kubeconfig-Compatibility.md)          | **Helm Tunnel Kubeconfig Compatibility** _(local Helm `v3.14.3` incompatível com `kubeconfig_tunnel.yaml`; wrapper `v3.19.0` fixado no repo)_              | 🚨 Critical |    Infra / DevOps     |   2h   |
