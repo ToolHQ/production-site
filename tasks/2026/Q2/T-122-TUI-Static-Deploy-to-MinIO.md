@@ -1,6 +1,6 @@
 # T-122 — TUI: Static Deploy para MinIO
 
-**Status**: 🏎️ In Progress  
+**Status**: ✅ Done  
 **Priority**: 🔼 High  
 **Epic**: DevOps / TUI  
 **Estimate**: 3h  
@@ -43,7 +43,7 @@ a TUI, com descoberta clara, execução guiada e logs persistidos no host.
 - [x] Implementar execução guiada para `npm run build-and-upload` ou equivalente seguro
 - [x] Garantir que o upload use o bucket `s3://my-site/static/` via endpoint MinIO correto
 - [x] Integrar logs persistidos no host para build/upload do static
-- [ ] Validar uma publicação real e confirmar que o nginx passa a servir os novos assets
+- [x] Validar uma publicação real e confirmar que o nginx passa a servir os novos assets
 
 ---
 
@@ -63,5 +63,13 @@ a TUI, com descoberta clara, execução guiada e logs persistidos no host.
 - O destino correto é o bucket `my-site`, prefixo `static/`.
 - O MinIO local historicamente aparece como `minio.localhost` no fluxo de upload manual.
 - O objetivo é reduzir dependência de memória operacional: o deploy do static deve ficar descobrível dentro da TUI.
-- Implementação aplicada em `k8s_ops_menu.sh`: `apps/static` agora aparece no App Deploy Menu com ação dedicada **Build + Upload Static**, pré-checagens (`node`, `npm`, `aws`, `jq`, resolução de `minio.localhost`) e log persistido no host.
-- Nesta sessão, a validação real ficou bloqueada por ambiente local: `aws` não está instalado no `PATH` e `minio.localhost` não resolve neste host do agente.
+- Implementação aplicada em `k8s_ops_menu.sh`: `apps/static` agora aparece no App Deploy Menu com ação dedicada **Build + Upload Static**, pré-checagens (`node`, `npm`, `aws`, `jq`, resolução do host do endpoint configurado e credenciais MinIO) e log persistido no host.
+
+## Validação Final — 2026-04-19
+
+- Publicação real executada a partir de `apps/static` com log persistido em `logs/tui-app-deploy/20260419_220458_static_build-and-upload_t122.log`.
+- O build/upload usou o mesmo fluxo operacional da TUI (`npm run build-and-upload`), com override temporário `STATIC_UPLOAD_ENDPOINT_URL=http://127.0.0.1:19000` via `kubectl -n minio port-forward svc/minio-service 19000:9000`.
+- O override foi necessário porque o endpoint público `https://minio.dnor.io` está acessível, mas hoje apresenta certificado TLS expirado; isso não muda a implementação do fluxo, apenas a rota usada para a validação desta sessão.
+- Após o upload, o serviço `my-site-nginx` foi validado diretamente por `kubectl -n default port-forward svc/my-site-nginx-service 18080:80`.
+- Hashes servidos por `http://127.0.0.1:18080/` e `http://127.0.0.1:18080/bundle.js` bateram exatamente com `apps/static/dist/index.html` e `apps/static/dist/bundle.js`, confirmando que o nginx já consome o build recém-publicado no bucket `my-site/static/`.
+- O host público `dnor.io` atualmente responde com uma camada de redirect para `/lander`, então a verificação de bytes desta task foi fechada no serviço `my-site-nginx`, que é o consumidor direto do bucket estático dentro do cluster.
