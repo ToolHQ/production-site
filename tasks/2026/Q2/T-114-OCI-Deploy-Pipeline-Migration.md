@@ -1,6 +1,6 @@
 # T-114 — OCI Deploy Pipeline: minikube → OCI/Nexus Migration
 
-**Status**: 📅 Backlog  
+**Status**: ✅ Done  
 **Priority**: 🔼 High  
 **Epic**: DevOps  
 **Estimate**: 4h  
@@ -75,10 +75,10 @@ Auditoria disparada pela revisão do app `apps/nginx/`. Descoberta: **todos os 5
 
 ### 7. Validar nginx no cluster (pós-migração)
 
-- [ ] `docker buildx build --platform linux/arm64 --push ...` bem-sucedido
-- [ ] `kubectl rollout status deployment/my-site-nginx-deployment -n default` → OK
-- [ ] Verificar pod pull sem ImagePullBackOff
-- [ ] Testar Ingress `https://dnor.io`
+- [x] `docker buildx build --platform linux/arm64 --push ...` bem-sucedido
+- [x] `kubectl rollout status deployment/my-site-nginx-deployment -n default` → OK
+- [x] Verificar pod pull sem ImagePullBackOff
+- [x] Testar Ingress `https://dnor.io`
 
 ---
 
@@ -88,3 +88,13 @@ Auditoria disparada pela revisão do app `apps/nginx/`. Descoberta: **todos os 5
 - **Senhas em plaintext**: `apps/back-end` tem DB passwords em plain env vars no manifesto — candidato para K8s Secrets (tarefa separada)
 - **Ingress host**: manifesto atual usa `my-site.localhost` → host real no OCI é desconhecido (verificar Ingress atual do cluster)
 - **`registry.local`**: resolvido via `/etc/hosts` nos nós como `127.0.0.1` + NodePort 31444 → funciona para pull do containerd, **não funciona diretamente do dev local sem tunnel**
+- **Exceção atual do back-end**: `apps/back-end/deploy.sh` ainda mantém `--add-host=nexus.dnor.io:10.0.1.100`. Isso não é mais resíduo minikube; é um workaround OCI específico porque o hostname `nexus.dnor.io` hoje não resolve de dentro do cluster/pods. A resiliência dessa dependência fica como follow-up natural para T-105.
+
+## Validação Final — 2026-04-19
+
+- A migração OCI está consolidada no layout atual do repo: os 5 apps deployáveis usam `registry.local:31444`, `--platform linux/arm64` e manifestos OCI planos em `k8s/*.yaml`.
+- Auditoria local confirmou os artefatos canônicos em produção: `apps/nginx/publish.sh`, `apps/back-end/deploy.sh`, `apps/py-back-end/deploy.sh`, `apps/rs-axum-back-end/deploy.sh` e `apps/tor/deploy.sh`, além dos manifestos OCI correspondentes em `k8s/`.
+- Evidência live do pipeline nginx já existia nas tasks filhas posteriores e foi reconfirmada nesta sessão: `kubectl rollout status deployment/my-site-nginx-deployment -n default` retornou sucesso e o pod `my-site-nginx-deployment-5c4895579-hxs6l` estava `1/1 Running`, sem `ImagePullBackOff`.
+- A reachability pública do Ingress foi revalidada com `curl -kI https://dnor.io`, que respondeu `HTTP/1.1 405 Method Not Allowed`; isso confirma que o host público e a borda HTTPS estão ativos, mesmo que `HEAD` não seja aceito pela aplicação.
+- O preflight do builder remoto `oci-builder` também foi revalidado nesta sessão durante o fechamento da T-115: o buildx remote driver estava `running`, com suporte a `linux/arm64`, preservando o caminho padrão de build OCI usado por esta migração.
+- O único desvio remanescente é o `--add-host=nexus.dnor.io:10.0.1.100` no deploy do back-end. O motivo foi verificado ao vivo: um pod `my-site-back-end` no cluster respondeu `wget: bad address 'nexus.dnor.io'`, então esse override hoje é workaround operacional do ambiente OCI, não sobra de minikube.
