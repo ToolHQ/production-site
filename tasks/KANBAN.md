@@ -11,7 +11,6 @@
 |                              ID                               | Task Name                                                                                                                         |  Priority   |     Owner      | Est. |
 | :-----------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------: | :--: |
 |     [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)      | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                          |   🔼 High   |  DevOps / TUI  |  3h  |
-| [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                     | 🚨 Critical |     DevOps     |  2h  |
 |        [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)        | **CPU Headroom Recovery & Sustained Margin Policy** _(monitoring window)_                                                         |   🔼 High   |     Infra      |  3h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -32,6 +31,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                     | 🚨 Critical |     DevOps     |  2h  |
 |  [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)   | **Publicar @dnorio/* no Nexus** _(8/8 @dnorio/* publicados — v0.0.175)_ ✅           | 🚨 Critical | DevOps |  1h  |
 | [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅ | 🚨 Critical | DevOps |  2h  |
 |   [T-132](2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md)   | **Nexus: Cleanup Policy Automation** _(audit/attach helpers for existing policies; `npm-proxy` first, hosted repos conservative)_ |   🔼 High   | Infra / DevOps |  3h  |
