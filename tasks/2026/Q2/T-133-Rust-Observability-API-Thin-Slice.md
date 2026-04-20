@@ -17,6 +17,7 @@ reusing the existing report artifacts already generated on disk.
   - `/health`
   - `/api/catalog`
   - `/api/catalog/summary`
+  - `/api/live/overview`
   - `/api/reports`
   - `/artifacts/*path`
 - UI: static HTML served by the same binary on `/`
@@ -40,6 +41,8 @@ reusing the existing report artifacts already generated on disk.
 - [x] Deployed successfully to the cluster via `oci-builder` and Nexus
 - [x] Added dedicated ingress `reports.dnor.io`
 - [x] Validated the app through the TUI deploy path and hardened that path with a real Nexus API readiness gate
+- [x] Added a live read-only cluster overview endpoint backed by the in-cluster Kubernetes API
+- [x] Replaced the snapshot-only page with a polling dashboard focused on critical services, incidents, and runtime health
 
 ## Validation
 
@@ -61,6 +64,11 @@ reusing the existing report artifacts already generated on disk.
 - TUI repository validation succeeded:
   - `./oci-k8s-cluster/testing/bats k8s_ops_menu.bats` passed with coverage for the new app label and Nexus readiness gating
   - sourcing `k8s_ops_menu.sh` and using the same discovery helpers as `App Deploy Menu` reported `label=rs-observability-api`, `status=Running`, `discovered=1`
+- Live console validation succeeded after the redesign:
+  - `cargo check` succeeded with the new in-cluster monitoring code
+  - `GET /api/live/overview` returned live cluster data with tracked service health
+  - `GET /` returned the redesigned dashboard shell with live control-plane sections
+  - rollout completed with image `registry.local:31444/repository/docker-repo/rs-observability-api:1776709645`
 
 ## Residual Note
 
