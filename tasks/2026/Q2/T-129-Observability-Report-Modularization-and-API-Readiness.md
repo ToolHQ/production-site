@@ -52,6 +52,14 @@ Revisar e redesenhar os relatórios para funções bem encapsuladas, testáveis 
   - recomendação de thin slice: collectors shell + backend Python leve + SPA estática
   - rollout incremental preservando a TUI
 
+### Update 2026-04-20 — Thin slice Rust implementada
+
+- Foi implementado o serviço `apps/rs-observability-api`, um backend Axum mínimo em Rust que serve os artefatos já existentes em `reports/latest` e `reports/latest-catalog`.
+- Endpoints expostos: `/health`, `/api/catalog`, `/api/catalog/summary`, `/api/reports` e `/artifacts/*path`.
+- A raiz `/` entrega uma UI estática leve, também servida pelo próprio binário, para listar apps deployáveis e links para os artefatos HTML/Markdown/JSON.
+- O deploy OCI/Nexus foi adicionado em `apps/rs-observability-api/deploy.sh` com manifesto Kubernetes próprio em `apps/rs-observability-api/k8s/rs-observability-api.yaml`.
+- A implementação preserva a filosofia `Stability First`: sem banco novo, sem collector extra em runtime e com footprint de `10m/16Mi` de request e `50m/64Mi` de limit.
+
 ---
 
 ## Tasks

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cluster Reports</title>
+    <style>
+      :root {
+        --ink: #1f2933;
+        --muted: #52606d;
+        --sand: #f8f1e6;
+        --paper: rgba(255, 252, 247, 0.92);
+        --line: rgba(31, 41, 51, 0.12);
+        --accent: #0f766e;
+        --accent-soft: #d7efe8;
+        --warning: #c76826;
+        --shadow: 0 24px 60px rgba(31, 41, 51, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Aptos", "Trebuchet MS", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 28%),
+          radial-gradient(circle at top right, rgba(199, 104, 38, 0.14), transparent 22%),
+          linear-gradient(180deg, #f3eadc 0%, #e8eef0 100%);
+      }
+
+      main {
+        width: min(1120px, calc(100vw - 32px));
+        margin: 32px auto 48px;
+      }
+
+      .shell {
+        background: var(--paper);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .hero {
+        padding: 32px;
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 18px;
+      }
+
+      .eyebrow {
+        font-size: 0.8rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      h1 {
+        margin: 0;
+        font-family: "Georgia", serif;
+        font-size: clamp(2rem, 4vw, 3.6rem);
+        line-height: 0.95;
+      }
+
+      .lede {
+        margin: 0;
+        max-width: 62ch;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.6;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+      }
+
+      .panel,
+      .metrics {
+        padding: 28px 32px 32px;
+      }
+
+      .panel + .metrics {
+        border-left: 1px solid var(--line);
+      }
+
+      .section-title {
+        margin: 0 0 16px;
+        font-size: 0.92rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .metric-card,
+      .artifact,
+      .table-shell {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.85);
+      }
+
+      .metric-card {
+        padding: 18px;
+      }
+
+      .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+      }
+
+      .metric-label {
+        margin-top: 6px;
+        color: var(--muted);
+      }
+
+      .artifact-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .artifact {
+        padding: 16px 18px;
+      }
+
+      .artifact a {
+        color: var(--ink);
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .artifact p,
+      .artifact small {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+
+      .artifact-kind {
+        color: var(--warning);
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .table-shell {
+        overflow: hidden;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        font-size: 0.95rem;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .status {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      .error {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(199, 104, 38, 0.08);
+        color: var(--warning);
+      }
+
+      @media (max-width: 880px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .panel + .metrics {
+          border-left: 0;
+          border-top: 1px solid var(--line);
+        }
+
+        .card-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell">
+        <div class="hero">
+          <span class="eyebrow">Rust Observability Slice</span>
+          <h1>Catalog and inventory, served online with almost no moving parts.</h1>
+          <p class="lede">
+            This service exposes the latest checked-in cluster catalog and inventory artifacts, adds a
+            small JSON API on top, and keeps the frontend static so the cluster pays almost nothing at runtime.
+          </p>
+          <div class="meta">
+            <span class="pill" id="generated-at">Loading snapshot metadata...</span>
+            <span class="pill">Routes: /api/catalog, /api/catalog/summary, /api/reports</span>
+          </div>
+        </div>
+
+        <div class="layout">
+          <section class="panel">
+            <h2 class="section-title">Deployable Apps</h2>
+            <div class="table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>App</th>
+                    <th>Language</th>
+                    <th>Readiness</th>
+                  </tr>
+                </thead>
+                <tbody id="apps-body">
+                  <tr><td colspan="3">Loading catalog...</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h2 class="section-title" style="margin-top: 24px;">Available Artifacts</h2>
+            <div class="artifact-list" id="artifact-list">
+              <div class="artifact"><p>Loading report index...</p></div>
+            </div>
+            <div id="error-box"></div>
+          </section>
+
+          <aside class="metrics">
+            <h2 class="section-title">Snapshot Summary</h2>
+            <div class="card-grid" id="summary-grid">
+              <article class="metric-card">
+                <div class="metric-value">-</div>
+                <div class="metric-label">Waiting for API</div>
+              </article>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const summaryGrid = document.getElementById("summary-grid");
+      const appsBody = document.getElementById("apps-body");
+      const artifactList = document.getElementById("artifact-list");
+      const generatedAt = document.getElementById("generated-at");
+      const errorBox = document.getElementById("error-box");
+
+      function renderError(message) {
+        errorBox.innerHTML = `<div class="error">${message}</div>`;
+      }
+
+      function metricCard(label, value) {
+        return `
+          <article class="metric-card">
+            <div class="metric-value">${value}</div>
+            <div class="metric-label">${label}</div>
+          </article>
+        `;
+      }
+
+      async function load() {
+        try {
+          const [summaryResponse, catalogResponse, reportResponse] = await Promise.all([
+            fetch("/api/catalog/summary"),
+            fetch("/api/catalog"),
+            fetch("/api/reports")
+          ]);
+
+          if (!summaryResponse.ok || !catalogResponse.ok || !reportResponse.ok) {
+            throw new Error("API returned an unexpected status.");
+          }
+
+          const summary = await summaryResponse.json();
+          const catalog = await catalogResponse.json();
+          const reports = await reportResponse.json();
+
+          generatedAt.textContent = summary.generated_at
+            ? `Snapshot generated at ${summary.generated_at}`
+            : "Snapshot timestamp unavailable";
+
+          summaryGrid.innerHTML = [
+            metricCard("Apps cataloged", summary.app_count),
+            metricCard("Deployable apps", summary.deployable_app_count),
+            metricCard("Components cataloged", summary.component_count),
+            metricCard("Cluster workloads", summary.cluster_workload_count),
+            metricCard("Repo-only apps", summary.repo_only_app_count),
+            metricCard("Missing docs", summary.undocumented_count)
+          ].join("");
+
+          const deployableApps = (catalog.apps || [])
+            .filter((app) => app.deploy_readiness === "deployable")
+            .sort((left, right) => left.name.localeCompare(right.name))
+            .slice(0, 8);
+
+          appsBody.innerHTML = deployableApps.map((app) => `
+            <tr>
+              <td>${app.name}</td>
+              <td>${app.language || "unknown"}</td>
+              <td><span class="status">${app.deploy_readiness}</span></td>
+            </tr>
+          `).join("") || '<tr><td colspan="3">No deployable apps found.</td></tr>';
+
+          artifactList.innerHTML = (reports.artifacts || []).map((artifact) => `
+            <article class="artifact">
+              <div class="artifact-kind">${artifact.kind}</div>
+              <a href="${artifact.href}" target="_blank" rel="noreferrer">${artifact.label}</a>
+              <small>${artifact.size_bytes} bytes</small>
+            </article>
+          `).join("") || '<div class="artifact"><p>No report artifacts were bundled into this image.</p></div>';
+        } catch (error) {
+          renderError(error.message || "Failed to load report data.");
+        }
+      }
+
+      load();
+    </script>
+  </body>
+</html>
