@@ -7,9 +7,14 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 APP_DIR=$SCRIPT_DIR
 REPO_ROOT=$(CDPATH= cd -- "$APP_DIR/../.." && pwd)
 BUNDLE_DIR="$APP_DIR/reports-bundle"
+MANIFEST_PATH="$APP_DIR/k8s/rs-observability-api.yaml"
+RENDERED_MANIFEST=""
 
 cleanup() {
   rm -rf "$BUNDLE_DIR"
+  if [ -n "$RENDERED_MANIFEST" ] && [ -f "$RENDERED_MANIFEST" ]; then
+    rm -f "$RENDERED_MANIFEST"
+  fi
 }
 
 trap cleanup EXIT INT TERM
@@ -37,7 +42,8 @@ docker buildx build \
   -t $IMAGE_LATEST \
   .
 
-sed -i "s|image: .*|image: $IMAGE_TAG|" ./k8s/rs-observability-api.yaml
+RENDERED_MANIFEST=$(mktemp)
+sed "s|image: .*|image: $IMAGE_TAG|" "$MANIFEST_PATH" > "$RENDERED_MANIFEST"
 
 export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
-kubectl apply -f ./k8s/rs-observability-api.yaml
+kubectl apply -f "$RENDERED_MANIFEST"

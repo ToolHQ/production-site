@@ -4234,6 +4234,41 @@ _app_run_setup_dev_deploy_logged() {
   return "$status"
 }
 
+_app_wait_for_nexus_ready_logged() {
+  local log_file="$1"
+  local max_attempts="${TUI_APP_NEXUS_READY_ATTEMPTS:-18}"
+  local sleep_seconds="${TUI_APP_NEXUS_READY_SLEEP_SECONDS:-10}"
+
+  _app_log_line "$log_file" "Checking Nexus registry readiness before deploy"
+
+  local attempt=1
+  while [ "$attempt" -le "$max_attempts" ]; do
+    local pod_name
+    local pod_phase
+    local pod_ready
+
+    pod_name=$(run_kubectl_silent "get pods -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}'" | tr -d '\r')
+    if [ -n "$pod_name" ]; then
+      pod_phase=$(run_kubectl_silent "get pod -n nexus $pod_name -o jsonpath='{.status.phase}'" | tr -d '\r')
+      pod_ready=$(run_kubectl_silent "get pod -n nexus $pod_name -o jsonpath='{.status.containerStatuses[0].ready}'" | tr -d '\r')
+
+      if [ "$pod_phase" = "Running" ] && [ "$pod_ready" = "true" ]; then
+        if run_kubectl_silent "exec -n nexus $pod_name -- curl -fsS http://127.0.0.1:8081/service/rest/v1/status" >/dev/null 2>&1; then
+          _app_log_line "$log_file" "OK: Nexus registry API is ready"
+          return 0
+        fi
+      fi
+    fi
+
+    _app_log_line "$log_file" "Waiting for Nexus API... ($attempt/$max_attempts) pod=${pod_name:-missing} phase=${pod_phase:-unknown} ready=${pod_ready:-false}"
+    sleep "$sleep_seconds"
+    attempt=$((attempt + 1))
+  done
+
+  _app_log_line "$log_file" "ERROR: Nexus registry API did not become ready in time"
+  return 1
+}
+
 _app_run_deploy_logged() {
   local app_name="$1"
   local app_dir="$2"
@@ -4541,6 +4576,12 @@ _app_action_menu() {
         echo -e "${CYAN}🚀 Deploying $app_name...${NC}"
         echo -e "${GRAY}Log: $deploy_log_file${NC}"
         echo ""
+        if ! _app_wait_for_nexus_ready_logged "$deploy_log_file"; then
+          echo -e "\n${RED}❌ Nexus registry is not ready for image push${NC}"
+          echo -e "${GRAY}Log saved to: $deploy_log_file${NC}"
+          read -p "$(t "press_enter")"
+          continue
+        fi
         if _app_run_deploy_logged "$app_name" "$app_dir" "$deploy_script" "$deploy_log_file"; then
           echo -e "\n${GREEN}✅ $app_name deployed successfully${NC}"
         else

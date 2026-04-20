@@ -107,6 +107,65 @@ default|kubernetes|https:443,"
     assert_output "Missing"
 }
 
+@test "_app_get_label: reads rs-observability-api label from OCI manifest" {
+    local app_dir="$BATS_TEST_DIRNAME/../../apps/rs-observability-api"
+
+    run _app_get_label "$app_dir"
+
+    assert_success
+    assert_output "rs-observability-api"
+}
+
+@test "_app_wait_for_nexus_ready_logged: waits for Nexus API readiness" {
+    export TUI_APP_DEPLOY_LOG_DIR="$BATS_TEST_TMPDIR/tui-app-deploy"
+    export TUI_APP_NEXUS_READY_ATTEMPTS=3
+    export TUI_APP_NEXUS_READY_SLEEP_SECONDS=0
+    local log_file
+    local exec_attempts=0
+
+    run_kubectl_silent() {
+        case "$1" in
+            "get pods -n nexus -l app=nexus -o jsonpath='{.items[0].metadata.name}'")
+                echo "nexus-0"
+                ;;
+            "get pod -n nexus nexus-0 -o jsonpath='{.status.phase}'")
+                echo "Running"
+                ;;
+            "get pod -n nexus nexus-0 -o jsonpath='{.status.containerStatuses[0].ready}'")
+                echo "true"
+                ;;
+            "exec -n nexus nexus-0 -- curl -fsS http://127.0.0.1:8081/service/rest/v1/status")
+                exec_attempts=$((exec_attempts + 1))
+                if [ "$exec_attempts" -ge 2 ]; then
+                    echo '{"status":"STARTED"}'
+                    return 0
+                fi
+                return 1
+                ;;
+            *)
+                return 1
+                ;;
+        esac
+    }
+
+    sleep() {
+        :
+    }
+
+    log_file=$(_app_new_deploy_log_file "demo-app" "deploy.sh")
+    _app_init_deploy_log "$log_file" "demo-app" "$BATS_TEST_TMPDIR/demo-app" "deploy.sh" >/dev/null
+
+    run _app_wait_for_nexus_ready_logged "$log_file"
+
+    assert_success
+    run grep -F "Checking Nexus registry readiness before deploy" "$log_file"
+    assert_success
+    run grep -F "Waiting for Nexus API... (1/3) pod=nexus-0 phase=Running ready=true" "$log_file"
+    assert_success
+    run grep -F "OK: Nexus registry API is ready" "$log_file"
+    assert_success
+}
+
 @test "_app_run_npm_script_logged: streams output and persists npm script execution" {
     export TUI_APP_DEPLOY_LOG_DIR="$BATS_TEST_TMPDIR/tui-app-deploy"
     export MINIO_ACCESS_KEY="test-access"
