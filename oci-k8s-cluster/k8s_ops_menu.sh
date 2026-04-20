@@ -4089,21 +4089,56 @@ _app_get_label() {
   grep -m1 "app:" "$yaml" 2>/dev/null | awk '{print $2}' | tr -d '"'
 }
 
+_app_cluster_access_state() {
+  if run_kubectl_silent "get ns default -o name" >/dev/null 2>&1; then
+    echo "available"
+  else
+    echo "kubectl unavailable"
+  fi
+}
+
+_app_classify_pod_status_json() {
+  local pods_json="$1"
+
+  printf '%s' "$pods_json" | jq -r '
+    def ready_flags: [.items[].status.containerStatuses[]?.ready];
+    def waiting_reasons: [.items[].status.containerStatuses[]?.state.waiting.reason // empty];
+    def terminated_reasons: [.items[].status.containerStatuses[]?.state.terminated.reason // empty];
+    def crash_reasons:
+      (waiting_reasons + terminated_reasons)
+      | map(select(test("CrashLoopBackOff|ImagePullBackOff|ErrImagePull|CreateContainerConfigError|RunContainerError|Error")));
+    def phases: [.items[].status.phase // empty];
+    if (.items | length) == 0 then "Missing"
+    elif (crash_reasons | length) > 0 then "CrashLoop"
+    elif (phases | any(. == "Pending")) then "Pending"
+    elif ((ready_flags | length) > 0 and (ready_flags | all(. == true)) and (phases | length) > 0 and (phases | all(. == "Running"))) then "Running"
+    elif (phases | any(. == "Running")) then "Pending"
+    else ((phases | map(select(length > 0)) | first) // "Unknown")
+    end
+  ' 2>/dev/null || echo "Unknown"
+}
+
 _app_get_status() {
   local app_label="$1"
   local app_kind="${2:-workload}"
+  local cluster_state="${3:-available}"
   if [ "$app_kind" = "static" ]; then
     echo "static/minio"
     return
   fi
-  if [ -z "$app_label" ]; then echo "no-manifest"; return; fi
-  local ready
-  ready=$(timeout 5 kubectl get deployment -A -l "app=$app_label" --no-headers 2>/dev/null | awk '{print $3"/"$4}' | head -1) || true
-  if [ -z "$ready" ]; then
-    # fallback: procurar pelo nome
-    ready=$(timeout 5 kubectl get deployment -A --no-headers 2>/dev/null | grep "$app_label" | awk '{print $3"/"$4}' | head -1) || true
+  if [ "$cluster_state" != "available" ]; then
+    echo "$cluster_state"
+    return
   fi
-  [ -n "$ready" ] && echo "$ready" || echo "not deployed"
+  if [ -z "$app_label" ]; then echo "Missing"; return; fi
+
+  local pods_json
+  if ! pods_json=$(run_kubectl_silent "get pods -A -l app=$app_label -o json"); then
+    echo "kubectl unavailable"
+    return
+  fi
+
+  _app_classify_pod_status_json "$pods_json"
 }
 
 _app_deploy_logs_dir() {
@@ -4403,6 +4438,7 @@ _app_action_menu() {
   local app_dir="$2"
   local app_label="$3"
   local app_kind="${4:-workload}"
+  local cluster_state="${5:-available}"
 
   local deploy_script="$app_dir/deploy.sh"
   [ -f "$deploy_script" ] || deploy_script="$app_dir/publish.sh"
@@ -4410,7 +4446,7 @@ _app_action_menu() {
   while true; do
     # Status atualizado a cada entrada no submenu
     local pod_status
-    pod_status=$(_app_get_status "$app_label" "$app_kind")
+    pod_status=$(_app_get_status "$app_label" "$app_kind" "$cluster_state")
 
     local actions
     local header
@@ -4419,6 +4455,14 @@ _app_action_menu() {
 📂 Show dist files
 ← Back"
       header="App: $app_name  |  Target: s3://my-site/static/"
+    elif [ "$cluster_state" != "available" ]; then
+      actions="🚀 Deploy / Rebuild
+← Back"
+      header="App: $app_name  |  Cluster: $cluster_state"
+    elif [ -z "$app_label" ]; then
+      actions="🚀 Deploy / Rebuild
+← Back"
+      header="App: $app_name  |  Pod: Missing (no app label)"
     else
       actions="🚀 Deploy / Rebuild
 📋 Rollout Status
@@ -4548,6 +4592,9 @@ app_deploy_menu() {
   local apps_dir="$SCRIPT_DIR/../apps"
 
   while true; do
+    local cluster_state
+    cluster_state=$(_app_cluster_access_state)
+
     # Descobrir apps com deploy.sh ou publish.sh
     local app_names=()
     local app_dirs=()
@@ -4597,18 +4644,17 @@ app_deploy_menu() {
       local lbl="${app_labels[$i]:-?}"
       local kind="${app_kinds[$i]:-workload}"
       local pod_status
-      pod_status=$(_app_get_status "$lbl" "$kind")
+      pod_status=$(_app_get_status "$lbl" "$kind" "$cluster_state")
       local icon="⬜"
       if [ "$kind" = "static" ]; then
         icon="📦"
       else
         case "$pod_status" in
-          *"/"*)
-            local ready_n="${pod_status%%/*}"
-            local total_n="${pod_status##*/}"
-            [[ "$ready_n" == "$total_n" && "$ready_n" != "0" ]] && icon="🟢" || icon="🟡"
-            ;;
-          "not deployed") icon="⬜" ;;
+          "Running") icon="🟢" ;;
+          "Pending") icon="🟡" ;;
+          "CrashLoop") icon="🔴" ;;
+          "Missing") icon="⬜" ;;
+          "kubectl unavailable") icon="⚪" ;;
           *) icon="❓" ;;
         esac
       fi
@@ -4619,7 +4665,7 @@ app_deploy_menu() {
     selected=$(printf "%b" "$menu_items" | "$FZF_BIN" \
       --height=60% --layout=reverse --border \
       --prompt="Deploy App > " \
-      --header="$(printf '%-4s %-25s %s' 'ST' 'APP' 'POD STATUS')") || true
+      --header="$(printf '%-4s %-25s %s | Cluster: %s' 'ST' 'APP' 'POD STATUS' "$cluster_state")") || true
 
     [ -z "$selected" ] || [[ "$selected" == "← Back" ]] && return
 
@@ -4634,7 +4680,7 @@ app_deploy_menu() {
     done
     [ "$idx" -ge 0 ] || continue
 
-    _app_action_menu "${app_names[$idx]}" "${app_dirs[$idx]}" "${app_labels[$idx]}" "${app_kinds[$idx]}"
+    _app_action_menu "${app_names[$idx]}" "${app_dirs[$idx]}" "${app_labels[$idx]}" "${app_kinds[$idx]}" "$cluster_state"
   done
 }
 
