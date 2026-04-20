@@ -1,6 +1,6 @@
 # T-118 — TUI: Gerenciador de js-libs (@dnorio/\*)
 
-**Status**: 📋 Backlog  
+**Status**: ✅ Done  
 **Priority**: 🔼 High  
 **Epic**: DevOps / TUI  
 **Estimate**: 2h  
@@ -32,6 +32,15 @@ O objetivo é que o Lead DevOps consiga, sem sair da TUI:
 4. Opção "Build All" executa `lerna run tsc` (build TypeScript)
 5. Opção "Check Registry" verifica se `npm-group`, `npm-repo`, e `npm-proxy` estão OK no Nexus
 6. Pré-condição: script detecta se `~/js-libs` existe; se não, avisa e retorna
+
+## Tasks
+
+- [x] Validar a estrutura real de `~/js-libs`, incluindo `lerna.json`, pacotes `@dnorio/*` e `.npmrc`
+- [x] Adicionar o item `js-libs Manager` ao menu principal da TUI sem quebrar a numeração existente
+- [x] Implementar submenu dedicado com ações de status, build, publish, health check e visualização do `.npmrc`
+- [x] Integrar consulta real ao Nexus para comparar versão local vs versão publicada no `npm-repo`
+- [x] Persistir logs das ações de build/publish no host, no mesmo padrão operacional da TUI
+- [x] Validar o fluxo contra o monorepo real `~/js-libs` e a API do Nexus em `localhost:8081`
 
 ---
 
@@ -159,6 +168,7 @@ jslibs_check_nexus() {
 | --------------------------------- | -------------------------------------------------------------- |
 | `oci-k8s-cluster/k8s_ops_menu.sh` | nova função `jslibs_menu()` + submenus + item no `main_menu()` |
 | `oci-k8s-cluster/lib/i18n.sh`     | string `menu_jslibs`                                           |
+| `oci-k8s-cluster/testing/k8s_ops_menu.bats` | cobertura para helpers de auth/status/git worktree do fluxo js-libs |
 
 ---
 
@@ -168,3 +178,15 @@ jslibs_check_nexus() {
 - Confirmar se `whiptail` está disponível em todos os nós (ou usar `fzf` como nas outras partes da TUI).
 - O `run_in_pane` / `dialog_msgbox_scroll` — verificar utilitários existentes na TUI e adaptar ao padrão já usado.
 - T-118 não conflita com T-117: T-117 é pré-condição (primeiro publish manual), T-118 automatiza o fluxo contínuo.
+- Implementação final ficou em `fzf`, não `whiptail`, para reaproveitar o padrão já dominante no `k8s_ops_menu.sh` e evitar dependência extra.
+- O lookup de versões no Nexus precisou consultar a Search API pelo basename do pacote (`logger`, `models-core`, etc.), porque o índice retornado pelo Nexus para npm não preserva o scope `@dnorio/` no campo `name`.
+- O fluxo de publish ganhou um preflight de worktree limpo porque o `lerna publish from-package --yes` falha com `EUNCOMMIT` quando o monorepo está sujo; a TUI agora explica isso antes da chamada ao Lerna.
+
+## Validação Final — 2026-04-19
+
+- `~/js-libs` foi detectado corretamente, com 8 pacotes `@dnorio/*`, `lerna.json` em `0.0.175` e `.npmrc` apontando para `https://nexus.dnor.io/repository/npm-group`.
+- O status local-vs-Nexus foi validado ao vivo via helpers novos: os 8 pacotes retornaram `0.0.175` local e `0.0.175` no `npm-repo` do Nexus.
+- O health check do registry confirmou `npm-group`, `npm-repo` e `npm-proxy` presentes e saudáveis via API do Nexus em `http://localhost:8081`.
+- A ação **Build All** executou com sucesso o comando `npx lerna run tsc`, compilando os 8 pacotes e persistindo log em `logs/tui-jslibs/20260419_223128_js-libs_build-all.log`.
+- A tentativa de publish bruto expôs a pré-condição real do Lerna (`EUNCOMMIT` com worktree sujo); por isso o fluxo final da TUI passou a bloquear cedo com mensagem clara listando os arquivos pendentes antes de chamar `lerna publish from-package --yes`.
+- O log bruto que capturou esse comportamento ficou em `logs/tui-jslibs/20260419_223220_js-libs_publish-all.log`, e o guardrail final foi revalidado diretamente pela função `jslibs_publish_all`.

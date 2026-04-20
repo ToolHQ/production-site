@@ -49,6 +49,7 @@ t() {
                 "menu_preferences") echo "28. Preferências ⚙️" ;;
                 "menu_health") echo "29. Relatório de Saúde do Cluster 🏥" ;;
                 "menu_catalog") echo "30. Inventário & Catálogo 📚" ;;
+                "menu_jslibs") echo "31. js-libs Manager 📦" ;;
                 "menu_exit") echo "0. Sair" ;;
                 
                 # Preferences Menu
@@ -181,6 +182,7 @@ t() {
                 "menu_preferences") echo "28. Preferences ⚙️" ;;
                 "menu_health") echo "29. Cluster Health Report 🏥" ;;
                 "menu_catalog") echo "30. Inventory & Catalog 📚" ;;
+                "menu_jslibs") echo "31. js-libs Manager 📦" ;;
                 "menu_exit") echo "0. Exit" ;;
                 
                 # Preferences Menu
