@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟡 Recovering | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Healthy | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -10,7 +10,6 @@
 
 |                              ID                               | Task Name                                                                                                                         |  Priority   |     Owner      | Est. |
 | :-----------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------: | :--: |
-|      [T-105](2026/Q2/T-105-Registry-Resilience.md)      | **Internal Registry (Nexus) Resilience**                                                                    | 🔽 Medium | Infra  |  2h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -26,6 +25,8 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-133](2026/Q2/T-133-Rust-Observability-API-Thin-Slice.md) | **Rust Observability API Thin Slice** _(Axum API + static UI served in-cluster; ingress `reports.dnor.io` ready pending external DNS)_ | 🔼 High | DevExp / Infra |  4h  |
+|      [T-105](2026/Q2/T-105-Registry-Resilience.md)      | **Internal Registry (Nexus) Resilience** _(pre-pull validated; postgres `0 -> 2` recovered with Nexus `0/1` and no `ErrImagePull`)_ | 🔽 Medium | Infra |  2h  |
 | [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ |  🔼 High  | DevOps |  4h  |
 |      [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md)      | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_       | 🔽 Medium | DevOps |  3h  |
 |      [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)       | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
