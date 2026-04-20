@@ -19,10 +19,10 @@ contínuos por serviço.
 - `GET /api/live/overview` entrega estado instantâneo de serviços críticos e incidentes atuais.
 - A UI em `apps/rs-observability-api/web/index.html` já foi redesenhada como console operacional.
 - O cluster já possui Prometheus funcional dentro do namespace `coroot`, exposto pelo service
-	`coroot-prometheus-server`.
+  `coroot-prometheus-server`.
 - Teste manual confirmou que a API de query do Prometheus responde para `query` e `query_range`.
 - O Prometheus do Coroot neste cluster expõe métricas de runtime por `container_resources_*` com labels
-	`container_id` e `app_id`, não a família tradicional `container_*` com `namespace` e `pod`.
+  `container_id` e `app_id`, não a família tradicional `container_*` com `namespace` e `pod`.
 
 ### Objetivo desta tarefa
 
@@ -69,23 +69,23 @@ sem introduzir banco novo, sem agente extra e sem explodir o custo operacional d
 ## Resultado
 
 - `GET /api/live/overview` agora entrega `metrics.cluster`, `metrics.services` e `metrics.top_restarts`
-	com cache próprio e janela temporal de 60 minutos.
+  com cache próprio e janela temporal de 60 minutos.
 - O backend passou a consultar `node_resources_*` para CPU/memória do cluster e
-	`container_resources_*` para CPU/memória por serviço, compatível com o Prometheus do Coroot.
+  `container_resources_*` para CPU/memória por serviço, compatível com o Prometheus do Coroot.
 - A UI foi reescrita para mostrar banda de métricas do cluster, sparklines por serviço, hotspots de
-	restart, resumo operacional, catálogo deployable e biblioteca de artefatos na mesma página.
+  restart, resumo operacional, catálogo deployable e biblioteca de artefatos na mesma página.
 - O manifesto do deployment ganhou `PROMETHEUS_BASE_URL` explícito para fixar o alvo interno do
-	Prometheus.
+  Prometheus.
 
 ## Validação
 
 - `cargo check` em `apps/rs-observability-api` concluído com sucesso.
 - `deploy.sh` executado com rollout estável da imagem `1776714527`.
 - `https://reports.dnor.io/api/live/overview` validado com:
-	- CPU do cluster: `93.79%` / `3.75 cores`
-	- memória do cluster: `54.47%`
-	- séries por 6 serviços críticos com CPU e memória não zeradas
-	- hotspots reais de restart em pods do Longhorn no último período
+  - CPU do cluster: `93.79%` / `3.75 cores`
+  - memória do cluster: `54.47%`
+  - séries por 6 serviços críticos com CPU e memória não zeradas
+  - hotspots reais de restart em pods do Longhorn no último período
 
 ## References
 
