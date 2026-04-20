@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "chromeDevtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@0.21.0",
+        "--headless",
+        "--isolated",
+        "--executablePath",
+        "/usr/bin/google-chrome",
+        "--no-usage-statistics"
+      ]
+    }
+  }
+}
