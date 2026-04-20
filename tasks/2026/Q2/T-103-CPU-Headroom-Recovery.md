@@ -249,8 +249,8 @@ with the new headroom policy — quotas may need tightening after Phase 2 reduct
 - [x] ResourceQuota ceilings reviewed and aligned with actual usage + 30% buffer
 - [x] Node status TUI shows headroom % with 🟢/🟡/🔴 coloring
 - [x] Continuous monitoring is now enforced by the T-102 watchdog timer; close-out evidence recorded
-  15 consecutive healthy watchdog runs after the final 2026-04-19 recovery, with all nodes
-  staying above the `100m` floor and future regressions covered by automated alerts.
+      15 consecutive healthy watchdog runs after the final 2026-04-19 recovery, with all nodes
+      staying above the `100m` floor and future regressions covered by automated alerts.
 
 ## 🔗 Context
 
