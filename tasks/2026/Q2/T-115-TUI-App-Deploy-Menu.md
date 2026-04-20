@@ -158,10 +158,10 @@ menu_deploy_apps → "6. 🚀 Deploy Apps"
 
 ## Arquivos Afetados
 
-| Arquivo                                    | Mudança                                                                  |
-| ------------------------------------------ | ------------------------------------------------------------------------ |
-| `oci-k8s-cluster/k8s_ops_menu.sh`          | Nova função `app_deploy_menu` + `_app_action_menu` + item na `main_menu` |
-| `oci-k8s-cluster/lib/i18n.sh` (se existir) | Nova chave `menu_deploy_apps`                                            |
+| Arquivo                                     | Mudança                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------ |
+| `oci-k8s-cluster/k8s_ops_menu.sh`           | Nova função `app_deploy_menu` + `_app_action_menu` + item na `main_menu` |
+| `oci-k8s-cluster/lib/i18n.sh` (se existir)  | Nova chave `menu_deploy_apps`                                            |
 | `oci-k8s-cluster/testing/k8s_ops_menu.bats` | cobertura para classificação de status e degradação quando o cluster cai |
 
 ---
