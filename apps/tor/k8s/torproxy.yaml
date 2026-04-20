@@ -18,7 +18,7 @@ spec:
       containers:
         - name: torproxy
           image: registry.local:31444/repository/docker-repo/torproxy:1776038212
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9050
           resources:
