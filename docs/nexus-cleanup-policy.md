@@ -9,11 +9,12 @@ The MinIO bucket `nexus/` is live Nexus blob-store storage, not backup backlog. 
 Live audit on 2026-04-19 established:
 
 - `docker-repo`, `npm-repo`, `npm-proxy`, and `npm-group` all currently have `cleanup: null`.
+- The internal Nexus cleanup-policy resource `/service/rest/internal/cleanup-policies` responds `200` and supports list/create/update/preview on the current instance.
 - The built-in Nexus tasks `repository.cleanup` and `assetBlob.cleanup` already exist.
 - No compact blob store task was observed in the task inventory used during the audit.
 - The live public REST API supports attaching existing cleanup policies to repositories through `cleanup.policyNames` on repository `PUT` payloads.
 - The live public REST API does not expose cleanup-policy creation or task creation endpoints in Swagger.
-- The live Script API is enabled, so full automation remains possible once a vetted Groovy script is committed.
+- The live Script API browse endpoint responds, but script create/update currently returns `410` (`Creating and updating scripts is disable`).
 
 ## Safe policy boundary
 
@@ -30,6 +31,15 @@ Current safe stance:
 The following helpers were added to `oci-k8s-cluster/lib/nexus_init.sh`:
 
 - `nexus_show_cleanup_status`
+- `nexus_list_cleanup_policies`
+- `nexus_get_cleanup_policy`
+- `nexus_get_cleanup_criteria_formats`
+- `nexus_apply_cleanup_policy_json`
+- `nexus_preview_cleanup_policy_json`
+- `nexus_build_npm_proxy_cleanup_policy_json`
+- `nexus_ensure_npm_proxy_cleanup_policy`
+- `nexus_build_npm_proxy_cleanup_preview_json`
+- `nexus_preview_npm_proxy_cleanup`
 - `nexus_get_repository_json`
 - `nexus_set_repository_cleanup_policies`
 - `nexus_clear_repository_cleanup_policies`
@@ -37,8 +47,10 @@ The following helpers were added to `oci-k8s-cluster/lib/nexus_init.sh`:
 - `nexus_set_npm_hosted_cleanup_policies`
 - `nexus_set_docker_hosted_cleanup_policies`
 
-These helpers can audit cleanup attachment and attach policy names that already exist in Nexus.
-They do not create cleanup policies yet.
+The repo also now contains a versioned Groovy fallback at `oci-k8s-cluster/scripts/registry/nexus_cleanup_policy_upsert.groovy`.
+
+These helpers can now audit cleanup attachment, create/update policies through the live internal REST surface,
+preview matches, and attach policy names to supported repositories.
 
 ## Example usage
 
@@ -51,38 +63,60 @@ export NEXUS_API_BASE=http://localhost:8081
 # Audit current repository cleanup attachment and cleanup-related tasks
 nexus_show_cleanup_status
 
-# Attach an already-existing cleanup policy to npm-proxy
+# Create or update the recommended npm-proxy cleanup policy
+nexus_ensure_npm_proxy_cleanup_policy npm-proxy-unused-30d 30
+
+# Preview the live impact before or after attachment
+nexus_preview_npm_proxy_cleanup npm-proxy npm-proxy-unused-30d 30 | jq '.results'
+
+# Attach the cleanup policy to npm-proxy
 nexus_set_npm_proxy_cleanup_policies npm-proxy npm-proxy-unused-30d
 
 # Clear cleanup attachment again if needed
 nexus_clear_repository_cleanup_policies npm proxy npm-proxy
 ```
 
-## Recommended first live policy
+## First live policy
 
-The first live policy should target only `npm-proxy` and should be created in Nexus before attachment.
-
-Recommended characteristics:
-
-- format: `npm`
-- scope: proxy cache only
-- criterion: component usage age, not MinIO object age
-- goal: remove npm packages not used recently enough to justify local cache residency
-
-Suggested initial name:
+The first live policy now present in Nexus is:
 
 - `npm-proxy-unused-30d`
 
-This name is intentionally descriptive and keeps room for future variants like `45d` or `90d`.
+Validated live state after applying it:
 
-## What still remains open
+- format: `npm`
+- criterion: `criteriaLastDownloaded = 30`
+- attached repository: `npm-proxy`
+- live `inUseCount`: `1`
+- `nexus_show_cleanup_status` reports the policy attached to `npm-proxy`
+- cleanup preview returned `200` with an empty sample (`{"total":-1,"results":[]}`) at validation time
 
-1. Commit a vetted Groovy script that creates cleanup policies through Script API.
-2. Decide whether the blob store `minio` also needs a compact-blob-store task after soft deletes begin.
-3. Apply the first live policy to `npm-proxy` and validate soft-delete plus blob cleanup behavior.
+This keeps the first retention boundary limited to cache data rather than rollback material.
+
+## Script API note
+
+The Groovy script fallback is committed, but it is not currently runnable through the live Script API because the
+instance rejects script creation and updates with `410`.
+
+Treat `oci-k8s-cluster/scripts/registry/nexus_cleanup_policy_upsert.groovy` as a staged fallback for a future moment
+when `nexus.scripts.allowCreation` is deliberately enabled.
+
+## Compact task decision
+
+Do not add a blob-store compact task for `minio` yet.
+
+Reason:
+
+- the first cleanup policy has only just been attached;
+- no cleanup run has yet produced an observed backlog of soft-deleted blobs;
+- adding compact work before that point increases operational surface without a measured payoff.
+
+Revisit compaction only after a future `repository.cleanup` pass and subsequent `assetBlob.cleanup` runs show actual
+reclaimable blob residue.
 
 ## References
 
 - `docs/backup-policy.md`
 - `oci-k8s-cluster/lib/nexus_init.sh`
+- `oci-k8s-cluster/scripts/registry/nexus_cleanup_policy_upsert.groovy`
 - `tasks/2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md`

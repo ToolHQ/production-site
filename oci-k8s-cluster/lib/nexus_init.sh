@@ -512,6 +512,241 @@ nexus_put_repository_json() {
     return 1
 }
 
+# Resolve the internal cleanup-policy endpoint exposed by the current Nexus UI/API layer.
+# Usage: nexus_cleanup_policy_api_path
+nexus_cleanup_policy_api_path() {
+    echo "$NEXUS_API_BASE/service/rest/internal/cleanup-policies"
+}
+
+# List cleanup policies, optionally filtering by format.
+# Usage: nexus_list_cleanup_policies [format]
+nexus_list_cleanup_policies() {
+    local policy_format="${1:-}"
+
+    nexus_check_tunnel || return 1
+
+    local password
+    password=$(nexus_get_admin_password)
+
+    local endpoint
+    endpoint=$(nexus_cleanup_policy_api_path)
+
+    if [ -n "$policy_format" ]; then
+        curl -fsS -u "admin:$password" "$endpoint?format=$policy_format"
+        return 0
+    fi
+
+    curl -fsS -u "admin:$password" "$endpoint"
+}
+
+# Read a single cleanup policy by name.
+# Usage: nexus_get_cleanup_policy <name>
+nexus_get_cleanup_policy() {
+    local policy_name="$1"
+
+    if [ -z "$policy_name" ]; then
+        echo "Usage: nexus_get_cleanup_policy <name>" >&2
+        return 1
+    fi
+
+    nexus_check_tunnel || return 1
+
+    local password
+    password=$(nexus_get_admin_password)
+
+    local endpoint
+    endpoint=$(nexus_cleanup_policy_api_path)
+
+    curl -fsS -u "admin:$password" "$endpoint/$policy_name"
+}
+
+# Show which cleanup criteria each format supports on the live Nexus instance.
+# Usage: nexus_get_cleanup_criteria_formats
+nexus_get_cleanup_criteria_formats() {
+    nexus_check_tunnel || return 1
+
+    local password
+    password=$(nexus_get_admin_password)
+
+    local endpoint
+    endpoint=$(nexus_cleanup_policy_api_path)
+
+    curl -fsS -u "admin:$password" "$endpoint/criteria/formats"
+}
+
+# Create or update a cleanup policy from a raw JSON payload.
+# Usage: nexus_apply_cleanup_policy_json <payload>
+nexus_apply_cleanup_policy_json() {
+    local payload="$1"
+
+    if [ -z "$payload" ]; then
+        echo "Usage: nexus_apply_cleanup_policy_json <payload>" >&2
+        return 1
+    fi
+
+    local policy_name
+    policy_name=$(echo "$payload" | jq -r '.name // empty')
+
+    if [ -z "$policy_name" ]; then
+        echo "Error: cleanup policy payload must include a non-empty .name" >&2
+        return 1
+    fi
+
+    nexus_check_tunnel || return 1
+
+    local password
+    password=$(nexus_get_admin_password)
+
+    local endpoint
+    endpoint=$(nexus_cleanup_policy_api_path)
+
+    local existing_code
+    existing_code=$(curl -s -o /dev/null -w '%{http_code}' -u "admin:$password" "$endpoint/$policy_name" || echo "000")
+
+    local request_method request_url action_label
+    case "$existing_code" in
+        200)
+            request_method="PUT"
+            request_url="$endpoint/$policy_name"
+            action_label="updated"
+            ;;
+        404)
+            request_method="POST"
+            request_url="$endpoint"
+            action_label="created"
+            ;;
+        *)
+            echo "Error: Unable to determine current state for cleanup policy '$policy_name' (HTTP $existing_code)" >&2
+            return 1
+            ;;
+    esac
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -u "admin:$password" \
+        -X "$request_method" "$request_url" \
+        -H "Content-Type: application/json" \
+        -d "$payload" 2>&1 || true)
+
+    local http_code
+    http_code=$(echo "$response" | tail -n 1)
+
+    if [ "$http_code" = "200" ] || [ "$http_code" = "201" ] || [ "$http_code" = "204" ]; then
+        echo "✓ Cleanup policy '$policy_name' $action_label" >&2
+        echo "$response" | head -n -1
+        return 0
+    fi
+
+    echo "Error: Failed to apply cleanup policy '$policy_name' (HTTP $http_code)" >&2
+    echo "$response" | head -n -1 >&2
+    return 1
+}
+
+# Preview cleanup matches from a raw preview request JSON payload.
+# Usage: nexus_preview_cleanup_policy_json <payload>
+nexus_preview_cleanup_policy_json() {
+    local payload="$1"
+
+    if [ -z "$payload" ]; then
+        echo "Usage: nexus_preview_cleanup_policy_json <payload>" >&2
+        return 1
+    fi
+
+    nexus_check_tunnel || return 1
+
+    local password
+    password=$(nexus_get_admin_password)
+
+    local endpoint
+    endpoint=$(nexus_cleanup_policy_api_path)
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -u "admin:$password" \
+        -X POST "$endpoint/preview/components" \
+        -H "Content-Type: application/json" \
+        -d "$payload" 2>&1 || true)
+
+    local http_code
+    http_code=$(echo "$response" | tail -n 1)
+
+    if [ "$http_code" = "200" ]; then
+        echo "$response" | head -n -1
+        return 0
+    fi
+
+    echo "Error: Failed to preview cleanup policy payload (HTTP $http_code)" >&2
+    echo "$response" | head -n -1 >&2
+    return 1
+}
+
+# Build the recommended npm-proxy cleanup policy payload.
+# Usage: nexus_build_npm_proxy_cleanup_policy_json [policy_name] [days]
+nexus_build_npm_proxy_cleanup_policy_json() {
+    local policy_name="${1:-npm-proxy-unused-30d}"
+    local days="${2:-30}"
+
+    if ! [[ "$days" =~ ^[0-9]+$ ]] || [ "$days" -lt 1 ]; then
+        echo "Error: days must be an integer >= 1" >&2
+        return 1
+    fi
+
+    jq -n \
+        --arg name "$policy_name" \
+        --arg notes "Remove npm proxy cache entries that have not been downloaded in the last $days days." \
+        --argjson days "$days" \
+        '{
+            name: $name,
+            format: "npm",
+            notes: $notes,
+            criteriaLastDownloaded: $days
+        }'
+}
+
+# Create or update the recommended npm-proxy cleanup policy.
+# Usage: nexus_ensure_npm_proxy_cleanup_policy [policy_name] [days]
+nexus_ensure_npm_proxy_cleanup_policy() {
+    local policy_name="${1:-npm-proxy-unused-30d}"
+    local days="${2:-30}"
+    local payload
+
+    payload=$(nexus_build_npm_proxy_cleanup_policy_json "$policy_name" "$days") || return 1
+    nexus_apply_cleanup_policy_json "$payload"
+}
+
+# Build the recommended npm-proxy cleanup preview payload.
+# Usage: nexus_build_npm_proxy_cleanup_preview_json [repository_name] [policy_name] [days]
+nexus_build_npm_proxy_cleanup_preview_json() {
+    local repository_name="${1:-npm-proxy}"
+    local policy_name="${2:-npm-proxy-unused-30d}"
+    local days="${3:-30}"
+
+    if ! [[ "$days" =~ ^[0-9]+$ ]] || [ "$days" -lt 1 ]; then
+        echo "Error: days must be an integer >= 1" >&2
+        return 1
+    fi
+
+    jq -n \
+        --arg name "$policy_name" \
+        --arg repository "$repository_name" \
+        --argjson days "$days" \
+        '{
+            name: $name,
+            repository: $repository,
+            criteriaLastDownloaded: $days
+        }'
+}
+
+# Preview the recommended npm-proxy cleanup policy against a repository.
+# Usage: nexus_preview_npm_proxy_cleanup [repository_name] [policy_name] [days]
+nexus_preview_npm_proxy_cleanup() {
+    local repository_name="${1:-npm-proxy}"
+    local policy_name="${2:-npm-proxy-unused-30d}"
+    local days="${3:-30}"
+    local payload
+
+    payload=$(nexus_build_npm_proxy_cleanup_preview_json "$repository_name" "$policy_name" "$days") || return 1
+    nexus_preview_cleanup_policy_json "$payload"
+}
+
 # Attach existing cleanup policy names to a supported repository.
 # Usage: nexus_set_repository_cleanup_policies <format> <type> <name> <policy> [policy...]
 nexus_set_repository_cleanup_policies() {
@@ -623,6 +858,18 @@ nexus_show_cleanup_status() {
         echo "- none detected"
     else
         echo "$task_lines" | awk -F '\t' '{printf "- %s | %s | %s | enabled=%s\n", $1, $2, $3, $4}'
+    fi
+
+    echo
+    echo "Defined cleanup policies:"
+    local policy_lines
+    policy_lines=$(nexus_list_cleanup_policies | jq -r '.[]? | [.name, .format, (.criteriaLastDownloaded // "-"), (.criteriaLastBlobUpdated // "-"), (.inUseCount // 0)] | @tsv')
+
+    if [ -z "$policy_lines" ]; then
+        echo "- none detected"
+    else
+        printf '%-24s %-10s %-16s %-16s %s\n' "Name" "Format" "LastDownloaded" "LastBlobUpdated" "InUse"
+        echo "$policy_lines" | awk -F '\t' '{printf "%-24s %-10s %-16s %-16s %s\n", $1, $2, $3, $4, $5}'
     fi
 }
 
@@ -830,6 +1077,10 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
         nexus_create_s3_blobstore nexus_create_docker_repo \
     nexus_enable_npm_realm nexus_create_npm_hosted nexus_create_npm_proxy nexus_create_npm_group \
     nexus_repository_api_path nexus_get_repository_json nexus_put_repository_json \
+    nexus_cleanup_policy_api_path nexus_list_cleanup_policies nexus_get_cleanup_policy \
+    nexus_get_cleanup_criteria_formats nexus_apply_cleanup_policy_json nexus_preview_cleanup_policy_json \
+    nexus_build_npm_proxy_cleanup_policy_json nexus_ensure_npm_proxy_cleanup_policy \
+    nexus_build_npm_proxy_cleanup_preview_json nexus_preview_npm_proxy_cleanup \
     nexus_set_repository_cleanup_policies nexus_clear_repository_cleanup_policies \
     nexus_set_npm_proxy_cleanup_policies nexus_set_npm_hosted_cleanup_policies nexus_set_docker_hosted_cleanup_policies \
     nexus_show_cleanup_status nexus_initialize nexus_reset
