@@ -49,6 +49,7 @@ CURRENT_NS="default"
 CURRENT_POD=""
 FZF_BIN="/tmp/k8s_ops_fzf"
 APP_DEPLOY_LAST_LOG_FILE=""
+JSLIBS_NEXUS_PASSWORD=""
 
 # --- FZF SETUP (Local) ---
 ensure_fzf() {
@@ -4637,6 +4638,465 @@ app_deploy_menu() {
   done
 }
 
+_jslibs_dir() {
+  echo "${JSLIBS_DIR:-$HOME/js-libs}"
+}
+
+_jslibs_logs_dir() {
+  echo "${TUI_JSLIBS_LOG_DIR:-$SCRIPT_DIR/../logs/tui-jslibs}"
+}
+
+_jslibs_new_log_file() {
+  local action="$1"
+  local logs_dir
+  logs_dir=$(_jslibs_logs_dir)
+  mkdir -p "$logs_dir"
+  printf "%s/%s_js-libs_%s.log\n" \
+    "$logs_dir" \
+    "$(date +%Y%m%d_%H%M%S)" \
+    "$(_app_slugify "$action")"
+}
+
+_jslibs_require_workspace() {
+  local dir="${1:-$(_jslibs_dir)}"
+
+  if [ ! -d "$dir" ]; then
+    echo -e "${RED}Error: Directory $dir not found.${NC}"
+    echo "Clone ~/js-libs first and retry."
+    return 1
+  fi
+
+  if [ ! -f "$dir/lerna.json" ]; then
+    echo -e "${RED}Error: $dir/lerna.json not found.${NC}"
+    return 1
+  fi
+
+  if [ ! -d "$dir/packages" ]; then
+    echo -e "${RED}Error: $dir/packages not found.${NC}"
+    return 1
+  fi
+
+  return 0
+}
+
+_jslibs_workspace_version() {
+  local dir="${1:-$(_jslibs_dir)}"
+  jq -r '.version // "unknown"' "$dir/lerna.json" 2>/dev/null || echo "unknown"
+}
+
+_jslibs_package_manifest_paths() {
+  local dir="${1:-$(_jslibs_dir)}"
+  find "$dir/packages" -mindepth 2 -maxdepth 2 -name package.json 2>/dev/null | sort
+}
+
+_jslibs_has_publish_auth() {
+  local dir="${1:-$(_jslibs_dir)}"
+  local npmrc="$dir/.npmrc"
+
+  [ -f "$npmrc" ] || return 1
+  grep -Eq '(^_auth(Token)?=|//[^[:space:]]+:_auth(Token)?=)' "$npmrc"
+}
+
+_jslibs_git_status() {
+  local dir="${1:-$(_jslibs_dir)}"
+  git -C "$dir" status --short 2>/dev/null || true
+}
+
+_jslibs_print_npmrc_redacted() {
+  local npmrc_path="$1"
+  sed -E \
+    -e 's#(^_auth(Token)?=).*#\1[redacted]#' \
+    -e 's#(//[^[:space:]]+:_auth(Token)?=).*#\1[redacted]#' \
+    "$npmrc_path"
+}
+
+_jslibs_ensure_nexus_tunnel() {
+  if lsof -i :8081 >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo -e "${YELLOW}No Nexus tunnel detected on localhost:8081. Opening one now...${NC}"
+
+  if ! run_kubectl_silent "get svc -n nexus nexus-service --no-headers" >/dev/null; then
+    echo -e "${RED}Error: Unable to reach nexus-service via kubectl.${NC}"
+    return 1
+  fi
+
+  local nexus_nodeport
+  nexus_nodeport=$(run_kubectl "get svc -n nexus nexus-service -o jsonpath='{.spec.ports[?(@.port==8081)].nodePort}'" | tr -d "'\r\n")
+  if [ -z "$nexus_nodeport" ]; then
+    nexus_nodeport=$(run_kubectl "get svc -n nexus nexus-service -o jsonpath='{.spec.ports[0].nodePort}'" | tr -d "'\r\n")
+  fi
+
+  if [ -z "$nexus_nodeport" ]; then
+    echo -e "${RED}Error: Could not determine Nexus NodePort.${NC}"
+    return 1
+  fi
+
+  start_tunnel "nexus" "nexus-service" "8081" "$nexus_nodeport" "Nexus API tunnel" "true" "127.0.0.1" "127.0.0.1" "true"
+}
+
+_jslibs_prepare_nexus_access() {
+  JSLIBS_NEXUS_PASSWORD=""
+
+  _jslibs_ensure_nexus_tunnel || return 1
+
+  JSLIBS_NEXUS_PASSWORD=$(nexus_get_admin_password 2>/dev/null || true)
+  if [ -z "$JSLIBS_NEXUS_PASSWORD" ]; then
+    echo -e "${RED}Error: Could not retrieve Nexus admin password.${NC}"
+    return 1
+  fi
+
+  return 0
+}
+
+_jslibs_nexus_package_version() {
+  local password="$1"
+  local package_name="$2"
+  local search_name="${package_name##*/}"
+  local encoded_name
+  encoded_name=$(jq -nr --arg value "$search_name" '$value | @uri')
+
+  local response
+  if ! response=$(curl -fsS -u "admin:$password" "$NEXUS_API_BASE/service/rest/v1/search?repository=npm-repo&format=npm&name=$encoded_name" 2>/dev/null); then
+    echo "error"
+    return 0
+  fi
+
+  local versions
+  versions=$(printf '%s' "$response" | jq -r '.items[].version // empty' 2>/dev/null | sort -V || true)
+  if [ -n "$versions" ]; then
+    printf '%s\n' "$versions" | tail -n 1
+  else
+    echo "not found"
+  fi
+}
+
+_jslibs_status_rows_from_dir() {
+  local dir="$1"
+  local password="$2"
+
+  local manifest
+  while IFS= read -r manifest; do
+    [ -n "$manifest" ] || continue
+
+    local package_name
+    local local_version
+    local nexus_version
+
+    package_name=$(jq -r '.name // empty' "$manifest" 2>/dev/null)
+    local_version=$(jq -r '.version // "unknown"' "$manifest" 2>/dev/null)
+    [ -n "$package_name" ] || continue
+
+    if [ -n "$password" ]; then
+      nexus_version=$(_jslibs_nexus_package_version "$password" "$package_name")
+    else
+      nexus_version="unavailable"
+    fi
+
+    printf '%s|%s|%s\n' "$package_name" "$local_version" "$nexus_version"
+  done < <(_jslibs_package_manifest_paths "$dir")
+}
+
+_jslibs_repo_status_from_json() {
+  local repos_json="$1"
+
+  local spec
+  for spec in "npm-group|group" "npm-repo|hosted" "npm-proxy|proxy"; do
+    local name="${spec%%|*}"
+    local repo_type="${spec##*|}"
+    local repo_url
+    repo_url=$(printf '%s' "$repos_json" | jq -r --arg name "$name" --arg repo_type "$repo_type" '
+      [.[] | select(.format == "npm" and .name == $name and .type == $repo_type)][0].url // empty
+    ' 2>/dev/null)
+
+    if [ -n "$repo_url" ]; then
+      printf '%s\t%s\t%s\t%s\n' "$name" "OK" "$repo_type" "$repo_url"
+    else
+      printf '%s\t%s\t%s\t%s\n' "$name" "MISSING" "$repo_type" "-"
+    fi
+  done
+}
+
+_jslibs_run_logged() {
+  local dir="$1"
+  local action="$2"
+  shift 2
+
+  local log_file
+  log_file=$(_jslibs_new_log_file "$action")
+
+  : > "$log_file"
+  _app_log_line "$log_file" "=== TUI js-libs Execution Log ==="
+  _app_log_line "$log_file" "Started: $(date -Iseconds)"
+  _app_log_line "$log_file" "Directory: $dir"
+  _app_log_line "$log_file" "Action: $action"
+  _app_log_line "$log_file" "Command: $*"
+  _app_log_line "$log_file" "Log file: $log_file"
+  _app_log_line "$log_file" "---"
+
+  set +e
+  (
+    cd "$dir"
+    "$@"
+  ) 2>&1 | tee -a "$log_file"
+  local status=${PIPESTATUS[0]}
+  set -e
+
+  _app_log_line "$log_file" "---"
+  _app_log_line "$log_file" "Finished: $(date -Iseconds)"
+  _app_log_line "$log_file" "Exit code: $status"
+
+  echo ""
+  if [ "$status" -eq 0 ]; then
+    echo -e "${GREEN}✓ Action completed successfully${NC}"
+  else
+    echo -e "${RED}✗ Action failed with exit code $status${NC}"
+  fi
+  echo "Log: $log_file"
+
+  return "$status"
+}
+
+jslibs_status() {
+  local dir
+  dir=$(_jslibs_dir)
+
+  _jslibs_require_workspace "$dir" || {
+    read -p "$(t 'press_enter')"
+    return 1
+  }
+
+  _jslibs_prepare_nexus_access || {
+    read -p "$(t 'press_enter')"
+    return 1
+  }
+
+  local workspace_version
+  workspace_version=$(_jslibs_workspace_version "$dir")
+
+  clear
+  echo -e "${BLUE}=== js-libs Status ===${NC}"
+  echo "Workspace: $dir"
+  echo "Monorepo version: $workspace_version"
+  echo ""
+  printf '%-28s %-12s %-12s\n' "PACKAGE" "LOCAL" "NEXUS"
+  printf '%-28s %-12s %-12s\n' "-------" "-----" "-----"
+
+  local found_any=false
+  local row
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    found_any=true
+
+    local package_name
+    local local_version
+    local nexus_version
+    IFS='|' read -r package_name local_version nexus_version <<< "$row"
+    printf '%-28s %-12s %-12s\n' "$package_name" "$local_version" "$nexus_version"
+  done < <(_jslibs_status_rows_from_dir "$dir" "$JSLIBS_NEXUS_PASSWORD")
+
+  if [ "$found_any" = false ]; then
+    echo "No package manifests found under $dir/packages"
+  fi
+
+  echo ""
+  read -p "$(t 'press_enter')"
+}
+
+jslibs_build_all() {
+  local dir
+  dir=$(_jslibs_dir)
+
+  _jslibs_require_workspace "$dir" || {
+    read -p "$(t 'press_enter')"
+    return 1
+  }
+
+  clear
+  echo -e "${BLUE}=== js-libs Build All ===${NC}"
+  echo "Command: npx lerna run tsc"
+  echo "Directory: $dir"
+  echo ""
+  local status=0
+  _jslibs_run_logged "$dir" "build-all" npx lerna run tsc || status=$?
+
+  if [ "$status" -eq 0 ]; then
+    local git_status
+    git_status=$(_jslibs_git_status "$dir")
+    if [ -n "$git_status" ]; then
+      echo ""
+      echo -e "${YELLOW}Note: Build left uncommitted changes in $dir.${NC}"
+      printf '%s\n' "$git_status" | head -n 20
+    fi
+  fi
+
+  read -p "$(t 'press_enter')"
+  return "$status"
+}
+
+jslibs_publish_all() {
+  local dir
+  dir=$(_jslibs_dir)
+
+  _jslibs_require_workspace "$dir" || {
+    read -p "$(t 'press_enter')"
+    return 1
+  }
+
+  if ! _jslibs_has_publish_auth "$dir"; then
+    clear
+    echo -e "${RED}Error: Publish credentials not found in $dir/.npmrc${NC}"
+    echo "Expected _auth, _authToken, or scoped auth entry before running publish."
+    read -p "$(t 'press_enter')"
+    return 1
+  fi
+
+  local git_status
+  git_status=$(_jslibs_git_status "$dir")
+  if [ -n "$git_status" ]; then
+    clear
+    echo -e "${YELLOW}Publish blocked: js-libs has uncommitted changes.${NC}"
+    echo "Lerna publish from-package requires a clean worktree."
+    echo "Resolve or commit the following files first:"
+    printf '%s\n' "$git_status" | head -n 20
+    echo ""
+    read -p "$(t 'press_enter')"
+    return 1
+  fi
+
+  clear
+  echo -e "${BLUE}=== js-libs Publish All ===${NC}"
+  echo "Command: npx lerna publish from-package --yes"
+  echo "Directory: $dir"
+  echo ""
+  _jslibs_run_logged "$dir" "publish-all" npx lerna publish from-package --yes
+  read -p "$(t 'press_enter')"
+}
+
+jslibs_check_nexus() {
+  local dir
+  dir=$(_jslibs_dir)
+
+  _jslibs_require_workspace "$dir" || {
+    read -p "$(t 'press_enter')"
+    return 1
+  }
+
+  _jslibs_prepare_nexus_access || {
+    read -p "$(t 'press_enter')"
+    return 1
+  }
+
+  local repos_json
+  if ! repos_json=$(curl -fsS -u "admin:$JSLIBS_NEXUS_PASSWORD" "$NEXUS_API_BASE/service/rest/v1/repositories" 2>/dev/null); then
+    echo -e "${RED}Error: Failed to query Nexus repositories API.${NC}"
+    read -p "$(t 'press_enter')"
+    return 1
+  fi
+
+  clear
+  echo -e "${BLUE}=== Nexus NPM Health ===${NC}"
+  echo ""
+  printf '%-12s %-10s %-10s %s\n' "REPOSITORY" "STATUS" "TYPE" "URL"
+  printf '%-12s %-10s %-10s %s\n' "----------" "------" "----" "---"
+
+  local row
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    local repo_name
+    local status
+    local repo_type
+    local repo_url
+    IFS=$'\t' read -r repo_name status repo_type repo_url <<< "$row"
+    printf '%-12s %-10s %-10s %s\n' "$repo_name" "$status" "$repo_type" "$repo_url"
+  done < <(_jslibs_repo_status_from_json "$repos_json")
+
+  echo ""
+  read -p "$(t 'press_enter')"
+}
+
+jslibs_show_npmrc() {
+  local dir
+  dir=$(_jslibs_dir)
+
+  _jslibs_require_workspace "$dir" || {
+    read -p "$(t 'press_enter')"
+    return 1
+  }
+
+  local npmrc_path="$dir/.npmrc"
+
+  clear
+  echo -e "${BLUE}=== js-libs .npmrc ===${NC}"
+  echo "Path: $npmrc_path"
+  echo ""
+
+  if [ ! -f "$npmrc_path" ]; then
+    echo -e "${YELLOW}No .npmrc found at $npmrc_path${NC}"
+    echo ""
+    read -p "$(t 'press_enter')"
+    return 0
+  fi
+
+  _jslibs_print_npmrc_redacted "$npmrc_path"
+  echo ""
+  read -p "$(t 'press_enter')"
+}
+
+jslibs_menu() {
+  ensure_fzf
+
+  local dir
+  dir=$(_jslibs_dir)
+
+  _jslibs_require_workspace "$dir" || {
+    read -p "$(t 'press_enter')"
+    return 1
+  }
+
+  while true; do
+    local workspace_version
+    workspace_version=$(_jslibs_workspace_version "$dir")
+
+    local menu="1. Status: local vs Nexus
+2. Build All (lerna run tsc)
+3. Publish All (lerna publish from-package --yes)
+4. Check Registry (npm-group / npm-repo / npm-proxy)
+5. View current .npmrc
+0. Back"
+
+    local selected
+    selected=$(echo "$menu" | "$FZF_BIN" \
+      --height=45% \
+      --layout=reverse \
+      --border \
+      --prompt="js-libs Manager > " \
+      --header="Directory: $dir | Version: $workspace_version") || return 0
+
+    case "${selected%%.*}" in
+      1)
+        jslibs_status
+        ;;
+      2)
+        jslibs_build_all
+        ;;
+      3)
+        jslibs_publish_all
+        ;;
+      4)
+        jslibs_check_nexus
+        ;;
+      5)
+        jslibs_show_npmrc
+        ;;
+      0)
+        return 0
+        ;;
+    esac
+  done
+}
+
 main_menu() {
   ensure_fzf
   
@@ -4679,6 +5139,7 @@ $(t "menu_cloud_rescue")
 $(t "menu_preferences")
 $(t "menu_health")
 $(t "menu_catalog")
+$(t "menu_jslibs")
 $(t "menu_exit")"
 
     local selected
@@ -5027,6 +5488,9 @@ $(t "menu_exit")"
         ;;
       30)
         catalog_menu
+        ;;
+      31)
+        jslibs_menu
         ;;
 
       0)

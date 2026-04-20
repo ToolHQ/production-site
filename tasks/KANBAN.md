@@ -20,7 +20,6 @@
 
 |                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
 | :-----------------------------------------------------: | :---------------------------------------------------------------------------------------------------------- | :-------: | :----- | :--: |
-|      [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)       | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
 |      [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md)      | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_       | 🔽 Medium | DevOps |  3h  |
 | [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ |  🔼 High  | DevOps |  4h  |
 |      [T-105](2026/Q2/T-105-Registry-Resilience.md)      | **Internal Registry (Nexus) Resilience**                                                                    | 🔽 Medium | Infra  |  2h  |
@@ -29,6 +28,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+|      [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)       | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
 |     [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)      | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                          |   🔼 High   |  DevOps / TUI  |  3h  |
 |        [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)        | **CPU Headroom Recovery & Sustained Margin Policy** _(recovery complete; watchdog owns ongoing drift detection)_                  |   🔼 High   |     Infra      |  3h  |
 | [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                     | 🚨 Critical |     DevOps     |  2h  |
