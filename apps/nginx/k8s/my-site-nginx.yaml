@@ -44,7 +44,7 @@ spec:
       containers:
         - name: my-site-nginx
           image: registry.local:31444/repository/docker-repo/my-site-nginx:1776097074
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           resources:

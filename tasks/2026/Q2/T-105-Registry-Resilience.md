@@ -1,6 +1,6 @@
 # T-105: Internal Registry (Nexus) Resilience
 
-**Status**: [ ] Backlog | **Priority**: 🔽 Medium | **Owner**: Infra | **Est**: 2h
+**Status**: 🏎️ In Progress | **Priority**: 🔽 Medium | **Owner**: Infra | **Est**: 2h
 
 ## 🎯 Objective
 Any workload using images from the internal Nexus registry (`registry.local:31444`) depends
@@ -46,25 +46,25 @@ and don't depend on Nexus availability.
 ## 📋 Execution Plan
 
 ### Phase 1: Audit Image Pull Sources
-- [ ] List all running pods and their image sources: `kubectl get pods -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}{"\n"}{end}' | sort -u`
-- [ ] Classify each image: public registry vs `registry.local` vs `nexus.dnor.io`
-- [ ] Identify critical stateful workloads that use internal images (highest risk)
+- [x] List all running pods and their image sources: `kubectl get pods -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}{"\n"}{end}' | sort -u`
+- [x] Classify each image: public registry vs `registry.local` vs `nexus.dnor.io`
+- [x] Identify critical stateful workloads that use internal images (highest risk)
 
 ### Phase 2: `imagePullPolicy` Audit
 postgres already uses `IfNotPresent` with versioned tags — correct. Audit remaining workloads.
 
-- [ ] Audit all Deployments/StatefulSets for `imagePullPolicy` setting
-- [ ] Confirm all internal-registry images use versioned (non-`latest`) tags — `latest` forces
+- [x] Audit all Deployments/StatefulSets for `imagePullPolicy` setting
+- [x] Confirm all internal-registry images use versioned (non-`latest`) tags for the active workloads — `latest` forces
   `Always` pull by default regardless of the explicit policy setting
-- [ ] For any workload still using `imagePullPolicy: Always` with internal images: change to
+- [x] For any active workload still using `imagePullPolicy: Always` with internal images: change to
   `IfNotPresent` and confirm it uses an immutable tag
-- [ ] Document findings — expected outcome: no changes needed if all use versioned tags
+- [x] Document findings — live workloads using `registry.local:31444` are now pinned to immutable tags and `IfNotPresent`
 
 ### Phase 3: Pre-Pull Critical Images on All Nodes
 Ensure images are cached on all nodes so rescheduling never triggers a pull.
 
-- [ ] Identify all internal-registry image tags for critical stateful workloads (postgres, etc.)
-- [ ] **Preferred approach**: add a `pre-pull-images` option to `k8s_ops_menu.sh` under
+- [x] Identify all internal-registry image tags for critical stateful workloads (postgres, etc.)
+- [x] **Preferred approach**: add a `pre-pull-images` option to `k8s_ops_menu.sh` under
   "Maintenance" — for each target node, run a short-lived pod with the target image and a
   matching `nodeSelector` to force the kubelet to pull and cache it:
   ```
@@ -75,29 +75,38 @@ Ensure images are cached on all nodes so rescheduling never triggers a pull.
   kubectl delete pod pre-pull-NODE
   ```
   Run this after any Nexus restart or before a planned maintenance window.
-- [ ] **Avoid**: a permanent pre-pull DaemonSet — it adds a pod per node, consuming CPU
+- [x] **Avoid**: a permanent pre-pull DaemonSet — it adds a pod per node, consuming CPU
   on an already saturated cluster, for a benefit that only matters occasionally.
 - [ ] Verify: scale postgres to 0 then back to 2 with Nexus at 0 replicas. `postgres-1`
   must start successfully using cached image. ⚠️ Run this test only when `postgres-0` is
   confirmed Running and healthy first (replica handles traffic during the test).
 
 ### Phase 4: Nexus Health Integration
-- [ ] Add Nexus pod readiness to T-102 watchdog: alert if Nexus is not ready
-- [ ] Verify/add Nexus to TUI "Port Forward" menu with health check URL
-- [ ] Verify the Nexus `readinessProbe` in `components/nexus/nexus.yaml` is properly configured
+- [x] Add Nexus pod readiness to T-102 watchdog: alert if Nexus is not ready
+- [x] Verify/add Nexus to TUI "Port Forward" menu with health check URL
+- [x] Verify the Nexus `readinessProbe` in `components/nexus/nexus.yaml` is properly configured
   and actually checks registry API (not just HTTP 200 on root)
 
 ## ✅ Definition of Done
-- [ ] All stateful workloads use `imagePullPolicy: IfNotPresent` with explicit versioned tags
-- [ ] Critical images (postgres, etc.) are pre-pulled on all nodes
+- [x] All stateful workloads use `imagePullPolicy: IfNotPresent` with explicit versioned tags
+- [x] Critical images (postgres, etc.) are pre-pulled on all nodes
 - [ ] With Nexus at 0 replicas: scale postgres to 0 then back to 2 (forces rescheduling);
   `postgres-1` must start successfully using cached image on whatever node it lands on.
   ⚠️ Run only when `postgres-0` is confirmed Running first — one replica handles traffic
   during the test. Do NOT use `kubectl delete pod postgres-0` (StatefulSet recreates on
   same node — doesn't test cross-node caching).
-- [ ] Nexus health included in T-102 watchdog output
+- [x] Nexus health included in T-102 watchdog output
 
 ## 🔗 Context
 - `postgres-1` failed with `ErrImagePull` on 2026-04-03 immediately after Nexus came back up
 - Nexus was down for 19 days due to the same CPU starvation cascade (T-102, T-103)
 - Related: T-102 (Watchdog), T-103 (CPU Headroom)
+
+## Update — 2026-04-20
+
+- Live cluster audit found four active images served by the internal Docker registry: `my-site-back-end`, `my-site-nginx`, `postgres` and `torproxy`.
+- `postgres` was already correct (`IfNotPresent` + immutable tag). The three active Deployments in `default` still used immutable tags but were configured with `imagePullPolicy: Always`; the live Deployments and repo manifests were updated to `IfNotPresent`.
+- The TUI already contained the maintenance action **Pre-Pull Internal Images on All Nodes** in `k8s_ops_menu.sh`; this session revalidated the workflow and executed a full pre-pull across `k8s-node-1`, `k8s-node-2` and `k8s-node-3` for all four internal images, with 12/12 short-lived pulls completing successfully.
+- The watchdog in `cluster_health_check.sh` was already checking Nexus pod readiness. This session also validated the practical API endpoint from inside the Nexus pod: `http://127.0.0.1:8081/service/rest/v1/status` returns `HTTP/1.1 200 OK`, while `http://127.0.0.1:18444/v2/` returns `401 Unauthorized` when healthy.
+- Based on that live validation, `components/nexus/nexus.yaml` was updated to use `startupProbe` and `readinessProbe` against `/service/rest/v1/status` on port `8081`, which is a real Nexus API endpoint rather than a shallow root-page check.
+- The only remaining open item is the destructive verification drill (`postgres` scale `0 -> 2` with Nexus unavailable). That test intentionally perturbs a StatefulSet and should only be run with explicit operator approval.
