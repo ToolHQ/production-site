@@ -174,3 +174,80 @@ EOF
     run grep -F "OK: MinIO credentials available for static upload" "$log_file"
     assert_success
 }
+
+@test "_jslibs_has_publish_auth: accepts scoped npm auth entries" {
+    local dir="$BATS_TEST_TMPDIR/js-libs"
+    mkdir -p "$dir"
+
+    cat > "$dir/.npmrc" <<'EOF'
+registry=https://nexus.dnor.io/repository/npm-group
+//nexus.dnor.io/repository/:_auth=dGVzdA==
+always-auth=true
+EOF
+
+    run _jslibs_has_publish_auth "$dir"
+
+    assert_success
+}
+
+@test "_jslibs_git_status: reports dirty worktree entries" {
+    local dir="$BATS_TEST_TMPDIR/js-libs"
+    mkdir -p "$dir"
+    git -C "$dir" init -q
+
+    cat > "$dir/README.md" <<'EOF'
+temporary
+EOF
+
+    run _jslibs_git_status "$dir"
+
+    assert_success
+    [[ "$output" == *"?? README.md"* ]]
+}
+
+@test "_jslibs_status_rows_from_dir: reports local and Nexus versions per package" {
+    local dir="$BATS_TEST_TMPDIR/js-libs"
+    mkdir -p "$dir/packages/logger" "$dir/packages/httpclient"
+
+    cat > "$dir/packages/logger/package.json" <<'EOF'
+{
+  "name": "@dnorio/logger",
+  "version": "0.0.175"
+}
+EOF
+
+    cat > "$dir/packages/httpclient/package.json" <<'EOF'
+{
+  "name": "@dnorio/httpclient",
+  "version": "0.0.176"
+}
+EOF
+
+    _jslibs_nexus_package_version() {
+        case "$2" in
+            "@dnorio/httpclient") echo "0.0.176" ;;
+            "@dnorio/logger") echo "0.0.175" ;;
+            *) echo "not found" ;;
+        esac
+    }
+
+    run _jslibs_status_rows_from_dir "$dir" "secret"
+
+    assert_success
+    [[ "$output" == *"@dnorio/httpclient|0.0.176|0.0.176"* ]]
+    [[ "$output" == *"@dnorio/logger|0.0.175|0.0.175"* ]]
+}
+
+@test "_jslibs_repo_status_from_json: flags missing required npm repositories" {
+    local repos_json='[
+      {"format":"npm","name":"npm-group","type":"group","url":"http://localhost:8081/repository/npm-group"},
+      {"format":"npm","name":"npm-repo","type":"hosted","url":"http://localhost:8081/repository/npm-repo"}
+    ]'
+
+    run _jslibs_repo_status_from_json "$repos_json"
+
+    assert_success
+    [[ "$output" == *$'npm-group\tOK\tgroup\thttp://localhost:8081/repository/npm-group'* ]]
+    [[ "$output" == *$'npm-repo\tOK\thosted\thttp://localhost:8081/repository/npm-repo'* ]]
+    [[ "$output" == *$'npm-proxy\tMISSING\tproxy\t-'* ]]
+}
