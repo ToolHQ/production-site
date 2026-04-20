@@ -49,12 +49,12 @@ a TUI, com descoberta clara, execução guiada e logs persistidos no host.
 
 ## Arquivos Afetados
 
-| Arquivo | Mudança esperada |
-| --- | --- |
-| `oci-k8s-cluster/k8s_ops_menu.sh` | novo fluxo TUI para deploy do static |
-| `apps/static/package.json` | revisar scripts existentes apenas se necessário |
-| `apps/static/upload.sh` | possivelmente ajustar endpoint/robustez para uso operacional |
-| `tasks/2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md` | registrar fluxo, pré-requisitos e validação |
+| Arquivo                                             | Mudança esperada                                             |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| `oci-k8s-cluster/k8s_ops_menu.sh`                   | novo fluxo TUI para deploy do static                         |
+| `apps/static/package.json`                          | revisar scripts existentes apenas se necessário              |
+| `apps/static/upload.sh`                             | possivelmente ajustar endpoint/robustez para uso operacional |
+| `tasks/2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md` | registrar fluxo, pré-requisitos e validação                  |
 
 ---
 

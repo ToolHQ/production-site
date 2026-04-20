@@ -164,10 +164,10 @@ jslibs_check_nexus() {
 
 ## Arquivos Afetados
 
-| Arquivo                           | Mudança                                                        |
-| --------------------------------- | -------------------------------------------------------------- |
-| `oci-k8s-cluster/k8s_ops_menu.sh` | nova função `jslibs_menu()` + submenus + item no `main_menu()` |
-| `oci-k8s-cluster/lib/i18n.sh`     | string `menu_jslibs`                                           |
+| Arquivo                                     | Mudança                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| `oci-k8s-cluster/k8s_ops_menu.sh`           | nova função `jslibs_menu()` + submenus + item no `main_menu()`      |
+| `oci-k8s-cluster/lib/i18n.sh`               | string `menu_jslibs`                                                |
 | `oci-k8s-cluster/testing/k8s_ops_menu.bats` | cobertura para helpers de auth/status/git worktree do fluxo js-libs |
 
 ---

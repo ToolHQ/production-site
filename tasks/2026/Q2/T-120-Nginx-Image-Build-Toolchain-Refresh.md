@@ -56,11 +56,11 @@ módulos extras (`geoip2`, `headers-more`) nem no target ARM64 do cluster OCI.
 
 ## Arquivos Afetados
 
-| Arquivo | Mudança esperada |
-| --- | --- |
-| `apps/nginx/Dockerfile` | atualizar toolchain Go ou pin da dependência `geoipupdate` |
-| `apps/nginx/publish.sh` | revisar apenas se necessário para compatibilidade/diagnóstico |
-| `tasks/2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md` | registrar decisão técnica e validação |
+| Arquivo                                                      | Mudança esperada                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------- |
+| `apps/nginx/Dockerfile`                                      | atualizar toolchain Go ou pin da dependência `geoipupdate`    |
+| `apps/nginx/publish.sh`                                      | revisar apenas se necessário para compatibilidade/diagnóstico |
+| `tasks/2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md` | registrar decisão técnica e validação                         |
 
 ---
 

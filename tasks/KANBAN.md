@@ -8,34 +8,34 @@
 
 ## 🏎️ In Progress
 
-|                              ID                               | Task Name                                                                                                                         |  Priority   |     Owner      | Est. |
-| :-----------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------: | :--: |
+| ID  | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
-|                           ID                           | Task Name                                                                              |  Priority   | Epic   | Est. |
-| :----------------------------------------------------: | :------------------------------------------------------------------------------------- | :---------: | :----- | :--: |
+| ID  | Task Name | Priority | Epic | Est. |
+| :-: | :-------- | :------: | :--- | :--: |
 
 ## 📅 Backlog (To Do)
 
-|                           ID                            | Task Name                                                                                                   | Priority  | Epic   | Est. |
-| :-----------------------------------------------------: | :---------------------------------------------------------------------------------------------------------- | :-------: | :----- | :--: |
+| ID  | Task Name | Priority | Epic | Est. |
+| :-: | :-------- | :------: | :--- | :--: |
 
 ## ✅ Done
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
-| [T-133](2026/Q2/T-133-Rust-Observability-API-Thin-Slice.md) | **Rust Observability API Thin Slice** _(Axum API + static UI served in-cluster; ingress `reports.dnor.io` ready pending external DNS)_ | 🔼 High | DevExp / Infra |  4h  |
-|      [T-105](2026/Q2/T-105-Registry-Resilience.md)      | **Internal Registry (Nexus) Resilience** _(pre-pull validated; postgres `0 -> 2` recovered with Nexus `0/1` and no `ErrImagePull`)_ | 🔽 Medium | Infra |  2h  |
-| [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ |  🔼 High  | DevOps |  4h  |
-|      [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md)      | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_       | 🔽 Medium | DevOps |  3h  |
-|      [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)       | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                |  🔼 High  | DevOps |  2h  |
-|     [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)      | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                          |   🔼 High   |  DevOps / TUI  |  3h  |
-|        [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)        | **CPU Headroom Recovery & Sustained Margin Policy** _(recovery complete; watchdog owns ongoing drift detection)_                  |   🔼 High   |     Infra      |  3h  |
-| [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                     | 🚨 Critical |     DevOps     |  2h  |
-|  [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)   | **Publicar @dnorio/* no Nexus** _(8/8 @dnorio/* publicados — v0.0.175)_ ✅           | 🚨 Critical | DevOps |  1h  |
-| [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅ | 🚨 Critical | DevOps |  2h  |
-|   [T-132](2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md)   | **Nexus: Cleanup Policy Automation** _(audit/attach helpers for existing policies; `npm-proxy` first, hosted repos conservative)_ |   🔼 High   | Infra / DevOps |  3h  |
+|           [T-133](2026/Q2/T-133-Rust-Observability-API-Thin-Slice.md)           | **Rust Observability API Thin Slice** _(Axum API + static UI served in-cluster; ingress `reports.dnor.io` ready pending external DNS)_                     |   🔼 High   |    DevExp / Infra     |   4h   |
+|                  [T-105](2026/Q2/T-105-Registry-Resilience.md)                  | **Internal Registry (Nexus) Resilience** _(pre-pull validated; postgres `0 -> 2` recovered with Nexus `0/1` and no `ErrImagePull`)_                        |  🔽 Medium  |         Infra         |   2h   |
+|             [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md)             | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_                                                |   🔼 High   |        DevOps         |   4h   |
+|                  [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md)                  | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_                                                      |  🔽 Medium  |        DevOps         |   3h   |
+|                  [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md)                   | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_                                                               |   🔼 High   |        DevOps         |   2h   |
+|              [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md)               | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_                                                                   |   🔼 High   |     DevOps / TUI      |   3h   |
+|                 [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md)                 | **CPU Headroom Recovery & Sustained Margin Policy** _(recovery complete; watchdog owns ongoing drift detection)_                                           |   🔼 High   |         Infra         |   3h   |
+|          [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md)          | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_                                                              | 🚨 Critical |        DevOps         |   2h   |
+|               [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md)               | **Publicar @dnorio/\* no Nexus** _(8/8 @dnorio/\* publicados — v0.0.175)_ ✅                                                                               | 🚨 Critical |        DevOps         |   1h   |
+|             [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md)              | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅                                                                     | 🚨 Critical |        DevOps         |   2h   |
+|            [T-132](2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md)            | **Nexus: Cleanup Policy Automation** _(audit/attach helpers for existing policies; `npm-proxy` first, hosted repos conservative)_                          |   🔼 High   |    Infra / DevOps     |   3h   |
 |       [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md)        | **Backup Retention Audit & ETCD Recovery** _(ETCD/GDrive restaurados, `k8s-backups` em 8055 MiB, política do bucket Nexus documentada)_                    | 🚨 Critical |         Infra         |   3h   |
 |         [T-131](2026/Q2/T-131-Helm-Tunnel-Kubeconfig-Compatibility.md)          | **Helm Tunnel Kubeconfig Compatibility** _(local Helm `v3.14.3` incompatível com `kubeconfig_tunnel.yaml`; wrapper `v3.19.0` fixado no repo)_              | 🚨 Critical |    Infra / DevOps     |   2h   |
 |  [T-130](2026/Q2/T-130-Watchdog-Signal-Quality-and-False-Positive-Cleanup.md)   | **Watchdog Signal Quality and False Positive Cleanup** _(VolumeAttachment/job/restart signal cleanup)_                                                     |   🔼 High   | Observability / Infra |   4h   |
