@@ -1,6 +1,6 @@
 # T-105: Internal Registry (Nexus) Resilience
 
-**Status**: 🏎️ In Progress | **Priority**: 🔽 Medium | **Owner**: Infra | **Est**: 2h
+**Status**: ✅ Done | **Priority**: 🔽 Medium | **Owner**: Infra | **Est**: 2h
 
 ## 🎯 Objective
 Any workload using images from the internal Nexus registry (`registry.local:31444`) depends
@@ -77,7 +77,7 @@ Ensure images are cached on all nodes so rescheduling never triggers a pull.
   Run this after any Nexus restart or before a planned maintenance window.
 - [x] **Avoid**: a permanent pre-pull DaemonSet — it adds a pod per node, consuming CPU
   on an already saturated cluster, for a benefit that only matters occasionally.
-- [ ] Verify: scale postgres to 0 then back to 2 with Nexus at 0 replicas. `postgres-1`
+- [x] Verify: scale postgres to 0 then back to 2 with Nexus at 0 replicas. `postgres-1`
   must start successfully using cached image. ⚠️ Run this test only when `postgres-0` is
   confirmed Running and healthy first (replica handles traffic during the test).
 
@@ -90,7 +90,7 @@ Ensure images are cached on all nodes so rescheduling never triggers a pull.
 ## ✅ Definition of Done
 - [x] All stateful workloads use `imagePullPolicy: IfNotPresent` with explicit versioned tags
 - [x] Critical images (postgres, etc.) are pre-pulled on all nodes
-- [ ] With Nexus at 0 replicas: scale postgres to 0 then back to 2 (forces rescheduling);
+- [x] With Nexus at 0 replicas: scale postgres to 0 then back to 2 (forces rescheduling);
   `postgres-1` must start successfully using cached image on whatever node it lands on.
   ⚠️ Run only when `postgres-0` is confirmed Running first — one replica handles traffic
   during the test. Do NOT use `kubectl delete pod postgres-0` (StatefulSet recreates on
@@ -109,4 +109,7 @@ Ensure images are cached on all nodes so rescheduling never triggers a pull.
 - The TUI already contained the maintenance action **Pre-Pull Internal Images on All Nodes** in `k8s_ops_menu.sh`; this session revalidated the workflow and executed a full pre-pull across `k8s-node-1`, `k8s-node-2` and `k8s-node-3` for all four internal images, with 12/12 short-lived pulls completing successfully.
 - The watchdog in `cluster_health_check.sh` was already checking Nexus pod readiness. This session also validated the practical API endpoint from inside the Nexus pod: `http://127.0.0.1:8081/service/rest/v1/status` returns `HTTP/1.1 200 OK`, while `http://127.0.0.1:18444/v2/` returns `401 Unauthorized` when healthy.
 - Based on that live validation, `components/nexus/nexus.yaml` was updated to use `startupProbe` and `readinessProbe` against `/service/rest/v1/status` on port `8081`, which is a real Nexus API endpoint rather than a shallow root-page check.
-- The only remaining open item is the destructive verification drill (`postgres` scale `0 -> 2` with Nexus unavailable). That test intentionally perturbs a StatefulSet and should only be run with explicit operator approval.
+- The approved destructive verification drill was executed after confirming `postgres-0`/`postgres-1` were healthy and `nexus-deployment` was `1/1 Ready`.
+- `nexus-deployment` was scaled to `0`, both `postgres` pods were scaled to `0`, and the StatefulSet was restored to `2` replicas while Nexus stayed offline.
+- `postgres-0` and `postgres-1` both returned `1/1 Running` without any `ErrImagePull`; the recovered replicas landed on `k8s-node-1` and `k8s-node-3`, demonstrating the pre-pulled cache path works even with Nexus unavailable.
+- `nexus-deployment` was then restored to `1/1 Running`, closing the last open acceptance item for this task.
