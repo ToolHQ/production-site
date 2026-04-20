@@ -7,30 +7,24 @@
     <style>
       :root {
         --ink: #16202b;
-        --muted: #556371;
-        --muted-soft: #728091;
-        --paper: rgba(255, 251, 245, 0.86);
-        --panel: rgba(255, 255, 255, 0.72);
+        --muted: #5c6a78;
+        --panel: rgba(255, 255, 255, 0.82);
+        --panel-strong: rgba(255, 255, 255, 0.92);
         --line: rgba(22, 32, 43, 0.1);
         --accent: #0d7c72;
-        --accent-strong: #085f57;
         --accent-soft: rgba(13, 124, 114, 0.12);
         --warm: #c96633;
         --warm-soft: rgba(201, 102, 51, 0.14);
         --critical: #c03b2b;
-        --critical-soft: rgba(192, 59, 43, 0.12);
+        --critical-soft: rgba(192, 59, 43, 0.13);
         --healthy: #0d7c72;
         --healthy-soft: rgba(13, 124, 114, 0.14);
-        --shadow: 0 30px 90px rgba(22, 32, 43, 0.12);
-        --shadow-soft: 0 18px 40px rgba(22, 32, 43, 0.08);
+        --shadow: 0 24px 70px rgba(22, 32, 43, 0.12);
+        --shadow-soft: 0 14px 36px rgba(22, 32, 43, 0.08);
       }
 
       * {
         box-sizing: border-box;
-      }
-
-      html {
-        scroll-behavior: smooth;
       }
 
       body {
@@ -39,10 +33,9 @@
         font-family: "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at 12% 8%, rgba(13, 124, 114, 0.18), transparent 26%),
-          radial-gradient(circle at 88% 14%, rgba(201, 102, 51, 0.18), transparent 24%),
-          radial-gradient(circle at 50% 100%, rgba(22, 32, 43, 0.08), transparent 35%),
-          linear-gradient(180deg, #f5eee2 0%, #ecf2f4 48%, #eef2ef 100%);
+          radial-gradient(circle at 14% 8%, rgba(13, 124, 114, 0.18), transparent 26%),
+          radial-gradient(circle at 88% 12%, rgba(201, 102, 51, 0.18), transparent 24%),
+          linear-gradient(180deg, #f5eee1 0%, #ecf3f4 46%, #edf2ef 100%);
       }
 
       body::before {
@@ -50,41 +43,46 @@
         position: fixed;
         inset: 0;
         background-image:
-          linear-gradient(rgba(22, 32, 43, 0.028) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(22, 32, 43, 0.028) 1px, transparent 1px);
+          linear-gradient(rgba(22, 32, 43, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(22, 32, 43, 0.025) 1px, transparent 1px);
         background-size: 24px 24px;
-        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.48), transparent 85%);
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 86%);
         pointer-events: none;
       }
 
       main {
-        width: min(1280px, calc(100vw - 28px));
-        margin: 22px auto 52px;
+        width: min(1320px, calc(100vw - 28px));
+        margin: 20px auto 48px;
         position: relative;
         z-index: 1;
       }
 
       .shell {
-        background: var(--paper);
-        backdrop-filter: blur(16px);
         border: 1px solid var(--line);
         border-radius: 32px;
+        background: rgba(255, 251, 246, 0.84);
+        backdrop-filter: blur(18px);
         box-shadow: var(--shadow);
         overflow: hidden;
       }
 
       .hero {
         display: grid;
-        grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.9fr);
+        grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.85fr);
         gap: 24px;
         padding: 34px;
         border-bottom: 1px solid var(--line);
-        position: relative;
       }
 
-      .eyebrow {
+      .hero-copy {
+        display: grid;
+        gap: 18px;
+      }
+
+      .eyebrow,
+      .section-title {
         font-size: 0.78rem;
-        letter-spacing: 0.24em;
+        letter-spacing: 0.22em;
         text-transform: uppercase;
         color: var(--accent);
       }
@@ -92,7 +90,7 @@
       h1 {
         margin: 0;
         font-family: "Iowan Old Style", "Palatino Linotype", serif;
-        font-size: clamp(2.4rem, 5vw, 5rem);
+        font-size: clamp(2.5rem, 5vw, 5rem);
         line-height: 0.92;
         max-width: 12ch;
       }
@@ -101,13 +99,7 @@
         margin: 0;
         max-width: 60ch;
         color: var(--muted);
-        font-size: 1.03rem;
-        line-height: 1.75;
-      }
-
-      .hero-copy {
-        display: grid;
-        gap: 18px;
+        line-height: 1.72;
       }
 
       .meta {
@@ -120,37 +112,60 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 11px 14px;
+        padding: 10px 13px;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.78);
         border: 1px solid var(--line);
         color: var(--muted);
         font-size: 0.9rem;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
       }
 
-      .hero-signal {
+      .signal-card,
+      .panel,
+      .metric-card,
+      .service-card,
+      .telemetry-card,
+      .artifact,
+      .summary-card,
+      .incident-item,
+      .hotspot-item,
+      .table-shell {
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: var(--panel);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .hero-side {
         display: grid;
         gap: 14px;
         align-content: start;
       }
 
       .signal-card {
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(250, 250, 248, 0.84));
-        border: 1px solid var(--line);
-        border-radius: 26px;
         padding: 22px;
-        box-shadow: var(--shadow-soft);
+      }
+
+      .signal-head,
+      .service-head,
+      .stat-row,
+      .panel-head,
+      .artifact-meta,
+      .summary-card,
+      .incident-item,
+      .hotspot-item,
+      .table-meta {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
       }
 
       .signal-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
         margin-bottom: 18px;
-        font-size: 0.92rem;
         color: var(--muted);
+        font-size: 0.92rem;
       }
 
       .signal-badge {
@@ -164,109 +179,172 @@
         width: 11px;
         height: 11px;
         border-radius: 999px;
-        background: var(--muted-soft);
-        box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.36);
-        animation: pulse 1.8s infinite;
-      }
-
-      .signal-card[data-tone="healthy"] .live-dot {
         background: var(--healthy);
+        box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.34);
+        animation: pulse 1.8s infinite;
       }
 
       .signal-card[data-tone="warning"] .live-dot {
         background: var(--warm);
-        box-shadow: 0 0 0 0 rgba(201, 102, 51, 0.32);
+        box-shadow: 0 0 0 0 rgba(201, 102, 51, 0.3);
       }
 
       .signal-card[data-tone="critical"] .live-dot {
         background: var(--critical);
-        box-shadow: 0 0 0 0 rgba(192, 59, 43, 0.32);
+        box-shadow: 0 0 0 0 rgba(192, 59, 43, 0.3);
       }
 
       .signal-value {
-        font-size: clamp(2.8rem, 4vw, 4.8rem);
-        line-height: 0.95;
+        font-size: clamp(2.7rem, 4vw, 4.8rem);
         font-weight: 700;
+        line-height: 0.95;
         letter-spacing: -0.06em;
       }
 
       .signal-copy {
-        margin-top: 14px;
+        margin: 14px 0 0;
         color: var(--muted);
         line-height: 1.65;
       }
 
-      .signal-grid {
+      .signal-grid,
+      .metric-grid,
+      .summary-grid,
+      .language-bars,
+      .artifact-list,
+      .incident-list,
+      .hotspot-list {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
       }
 
-      .signal-mini {
+      .signal-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .signal-mini,
+      .summary-card {
         padding: 14px 16px;
         border-radius: 18px;
-        background: var(--panel);
+        background: rgba(255, 255, 255, 0.72);
         border: 1px solid var(--line);
       }
 
-      .signal-mini strong {
+      .signal-mini strong,
+      .summary-card strong,
+      .metric-value,
+      .telemetry-value,
+      .hotspot-value {
         display: block;
-        font-size: 1.3rem;
-        margin-bottom: 4px;
+        font-size: 1.32rem;
       }
 
-      .signal-mini span {
+      .signal-mini span,
+      .summary-card span,
+      .metric-meta,
+      .service-subtitle,
+      .telemetry-meta,
+      .artifact small,
+      .artifact p,
+      .incident-body span,
+      .hotspot-body span,
+      .table-meta span,
+      td small {
         color: var(--muted);
+      }
+
+      .metric-band {
+        padding: 28px 34px 8px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .metric-card {
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .metric-label,
+      .service-name,
+      .telemetry-name,
+      .artifact a,
+      td strong {
+        font-weight: 700;
+      }
+
+      .metric-meta {
         font-size: 0.9rem;
       }
 
-      .section-title {
-        margin: 0 0 16px;
-        font-size: 0.92rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--muted);
+      .sparkline {
+        width: 100%;
+        height: 72px;
+        display: block;
       }
 
-      .dashboard {
+      .body-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.92fr);
+        grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
       }
 
-      .board,
-      .rail,
-      .lower {
-        padding: 30px 34px 34px;
+      .main-stack,
+      .rail-stack {
+        display: grid;
+        gap: 18px;
+        padding: 28px 34px 34px;
       }
 
-      .rail {
+      .rail-stack {
         border-left: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.12));
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.12));
       }
 
-      .service-grid {
+      .panel {
+        padding: 20px;
+      }
+
+      .panel-head {
+        margin-bottom: 16px;
+      }
+
+      .panel-head p,
+      .table-meta p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .service-grid,
+      .telemetry-grid,
+      .lower-grid,
+      .summary-grid {
         display: grid;
+        gap: 14px;
+      }
+
+      .service-grid,
+      .telemetry-grid,
+      .summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
       }
 
       .service-card,
-      .rail-card,
+      .telemetry-card,
       .artifact,
-      .table-shell,
-      .snapshot-grid .summary-card {
-        border: 1px solid var(--line);
-        border-radius: 24px;
-        background: rgba(255, 255, 255, 0.78);
-        box-shadow: var(--shadow-soft);
+      .incident-item,
+      .hotspot-item {
+        padding: 16px 18px;
       }
 
       .service-card {
-        display: grid;
-        gap: 16px;
-        padding: 18px;
         position: relative;
         overflow: hidden;
+        display: grid;
+        gap: 14px;
       }
 
       .service-card::before {
@@ -274,7 +352,7 @@
         position: absolute;
         inset: 0 auto 0 0;
         width: 6px;
-        background: var(--muted-soft);
+        background: rgba(22, 32, 43, 0.16);
       }
 
       .service-card[data-status="healthy"]::before {
@@ -289,132 +367,99 @@
         background: var(--critical);
       }
 
-      .service-head,
-      .service-meta,
-      .service-stats,
-      .summary-card,
-      .artifact-meta,
-      .incident-item,
-      .table-meta {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
+      .service-name,
+      .telemetry-name {
+        font-size: 1.06rem;
       }
 
-      .service-name {
-        font-size: 1.1rem;
-        font-weight: 700;
+      .service-subtitle {
+        font-size: 0.9rem;
       }
 
-      .status-pill {
+      .status-pill,
+      .severity,
+      .table-status {
         padding: 7px 11px;
         border-radius: 999px;
         font-size: 0.78rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         font-weight: 700;
-        border: 1px solid transparent;
       }
 
-      .status-pill.healthy {
-        color: var(--healthy);
+      .status-pill.healthy,
+      .table-status.deployable {
         background: var(--healthy-soft);
+        color: var(--healthy);
       }
 
-      .status-pill.degraded {
-        color: var(--warm);
+      .status-pill.degraded,
+      .severity.warning,
+      .table-status.partial {
         background: var(--warm-soft);
+        color: var(--warm);
       }
 
       .status-pill.down,
       .severity.critical {
-        color: var(--critical);
         background: var(--critical-soft);
+        color: var(--critical);
       }
 
-      .service-meta {
+      .table-status.wip {
+        background: rgba(22, 32, 43, 0.08);
         color: var(--muted);
-        font-size: 0.9rem;
       }
 
       .service-message {
         margin: 0;
-        color: var(--ink);
-        line-height: 1.6;
+        line-height: 1.58;
       }
 
-      .service-stats {
-        padding-top: 4px;
+      .stat-row {
+        padding-top: 6px;
         border-top: 1px dashed var(--line);
       }
 
-      .stat-stack strong,
-      .summary-card strong,
-      .artifact-head strong {
-        display: block;
-        font-size: 1.35rem;
+      .stat-stack {
+        display: grid;
+        gap: 4px;
       }
 
-      .stat-stack span,
-      .summary-card span,
-      .artifact-head span,
-      .incident-body span,
-      .table-meta span {
+      .stat-stack span {
         color: var(--muted);
-        font-size: 0.88rem;
+        font-size: 0.86rem;
       }
 
-      .snapshot-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-      }
-
-      .summary-card {
-        padding: 16px 18px;
-        min-height: 104px;
-        flex-direction: column;
-        justify-content: space-between;
-      }
-
-      .rail-card {
-        padding: 20px;
-      }
-
-      .rail-stack {
-        display: grid;
-        gap: 16px;
-      }
-
-      .incident-list,
-      .artifact-list,
-      .language-bars {
+      .telemetry-card {
         display: grid;
         gap: 12px;
       }
 
-      .incident-item {
-        padding: 14px 16px;
-        border-radius: 18px;
-        background: var(--panel);
+      .telemetry-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .telemetry-grid-mini {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .telemetry-mini {
+        padding: 10px 12px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.68);
         border: 1px solid var(--line);
       }
 
-      .severity {
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: var(--warm-soft);
-        color: var(--warm);
-        font-size: 0.75rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        font-weight: 700;
-      }
-
-      .incident-body strong {
-        display: block;
-        margin-bottom: 4px;
+      .summary-card {
+        min-height: 102px;
+        flex-direction: column;
+        justify-content: space-between;
       }
 
       .language-row {
@@ -427,7 +472,6 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        font-size: 0.92rem;
       }
 
       .language-track {
@@ -440,45 +484,33 @@
       .language-fill {
         height: 100%;
         border-radius: inherit;
-        background: linear-gradient(90deg, var(--accent), #64b9a8);
+        background: linear-gradient(90deg, var(--accent), #70c0ae);
       }
 
-      .lower {
-        border-top: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08));
-      }
-
-      .lower-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.9fr);
-        gap: 20px;
-      }
-
-      .table-shell {
-        overflow: hidden;
+      .artifact-kind {
+        color: var(--warm);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .artifact a {
         color: var(--ink);
         text-decoration: none;
-        font-weight: 700;
       }
 
-      .artifact {
-        padding: 16px 18px;
+      .incident-body,
+      .hotspot-body {
+        display: grid;
+        gap: 4px;
       }
 
-      .artifact-kind {
+      .hotspot-value {
         color: var(--warm);
-        font-size: 0.8rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
       }
 
-      .artifact p,
-      .artifact small {
-        margin: 6px 0 0;
-        color: var(--muted);
+      .lower-grid {
+        grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
       }
 
       table {
@@ -498,59 +530,28 @@
         color: var(--muted);
         font-weight: 600;
       }
-      td strong {
-        display: block;
-      }
-
-      td small {
-        color: var(--muted);
-      }
-
 
       tr:last-child td {
         border-bottom: 0;
       }
-      .table-status {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 7px 11px;
-        border-radius: 999px;
-        background: var(--accent-soft);
-        color: var(--accent-strong);
-        font-size: 0.8rem;
-        font-weight: 700;
-      }
 
-      .table-status.partial {
-        background: var(--warm-soft);
-        color: var(--warm);
-      }
-
-      .table-status.wip {
-        background: rgba(22, 32, 43, 0.08);
-        color: var(--muted);
-        font-weight: 700;
-      }
-
-        margin-top: 18px;
+      .error {
+        margin: 0 34px 34px;
         padding: 14px 16px;
         border-radius: 18px;
+        border: 1px solid rgba(192, 59, 43, 0.2);
         background: var(--critical-soft);
         color: var(--critical);
       }
 
-      .skeleton {
-        min-height: 120px;
-        background:
-          linear-gradient(90deg, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.52));
-        background-size: 200% 100%;
-        animation: shimmer 1.4s infinite;
+      .empty {
+        color: var(--muted);
+        padding: 14px 0;
       }
 
       @keyframes pulse {
         0% {
-          box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.32);
+          box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.3);
         }
         70% {
           box-shadow: 0 0 0 14px rgba(13, 124, 114, 0);
@@ -560,45 +561,39 @@
         }
       }
 
-      @keyframes shimmer {
-        0% {
-          background-position: 200% 0;
-        }
-        100% {
-          background-position: -200% 0;
-        }
-        color: var(--warning);
-      }
-      @media (max-width: 1080px) {
+      @media (max-width: 1120px) {
         .hero,
-        .dashboard,
-        .lower-grid {
-        .layout {
+        .body-grid,
+        .lower-grid,
+        .metric-grid {
           grid-template-columns: 1fr;
         }
-        .rail {
-          border-left: 0;
+
+        .rail-stack {
           border-left: 0;
           border-top: 1px solid var(--line);
-      }
         }
+      }
+
       @media (max-width: 840px) {
         main {
-          width: min(100vw - 18px, 1280px);
+          width: min(100vw - 18px, 1320px);
         }
 
         .hero,
-        .board,
-        .rail,
-        .lower {
+        .metric-band,
+        .main-stack,
+        .rail-stack {
           padding: 22px;
         }
 
         .service-grid,
-        .snapshot-grid,
-        .signal-grid {
-        .card-grid {
+        .telemetry-grid,
+        .summary-grid,
+        .signal-grid,
+        .lower-grid {
           grid-template-columns: 1fr;
+        }
 
         h1 {
           max-width: none;
@@ -608,6 +603,9 @@
         td {
           padding: 12px 13px;
         }
+
+        .error {
+          margin: 0 22px 22px;
         }
       }
     </style>
@@ -615,22 +613,23 @@
   <body>
     <main>
       <section class="shell">
+        <header class="hero">
           <div class="hero-copy">
             <span class="eyebrow">Rust Observability Console</span>
-            <h1>Cluster pulse, not just archived reports.</h1>
+            <h1>Cluster pulse with real signals, not just a pretty status board.</h1>
             <p class="lede">
-              The old slice only rendered a stored snapshot. This console keeps the bundled catalog, but now
-              overlays a live read-only view of the control plane so you can watch critical services move,
-              spot incidents earlier, and still keep the runtime almost weightless.
+              The console now layers Prometheus time-series on top of the live Kubernetes control-plane view.
+              You get runtime drift, restart pressure, CPU, memory, and critical-service telemetry in one light in-cluster surface.
             </p>
             <div class="meta">
               <span class="pill" id="generated-at">Loading snapshot metadata...</span>
               <span class="pill" id="live-refresh">Connecting to live cluster API...</span>
+              <span class="pill" id="metrics-refresh">Connecting to Prometheus...</span>
               <span class="pill">Routes: /api/live/overview, /api/catalog, /api/reports</span>
             </div>
-            <span class="pill">Routes: /api/catalog, /api/catalog/summary, /api/reports</span>
+          </div>
 
-          <aside class="hero-signal">
+          <aside class="hero-side">
             <article class="signal-card" id="signal-card" data-tone="healthy">
               <div class="signal-head">
                 <div class="signal-badge">
@@ -650,103 +649,160 @@
               </div>
             </div>
           </aside>
+        </header>
+
+        <section class="metric-band">
+          <div class="metric-grid" id="cluster-metrics">
+            <article class="metric-card">
+              <div class="metric-label">Loading metrics...</div>
+            </article>
           </div>
-        </div>
-        <div class="dashboard">
-          <section class="board">
-            <h2 class="section-title">Live Control Plane</h2>
-            <div class="service-grid" id="service-grid">
-              <article class="service-card skeleton"></article>
-              <article class="service-card skeleton"></article>
-              <article class="service-card skeleton"></article>
-              <article class="service-card skeleton"></article>
-            </div>
+        </section>
+
+        <div class="body-grid">
+          <section class="main-stack">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="section-title">Critical Services</div>
+                  <p>Workload health, readiness, restarts and serving routes.</p>
+                </div>
+              </div>
+              <div class="service-grid" id="service-grid">
+                <article class="service-card"><p class="empty">Loading live service board...</p></article>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="section-title">Service Telemetry</div>
+                  <p>Prometheus-backed CPU and memory traces over the latest dashboard window.</p>
+                </div>
+              </div>
+              <div class="telemetry-grid" id="telemetry-grid">
+                <article class="telemetry-card"><p class="empty">Waiting for Prometheus time-series...</p></article>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="lower-grid">
+                <section>
+                  <div class="table-meta">
+                    <div>
+                      <div class="section-title">Deployable Surface</div>
+                      <p id="deployable-meta">Waiting for catalog classification...</p>
+                    </div>
+                  </div>
+                  <div class="table-shell">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>App</th>
+                          <th>Stack</th>
+                          <th>Deploy Path</th>
+                          <th>Readiness</th>
+                        </tr>
+                      </thead>
+                      <tbody id="apps-body">
+                        <tr><td colspan="4">Loading catalog...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section>
+                  <div class="table-meta">
+                    <div>
+                      <div class="section-title">Artifact Library</div>
+                      <p>Bundled artifacts stay cheap to serve even when the cluster is busy.</p>
+                    </div>
+                  </div>
+                  <div class="artifact-list" id="artifact-list">
+                    <div class="artifact"><p>Loading artifact index...</p></div>
+                  </div>
+                </section>
+              </div>
+            </section>
           </section>
 
-          <aside class="rail">
-            <div class="rail-stack">
-              <section class="rail-card">
-                <h2 class="section-title">Runtime Summary</h2>
-                <div class="snapshot-grid" id="summary-grid">
-                  <article class="summary-card">
-                    <strong>-</strong>
-                    <span>Waiting for summary</span>
-                  </article>
+          <aside class="rail-stack">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="section-title">Runtime Summary</div>
+                  <p>Snapshot context plus live workload state.</p>
                 </div>
-              </section>
+              </div>
+              <div class="summary-grid" id="summary-grid">
+                <article class="summary-card">
+                  <strong>-</strong>
+                  <span>Waiting for summary</span>
+                </article>
+              </div>
+            </section>
 
-              <section class="rail-card">
-                <h2 class="section-title">Hot Incidents</h2>
-                <div class="incident-list" id="incident-list">
-                  <div class="incident-item"><div class="incident-body"><strong>Waiting for cluster events</strong><span>No live data yet.</span></div></div>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="section-title">Active Incidents</div>
+                  <p>Current blockers and warning states from the live cluster view.</p>
                 </div>
-              </section>
+              </div>
+              <div class="incident-list" id="incident-list">
+                <div class="incident-item"><div class="incident-body"><strong>Waiting for cluster events</strong><span>No live data yet.</span></div></div>
+              </div>
+            </section>
 
-              <section class="rail-card">
-                <h2 class="section-title">Language Mix</h2>
-                <div class="language-bars" id="language-bars">
-                  <div class="language-row"><div class="language-head"><span>Loading</span><strong>--</strong></div><div class="language-track"><div class="language-fill" style="width: 22%"></div></div></div>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="section-title">Restart Hotspots</div>
+                  <p>Prometheus-ranked restart debt over the last hour.</p>
                 </div>
-              </section>
-            </div>
+              </div>
+              <div class="hotspot-list" id="restart-list">
+                <div class="hotspot-item"><div class="hotspot-body"><strong>Waiting for Prometheus</strong><span>No hotspot data yet.</span></div></div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="section-title">Language Mix</div>
+                  <p>Repo surface still matters. The console keeps that context visible.</p>
+                </div>
+              </div>
+              <div class="language-bars" id="language-bars">
+                <div class="language-row"><div class="language-head"><span>Loading</span><strong>--</strong></div><div class="language-track"><div class="language-fill" style="width: 18%"></div></div></div>
+              </div>
+            </section>
           </aside>
         </div>
-
-        <section class="lower">
-          <div class="lower-grid">
-            <section>
-              <div class="table-meta">
-                <h2 class="section-title">Deployable Surface</h2>
-                <span id="deployable-meta">Waiting for catalog classification...</span>
-              </div>
-              <div class="table-shell">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>App</th>
-                      <th>Stack</th>
-                      <th>Deploy Path</th>
-                      <th>Readiness</th>
-                    </tr>
-                  </thead>
-                  <tbody id="apps-body">
-                    <tr><td colspan="4">Loading catalog...</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section>
-              <div class="table-meta">
-                <h2 class="section-title">Artifact Library</h2>
-                <span>Bundled into the image for low-cost retrieval.</span>
-              </div>
-              <div class="artifact-list" id="artifact-list">
-                <div class="artifact"><p>Loading report index...</p></div>
-              </div>
-            </section>
-          </div>
-
-          <div id="error-box"></div>
-        </section>
       </section>
+
+      <div id="error-box"></div>
     </main>
 
     <script>
-      const summaryGrid = document.getElementById("summary-grid");
-      const appsBody = document.getElementById("apps-body");
-      const artifactList = document.getElementById("artifact-list");
       const generatedAt = document.getElementById("generated-at");
       const liveRefresh = document.getElementById("live-refresh");
+      const metricsRefresh = document.getElementById("metrics-refresh");
       const liveMode = document.getElementById("live-mode");
       const autoRefresh = document.getElementById("auto-refresh");
       const healthScore = document.getElementById("health-score");
       const healthCopy = document.getElementById("health-copy");
       const signalCard = document.getElementById("signal-card");
       const signalGrid = document.getElementById("signal-grid");
+      const clusterMetrics = document.getElementById("cluster-metrics");
       const serviceGrid = document.getElementById("service-grid");
+      const telemetryGrid = document.getElementById("telemetry-grid");
+      const summaryGrid = document.getElementById("summary-grid");
       const incidentList = document.getElementById("incident-list");
+      const restartList = document.getElementById("restart-list");
       const languageBars = document.getElementById("language-bars");
+      const appsBody = document.getElementById("apps-body");
+      const artifactList = document.getElementById("artifact-list");
       const deployableMeta = document.getElementById("deployable-meta");
       const errorBox = document.getElementById("error-box");
 
@@ -766,79 +822,112 @@
         errorBox.innerHTML = message ? `<div class="error">${escapeHtml(message)}</div>` : "";
       }
 
-      function formatBytes(bytes) {
-        if (!Number.isFinite(bytes) || bytes <= 0) {
-          return "0 B";
-        }
-
-        const units = ["B", "KB", "MB", "GB"];
-        let value = bytes;
-        let unitIndex = 0;
-
-        while (value >= 1024 && unitIndex < units.length - 1) {
-          value /= 1024;
-          unitIndex += 1;
-        }
-
-        return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-      }
-
       function formatTimestamp(raw) {
         if (!raw) {
           return "Timestamp unavailable";
         }
-
         const date = new Date(raw);
-        if (Number.isNaN(date.getTime())) {
-          return raw;
-        }
-
-        return date.toLocaleString();
+        return Number.isNaN(date.getTime()) ? raw : date.toLocaleString();
       }
 
       function formatEpoch(epochSeconds) {
         if (!epochSeconds) {
           return "Waiting for refresh...";
         }
-
         return new Date(epochSeconds * 1000).toLocaleTimeString();
       }
 
       function formatRelativeTime(raw) {
         if (!raw) {
-          return "staleness unavailable";
+          return "timestamp unavailable";
         }
-
         const date = new Date(raw);
         if (Number.isNaN(date.getTime())) {
           return raw;
         }
-
         const diffMs = Date.now() - date.getTime();
-        const diffMinutes = Math.round(diffMs / 60000);
-        const diffHours = Math.round(diffMs / 3600000);
-        const diffDays = Math.round(diffMs / 86400000);
-
-        if (diffMinutes < 1) {
+        const minutes = Math.round(diffMs / 60000);
+        const hours = Math.round(diffMs / 3600000);
+        const days = Math.round(diffMs / 86400000);
+        if (minutes < 1) {
           return "generated just now";
         }
-        if (diffMinutes < 60) {
-          return `generated ${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+        if (minutes < 60) {
+          return `generated ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
         }
-        if (diffHours < 48) {
-          return `generated ${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+        if (hours < 48) {
+          return `generated ${hours} hour${hours === 1 ? "" : "s"} ago`;
         }
-        return `generated ${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+        return `generated ${days} day${days === 1 ? "" : "s"} ago`;
+      }
+
+      function formatBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) {
+          return "0 B";
+        }
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        let value = bytes;
+        let unit = 0;
+        while (value >= 1024 && unit < units.length - 1) {
+          value /= 1024;
+          unit += 1;
+        }
+        return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+      }
+
+      function formatPercent(value) {
+        return `${Number(value || 0).toFixed(1)}%`;
+      }
+
+      function formatCores(value) {
+        return `${Number(value || 0).toFixed(2)} cores`;
+      }
+
+      function formatCount(value) {
+        return Number(value || 0).toLocaleString();
       }
 
       function statusClass(status) {
-        if (status === "healthy") {
-          return "healthy";
+        return status === "healthy" ? "healthy" : status === "degraded" ? "degraded" : "down";
+      }
+
+      function tableStatusClass(readiness) {
+        if (readiness === "deployable") {
+          return "deployable";
         }
-        if (status === "degraded") {
-          return "degraded";
+        if (readiness === "partial") {
+          return "partial";
         }
-        return "down";
+        return "wip";
+      }
+
+      function sparkline(points, color) {
+        const values = Array.isArray(points) ? points.filter((point) => Number.isFinite(point.value)) : [];
+        if (!values.length) {
+          return `<svg class="sparkline" viewBox="0 0 220 72" preserveAspectRatio="none"><path d="M0 46 L220 46" stroke="rgba(22,32,43,0.12)" stroke-width="2" stroke-dasharray="4 6" fill="none"></path></svg>`;
+        }
+
+        const width = 220;
+        const height = 72;
+        const min = Math.min(...values.map((point) => point.value));
+        const max = Math.max(...values.map((point) => point.value));
+        const span = max - min || 1;
+
+        const coords = values.map((point, index) => {
+          const x = values.length === 1 ? 0 : (index / (values.length - 1)) * width;
+          const y = height - (((point.value - min) / span) * (height - 10) + 5);
+          return [x, y];
+        });
+
+        const line = coords.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
+        const area = `0,${height} ${line} ${width},${height}`;
+
+        return `
+          <svg class="sparkline" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+            <polyline points="${area}" fill="${color}18" stroke="none"></polyline>
+            <polyline points="${line}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+          </svg>
+        `;
       }
 
       function summaryCard(label, value, detail) {
@@ -851,23 +940,13 @@
         `;
       }
 
-      function toneFromLive(live) {
-        if (!live?.available || live.summary.down_services > 0) {
-          return "critical";
-        }
-        if (live.summary.degraded_services > 0 || live.stale) {
-          return "warning";
-        }
-        return "healthy";
-      }
-
       function boardLabel(live) {
         if (!live?.available) {
           return {
             tone: "critical",
-            mode: "Snapshot only",
+            mode: "Snapshot fallback",
             score: "Live unavailable",
-            copy: live?.error || "The pod does not currently have a working in-cluster API session."
+            copy: live?.error || "The in-cluster Kubernetes API is not reachable from this runtime."
           };
         }
 
@@ -877,9 +956,9 @@
         if (live.summary.down_services > 0) {
           return {
             tone: "critical",
-            mode: live.stale ? "Cluster data stale" : "Critical attention",
+            mode: live.stale ? "Serving stale cache" : "Critical attention",
             score: `${healthy}/${total}`,
-            copy: `${live.summary.down_services} critical service${live.summary.down_services === 1 ? " is" : "s are"} down. Immediate follow-up required.`
+            copy: `${live.summary.down_services} critical service${live.summary.down_services === 1 ? " is" : "s are"} down and need immediate intervention.`
           };
         }
 
@@ -888,7 +967,7 @@
             tone: "warning",
             mode: live.stale ? "Serving stale cache" : "Degraded but serving",
             score: `${healthy}/${total}`,
-            copy: `${live.summary.degraded_services} service${live.summary.degraded_services === 1 ? " needs" : "s need"} attention, but the edge is still responding.`
+            copy: `${live.summary.degraded_services} service${live.summary.degraded_services === 1 ? " needs" : "s need"} follow-up, but the control plane still looks available.`
           };
         }
 
@@ -896,7 +975,7 @@
           tone: "healthy",
           mode: "Cluster stable",
           score: `${healthy}/${total}`,
-          copy: "All tracked critical services are healthy and the live board is refreshing on schedule."
+          copy: "All tracked critical services are healthy and the Prometheus layer is feeding runtime telemetry into the board."
         };
       }
 
@@ -906,20 +985,61 @@
         liveMode.textContent = board.mode;
         healthScore.textContent = board.score;
         healthCopy.textContent = board.copy;
-        autoRefresh.textContent = live?.refresh_interval_seconds
-          ? `Polling every ${live.refresh_interval_seconds}s`
-          : "Auto-refresh unavailable";
+
+        const metricsInterval = live?.metrics?.refresh_interval_seconds || "--";
+        autoRefresh.textContent = `Kube ${live?.refresh_interval_seconds || "--"}s · Metrics ${metricsInterval}s`;
 
         signalGrid.innerHTML = [
           { value: live?.summary.critical_services ?? "--", label: "Tracked services" },
-          { value: live?.summary.running_pods ?? "--", label: "Running pods" },
           { value: `${live?.summary.nodes_ready ?? "--"}/${live?.summary.nodes_total ?? "--"}`, label: "Ready nodes" },
+          { value: live?.summary.running_pods ?? "--", label: "Running pods" },
           { value: live?.summary.restarting_pods ?? "--", label: "Pods with restarts" }
         ].map((item) => `
           <div class="signal-mini">
             <strong>${escapeHtml(item.value)}</strong>
             <span>${escapeHtml(item.label)}</span>
           </div>
+        `).join("");
+      }
+
+      function renderClusterMetrics(metrics) {
+        if (!metrics?.available) {
+          clusterMetrics.innerHTML = `<article class="metric-card"><div class="metric-label">Prometheus unavailable</div><div class="metric-meta">${escapeHtml(metrics?.error || "The console could not fetch time-series yet.")}</div></article>`;
+          return;
+        }
+
+        const cluster = metrics.cluster || {};
+        clusterMetrics.innerHTML = [
+          {
+            label: "Cluster CPU",
+            value: formatPercent(cluster.cpu_percent_latest),
+            meta: `${formatCores(cluster.cpu_cores_used_latest)} in use · ${metrics.window_minutes}m window`,
+            color: "#0d7c72",
+            series: cluster.cpu_percent_series || []
+          },
+          {
+            label: "Cluster Memory",
+            value: formatPercent(cluster.memory_percent_latest),
+            meta: `${formatBytes(cluster.memory_bytes_used_latest)} working set · ${metrics.window_minutes}m window`,
+            color: "#c96633",
+            series: cluster.memory_percent_series || []
+          },
+          {
+            label: "Restart Pressure",
+            value: formatCount(cluster.restart_events_last_hour),
+            meta: "restart events recorded over the last hour",
+            color: "#c03b2b",
+            series: cluster.restart_pressure_series || []
+          }
+        ].map((metric) => `
+          <article class="metric-card">
+            <div>
+              <div class="metric-label">${escapeHtml(metric.label)}</div>
+              <strong class="metric-value">${escapeHtml(metric.value)}</strong>
+              <div class="metric-meta">${escapeHtml(metric.meta)}</div>
+            </div>
+            ${sparkline(metric.series, metric.color)}
+          </article>
         `).join("");
       }
 
@@ -930,32 +1050,26 @@
 
         summaryGrid.innerHTML = [
           summaryCard("Healthy services", `${live?.summary.healthy_services ?? 0}/${live?.summary.critical_services ?? 0}`, snapshotAge),
-          summaryCard("Degraded services", live?.summary.degraded_services ?? 0, "tracked in real time"),
-          summaryCard("Pods in motion", `${live?.summary.running_pods ?? 0}/${live?.summary.total_pods ?? 0}`, "tracked namespaces only"),
-          summaryCard("Restart pressure", live?.summary.restarting_pods ?? 0, "pods reporting restarts"),
-          summaryCard("Nodes ready", `${live?.summary.nodes_ready ?? 0}/${live?.summary.nodes_total ?? 0}`, "cluster readiness"),
+          summaryCard("Degraded services", live?.summary.degraded_services ?? 0, "tracked live from the cluster"),
+          summaryCard("Runtime pods", `${live?.summary.running_pods ?? 0}/${live?.summary.total_pods ?? 0}`, `${live?.summary.affected_namespaces ?? 0} namespaces under watch`),
           summaryCard("Deployable apps", snapshotSummary?.deployable_app_count ?? "--", `${snapshotSummary?.app_count ?? "--"} apps cataloged`)
         ].join("");
       }
 
       function renderServices(live) {
-        const services = live?.services || [];
-
+        const services = Array.isArray(live?.services) ? live.services : [];
         serviceGrid.innerHTML = services.length
           ? services.map((service) => `
             <article class="service-card" data-status="${escapeHtml(service.status)}">
               <div class="service-head">
                 <div>
                   <div class="service-name">${escapeHtml(service.label)}</div>
-                  <div class="service-meta">
-                    <span>${escapeHtml(service.namespace)}</span>
-                    <span>${escapeHtml(service.workload_kind)} · ${escapeHtml(service.workload_name)}</span>
-                  </div>
+                  <div class="service-subtitle">${escapeHtml(`${service.namespace} · ${service.workload_kind} · ${service.workload_name}`)}</div>
                 </div>
                 <span class="status-pill ${statusClass(service.status)}">${escapeHtml(service.status)}</span>
               </div>
               <p class="service-message">${escapeHtml(service.message)}</p>
-              <div class="service-stats">
+              <div class="stat-row">
                 <div class="stat-stack">
                   <strong>${escapeHtml(`${service.ready}/${service.desired}`)}</strong>
                   <span>ready vs desired</span>
@@ -975,18 +1089,45 @@
               </div>
             </article>
           `).join("")
-          : `<article class="service-card"><p class="service-message">Live service board unavailable.</p></article>`;
+          : `<article class="service-card"><p class="empty">Live service board unavailable.</p></article>`;
+      }
+
+      function renderTelemetry(metrics) {
+        const services = Array.isArray(metrics?.services) ? metrics.services : [];
+        telemetryGrid.innerHTML = services.length
+          ? services.map((service) => `
+            <article class="telemetry-card">
+              <div class="telemetry-top">
+                <div>
+                  <div class="telemetry-name">${escapeHtml(service.label)}</div>
+                  <div class="telemetry-meta">Prometheus ${metrics.window_minutes}m window</div>
+                </div>
+              </div>
+              <div class="telemetry-grid-mini">
+                <div class="telemetry-mini">
+                  <strong class="telemetry-value">${escapeHtml(formatCores(service.cpu_cores_latest))}</strong>
+                  <span class="telemetry-meta">CPU in use</span>
+                  ${sparkline(service.cpu_series || [], "#0d7c72")}
+                </div>
+                <div class="telemetry-mini">
+                  <strong class="telemetry-value">${escapeHtml(formatBytes(service.memory_bytes_latest))}</strong>
+                  <span class="telemetry-meta">Memory RSS</span>
+                  ${sparkline(service.memory_series || [], "#c96633")}
+                </div>
+              </div>
+            </article>
+          `).join("")
+          : `<article class="telemetry-card"><p class="empty">No Prometheus time-series available for tracked services.</p></article>`;
       }
 
       function renderIncidents(live) {
-        const incidents = live?.incidents || [];
-
+        const incidents = Array.isArray(live?.incidents) ? live.incidents : [];
         incidentList.innerHTML = incidents.length
           ? incidents.map((incident) => `
             <article class="incident-item">
               <div class="incident-body">
                 <strong>${escapeHtml(incident.resource)}</strong>
-                <span>${escapeHtml(incident.namespace)} · ${escapeHtml(incident.message)}</span>
+                <span>${escapeHtml(`${incident.namespace} · ${incident.message}`)}</span>
               </div>
               <span class="severity ${escapeHtml(incident.severity)}">${escapeHtml(incident.severity)}</span>
             </article>
@@ -994,10 +1135,24 @@
           : `<article class="incident-item"><div class="incident-body"><strong>No active incidents</strong><span>The tracked namespaces are quiet right now.</span></div><span class="severity">clear</span></article>`;
       }
 
-      function renderLanguages(summary) {
-        const languages = summary?.app_languages || [];
-        const max = Math.max(...languages.map((item) => item.count), 1);
+      function renderRestartHotspots(metrics) {
+        const hotspots = Array.isArray(metrics?.top_restarts) ? metrics.top_restarts : [];
+        restartList.innerHTML = hotspots.length
+          ? hotspots.map((item) => `
+            <article class="hotspot-item">
+              <div class="hotspot-body">
+                <strong>${escapeHtml(item.pod)}</strong>
+                <span>${escapeHtml(item.namespace)}</span>
+              </div>
+              <strong class="hotspot-value">${escapeHtml(formatCount(item.restarts_last_hour))}</strong>
+            </article>
+          `).join("")
+          : `<article class="hotspot-item"><div class="hotspot-body"><strong>No restart hotspots</strong><span>The last hour is quiet for tracked namespaces.</span></div></article>`;
+      }
 
+      function renderLanguages(summary) {
+        const languages = Array.isArray(summary?.app_languages) ? summary.app_languages : [];
+        const max = Math.max(...languages.map((item) => item.count), 1);
         languageBars.innerHTML = languages.length
           ? languages.map((item) => `
             <div class="language-row">
@@ -1005,22 +1160,10 @@
                 <span>${escapeHtml(item.language)}</span>
                 <strong>${escapeHtml(item.count)}</strong>
               </div>
-              <div class="language-track">
-                <div class="language-fill" style="width: ${(item.count / max) * 100}%"></div>
-              </div>
+              <div class="language-track"><div class="language-fill" style="width: ${(item.count / max) * 100}%"></div></div>
             </div>
           `).join("")
           : `<div class="language-row"><div class="language-head"><span>No language data</span><strong>0</strong></div><div class="language-track"><div class="language-fill" style="width: 0%"></div></div></div>`;
-      }
-
-      function tableStatusClass(readiness) {
-        if (readiness === "deployable") {
-          return "";
-        }
-        if (readiness === "partial") {
-          return "partial";
-        }
-        return "wip";
       }
 
       function renderApps(catalog) {
@@ -1056,13 +1199,12 @@
 
       function renderArtifacts(reports) {
         const artifacts = Array.isArray(reports?.artifacts) ? reports.artifacts : [];
-
         artifactList.innerHTML = artifacts.length
           ? artifacts.map((artifact) => `
             <article class="artifact">
               <div class="artifact-meta">
-                <div class="artifact-head">
-                  <span class="artifact-kind">${escapeHtml(artifact.kind)}</span>
+                <div>
+                  <div class="artifact-kind">${escapeHtml(artifact.kind)}</div>
                   <strong><a href="${escapeHtml(artifact.href)}" target="_blank" rel="noreferrer">${escapeHtml(artifact.label)}</a></strong>
                 </div>
                 <small>${escapeHtml(formatBytes(artifact.size_bytes))}</small>
@@ -1091,7 +1233,6 @@
         ]);
 
         snapshotSummary = summary;
-
         generatedAt.textContent = summary.generated_at
           ? `Snapshot ${formatRelativeTime(summary.generated_at)} · ${formatTimestamp(summary.generated_at)}`
           : "Snapshot timestamp unavailable";
@@ -1115,21 +1256,30 @@
         latestLiveOverview = live;
 
         liveRefresh.textContent = live.available
-          ? `Live refresh ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? " · stale cache" : ""}`
-          : "Live monitoring unavailable in this runtime";
+          ? `Kubernetes refresh ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? " · stale cache" : ""}`
+          : "Live cluster monitoring unavailable in this runtime";
+
+        const metrics = live.metrics || {};
+        metricsRefresh.textContent = metrics.available
+          ? `Prometheus refresh ${formatEpoch(metrics.refreshed_at_epoch)}${metrics.stale ? " · stale cache" : ""}`
+          : "Prometheus metrics unavailable";
 
         renderSignal(live);
+        renderClusterMetrics(metrics);
         renderLiveSummary(live);
         renderServices(live);
+        renderTelemetry(metrics);
         renderIncidents(live);
+        renderRestartHotspots(metrics);
 
-        if (live.error && !live.available) {
-          renderError(live.error);
-        } else if (live.error && live.stale) {
-          renderError(`Serving cached live data: ${live.error}`);
-        } else {
-          renderError("");
+        const errors = [];
+        if (live.error) {
+          errors.push(live.stale ? `Serving cached live data: ${live.error}` : live.error);
         }
+        if (metrics.error) {
+          errors.push(metrics.stale ? `Serving cached metrics: ${metrics.error}` : metrics.error);
+        }
+        renderError(errors.join(" | "));
       }
 
       async function bootstrap() {
@@ -1148,7 +1298,7 @@
         loadSnapshot().catch((error) => renderError(error.message || "Failed to refresh snapshot data."));
       }, 300000);
     </script>
-      load();
-    </script>
+  </body>
+</html>
   </body>
 </html>
