@@ -3,108 +3,221 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Cluster Reports</title>
+    <title>Cluster Pulse</title>
     <style>
       :root {
-        --ink: #1f2933;
-        --muted: #52606d;
-        --sand: #f8f1e6;
-        --paper: rgba(255, 252, 247, 0.92);
-        --line: rgba(31, 41, 51, 0.12);
-        --accent: #0f766e;
-        --accent-soft: #d7efe8;
-        --warning: #c76826;
-        --shadow: 0 24px 60px rgba(31, 41, 51, 0.12);
+        --ink: #16202b;
+        --muted: #556371;
+        --muted-soft: #728091;
+        --paper: rgba(255, 251, 245, 0.86);
+        --panel: rgba(255, 255, 255, 0.72);
+        --line: rgba(22, 32, 43, 0.1);
+        --accent: #0d7c72;
+        --accent-strong: #085f57;
+        --accent-soft: rgba(13, 124, 114, 0.12);
+        --warm: #c96633;
+        --warm-soft: rgba(201, 102, 51, 0.14);
+        --critical: #c03b2b;
+        --critical-soft: rgba(192, 59, 43, 0.12);
+        --healthy: #0d7c72;
+        --healthy-soft: rgba(13, 124, 114, 0.14);
+        --shadow: 0 30px 90px rgba(22, 32, 43, 0.12);
+        --shadow-soft: 0 18px 40px rgba(22, 32, 43, 0.08);
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html {
+        scroll-behavior: smooth;
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "Aptos", "Trebuchet MS", sans-serif;
+        font-family: "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 28%),
-          radial-gradient(circle at top right, rgba(199, 104, 38, 0.14), transparent 22%),
-          linear-gradient(180deg, #f3eadc 0%, #e8eef0 100%);
+          radial-gradient(circle at 12% 8%, rgba(13, 124, 114, 0.18), transparent 26%),
+          radial-gradient(circle at 88% 14%, rgba(201, 102, 51, 0.18), transparent 24%),
+          radial-gradient(circle at 50% 100%, rgba(22, 32, 43, 0.08), transparent 35%),
+          linear-gradient(180deg, #f5eee2 0%, #ecf2f4 48%, #eef2ef 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(22, 32, 43, 0.028) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(22, 32, 43, 0.028) 1px, transparent 1px);
+        background-size: 24px 24px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.48), transparent 85%);
+        pointer-events: none;
       }
 
       main {
-        width: min(1120px, calc(100vw - 32px));
-        margin: 32px auto 48px;
+        width: min(1280px, calc(100vw - 28px));
+        margin: 22px auto 52px;
+        position: relative;
+        z-index: 1;
       }
 
       .shell {
         background: var(--paper);
-        backdrop-filter: blur(12px);
+        backdrop-filter: blur(16px);
         border: 1px solid var(--line);
-        border-radius: 28px;
+        border-radius: 32px;
         box-shadow: var(--shadow);
         overflow: hidden;
       }
 
       .hero {
-        padding: 32px;
-        border-bottom: 1px solid var(--line);
         display: grid;
-        gap: 18px;
+        grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.9fr);
+        gap: 24px;
+        padding: 34px;
+        border-bottom: 1px solid var(--line);
+        position: relative;
       }
 
       .eyebrow {
-        font-size: 0.8rem;
-        letter-spacing: 0.18em;
+        font-size: 0.78rem;
+        letter-spacing: 0.24em;
         text-transform: uppercase;
         color: var(--accent);
       }
 
       h1 {
         margin: 0;
-        font-family: "Georgia", serif;
-        font-size: clamp(2rem, 4vw, 3.6rem);
-        line-height: 0.95;
+        font-family: "Iowan Old Style", "Palatino Linotype", serif;
+        font-size: clamp(2.4rem, 5vw, 5rem);
+        line-height: 0.92;
+        max-width: 12ch;
       }
 
       .lede {
         margin: 0;
-        max-width: 62ch;
+        max-width: 60ch;
         color: var(--muted);
-        font-size: 1rem;
-        line-height: 1.6;
+        font-size: 1.03rem;
+        line-height: 1.75;
+      }
+
+      .hero-copy {
+        display: grid;
+        gap: 18px;
       }
 
       .meta {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
+        gap: 10px;
       }
 
       .pill {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 14px;
+        padding: 11px 14px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.85);
+        background: rgba(255, 255, 255, 0.78);
         border: 1px solid var(--line);
         color: var(--muted);
         font-size: 0.9rem;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
       }
 
-      .layout {
+      .hero-signal {
         display: grid;
-        grid-template-columns: 1.6fr 1fr;
+        gap: 14px;
+        align-content: start;
       }
 
-      .panel,
-      .metrics {
-        padding: 28px 32px 32px;
+      .signal-card {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(250, 250, 248, 0.84));
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        padding: 22px;
+        box-shadow: var(--shadow-soft);
       }
 
-      .panel + .metrics {
-        border-left: 1px solid var(--line);
+      .signal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      .signal-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+      }
+
+      .live-dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 999px;
+        background: var(--muted-soft);
+        box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.36);
+        animation: pulse 1.8s infinite;
+      }
+
+      .signal-card[data-tone="healthy"] .live-dot {
+        background: var(--healthy);
+      }
+
+      .signal-card[data-tone="warning"] .live-dot {
+        background: var(--warm);
+        box-shadow: 0 0 0 0 rgba(201, 102, 51, 0.32);
+      }
+
+      .signal-card[data-tone="critical"] .live-dot {
+        background: var(--critical);
+        box-shadow: 0 0 0 0 rgba(192, 59, 43, 0.32);
+      }
+
+      .signal-value {
+        font-size: clamp(2.8rem, 4vw, 4.8rem);
+        line-height: 0.95;
+        font-weight: 700;
+        letter-spacing: -0.06em;
+      }
+
+      .signal-copy {
+        margin-top: 14px;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .signal-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .signal-mini {
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+      }
+
+      .signal-mini strong {
+        display: block;
+        font-size: 1.3rem;
+        margin-bottom: 4px;
+      }
+
+      .signal-mini span {
+        color: var(--muted);
+        font-size: 0.9rem;
       }
 
       .section-title {
@@ -115,41 +228,234 @@
         color: var(--muted);
       }
 
-      .card-grid {
+      .dashboard {
+        display: grid;
+        grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.92fr);
+      }
+
+      .board,
+      .rail,
+      .lower {
+        padding: 30px 34px 34px;
+      }
+
+      .rail {
+        border-left: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.12));
+      }
+
+      .service-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .service-card,
+      .rail-card,
+      .artifact,
+      .table-shell,
+      .snapshot-grid .summary-card {
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .service-card {
+        display: grid;
+        gap: 16px;
+        padding: 18px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .service-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 6px;
+        background: var(--muted-soft);
+      }
+
+      .service-card[data-status="healthy"]::before {
+        background: var(--healthy);
+      }
+
+      .service-card[data-status="degraded"]::before {
+        background: var(--warm);
+      }
+
+      .service-card[data-status="down"]::before {
+        background: var(--critical);
+      }
+
+      .service-head,
+      .service-meta,
+      .service-stats,
+      .summary-card,
+      .artifact-meta,
+      .incident-item,
+      .table-meta {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .service-name {
+        font-size: 1.1rem;
+        font-weight: 700;
+      }
+
+      .status-pill {
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+        border: 1px solid transparent;
+      }
+
+      .status-pill.healthy {
+        color: var(--healthy);
+        background: var(--healthy-soft);
+      }
+
+      .status-pill.degraded {
+        color: var(--warm);
+        background: var(--warm-soft);
+      }
+
+      .status-pill.down,
+      .severity.critical {
+        color: var(--critical);
+        background: var(--critical-soft);
+      }
+
+      .service-meta {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .service-message {
+        margin: 0;
+        color: var(--ink);
+        line-height: 1.6;
+      }
+
+      .service-stats {
+        padding-top: 4px;
+        border-top: 1px dashed var(--line);
+      }
+
+      .stat-stack strong,
+      .summary-card strong,
+      .artifact-head strong {
+        display: block;
+        font-size: 1.35rem;
+      }
+
+      .stat-stack span,
+      .summary-card span,
+      .artifact-head span,
+      .incident-body span,
+      .table-meta span {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .snapshot-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px;
       }
 
-      .metric-card,
-      .artifact,
-      .table-shell {
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        background: rgba(255, 255, 255, 0.85);
+      .summary-card {
+        padding: 16px 18px;
+        min-height: 104px;
+        flex-direction: column;
+        justify-content: space-between;
       }
 
-      .metric-card {
-        padding: 18px;
+      .rail-card {
+        padding: 20px;
       }
 
-      .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
+      .rail-stack {
+        display: grid;
+        gap: 16px;
       }
 
-      .metric-label {
-        margin-top: 6px;
-        color: var(--muted);
-      }
-
-      .artifact-list {
+      .incident-list,
+      .artifact-list,
+      .language-bars {
         display: grid;
         gap: 12px;
       }
 
-      .artifact {
-        padding: 16px 18px;
+      .incident-item {
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+      }
+
+      .severity {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--warm-soft);
+        color: var(--warm);
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+
+      .incident-body strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .language-row {
+        display: grid;
+        gap: 6px;
+      }
+
+      .language-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.92rem;
+      }
+
+      .language-track {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(22, 32, 43, 0.08);
+        overflow: hidden;
+      }
+
+      .language-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--accent), #64b9a8);
+      }
+
+      .lower {
+        border-top: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08));
+      }
+
+      .lower-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.9fr);
+        gap: 20px;
+      }
+
+      .table-shell {
+        overflow: hidden;
       }
 
       .artifact a {
@@ -158,21 +464,21 @@
         font-weight: 700;
       }
 
-      .artifact p,
-      .artifact small {
-        margin: 6px 0 0;
-        color: var(--muted);
+      .artifact {
+        padding: 16px 18px;
       }
 
       .artifact-kind {
-        color: var(--warning);
+        color: var(--warm);
         font-size: 0.8rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
       }
 
-      .table-shell {
-        overflow: hidden;
+      .artifact p,
+      .artifact small {
+        margin: 6px 0 0;
+        color: var(--muted);
       }
 
       table {
@@ -192,41 +498,116 @@
         color: var(--muted);
         font-weight: 600;
       }
+      td strong {
+        display: block;
+      }
+
+      td small {
+        color: var(--muted);
+      }
+
 
       tr:last-child td {
         border-bottom: 0;
       }
-
-      .status {
-        display: inline-block;
-        padding: 6px 10px;
+      .table-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 11px;
         border-radius: 999px;
         background: var(--accent-soft);
-        color: var(--accent);
-        font-size: 0.82rem;
+        color: var(--accent-strong);
+        font-size: 0.8rem;
         font-weight: 700;
       }
 
-      .error {
-        margin-top: 16px;
-        padding: 14px 16px;
-        border-radius: 16px;
-        background: rgba(199, 104, 38, 0.08);
-        color: var(--warning);
+      .table-status.partial {
+        background: var(--warm-soft);
+        color: var(--warm);
       }
 
-      @media (max-width: 880px) {
+      .table-status.wip {
+        background: rgba(22, 32, 43, 0.08);
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: var(--critical-soft);
+        color: var(--critical);
+      }
+
+      .skeleton {
+        min-height: 120px;
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.52));
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.32);
+        }
+        70% {
+          box-shadow: 0 0 0 14px rgba(13, 124, 114, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(13, 124, 114, 0);
+        }
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+        color: var(--warning);
+      }
+      @media (max-width: 1080px) {
+        .hero,
+        .dashboard,
+        .lower-grid {
         .layout {
           grid-template-columns: 1fr;
         }
-
-        .panel + .metrics {
+        .rail {
+          border-left: 0;
           border-left: 0;
           border-top: 1px solid var(--line);
+      }
+        }
+      @media (max-width: 840px) {
+        main {
+          width: min(100vw - 18px, 1280px);
         }
 
+        .hero,
+        .board,
+        .rail,
+        .lower {
+          padding: 22px;
+        }
+
+        .service-grid,
+        .snapshot-grid,
+        .signal-grid {
         .card-grid {
           grid-template-columns: 1fr;
+
+        h1 {
+          max-width: none;
+        }
+
+        th,
+        td {
+          padding: 12px 13px;
+        }
         }
       }
     </style>
@@ -234,54 +615,120 @@
   <body>
     <main>
       <section class="shell">
-        <div class="hero">
-          <span class="eyebrow">Rust Observability Slice</span>
-          <h1>Catalog and inventory, served online with almost no moving parts.</h1>
-          <p class="lede">
-            This service exposes the latest checked-in cluster catalog and inventory artifacts, adds a
-            small JSON API on top, and keeps the frontend static so the cluster pays almost nothing at runtime.
-          </p>
-          <div class="meta">
-            <span class="pill" id="generated-at">Loading snapshot metadata...</span>
+          <div class="hero-copy">
+            <span class="eyebrow">Rust Observability Console</span>
+            <h1>Cluster pulse, not just archived reports.</h1>
+            <p class="lede">
+              The old slice only rendered a stored snapshot. This console keeps the bundled catalog, but now
+              overlays a live read-only view of the control plane so you can watch critical services move,
+              spot incidents earlier, and still keep the runtime almost weightless.
+            </p>
+            <div class="meta">
+              <span class="pill" id="generated-at">Loading snapshot metadata...</span>
+              <span class="pill" id="live-refresh">Connecting to live cluster API...</span>
+              <span class="pill">Routes: /api/live/overview, /api/catalog, /api/reports</span>
+            </div>
             <span class="pill">Routes: /api/catalog, /api/catalog/summary, /api/reports</span>
+
+          <aside class="hero-signal">
+            <article class="signal-card" id="signal-card" data-tone="healthy">
+              <div class="signal-head">
+                <div class="signal-badge">
+                  <span class="live-dot"></span>
+                  <span id="live-mode">Connecting live board</span>
+                </div>
+                <span id="auto-refresh">Auto-refresh pending</span>
+              </div>
+              <div class="signal-value" id="health-score">--</div>
+              <p class="signal-copy" id="health-copy">Waiting for the first cluster response.</p>
+            </article>
+
+            <div class="signal-grid" id="signal-grid">
+              <div class="signal-mini">
+                <strong>--</strong>
+                <span>Tracked services</span>
+              </div>
+            </div>
+          </aside>
           </div>
         </div>
-
-        <div class="layout">
-          <section class="panel">
-            <h2 class="section-title">Deployable Apps</h2>
-            <div class="table-shell">
-              <table>
-                <thead>
-                  <tr>
-                    <th>App</th>
-                    <th>Language</th>
-                    <th>Readiness</th>
-                  </tr>
-                </thead>
-                <tbody id="apps-body">
-                  <tr><td colspan="3">Loading catalog...</td></tr>
-                </tbody>
-              </table>
+        <div class="dashboard">
+          <section class="board">
+            <h2 class="section-title">Live Control Plane</h2>
+            <div class="service-grid" id="service-grid">
+              <article class="service-card skeleton"></article>
+              <article class="service-card skeleton"></article>
+              <article class="service-card skeleton"></article>
+              <article class="service-card skeleton"></article>
             </div>
-
-            <h2 class="section-title" style="margin-top: 24px;">Available Artifacts</h2>
-            <div class="artifact-list" id="artifact-list">
-              <div class="artifact"><p>Loading report index...</p></div>
-            </div>
-            <div id="error-box"></div>
           </section>
 
-          <aside class="metrics">
-            <h2 class="section-title">Snapshot Summary</h2>
-            <div class="card-grid" id="summary-grid">
-              <article class="metric-card">
-                <div class="metric-value">-</div>
-                <div class="metric-label">Waiting for API</div>
-              </article>
+          <aside class="rail">
+            <div class="rail-stack">
+              <section class="rail-card">
+                <h2 class="section-title">Runtime Summary</h2>
+                <div class="snapshot-grid" id="summary-grid">
+                  <article class="summary-card">
+                    <strong>-</strong>
+                    <span>Waiting for summary</span>
+                  </article>
+                </div>
+              </section>
+
+              <section class="rail-card">
+                <h2 class="section-title">Hot Incidents</h2>
+                <div class="incident-list" id="incident-list">
+                  <div class="incident-item"><div class="incident-body"><strong>Waiting for cluster events</strong><span>No live data yet.</span></div></div>
+                </div>
+              </section>
+
+              <section class="rail-card">
+                <h2 class="section-title">Language Mix</h2>
+                <div class="language-bars" id="language-bars">
+                  <div class="language-row"><div class="language-head"><span>Loading</span><strong>--</strong></div><div class="language-track"><div class="language-fill" style="width: 22%"></div></div></div>
+                </div>
+              </section>
             </div>
           </aside>
         </div>
+
+        <section class="lower">
+          <div class="lower-grid">
+            <section>
+              <div class="table-meta">
+                <h2 class="section-title">Deployable Surface</h2>
+                <span id="deployable-meta">Waiting for catalog classification...</span>
+              </div>
+              <div class="table-shell">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>App</th>
+                      <th>Stack</th>
+                      <th>Deploy Path</th>
+                      <th>Readiness</th>
+                    </tr>
+                  </thead>
+                  <tbody id="apps-body">
+                    <tr><td colspan="4">Loading catalog...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section>
+              <div class="table-meta">
+                <h2 class="section-title">Artifact Library</h2>
+                <span>Bundled into the image for low-cost retrieval.</span>
+              </div>
+              <div class="artifact-list" id="artifact-list">
+                <div class="artifact"><p>Loading report index...</p></div>
+              </div>
+            </section>
+          </div>
+
+          <div id="error-box"></div>
+        </section>
       </section>
     </main>
 
@@ -290,75 +737,417 @@
       const appsBody = document.getElementById("apps-body");
       const artifactList = document.getElementById("artifact-list");
       const generatedAt = document.getElementById("generated-at");
+      const liveRefresh = document.getElementById("live-refresh");
+      const liveMode = document.getElementById("live-mode");
+      const autoRefresh = document.getElementById("auto-refresh");
+      const healthScore = document.getElementById("health-score");
+      const healthCopy = document.getElementById("health-copy");
+      const signalCard = document.getElementById("signal-card");
+      const signalGrid = document.getElementById("signal-grid");
+      const serviceGrid = document.getElementById("service-grid");
+      const incidentList = document.getElementById("incident-list");
+      const languageBars = document.getElementById("language-bars");
+      const deployableMeta = document.getElementById("deployable-meta");
       const errorBox = document.getElementById("error-box");
 
-      function renderError(message) {
-        errorBox.innerHTML = `<div class="error">${message}</div>`;
+      let snapshotSummary = null;
+      let latestLiveOverview = null;
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
       }
 
-      function metricCard(label, value) {
+      function renderError(message) {
+        errorBox.innerHTML = message ? `<div class="error">${escapeHtml(message)}</div>` : "";
+      }
+
+      function formatBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) {
+          return "0 B";
+        }
+
+        const units = ["B", "KB", "MB", "GB"];
+        let value = bytes;
+        let unitIndex = 0;
+
+        while (value >= 1024 && unitIndex < units.length - 1) {
+          value /= 1024;
+          unitIndex += 1;
+        }
+
+        return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+      }
+
+      function formatTimestamp(raw) {
+        if (!raw) {
+          return "Timestamp unavailable";
+        }
+
+        const date = new Date(raw);
+        if (Number.isNaN(date.getTime())) {
+          return raw;
+        }
+
+        return date.toLocaleString();
+      }
+
+      function formatEpoch(epochSeconds) {
+        if (!epochSeconds) {
+          return "Waiting for refresh...";
+        }
+
+        return new Date(epochSeconds * 1000).toLocaleTimeString();
+      }
+
+      function formatRelativeTime(raw) {
+        if (!raw) {
+          return "staleness unavailable";
+        }
+
+        const date = new Date(raw);
+        if (Number.isNaN(date.getTime())) {
+          return raw;
+        }
+
+        const diffMs = Date.now() - date.getTime();
+        const diffMinutes = Math.round(diffMs / 60000);
+        const diffHours = Math.round(diffMs / 3600000);
+        const diffDays = Math.round(diffMs / 86400000);
+
+        if (diffMinutes < 1) {
+          return "generated just now";
+        }
+        if (diffMinutes < 60) {
+          return `generated ${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+        }
+        if (diffHours < 48) {
+          return `generated ${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+        }
+        return `generated ${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+      }
+
+      function statusClass(status) {
+        if (status === "healthy") {
+          return "healthy";
+        }
+        if (status === "degraded") {
+          return "degraded";
+        }
+        return "down";
+      }
+
+      function summaryCard(label, value, detail) {
         return `
-          <article class="metric-card">
-            <div class="metric-value">${value}</div>
-            <div class="metric-label">${label}</div>
+          <article class="summary-card">
+            <strong>${escapeHtml(value)}</strong>
+            <span>${escapeHtml(label)}</span>
+            <span>${escapeHtml(detail)}</span>
           </article>
         `;
       }
 
-      async function load() {
-        try {
-          const [summaryResponse, catalogResponse, reportResponse] = await Promise.all([
-            fetch("/api/catalog/summary"),
-            fetch("/api/catalog"),
-            fetch("/api/reports")
-          ]);
+      function toneFromLive(live) {
+        if (!live?.available || live.summary.down_services > 0) {
+          return "critical";
+        }
+        if (live.summary.degraded_services > 0 || live.stale) {
+          return "warning";
+        }
+        return "healthy";
+      }
 
-          if (!summaryResponse.ok || !catalogResponse.ok || !reportResponse.ok) {
-            throw new Error("API returned an unexpected status.");
-          }
+      function boardLabel(live) {
+        if (!live?.available) {
+          return {
+            tone: "critical",
+            mode: "Snapshot only",
+            score: "Live unavailable",
+            copy: live?.error || "The pod does not currently have a working in-cluster API session."
+          };
+        }
 
-          const summary = await summaryResponse.json();
-          const catalog = await catalogResponse.json();
-          const reports = await reportResponse.json();
+        const healthy = live.summary.healthy_services;
+        const total = live.summary.critical_services;
 
-          generatedAt.textContent = summary.generated_at
-            ? `Snapshot generated at ${summary.generated_at}`
-            : "Snapshot timestamp unavailable";
+        if (live.summary.down_services > 0) {
+          return {
+            tone: "critical",
+            mode: live.stale ? "Cluster data stale" : "Critical attention",
+            score: `${healthy}/${total}`,
+            copy: `${live.summary.down_services} critical service${live.summary.down_services === 1 ? " is" : "s are"} down. Immediate follow-up required.`
+          };
+        }
 
-          summaryGrid.innerHTML = [
-            metricCard("Apps cataloged", summary.app_count),
-            metricCard("Deployable apps", summary.deployable_app_count),
-            metricCard("Components cataloged", summary.component_count),
-            metricCard("Cluster workloads", summary.cluster_workload_count),
-            metricCard("Repo-only apps", summary.repo_only_app_count),
-            metricCard("Missing docs", summary.undocumented_count)
-          ].join("");
+        if (live.summary.degraded_services > 0 || live.stale) {
+          return {
+            tone: "warning",
+            mode: live.stale ? "Serving stale cache" : "Degraded but serving",
+            score: `${healthy}/${total}`,
+            copy: `${live.summary.degraded_services} service${live.summary.degraded_services === 1 ? " needs" : "s need"} attention, but the edge is still responding.`
+          };
+        }
 
-          const deployableApps = (catalog.apps || [])
-            .filter((app) => app.deploy_readiness === "deployable")
-            .sort((left, right) => left.name.localeCompare(right.name))
-            .slice(0, 8);
+        return {
+          tone: "healthy",
+          mode: "Cluster stable",
+          score: `${healthy}/${total}`,
+          copy: "All tracked critical services are healthy and the live board is refreshing on schedule."
+        };
+      }
 
-          appsBody.innerHTML = deployableApps.map((app) => `
-            <tr>
-              <td>${app.name}</td>
-              <td>${app.language || "unknown"}</td>
-              <td><span class="status">${app.deploy_readiness}</span></td>
-            </tr>
-          `).join("") || '<tr><td colspan="3">No deployable apps found.</td></tr>';
+      function renderSignal(live) {
+        const board = boardLabel(live);
+        signalCard.dataset.tone = board.tone;
+        liveMode.textContent = board.mode;
+        healthScore.textContent = board.score;
+        healthCopy.textContent = board.copy;
+        autoRefresh.textContent = live?.refresh_interval_seconds
+          ? `Polling every ${live.refresh_interval_seconds}s`
+          : "Auto-refresh unavailable";
 
-          artifactList.innerHTML = (reports.artifacts || []).map((artifact) => `
-            <article class="artifact">
-              <div class="artifact-kind">${artifact.kind}</div>
-              <a href="${artifact.href}" target="_blank" rel="noreferrer">${artifact.label}</a>
-              <small>${artifact.size_bytes} bytes</small>
+        signalGrid.innerHTML = [
+          { value: live?.summary.critical_services ?? "--", label: "Tracked services" },
+          { value: live?.summary.running_pods ?? "--", label: "Running pods" },
+          { value: `${live?.summary.nodes_ready ?? "--"}/${live?.summary.nodes_total ?? "--"}`, label: "Ready nodes" },
+          { value: live?.summary.restarting_pods ?? "--", label: "Pods with restarts" }
+        ].map((item) => `
+          <div class="signal-mini">
+            <strong>${escapeHtml(item.value)}</strong>
+            <span>${escapeHtml(item.label)}</span>
+          </div>
+        `).join("");
+      }
+
+      function renderLiveSummary(live) {
+        const snapshotAge = snapshotSummary?.generated_at
+          ? formatRelativeTime(snapshotSummary.generated_at)
+          : "snapshot timestamp unavailable";
+
+        summaryGrid.innerHTML = [
+          summaryCard("Healthy services", `${live?.summary.healthy_services ?? 0}/${live?.summary.critical_services ?? 0}`, snapshotAge),
+          summaryCard("Degraded services", live?.summary.degraded_services ?? 0, "tracked in real time"),
+          summaryCard("Pods in motion", `${live?.summary.running_pods ?? 0}/${live?.summary.total_pods ?? 0}`, "tracked namespaces only"),
+          summaryCard("Restart pressure", live?.summary.restarting_pods ?? 0, "pods reporting restarts"),
+          summaryCard("Nodes ready", `${live?.summary.nodes_ready ?? 0}/${live?.summary.nodes_total ?? 0}`, "cluster readiness"),
+          summaryCard("Deployable apps", snapshotSummary?.deployable_app_count ?? "--", `${snapshotSummary?.app_count ?? "--"} apps cataloged`)
+        ].join("");
+      }
+
+      function renderServices(live) {
+        const services = live?.services || [];
+
+        serviceGrid.innerHTML = services.length
+          ? services.map((service) => `
+            <article class="service-card" data-status="${escapeHtml(service.status)}">
+              <div class="service-head">
+                <div>
+                  <div class="service-name">${escapeHtml(service.label)}</div>
+                  <div class="service-meta">
+                    <span>${escapeHtml(service.namespace)}</span>
+                    <span>${escapeHtml(service.workload_kind)} · ${escapeHtml(service.workload_name)}</span>
+                  </div>
+                </div>
+                <span class="status-pill ${statusClass(service.status)}">${escapeHtml(service.status)}</span>
+              </div>
+              <p class="service-message">${escapeHtml(service.message)}</p>
+              <div class="service-stats">
+                <div class="stat-stack">
+                  <strong>${escapeHtml(`${service.ready}/${service.desired}`)}</strong>
+                  <span>ready vs desired</span>
+                </div>
+                <div class="stat-stack">
+                  <strong>${escapeHtml(`${service.running_pods}/${service.pods_total}`)}</strong>
+                  <span>running pods</span>
+                </div>
+                <div class="stat-stack">
+                  <strong>${escapeHtml(service.restart_count)}</strong>
+                  <span>restart count</span>
+                </div>
+                <div class="stat-stack">
+                  <strong>${escapeHtml(service.route || "internal")}</strong>
+                  <span>primary route</span>
+                </div>
+              </div>
             </article>
-          `).join("") || '<div class="artifact"><p>No report artifacts were bundled into this image.</p></div>';
-        } catch (error) {
-          renderError(error.message || "Failed to load report data.");
+          `).join("")
+          : `<article class="service-card"><p class="service-message">Live service board unavailable.</p></article>`;
+      }
+
+      function renderIncidents(live) {
+        const incidents = live?.incidents || [];
+
+        incidentList.innerHTML = incidents.length
+          ? incidents.map((incident) => `
+            <article class="incident-item">
+              <div class="incident-body">
+                <strong>${escapeHtml(incident.resource)}</strong>
+                <span>${escapeHtml(incident.namespace)} · ${escapeHtml(incident.message)}</span>
+              </div>
+              <span class="severity ${escapeHtml(incident.severity)}">${escapeHtml(incident.severity)}</span>
+            </article>
+          `).join("")
+          : `<article class="incident-item"><div class="incident-body"><strong>No active incidents</strong><span>The tracked namespaces are quiet right now.</span></div><span class="severity">clear</span></article>`;
+      }
+
+      function renderLanguages(summary) {
+        const languages = summary?.app_languages || [];
+        const max = Math.max(...languages.map((item) => item.count), 1);
+
+        languageBars.innerHTML = languages.length
+          ? languages.map((item) => `
+            <div class="language-row">
+              <div class="language-head">
+                <span>${escapeHtml(item.language)}</span>
+                <strong>${escapeHtml(item.count)}</strong>
+              </div>
+              <div class="language-track">
+                <div class="language-fill" style="width: ${(item.count / max) * 100}%"></div>
+              </div>
+            </div>
+          `).join("")
+          : `<div class="language-row"><div class="language-head"><span>No language data</span><strong>0</strong></div><div class="language-track"><div class="language-fill" style="width: 0%"></div></div></div>`;
+      }
+
+      function tableStatusClass(readiness) {
+        if (readiness === "deployable") {
+          return "";
+        }
+        if (readiness === "partial") {
+          return "partial";
+        }
+        return "wip";
+      }
+
+      function renderApps(catalog) {
+        const apps = Array.isArray(catalog?.apps) ? catalog.apps : [];
+        const prioritizedApps = apps
+          .slice()
+          .sort((left, right) => {
+            const score = { deployable: 0, partial: 1, wip: 2 };
+            return (score[left.deploy_readiness] ?? 3) - (score[right.deploy_readiness] ?? 3)
+              || left.name.localeCompare(right.name);
+          })
+          .slice(0, 12);
+
+        deployableMeta.textContent = `${snapshotSummary?.deployable_app_count ?? 0} deployable · ${snapshotSummary?.missing_deploy_script_count ?? 0} without deploy path · ${snapshotSummary?.undocumented_count ?? 0} undocumented`;
+
+        appsBody.innerHTML = prioritizedApps.length
+          ? prioritizedApps.map((app) => `
+            <tr>
+              <td>
+                <strong>${escapeHtml(app.name)}</strong>
+                <small>${escapeHtml(app.description || app.framework || "No description")}</small>
+              </td>
+              <td>${escapeHtml([app.language || "unknown", app.framework || ""].filter(Boolean).join(" · "))}</td>
+              <td>
+                <strong>${escapeHtml(app.deploy_script || "manual / missing")}</strong>
+                <small>${escapeHtml(app.exposed_port ? `port ${app.exposed_port}` : app.readiness_missing || "path available")}</small>
+              </td>
+              <td><span class="table-status ${tableStatusClass(app.deploy_readiness)}">${escapeHtml(app.deploy_readiness || "unknown")}</span></td>
+            </tr>
+          `).join("")
+          : '<tr><td colspan="4">No cataloged apps found.</td></tr>';
+      }
+
+      function renderArtifacts(reports) {
+        const artifacts = Array.isArray(reports?.artifacts) ? reports.artifacts : [];
+
+        artifactList.innerHTML = artifacts.length
+          ? artifacts.map((artifact) => `
+            <article class="artifact">
+              <div class="artifact-meta">
+                <div class="artifact-head">
+                  <span class="artifact-kind">${escapeHtml(artifact.kind)}</span>
+                  <strong><a href="${escapeHtml(artifact.href)}" target="_blank" rel="noreferrer">${escapeHtml(artifact.label)}</a></strong>
+                </div>
+                <small>${escapeHtml(formatBytes(artifact.size_bytes))}</small>
+              </div>
+              <p>${escapeHtml(`Artifact id: ${artifact.id}`)}</p>
+            </article>
+          `).join("")
+          : '<div class="artifact"><p>No report artifacts were bundled into this image.</p></div>';
+      }
+
+      async function loadSnapshot() {
+        const [summaryResponse, catalogResponse, reportResponse] = await Promise.all([
+          fetch("/api/catalog/summary", { cache: "no-store" }),
+          fetch("/api/catalog", { cache: "no-store" }),
+          fetch("/api/reports", { cache: "no-store" })
+        ]);
+
+        if (!summaryResponse.ok || !catalogResponse.ok || !reportResponse.ok) {
+          throw new Error("Snapshot API returned an unexpected status.");
+        }
+
+        const [summary, catalog, reports] = await Promise.all([
+          summaryResponse.json(),
+          catalogResponse.json(),
+          reportResponse.json()
+        ]);
+
+        snapshotSummary = summary;
+
+        generatedAt.textContent = summary.generated_at
+          ? `Snapshot ${formatRelativeTime(summary.generated_at)} · ${formatTimestamp(summary.generated_at)}`
+          : "Snapshot timestamp unavailable";
+
+        renderLanguages(summary);
+        renderApps(catalog);
+        renderArtifacts(reports);
+
+        if (latestLiveOverview) {
+          renderLiveSummary(latestLiveOverview);
         }
       }
 
+      async function loadLive() {
+        const response = await fetch("/api/live/overview", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Live API returned an unexpected status.");
+        }
+
+        const live = await response.json();
+        latestLiveOverview = live;
+
+        liveRefresh.textContent = live.available
+          ? `Live refresh ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? " · stale cache" : ""}`
+          : "Live monitoring unavailable in this runtime";
+
+        renderSignal(live);
+        renderLiveSummary(live);
+        renderServices(live);
+        renderIncidents(live);
+
+        if (live.error && !live.available) {
+          renderError(live.error);
+        } else if (live.error && live.stale) {
+          renderError(`Serving cached live data: ${live.error}`);
+        } else {
+          renderError("");
+        }
+      }
+
+      async function bootstrap() {
+        try {
+          await Promise.all([loadSnapshot(), loadLive()]);
+        } catch (error) {
+          renderError(error.message || "Failed to load observability data.");
+        }
+      }
+
+      bootstrap();
+      setInterval(() => {
+        loadLive().catch((error) => renderError(error.message || "Failed to refresh live data."));
+      }, 15000);
+      setInterval(() => {
+        loadSnapshot().catch((error) => renderError(error.message || "Failed to refresh snapshot data."));
+      }, 300000);
+    </script>
       load();
     </script>
   </body>
