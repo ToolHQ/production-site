@@ -1,0 +1,95 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rs-observability-api-ingress
+  namespace: default
+  annotations:
+    cert-manager.io/cluster-issuer: dnor-ca-issuer
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - reports.dnor.io
+      secretName: reports-ingress-tls
+  rules:
+    - host: reports.dnor.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rs-observability-api-service
+                port:
+                  number: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rs-observability-api-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rs-observability-api
+  template:
+    metadata:
+      labels:
+        app: rs-observability-api
+    spec:
+      imagePullSecrets:
+        - name: regsecret
+      containers:
+        - name: rs-observability-api
+          image: registry.local:31444/repository/docker-repo/rs-observability-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: REPORTS_ROOT
+              value: /opt/reports
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            timeoutSeconds: 3
+            failureThreshold: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rs-observability-api-service
+  namespace: default
+spec:
+  selector:
+    app: rs-observability-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
