@@ -77,6 +77,36 @@ default|kubernetes|https:443,"
     assert_output "static/minio"
 }
 
+@test "_app_get_status: reports kubectl unavailable when cluster access is down" {
+    run _app_get_status "demo-app" "workload" "kubectl unavailable"
+
+    assert_success
+    assert_output "kubectl unavailable"
+}
+
+@test "_app_classify_pod_status_json: distinguishes workload pod states" {
+    local running_json='{"items":[{"status":{"phase":"Running","containerStatuses":[{"ready":true}]}}]}'
+    local pending_json='{"items":[{"status":{"phase":"Pending"}}]}'
+    local crash_json='{"items":[{"status":{"phase":"Running","containerStatuses":[{"ready":false,"state":{"waiting":{"reason":"CrashLoopBackOff"}}}]}}]}'
+    local missing_json='{"items":[]}'
+
+    run _app_classify_pod_status_json "$running_json"
+    assert_success
+    assert_output "Running"
+
+    run _app_classify_pod_status_json "$pending_json"
+    assert_success
+    assert_output "Pending"
+
+    run _app_classify_pod_status_json "$crash_json"
+    assert_success
+    assert_output "CrashLoop"
+
+    run _app_classify_pod_status_json "$missing_json"
+    assert_success
+    assert_output "Missing"
+}
+
 @test "_app_run_npm_script_logged: streams output and persists npm script execution" {
     export TUI_APP_DEPLOY_LOG_DIR="$BATS_TEST_TMPDIR/tui-app-deploy"
     export MINIO_ACCESS_KEY="test-access"
