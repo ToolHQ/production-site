@@ -33,8 +33,8 @@
 ## ✅ Done
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
-|   [T-132](2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md)   | **Nexus: Cleanup Policy Automation** _(audit/attach helpers for existing policies; `npm-proxy` first, hosted repos conservative)_ |   🔼 High   | Infra / DevOps |  3h  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+|   [T-132](2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md)   | **Nexus: Cleanup Policy Automation** _(audit/attach helpers for existing policies; `npm-proxy` first, hosted repos conservative)_ |   🔼 High   | Infra / DevOps |  3h  |
 |       [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md)        | **Backup Retention Audit & ETCD Recovery** _(ETCD/GDrive restaurados, `k8s-backups` em 8055 MiB, política do bucket Nexus documentada)_                    | 🚨 Critical |         Infra         |   3h   |
 |         [T-131](2026/Q2/T-131-Helm-Tunnel-Kubeconfig-Compatibility.md)          | **Helm Tunnel Kubeconfig Compatibility** _(local Helm `v3.14.3` incompatível com `kubeconfig_tunnel.yaml`; wrapper `v3.19.0` fixado no repo)_              | 🚨 Critical |    Infra / DevOps     |   2h   |
 |  [T-130](2026/Q2/T-130-Watchdog-Signal-Quality-and-False-Positive-Cleanup.md)   | **Watchdog Signal Quality and False Positive Cleanup** _(VolumeAttachment/job/restart signal cleanup)_                                                     |   🔼 High   | Observability / Infra |   4h   |
