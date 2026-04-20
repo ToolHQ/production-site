@@ -39,6 +39,7 @@ reusing the existing report artifacts already generated on disk.
 - [x] Added Kubernetes `Deployment` and `Service`
 - [x] Deployed successfully to the cluster via `oci-builder` and Nexus
 - [x] Added dedicated ingress `reports.dnor.io`
+- [x] Validated the app through the TUI deploy path and hardened that path with a real Nexus API readiness gate
 
 ## Validation
 
@@ -57,6 +58,9 @@ reusing the existing report artifacts already generated on disk.
   - `GET /health` returned `{"status":"ok","service":"rs-observability-api"}`
   - `GET /api/catalog/summary` returned the catalog summary JSON
   - `GET /` returned the HTML UI shell
+- TUI repository validation succeeded:
+  - `./oci-k8s-cluster/testing/bats k8s_ops_menu.bats` passed with coverage for the new app label and Nexus readiness gating
+  - sourcing `k8s_ops_menu.sh` and using the same discovery helpers as `App Deploy Menu` reported `label=rs-observability-api`, `status=Running`, `discovered=1`
 
 ## Residual Note
 
