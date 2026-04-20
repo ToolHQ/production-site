@@ -25,6 +25,11 @@ use tokio::sync::RwLock;
 const INDEX_HTML: &str = include_str!("../web/index.html");
 const LIVE_CACHE_TTL: Duration = Duration::from_secs(10);
 const LIVE_REFRESH_INTERVAL_SECONDS: u64 = 15;
+const PROMETHEUS_CACHE_TTL: Duration = Duration::from_secs(45);
+const PROMETHEUS_REFRESH_INTERVAL_SECONDS: u64 = 60;
+const PROMETHEUS_WINDOW_MINUTES: u64 = 60;
+const PROMETHEUS_STEP_SECONDS: u64 = 300;
+const PROMETHEUS_BASE_URL_DEFAULT: &str = "http://coroot-prometheus-server.coroot.svc.cluster.local";
 
 const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
     ("catalog-json", "Catalog JSON", "latest-catalog/catalog.json", "json"),
@@ -38,6 +43,7 @@ const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
 struct AppState {
     reports_root: Arc<PathBuf>,
     live_monitor: Option<Arc<LiveMonitor>>,
+    prometheus_monitor: Arc<PrometheusMonitor>,
 }
 
 #[derive(Clone)]
@@ -53,11 +59,26 @@ struct CachedLiveOverview {
     payload: LiveOverview,
 }
 
+#[derive(Clone)]
+struct PrometheusMonitor {
+    client: Client,
+    base_url: String,
+    cache: Arc<RwLock<Option<CachedMetricsOverview>>>,
+}
+
+#[derive(Clone)]
+struct CachedMetricsOverview {
+    fetched_at: Instant,
+    service_signature: String,
+    payload: MetricsOverview,
+}
+
 #[derive(Serialize)]
 struct HealthResponse {
     status: &'static str,
     service: &'static str,
     live_cluster_api: bool,
+    prometheus_metrics_api: bool,
 }
 
 #[derive(Serialize)]
@@ -100,6 +121,7 @@ struct LiveOverview {
     summary: LiveSummary,
     services: Vec<LiveService>,
     incidents: Vec<LiveIncident>,
+    metrics: MetricsOverview,
     error: Option<String>,
 }
 
@@ -134,6 +156,8 @@ struct LiveService {
     pods_ready: usize,
     running_pods: usize,
     restart_count: i32,
+    #[serde(skip_serializing)]
+    pod_names: Vec<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -142,6 +166,55 @@ struct LiveIncident {
     namespace: String,
     resource: String,
     message: String,
+}
+
+#[derive(Serialize, Clone)]
+struct MetricsOverview {
+    available: bool,
+    stale: bool,
+    source: &'static str,
+    refreshed_at_epoch: u64,
+    refresh_interval_seconds: u64,
+    window_minutes: u64,
+    cluster: ClusterTimeseries,
+    services: Vec<ServiceTimeseries>,
+    top_restarts: Vec<RestartHotspot>,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone, Default)]
+struct ClusterTimeseries {
+    cpu_percent_latest: f64,
+    cpu_cores_used_latest: f64,
+    memory_percent_latest: f64,
+    memory_bytes_used_latest: f64,
+    restart_events_last_hour: f64,
+    cpu_percent_series: Vec<MetricPoint>,
+    memory_percent_series: Vec<MetricPoint>,
+    restart_pressure_series: Vec<MetricPoint>,
+}
+
+#[derive(Serialize, Clone)]
+struct ServiceTimeseries {
+    id: &'static str,
+    label: &'static str,
+    cpu_cores_latest: f64,
+    memory_bytes_latest: f64,
+    cpu_series: Vec<MetricPoint>,
+    memory_series: Vec<MetricPoint>,
+}
+
+#[derive(Serialize, Clone)]
+struct RestartHotspot {
+    namespace: String,
+    pod: String,
+    restarts_last_hour: f64,
+}
+
+#[derive(Serialize, Clone)]
+struct MetricPoint {
+    ts: u64,
+    value: f64,
 }
 
 #[derive(Copy, Clone)]
@@ -318,6 +391,26 @@ struct PodRollup {
     issue: Option<String>,
 }
 
+#[derive(Deserialize, Clone, Default)]
+struct PrometheusResponse<T> {
+    data: T,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct PrometheusQueryData {
+    #[serde(default)]
+    result: Vec<PrometheusSeries>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct PrometheusSeries {
+    #[serde(default)]
+    metric: BTreeMap<String, String>,
+    value: Option<(f64, String)>,
+    #[serde(default)]
+    values: Vec<(f64, String)>,
+}
+
 #[tokio::main]
 async fn main() {
     let reports_root = resolve_reports_root();
@@ -332,10 +425,12 @@ async fn main() {
             None
         }
     };
+    let prometheus_monitor = Arc::new(PrometheusMonitor::new());
 
     let state = AppState {
         reports_root: Arc::new(reports_root),
         live_monitor,
+        prometheus_monitor,
     };
 
     let app = Router::new()
@@ -368,16 +463,22 @@ async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
         status: "ok",
         service: "rs-observability-api",
         live_cluster_api: state.live_monitor.is_some(),
+        prometheus_metrics_api: true,
     })
 }
 
 async fn live_overview(State(state): State<AppState>) -> Response {
-    let payload = match state.live_monitor {
+    let mut payload = match state.live_monitor {
         Some(monitor) => monitor.cached_or_refresh().await,
         None => unavailable_live_overview(
             "in-cluster Kubernetes API credentials are not available in this runtime",
         ),
     };
+
+    payload.metrics = state
+        .prometheus_monitor
+        .cached_or_refresh(&payload.services)
+        .await;
 
     Json(payload).into_response()
 }
@@ -707,6 +808,7 @@ impl LiveMonitor {
             summary,
             services,
             incidents,
+            metrics: unavailable_metrics_overview("metrics not fetched yet"),
             error: None,
         })
     }
@@ -729,6 +831,263 @@ impl LiveMonitor {
             .json::<T>()
             .await
             .map_err(|error| format!("decode cluster API payload: {}", error))
+    }
+}
+
+impl PrometheusMonitor {
+    fn new() -> Self {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(8))
+            .build()
+            .unwrap_or_else(|error| panic!("build Prometheus client: {}", error));
+
+        Self {
+            client,
+            base_url: env::var("PROMETHEUS_BASE_URL")
+                .unwrap_or_else(|_| PROMETHEUS_BASE_URL_DEFAULT.to_string()),
+            cache: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    async fn cached_or_refresh(&self, services: &[LiveService]) -> MetricsOverview {
+        let signature = service_signature(services);
+        if let Some(payload) = self.fresh_cache(&signature).await {
+            return payload;
+        }
+
+        match self.fetch_metrics(services).await {
+            Ok(payload) => {
+                *self.cache.write().await = Some(CachedMetricsOverview {
+                    fetched_at: Instant::now(),
+                    service_signature: signature,
+                    payload: payload.clone(),
+                });
+                payload
+            }
+            Err(error) => {
+                if let Some(mut stale_payload) = self.cached_payload().await {
+                    stale_payload.stale = true;
+                    stale_payload.error = Some(error);
+                    stale_payload
+                } else {
+                    unavailable_metrics_overview(error)
+                }
+            }
+        }
+    }
+
+    async fn fresh_cache(&self, signature: &str) -> Option<MetricsOverview> {
+        let guard = self.cache.read().await;
+        guard.as_ref().and_then(|entry| {
+            if entry.service_signature == signature && entry.fetched_at.elapsed() < PROMETHEUS_CACHE_TTL {
+                Some(entry.payload.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    async fn cached_payload(&self) -> Option<MetricsOverview> {
+        let guard = self.cache.read().await;
+        guard.as_ref().map(|entry| entry.payload.clone())
+    }
+
+    async fn fetch_metrics(&self, services: &[LiveService]) -> Result<MetricsOverview, String> {
+        let end = unix_epoch_seconds();
+        let start = end.saturating_sub(PROMETHEUS_WINDOW_MINUTES * 60);
+        let namespace_regex = tracked_namespace_regex();
+
+        let cluster_cpu_percent_query =
+            r#"100 * sum(rate(node_resources_cpu_usage_seconds_total[5m])) / sum(node_resources_cpu_logical_cores)"#;
+        let cluster_cpu_used_query =
+            r#"sum(rate(node_resources_cpu_usage_seconds_total[5m]))"#;
+        let cluster_memory_percent_query =
+            r#"100 * (sum(node_resources_memory_total_bytes) - sum(node_resources_memory_available_bytes)) / sum(node_resources_memory_total_bytes)"#;
+        let cluster_memory_used_query =
+            r#"sum(node_resources_memory_total_bytes) - sum(node_resources_memory_available_bytes)"#;
+        let restart_pressure_query = format!(
+            r#"sum(increase(kube_pod_container_status_restarts_total{{namespace=~"{}"}}[15m]))"#,
+            namespace_regex
+        );
+        let restart_last_hour_query = format!(
+            r#"sum(increase(kube_pod_container_status_restarts_total{{namespace=~"{}"}}[1h]))"#,
+            namespace_regex
+        );
+        let pod_cpu_query = format!(
+            r#"sum by (container_id,app_id) (rate(container_resources_cpu_usage_seconds_total{{container_id=~"/k8s/({})/.+"}}[5m]))"#,
+            namespace_regex
+        );
+        let pod_memory_query = format!(
+            r#"sum by (container_id,app_id) (container_resources_memory_rss_bytes{{container_id=~"/k8s/({})/.+"}})"#,
+            namespace_regex
+        );
+        let top_restart_query = format!(
+            r#"topk(8, sum by (namespace,pod) (increase(kube_pod_container_status_restarts_total{{namespace=~"{}"}}[1h])))"#,
+            namespace_regex
+        );
+
+        let cluster_cpu_percent_series = self
+            .query_range_points(cluster_cpu_percent_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .await?;
+        let cluster_cpu_used_series = self
+            .query_range_points(cluster_cpu_used_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .await?;
+        let cluster_memory_percent_series = self
+            .query_range_points(cluster_memory_percent_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .await?;
+        let cluster_memory_used_series = self
+            .query_range_points(cluster_memory_used_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .await?;
+        let restart_pressure_series = self
+            .query_range_points(&restart_pressure_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .await?;
+        let restart_events_last_hour = self.query_instant_value(&restart_last_hour_query).await?;
+        let top_restarts = self.query_restart_hotspots(&top_restart_query).await?;
+        let pod_cpu_series = self
+            .query_range_series(&pod_cpu_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .await?;
+        let pod_memory_series = self
+            .query_range_series(&pod_memory_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .await?;
+
+        let service_metrics = services
+            .iter()
+            .map(|service| build_service_timeseries(service, &pod_cpu_series, &pod_memory_series))
+            .collect();
+
+        Ok(MetricsOverview {
+            available: true,
+            stale: false,
+            source: "coroot-prometheus",
+            refreshed_at_epoch: unix_epoch_seconds(),
+            refresh_interval_seconds: PROMETHEUS_REFRESH_INTERVAL_SECONDS,
+            window_minutes: PROMETHEUS_WINDOW_MINUTES,
+            cluster: ClusterTimeseries {
+                cpu_percent_latest: latest_point_value(&cluster_cpu_percent_series),
+                cpu_cores_used_latest: latest_point_value(&cluster_cpu_used_series),
+                memory_percent_latest: latest_point_value(&cluster_memory_percent_series),
+                memory_bytes_used_latest: latest_point_value(&cluster_memory_used_series),
+                restart_events_last_hour,
+                cpu_percent_series: cluster_cpu_percent_series,
+                memory_percent_series: cluster_memory_percent_series,
+                restart_pressure_series,
+            },
+            services: service_metrics,
+            top_restarts,
+            error: None,
+        })
+    }
+
+    async fn query_range_points(
+        &self,
+        query: &str,
+        start: u64,
+        end: u64,
+        step: u64,
+    ) -> Result<Vec<MetricPoint>, String> {
+        let series = self.query_range_series(query, start, end, step).await?;
+        Ok(series
+            .into_iter()
+            .next()
+            .map(|entry| convert_values_to_points(&entry.values))
+            .unwrap_or_default())
+    }
+
+    async fn query_range_series(
+        &self,
+        query: &str,
+        start: u64,
+        end: u64,
+        step: u64,
+    ) -> Result<Vec<PrometheusSeries>, String> {
+        let url = format!("{}/api/v1/query_range", self.base_url);
+        let response = self
+            .client
+            .get(url)
+            .query(&[
+                ("query", query.to_string()),
+                ("start", start.to_string()),
+                ("end", end.to_string()),
+                ("step", step.to_string()),
+            ])
+            .send()
+            .await
+            .map_err(|error| format!("request Prometheus range query: {}", error))?;
+        let payload = response
+            .error_for_status()
+            .map_err(|error| format!("Prometheus range status error: {}", error))?
+            .json::<PrometheusResponse<PrometheusQueryData>>()
+            .await
+            .map_err(|error| format!("decode Prometheus range response: {}", error))?;
+
+        Ok(payload.data.result)
+    }
+
+    async fn query_instant_value(&self, query: &str) -> Result<f64, String> {
+        let series = self.query_instant_series(query).await?;
+        Ok(series
+            .into_iter()
+            .next()
+            .and_then(|entry| entry.value)
+            .map(|(_, value)| parse_prometheus_value(&value))
+            .unwrap_or(0.0))
+    }
+
+    async fn query_instant_series(&self, query: &str) -> Result<Vec<PrometheusSeries>, String> {
+        let url = format!("{}/api/v1/query", self.base_url);
+        let response = self
+            .client
+            .get(url)
+            .query(&[("query", query.to_string())])
+            .send()
+            .await
+            .map_err(|error| format!("request Prometheus instant query: {}", error))?;
+        let payload = response
+            .error_for_status()
+            .map_err(|error| format!("Prometheus instant status error: {}", error))?
+            .json::<PrometheusResponse<PrometheusQueryData>>()
+            .await
+            .map_err(|error| format!("decode Prometheus instant response: {}", error))?;
+
+        Ok(payload.data.result)
+    }
+
+    async fn query_restart_hotspots(&self, query: &str) -> Result<Vec<RestartHotspot>, String> {
+        let mut hotspots: Vec<RestartHotspot> = self
+            .query_instant_series(query)
+            .await?
+            .into_iter()
+            .filter_map(|series| {
+                let (_, value) = series.value?;
+                let restarts_last_hour = parse_prometheus_value(&value);
+                if restarts_last_hour <= 0.0 {
+                    return None;
+                }
+
+                Some(RestartHotspot {
+                    namespace: series
+                        .metric
+                        .get("namespace")
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string()),
+                    pod: series
+                        .metric
+                        .get("pod")
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".to_string()),
+                    restarts_last_hour,
+                })
+            })
+            .collect();
+
+        hotspots.sort_by(|left, right| {
+            right
+                .restarts_last_hour
+                .partial_cmp(&left.restarts_last_hour)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        hotspots.truncate(8);
+        Ok(hotspots)
     }
 }
 
@@ -895,6 +1254,10 @@ fn build_live_service(
         pods_ready: rollup.ready,
         running_pods: rollup.running,
         restart_count: rollup.restart_count,
+        pod_names: matching_pods
+            .iter()
+            .map(|pod| pod_name(pod).to_string())
+            .collect(),
     }
 }
 
@@ -915,6 +1278,7 @@ fn missing_live_service(target: ServiceTarget) -> LiveService {
         pods_ready: 0,
         running_pods: 0,
         restart_count: 0,
+        pod_names: Vec::new(),
     }
 }
 
@@ -987,6 +1351,127 @@ fn tracked_namespaces() -> BTreeSet<&'static str> {
         .into_iter()
         .map(|target| target.namespace)
         .collect()
+}
+
+fn tracked_namespace_regex() -> String {
+    tracked_namespaces().into_iter().collect::<Vec<_>>().join("|")
+}
+
+fn service_signature(services: &[LiveService]) -> String {
+    let mut parts = services
+        .iter()
+        .map(|service| {
+            let mut pod_names = service.pod_names.clone();
+            pod_names.sort();
+            format!("{}:{}", service.id, pod_names.join(","))
+        })
+        .collect::<Vec<_>>();
+    parts.sort();
+    parts.join(";")
+}
+
+fn build_service_timeseries(
+    service: &LiveService,
+    cpu_series: &[PrometheusSeries],
+    memory_series: &[PrometheusSeries],
+) -> ServiceTimeseries {
+    let cpu_points = aggregate_series_for_service(service, cpu_series);
+    let memory_points = aggregate_series_for_service(service, memory_series);
+
+    ServiceTimeseries {
+        id: service.id,
+        label: service.label,
+        cpu_cores_latest: latest_point_value(&cpu_points),
+        memory_bytes_latest: latest_point_value(&memory_points),
+        cpu_series: cpu_points,
+        memory_series: memory_points,
+    }
+}
+
+fn aggregate_series_for_service(
+    service: &LiveService,
+    series_set: &[PrometheusSeries],
+) -> Vec<MetricPoint> {
+    let pod_names = service
+        .pod_names
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    let workload_app_id = format!("/k8s/{}/{}", service.namespace, service.workload_name);
+    let mut points = BTreeMap::<u64, f64>::new();
+
+    for series in series_set
+        .iter()
+        .filter(|series| metric_matches_service(service, series, &pod_names, &workload_app_id))
+    {
+        for (timestamp, value) in &series.values {
+            let bucket = timestamp.round() as u64;
+            let parsed = parse_prometheus_value(value);
+            *points.entry(bucket).or_insert(0.0) += parsed;
+        }
+    }
+
+    points
+        .into_iter()
+        .map(|(ts, value)| MetricPoint { ts, value })
+        .collect()
+}
+
+fn metric_matches_service(
+    service: &LiveService,
+    series: &PrometheusSeries,
+    pod_names: &BTreeSet<&str>,
+    workload_app_id: &str,
+) -> bool {
+    if series.metric.get("namespace").map(String::as_str) == Some(service.namespace)
+        && series
+            .metric
+            .get("pod")
+            .map(|pod| pod_names.contains(pod.as_str()))
+            .unwrap_or(false)
+    {
+        return true;
+    }
+
+    if series.metric.get("app_id").map(String::as_str) == Some(workload_app_id) {
+        return true;
+    }
+
+    series
+        .metric
+        .get("container_id")
+        .and_then(|container_id| container_identity(container_id))
+        .map(|(namespace, pod)| namespace == service.namespace && pod_names.contains(pod))
+        .unwrap_or(false)
+}
+
+fn container_identity(container_id: &str) -> Option<(&str, &str)> {
+    let mut parts = container_id.split('/').filter(|part| !part.is_empty());
+    if parts.next()? != "k8s" {
+        return None;
+    }
+
+    let namespace = parts.next()?;
+    let pod = parts.next()?;
+    Some((namespace, pod))
+}
+
+fn convert_values_to_points(values: &[(f64, String)]) -> Vec<MetricPoint> {
+    values
+        .iter()
+        .map(|(timestamp, value)| MetricPoint {
+            ts: timestamp.round() as u64,
+            value: parse_prometheus_value(value),
+        })
+        .collect()
+}
+
+fn latest_point_value(points: &[MetricPoint]) -> f64 {
+    points.last().map(|point| point.value).unwrap_or(0.0)
+}
+
+fn parse_prometheus_value(value: &str) -> f64 {
+    value.parse::<f64>().unwrap_or(0.0)
 }
 
 fn service_targets() -> [ServiceTarget; 6] {
@@ -1275,6 +1760,22 @@ fn unavailable_live_overview(reason: impl Into<String>) -> LiveOverview {
         },
         services: Vec::new(),
         incidents: Vec::new(),
+        metrics: unavailable_metrics_overview("prometheus metrics unavailable"),
+        error: Some(reason.into()),
+    }
+}
+
+fn unavailable_metrics_overview(reason: impl Into<String>) -> MetricsOverview {
+    MetricsOverview {
+        available: false,
+        stale: false,
+        source: "prometheus-unavailable",
+        refreshed_at_epoch: unix_epoch_seconds(),
+        refresh_interval_seconds: PROMETHEUS_REFRESH_INTERVAL_SECONDS,
+        window_minutes: PROMETHEUS_WINDOW_MINUTES,
+        cluster: ClusterTimeseries::default(),
+        services: Vec::new(),
+        top_restarts: Vec::new(),
         error: Some(reason.into()),
     }
 }

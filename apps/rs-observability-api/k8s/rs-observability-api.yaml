@@ -86,6 +86,8 @@ spec:
               value: "3000"
             - name: REPORTS_ROOT
               value: /opt/reports
+            - name: PROMETHEUS_BASE_URL
+              value: http://coroot-prometheus-server.coroot.svc.cluster.local
           resources:
             requests:
               cpu: 10m
