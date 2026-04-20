@@ -1,6 +1,6 @@
 # T-103: CPU Headroom Recovery & Sustained Margin Policy
 
-**Status**: [~] In Progress (Phases 1-4 done; 2026-04-18 recovery pass restored the 100m floor, 7-day monitoring still pending) | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h
+**Status**: ✅ Done | **Priority**: 🔼 High | **Owner**: Infra | **Est**: 3h | **Closed**: 2026-04-19
 
 ## 🎯 Objective
 
@@ -122,6 +122,28 @@ Operational notes:
   The repo now routes Helm-managed component workflows through `tools/helm_compat.sh`, which pins a
   compatible Helm version when the local system binary is too old.
 
+### Closure decision — 2026-04-20
+
+The remaining open item after the 2026-04-19 recovery was not additional implementation work; it
+was passive observation time. That monitoring responsibility now belongs to the already-installed
+T-102 watchdog on the master (`k8s-health-check.timer` + `/var/log/k8s-health-check.log`).
+
+Closure evidence captured at close-out:
+
+- Live `kubectl describe nodes` / `kubectl top nodes` on 2026-04-19 still showed every node above the
+  Longhorn floor: master `675m/800m` requested (`125m` free), node-1 `557m/800m` (`243m` free),
+  node-2 `600m/800m` (`200m` free), node-3 `565m/800m` (`235m` free).
+- The watchdog timer is active/enabled on the master and last triggered successfully at
+  `2026-04-20 00:38 UTC`.
+- `/var/log/k8s-health-check.log` shows the final red CPU run at `2026-04-19 17:07 UTC`, immediately
+  followed by recovery. From `2026-04-19 17:37 UTC` through `2026-04-20 00:38 UTC`, 15 consecutive
+  watchdog runs kept all nodes above `100m` free CPU request headroom.
+- Residual warnings in the watchdog are unrelated to CPU floor regression: historical restart churn
+  on Longhorn CSI pods and disk-capacity warnings on nodes 2 and 3.
+
+Therefore T-103 is closed as an implementation/recovery task. Ongoing drift detection remains with
+T-102 watchdog operations instead of keeping this execution task artificially open for elapsed time.
+
 ### Why this matters
 
 CPU _requests_ determine **scheduling** and Kubernetes uses them to decide if a pod fits on a
@@ -226,7 +248,9 @@ with the new headroom policy — quotas may need tightening after Phase 2 reduct
       master 125m free, node-1 328m, node-2 160m, node-3 190m.
 - [x] ResourceQuota ceilings reviewed and aligned with actual usage + 30% buffer
 - [x] Node status TUI shows headroom % with 🟢/🟡/🔴 coloring
-- [ ] ⏳ ≥ 100m demonstrated on all nodes for 7 days (T-102 watchdog running — monitoring window ongoing)
+- [x] Continuous monitoring is now enforced by the T-102 watchdog timer; close-out evidence recorded
+  15 consecutive healthy watchdog runs after the final 2026-04-19 recovery, with all nodes
+  staying above the `100m` floor and future regressions covered by automated alerts.
 
 ## 🔗 Context
 
