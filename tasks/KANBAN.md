@@ -10,7 +10,6 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-136](2026/Q2/T-136-Observability-Console-Responsive-Polish-and-QA-Report-Hygiene.md) | **Observability Console Responsive Polish and QA Report Hygiene** | 🔼 High | DevExp / Observability | 4h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -26,6 +25,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-136](2026/Q2/T-136-Observability-Console-Responsive-Polish-and-QA-Report-Hygiene.md) | **Observability Console Responsive Polish and QA Report Hygiene** | 🔼 High | DevExp / Observability | 4h |
 | [T-135](2026/Q2/T-135-Observability-Console-Operations-First-UX-Refactor.md) | **Observability Console Operations-First UX Refactor** | 🔼 High | DevExp / Observability | 6h |
 | [T-134](2026/Q2/T-134-Observability-Console-Prometheus-Time-Series.md) | **Observability Console Prometheus Time-Series** | 🔼 High | DevExp / Observability | 6h |
 |           [T-133](2026/Q2/T-133-Rust-Observability-API-Thin-Slice.md)           | **Rust Observability API Thin Slice** _(Axum API + static UI served in-cluster; ingress `reports.dnor.io` ready pending external DNS)_                     |   🔼 High   |    DevExp / Infra     |   4h   |
