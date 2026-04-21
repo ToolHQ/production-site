@@ -1,6 +1,6 @@
 # T-136: Observability Console Responsive Polish and QA Report Hygiene
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: DevExp / Observability
 - **Estimation**: 4h
@@ -43,11 +43,30 @@ O objetivo desta tarefa é:
 ## Tasks
 - [x] Mover relatórios gerados de Lighthouse e screenshots para `.qa/reports`
 - [x] Adicionar `.qa/reports/` ao `.gitignore`
-- [ ] Organizar o diff atual e registrar um commit de baseline/housekeeping
-- [ ] Reduzir altura e ruído da primeira dobra no mobile
-- [ ] Compactar mini-métricas e pills de metadata em breakpoints pequenos
-- [ ] Melhorar colunagem e densidade para monitores largos
-- [ ] Corrigir stretch excessivo em painéis com pouco conteúdo
-- [ ] Gerar screenshots mobile, desktop e wide após o polish
-- [ ] Validar frontend e deploy após a segunda passada
-- [ ] Atualizar tarefa/KANBAN e registrar commit final do polish
+- [x] Organizar o diff atual e registrar um commit de baseline/housekeeping
+- [x] Reduzir altura e ruído da primeira dobra no mobile
+- [x] Compactar mini-métricas e pills de metadata em breakpoints pequenos
+- [x] Melhorar colunagem e densidade para monitores largos
+- [x] Corrigir stretch excessivo em painéis com pouco conteúdo
+- [x] Gerar screenshots mobile, desktop e wide após o polish
+- [x] Validar frontend e deploy após a segunda passada
+- [x] Atualizar tarefa/KANBAN e registrar commit final do polish
+
+## Resultado
+
+- os relatórios gerados de Lighthouse e screenshots passaram a ficar em `.qa/reports`, saindo da raiz do repositório e do fluxo normal de diff
+- a home em `apps/rs-observability-api/web/index.html` ganhou uma segunda passada específica de responsividade
+- no mobile, a primeira dobra foi compactada com pills menos pesados, cards mais densos e menor consumo vertical na abertura
+- em desktop largo, o grid principal passou a usar melhor a largura disponível com distribuição mais eficiente entre hero, watch card, serviços e superfície secundária
+- os painéis de prioridade deixaram de esticar desnecessariamente para acompanhar a altura do vizinho, reduzindo sensação de vazio
+
+## Validação
+
+- `get_errors` no HTML retornou sem erros após as alterações
+- deploy validado com rollout estável de `rs-observability-api-deployment`
+- `https://reports.dnor.io/` respondeu `HTTP 200`
+- `https://reports.dnor.io/api/live/overview` continuou coerente com `available: true`, `6/6` serviços críticos saudáveis e `4/4` nodes prontos
+- screenshots finais capturados em:
+	- `.qa/reports/ui-audit/mobile-polish.png`
+	- `.qa/reports/ui-audit/desktop-polish.png`
+	- `.qa/reports/ui-audit/wide-polish.png`
