@@ -10,6 +10,7 @@
         "--isolated",
         "--executablePath",
         "/usr/bin/google-chrome",
+        "--acceptInsecureCerts",
         "--no-usage-statistics"
       ]
     }
