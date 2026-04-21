@@ -1,6 +1,8 @@
 k8s.token
 pixie_deploy_key.txt
 reports/
+# Generated QA artifacts
+.qa/reports/
 # CoreDNS binary (downloaded)
 tools/coredns/coredns
 tools/coredns/coredns.log

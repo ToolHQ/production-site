@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Operations-first observability console for live Kubernetes health, restart debt, and deploy context.">
     <title>Cluster Pulse</title>
     <style>
       :root {
         --ink: #16202b;
         --muted: #5c6a78;
         --panel: rgba(255, 255, 255, 0.82);
-        --panel-strong: rgba(255, 255, 255, 0.92);
         --line: rgba(22, 32, 43, 0.1);
         --accent: #0d7c72;
         --accent-soft: rgba(13, 124, 114, 0.12);
@@ -51,7 +51,7 @@
       }
 
       main {
-        width: min(1320px, calc(100vw - 28px));
+        width: min(1360px, calc(100vw - 28px));
         margin: 20px auto 48px;
         position: relative;
         z-index: 1;
@@ -66,62 +66,110 @@
         overflow: hidden;
       }
 
-      .hero {
+      .masthead,
+      .priority-grid,
+      .content-grid,
+      .catalog-zone {
+        animation: rise 0.45s ease both;
+      }
+
+      .priority-grid {
+        animation-delay: 0.05s;
+      }
+
+      .content-grid {
+        animation-delay: 0.08s;
+      }
+
+      .catalog-zone {
+        animation-delay: 0.12s;
+      }
+
+      .masthead {
         display: grid;
-        grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.85fr);
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.85fr);
         gap: 24px;
-        padding: 34px;
+        padding: 28px 30px;
         border-bottom: 1px solid var(--line);
       }
 
-      .hero-copy {
+      .brand {
         display: grid;
-        gap: 18px;
+        gap: 14px;
+        align-content: start;
       }
 
       .eyebrow,
-      .section-title {
+      .section-title,
+      .section-kicker {
         font-size: 0.78rem;
         letter-spacing: 0.22em;
         text-transform: uppercase;
         color: var(--accent);
       }
 
-      h1 {
+      h1,
+      .catalog-head h2 {
         margin: 0;
         font-family: "Iowan Old Style", "Palatino Linotype", serif;
-        font-size: clamp(2.5rem, 5vw, 5rem);
-        line-height: 0.92;
+        letter-spacing: -0.05em;
+      }
+
+      h1 {
+        font-size: clamp(2.2rem, 4vw, 4rem);
+        line-height: 0.94;
         max-width: 12ch;
       }
 
-      .lede {
-        margin: 0;
-        max-width: 60ch;
-        color: var(--muted);
-        line-height: 1.72;
+      .catalog-head h2 {
+        font-size: clamp(1.6rem, 2vw, 2.4rem);
+        line-height: 0.98;
       }
 
-      .meta {
+      .subhead,
+      .catalog-head p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .subhead {
+        max-width: 60ch;
+      }
+
+      .meta-row,
+      .section-tags {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
       }
 
-      .pill {
+      .pill,
+      .panel-tag {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         padding: 10px 13px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.78);
         border: 1px solid var(--line);
         color: var(--muted);
         font-size: 0.9rem;
+      }
+
+      .pill {
+        background: rgba(255, 255, 255, 0.78);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
       }
 
-      .signal-card,
+      .panel-tag {
+        padding: 7px 11px;
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: rgba(22, 32, 43, 0.06);
+      }
+
+      .command-card,
       .panel,
       .metric-card,
       .service-card,
@@ -130,40 +178,47 @@
       .summary-card,
       .incident-item,
       .hotspot-item,
-      .table-shell {
+      .table-shell,
+      .catalog-shell {
         border: 1px solid var(--line);
         border-radius: 24px;
         background: var(--panel);
         box-shadow: var(--shadow-soft);
       }
 
-      .hero-side {
-        display: grid;
-        gap: 14px;
-        align-content: start;
-      }
-
-      .signal-card {
+      .command-card {
         padding: 22px;
+        display: grid;
+        gap: 16px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 252, 250, 0.82));
       }
 
-      .signal-head,
+      .command-card[data-tone="warning"] {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 244, 236, 0.88));
+      }
+
+      .command-card[data-tone="critical"] {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 239, 236, 0.9));
+      }
+
+      .command-top,
+      .metric-top,
       .service-head,
-      .stat-row,
-      .panel-head,
+      .telemetry-header,
+      .section-head,
       .artifact-meta,
       .summary-card,
       .incident-item,
       .hotspot-item,
-      .table-meta {
+      .table-meta,
+      .stat-row {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
       }
 
-      .signal-head {
-        margin-bottom: 18px;
+      .command-top {
         color: var(--muted);
         font-size: 0.92rem;
       }
@@ -184,42 +239,63 @@
         animation: pulse 1.8s infinite;
       }
 
-      .signal-card[data-tone="warning"] .live-dot {
+      .command-card[data-tone="warning"] .live-dot {
         background: var(--warm);
         box-shadow: 0 0 0 0 rgba(201, 102, 51, 0.3);
       }
 
-      .signal-card[data-tone="critical"] .live-dot {
+      .command-card[data-tone="critical"] .live-dot {
         background: var(--critical);
         box-shadow: 0 0 0 0 rgba(192, 59, 43, 0.3);
       }
 
-      .signal-value {
-        font-size: clamp(2.7rem, 4vw, 4.8rem);
+      .command-score {
+        font-size: clamp(2.4rem, 3.6vw, 4.4rem);
         font-weight: 700;
-        line-height: 0.95;
-        letter-spacing: -0.06em;
+        line-height: 0.92;
+        letter-spacing: -0.07em;
       }
 
-      .signal-copy {
-        margin: 14px 0 0;
+      .command-copy,
+      .service-message,
+      .table-meta p,
+      .section-head p {
+        margin: 0;
         color: var(--muted);
-        line-height: 1.65;
+        line-height: 1.58;
       }
 
-      .signal-grid,
-      .metric-grid,
-      .summary-grid,
-      .language-bars,
-      .artifact-list,
-      .incident-list,
-      .hotspot-list {
+      .next-step {
         display: grid;
-        gap: 12px;
+        gap: 6px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid var(--line);
       }
 
-      .signal-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+      .next-step strong {
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .operator-grid,
+      .metric-grid,
+      .priority-grid,
+      .service-grid,
+      .telemetry-grid,
+      .summary-grid,
+      .catalog-summary-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .operator-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
       }
 
       .signal-mini,
@@ -242,19 +318,20 @@
       .signal-mini span,
       .summary-card span,
       .metric-meta,
+      .metric-note,
       .service-subtitle,
+      .telemetry-support,
       .telemetry-meta,
       .artifact small,
       .artifact p,
       .incident-body span,
       .hotspot-body span,
-      .table-meta span,
       td small {
         color: var(--muted);
       }
 
       .metric-band {
-        padding: 28px 34px 8px;
+        padding: 22px 30px;
         border-bottom: 1px solid var(--line);
       }
 
@@ -265,7 +342,22 @@
       .metric-card {
         padding: 18px;
         display: grid;
-        gap: 14px;
+        gap: 12px;
+      }
+
+      .metric-card[data-tone="healthy"],
+      .telemetry-card[data-tone="healthy"] {
+        border-color: rgba(13, 124, 114, 0.22);
+      }
+
+      .metric-card[data-tone="warning"],
+      .telemetry-card[data-tone="degraded"] {
+        border-color: rgba(201, 102, 51, 0.28);
+      }
+
+      .metric-card[data-tone="critical"],
+      .telemetry-card[data-tone="down"] {
+        border-color: rgba(192, 59, 43, 0.28);
       }
 
       .metric-label,
@@ -276,8 +368,55 @@
         font-weight: 700;
       }
 
-      .metric-meta {
+      .metric-meta,
+      .telemetry-support,
+      .service-subtitle {
         font-size: 0.9rem;
+      }
+
+      .metric-note {
+        font-size: 0.87rem;
+      }
+
+      .trend-chip,
+      .status-pill,
+      .severity,
+      .table-status {
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+
+      .trend-chip.healthy,
+      .status-pill.healthy,
+      .table-status.deployable {
+        background: var(--healthy-soft);
+        color: var(--healthy);
+      }
+
+      .trend-chip.warning,
+      .status-pill.degraded,
+      .severity.warning,
+      .table-status.partial {
+        background: var(--warm-soft);
+        color: var(--warm);
+      }
+
+      .trend-chip.critical,
+      .status-pill.down,
+      .severity.critical {
+        background: var(--critical-soft);
+        color: var(--critical);
+      }
+
+      .status-pill.telemetry,
+      .severity.clear,
+      .table-status.wip {
+        background: rgba(22, 32, 43, 0.08);
+        color: var(--muted);
       }
 
       .sparkline {
@@ -286,16 +425,33 @@
         display: block;
       }
 
-      .body-grid {
+      .priority-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .priority-panel,
+      .panel {
+        padding: 20px;
+      }
+
+      .content-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+        grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.82fr);
+      }
+
+      .main-stack,
+      .rail-stack,
+      .catalog-main,
+      .catalog-side {
+        display: grid;
+        gap: 18px;
       }
 
       .main-stack,
       .rail-stack {
-        display: grid;
-        gap: 18px;
-        padding: 28px 34px 34px;
+        padding: 24px 30px 30px;
       }
 
       .rail-stack {
@@ -303,32 +459,10 @@
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.12));
       }
 
-      .panel {
-        padding: 20px;
-      }
-
-      .panel-head {
-        margin-bottom: 16px;
-      }
-
-      .panel-head p,
-      .table-meta p {
-        margin: 6px 0 0;
-        color: var(--muted);
-        line-height: 1.55;
-      }
-
       .service-grid,
       .telemetry-grid,
-      .lower-grid,
-      .summary-grid {
-        display: grid;
-        gap: 14px;
-      }
-
-      .service-grid,
-      .telemetry-grid,
-      .summary-grid {
+      .summary-grid,
+      .catalog-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
@@ -372,50 +506,6 @@
         font-size: 1.06rem;
       }
 
-      .service-subtitle {
-        font-size: 0.9rem;
-      }
-
-      .status-pill,
-      .severity,
-      .table-status {
-        padding: 7px 11px;
-        border-radius: 999px;
-        font-size: 0.78rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        font-weight: 700;
-      }
-
-      .status-pill.healthy,
-      .table-status.deployable {
-        background: var(--healthy-soft);
-        color: var(--healthy);
-      }
-
-      .status-pill.degraded,
-      .severity.warning,
-      .table-status.partial {
-        background: var(--warm-soft);
-        color: var(--warm);
-      }
-
-      .status-pill.down,
-      .severity.critical {
-        background: var(--critical-soft);
-        color: var(--critical);
-      }
-
-      .table-status.wip {
-        background: rgba(22, 32, 43, 0.08);
-        color: var(--muted);
-      }
-
-      .service-message {
-        margin: 0;
-        line-height: 1.58;
-      }
-
       .stat-row {
         padding-top: 6px;
         border-top: 1px dashed var(--line);
@@ -436,13 +526,6 @@
         gap: 12px;
       }
 
-      .telemetry-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-      }
-
       .telemetry-grid-mini {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -460,6 +543,24 @@
         min-height: 102px;
         flex-direction: column;
         justify-content: space-between;
+      }
+
+      .incident-list,
+      .hotspot-list,
+      .language-bars,
+      .artifact-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .incident-body,
+      .hotspot-body {
+        display: grid;
+        gap: 4px;
+      }
+
+      .hotspot-value {
+        color: var(--warm);
       }
 
       .language-row {
@@ -487,30 +588,46 @@
         background: linear-gradient(90deg, var(--accent), #70c0ae);
       }
 
-      .artifact-kind {
-        color: var(--warm);
-        font-size: 0.78rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
+      .catalog-zone {
+        padding: 0 30px 30px;
       }
 
-      .artifact a {
-        color: var(--ink);
-        text-decoration: none;
+      .catalog-shell {
+        overflow: hidden;
+        background: rgba(245, 247, 245, 0.78);
       }
 
-      .incident-body,
-      .hotspot-body {
+      .catalog-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 22px 22px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .catalog-head > div {
         display: grid;
-        gap: 4px;
+        gap: 10px;
       }
 
-      .hotspot-value {
-        color: var(--warm);
-      }
-
-      .lower-grid {
+      .catalog-layout {
+        display: grid;
         grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
+      }
+
+      .catalog-main,
+      .catalog-side {
+        padding: 22px;
+      }
+
+      .catalog-side {
+        border-left: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.46);
+      }
+
+      .table-shell {
+        overflow: hidden;
       }
 
       table {
@@ -535,8 +652,20 @@
         border-bottom: 0;
       }
 
+      .artifact-kind {
+        color: var(--warm);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .artifact a {
+        color: var(--ink);
+        text-decoration: none;
+      }
+
       .error {
-        margin: 0 34px 34px;
+        margin: 0 30px 30px;
         padding: 14px 16px;
         border-radius: 18px;
         border: 1px solid rgba(192, 59, 43, 0.2);
@@ -561,15 +690,27 @@
         }
       }
 
-      @media (max-width: 1120px) {
-        .hero,
-        .body-grid,
-        .lower-grid,
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 1160px) {
+        .masthead,
+        .content-grid,
+        .catalog-layout,
         .metric-grid {
           grid-template-columns: 1fr;
         }
 
-        .rail-stack {
+        .rail-stack,
+        .catalog-side {
           border-left: 0;
           border-top: 1px solid var(--line);
         }
@@ -577,22 +718,39 @@
 
       @media (max-width: 840px) {
         main {
-          width: min(100vw - 18px, 1320px);
+          width: min(100vw - 18px, 1360px);
         }
 
-        .hero,
+        .masthead,
+        .operator-grid,
         .metric-band,
+        .priority-grid,
         .main-stack,
-        .rail-stack {
-          padding: 22px;
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 22px;
+          padding-right: 22px;
         }
 
+        .operator-grid,
+        .metric-grid,
+        .priority-grid,
         .service-grid,
         .telemetry-grid,
         .summary-grid,
-        .signal-grid,
-        .lower-grid {
+        .catalog-summary-grid,
+        .telemetry-grid-mini {
           grid-template-columns: 1fr;
+        }
+
+        .catalog-head {
+          display: grid;
+          padding: 20px;
+        }
+
+        .catalog-main,
+        .catalog-side {
+          padding: 20px;
         }
 
         h1 {
@@ -613,45 +771,56 @@
   <body>
     <main>
       <section class="shell">
-        <header class="hero">
-          <div class="hero-copy">
-            <span class="eyebrow">Rust Observability Console</span>
-            <h1>Cluster pulse with real signals, not just a pretty status board.</h1>
-            <p class="lede">
-              The console now layers Prometheus time-series on top of the live Kubernetes control-plane view.
-              You get runtime drift, restart pressure, CPU, memory, and critical-service telemetry in one light in-cluster surface.
+        <header class="masthead">
+          <div class="brand">
+            <span class="eyebrow">Operations-first observability</span>
+            <h1>Cluster pulse for triage, not just reporting.</h1>
+            <p class="subhead">
+              Live Kubernetes health and Prometheus pressure stay in the foreground.
+              Catalog and deploy context remain available, but secondary.
             </p>
-            <div class="meta">
+            <div class="meta-row">
               <span class="pill" id="generated-at">Loading snapshot metadata...</span>
               <span class="pill" id="live-refresh">Connecting to live cluster API...</span>
               <span class="pill" id="metrics-refresh">Connecting to Prometheus...</span>
-              <span class="pill">Routes: /api/live/overview, /api/catalog, /api/reports</span>
             </div>
           </div>
 
-          <aside class="hero-side">
-            <article class="signal-card" id="signal-card" data-tone="healthy">
-              <div class="signal-head">
-                <div class="signal-badge">
-                  <span class="live-dot"></span>
-                  <span id="live-mode">Connecting live board</span>
-                </div>
-                <span id="auto-refresh">Auto-refresh pending</span>
+          <aside class="command-card" id="signal-card" data-tone="healthy">
+            <div class="command-top">
+              <div class="signal-badge">
+                <span class="live-dot"></span>
+                <span id="live-mode">Connecting live watch</span>
               </div>
-              <div class="signal-value" id="health-score">--</div>
-              <p class="signal-copy" id="health-copy">Waiting for the first cluster response.</p>
-            </article>
-
-            <div class="signal-grid" id="signal-grid">
-              <div class="signal-mini">
-                <strong>--</strong>
-                <span>Tracked services</span>
-              </div>
+              <span id="auto-refresh">Auto-refresh pending</span>
+            </div>
+            <div class="command-score" id="health-score">--</div>
+            <p class="command-copy" id="health-copy">Waiting for the first cluster response.</p>
+            <div class="next-step">
+              <strong>Next action</strong>
+              <span id="next-action">Waiting for the first operator recommendation.</span>
             </div>
           </aside>
         </header>
 
+        <section class="operator-grid" id="signal-grid">
+          <div class="signal-mini">
+            <strong>--</strong>
+            <span>Active incidents</span>
+          </div>
+        </section>
+
         <section class="metric-band">
+          <div class="section-head">
+            <div>
+              <div class="section-kicker">Core load</div>
+              <div class="section-title">Cluster Pressure</div>
+              <p>Prometheus-backed CPU, memory and restart pressure over the current dashboard window.</p>
+            </div>
+            <div class="section-tags">
+              <span class="panel-tag" id="metrics-section-tag">Waiting for metrics</span>
+            </div>
+          </div>
           <div class="metric-grid" id="cluster-metrics">
             <article class="metric-card">
               <div class="metric-label">Loading metrics...</div>
@@ -659,13 +828,58 @@
           </div>
         </section>
 
-        <div class="body-grid">
+        <section class="priority-grid">
+          <section class="panel priority-panel">
+            <div class="section-head">
+              <div>
+                <div class="section-title">Immediate Action</div>
+                <p>Live kube incidents first. This block should explain why an operator needs to care now.</p>
+              </div>
+              <div class="section-tags">
+                <span class="panel-tag" id="ops-section-tag">Waiting for live data</span>
+              </div>
+            </div>
+            <div class="incident-list" id="incident-list">
+              <div class="incident-item">
+                <div class="incident-body">
+                  <strong>Waiting for cluster events</strong>
+                  <span>No live data yet.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel priority-panel">
+            <div class="section-head">
+              <div>
+                <div class="section-title">Restart Debt</div>
+                <p>Prometheus-ranked restart hotspots over the last hour, rounded to discrete events.</p>
+              </div>
+              <div class="section-tags">
+                <span class="panel-tag" id="restart-section-tag">Waiting for Prometheus</span>
+              </div>
+            </div>
+            <div class="hotspot-list" id="restart-list">
+              <div class="hotspot-item">
+                <div class="hotspot-body">
+                  <strong>Waiting for Prometheus</strong>
+                  <span>No hotspot data yet.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <div class="content-grid">
           <section class="main-stack">
             <section class="panel">
-              <div class="panel-head">
+              <div class="section-head">
                 <div>
                   <div class="section-title">Critical Services</div>
-                  <p>Workload health, readiness, restarts and serving routes.</p>
+                  <p>Live kube health, readiness, restart count and serving routes for the tracked surface.</p>
+                </div>
+                <div class="section-tags">
+                  <span class="panel-tag" id="services-section-tag">Waiting for live data</span>
                 </div>
               </div>
               <div class="service-grid" id="service-grid">
@@ -674,21 +888,98 @@
             </section>
 
             <section class="panel">
-              <div class="panel-head">
+              <div class="section-head">
                 <div>
                   <div class="section-title">Service Telemetry</div>
-                  <p>Prometheus-backed CPU and memory traces over the latest dashboard window.</p>
+                  <p>Prometheus time-series stay close to service health so the board reads like an action surface.</p>
+                </div>
+                <div class="section-tags">
+                  <span class="panel-tag" id="telemetry-section-tag">Waiting for metrics</span>
                 </div>
               </div>
               <div class="telemetry-grid" id="telemetry-grid">
                 <article class="telemetry-card"><p class="empty">Waiting for Prometheus time-series...</p></article>
               </div>
             </section>
+          </section>
+
+          <aside class="rail-stack">
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">Runtime Summary</div>
+                  <p>Operational rollup only. This panel should not depend on snapshot interpretation.</p>
+                </div>
+                <div class="section-tags">
+                  <span class="panel-tag" id="summary-section-tag">Waiting for live data</span>
+                </div>
+              </div>
+              <div class="summary-grid" id="summary-grid">
+                <article class="summary-card">
+                  <strong>-</strong>
+                  <span>Waiting for summary</span>
+                </article>
+              </div>
+            </section>
 
             <section class="panel">
-              <div class="lower-grid">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">Catalog Snapshot</div>
+                  <p>Snapshot-derived counts stay visible, but secondary to live operations.</p>
+                </div>
+                <div class="section-tags">
+                  <span class="panel-tag" id="catalog-summary-tag">Waiting for snapshot</span>
+                </div>
+              </div>
+              <div class="catalog-summary-grid" id="catalog-summary-grid">
+                <article class="summary-card">
+                  <strong>-</strong>
+                  <span>Waiting for snapshot</span>
+                </article>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">Language Mix</div>
+                  <p>Repo composition is still useful context when deciding where to intervene.</p>
+                </div>
+              </div>
+              <div class="language-bars" id="language-bars">
+                <div class="language-row">
+                  <div class="language-head"><span>Loading</span><strong>--</strong></div>
+                  <div class="language-track"><div class="language-fill" style="width: 18%"></div></div>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+
+        <section class="catalog-zone">
+          <div class="catalog-shell">
+            <div class="catalog-head">
+              <div>
+                <div class="section-kicker">Secondary surface</div>
+                <h2>Catalog and deploy context</h2>
+              </div>
+              <div>
+                <p>
+                  Deploy paths, artifact bundle and snapshot inventory remain available without stealing
+                  first-fold attention from operations.
+                </p>
+                <div class="section-tags">
+                  <span class="panel-tag" id="catalog-zone-tag">Waiting for snapshot</span>
+                  <span class="panel-tag">Routes: /api/live/overview, /api/catalog, /api/reports</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="catalog-layout">
+              <div class="catalog-main">
                 <section>
-                  <div class="table-meta">
+                  <div class="section-head">
                     <div>
                       <div class="section-title">Deployable Surface</div>
                       <p id="deployable-meta">Waiting for catalog classification...</p>
@@ -710,75 +1001,24 @@
                     </table>
                   </div>
                 </section>
+              </div>
 
+              <aside class="catalog-side">
                 <section>
-                  <div class="table-meta">
+                  <div class="section-head">
                     <div>
                       <div class="section-title">Artifact Library</div>
-                      <p>Bundled artifacts stay cheap to serve even when the cluster is busy.</p>
+                      <p>Static report bundle served from the image snapshot.</p>
                     </div>
                   </div>
                   <div class="artifact-list" id="artifact-list">
                     <div class="artifact"><p>Loading artifact index...</p></div>
                   </div>
                 </section>
-              </div>
-            </section>
-          </section>
-
-          <aside class="rail-stack">
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="section-title">Runtime Summary</div>
-                  <p>Snapshot context plus live workload state.</p>
-                </div>
-              </div>
-              <div class="summary-grid" id="summary-grid">
-                <article class="summary-card">
-                  <strong>-</strong>
-                  <span>Waiting for summary</span>
-                </article>
-              </div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="section-title">Active Incidents</div>
-                  <p>Current blockers and warning states from the live cluster view.</p>
-                </div>
-              </div>
-              <div class="incident-list" id="incident-list">
-                <div class="incident-item"><div class="incident-body"><strong>Waiting for cluster events</strong><span>No live data yet.</span></div></div>
-              </div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="section-title">Restart Hotspots</div>
-                  <p>Prometheus-ranked restart debt over the last hour.</p>
-                </div>
-              </div>
-              <div class="hotspot-list" id="restart-list">
-                <div class="hotspot-item"><div class="hotspot-body"><strong>Waiting for Prometheus</strong><span>No hotspot data yet.</span></div></div>
-              </div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="section-title">Language Mix</div>
-                  <p>Repo surface still matters. The console keeps that context visible.</p>
-                </div>
-              </div>
-              <div class="language-bars" id="language-bars">
-                <div class="language-row"><div class="language-head"><span>Loading</span><strong>--</strong></div><div class="language-track"><div class="language-fill" style="width: 18%"></div></div></div>
-              </div>
-            </section>
-          </aside>
-        </div>
+              </aside>
+            </div>
+          </div>
+        </section>
       </section>
 
       <div id="error-box"></div>
@@ -792,18 +1032,28 @@
       const autoRefresh = document.getElementById("auto-refresh");
       const healthScore = document.getElementById("health-score");
       const healthCopy = document.getElementById("health-copy");
+      const nextAction = document.getElementById("next-action");
       const signalCard = document.getElementById("signal-card");
       const signalGrid = document.getElementById("signal-grid");
       const clusterMetrics = document.getElementById("cluster-metrics");
+      const incidentList = document.getElementById("incident-list");
+      const restartList = document.getElementById("restart-list");
       const serviceGrid = document.getElementById("service-grid");
       const telemetryGrid = document.getElementById("telemetry-grid");
       const summaryGrid = document.getElementById("summary-grid");
-      const incidentList = document.getElementById("incident-list");
-      const restartList = document.getElementById("restart-list");
+      const catalogSummaryGrid = document.getElementById("catalog-summary-grid");
       const languageBars = document.getElementById("language-bars");
       const appsBody = document.getElementById("apps-body");
       const artifactList = document.getElementById("artifact-list");
       const deployableMeta = document.getElementById("deployable-meta");
+      const metricsSectionTag = document.getElementById("metrics-section-tag");
+      const opsSectionTag = document.getElementById("ops-section-tag");
+      const restartSectionTag = document.getElementById("restart-section-tag");
+      const servicesSectionTag = document.getElementById("services-section-tag");
+      const telemetrySectionTag = document.getElementById("telemetry-section-tag");
+      const summarySectionTag = document.getElementById("summary-section-tag");
+      const catalogSummaryTag = document.getElementById("catalog-summary-tag");
+      const catalogZoneTag = document.getElementById("catalog-zone-tag");
       const errorBox = document.getElementById("error-box");
 
       let snapshotSummary = null;
@@ -883,12 +1133,21 @@
         return `${Number(value || 0).toFixed(2)} cores`;
       }
 
-      function formatCount(value) {
-        return Number(value || 0).toLocaleString();
+      function formatDiscreteCount(value) {
+        return Math.round(Number(value || 0)).toLocaleString();
       }
 
       function statusClass(status) {
-        return status === "healthy" ? "healthy" : status === "degraded" ? "degraded" : "down";
+        if (status === "down") {
+          return "down";
+        }
+        if (status === "degraded") {
+          return "degraded";
+        }
+        if (status === "healthy") {
+          return "healthy";
+        }
+        return "telemetry";
       }
 
       function tableStatusClass(readiness) {
@@ -940,7 +1199,79 @@
         `;
       }
 
-      function boardLabel(live) {
+      function incidentsBySeverity(live, severity) {
+        const incidents = Array.isArray(live?.incidents) ? live.incidents : [];
+        return incidents.filter((incident) => incident.severity === severity).length;
+      }
+
+      function restartHotspots(metrics) {
+        const hotspots = Array.isArray(metrics?.top_restarts) ? metrics.top_restarts : [];
+        return hotspots.filter((item) => Math.round(Number(item.restarts_last_hour || 0)) > 0);
+      }
+
+      function deltaFromSeries(points) {
+        const values = Array.isArray(points) ? points.filter((point) => Number.isFinite(point.value)) : [];
+        if (values.length < 2) {
+          return null;
+        }
+        return values[values.length - 1].value - values[0].value;
+      }
+
+      function describeDelta(kind, delta) {
+        if (!Number.isFinite(delta)) {
+          return "trend unavailable";
+        }
+
+        if (kind === "restart") {
+          const rounded = Math.round(Math.abs(delta));
+          if (rounded < 1) {
+            return "stable vs window start";
+          }
+          return delta > 0
+            ? `+${rounded} events vs window start`
+            : `${rounded} fewer events vs window start`;
+        }
+
+        const absDelta = Math.abs(delta);
+        if (absDelta < 1.5) {
+          return "steady vs window start";
+        }
+        return delta > 0
+          ? `rising ${absDelta.toFixed(1)} pts vs window start`
+          : `down ${absDelta.toFixed(1)} pts vs window start`;
+      }
+
+      function metricState(kind, value) {
+        if (kind === "restart") {
+          if (value >= 10) {
+            return { tone: "critical", badge: "Restart spike" };
+          }
+          if (value > 0) {
+            return { tone: "warning", badge: "Restarts active" };
+          }
+          return { tone: "healthy", badge: "Quiet hour" };
+        }
+
+        if (kind === "cpu") {
+          if (value >= 85) {
+            return { tone: "critical", badge: "High load" };
+          }
+          if (value >= 65) {
+            return { tone: "warning", badge: "Elevated" };
+          }
+          return { tone: "healthy", badge: "Within headroom" };
+        }
+
+        if (value >= 85) {
+          return { tone: "critical", badge: "Memory pressure" };
+        }
+        if (value >= 70) {
+          return { tone: "warning", badge: "Warm memory" };
+        }
+        return { tone: "healthy", badge: "Within headroom" };
+      }
+
+      function boardLabel(live, metrics) {
         if (!live?.available) {
           return {
             tone: "critical",
@@ -950,50 +1281,98 @@
           };
         }
 
-        const healthy = live.summary.healthy_services;
-        const total = live.summary.critical_services;
+        const criticalIncidents = incidentsBySeverity(live, "critical");
+        const warningIncidents = incidentsBySeverity(live, "warning");
+        const downServices = live.summary.down_services || 0;
+        const degradedServices = live.summary.degraded_services || 0;
+        const restartingPods = live.summary.restarting_pods || 0;
+        const hotspots = restartHotspots(metrics);
+        const criticalWatch = criticalIncidents + downServices;
+        const warningWatch = warningIncidents + degradedServices + (restartingPods > 0 ? 1 : 0) + hotspots.length;
 
-        if (live.summary.down_services > 0) {
+        if (criticalWatch > 0) {
           return {
             tone: "critical",
-            mode: live.stale ? "Serving stale cache" : "Critical attention",
-            score: `${healthy}/${total}`,
-            copy: `${live.summary.down_services} critical service${live.summary.down_services === 1 ? " is" : "s are"} down and need immediate intervention.`
+            mode: live.stale || metrics?.stale ? "Immediate attention · stale signal" : "Immediate attention",
+            score: `${criticalWatch} blocker${criticalWatch === 1 ? "" : "s"}`,
+            copy: `${criticalIncidents} critical incident${criticalIncidents === 1 ? "" : "s"} and ${downServices} service${downServices === 1 ? "" : "s"} down are active on the board.`
           };
         }
 
-        if (live.summary.degraded_services > 0 || live.stale) {
+        if (warningWatch > 0 || live.stale || metrics?.stale) {
           return {
             tone: "warning",
-            mode: live.stale ? "Serving stale cache" : "Degraded but serving",
-            score: `${healthy}/${total}`,
-            copy: `${live.summary.degraded_services} service${live.summary.degraded_services === 1 ? " needs" : "s need"} follow-up, but the control plane still looks available.`
+            mode: live.stale || metrics?.stale ? "Guarded operation · stale cache" : "Guarded operation",
+            score: `${warningWatch || 1} watchpoint${warningWatch === 1 ? "" : "s"}`,
+            copy: "No hard outage, but degraded services, warning incidents or restart debt still require follow-up."
           };
         }
 
         return {
           tone: "healthy",
-          mode: "Cluster stable",
-          score: `${healthy}/${total}`,
-          copy: "All tracked critical services are healthy and the Prometheus layer is feeding runtime telemetry into the board."
+          mode: "Live watch green",
+          score: "0 blockers",
+          copy: "No critical incident, no down service and no restart hotspot are dominating the board right now."
         };
       }
 
+      function nextActionText(live, metrics) {
+        if (!live?.available) {
+          return "Restore in-cluster Kubernetes API reachability before trusting the board.";
+        }
+
+        const incidents = Array.isArray(live.incidents) ? live.incidents : [];
+        const criticalIncident = incidents.find((incident) => incident.severity === "critical");
+        const warningIncident = incidents.find((incident) => incident.severity === "warning");
+        const hotspots = restartHotspots(metrics);
+
+        if (criticalIncident) {
+          return `Inspect ${criticalIncident.resource} in ${criticalIncident.namespace}; ${criticalIncident.message}`;
+        }
+
+        if ((live.summary.down_services || 0) > 0) {
+          return "Open the critical service board and recover the first service marked down.";
+        }
+
+        if (hotspots.length) {
+          return `Inspect ${hotspots[0].pod} in ${hotspots[0].namespace}; it carries the highest restart debt in the current window.`;
+        }
+
+        if ((live.summary.degraded_services || 0) > 0) {
+          return "Review degraded services before the board turns red.";
+        }
+
+        if (warningIncident) {
+          return `Review ${warningIncident.resource} in ${warningIncident.namespace} before it escalates.`;
+        }
+
+        if (live.stale || metrics?.stale) {
+          return "Fresh data is degraded; confirm the live data path before treating this as steady state.";
+        }
+
+        return "No immediate blocker. Stay on telemetry and watch for new restart hotspots.";
+      }
+
       function renderSignal(live) {
-        const board = boardLabel(live);
+        const metrics = live?.metrics || {};
+        const board = boardLabel(live, metrics);
+        const totalIncidents = incidentsBySeverity(live, "critical") + incidentsBySeverity(live, "warning");
+        const servicesNeedingAction = (live?.summary.down_services || 0) + (live?.summary.degraded_services || 0);
+
         signalCard.dataset.tone = board.tone;
         liveMode.textContent = board.mode;
         healthScore.textContent = board.score;
         healthCopy.textContent = board.copy;
+        nextAction.textContent = nextActionText(live, metrics);
 
         const metricsInterval = live?.metrics?.refresh_interval_seconds || "--";
         autoRefresh.textContent = `Kube ${live?.refresh_interval_seconds || "--"}s · Metrics ${metricsInterval}s`;
 
         signalGrid.innerHTML = [
-          { value: live?.summary.critical_services ?? "--", label: "Tracked services" },
+          { value: totalIncidents, label: "Active incidents" },
+          { value: servicesNeedingAction, label: "Services needing action" },
           { value: `${live?.summary.nodes_ready ?? "--"}/${live?.summary.nodes_total ?? "--"}`, label: "Ready nodes" },
-          { value: live?.summary.running_pods ?? "--", label: "Running pods" },
-          { value: live?.summary.restarting_pods ?? "--", label: "Pods with restarts" }
+          { value: formatDiscreteCount(live?.summary.restarting_pods ?? 0), label: "Restarting pods" }
         ].map((item) => `
           <div class="signal-mini">
             <strong>${escapeHtml(item.value)}</strong>
@@ -1009,50 +1388,78 @@
         }
 
         const cluster = metrics.cluster || {};
-        clusterMetrics.innerHTML = [
+        const cpuState = metricState("cpu", Number(cluster.cpu_percent_latest || 0));
+        const memoryState = metricState("memory", Number(cluster.memory_percent_latest || 0));
+        const restartState = metricState("restart", Number(cluster.restart_events_last_hour || 0));
+
+        const items = [
           {
             label: "Cluster CPU",
             value: formatPercent(cluster.cpu_percent_latest),
             meta: `${formatCores(cluster.cpu_cores_used_latest)} in use · ${metrics.window_minutes}m window`,
+            note: describeDelta("cpu", deltaFromSeries(cluster.cpu_percent_series || [])),
             color: "#0d7c72",
-            series: cluster.cpu_percent_series || []
+            series: cluster.cpu_percent_series || [],
+            state: cpuState
           },
           {
             label: "Cluster Memory",
             value: formatPercent(cluster.memory_percent_latest),
             meta: `${formatBytes(cluster.memory_bytes_used_latest)} working set · ${metrics.window_minutes}m window`,
+            note: describeDelta("memory", deltaFromSeries(cluster.memory_percent_series || [])),
             color: "#c96633",
-            series: cluster.memory_percent_series || []
+            series: cluster.memory_percent_series || [],
+            state: memoryState
           },
           {
             label: "Restart Pressure",
-            value: formatCount(cluster.restart_events_last_hour),
+            value: formatDiscreteCount(cluster.restart_events_last_hour),
             meta: "restart events recorded over the last hour",
+            note: describeDelta("restart", deltaFromSeries(cluster.restart_pressure_series || [])),
             color: "#c03b2b",
-            series: cluster.restart_pressure_series || []
+            series: cluster.restart_pressure_series || [],
+            state: restartState
           }
-        ].map((metric) => `
-          <article class="metric-card">
-            <div>
-              <div class="metric-label">${escapeHtml(metric.label)}</div>
-              <strong class="metric-value">${escapeHtml(metric.value)}</strong>
-              <div class="metric-meta">${escapeHtml(metric.meta)}</div>
+        ];
+
+        clusterMetrics.innerHTML = items.map((metric) => `
+          <article class="metric-card" data-tone="${metric.state.tone}">
+            <div class="metric-top">
+              <div>
+                <div class="metric-label">${escapeHtml(metric.label)}</div>
+                <strong class="metric-value">${escapeHtml(metric.value)}</strong>
+                <div class="metric-meta">${escapeHtml(metric.meta)}</div>
+              </div>
+              <span class="trend-chip ${metric.state.tone}">${escapeHtml(metric.state.badge)}</span>
             </div>
+            <div class="metric-note">${escapeHtml(metric.note)}</div>
             ${sparkline(metric.series, metric.color)}
           </article>
         `).join("");
       }
 
       function renderLiveSummary(live) {
-        const snapshotAge = snapshotSummary?.generated_at
-          ? formatRelativeTime(snapshotSummary.generated_at)
-          : "snapshot timestamp unavailable";
+        const servicesNeedingAction = (live?.summary.down_services || 0) + (live?.summary.degraded_services || 0);
 
         summaryGrid.innerHTML = [
-          summaryCard("Healthy services", `${live?.summary.healthy_services ?? 0}/${live?.summary.critical_services ?? 0}`, snapshotAge),
-          summaryCard("Degraded services", live?.summary.degraded_services ?? 0, "tracked live from the cluster"),
-          summaryCard("Runtime pods", `${live?.summary.running_pods ?? 0}/${live?.summary.total_pods ?? 0}`, `${live?.summary.affected_namespaces ?? 0} namespaces under watch`),
-          summaryCard("Deployable apps", snapshotSummary?.deployable_app_count ?? "--", `${snapshotSummary?.app_count ?? "--"} apps cataloged`)
+          summaryCard("Healthy coverage", `${live?.summary.healthy_services ?? 0}/${live?.summary.critical_services ?? 0}`, "critical services currently serving"),
+          summaryCard("Services needing action", formatDiscreteCount(servicesNeedingAction), `${live?.summary.down_services ?? 0} down · ${live?.summary.degraded_services ?? 0} degraded`),
+          summaryCard("Runtime pods", `${live?.summary.running_pods ?? 0}/${live?.summary.total_pods ?? 0}`, `${formatDiscreteCount(live?.summary.restarting_pods ?? 0)} with restarts`),
+          summaryCard("Watch scope", formatDiscreteCount(live?.summary.affected_namespaces ?? 0), `${live?.summary.nodes_ready ?? 0}/${live?.summary.nodes_total ?? 0} ready nodes`)
+        ].join("");
+      }
+
+      function renderCatalogSummary(summary) {
+        if (!summary) {
+          catalogSummaryGrid.innerHTML = summaryCard("Snapshot", "-", "waiting for catalog summary");
+          return;
+        }
+
+        catalogSummaryGrid.innerHTML = [
+          summaryCard("Deployable apps", `${summary.deployable_app_count}/${summary.app_count}`, `${summary.missing_deploy_script_count} missing deploy scripts`),
+          summaryCard("Components tracked", formatDiscreteCount(summary.component_count), `${summary.cluster_workload_count} cluster workloads cataloged`),
+          summaryCard("Repo-only surface", formatDiscreteCount(summary.repo_only_app_count + summary.repo_only_component_count), `${summary.cluster_only_count} cluster-only entries`),
+          summaryCard("Catalog drift", formatDiscreteCount(summary.undocumented_count), "undocumented entries still need classification")
         ].join("");
       }
 
@@ -1079,7 +1486,7 @@
                   <span>running pods</span>
                 </div>
                 <div class="stat-stack">
-                  <strong>${escapeHtml(service.restart_count)}</strong>
+                  <strong>${escapeHtml(formatDiscreteCount(service.restart_count))}</strong>
                   <span>restart count</span>
                 </div>
                 <div class="stat-stack">
@@ -1094,34 +1501,44 @@
 
       function renderTelemetry(metrics) {
         const services = Array.isArray(metrics?.services) ? metrics.services : [];
+        const liveServices = new Map((latestLiveOverview?.services || []).map((service) => [service.id, service]));
+
         telemetryGrid.innerHTML = services.length
-          ? services.map((service) => `
-            <article class="telemetry-card">
-              <div class="telemetry-top">
-                <div>
-                  <div class="telemetry-name">${escapeHtml(service.label)}</div>
-                  <div class="telemetry-meta">Prometheus ${metrics.window_minutes}m window</div>
+          ? services.map((service) => {
+            const liveService = liveServices.get(service.id);
+            const liveStatus = liveService?.status || "telemetry";
+            const route = liveService?.route || "internal route";
+            const restartCount = liveService ? formatDiscreteCount(liveService.restart_count) : "--";
+
+            return `
+              <article class="telemetry-card" data-tone="${escapeHtml(liveStatus)}">
+                <div class="telemetry-header">
+                  <div>
+                    <div class="telemetry-name">${escapeHtml(service.label)}</div>
+                    <div class="telemetry-support">Prometheus ${metrics.window_minutes}m window · ${escapeHtml(route)} · ${escapeHtml(restartCount)} live restarts</div>
+                  </div>
+                  <span class="status-pill ${statusClass(liveStatus)}">${escapeHtml(liveStatus)}</span>
                 </div>
-              </div>
-              <div class="telemetry-grid-mini">
-                <div class="telemetry-mini">
-                  <strong class="telemetry-value">${escapeHtml(formatCores(service.cpu_cores_latest))}</strong>
-                  <span class="telemetry-meta">CPU in use</span>
-                  ${sparkline(service.cpu_series || [], "#0d7c72")}
+                <div class="telemetry-grid-mini">
+                  <div class="telemetry-mini">
+                    <strong class="telemetry-value">${escapeHtml(formatCores(service.cpu_cores_latest))}</strong>
+                    <span class="telemetry-meta">CPU in use</span>
+                    ${sparkline(service.cpu_series || [], "#0d7c72")}
+                  </div>
+                  <div class="telemetry-mini">
+                    <strong class="telemetry-value">${escapeHtml(formatBytes(service.memory_bytes_latest))}</strong>
+                    <span class="telemetry-meta">Memory RSS</span>
+                    ${sparkline(service.memory_series || [], "#c96633")}
+                  </div>
                 </div>
-                <div class="telemetry-mini">
-                  <strong class="telemetry-value">${escapeHtml(formatBytes(service.memory_bytes_latest))}</strong>
-                  <span class="telemetry-meta">Memory RSS</span>
-                  ${sparkline(service.memory_series || [], "#c96633")}
-                </div>
-              </div>
-            </article>
-          `).join("")
+              </article>
+            `;
+          }).join("")
           : `<article class="telemetry-card"><p class="empty">No Prometheus time-series available for tracked services.</p></article>`;
       }
 
       function renderIncidents(live) {
-        const incidents = Array.isArray(live?.incidents) ? live.incidents : [];
+        const incidents = Array.isArray(live?.incidents) ? live.incidents.slice(0, 6) : [];
         incidentList.innerHTML = incidents.length
           ? incidents.map((incident) => `
             <article class="incident-item">
@@ -1132,11 +1549,11 @@
               <span class="severity ${escapeHtml(incident.severity)}">${escapeHtml(incident.severity)}</span>
             </article>
           `).join("")
-          : `<article class="incident-item"><div class="incident-body"><strong>No active incidents</strong><span>The tracked namespaces are quiet right now.</span></div><span class="severity">clear</span></article>`;
+          : `<article class="incident-item"><div class="incident-body"><strong>No active incident</strong><span>The live kube board is quiet right now.</span></div><span class="severity clear">clear</span></article>`;
       }
 
       function renderRestartHotspots(metrics) {
-        const hotspots = Array.isArray(metrics?.top_restarts) ? metrics.top_restarts : [];
+        const hotspots = restartHotspots(metrics).slice(0, 6);
         restartList.innerHTML = hotspots.length
           ? hotspots.map((item) => `
             <article class="hotspot-item">
@@ -1144,10 +1561,10 @@
                 <strong>${escapeHtml(item.pod)}</strong>
                 <span>${escapeHtml(item.namespace)}</span>
               </div>
-              <strong class="hotspot-value">${escapeHtml(formatCount(item.restarts_last_hour))}</strong>
+              <strong class="hotspot-value">${escapeHtml(formatDiscreteCount(item.restarts_last_hour))}</strong>
             </article>
           `).join("")
-          : `<article class="hotspot-item"><div class="hotspot-body"><strong>No restart hotspots</strong><span>The last hour is quiet for tracked namespaces.</span></div></article>`;
+          : `<article class="hotspot-item"><div class="hotspot-body"><strong>No restart hotspot</strong><span>The last hour is quiet for the tracked namespaces.</span></div></article>`;
       }
 
       function renderLanguages(summary) {
@@ -1175,7 +1592,7 @@
             return (score[left.deploy_readiness] ?? 3) - (score[right.deploy_readiness] ?? 3)
               || left.name.localeCompare(right.name);
           })
-          .slice(0, 12);
+          .slice(0, 8);
 
         deployableMeta.textContent = `${snapshotSummary?.deployable_app_count ?? 0} deployable · ${snapshotSummary?.missing_deploy_script_count ?? 0} without deploy path · ${snapshotSummary?.undocumented_count ?? 0} undocumented`;
 
@@ -1198,21 +1615,49 @@
       }
 
       function renderArtifacts(reports) {
-        const artifacts = Array.isArray(reports?.artifacts) ? reports.artifacts : [];
+        const artifacts = Array.isArray(reports?.artifacts) ? reports.artifacts.slice(0, 8) : [];
         artifactList.innerHTML = artifacts.length
           ? artifacts.map((artifact) => `
             <article class="artifact">
               <div class="artifact-meta">
                 <div>
                   <div class="artifact-kind">${escapeHtml(artifact.kind)}</div>
-                  <strong><a href="${escapeHtml(artifact.href)}" target="_blank" rel="noreferrer">${escapeHtml(artifact.label)}</a></strong>
-                </div>
+                  <strong><a href="${escapeHtml(artifact.href)}" target="_blank" rel="noreferrer">${escapeHtml(artifact.label)}</a></strong></div>
                 <small>${escapeHtml(formatBytes(artifact.size_bytes))}</small>
               </div>
               <p>${escapeHtml(`Artifact id: ${artifact.id}`)}</p>
             </article>
           `).join("")
           : '<div class="artifact"><p>No report artifacts were bundled into this image.</p></div>';
+      }
+
+      function updateSnapshotTags(summary) {
+        const snapshotText = summary?.generated_at
+          ? `Snapshot ${formatRelativeTime(summary.generated_at)}`
+          : "Snapshot unavailable";
+        catalogSummaryTag.textContent = snapshotText;
+        catalogZoneTag.textContent = snapshotText;
+      }
+
+      function updateLiveTags(live, metrics) {
+        summarySectionTag.textContent = live.available
+          ? `Live kube ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? " · stale" : ""}`
+          : "Live unavailable";
+        opsSectionTag.textContent = live.available
+          ? `Live kube incidents${live.stale ? " · stale" : ""}`
+          : "Live unavailable";
+        servicesSectionTag.textContent = live.available
+          ? `Live kube ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? " · stale" : ""}`
+          : "Live unavailable";
+        metricsSectionTag.textContent = metrics.available
+          ? `Prometheus ${metrics.window_minutes}m${metrics.stale ? " · stale" : ""}`
+          : "Prometheus unavailable";
+        restartSectionTag.textContent = metrics.available
+          ? `Prometheus ${metrics.window_minutes}m${metrics.stale ? " · stale" : ""}`
+          : "Prometheus unavailable";
+        telemetrySectionTag.textContent = metrics.available
+          ? `Prometheus ${formatEpoch(metrics.refreshed_at_epoch)}${metrics.stale ? " · stale" : ""}`
+          : "Prometheus unavailable";
       }
 
       async function loadSnapshot() {
@@ -1237,13 +1682,11 @@
           ? `Snapshot ${formatRelativeTime(summary.generated_at)} · ${formatTimestamp(summary.generated_at)}`
           : "Snapshot timestamp unavailable";
 
+        updateSnapshotTags(summary);
+        renderCatalogSummary(summary);
         renderLanguages(summary);
         renderApps(catalog);
         renderArtifacts(reports);
-
-        if (latestLiveOverview) {
-          renderLiveSummary(latestLiveOverview);
-        }
       }
 
       async function loadLive() {
@@ -1256,14 +1699,15 @@
         latestLiveOverview = live;
 
         liveRefresh.textContent = live.available
-          ? `Kubernetes refresh ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? " · stale cache" : ""}`
+          ? `Live kube ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? " · stale cache" : ""}`
           : "Live cluster monitoring unavailable in this runtime";
 
         const metrics = live.metrics || {};
         metricsRefresh.textContent = metrics.available
-          ? `Prometheus refresh ${formatEpoch(metrics.refreshed_at_epoch)}${metrics.stale ? " · stale cache" : ""}`
+          ? `Prometheus ${formatEpoch(metrics.refreshed_at_epoch)}${metrics.stale ? " · stale cache" : ""}`
           : "Prometheus metrics unavailable";
 
+        updateLiveTags(live, metrics);
         renderSignal(live);
         renderClusterMetrics(metrics);
         renderLiveSummary(live);
@@ -1298,7 +1742,5 @@
         loadSnapshot().catch((error) => renderError(error.message || "Failed to refresh snapshot data."));
       }, 300000);
     </script>
-  </body>
-</html>
   </body>
 </html>
