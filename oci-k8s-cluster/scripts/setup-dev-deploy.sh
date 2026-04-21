@@ -49,6 +49,41 @@ BUILDKITD_SOCK_LOCAL="/tmp/oci-buildkitd.sock"
 BUILDER_NAME="oci-builder"
 REGISTRY="registry.local:31444"
 KUBECONFIG_PATH="$REPO_ROOT/oci-k8s-cluster/kubeconfig_tunnel.yaml"
+DNOR_CA_PATH="$REPO_ROOT/oci-k8s-cluster/dnor-ca-issuer.crt"
+LOCAL_CA_DIR="$REPO_ROOT/tmp/ca-bundles"
+COMBINED_CA_BUNDLE="$LOCAL_CA_DIR/system-plus-dnor-ca.pem"
+
+detect_system_ca_bundle() {
+    local candidate
+
+    for candidate in \
+        /etc/ssl/certs/ca-certificates.crt \
+        /etc/pki/tls/certs/ca-bundle.crt \
+        /etc/ssl/cert.pem; do
+        if [ -f "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - <<'PY'
+import os
+import ssl
+
+paths = ssl.get_default_verify_paths()
+for candidate in (paths.openssl_cafile, paths.cafile):
+    if candidate and os.path.isfile(candidate):
+        print(candidate)
+        raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+        return $?
+    fi
+
+    return 1
+}
 
 # ─── 1. Verificar SSH ao master ────────────────────────────────────────────────
 info "Verificando SSH ao master ($MASTER_HOST)..."
@@ -156,7 +191,28 @@ else
     fi
 fi
 
-# ─── 7. Status final ──────────────────────────────────────────────────────────
+# ─── 7. Preparar bundle CA local para dnor.io/*.dnor.io ──────────────────────
+info "Preparando bundle CA local para endpoints internos (*.dnor.io)..."
+SYSTEM_CA_BUNDLE="$(detect_system_ca_bundle || true)"
+if [ -n "$SYSTEM_CA_BUNDLE" ] && [ -f "$DNOR_CA_PATH" ]; then
+    mkdir -p "$LOCAL_CA_DIR"
+    {
+        cat "$SYSTEM_CA_BUNDLE"
+        printf '\n'
+        cat "$DNOR_CA_PATH"
+    } > "$COMBINED_CA_BUNDLE"
+
+    export CURL_CA_BUNDLE="$COMBINED_CA_BUNDLE"
+    export SSL_CERT_FILE="$COMBINED_CA_BUNDLE"
+    export REQUESTS_CA_BUNDLE="$COMBINED_CA_BUNDLE"
+    export AWS_CA_BUNDLE="$COMBINED_CA_BUNDLE"
+    export NODE_EXTRA_CA_CERTS="$DNOR_CA_PATH"
+    ok "Bundle CA pronto em $COMBINED_CA_BUNDLE"
+else
+    warn "Nao foi possivel preparar bundle CA local; checks HTTPS internos podem exigir --cacert manual"
+fi
+
+# ─── 8. Status final ──────────────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
 echo "║         OCI Deploy Environment — Status          ║"
@@ -174,6 +230,10 @@ printf "║  %-20s  %-25s ║\n" "kubectl tunnel" "$([ "$KUBECTL_STATUS" -gt 0 ]
 AUTH_STATUS="$(jq -e ".auths[\"$REGISTRY\"]" ~/.docker/config.json >/dev/null 2>&1 && echo 'OK' || echo 'MISSING')"
 printf "║  %-20s  %-25s ║\n" "registry auth" "$REGISTRY $AUTH_STATUS"
 
+# CA bundle
+CA_STATUS="$( [ -f "$COMBINED_CA_BUNDLE" ] && echo 'READY' || echo 'MISSING' )"
+printf "║  %-20s  %-25s ║\n" "local CA bundle" "$CA_STATUS"
+
 echo "╠══════════════════════════════════════════════════╣"
 echo "║  Para deployar:                                  ║"
 echo "║    export KUBECONFIG=$KUBECONFIG_PATH            ║" | fold -s -w 52 | head -1
@@ -181,3 +241,6 @@ echo "║    cd apps/<service> && ./deploy.sh              ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 echo "  export KUBECONFIG=$KUBECONFIG_PATH"
+if [ -f "$COMBINED_CA_BUNDLE" ]; then
+    echo "  export CURL_CA_BUNDLE=$COMBINED_CA_BUNDLE"
+fi
