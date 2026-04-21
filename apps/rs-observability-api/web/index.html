@@ -211,8 +211,7 @@
       .summary-card,
       .incident-item,
       .hotspot-item,
-      .table-meta,
-      .stat-row {
+      .table-meta {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
@@ -488,6 +487,7 @@
         overflow: hidden;
         display: grid;
         gap: 14px;
+        min-width: 0;
       }
 
       .service-card::before {
@@ -515,7 +515,26 @@
         font-size: 1.06rem;
       }
 
+      .service-head > div,
+      .service-message,
+      .service-subtitle,
+      .stat-stack,
+      .stat-stack strong {
+        min-width: 0;
+      }
+
+      .service-message,
+      .service-subtitle,
+      .stat-stack strong {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
       .stat-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px 14px;
+        align-items: start;
         padding-top: 6px;
         border-top: 1px dashed var(--line);
       }
@@ -523,6 +542,17 @@
       .stat-stack {
         display: grid;
         gap: 4px;
+      }
+
+      .stat-stack.route-stack {
+        grid-column: 1 / -1;
+        padding-top: 8px;
+        border-top: 1px dashed rgba(22, 32, 43, 0.1);
+      }
+
+      .stat-stack.route-stack strong {
+        font-size: 0.98rem;
+        line-height: 1.2;
       }
 
       .stat-stack span {
@@ -728,11 +758,11 @@
 
       @media (min-width: 1880px) {
         main {
-          width: min(1880px, calc(100vw - 24px));
+          width: min(2060px, calc(100vw - 32px));
         }
 
         .masthead {
-          grid-template-columns: minmax(0, 1fr) minmax(640px, 0.94fr);
+          grid-template-columns: minmax(0, 1.08fr) minmax(720px, 0.92fr);
           gap: 36px;
           padding-left: 40px;
           padding-right: 40px;
@@ -749,15 +779,62 @@
         }
 
         .content-grid {
-          grid-template-columns: minmax(0, 1.74fr) minmax(420px, 0.78fr);
+          grid-template-columns: minmax(0, 1.9fr) minmax(400px, 0.7fr);
         }
 
         .service-grid {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .telemetry-grid {
           grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .catalog-layout {
+          grid-template-columns: minmax(0, 1.66fr) minmax(380px, 0.66fr);
+        }
+      }
+
+      @media (min-width: 2200px) {
+        main {
+          width: min(2320px, calc(100vw - 24px));
+        }
+
+        .masthead {
+          grid-template-columns: minmax(0, 1.04fr) minmax(840px, 0.96fr);
+          gap: 40px;
+          padding-left: 46px;
+          padding-right: 46px;
+        }
+
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 46px;
+          padding-right: 46px;
+        }
+
+        .priority-grid {
+          grid-template-columns: minmax(0, 1.42fr) minmax(440px, 0.66fr);
+        }
+
+        .content-grid {
+          grid-template-columns: minmax(0, 2.15fr) minmax(440px, 0.58fr);
+        }
+
+        .service-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .telemetry-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .catalog-layout {
+          grid-template-columns: minmax(0, 1.82fr) minmax(420px, 0.54fr);
         }
       }
 
@@ -1108,6 +1185,14 @@
           grid-template-columns: 1fr;
         }
 
+        .stat-row {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .stat-stack.route-stack {
+          grid-column: 1 / -1;
+        }
+
         .signal-mini,
         .summary-card,
         .metric-card {
@@ -1153,6 +1238,7 @@
 
         .stat-row {
           gap: 10px;
+          grid-template-columns: 1fr;
         }
 
         .signal-mini span,
@@ -1960,7 +2046,7 @@
                   <strong>${escapeHtml(formatDiscreteCount(service.restart_count))}</strong>
                   <span>restart count</span>
                 </div>
-                <div class="stat-stack">
+                <div class="stat-stack route-stack">
                   <strong>${escapeHtml(service.route || "internal")}</strong>
                   <span>primary route</span>
                 </div>
