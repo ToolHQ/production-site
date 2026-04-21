@@ -150,11 +150,15 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        max-width: 100%;
+        min-width: 0;
         padding: 10px 13px;
         border-radius: 999px;
         border: 1px solid var(--line);
         color: var(--muted);
         font-size: 0.9rem;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
       }
 
       .pill {
@@ -216,6 +220,12 @@
         align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
+      }
+
+      .section-head > div {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
       }
 
       .command-top {
@@ -437,6 +447,14 @@
         padding: 20px;
       }
 
+      .priority-panel,
+      .panel,
+      .catalog-main section,
+      .catalog-side section {
+        display: grid;
+        gap: 16px;
+      }
+
       .priority-panel {
         align-self: start;
         height: fit-content;
@@ -637,10 +655,10 @@
       }
 
       .catalog-head {
-        display: flex;
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
         align-items: flex-start;
-        justify-content: space-between;
-        gap: 18px;
+        gap: 20px;
         padding: 22px 22px 18px;
         border-bottom: 1px solid var(--line);
       }
@@ -648,6 +666,7 @@
       .catalog-head > div {
         display: grid;
         gap: 10px;
+        min-width: 0;
       }
 
       .catalog-layout {
@@ -680,6 +699,17 @@
         border-bottom: 1px solid var(--line);
         text-align: left;
         font-size: 0.95rem;
+        vertical-align: top;
+      }
+
+      td strong,
+      td small {
+        display: block;
+      }
+
+      td small {
+        margin-top: 4px;
+        line-height: 1.35;
       }
 
       th {
@@ -865,7 +895,8 @@
         .masthead,
         .content-grid,
         .catalog-layout,
-        .metric-grid {
+        .metric-grid,
+        .catalog-head {
           grid-template-columns: 1fr;
         }
 
@@ -1109,7 +1140,6 @@
         }
 
         .command-card {
-          order: -1;
           gap: 10px;
           padding: 16px;
           border-radius: 20px;
@@ -1251,6 +1281,66 @@
         .command-copy,
         .subhead {
           font-size: 0.9rem;
+        }
+      }
+
+      @media (max-width: 980px) {
+        .table-shell {
+          overflow: visible;
+        }
+
+        table {
+          min-width: 0;
+        }
+
+        thead {
+          display: none;
+        }
+
+        table,
+        tbody {
+          display: block;
+        }
+
+        tbody {
+          display: grid;
+          gap: 12px;
+        }
+
+        tbody tr {
+          display: grid;
+          gap: 10px;
+          padding: 14px;
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.78);
+        }
+
+        tbody td {
+          display: grid;
+          gap: 4px;
+          padding: 0;
+          border-bottom: 0;
+        }
+
+        tbody td::before {
+          content: attr(data-label);
+          font-size: 0.72rem;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--accent);
+        }
+
+        tbody td[colspan]::before {
+          content: none;
+        }
+
+        .table-status {
+          justify-self: start;
+        }
+
+        .route-tag {
+          width: 100%;
         }
       }
     </style>
@@ -1458,7 +1548,7 @@
                 </p>
                 <div class="section-tags">
                   <span class="panel-tag" id="catalog-zone-tag">Waiting for snapshot</span>
-                  <span class="panel-tag">Routes: /api/live/overview, /api/catalog, /api/reports</span>
+                  <span class="panel-tag route-tag">Routes: /api/live/overview, /api/catalog, /api/reports</span>
                 </div>
               </div>
             </div>
@@ -1603,6 +1693,10 @@
         return window.matchMedia("(max-width: 560px)").matches;
       }
 
+      function isCondensedViewport() {
+        return window.matchMedia("(max-width: 980px)").matches;
+      }
+
       function formatCompactRelativeTime(raw) {
         if (!raw) {
           return "time unknown";
@@ -1646,24 +1740,27 @@
 
       function refreshTopMetaPills() {
         const compact = isCompactViewport();
+        const condensed = isCondensedViewport();
 
         if (snapshotSummary) {
           generatedAt.textContent = snapshotSummary.generated_at
             ? compact
               ? `Snapshot · ${formatCompactRelativeTime(snapshotSummary.generated_at)}`
-              : `Snapshot · ${formatRelativeTime(snapshotSummary.generated_at).replace(/^generated\s/, "")} · ${formatMetaDate(snapshotSummary.generated_at)}`
+              : condensed
+                ? `Snapshot · ${formatRelativeTime(snapshotSummary.generated_at).replace(/^generated\s/, "")}`
+                : `Snapshot · ${formatRelativeTime(snapshotSummary.generated_at).replace(/^generated\s/, "")} · ${formatMetaDate(snapshotSummary.generated_at)}`
             : "Snapshot unavailable";
         }
 
         if (latestLiveOverview) {
           liveRefresh.textContent = latestLiveOverview.available
-            ? `${compact ? "Live" : "Live kube"} ${formatShortClock(latestLiveOverview.refreshed_at_epoch)}${latestLiveOverview.stale ? " · stale" : ""}`
+            ? `${condensed ? "Live" : "Live kube"} ${formatShortClock(latestLiveOverview.refreshed_at_epoch)}${latestLiveOverview.stale ? " · stale" : ""}`
             : "Live unavailable";
         }
 
         if (latestMetrics) {
           metricsRefresh.textContent = latestMetrics.available
-            ? `${compact ? "Prom" : "Prometheus"} ${formatShortClock(latestMetrics.refreshed_at_epoch)}${latestMetrics.stale ? " · stale" : ""}`
+            ? `${condensed ? "Prom" : "Prometheus"} ${formatShortClock(latestMetrics.refreshed_at_epoch)}${latestMetrics.stale ? " · stale" : ""}`
             : "Prometheus unavailable";
         }
       }
@@ -2156,16 +2253,16 @@
         appsBody.innerHTML = prioritizedApps.length
           ? prioritizedApps.map((app) => `
             <tr>
-              <td>
+              <td data-label="App">
                 <strong>${escapeHtml(app.name)}</strong>
                 <small>${escapeHtml(app.description || app.framework || "No description")}</small>
               </td>
-              <td>${escapeHtml([app.language || "unknown", app.framework || ""].filter(Boolean).join(" · "))}</td>
-              <td>
+              <td data-label="Stack">${escapeHtml([app.language || "unknown", app.framework || ""].filter(Boolean).join(" · "))}</td>
+              <td data-label="Deploy Path">
                 <strong>${escapeHtml(app.deploy_script || "manual / missing")}</strong>
                 <small>${escapeHtml(app.exposed_port ? `port ${app.exposed_port}` : app.readiness_missing || "path available")}</small>
               </td>
-              <td><span class="table-status ${tableStatusClass(app.deploy_readiness)}">${escapeHtml(app.deploy_readiness || "unknown")}</span></td>
+              <td data-label="Readiness"><span class="table-status ${tableStatusClass(app.deploy_readiness)}">${escapeHtml(app.deploy_readiness || "unknown")}</span></td>
             </tr>
           `).join("")
           : '<tr><td colspan="4">No cataloged apps found.</td></tr>';
@@ -2189,8 +2286,9 @@
       }
 
       function updateSnapshotTags(summary) {
+        const condensed = isCondensedViewport();
         const snapshotText = summary?.generated_at
-          ? `Snapshot ${formatRelativeTime(summary.generated_at)}`
+          ? `Snapshot ${condensed ? formatCompactRelativeTime(summary.generated_at) : formatRelativeTime(summary.generated_at)}`
           : "Snapshot unavailable";
         catalogSummaryTag.textContent = snapshotText;
         catalogZoneTag.textContent = snapshotText;
@@ -2287,6 +2385,9 @@
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
           refreshTopMetaPills();
+          if (snapshotSummary) {
+            updateSnapshotTags(snapshotSummary);
+          }
         }, 120);
       });
       setInterval(() => {
