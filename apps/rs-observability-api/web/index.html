@@ -51,7 +51,7 @@
       }
 
       main {
-        width: min(1360px, calc(100vw - 28px));
+        width: min(1440px, calc(100vw - 28px));
         margin: 20px auto 48px;
         position: relative;
         z-index: 1;
@@ -427,6 +427,7 @@
 
       .priority-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
         padding: 22px 30px;
         border-bottom: 1px solid var(--line);
       }
@@ -436,9 +437,15 @@
         padding: 20px;
       }
 
+      .priority-panel {
+        align-self: start;
+        height: fit-content;
+      }
+
       .content-grid {
         display: grid;
         grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.82fr);
+        align-items: start;
       }
 
       .main-stack,
@@ -457,6 +464,7 @@
       .rail-stack {
         border-left: 1px solid var(--line);
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.12));
+        align-content: start;
       }
 
       .service-grid,
@@ -540,7 +548,7 @@
       }
 
       .summary-card {
-        min-height: 102px;
+        min-height: 92px;
         flex-direction: column;
         justify-content: space-between;
       }
@@ -678,6 +686,45 @@
         padding: 14px 0;
       }
 
+      @media (min-width: 1680px) {
+        main {
+          width: min(1680px, calc(100vw - 44px));
+          margin: 24px auto 56px;
+        }
+
+        .masthead {
+          grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
+          gap: 30px;
+          padding: 32px 36px;
+        }
+
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 36px;
+          padding-right: 36px;
+        }
+
+        .priority-grid {
+          grid-template-columns: minmax(0, 1.18fr) minmax(380px, 0.82fr);
+        }
+
+        .content-grid {
+          grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.88fr);
+        }
+
+        .service-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .catalog-layout {
+          grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.84fr);
+        }
+      }
+
       @keyframes pulse {
         0% {
           box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.3);
@@ -718,7 +765,92 @@
 
       @media (max-width: 840px) {
         main {
-          width: min(100vw - 18px, 1360px);
+          width: calc(100vw - 12px);
+          margin: 12px auto 26px;
+        }
+
+        .shell {
+          border-radius: 24px;
+        }
+
+        .masthead {
+          gap: 18px;
+          padding-top: 20px;
+          padding-bottom: 18px;
+        }
+
+        .brand {
+          gap: 12px;
+        }
+
+        .eyebrow,
+        .section-title,
+        .section-kicker {
+          font-size: 0.73rem;
+          letter-spacing: 0.18em;
+        }
+
+        h1 {
+          font-size: clamp(2.3rem, 11vw, 3.35rem);
+        }
+
+        .subhead,
+        .catalog-head p,
+        .section-head p,
+        .table-meta p,
+        .command-copy,
+        .service-message {
+          line-height: 1.48;
+        }
+
+        .meta-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        #generated-at {
+          flex: 1 1 100%;
+        }
+
+        #live-refresh,
+        #metrics-refresh {
+          flex: 1 1 calc(50% - 4px);
+        }
+
+        .pill {
+          width: auto;
+          min-width: 0;
+          padding: 9px 12px;
+          justify-content: flex-start;
+          font-size: 0.84rem;
+        }
+
+        .command-card {
+          gap: 12px;
+          padding: 18px;
+          border-radius: 22px;
+        }
+
+        .command-top,
+        .metric-top,
+        .service-head,
+        .telemetry-header,
+        .artifact-meta,
+        .stat-row {
+          flex-wrap: wrap;
+        }
+
+        .command-top {
+          font-size: 0.84rem;
+        }
+
+        .command-score {
+          font-size: clamp(2.45rem, 11vw, 3.25rem);
+        }
+
+        .next-step {
+          padding: 12px 14px;
         }
 
         .masthead,
@@ -732,15 +864,81 @@
           padding-right: 22px;
         }
 
-        .operator-grid,
+        .operator-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          padding-top: 18px;
+          padding-bottom: 18px;
+        }
+
         .metric-grid,
         .priority-grid,
         .service-grid,
-        .telemetry-grid,
+        .telemetry-grid {
+          grid-template-columns: 1fr;
+        }
+
         .summary-grid,
         .catalog-summary-grid,
         .telemetry-grid-mini {
-          grid-template-columns: 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .signal-mini,
+        .summary-card,
+        .metric-card {
+          padding: 12px 13px;
+        }
+
+        .signal-mini {
+          min-width: 0;
+        }
+
+        .signal-mini strong {
+          font-size: 1.16rem;
+          line-height: 1;
+        }
+
+        .signal-mini span {
+          display: block;
+          font-size: 0.92rem;
+          line-height: 1.25;
+        }
+
+        .panel,
+        .priority-panel {
+          padding: 16px;
+        }
+
+        .service-card,
+        .telemetry-card,
+        .artifact,
+        .incident-item,
+        .hotspot-item {
+          padding: 14px 15px;
+        }
+
+        .sparkline {
+          height: 60px;
+        }
+
+        .section-head {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .section-tags {
+          gap: 8px;
+        }
+
+        .panel-tag,
+        .trend-chip,
+        .status-pill,
+        .severity,
+        .table-status {
+          padding: 6px 10px;
+          font-size: 0.74rem;
         }
 
         .catalog-head {
@@ -757,6 +955,14 @@
           max-width: none;
         }
 
+        .table-shell {
+          overflow-x: auto;
+        }
+
+        table {
+          min-width: 620px;
+        }
+
         th,
         td {
           padding: 12px 13px;
@@ -764,6 +970,26 @@
 
         .error {
           margin: 0 22px 22px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .summary-grid,
+        .catalog-summary-grid,
+        .telemetry-grid-mini {
+          grid-template-columns: 1fr;
+        }
+
+        .metric-value,
+        .telemetry-value,
+        .hotspot-value,
+        .signal-mini strong,
+        .summary-card strong {
+          font-size: 1.2rem;
+        }
+
+        .stat-row {
+          gap: 10px;
         }
       }
     </style>
