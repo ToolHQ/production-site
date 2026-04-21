@@ -25,6 +25,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-137](2026/Q2/T-137-Observability-Console-Responsive-Polish-Pass-3.md) | **Observability Console Responsive Polish Pass 3** | 🔼 High | DevExp / Observability | 3h |
 | [T-136](2026/Q2/T-136-Observability-Console-Responsive-Polish-and-QA-Report-Hygiene.md) | **Observability Console Responsive Polish and QA Report Hygiene** | 🔼 High | DevExp / Observability | 4h |
 | [T-135](2026/Q2/T-135-Observability-Console-Operations-First-UX-Refactor.md) | **Observability Console Operations-First UX Refactor** | 🔼 High | DevExp / Observability | 6h |
 | [T-134](2026/Q2/T-134-Observability-Console-Prometheus-Time-Series.md) | **Observability Console Prometheus Time-Series** | 🔼 High | DevExp / Observability | 6h |
