@@ -51,7 +51,7 @@
       }
 
       main {
-        width: min(1440px, calc(100vw - 28px));
+        width: min(1480px, calc(100vw - 28px));
         margin: 20px auto 48px;
         position: relative;
         z-index: 1;
@@ -135,6 +135,7 @@
 
       .subhead {
         max-width: 60ch;
+        font-size: 1.06rem;
       }
 
       .meta-row,
@@ -688,12 +689,12 @@
 
       @media (min-width: 1680px) {
         main {
-          width: min(1680px, calc(100vw - 44px));
+          width: min(1820px, calc(100vw - 32px));
           margin: 24px auto 56px;
         }
 
         .masthead {
-          grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
+          grid-template-columns: minmax(0, 1.04fr) minmax(560px, 0.96fr);
           gap: 30px;
           padding: 32px 36px;
         }
@@ -713,7 +714,7 @@
         }
 
         .content-grid {
-          grid-template-columns: minmax(0, 1.55fr) minmax(360px, 0.88fr);
+          grid-template-columns: minmax(0, 1.62fr) minmax(380px, 0.9fr);
         }
 
         .service-grid {
@@ -721,7 +722,42 @@
         }
 
         .catalog-layout {
-          grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.84fr);
+          grid-template-columns: minmax(0, 1.52fr) minmax(380px, 0.82fr);
+        }
+      }
+
+      @media (min-width: 1880px) {
+        main {
+          width: min(1880px, calc(100vw - 24px));
+        }
+
+        .masthead {
+          grid-template-columns: minmax(0, 1fr) minmax(640px, 0.94fr);
+          gap: 36px;
+          padding-left: 40px;
+          padding-right: 40px;
+        }
+
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 40px;
+          padding-right: 40px;
+        }
+
+        .content-grid {
+          grid-template-columns: minmax(0, 1.74fr) minmax(420px, 0.78fr);
+        }
+
+        .service-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .telemetry-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
       }
 
@@ -871,11 +907,18 @@
           padding-bottom: 18px;
         }
 
-        .metric-grid,
         .priority-grid,
-        .service-grid,
         .telemetry-grid {
           grid-template-columns: 1fr;
+        }
+
+        .metric-grid,
+        .service-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        #cluster-metrics .metric-card:last-child {
+          grid-column: 1 / -1;
         }
 
         .summary-grid,
@@ -973,6 +1016,126 @@
         }
       }
 
+      @media (max-width: 680px) {
+        main {
+          width: calc(100vw - 8px);
+          margin: 8px auto 18px;
+        }
+
+        .shell {
+          border-radius: 20px;
+        }
+
+        .masthead {
+          gap: 14px;
+          padding: 16px 18px 14px;
+        }
+
+        .command-card {
+          order: -1;
+          gap: 10px;
+          padding: 16px;
+          border-radius: 20px;
+        }
+
+        .brand {
+          gap: 10px;
+        }
+
+        h1 {
+          font-size: clamp(1.95rem, 9.8vw, 2.8rem);
+          max-width: 9ch;
+        }
+
+        .subhead {
+          font-size: 0.97rem;
+          line-height: 1.38;
+        }
+
+        .meta-row {
+          gap: 6px;
+        }
+
+        .pill {
+          padding: 8px 10px;
+          font-size: 0.78rem;
+        }
+
+        .command-top {
+          font-size: 0.78rem;
+        }
+
+        .command-score {
+          font-size: clamp(2.15rem, 12vw, 3rem);
+        }
+
+        .command-copy {
+          font-size: 0.98rem;
+          line-height: 1.35;
+        }
+
+        .next-step {
+          gap: 4px;
+          padding: 10px 12px;
+          border-radius: 16px;
+        }
+
+        .next-step strong {
+          font-size: 0.74rem;
+        }
+
+        .masthead,
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+
+        .operator-grid {
+          gap: 8px;
+          padding-top: 14px;
+          padding-bottom: 14px;
+        }
+
+        .metric-grid,
+        .service-grid,
+        .telemetry-grid,
+        .priority-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .signal-mini,
+        .summary-card,
+        .metric-card {
+          padding: 10px 11px;
+        }
+
+        .metric-card {
+          gap: 8px;
+        }
+
+        .panel,
+        .priority-panel {
+          padding: 14px;
+        }
+
+        .service-card,
+        .telemetry-card,
+        .artifact,
+        .incident-item,
+        .hotspot-item {
+          padding: 12px 13px;
+        }
+
+        .sparkline {
+          height: 48px;
+        }
+      }
+
       @media (max-width: 560px) {
         .summary-grid,
         .catalog-summary-grid,
@@ -985,11 +1148,23 @@
         .hotspot-value,
         .signal-mini strong,
         .summary-card strong {
-          font-size: 1.2rem;
+          font-size: 1.08rem;
         }
 
         .stat-row {
           gap: 10px;
+        }
+
+        .signal-mini span,
+        .summary-card span,
+        .metric-meta,
+        .metric-note,
+        .service-subtitle,
+        .telemetry-support,
+        .telemetry-meta,
+        .command-copy,
+        .subhead {
+          font-size: 0.9rem;
         }
       }
     </style>
@@ -1284,6 +1459,7 @@
 
       let snapshotSummary = null;
       let latestLiveOverview = null;
+      let latestMetrics = null;
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -1335,6 +1511,75 @@
           return `generated ${hours} hour${hours === 1 ? "" : "s"} ago`;
         }
         return `generated ${days} day${days === 1 ? "" : "s"} ago`;
+      }
+
+      function isCompactViewport() {
+        return window.matchMedia("(max-width: 560px)").matches;
+      }
+
+      function formatCompactRelativeTime(raw) {
+        if (!raw) {
+          return "time unknown";
+        }
+        const date = new Date(raw);
+        if (Number.isNaN(date.getTime())) {
+          return raw;
+        }
+        const diffMs = Math.max(0, Date.now() - date.getTime());
+        const minutes = Math.round(diffMs / 60000);
+        const hours = Math.round(diffMs / 3600000);
+        const days = Math.round(diffMs / 86400000);
+        if (minutes < 1) {
+          return "now";
+        }
+        if (minutes < 60) {
+          return `${minutes}m ago`;
+        }
+        if (hours < 48) {
+          return `${hours}h ago`;
+        }
+        return `${days}d ago`;
+      }
+
+      function formatMetaDate(raw) {
+        if (!raw) {
+          return "date unavailable";
+        }
+        const date = new Date(raw);
+        return Number.isNaN(date.getTime())
+          ? raw
+          : date.toLocaleString([], { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
+      }
+
+      function formatShortClock(epochSeconds) {
+        if (!epochSeconds) {
+          return "Waiting";
+        }
+        return new Date(epochSeconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      }
+
+      function refreshTopMetaPills() {
+        const compact = isCompactViewport();
+
+        if (snapshotSummary) {
+          generatedAt.textContent = snapshotSummary.generated_at
+            ? compact
+              ? `Snapshot · ${formatCompactRelativeTime(snapshotSummary.generated_at)}`
+              : `Snapshot · ${formatRelativeTime(snapshotSummary.generated_at).replace(/^generated\s/, "")} · ${formatMetaDate(snapshotSummary.generated_at)}`
+            : "Snapshot unavailable";
+        }
+
+        if (latestLiveOverview) {
+          liveRefresh.textContent = latestLiveOverview.available
+            ? `${compact ? "Live" : "Live kube"} ${formatShortClock(latestLiveOverview.refreshed_at_epoch)}${latestLiveOverview.stale ? " · stale" : ""}`
+            : "Live unavailable";
+        }
+
+        if (latestMetrics) {
+          metricsRefresh.textContent = latestMetrics.available
+            ? `${compact ? "Prom" : "Prometheus"} ${formatShortClock(latestMetrics.refreshed_at_epoch)}${latestMetrics.stale ? " · stale" : ""}`
+            : "Prometheus unavailable";
+        }
       }
 
       function formatBytes(bytes) {
@@ -1904,10 +2149,7 @@
         ]);
 
         snapshotSummary = summary;
-        generatedAt.textContent = summary.generated_at
-          ? `Snapshot ${formatRelativeTime(summary.generated_at)} · ${formatTimestamp(summary.generated_at)}`
-          : "Snapshot timestamp unavailable";
-
+        refreshTopMetaPills();
         updateSnapshotTags(summary);
         renderCatalogSummary(summary);
         renderLanguages(summary);
@@ -1923,16 +2165,9 @@
 
         const live = await response.json();
         latestLiveOverview = live;
-
-        liveRefresh.textContent = live.available
-          ? `Live kube ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? " · stale cache" : ""}`
-          : "Live cluster monitoring unavailable in this runtime";
-
         const metrics = live.metrics || {};
-        metricsRefresh.textContent = metrics.available
-          ? `Prometheus ${formatEpoch(metrics.refreshed_at_epoch)}${metrics.stale ? " · stale cache" : ""}`
-          : "Prometheus metrics unavailable";
-
+        latestMetrics = metrics;
+        refreshTopMetaPills();
         updateLiveTags(live, metrics);
         renderSignal(live);
         renderClusterMetrics(metrics);
@@ -1961,6 +2196,13 @@
       }
 
       bootstrap();
+      let resizeTimer = null;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          refreshTopMetaPills();
+        }, 120);
+      });
       setInterval(() => {
         loadLive().catch((error) => renderError(error.message || "Failed to refresh live data."));
       }, 15000);
