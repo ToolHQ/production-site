@@ -25,6 +25,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-139](2026/Q2/T-139-Observability-Console-Ultrawide-UX-and-Text-Visibility-Pass.md) | **Observability Console Ultrawide UX and Text Visibility Pass** | 🔼 High | DevExp / Observability | 3h |
 | [T-138](2026/Q2/T-138-Local-Trust-Refresh-for-Internal-dnor-CA.md) | **Local Trust Refresh for Internal dnor CA** | 🔼 High | DevExp / TLS | 1h |
 | [T-137](2026/Q2/T-137-Observability-Console-Responsive-Polish-Pass-3.md) | **Observability Console Responsive Polish Pass 3** | 🔼 High | DevExp / Observability | 3h |
 | [T-136](2026/Q2/T-136-Observability-Console-Responsive-Polish-and-QA-Report-Hygiene.md) | **Observability Console Responsive Polish and QA Report Hygiene** | 🔼 High | DevExp / Observability | 4h |
