@@ -1,0 +1,235 @@
+name: Quality Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs for the same ref — keeps resource usage minimal
+concurrency:
+  group: quality-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Detect which paths changed so downstream jobs only run when needed
+  # ─────────────────────────────────────────────────────────────────
+  paths:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      shell:        ${{ steps.filter.outputs.shell }}
+      rust:         ${{ steps.filter.outputs.rust }}
+      bats:         ${{ steps.filter.outputs.bats }}
+      js_backend:   ${{ steps.filter.outputs.js_backend }}
+      js_react:     ${{ steps.filter.outputs.js_react }}
+      js_static:    ${{ steps.filter.outputs.js_static }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shell:
+              - 'tools/**/*.sh'
+              - 'tools/**/*.bash'
+              - 'oci-k8s-cluster/**/*.sh'
+              - 'oci-k8s-cluster/**/*.bash'
+            rust:
+              - 'apps/rs-observability-api/**'
+            bats:
+              - 'oci-k8s-cluster/testing/**'
+              - 'oci-k8s-cluster/run_tests.sh'
+              - 'oci-k8s-cluster/k8s_ops_menu.sh'
+              - 'oci-k8s-cluster/scripts/**'
+              - 'oci-k8s-cluster/lib/**'
+            js_backend:
+              - 'apps/back-end/**'
+            js_react:
+              - 'apps/react-static/**'
+            js_static:
+              - 'apps/static/**'
+
+  # ─────────────────────────────────────────────────────────────────
+  # Shell: syntax (bash -n) + shellcheck + shfmt
+  # ─────────────────────────────────────────────────────────────────
+  shell-quality:
+    name: Shell quality gates
+    needs: paths
+    if: needs.paths.outputs.shell == 'true'
+    runs-on: ubuntu-latest
+    # Informative mode during T-146 stabilisation window — will become
+    # required status check in next task after passing consistently.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Install shfmt
+        run: |
+          SHFMT_VERSION=v3.8.0
+          curl -sSfL "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" \
+            -o /usr/local/bin/shfmt
+          chmod +x /usr/local/bin/shfmt
+
+      - name: Run shell quality gates
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="HEAD^1"
+          fi
+          CHANGED=$(git diff --name-only "$BASE"...HEAD -- \
+            'tools/**/*.sh' 'tools/**/*.bash' \
+            'oci-k8s-cluster/**/*.sh' 'oci-k8s-cluster/**/*.bash' \
+            2>/dev/null | tr '\n' ' ')
+          if [[ -z "${CHANGED// }" ]]; then
+            echo "[info] No managed shell paths changed; skipping"
+            exit 0
+          fi
+          # shellcheck disable=SC2086
+          ./tools/harness/verify.sh verify-changed --allow-unmapped --paths $CHANGED
+
+  # ─────────────────────────────────────────────────────────────────
+  # Rust: fmt + clippy + test (rs-observability-api)
+  # ─────────────────────────────────────────────────────────────────
+  rust-quality:
+    name: Rust quality gates (rs-observability-api)
+    needs: paths
+    if: needs.paths.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/rs-observability-api/target
+          key: cargo-${{ hashFiles('apps/rs-observability-api/Cargo.lock') }}
+          restore-keys: cargo-
+
+      - name: rust fmt --check
+        run: cd apps/rs-observability-api && cargo fmt --check
+
+      - name: rust clippy
+        run: cd apps/rs-observability-api && cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: rust test
+        run: cd apps/rs-observability-api && cargo test
+
+  # ─────────────────────────────────────────────────────────────────
+  # BATS: oci-k8s-cluster shell/TUI tests
+  # ─────────────────────────────────────────────────────────────────
+  bats-quality:
+    name: BATS gates (oci-k8s-cluster)
+    needs: paths
+    if: needs.paths.outputs.bats == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up BATS
+        run: cd oci-k8s-cluster && ./testing/setup_bats.sh
+
+      - name: Run BATS tests
+        run: cd oci-k8s-cluster && ./run_tests.sh
+
+  # ─────────────────────────────────────────────────────────────────
+  # JS/TS — back-end (typecheck + lint)
+  # ─────────────────────────────────────────────────────────────────
+  js-backend-quality:
+    name: JS quality gates (back-end)
+    needs: paths
+    if: needs.paths.outputs.js_backend == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/back-end/package-lock.json
+
+      - name: Install dependencies
+        run: cd apps/back-end && npm ci
+
+      - name: typecheck
+        run: cd apps/back-end && npm run typecheck
+
+      - name: lint
+        run: cd apps/back-end && npm run lint
+
+  # ─────────────────────────────────────────────────────────────────
+  # JS/TS — react-static (typecheck + test:ci)
+  # ─────────────────────────────────────────────────────────────────
+  js-react-quality:
+    name: JS quality gates (react-static)
+    needs: paths
+    if: needs.paths.outputs.js_react == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/react-static/package-lock.json
+
+      - name: Install dependencies
+        run: cd apps/react-static && npm ci
+
+      - name: typecheck
+        run: cd apps/react-static && npm run typecheck
+
+      - name: test:ci
+        run: cd apps/react-static && npm run test:ci
+        env:
+          CI: true
+
+  # ─────────────────────────────────────────────────────────────────
+  # JS/TS — static (typecheck)
+  # ─────────────────────────────────────────────────────────────────
+  js-static-quality:
+    name: JS quality gates (static)
+    needs: paths
+    if: needs.paths.outputs.js_static == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/static/package-lock.json
+
+      - name: Install dependencies
+        run: cd apps/static && npm ci
+
+      - name: typecheck
+        run: cd apps/static && npm run typecheck
