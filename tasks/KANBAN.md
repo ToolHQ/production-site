@@ -26,6 +26,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-146](2026/Q2/T-146-CI-path-aware-required-checks-rollout.md) | **CI path-aware required checks rollout** | 🔼 High | DevExp / Tooling | 4h |
 | [T-145](2026/Q2/T-145-JS-TS-script-convergence.md) | **JS/TS script convergence** | 🔼 High | DevExp / Tooling | 4h |
 | [T-144](2026/Q2/T-144-Shell-TUI-quality-gates.md) | **Shell TUI quality gates** | 🔼 High | DevExp / Tooling | 4h |
 | [T-143](2026/Q2/T-143-rs-observability-api-modularization-for-testability.md) | **rs-observability-api modularization for testability** | 🔼 High | DevExp / Observability | 6h |
