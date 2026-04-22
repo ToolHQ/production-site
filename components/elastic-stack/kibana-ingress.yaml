@@ -16,7 +16,7 @@ spec:
   - hosts:
     - kibana.dnor.io
     - es.dnor.io
-    secretName: elk-tls 
+    secretName: elk-tls
   rules:
   - host: kibana.dnor.io
     http:

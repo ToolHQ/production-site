@@ -6,21 +6,21 @@ global:
     # Use official registry (supports ARM64)
     repository: deepflowce
     pullPolicy: IfNotPresent
-  
+
   # Single replica for resource efficiency
   replicas: 1
-  
+
   # Use Longhorn for persistent storage
   storageClass: "longhorn"
-  
+
   # Timezone
   timezone: "America/Sao_Paulo"
-  
+
   # Passwords
   password:
     mysql: "deepflow-mysql-pass"
     clickhouse: ""  # Empty = no password for ClickHouse
-  
+
   # Disable NodePort (use Ingress instead - Ingress-First policy)
   nodePort:
     clickhouseTcpPort:
@@ -107,11 +107,11 @@ deepflow-agent:
     limits:
       cpu: 1000m
       memory: 768Mi
-  
+
   # Enable eBPF optimizations
   sysctlInitContainer:
     enabled: true
-  
+
   # Security context for eBPF
   securityContext:
     capabilities:

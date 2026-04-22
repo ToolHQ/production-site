@@ -13,9 +13,9 @@ global:
   dnsPolicy: ClusterFirst
   password:
     mysql: deepflow
-    #grafana: deepflow 
+    #grafana: deepflow
     clickhouse:
-    byconity: 
+    byconity:
   podManagementPolicy: "OrderedReady"
   replicas: 1  ## replicas for deepflow-server and clickhouse
   podAntiAffinityLabelSelector: []
@@ -25,7 +25,7 @@ global:
   nodeAffinityLabelSelector: []
   nodeAffinityTermLabelSelector: []
   timezone: "Asia/Shanghai"
-  nodePort: 
+  nodePort:
     clickhouseTcpPort:
     clickhouseHttpPort:
     deepflowServerIngester: 30033
@@ -34,22 +34,22 @@ global:
     deepflowServerhealthCheck: 30417
   ntpServer: ntp.aliyun.com
   ## Whether to enable allInone local storage, if enabled, the local /opt directory is used to store data by default, ignoring the node affinity check, and is not responsible for any data persistence
-  allInOneLocalStorage: false 
+  allInOneLocalStorage: false
   storageClass: ""
   ## Select a storage engine. Currently, clickhouse and byconity are available
-  storageEngine: clickhouse  
+  storageEngine: clickhouse
   externalClickHouse:
     enabled: false  ## Enable external ClickHouse
     type: ep
 
     ## External ClickHouse clusterName,The default value is 'default', query method:  'select cluster,host_address,port from system.clusters;'
-    clusterName: default 
+    clusterName: default
 
     ## External ClickHouse storage policy name,The default value is 'default', query method: 'select policy_name from system.storage_policies;'
-    storagePolicy: default 
+    storagePolicy: default
     username: default ## External ClickHouse username
     password: password ## External ClickHouse Password
-    
+
     ## External ClickHouse IP address and port list, DeepFlow writes IP and port information to an svc endpoint, deepflow-server obtains ClickHouse's IP:Port through get&wath&list endpoint.
     ## deepflow-server needs to access the real IP address of ClickHouse, the port is connected using tcp-port, usually 9000, and query IP:Port through 'select host_address,port from system.clusters;'.
     hosts: []
@@ -181,7 +181,7 @@ server:
     loadBalancerSourceRanges: []
 
     ## Denotes if this Service desires to route external traffic to node-local or cluster-wide endpoints
-  
+
     externalTrafficPolicy: Cluster
 
     ## Service type
@@ -264,7 +264,7 @@ app:
       ## Port to expose on each node
       ## Only used if service.type is 'NodePort'
       ##
-      nodePort: 
+      nodePort:
       protocol: TCP
 
     ## Additional ports to open for deepflow querier service
@@ -427,7 +427,7 @@ clickhouse:
     # runAsUser: 1000
   storageConfig:
     ## persistentVolumeClaim/hostPath
-    ## If you use hostPath, you must configure nodeAffinityLabelSelector, otherwise your data will be lost when Pod drifts, ignored allInOneLocalStorage=true 
+    ## If you use hostPath, you must configure nodeAffinityLabelSelector, otherwise your data will be lost when Pod drifts, ignored allInOneLocalStorage=true
     ## 如果使用hostPath存储clickhouse数据，则必须配置nodeAffinityLabelSelector，避免pod漂移导致数据丢失，allInOneLocalStorage=true 时忽略
     type: persistentVolumeClaim
     generateType: "{{ if $.Values.global.allInOneLocalStorage }}hostPath{{ else }}{{$.Values.storageConfig.type}}{{end}}" #Please ignore this
@@ -437,7 +437,7 @@ clickhouse:
         accessModes:
         - ReadWriteOnce
         size: 100Gi
-        annotations: 
+        annotations:
         storageClass: "{{ .Values.global.storageClass }}"
         # selector:
         #   matchLabels:
@@ -446,7 +446,7 @@ clickhouse:
         accessModes:
         - ReadWriteOnce
         size: 200Gi
-        annotations: 
+        annotations:
         storageClass: "{{ .Values.global.storageClass }}"
         # selector:
         #   matchLabels:
@@ -498,7 +498,7 @@ clickhouse:
     loadBalancerSourceRanges: []
 
     ## Denotes if this Service desires to route external traffic to node-local or cluster-wide endpoints
-  
+
     externalTrafficPolicy: Cluster
 
     ## Service type
@@ -533,7 +533,7 @@ clickhouse:
       topologyKey: "kubernetes.io/hostname"
   podAntiAffinityTermLabelSelector: []
   podAffinityLabelSelector: []
-  podAffinityTermLabelSelector: 
+  podAffinityTermLabelSelector:
     - topologyKey: kubernetes.io/hostname
       weight: 10
       labelSelector:
@@ -597,7 +597,7 @@ mysql:
         "helm.sh/resource-policy": keep
       # existingClaim: your-claim-pvc-name
       accessMode: ReadWriteOnce
-      size: 50Gi 
+      size: 50Gi
 
   service:
     ## Configuration for ClickHouse service
@@ -613,7 +613,7 @@ mysql:
     - name: tcp
       port: 30130
       targetPort: 30130
-      nodePort: 
+      nodePort:
       protocol: TCP
     ## Additional ports to open for server service
     additionalPorts: []
@@ -623,7 +623,7 @@ mysql:
     loadBalancerSourceRanges: []
 
     ## Denotes if this Service desires to route external traffic to node-local or cluster-wide endpoints
-  
+
     externalTrafficPolicy: Cluster
 
     ## Service type
@@ -674,10 +674,10 @@ deepflow-agent:
   agentFullnameOverride: "deepflow-agent"
   timezone: "{{ .Values.global.timezone }}"
 
-  deployComponent: 
+  deployComponent:
   - "daemonset"
   # - "watcher"
-  # 
+  #
   tkeSidecar: false
   daemonsetWatchDisabled: false  # Whether to disable the watch for Agent configured through daemonset
   podAnnotations: {}
@@ -686,11 +686,11 @@ deepflow-agent:
     # fsGroup: 2000
   hostNetwork: "false"
   dnsPolicy: "ClusterFirst"
-  ## Mount the netns hostPath directory read-only 
+  ## Mount the netns hostPath directory read-only
   netns:
     mount: false
   extraVolumeMounts: []
-  securityContext: 
+  securityContext:
     # privileged: true
     capabilities:
       add:
@@ -726,7 +726,7 @@ deepflow-agent:
     - name: receive
       port: 80
       targetPort: receive
-      nodePort: 
+      nodePort:
       protocol: TCP
 
     ## Additional ports to open for server service
@@ -737,7 +737,7 @@ deepflow-agent:
     loadBalancerSourceRanges: []
 
     ## Denotes if this Service desires to route external traffic to node-local or cluster-wide endpoints
-  
+
     externalTrafficPolicy: Cluster
 
     ## Service type
@@ -746,8 +746,8 @@ deepflow-agent:
 
   deepflowServerNodeIPS:
   - '{{ include "deepflow.fullname" . }}-server'
-  kubernetesClusterId: 
-  agentGroupID: 
+  kubernetesClusterId:
+  agentGroupID:
   ## This command takes effect when agent-group-config external_agent_http_proxy_enabled=1 is configured using deepflow-ctl
   ## Set the port to the agent-group-config port
   externalAgentHttpProxyPort: 38086
@@ -852,7 +852,7 @@ grafana:
       - name: grafana-datasources-config
         mountPath: /etc/grafana/provisioning/datasources
 
-  extraEmptyDirMounts: 
+  extraEmptyDirMounts:
     - name: custom-plugins
       mountPath: /var/lib/grafana/plugins
     - name: deepflow-dashboards

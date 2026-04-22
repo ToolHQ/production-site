@@ -25,6 +25,7 @@ jobs:
       js_backend:   ${{ steps.filter.outputs.js_backend }}
       js_react:     ${{ steps.filter.outputs.js_react }}
       js_static:    ${{ steps.filter.outputs.js_static }}
+      yaml:         ${{ steps.filter.outputs.yaml }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,6 +54,12 @@ jobs:
               - 'apps/react-static/**'
             js_static:
               - 'apps/static/**'
+            yaml:
+              - 'components/**/*.yaml'
+              - 'components/**/*.yml'
+              - 'apps/**/*.yaml'
+              - 'apps/**/*.yml'
+              - '.yamllint.yaml'
 
   # ─────────────────────────────────────────────────────────────────
   # Shell: syntax (bash -n) + shellcheck + shfmt
@@ -233,3 +240,24 @@ jobs:
 
       - name: typecheck
         run: cd apps/static && npm run typecheck
+
+  # ─────────────────────────────────────────────────────────────────
+  # YAML: yamllint for K8s manifests in components/ and apps/
+  # ─────────────────────────────────────────────────────────────────
+  yaml-quality:
+    name: YAML lint (manifests)
+    needs: paths
+    if: needs.paths.outputs.yaml == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: yamllint
+        run: |
+          find components apps -name '*.yaml' -o -name '*.yml' \
+            | grep -v 'node_modules\|/target/' \
+            | xargs yamllint -c .yamllint.yaml
