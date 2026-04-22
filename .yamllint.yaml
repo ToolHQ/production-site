@@ -1,0 +1,34 @@
+# yamllint configuration for K8s/OCI cluster manifests
+# Philosophy: catch real quality issues without noise from K8s-idiomatic patterns.
+#
+# Disabled rules:
+#   line-length  — K8s manifests routinely exceed 80/120 chars (image refs, annotations, long values)
+#   document-start — many manifests intentionally omit the leading ---
+#
+# Active rules (errors):
+#   trailing-spaces — always a bug, no exceptions
+#   indentation     — warn only; avoids blocking on pre-existing 2vs4 mix in vendor files
+#   colons          — warn only; catches missing space after colon
+#   empty-lines     — warn only; catches excessive blank lines
+
+extends: relaxed
+
+rules:
+  line-length: disable
+  document-start: disable
+  trailing-spaces:
+    level: error
+  indentation:
+    level: warning
+    spaces: 2
+    indent-sequences: consistent
+    check-multi-line-strings: false
+  colons:
+    level: warning
+    max-spaces-before: 0
+    max-spaces-after: 1
+  empty-lines:
+    level: warning
+    max: 2
+    max-start: 0
+    max-end: 1

@@ -142,13 +142,13 @@ spec:
                   if [ $TOTAL -gt $RETENTION_COUNT ]; then
                     DELETE_COUNT=$((TOTAL - RETENTION_COUNT))
                     echo "💥 Deleting $DELETE_COUNT old snapshot(s)..."
-                    
+
                     for ((i=0; i<$DELETE_COUNT; i++)); do
                       OLD_SNAP="${SNAPSHOT_ARRAY[$i]}"
                       echo "  - Deleting: $OLD_SNAP"
                       "${K[@]}" delete volumesnapshot $OLD_SNAP -n $NAMESPACE --ignore-not-found=true
                     done
-                    
+
                     echo "✅ Retention cleanup complete"
                   else
                     echo "ℹ️  No cleanup needed (only $TOTAL snapshots)"

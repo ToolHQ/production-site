@@ -117,7 +117,7 @@ spec:
                   if [ -f "$BACKUP_DIR/latest_snapshot" ]; then
                       SNAPSHOT_NAME=$(cat "$BACKUP_DIR/latest_snapshot")
                       echo "Found snapshot: $SNAPSHOT_NAME. Uploading..."
-                      
+
                       mc cp "$BACKUP_DIR/$SNAPSHOT_NAME" "myminio/k8s-backups/etcd/$SNAPSHOT_NAME"
 
                       echo "Pruning MinIO etcd snapshots down to the four newest objects..."
