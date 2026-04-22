@@ -2,6 +2,7 @@
   "name": "static",
   "version": "1.0.0",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "upload": "sh ./upload.sh dist",
     "copy-assets": "cp *.css dist/ && cp *.html dist/ && cp *.ico dist/",
     "ts-build": "tsc && npm run copy-assets",
