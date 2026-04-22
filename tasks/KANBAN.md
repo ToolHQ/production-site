@@ -20,11 +20,15 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
 
 ## ✅ Done
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-144](2026/Q2/T-144-Shell-TUI-quality-gates.md) | **Shell TUI quality gates** | 🔼 High | DevExp / Tooling | 4h |
+| [T-143](2026/Q2/T-143-rs-observability-api-modularization-for-testability.md) | **rs-observability-api modularization for testability** | 🔼 High | DevExp / Observability | 6h |
+| [T-142](2026/Q2/T-142-Repo-Root-Harness-Minimum-Viable-Verify.md) | **Repo Root Harness Minimum Viable Verify** | 🔼 High | DevExp / Tooling | 4h |
 | [T-140](2026/Q2/T-140-Persistent-MCP-Browser-Trust-for-Internal-dnor-CA.md) | **Persistent MCP Browser Trust for Internal dnor CA** | 🔼 High | DevExp / Tooling | 2h |
 | [T-139](2026/Q2/T-139-Observability-Console-Ultrawide-UX-and-Text-Visibility-Pass.md) | **Observability Console Ultrawide UX and Text Visibility Pass** | 🔼 High | DevExp / Observability | 3h |
 | [T-138](2026/Q2/T-138-Local-Trust-Refresh-for-Internal-dnor-CA.md) | **Local Trust Refresh for Internal dnor CA** | 🔼 High | DevExp / TLS | 1h |
