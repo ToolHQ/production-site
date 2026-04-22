@@ -103,6 +103,24 @@ path_is_non_blocking_meta() {
 	esac
 }
 
+path_is_yaml_manifest() {
+	local p="$1"
+	# Match .yaml/.yml under components/ or apps/ (not node_modules or cargo target)
+	case "$p" in
+	*node_modules* | */target/*) return 1 ;;
+	components/*.yaml | components/*.yml) return 0 ;;
+	apps/*.yaml | apps/*.yml) return 0 ;;
+	esac
+	# Subdirectory match via prefix + suffix test
+	if [[ "$p" == components/* && ("$p" == *.yaml || "$p" == *.yml) ]]; then
+		return 0
+	fi
+	if [[ "$p" == apps/* && ("$p" == *.yaml || "$p" == *.yml) ]]; then
+		return 0
+	fi
+	return 1
+}
+
 collect_verify_scope() {
 	local path
 	local -n shell_ref=$1
@@ -114,36 +132,32 @@ collect_verify_scope() {
 	VERIFY_SCOPE_JS_BACKEND_NEEDED=0
 	VERIFY_SCOPE_JS_REACT_NEEDED=0
 	VERIFY_SCOPE_JS_STATIC_NEEDED=0
+	VERIFY_SCOPE_YAML_NEEDED=0
 
 	for path in "$@"; do
 		if path_is_non_blocking_meta "$path"; then
 			continue
 		fi
 
-		case "$path" in
-		apps/rs-observability-api/*)
+		if [[ "$path" == apps/rs-observability-api/* ]]; then
 			VERIFY_SCOPE_RUST_NEEDED=1
-			;;
-		oci-k8s-cluster/testing/* | oci-k8s-cluster/run_tests.sh | oci-k8s-cluster/k8s_ops_menu.sh | oci-k8s-cluster/scripts/* | oci-k8s-cluster/lib/*)
+		elif [[ "$path" == oci-k8s-cluster/testing/* || "$path" == oci-k8s-cluster/run_tests.sh || 			"$path" == oci-k8s-cluster/k8s_ops_menu.sh || "$path" == oci-k8s-cluster/scripts/* || 			"$path" == oci-k8s-cluster/lib/* ]]; then
 			VERIFY_SCOPE_BATS_NEEDED=1
-			;;
-		apps/back-end/*)
+		elif [[ "$path" == apps/back-end/* ]]; then
 			VERIFY_SCOPE_JS_BACKEND_NEEDED=1
-			;;
-		apps/react-static/*)
+		elif [[ "$path" == apps/react-static/* ]]; then
 			VERIFY_SCOPE_JS_REACT_NEEDED=1
-			;;
-		apps/static/*)
+		elif [[ "$path" == apps/static/* ]]; then
 			VERIFY_SCOPE_JS_STATIC_NEEDED=1
-			;;
-		*)
+		elif path_is_yaml_manifest "$path"; then
+			VERIFY_SCOPE_YAML_NEEDED=1
+		else
 			if path_requires_shell_syntax "$path"; then
 				shell_ref+=("$path")
 			else
 				unmapped_ref+=("$path")
 			fi
-			;;
-		esac
+		fi
 
 		if path_requires_shell_syntax "$path"; then
 			shell_ref+=("$path")
@@ -238,6 +252,29 @@ run_js_static_gate() {
 	run_checked "js typecheck: static" bash -lc "cd '$app_dir' && npm run typecheck"
 }
 
+run_yamllint_gate() {
+	local yamllint_bin
+	yamllint_bin="${YAMLLINT_BIN:-yamllint}"
+	if ! command -v "$yamllint_bin" >/dev/null 2>&1; then
+		yamllint_bin="$HOME/.local/bin/yamllint"
+	fi
+	if ! command -v "$yamllint_bin" >/dev/null 2>&1; then
+		fail "yamllint is required for YAML gate (install: pip install yamllint)"
+		return 1
+	fi
+
+	local -a yaml_files
+	mapfile -t yaml_files < <(
+		find "$REPO_ROOT/components" "$REPO_ROOT/apps" \
+			-name '*.yaml' -o -name '*.yml' \
+			| grep -v 'node_modules\|/target/' \
+			| sort
+	)
+	run_checked "yamllint: components + apps manifests" \
+		"$yamllint_bin" -c "$REPO_ROOT/.yamllint.yaml" \
+		"${yaml_files[@]}"
+}
+
 run_rust_observability_gate() {
 	local app_dir="$REPO_ROOT/apps/rs-observability-api"
 
@@ -257,7 +294,7 @@ verify_changed() {
 	local -a changed_paths=()
 	local -a shell_paths=()
 	local -a unmapped_paths=()
-	local rust_needed bats_needed js_backend_needed js_react_needed js_static_needed
+	local rust_needed bats_needed js_backend_needed js_react_needed js_static_needed yaml_needed
 
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -288,6 +325,7 @@ verify_changed() {
 	js_backend_needed=$VERIFY_SCOPE_JS_BACKEND_NEEDED
 	js_react_needed=$VERIFY_SCOPE_JS_REACT_NEEDED
 	js_static_needed=$VERIFY_SCOPE_JS_STATIC_NEEDED
+	yaml_needed=$VERIFY_SCOPE_YAML_NEEDED
 
 	if [[ ${#unmapped_paths[@]} -gt 0 ]]; then
 		section "unmapped paths"
@@ -337,6 +375,12 @@ verify_changed() {
 	else
 		warn "JS static gate not selected"
 	fi
+
+	if [[ $yaml_needed -eq 1 ]]; then
+		run_yamllint_gate
+	else
+		warn "YAML gate not selected"
+	fi
 }
 
 verify_all() {
@@ -358,6 +402,7 @@ verify_all() {
 	run_js_back_end_gate
 	run_js_react_static_gate
 	run_js_static_gate
+	run_yamllint_gate
 }
 
 smoke() {

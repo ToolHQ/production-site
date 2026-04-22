@@ -2,7 +2,7 @@ server:
   enabled: true
   retentionTime: "24h" # Default is likely short, setting explicit
   storageActiveMemory: 536870912 # 512MB
-  
+
 ingress:
   enabled: true
   className: "nginx"
@@ -11,7 +11,7 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     # SSL Passthrough - Kibana uses it, might be safer here too?
     # Actually Parca UI is HTTP by default, so we likely terminate TLS at Ingress
-    # nginx.ingress.kubernetes.io/backend-protocol: "HTTP" 
+    # nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
   hosts:
     - host: parca.dnor.io
       paths:
