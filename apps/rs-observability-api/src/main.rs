@@ -8,11 +8,9 @@ use std::{
 };
 
 use axum::{
-    extract::{Path as AxumPath, State},
-    http::{header, HeaderValue, StatusCode},
-    response::{Html, IntoResponse, Response},
-    routing::get,
-    Json, Router,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
 };
 use reqwest::{
     header::{HeaderMap, HeaderValue as ReqwestHeaderValue, ACCEPT, AUTHORIZATION},
@@ -22,6 +20,8 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::RwLock;
 
+mod app;
+
 const INDEX_HTML: &str = include_str!("../web/index.html");
 const LIVE_CACHE_TTL: Duration = Duration::from_secs(10);
 const LIVE_REFRESH_INTERVAL_SECONDS: u64 = 15;
@@ -29,14 +29,40 @@ const PROMETHEUS_CACHE_TTL: Duration = Duration::from_secs(45);
 const PROMETHEUS_REFRESH_INTERVAL_SECONDS: u64 = 60;
 const PROMETHEUS_WINDOW_MINUTES: u64 = 60;
 const PROMETHEUS_STEP_SECONDS: u64 = 300;
-const PROMETHEUS_BASE_URL_DEFAULT: &str = "http://coroot-prometheus-server.coroot.svc.cluster.local";
+const PROMETHEUS_BASE_URL_DEFAULT: &str =
+    "http://coroot-prometheus-server.coroot.svc.cluster.local";
 
 const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
-    ("catalog-json", "Catalog JSON", "latest-catalog/catalog.json", "json"),
-    ("catalog-html", "Catalog HTML", "latest-catalog/catalog.html", "html"),
-    ("catalog-md", "Catalog Markdown", "latest-catalog/catalog.md", "markdown"),
-    ("inventory-html", "Inventory HTML", "latest/inventory.html", "html"),
-    ("inventory-md", "Inventory Markdown", "latest/inventory.md", "markdown"),
+    (
+        "catalog-json",
+        "Catalog JSON",
+        "latest-catalog/catalog.json",
+        "json",
+    ),
+    (
+        "catalog-html",
+        "Catalog HTML",
+        "latest-catalog/catalog.html",
+        "html",
+    ),
+    (
+        "catalog-md",
+        "Catalog Markdown",
+        "latest-catalog/catalog.md",
+        "markdown",
+    ),
+    (
+        "inventory-html",
+        "Inventory HTML",
+        "latest/inventory.html",
+        "html",
+    ),
+    (
+        "inventory-md",
+        "Inventory Markdown",
+        "latest/inventory.md",
+        "markdown",
+    ),
 ];
 
 #[derive(Clone)]
@@ -433,15 +459,7 @@ async fn main() {
         prometheus_monitor,
     };
 
-    let app = Router::new()
-        .route("/", get(index))
-        .route("/health", get(health))
-        .route("/api/catalog", get(catalog))
-        .route("/api/catalog/summary", get(catalog_summary))
-        .route("/api/live/overview", get(live_overview))
-        .route("/api/reports", get(report_index))
-        .route("/artifacts/*path", get(artifact))
-        .with_state(state);
+    let app = app::build_app(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     println!("rs-observability-api listening on http://{}", addr);
@@ -449,205 +467,7 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .expect("bind listener");
-    axum::serve(listener, app)
-        .await
-        .expect("serve axum app");
-}
-
-async fn index() -> Html<&'static str> {
-    Html(INDEX_HTML)
-}
-
-async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
-    Json(HealthResponse {
-        status: "ok",
-        service: "rs-observability-api",
-        live_cluster_api: state.live_monitor.is_some(),
-        prometheus_metrics_api: true,
-    })
-}
-
-async fn live_overview(State(state): State<AppState>) -> Response {
-    let mut payload = match state.live_monitor {
-        Some(monitor) => monitor.cached_or_refresh().await,
-        None => unavailable_live_overview(
-            "in-cluster Kubernetes API credentials are not available in this runtime",
-        ),
-    };
-
-    payload.metrics = state
-        .prometheus_monitor
-        .cached_or_refresh(&payload.services)
-        .await;
-
-    Json(payload).into_response()
-}
-
-async fn catalog(State(state): State<AppState>) -> Response {
-    match read_json(&state, "latest-catalog/catalog.json").await {
-        Ok(value) => Json(value).into_response(),
-        Err(error) => json_error(StatusCode::SERVICE_UNAVAILABLE, "catalog unavailable", &error),
-    }
-}
-
-async fn catalog_summary(State(state): State<AppState>) -> Response {
-    let catalog = match read_json(&state, "latest-catalog/catalog.json").await {
-        Ok(value) => value,
-        Err(error) => {
-            return json_error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "catalog summary unavailable",
-                &error,
-            )
-        }
-    };
-
-    let apps = catalog
-        .get("apps")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let components = catalog
-        .get("components")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let cluster_workloads = catalog
-        .get("cluster")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let repo_only = catalog
-        .get("crossReference")
-        .or_else(|| catalog.get("cross_reference"))
-        .unwrap_or(&Value::Null);
-    let repo_only_apps = repo_only
-        .get("repo_only")
-        .and_then(|value| value.get("apps"))
-        .and_then(Value::as_array)
-        .map(|items| items.len())
-        .unwrap_or(0);
-    let repo_only_components = repo_only
-        .get("repo_only")
-        .and_then(|value| value.get("components"))
-        .and_then(Value::as_array)
-        .map(|items| items.len())
-        .unwrap_or(0);
-    let cluster_only = repo_only
-        .get("cluster_only")
-        .and_then(Value::as_array)
-        .map(|items| items.len())
-        .unwrap_or(0);
-    let undocumented = repo_only
-        .get("gaps")
-        .and_then(|value| value.get("no_docs"))
-        .and_then(Value::as_array)
-        .map(|items| items.len())
-        .unwrap_or(0);
-    let missing_deploy_script = repo_only
-        .get("gaps")
-        .and_then(|value| value.get("no_deploy_script"))
-        .and_then(Value::as_array)
-        .map(|items| items.len())
-        .unwrap_or(0);
-
-    let mut language_counts = std::collections::BTreeMap::<String, usize>::new();
-    let deployable_apps = apps
-        .iter()
-        .filter(|app| {
-            app.get("deploy_readiness")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                == "deployable"
-        })
-        .count();
-
-    for app in &apps {
-        let language = app
-            .get("language")
-            .and_then(Value::as_str)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("unknown")
-            .to_string();
-        *language_counts.entry(language).or_insert(0) += 1;
-    }
-
-    let summary = CatalogSummary {
-        generated_at: catalog
-            .get("generated_at")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned),
-        app_count: apps.len(),
-        deployable_app_count: deployable_apps,
-        component_count: components.len(),
-        cluster_workload_count: cluster_workloads.len(),
-        repo_only_app_count: repo_only_apps,
-        repo_only_component_count: repo_only_components,
-        cluster_only_count: cluster_only,
-        undocumented_count: undocumented,
-        missing_deploy_script_count: missing_deploy_script,
-        app_languages: language_counts
-            .into_iter()
-            .map(|(language, count)| LanguageCount { language, count })
-            .collect(),
-    };
-
-    Json(summary).into_response()
-}
-
-async fn report_index(State(state): State<AppState>) -> Response {
-    let mut artifacts = Vec::new();
-
-    for (id, label, relative_path, kind) in KNOWN_REPORTS {
-        let path = match resolve_relative_path(state.reports_root.as_ref(), relative_path) {
-            Ok(path) => path,
-            Err(_) => continue,
-        };
-
-        let metadata = match tokio::fs::metadata(&path).await {
-            Ok(metadata) => metadata,
-            Err(_) => continue,
-        };
-
-        if metadata.is_file() {
-            artifacts.push(ReportArtifact {
-                id,
-                label,
-                kind,
-                href: format!("/artifacts/{}", relative_path),
-                size_bytes: metadata.len(),
-            });
-        }
-    }
-
-    Json(json!({ "artifacts": artifacts })).into_response()
-}
-
-async fn artifact(State(state): State<AppState>, AxumPath(path): AxumPath<String>) -> Response {
-    let file_path = match resolve_relative_path(state.reports_root.as_ref(), &path) {
-        Ok(path) => path,
-        Err(error) => {
-            return json_error(StatusCode::BAD_REQUEST, "invalid artifact path", &error);
-        }
-    };
-
-    let bytes = match tokio::fs::read(&file_path).await {
-        Ok(bytes) => bytes,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return json_error(StatusCode::NOT_FOUND, "artifact not found", &path);
-        }
-        Err(error) => {
-            return json_error(StatusCode::INTERNAL_SERVER_ERROR, "artifact read failed", &error.to_string());
-        }
-    };
-
-    let content_type = content_type_for_path(&file_path);
-    let mut response = Response::new(bytes.into());
-    response.headers_mut().insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static(content_type),
-    );
-    response
+    axum::serve(listener, app).await.expect("serve axum app");
 }
 
 async fn read_json(state: &AppState, relative_path: &str) -> Result<Value, String> {
@@ -665,7 +485,10 @@ fn resolve_relative_path(root: &Path, relative_path: &str) -> Result<PathBuf, St
     }
 
     if candidate.components().any(|component| {
-        matches!(component, Component::ParentDir | Component::RootDir | Component::Prefix(_))
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
     }) {
         return Err("path traversal is not allowed".to_string());
     }
@@ -698,16 +521,13 @@ impl LiveMonitor {
         let port = env::var("KUBERNETES_SERVICE_PORT_HTTPS")
             .or_else(|_| env::var("KUBERNETES_SERVICE_PORT"))
             .unwrap_or_else(|_| "443".to_string());
-        let token = tokio::fs::read_to_string(
-            "/var/run/secrets/kubernetes.io/serviceaccount/token",
-        )
-        .await
-        .map_err(|error| format!("read service account token: {}", error))?;
-        let cluster_ca = tokio::fs::read(
-            "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
-        )
-        .await
-        .map_err(|error| format!("read cluster CA: {}", error))?;
+        let token =
+            tokio::fs::read_to_string("/var/run/secrets/kubernetes.io/serviceaccount/token")
+                .await
+                .map_err(|error| format!("read service account token: {}", error))?;
+        let cluster_ca = tokio::fs::read("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+            .await
+            .map_err(|error| format!("read cluster CA: {}", error))?;
         let certificate = Certificate::from_pem(&cluster_ca)
             .map_err(|error| format!("parse cluster CA: {}", error))?;
 
@@ -879,7 +699,9 @@ impl PrometheusMonitor {
     async fn fresh_cache(&self, signature: &str) -> Option<MetricsOverview> {
         let guard = self.cache.read().await;
         guard.as_ref().and_then(|entry| {
-            if entry.service_signature == signature && entry.fetched_at.elapsed() < PROMETHEUS_CACHE_TTL {
+            if entry.service_signature == signature
+                && entry.fetched_at.elapsed() < PROMETHEUS_CACHE_TTL
+            {
                 Some(entry.payload.clone())
             } else {
                 None
@@ -897,14 +719,10 @@ impl PrometheusMonitor {
         let start = end.saturating_sub(PROMETHEUS_WINDOW_MINUTES * 60);
         let namespace_regex = tracked_namespace_regex();
 
-        let cluster_cpu_percent_query =
-            r#"100 * sum(rate(node_resources_cpu_usage_seconds_total[5m])) / sum(node_resources_cpu_logical_cores)"#;
-        let cluster_cpu_used_query =
-            r#"sum(rate(node_resources_cpu_usage_seconds_total[5m]))"#;
-        let cluster_memory_percent_query =
-            r#"100 * (sum(node_resources_memory_total_bytes) - sum(node_resources_memory_available_bytes)) / sum(node_resources_memory_total_bytes)"#;
-        let cluster_memory_used_query =
-            r#"sum(node_resources_memory_total_bytes) - sum(node_resources_memory_available_bytes)"#;
+        let cluster_cpu_percent_query = r#"100 * sum(rate(node_resources_cpu_usage_seconds_total[5m])) / sum(node_resources_cpu_logical_cores)"#;
+        let cluster_cpu_used_query = r#"sum(rate(node_resources_cpu_usage_seconds_total[5m]))"#;
+        let cluster_memory_percent_query = r#"100 * (sum(node_resources_memory_total_bytes) - sum(node_resources_memory_available_bytes)) / sum(node_resources_memory_total_bytes)"#;
+        let cluster_memory_used_query = r#"sum(node_resources_memory_total_bytes) - sum(node_resources_memory_available_bytes)"#;
         let restart_pressure_query = format!(
             r#"sum(increase(kube_pod_container_status_restarts_total{{namespace=~"{}"}}[15m]))"#,
             namespace_regex
@@ -927,16 +745,31 @@ impl PrometheusMonitor {
         );
 
         let cluster_cpu_percent_series = self
-            .query_range_points(cluster_cpu_percent_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .query_range_points(
+                cluster_cpu_percent_query,
+                start,
+                end,
+                PROMETHEUS_STEP_SECONDS,
+            )
             .await?;
         let cluster_cpu_used_series = self
             .query_range_points(cluster_cpu_used_query, start, end, PROMETHEUS_STEP_SECONDS)
             .await?;
         let cluster_memory_percent_series = self
-            .query_range_points(cluster_memory_percent_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .query_range_points(
+                cluster_memory_percent_query,
+                start,
+                end,
+                PROMETHEUS_STEP_SECONDS,
+            )
             .await?;
         let cluster_memory_used_series = self
-            .query_range_points(cluster_memory_used_query, start, end, PROMETHEUS_STEP_SECONDS)
+            .query_range_points(
+                cluster_memory_used_query,
+                start,
+                end,
+                PROMETHEUS_STEP_SECONDS,
+            )
             .await?;
         let restart_pressure_series = self
             .query_range_points(&restart_pressure_query, start, end, PROMETHEUS_STEP_SECONDS)
@@ -1163,7 +996,11 @@ fn build_live_services(
                         item.status
                             .as_ref()
                             .and_then(|status| status.current_replicas)
-                            .or_else(|| item.status.as_ref().and_then(|status| status.ready_replicas))
+                            .or_else(|| {
+                                item.status
+                                    .as_ref()
+                                    .and_then(|status| status.ready_replicas)
+                            })
                             .unwrap_or(0),
                         selector,
                         pods,
@@ -1214,13 +1051,14 @@ fn build_live_service(
     let matching_pods = pods_for_target(pods, target.namespace, &selector, target.name);
     let rollup = rollup_pods(&matching_pods);
 
-    let mut status = if desired > 0 && ready >= desired && available >= desired && !rollup.has_blocker {
-        "healthy"
-    } else if ready > 0 || rollup.running > 0 {
-        "degraded"
-    } else {
-        "down"
-    };
+    let mut status =
+        if desired > 0 && ready >= desired && available >= desired && !rollup.has_blocker {
+            "healthy"
+        } else if ready > 0 || rollup.running > 0 {
+            "degraded"
+        } else {
+            "down"
+        };
 
     let mut message = if let Some(issue) = rollup.issue.clone() {
         issue
@@ -1297,13 +1135,18 @@ fn build_live_incidents(pods: &[PodResource], nodes: &[NodeResource]) -> Vec<Liv
         }
     }
 
-    for pod in pods.iter().filter(|pod| {
-        namespaces.contains(pod.metadata.namespace.as_deref().unwrap_or_default())
-    }) {
+    for pod in pods
+        .iter()
+        .filter(|pod| namespaces.contains(pod.metadata.namespace.as_deref().unwrap_or_default()))
+    {
         if let Some((severity, message)) = incident_for_pod(pod) {
             incidents.push(LiveIncident {
                 severity,
-                namespace: pod.metadata.namespace.clone().unwrap_or_else(|| "unknown".to_string()),
+                namespace: pod
+                    .metadata
+                    .namespace
+                    .clone()
+                    .unwrap_or_else(|| "unknown".to_string()),
                 resource: pod_name(pod).to_string(),
                 message,
             });
@@ -1328,9 +1171,18 @@ fn build_live_summary(
 
     LiveSummary {
         critical_services: services.len(),
-        healthy_services: services.iter().filter(|service| service.status == "healthy").count(),
-        degraded_services: services.iter().filter(|service| service.status == "degraded").count(),
-        down_services: services.iter().filter(|service| service.status == "down").count(),
+        healthy_services: services
+            .iter()
+            .filter(|service| service.status == "healthy")
+            .count(),
+        degraded_services: services
+            .iter()
+            .filter(|service| service.status == "degraded")
+            .count(),
+        down_services: services
+            .iter()
+            .filter(|service| service.status == "down")
+            .count(),
         total_pods: tracked_pods.len(),
         running_pods: tracked_pods
             .iter()
@@ -1354,7 +1206,10 @@ fn tracked_namespaces() -> BTreeSet<&'static str> {
 }
 
 fn tracked_namespace_regex() -> String {
-    tracked_namespaces().into_iter().collect::<Vec<_>>().join("|")
+    tracked_namespaces()
+        .into_iter()
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn service_signature(services: &[LiveService]) -> String {
@@ -1562,7 +1417,10 @@ fn pods_for_target<'a>(
         .collect()
 }
 
-fn selector_matches(labels: &BTreeMap<String, String>, selector: &BTreeMap<String, String>) -> bool {
+fn selector_matches(
+    labels: &BTreeMap<String, String>,
+    selector: &BTreeMap<String, String>,
+) -> bool {
     selector
         .iter()
         .all(|(key, value)| labels.get(key).map(String::as_str) == Some(value.as_str()))
@@ -1585,7 +1443,10 @@ fn rollup_pods(pods: &[&PodResource]) -> PodRollup {
         if phase == "Running" {
             rollup.running += 1;
         }
-        if phase == "Running" && !container_statuses.is_empty() && container_statuses.iter().all(|status| status.ready) {
+        if phase == "Running"
+            && !container_statuses.is_empty()
+            && container_statuses.iter().all(|status| status.ready)
+        {
             rollup.ready += 1;
         }
 
@@ -1614,7 +1475,11 @@ fn pod_issue(pod: &PodResource) -> Option<String> {
     }
 
     for container in &status.container_statuses {
-        if let Some(waiting) = container.state.as_ref().and_then(|state| state.waiting.as_ref()) {
+        if let Some(waiting) = container
+            .state
+            .as_ref()
+            .and_then(|state| state.waiting.as_ref())
+        {
             return Some(format!(
                 "{} waiting: {}",
                 pod_name(pod),
@@ -1635,7 +1500,12 @@ fn pod_issue(pod: &PodResource) -> Option<String> {
         }
     }
 
-    if !status.container_statuses.is_empty() && !status.container_statuses.iter().all(|container| container.ready) {
+    if !status.container_statuses.is_empty()
+        && !status
+            .container_statuses
+            .iter()
+            .all(|container| container.ready)
+    {
         return Some(format!("{} containers not ready", pod_name(pod)));
     }
 
@@ -1655,14 +1525,21 @@ fn incident_for_pod(pod: &PodResource) -> Option<(&'static str, String)> {
     }
 
     for container in &status.container_statuses {
-        if let Some(waiting) = container.state.as_ref().and_then(|state| state.waiting.as_ref()) {
+        if let Some(waiting) = container
+            .state
+            .as_ref()
+            .and_then(|state| state.waiting.as_ref())
+        {
             let severity = match waiting.reason.as_deref() {
                 Some("CrashLoopBackOff" | "ImagePullBackOff" | "ErrImagePull") => "critical",
                 _ => "warning",
             };
             return Some((
                 severity,
-                format!("waiting: {}", waiting.reason.as_deref().unwrap_or("starting")),
+                format!(
+                    "waiting: {}",
+                    waiting.reason.as_deref().unwrap_or("starting")
+                ),
             ));
         }
     }
@@ -1681,7 +1558,10 @@ fn incident_for_pod(pod: &PodResource) -> Option<(&'static str, String)> {
 
     if phase == "Running"
         && !status.container_statuses.is_empty()
-        && !status.container_statuses.iter().all(|container| container.ready)
+        && !status
+            .container_statuses
+            .iter()
+            .all(|container| container.ready)
     {
         return Some(("warning", "containers not ready".to_string()));
     }
