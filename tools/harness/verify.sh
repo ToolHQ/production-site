@@ -111,6 +111,9 @@ collect_verify_scope() {
 
 	VERIFY_SCOPE_RUST_NEEDED=0
 	VERIFY_SCOPE_BATS_NEEDED=0
+	VERIFY_SCOPE_JS_BACKEND_NEEDED=0
+	VERIFY_SCOPE_JS_REACT_NEEDED=0
+	VERIFY_SCOPE_JS_STATIC_NEEDED=0
 
 	for path in "$@"; do
 		if path_is_non_blocking_meta "$path"; then
@@ -123,6 +126,15 @@ collect_verify_scope() {
 			;;
 		oci-k8s-cluster/testing/* | oci-k8s-cluster/run_tests.sh | oci-k8s-cluster/k8s_ops_menu.sh | oci-k8s-cluster/scripts/* | oci-k8s-cluster/lib/*)
 			VERIFY_SCOPE_BATS_NEEDED=1
+			;;
+		apps/back-end/*)
+			VERIFY_SCOPE_JS_BACKEND_NEEDED=1
+			;;
+		apps/react-static/*)
+			VERIFY_SCOPE_JS_REACT_NEEDED=1
+			;;
+		apps/static/*)
+			VERIFY_SCOPE_JS_STATIC_NEEDED=1
 			;;
 		*)
 			if path_requires_shell_syntax "$path"; then
@@ -209,6 +221,23 @@ run_shfmt_checks() {
 	done
 }
 
+run_js_back_end_gate() {
+	local app_dir="$REPO_ROOT/apps/back-end"
+	run_checked "js typecheck: back-end" bash -lc "cd '$app_dir' && npm run typecheck"
+	run_checked "js lint: back-end" bash -lc "cd '$app_dir' && npm run lint"
+}
+
+run_js_react_static_gate() {
+	local app_dir="$REPO_ROOT/apps/react-static"
+	run_checked "js typecheck: react-static" bash -lc "cd '$app_dir' && npm run typecheck"
+	run_checked "js test:ci: react-static" bash -lc "cd '$app_dir' && npm run test:ci"
+}
+
+run_js_static_gate() {
+	local app_dir="$REPO_ROOT/apps/static"
+	run_checked "js typecheck: static" bash -lc "cd '$app_dir' && npm run typecheck"
+}
+
 run_rust_observability_gate() {
 	local app_dir="$REPO_ROOT/apps/rs-observability-api"
 
@@ -228,7 +257,7 @@ verify_changed() {
 	local -a changed_paths=()
 	local -a shell_paths=()
 	local -a unmapped_paths=()
-	local rust_needed bats_needed
+	local rust_needed bats_needed js_backend_needed js_react_needed js_static_needed
 
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -256,6 +285,9 @@ verify_changed() {
 	collect_verify_scope shell_paths unmapped_paths "${changed_paths[@]}"
 	rust_needed=$VERIFY_SCOPE_RUST_NEEDED
 	bats_needed=$VERIFY_SCOPE_BATS_NEEDED
+	js_backend_needed=$VERIFY_SCOPE_JS_BACKEND_NEEDED
+	js_react_needed=$VERIFY_SCOPE_JS_REACT_NEEDED
+	js_static_needed=$VERIFY_SCOPE_JS_STATIC_NEEDED
 
 	if [[ ${#unmapped_paths[@]} -gt 0 ]]; then
 		section "unmapped paths"
@@ -282,6 +314,29 @@ verify_changed() {
 	else
 		warn "BATS gate not selected"
 	fi
+
+	local js_backend_needed js_react_needed js_static_needed
+	js_backend_needed=$VERIFY_SCOPE_JS_BACKEND_NEEDED
+	js_react_needed=$VERIFY_SCOPE_JS_REACT_NEEDED
+	js_static_needed=$VERIFY_SCOPE_JS_STATIC_NEEDED
+
+	if [[ $js_backend_needed -eq 1 ]]; then
+		run_js_back_end_gate
+	else
+		warn "JS back-end gate not selected"
+	fi
+
+	if [[ $js_react_needed -eq 1 ]]; then
+		run_js_react_static_gate
+	else
+		warn "JS react-static gate not selected"
+	fi
+
+	if [[ $js_static_needed -eq 1 ]]; then
+		run_js_static_gate
+	else
+		warn "JS static gate not selected"
+	fi
 }
 
 verify_all() {
@@ -300,6 +355,9 @@ verify_all() {
 	run_shfmt_checks "${shell_paths[@]}"
 	run_rust_observability_gate
 	run_cluster_bats_gate
+	run_js_back_end_gate
+	run_js_react_static_gate
+	run_js_static_gate
 }
 
 smoke() {

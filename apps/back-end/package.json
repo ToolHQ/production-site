@@ -8,6 +8,7 @@
   "scripts": {
     "local-start": "node --env-file=./.env --enable-source-maps --inspect=0.0.0.0:9229 dist/app.js",
     "start": "node --enable-source-maps --inspect=0.0.0.0:9229 dist/app.js",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "build": "npm run generate-schema && tsc",
     "generate-schema": "node generate-schema.js",
