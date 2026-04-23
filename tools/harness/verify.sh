@@ -11,6 +11,10 @@ REPO_ROOT=$(
 # shellcheck source=tools/harness/lib/changed_paths.sh
 source "$SCRIPT_DIR/lib/changed_paths.sh"
 
+# Execution summary state — populated by timed_gate(), printed via print_summary()
+HARNESS_RESULTS=()
+HARNESS_START=0
+
 section() {
 	printf '\n==> %s\n' "$1"
 }
@@ -57,6 +61,54 @@ run_checked() {
 		fail "$label"
 		return 1
 	fi
+}
+
+timed_gate() {
+	local label=$1
+	shift
+	local t0=$SECONDS rc=0
+	"$@" || rc=$?
+	local elapsed=$((SECONDS - t0))
+	if [[ $rc -eq 0 ]]; then
+		HARNESS_RESULTS+=("$label|PASS|${elapsed}s")
+	else
+		HARNESS_RESULTS+=("$label|FAIL|${elapsed}s")
+	fi
+	return $rc
+}
+
+print_summary() {
+	local elapsed=$((SECONDS - HARNESS_START))
+	local pass_count=0 fail_count=0 skip_count=0 overall="PASS"
+	local entry label status dur
+
+	if [[ ${#HARNESS_RESULTS[@]} -eq 0 ]]; then
+		printf '\n── HARNESS SUMMARY ── 0 gates ran in %ds ──\n' "$elapsed"
+		return 0
+	fi
+
+	printf '\n'
+	printf '%.0s─' {1..54}
+	printf '\n'
+	printf ' %-32s %-6s %s\n' "Gate" "Result" "Time"
+	printf ' %-32s %-6s %s\n' "────────────────────────────────" "──────" "──────"
+	for entry in "${HARNESS_RESULTS[@]}"; do
+		IFS='|' read -r label status dur <<<"$entry"
+		printf ' %-32s %-6s %s\n' "$label" "$status" "$dur"
+		case "$status" in
+		PASS) pass_count=$((pass_count + 1)) ;;
+		FAIL)
+			fail_count=$((fail_count + 1))
+			overall="FAIL"
+			;;
+		SKIP) skip_count=$((skip_count + 1)) ;;
+		esac
+	done
+	printf ' %-32s %-6s %s\n' "────────────────────────────────" "──────" "──────"
+	printf ' %-20s %ds   pass=%d fail=%d skip=%d\n' \
+		"$overall" "$elapsed" "$pass_count" "$fail_count" "$skip_count"
+	printf '%.0s─' {1..54}
+	printf '\n'
 }
 
 path_requires_shell_syntax() {
@@ -141,7 +193,7 @@ collect_verify_scope() {
 
 		if [[ "$path" == apps/rs-observability-api/* ]]; then
 			VERIFY_SCOPE_RUST_NEEDED=1
-		elif [[ "$path" == oci-k8s-cluster/testing/* || "$path" == oci-k8s-cluster/run_tests.sh || 			"$path" == oci-k8s-cluster/k8s_ops_menu.sh || "$path" == oci-k8s-cluster/scripts/* || 			"$path" == oci-k8s-cluster/lib/* ]]; then
+		elif [[ "$path" == oci-k8s-cluster/testing/* || "$path" == oci-k8s-cluster/run_tests.sh || "$path" == oci-k8s-cluster/k8s_ops_menu.sh || "$path" == oci-k8s-cluster/scripts/* || "$path" == oci-k8s-cluster/lib/* ]]; then
 			VERIFY_SCOPE_BATS_NEEDED=1
 		elif [[ "$path" == apps/back-end/* ]]; then
 			VERIFY_SCOPE_JS_BACKEND_NEEDED=1
@@ -266,9 +318,9 @@ run_yamllint_gate() {
 	local -a yaml_files
 	mapfile -t yaml_files < <(
 		find "$REPO_ROOT/components" "$REPO_ROOT/apps" \
-			-name '*.yaml' -o -name '*.yml' \
-			| grep -v 'node_modules\|/target/' \
-			| sort
+			-name '*.yaml' -o -name '*.yml' |
+			grep -v 'node_modules\|/target/' |
+			sort
 	)
 	run_checked "yamllint: components + apps manifests" \
 		"$yamllint_bin" -c "$REPO_ROOT/.yamllint.yaml" \
@@ -337,19 +389,21 @@ verify_changed() {
 		warn "Proceeding with unmapped paths because --allow-unmapped was provided"
 	fi
 
-	run_shell_syntax_checks "${shell_paths[@]}"
-	run_shellcheck_checks "${shell_paths[@]}"
-	run_shfmt_checks "${shell_paths[@]}"
+	timed_gate "shell-syntax" run_shell_syntax_checks "${shell_paths[@]}"
+	timed_gate "shell-shellcheck" run_shellcheck_checks "${shell_paths[@]}"
+	timed_gate "shell-shfmt" run_shfmt_checks "${shell_paths[@]}"
 
 	if [[ $rust_needed -eq 1 ]]; then
-		run_rust_observability_gate
+		timed_gate "rust" run_rust_observability_gate
 	else
+		HARNESS_RESULTS+=("rust|SKIP|-")
 		warn "Rust gate not selected"
 	fi
 
 	if [[ $bats_needed -eq 1 ]]; then
-		run_cluster_bats_gate
+		timed_gate "bats" run_cluster_bats_gate
 	else
+		HARNESS_RESULTS+=("bats|SKIP|-")
 		warn "BATS gate not selected"
 	fi
 
@@ -359,26 +413,30 @@ verify_changed() {
 	js_static_needed=$VERIFY_SCOPE_JS_STATIC_NEEDED
 
 	if [[ $js_backend_needed -eq 1 ]]; then
-		run_js_back_end_gate
+		timed_gate "js-back-end" run_js_back_end_gate
 	else
+		HARNESS_RESULTS+=("js-back-end|SKIP|-")
 		warn "JS back-end gate not selected"
 	fi
 
 	if [[ $js_react_needed -eq 1 ]]; then
-		run_js_react_static_gate
+		timed_gate "js-react-static" run_js_react_static_gate
 	else
+		HARNESS_RESULTS+=("js-react-static|SKIP|-")
 		warn "JS react-static gate not selected"
 	fi
 
 	if [[ $js_static_needed -eq 1 ]]; then
-		run_js_static_gate
+		timed_gate "js-static" run_js_static_gate
 	else
+		HARNESS_RESULTS+=("js-static|SKIP|-")
 		warn "JS static gate not selected"
 	fi
 
 	if [[ $yaml_needed -eq 1 ]]; then
-		run_yamllint_gate
+		timed_gate "yaml" run_yamllint_gate
 	else
+		HARNESS_RESULTS+=("yaml|SKIP|-")
 		warn "YAML gate not selected"
 	fi
 }
@@ -394,15 +452,15 @@ verify_all() {
 	section "verify-all baseline"
 	info "Running shell syntax, shellcheck, shfmt, rs-observability-api Rust gate and oci-k8s-cluster BATS gate"
 
-	run_shell_syntax_checks "${shell_paths[@]}"
-	run_shellcheck_checks "${shell_paths[@]}"
-	run_shfmt_checks "${shell_paths[@]}"
-	run_rust_observability_gate
-	run_cluster_bats_gate
-	run_js_back_end_gate
-	run_js_react_static_gate
-	run_js_static_gate
-	run_yamllint_gate
+	timed_gate "shell-syntax" run_shell_syntax_checks "${shell_paths[@]}"
+	timed_gate "shell-shellcheck" run_shellcheck_checks "${shell_paths[@]}"
+	timed_gate "shell-shfmt" run_shfmt_checks "${shell_paths[@]}"
+	timed_gate "rust" run_rust_observability_gate
+	timed_gate "bats" run_cluster_bats_gate
+	timed_gate "js-back-end" run_js_back_end_gate
+	timed_gate "js-react-static" run_js_react_static_gate
+	timed_gate "js-static" run_js_static_gate
+	timed_gate "yaml" run_yamllint_gate
 }
 
 smoke() {
@@ -415,6 +473,13 @@ main() {
 	shift || true
 
 	cd "$REPO_ROOT"
+
+	case "$command" in
+	verify-changed | verify-all)
+		HARNESS_START=$SECONDS
+		trap 'print_summary' EXIT
+		;;
+	esac
 
 	case "$command" in
 	verify-changed)
