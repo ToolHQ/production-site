@@ -10,7 +10,6 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-148](2026/Q2/T-148-Harness-Execution-Summary.md) | **Harness Execution Summary** | High | DevExp / Tooling | 2h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -27,6 +26,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-148](2026/Q2/T-148-Harness-Execution-Summary.md) | **Harness Execution Summary** | High | DevExp / Tooling | 2h |
 | [T-147](2026/Q2/T-147-yamllint-gate-for-K8s-manifests.md) | **yamllint gate for K8s manifests** | 🔼 High | DevExp / Tooling | 2h |
 | [T-146](2026/Q2/T-146-CI-path-aware-required-checks-rollout.md) | **CI path-aware required checks rollout** | 🔼 High | DevExp / Tooling | 4h |
 | [T-145](2026/Q2/T-145-JS-TS-script-convergence.md) | **JS/TS script convergence** | 🔼 High | DevExp / Tooling | 4h |
