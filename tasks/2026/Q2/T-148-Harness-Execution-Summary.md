@@ -1,6 +1,6 @@
 # T-148: Harness Execution Summary
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: High
 - **Epic/Owner**: DevExp / Tooling
 - **Estimation**: 2h
@@ -28,7 +28,9 @@ Usar `trap 'print_summary' EXIT` para garantir que o sumário aparece mesmo em f
 - [ ] Commit e fechar tarefa
 
 ## Tasks
+
 # TODO: Quebre em tarefas menores e marque o progresso.
+
 - [ ] Initial investigation
 - [ ] Implement focus area 1
 - [ ] Validate and test
