@@ -18,9 +18,11 @@ echo "🚀 Deploying Kubecost with optimized resources..."
     --values "$dir/values.yaml" \
     --wait
 
+# Grafana desabilitado via values.yaml (grafana.enabled: false)
+# Se deployment legado ainda existir no cluster, escalar para 0
 if kubectl get deployment -n kubecost kubecost-grafana >/dev/null 2>&1; then
-    kubectl patch deployment -n kubecost kubecost-grafana --patch-file "$dir/kubecost-grafana-patch.yaml"
-    echo "  - Patched kubecost-grafana"
+    kubectl scale deployment -n kubecost kubecost-grafana --replicas=0
+    echo "  - kubecost-grafana desabilitado (replicas=0) — legado"
 fi
 
 echo "✅ Kubecost deployed."

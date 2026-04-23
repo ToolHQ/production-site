@@ -1,3 +1,8 @@
+# Grafana desabilitado — OOMKilled 900+ vezes com 64Mi. Coroot é o observability principal.
+# Para reabilitar: remover esta linha e rever limites de memória (mínimo 256Mi).
+grafana:
+  enabled: false
+
 kubecostModel:
   resources:
     requests:
