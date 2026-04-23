@@ -10,6 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-148](2026/Q2/T-148-Harness-Execution-Summary.md) | **Harness Execution Summary** | High | DevExp / Tooling | 2h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
