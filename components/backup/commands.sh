@@ -21,15 +21,19 @@ kubectl apply -f longhorn-recurring-job-observability.yaml
 echo "  - Applying BackupTarget (MinIO S3)..."
 kubectl apply -f longhorn-backup-target.yaml
 
-# 4. Postgres Snapshot RBAC
+# 4. ETCD backup/prune CronJobs
+echo "  - Applying ETCD backup/prune CronJobs..."
+kubectl apply -f etcd-backup-cronjob.yaml
+
+# 5. Postgres Snapshot RBAC
 echo "  - Applying Snapshot RBAC..."
 kubectl apply -f snapshot-automation-rbac.yaml
 
-# 5. Postgres Snapshot CronJob
+# 6. Postgres Snapshot CronJob
 echo "  - Applying Snapshot CronJob..."
 kubectl apply -f snapshot-cronjob.yaml
 
-# 6. Verify minio-secret exists in longhorn-system
+# 7. Verify minio-secret exists in longhorn-system
 if kubectl get secret minio-secret -n longhorn-system &>/dev/null; then
     echo "  - ✅ minio-secret exists in longhorn-system"
 else
@@ -47,6 +51,24 @@ else
     echo "     See: components/backup/longhorn-backup-secret.template.yaml"
 fi
 
+# 8. Verify minio-secret exists in kube-system for ETCD upload/prune
+if kubectl get secret minio-secret -n kube-system &>/dev/null; then
+    echo "  - ✅ minio-secret exists in kube-system"
+else
+    echo ""
+    echo "  ⚠️  WARNING: minio-secret NOT FOUND in kube-system namespace."
+    echo "     ETCD backup/prune CronJobs will NOT work until the secret is created."
+    echo ""
+    echo "     Create it manually:"
+    echo "       kubectl create secret generic minio-secret -n kube-system \\" 
+    echo "         --from-literal=AWS_ACCESS_KEY_ID=<key> \\" 
+    echo "         --from-literal=AWS_SECRET_ACCESS_KEY=<secret> \\" 
+    echo "         --from-literal=AWS_ENDPOINTS=http://minio-service.minio.svc.cluster.local:9000"
+    echo ""
+    echo "     Source of truth: components/backup/etcd-backup-cronjob.yaml"
+fi
+
+echo "  - ℹ️  ETCD backup/prune IaC: components/backup/etcd-backup-cronjob.yaml"
 echo "  - ℹ️  Per-PVC backup groups: components/backup/apply-volume-backup-policy.sh"
 echo "  - ℹ️  Legacy Longhorn cleanup audit: components/backup/cleanup-longhorn-stale-backupvolumes.sh"
 echo "  - ℹ️  Legacy GDrive ETCD cleanup: oci-k8s-cluster/scripts/cloud_ops/cleanup_gdrive_etcd_legacy.sh"

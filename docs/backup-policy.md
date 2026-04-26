@@ -11,7 +11,7 @@ backup garbage.
 Core rules:
 
 - Longhorn `backupstore` cleanup must happen through Longhorn objects, never by deleting MinIO files.
-- ETCD retention is enforced by the `etcd-backup` pipeline and off-site sync, not by ad-hoc bucket cleanup.
+- ETCD retention is enforced by the `etcd-backup` + `etcd-backup-prune` pipeline and off-site sync, not by ad-hoc bucket cleanup.
 - The MinIO bucket `nexus/` is active Nexus blob-store storage, not a backup bucket. Do not prune it with `mc rm`, age-based MinIO lifecycle, or filesystem deletes.
 
 ## Live state validated on 2026-04-19
@@ -30,8 +30,8 @@ Core rules:
 | `postgres-data-postgres-0`                  | Longhorn `backup-daily` + `postgres-auto-snapshot`                       | MinIO `k8s-backups/backupstore`   | `7` daily backups + `7` backup-backed 6h snapshots                                                | Live IaC + snapshot CronJob | Longhorn `Backup` / `VolumeSnapshot` objects only |
 | `postgres-data-postgres-1`                  | Longhorn `backup-daily`                                                  | MinIO `k8s-backups/backupstore`   | `7` daily backups                                                                                 | Live IaC                    | Longhorn `Backup` objects only                    |
 | `nexus-pvc`                                 | Longhorn `backup-daily`                                                  | MinIO `k8s-backups/backupstore`   | `7` daily backups                                                                                 | Live IaC                    | Longhorn `Backup` objects only                    |
-| Observability PVCs (`coroot*`, `kubecost*`) | Longhorn `backup-observability-daily`                                    | MinIO `k8s-backups/backupstore`   | `3` daily backups                                                                                 | Live IaC                    | Longhorn `Backup` objects only                    |
-| ETCD                                        | `etcd-backup` CronJob + `gdrive-sync`                                    | MinIO `k8s-backups/etcd` + GDrive | `4` MinIO snapshots, `4` local staged snapshots, `30` cloud days                                  | Live IaC                    | `etcd-backup` prune logic + GDrive prune          |
+| Observability PVCs (`coroot*`, `kubecost*`) | Longhorn `backup-observability-daily`                                    | MinIO `k8s-backups/backupstore`   | `1` daily backup                                                                                  | Live IaC                    | Longhorn `Backup` objects only                    |
+| ETCD                                        | `etcd-backup` + `etcd-backup-prune` CronJobs + `gdrive-sync`             | MinIO `k8s-backups/etcd` + GDrive | `4` MinIO snapshots, `4` local staged snapshots, `30` cloud days                                  | Live IaC                    | `etcd-backup` / `etcd-backup-prune` + GDrive prune |
 | Nexus blob store `minio` (`nexus/`)         | Nexus repositories (`docker-repo`, `npm-repo`, `npm-proxy`, `npm-group`) | MinIO bucket `nexus`              | No MinIO-side expiration; retain all hosted artifacts until an explicit Nexus cleanup rule exists | Documented policy only      | Nexus-native cleanup policies only                |
 
 ## Nexus policy
@@ -54,6 +54,7 @@ See `docs/nexus-cleanup-policy.md` for the repo-side automation follow-up and th
 ## Operational guidance
 
 - If `k8s-backups` grows, audit Longhorn `Backup`, `BackupVolume`, and `VolumeSnapshot` objects first.
+- ETCD backup/prune source of truth: `components/backup/etcd-backup-cronjob.yaml`; this single manifest owns both `CronJob/etcd-backup` and `CronJob/etcd-backup-prune`.
 - If `nexus` grows, inspect Nexus repositories and blob-store usage first. The first safe optimization target is proxy cache policy inside Nexus, not MinIO bucket deletion.
 - Empty `BackupVolume` CRs recreated by Longhorn backup-target sync do not automatically imply retained payload; validate `lastBackupName`, `size`, and actual bucket usage before treating them as storage regressions.
 

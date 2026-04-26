@@ -8,5 +8,5 @@ spec:
   task: "backup"
   groups:
     - observability
-  retain: 3
+  retain: 1
   concurrency: 1

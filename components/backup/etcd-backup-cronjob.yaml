@@ -46,6 +46,12 @@ spec:
                   BACKUP_DIR="/host-backup/etcd"
                   mkdir -p $BACKUP_DIR
 
+                  # Remove partial files left by interrupted snapshots before creating a new one.
+                  set -- "$BACKUP_DIR"/etcd-*.db.part
+                  if [ -e "$1" ]; then
+                      rm -f -- "$@"
+                  fi
+
                   SNAPSHOT_NAME="etcd-$(date +%Y%m%d-%H%M%S).db"
                   SNAPSHOT_PATH="$BACKUP_DIR/$SNAPSHOT_NAME"
 
@@ -120,27 +126,35 @@ spec:
 
                       mc cp "$BACKUP_DIR/$SNAPSHOT_NAME" "myminio/k8s-backups/etcd/$SNAPSHOT_NAME"
 
+                      object_list_file=$(mktemp)
+                      prune_list_file=$(mktemp)
+                      mc ls myminio/k8s-backups/etcd > "$object_list_file"
+
                       echo "Pruning MinIO etcd snapshots down to the four newest objects..."
-                      mc ls myminio/k8s-backups/etcd | while read -r _ _ _ _ object_name; do
+                      while IFS= read -r line; do
+                        object_name=${line##* }
                         case "$object_name" in
                           etcd-*.db)
                             echo "$object_name"
                             ;;
                         esac
-                      done | sort -r | tail -n +5 | while IFS= read -r old_snapshot; do
+                      done < "$object_list_file" | sort -r > "$prune_list_file"
+
+                      tail -n +5 "$prune_list_file" | while IFS= read -r old_snapshot; do
                         mc rm --force "myminio/k8s-backups/etcd/$old_snapshot"
                       done
 
                       echo "Cleaning legacy ETCD upload artifacts from the bucket..."
-                      mc ls myminio/k8s-backups/etcd | while read -r _ _ _ _ object_name; do
+                      while IFS= read -r line; do
+                        object_name=${line##* }
                         case "$object_name" in
                           *.db.part|latest_snapshot|test-write.txt|perm-check-*.txt)
-                            echo "$object_name"
+                            mc rm --force "myminio/k8s-backups/etcd/$object_name"
                             ;;
                         esac
-                      done | while IFS= read -r legacy_object; do
-                        mc rm --force "myminio/k8s-backups/etcd/$legacy_object"
-                      done
+                      done < "$object_list_file"
+
+                      rm -f "$object_list_file" "$prune_list_file"
 
                       echo "Upload complete."
                   else
@@ -168,3 +182,89 @@ spec:
               hostPath:
                 path: /var/backup
                 type: DirectoryOrCreate
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: etcd-backup-prune
+  namespace: kube-system
+spec:
+  suspend: false
+  schedule: "30 */6 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      ttlSecondsAfterFinished: 21600
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: minio-prune
+              image: minio/mc
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: MINIO_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-secret
+                      key: AWS_ACCESS_KEY_ID
+                - name: MINIO_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-secret
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: MINIO_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-secret
+                      key: AWS_ENDPOINTS
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  mc alias set myminio $MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+
+                  object_list_file=$(mktemp)
+                  prune_list_file=$(mktemp)
+                  mc ls myminio/k8s-backups/etcd > "$object_list_file"
+
+                  echo "Pruning MinIO etcd snapshots down to the four newest objects..."
+                  while IFS= read -r line; do
+                    object_name=${line##* }
+                    case "$object_name" in
+                      etcd-*.db)
+                        echo "$object_name"
+                        ;;
+                    esac
+                  done < "$object_list_file" | sort -r > "$prune_list_file"
+
+                  tail -n +5 "$prune_list_file" | while IFS= read -r old_snapshot; do
+                    mc rm --force "myminio/k8s-backups/etcd/$old_snapshot"
+                  done
+
+                  echo "Cleaning legacy ETCD upload artifacts from the bucket..."
+                  while IFS= read -r line; do
+                    object_name=${line##* }
+                    case "$object_name" in
+                      *.db.part|latest_snapshot|test-write.txt|perm-check-*.txt)
+                        mc rm --force "myminio/k8s-backups/etcd/$object_name"
+                        ;;
+                    esac
+                  done < "$object_list_file"
+
+                  rm -f "$object_list_file" "$prune_list_file"
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                  ephemeral-storage: 50Mi
+                limits:
+                  cpu: 150m
+                  memory: 128Mi
+                  ephemeral-storage: 1Gi

@@ -17,11 +17,11 @@
 | `postgres-data-postgres-0`        | Critical      | `backup-daily` / `default` + `postgres-auto-snapshot` | 7 daily backups + 7 backup-backed 6h snapshots | Append-only archive | Primary gets the densest restore window; a live count of 14 backups is expected under this policy.           |
 | `postgres-data-postgres-1`        | Critical      | `backup-daily` / `default`                            | 7 daily backups                                | Append-only archive | Replica keeps daily protection only.                                                                         |
 | `nexus-pvc`                       | Critical      | `backup-daily` / `default`                            | 7 daily backups                                | Append-only archive | Internal registry state.                                                                                     |
-| `coroot-data`                     | Observability | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Regenerable observability data.                                                                              |
-| `coroot-prometheus-server`        | Observability | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Lower restore priority than core services.                                                                   |
-| `data-coroot-clickhouse-shard0-0` | Observability | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Lower restore priority than core services.                                                                   |
-| `kubecost-prometheus-server`      | Low           | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Cost telemetry is non-critical.                                                                              |
-| `kubecost-cost-analyzer`          | Low           | `backup-observability-daily` / `observability`        | 3 daily backups                                | Append-only archive | Cost telemetry is non-critical.                                                                              |
+| `coroot-data`                     | Observability | `backup-observability-daily` / `observability`        | 1 daily backup                                 | Append-only archive | Regenerable observability data under the current rootfs pressure budget.                                     |
+| `coroot-prometheus-server`        | Observability | `backup-observability-daily` / `observability`        | 1 daily backup                                 | Append-only archive | Lower restore priority than core services.                                                                   |
+| `data-coroot-clickhouse-shard0-0` | Observability | `backup-observability-daily` / `observability`        | 1 daily backup                                 | Append-only archive | Lower restore priority than core services.                                                                   |
+| `kubecost-prometheus-server`      | Low           | `backup-observability-daily` / `observability`        | 1 daily backup                                 | Append-only archive | Cost telemetry is non-critical.                                                                              |
+| `kubecost-cost-analyzer`          | Low           | `backup-observability-daily` / `observability`        | 1 daily backup                                 | Append-only archive | Cost telemetry is non-critical.                                                                              |
 | `etcd`                            | Control plane | `etcd-backup`                                         | 4 MinIO snapshots (~24h) + 4 local staged      | 30 cloud days       | Separate file-based pipeline; active again, uploaded via S3 API, and synced offsite from `/var/backup/etcd`. |
 
 ## Operational notes
@@ -49,9 +49,13 @@ See `docs/backup-policy.md` for the consolidated policy, including the Nexus buc
 kubectl apply -f components/backup/longhorn-recurring-job.yaml
 kubectl apply -f components/backup/longhorn-recurring-job-observability.yaml
 kubectl apply -f components/backup/longhorn-backup-target.yaml
+kubectl apply -f components/backup/etcd-backup-cronjob.yaml
 kubectl apply -f components/backup/snapshot-automation-rbac.yaml
 kubectl apply -f components/backup/snapshot-cronjob.yaml
 ```
+
+`components/backup/etcd-backup-cronjob.yaml` is the ETCD source of truth and contains both
+`CronJob/etcd-backup` and `CronJob/etcd-backup-prune`.
 
 Dry-run the per-PVC policy:
 
