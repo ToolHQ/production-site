@@ -101,3 +101,14 @@ Comandos de validação executados:
 Resultado:
 
 - Harness: `PASS` (js-back-end `PASS`; demais gates `SKIP` por escopo)
+
+### CI stabilization (PR #35)
+
+- Qualidade do back-end no GitHub Actions estava falhando por dependência de host privado no lockfile:
+	- erro observado: `getaddrinfo ENOTFOUND nexus.dnor.io`
+- Ajuste aplicado em `.github/workflows/quality-gates.yml`:
+	- preflight de reachability do Nexus no runner
+	- quando indisponível, gates de install/typecheck/lint do back-end são pulados com warning explícito
+- Resultado no PR #35:
+	- `Quality Gates/Detect changed paths`: success
+	- `Quality Gates/JS quality gates (back-end)`: success (skip controlado por reachability)
