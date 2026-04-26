@@ -160,6 +160,7 @@ jobs:
         run: |
           cd oci-k8s-cluster
           rm -rf ./testing/libs
+          rm -f ./testing/bats
           bash ./testing/setup_bats.sh
 
       - name: Run BATS tests
