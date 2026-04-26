@@ -32,8 +32,8 @@ Guardrails:
 ## Tasks
 
 - [x] Criar task T-154 e mover para In Progress
-- [ ] Consolidar inventário atual de alertas Dependabot (critical/high/medium/low)
-- [ ] Agrupar alertas por ecossistema (github-actions, npm, cargo, outros)
+- [x] Consolidar inventário atual de alertas Dependabot (critical/high/medium/low)
+- [x] Agrupar alertas por ecossistema (github-actions, npm, cargo, outros)
 - [ ] Definir estratégia por onda com ordem de execução e risco
 - [ ] Aplicar onda 1: atualizações de baixo risco (patch/minor) em ferramentas e CI
 - [ ] Validar onda 1 com harness/checks relevantes
@@ -46,3 +46,20 @@ Guardrails:
 ## Validação
 
 - A preencher a cada onda com comandos e resultados reais.
+
+### Baseline inicial (2026-04-26)
+
+- Total de alertas abertos: 173
+- Por severidade:
+	- critical: 4
+	- high: 77
+	- medium: 62
+	- low: 30
+- Por ecossistema:
+	- npm: 152
+	- rust: 20
+	- pip: 1
+
+Comando utilizado:
+
+- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
