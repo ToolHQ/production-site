@@ -186,7 +186,20 @@ jobs:
           cache-dependency-path: apps/back-end/package-lock.json
 
       - name: Install dependencies
-        run: cd apps/back-end && npm ci
+        run: |
+          cd apps/back-end
+          for attempt in 1 2 3; do
+            echo "[info] npm ci attempt ${attempt}/3"
+            if npm ci; then
+              exit 0
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "[warn] npm ci failed, retrying after npm cache verify"
+              npm cache verify || true
+            fi
+          done
+          echo "[error] npm ci failed after 3 attempts"
+          exit 1
 
       - name: typecheck
         run: cd apps/back-end && npm run typecheck
