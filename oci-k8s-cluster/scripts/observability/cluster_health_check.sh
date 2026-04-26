@@ -251,6 +251,60 @@ done < <(kubectl get pods -A \
 (( crashloop == 0 )) && report_ok "No pods with recent excessive restarts (>20)"
 
 # ══════════════════════════════════════════════════════════════════════════
+# 1.3  NODE PRESSURE CONDITIONS
+# ══════════════════════════════════════════════════════════════════════════
+section "Node Pressure Conditions"
+
+declare -A NODE_DISK_PRESSURE=()
+node_pressure_alerts=0
+
+while IFS=$'\t' read -r node disk memory pid; do
+    [[ -z "$node" ]] && continue
+    NODE_DISK_PRESSURE["$node"]="$disk"
+
+    healthy=true
+    if [[ "$disk" == "True" ]]; then
+        report_crit "node $node: DiskPressure=True (ephemeral-storage pressure active)"
+        node_pressure_alerts=$(( node_pressure_alerts + 1 ))
+        healthy=false
+    fi
+    if [[ "$memory" == "True" ]]; then
+        report_crit "node $node: MemoryPressure=True"
+        node_pressure_alerts=$(( node_pressure_alerts + 1 ))
+        healthy=false
+    fi
+    if [[ "$pid" == "True" ]]; then
+        report_crit "node $node: PIDPressure=True"
+        node_pressure_alerts=$(( node_pressure_alerts + 1 ))
+        healthy=false
+    fi
+
+    if [[ "$healthy" == "true" ]]; then
+        report_ok "node $node: no pressure conditions"
+    fi
+done < <(kubectl get nodes -o json 2>/dev/null | jq -r '
+    .items[]
+    | [
+        .metadata.name,
+        (.status.conditions[] | select(.type == "DiskPressure") | .status),
+        (.status.conditions[] | select(.type == "MemoryPressure") | .status),
+        (.status.conditions[] | select(.type == "PIDPressure") | .status)
+      ]
+    | @tsv' 2>/dev/null || true)
+
+ingress_host_network=$(kubectl -n ingress-nginx get deploy ingress-nginx-controller \
+    -o jsonpath='{.spec.template.spec.hostNetwork}' 2>/dev/null || true)
+ingress_pinned_node=$(kubectl -n ingress-nginx get deploy ingress-nginx-controller -o json 2>/dev/null | \
+    jq -r '.spec.template.spec.nodeSelector["kubernetes.io/hostname"] // empty' 2>/dev/null || true)
+ingress_external_policy=$(kubectl -n ingress-nginx get svc ingress-nginx-controller \
+    -o jsonpath='{.spec.externalTrafficPolicy}' 2>/dev/null || true)
+
+if [[ -n "$ingress_pinned_node" && "${NODE_DISK_PRESSURE[$ingress_pinned_node]:-False}" == "True" ]]; then
+    report_crit "ingress-nginx controller pinned to $ingress_pinned_node while node has DiskPressure (hostNetwork=${ingress_host_network:-unknown}, externalTrafficPolicy=${ingress_external_policy:-unknown})"
+    node_pressure_alerts=$(( node_pressure_alerts + 1 ))
+fi
+
+# ══════════════════════════════════════════════════════════════════════════
 # 1.3  CPU HEADROOM PER NODE
 # ══════════════════════════════════════════════════════════════════════════
 section "CPU Headroom per Node"
