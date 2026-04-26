@@ -10,6 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(fase canario aplicada: `ingress-nginx-controller-workers` `1/1` em worker com `hostNetwork`; service endpoints agora incluem master + worker)_ | High | Infra | 4h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -20,7 +21,6 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** | High | Infra | 4h |
 | [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
 
 ## ✅ Done

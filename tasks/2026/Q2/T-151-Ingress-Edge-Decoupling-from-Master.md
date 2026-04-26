@@ -1,6 +1,6 @@
 # T-151: Ingress Edge Decoupling from Master
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: High
 - **Epic/Owner**: Infra
 - **Estimation**: 4h
@@ -24,15 +24,39 @@ Separar a borda HTTP/TCP do cluster da dependencia hard no `k8s-master`, sem que
 `80/443` e sem assumir um `LoadBalancer` que nao esteja efetivamente presente.
 
 ## Tasks
-- [ ] Mapear o path de entrada atual para `*.dnor.io`: DNS, Tailscale/CoreDNS, IP publico, listeners
+- [x] Mapear o path de entrada atual para `*.dnor.io`: DNS, Tailscale/CoreDNS, IP publico, listeners
 	locais e qualquer dependencia oculta do master.
-- [ ] Confirmar se existe ou nao um `LoadBalancer` funcional de verdade na borda, em vez de assumir
+- [x] Confirmar se existe ou nao um `LoadBalancer` funcional de verdade na borda, em vez de assumir
 	que o `Service type=LoadBalancer` esta entregando trafego.
-- [ ] Definir a topologia alvo do ingress fora do master: workers-only, worker-preferred com fallback
+- [x] Definir a topologia alvo do ingress fora do master: workers-only, worker-preferred com fallback
 	ou edge separado dedicado.
-- [ ] Versionar a mudanca de IaC do ingress com rollback explicito.
+- [x] Versionar a mudanca de IaC do ingress com rollback explicito.
 - [ ] Validar a topologia nova com drill simples: listeners em worker, readiness do deployment,
 	acesso funcional a um host `*.dnor.io` e watchdog sem regressao.
+
+## Execution Notes (2026-04-26)
+
+- Path atual confirmado:
+	- `ingress-nginx-controller` original permanece em `hostNetwork: true`, pinned no `k8s-master`.
+	- DNS publico dos hosts `*.dnor.io` resolve para `3.33.130.190` e `15.197.148.33`.
+	- Service `ingress-nginx-controller` segue `type=LoadBalancer` com `EXTERNAL-IP <pending>` (sem OCI LB funcional).
+- Topologia alvo adotada para mitigacao sem downtime: `worker-preferred com fallback`.
+- IaC versionada em `components/ingress-nginx/deploy.yaml`:
+	- adicionado deployment canario `ingress-nginx-controller-workers` com `replicas: 1`.
+	- `hostNetwork: true` mantido para preservar bind em `80/443`.
+	- `nodeAffinity` com `NotIn: k8s-master` para forcar worker.
+	- rollback explicito no comentario do manifesto:
+		- `kubectl -n ingress-nginx delete deploy ingress-nginx-controller-workers`
+- Validacao concluida ate aqui:
+	- rollout `ingress-nginx-controller-workers` `1/1 Available`.
+	- pod worker em `k8s-node-2` com IP `10.0.1.50`.
+	- Service endpoints incluem master e worker.
+	- listeners `:80/:443` presentes em `k8s-master` e `k8s-node-2`.
+
+## Remaining to Close
+
+- Drill funcional fim-a-fim de host `*.dnor.io` no novo caminho de edge.
+- Validacao de watchdog/observability sem regressao apos a mudanca.
 
 ## References
 - [T-150](T-150-Master-Rootfs-Dependency-Reduction.md)
