@@ -35,12 +35,12 @@ Guardrails:
 - [x] Consolidar inventário atual de alertas Dependabot (critical/high/medium/low)
 - [x] Agrupar alertas por ecossistema (github-actions, npm, cargo, outros)
 - [x] Definir estratégia por onda com ordem de execução e risco
-- [/] Aplicar onda 1: atualizações de baixo risco (patch/minor) em ferramentas e CI
-- [/] Validar onda 1 com harness/checks relevantes
-- [/] Aplicar onda 2: bibliotecas de aplicação com impacto funcional moderado
-- [/] Validar onda 2 com testes/gates por stack
-- [ ] Aplicar onda 3: upgrades major necessários com plano de compatibilidade
-- [/] Registrar exceções justificadas (quando upgrade não for viável imediato)
+- [x] Aplicar onda 1: atualizações de baixo risco (patch/minor) em ferramentas e CI
+- [x] Validar onda 1 com harness/checks relevantes
+- [x] Aplicar onda 2: bibliotecas de aplicação com impacto funcional moderado
+- [x] Validar onda 2 com testes/gates por stack
+- [/] Aplicar onda 3: lote incremental por manifesto (rust/npm) com validação local
+- [x] Registrar exceções justificadas (quando upgrade não for viável imediato)
 - [ ] Publicar resumo final: alertas mitigados, residual, plano de continuidade
 
 ## Validação
@@ -207,3 +207,36 @@ Comando utilizado:
 Residual atual:
 
 - dependências `vite`/`vitest` com correções disponíveis via major (moderate)
+
+### Onda 3 — Lote 1 em andamento (rust + npm cirúrgico)
+
+Ações executadas nesta branch:
+
+- `apps/logs-test`: `npm audit fix` no lockfile
+  - resultado local: 1 high -> 0 vulnerabilidades
+- `apps/rs-axum-back-end`:
+  - remoção da dependência direta legada `multipart = "0.18.0"` (não utilizada diretamente; código usa `axum::extract::Multipart`)
+  - `cargo update` com regeneração do `Cargo.lock`
+  - efeito esperado: remoção dos transitivos críticos `typemap` e `traitobject`
+- `apps/rs-observability-api`:
+  - `cargo update -p rustls-webpki`
+  - lock atualizado de `0.103.12` para `0.103.13`
+
+Comandos de validação executados:
+
+- `cd apps/logs-test && npm install --no-audit --no-fund`
+- `cd apps/logs-test && npm audit`
+- `cd apps/logs-test && npm audit fix`
+- `cd apps/rs-axum-back-end && cargo update && cargo check`
+- `cd apps/rs-observability-api && cargo update -p rustls-webpki && cargo check`
+
+Resultado local deste lote:
+
+- `apps/logs-test`: audit `PASS` (0 vulnerabilidades)
+- `apps/rs-axum-back-end`: `cargo check PASS`
+- `apps/rs-observability-api`: `cargo check PASS`
+
+Próximo passo da Onda 3:
+
+- abrir PR incremental desta branch e validar checks remotos
+- após merge, recalcular baseline Dependabot para confirmar queda de `high/critical` no default branch
