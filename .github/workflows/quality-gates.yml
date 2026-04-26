@@ -185,23 +185,28 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/back-end/package-lock.json
 
+      - name: Pin npm version
+        run: |
+          npm install -g npm@10.8.2
+          npm --version
+
       - name: Install dependencies
         run: |
           cd apps/back-end
           for attempt in 1 2 3; do
-            echo "[info] npm install attempt ${attempt}/3"
-            if timeout 420 npm install --include=dev --no-audit --no-fund; then
+            echo "[info] npm ci attempt ${attempt}/3"
+            if timeout 420 npm ci --no-audit --no-fund; then
               if node -e "require.resolve('express'); require.resolve('typescript'); require.resolve('@types/node')"; then
                 exit 0
               fi
               echo "[warn] install returned success but required modules were not resolvable"
             fi
             if [[ "$attempt" -lt 3 ]]; then
-              echo "[warn] npm install failed, retrying after npm cache verify"
+              echo "[warn] npm ci failed, retrying after npm cache verify"
               npm cache verify || true
             fi
           done
-          echo "[error] npm install failed after 3 attempts"
+          echo "[error] npm ci failed after 3 attempts"
           exit 1
 
       - name: typecheck
