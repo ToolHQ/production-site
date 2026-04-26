@@ -1,0 +1,75 @@
+# T-150 preflight resources.
+# Apply only after the capacity gate is satisfied:
+# - /data/minio bytes must fit inside the requested PVC with explicit headroom, and
+# - at least one Longhorn worker must have schedulable headroom >= PVC size.
+# Uses longhorn-1 (1 replica) to fit within current worker scheduling envelope.
+# MinIO data is covered by GDrive off-site backup, making single-replica acceptable.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc-longhorn
+  namespace: minio
+  labels:
+    app: minio
+    t150.dnor.io/phase: preflight
+spec:
+  storageClassName: longhorn-1
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 12Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-longhorn-staging
+  namespace: minio
+  labels:
+    app: minio-longhorn-staging
+    t150.dnor.io/phase: preflight
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: minio-longhorn-staging
+  template:
+    metadata:
+      labels:
+        app: minio-longhorn-staging
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - k8s-node-1
+                      - k8s-node-2
+                      - k8s-node-3
+      containers:
+        - name: staging
+          image: debian:12-slim
+          command:
+            - /bin/sh
+            - -c
+            - sleep infinity
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      restartPolicy: Always
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minio-pvc-longhorn
