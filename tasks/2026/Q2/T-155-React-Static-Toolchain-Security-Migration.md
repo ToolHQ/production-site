@@ -41,7 +41,7 @@ Arquivos-chave:
 - [x] Executar validação local: `npm run typecheck`, `npm run build`, `npm run test:ci`
 - [x] Ajustar gate de CI para garantir cobertura do escopo alterado
 - [x] Medir redução de vulnerabilidades pós-ajustes e documentar residual
-- [/] Abrir PR da T-155 com plano de rollout + rollback
+- [x] Abrir PR da T-155 com plano de rollout + rollback
 
 ## Validação
 
@@ -98,3 +98,7 @@ Leitura técnica da fase 2:
 
 - migração concluída com build/test/typecheck em `PASS`
 - risco residual concentrado em versões moderadas de `vite`/`vitest` cuja correção disponível é major
+
+PR da fase 2:
+
+- https://github.com/dnorio/production-site/pull/38
