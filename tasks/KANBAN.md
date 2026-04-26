@@ -10,6 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-154](2026/Q2/T-154-Dependabot-Security-Remediation-Program.md) | **Dependabot Security Remediation Program** | 🚨 Critical | Security / DevExp | 3d |
 | [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(cutover executado: `/data/minio` copiado para `minio-pvc-longhorn` com Job `minio-local-copy` `Succeeded=1`; `minio-deployment` aplicado via `minio-longhorn-target.yaml` e rollout concluído)_ | 🔼 High | Infra | 1d |
 
 ## 🔥 Blocker (Deploy back-end travado)
