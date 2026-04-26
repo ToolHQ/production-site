@@ -46,11 +46,15 @@ The following helpers were added to `oci-k8s-cluster/lib/nexus_init.sh`:
 - `nexus_set_npm_proxy_cleanup_policies`
 - `nexus_set_npm_hosted_cleanup_policies`
 - `nexus_set_docker_hosted_cleanup_policies`
+- `nexus_tasks_api_path`
+- `nexus_list_cleanup_tasks`
+- `nexus_get_task_json`
+- `nexus_run_task`
 
 The repo also now contains a versioned Groovy fallback at `oci-k8s-cluster/scripts/registry/nexus_cleanup_policy_upsert.groovy`.
 
 These helpers can now audit cleanup attachment, create/update policies through the live internal REST surface,
-preview matches, and attach policy names to supported repositories.
+preview matches, attach policy names to supported repositories, and trigger already-existing Nexus cleanup tasks.
 
 ## Example usage
 
@@ -72,6 +76,12 @@ nexus_preview_npm_proxy_cleanup npm-proxy npm-proxy-unused-30d 30 | jq '.results
 # Attach the cleanup policy to npm-proxy
 nexus_set_npm_proxy_cleanup_policies npm-proxy npm-proxy-unused-30d
 
+# List existing cleanup/compact tasks
+nexus_list_cleanup_tasks | jq '.[] | {id, name, type, enabled}'
+
+# Trigger an existing cleanup task by id
+nexus_run_task <task-id>
+
 # Clear cleanup attachment again if needed
 nexus_clear_repository_cleanup_policies npm proxy npm-proxy
 ```
@@ -92,6 +102,26 @@ Validated live state after applying it:
 - cleanup preview returned `200` with an empty sample (`{"total":-1,"results":[]}`) at validation time
 
 This keeps the first retention boundary limited to cache data rather than rollback material.
+
+## Native task execution
+
+The versioned repo path now covers execution of built-in cleanup tasks too.
+
+Recommended order when reclaim is expected:
+
+1. validate the policy attachment and preview with `nexus_show_cleanup_status` and `nexus_preview_npm_proxy_cleanup`
+2. list cleanup tasks with `nexus_list_cleanup_tasks`
+3. trigger the existing `repository.cleanup` task with `nexus_run_task <task-id>`
+4. if a cleanup pass actually soft-deletes assets, follow with the matching `assetBlob.cleanup` task
+
+If the preview is empty, treat that as evidence that the currently attached policy is not expected to reclaim `npm-proxy`
+content immediately.
+
+Update 2026-04-25:
+
+- `repository.cleanup` and all existing `assetBlob.cleanup` tasks were executed through the versioned helpers;
+- every task finished `OK` and returned to `WAITING`;
+- measured MinIO usage delta was `0` bytes, so `nexus/` is currently exhausted as a safe reclaim source.
 
 ## Script API note
 
