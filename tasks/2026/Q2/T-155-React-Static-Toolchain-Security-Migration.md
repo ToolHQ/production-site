@@ -39,9 +39,9 @@ Arquivos-chave:
 - [x] Mapear estratégia alvo de toolchain (react-scripts hardening vs migração para Vite)
 - [x] Prototipar atualização mínima segura em branch (sem quebrar build)
 - [x] Executar validação local: `npm run typecheck`, `npm run build`, `npm run test:ci`
-- [ ] Ajustar gate de CI para garantir cobertura do escopo alterado
+- [x] Ajustar gate de CI para garantir cobertura do escopo alterado
 - [x] Medir redução de vulnerabilidades pós-ajustes e documentar residual
-- [ ] Abrir PR da T-155 com plano de rollout + rollback
+- [x] Abrir PR da T-155 com plano de rollout + rollback
 
 ## Validação
 
@@ -67,3 +67,38 @@ Leitura técnica:
 - ganho imediato relevante sem usar `--force`
 - residual majoritariamente associado à cadeia legacy de `react-scripts@5.0.1`
 - próximos cortes de risco dependem de migração de toolchain (ex.: Vite) em rollout controlado
+
+### Fase 2 (migração controlada para Vite/Vitest)
+
+Mudanças estruturais:
+
+- remoção de `react-scripts` do `apps/react-static/package.json`
+- adoção de `vite`, `vitest`, `@vitejs/plugin-react` e `jsdom`
+- atualização de `@types/node` para `^22.13.8`
+- novo entrypoint em `apps/react-static/src/main.tsx`
+- novo `apps/react-static/index.html`
+- novo `apps/react-static/vite.config.ts`
+- ajuste de setup de testes para `@testing-library/jest-dom/vitest`
+- gate do CI atualizado para incluir `build` em `JS quality gates (react-static)`
+
+Comandos de validação executados:
+
+- `cd apps/react-static && npm install --no-audit --no-fund`
+- `cd apps/react-static && npm run typecheck`
+- `cd apps/react-static && npm run build`
+- `cd apps/react-static && npm run test:ci`
+- `cd apps/react-static && npm audit --json > /tmp/audit-react-phase2.json`
+
+Resultado de segurança da fase 2:
+
+- antes da migração: 28 vulnerabilidades (0 critical, 14 high, 5 moderate, 9 low)
+- depois da migração: 5 vulnerabilidades (0 critical, 0 high, 5 moderate, 0 low)
+
+Leitura técnica da fase 2:
+
+- migração concluída com build/test/typecheck em `PASS`
+- risco residual concentrado em versões moderadas de `vite`/`vitest` cuja correção disponível é major
+
+PR da fase 2:
+
+- https://github.com/dnorio/production-site/pull/38

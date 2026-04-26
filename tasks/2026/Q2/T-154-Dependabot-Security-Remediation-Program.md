@@ -173,3 +173,37 @@ Resultado:
 - Residual de risco principal:
 	- cadeia de dependências legado ligada a `react-scripts@5.0.1`
 	- redução adicional relevante exige migração de toolchain em trilha dedicada (T-155)
+
+### Baseline pós-merge da PR #37 (2026-04-26)
+
+- Total de alertas abertos: 42
+- Por severidade:
+	- critical: 2
+	- high: 9
+	- medium: 21
+	- low: 10
+- Por ecossistema:
+	- npm: 21
+	- rust: 20
+	- pip: 1
+
+Comando utilizado:
+
+- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
+
+### Onda 2 — Lote 3 parcial (apps/react-static, fase 2)
+
+- Ação executada: migração controlada de toolchain `react-scripts` -> `Vite/Vitest` em `apps/react-static`.
+- Resultado de segurança no app:
+	- antes: 28 vulnerabilidades (0 critical, 14 high, 5 moderate, 9 low)
+	- depois: 5 vulnerabilidades (0 critical, 0 high, 5 moderate, 0 low)
+- Validação funcional local:
+	- `npm run typecheck`: PASS
+	- `npm run build`: PASS
+	- `npm run test:ci`: PASS (no tests found)
+- Qualidade de CI:
+	- gate `JS quality gates (react-static)` atualizado para incluir `build`
+
+Residual atual:
+
+- dependências `vite`/`vitest` com correções disponíveis via major (moderate)
