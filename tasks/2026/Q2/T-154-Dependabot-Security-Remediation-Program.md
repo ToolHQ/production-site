@@ -1,6 +1,6 @@
 # T-154: Dependabot Security Remediation Program
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Security / DevExp
 - **Estimation**: 3d
@@ -39,9 +39,9 @@ Guardrails:
 - [x] Validar onda 1 com harness/checks relevantes
 - [x] Aplicar onda 2: bibliotecas de aplicação com impacto funcional moderado
 - [x] Validar onda 2 com testes/gates por stack
-- [/] Aplicar onda 3: lote incremental por manifesto (rust/npm) com validação local
+- [x] Aplicar onda 3: lote incremental por manifesto (rust/npm) com validação local
 - [x] Registrar exceções justificadas (quando upgrade não for viável imediato)
-- [ ] Publicar resumo final: alertas mitigados, residual, plano de continuidade
+- [x] Publicar resumo final: alertas mitigados, residual, plano de continuidade
 
 ## Validação
 
@@ -236,7 +236,29 @@ Resultado local deste lote:
 - `apps/rs-axum-back-end`: `cargo check PASS`
 - `apps/rs-observability-api`: `cargo check PASS`
 
-Próximo passo da Onda 3:
+Onda 3 finalizada com sucesso. PR mesclado em `main`.
 
-- abrir PR incremental desta branch e validar checks remotos
-- após merge, recalcular baseline Dependabot para confirmar queda de `high/critical` no default branch
+### Baseline Final (2026-04-26)
+
+- Total de alertas abertos: 13 (redução massiva de 173 para 13)
+- Por severidade:
+	- critical: 0 (eram 4)
+	- high: 1 (eram 77)
+	- medium: 7 (eram 62)
+	- low: 5 (eram 30)
+- Por ecossistema:
+	- npm: 5
+	- rust: 7
+	- pip: 1
+
+Comando utilizado:
+
+- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
+
+### Exceções Justificadas
+
+- **arrow2 (rust)**: `apps/rs-axum-back-end`. O alerta "Arrow2 allows out of bounds access in public safe API" (High) permanece porque a crate `arrow2` é oficialmente deprecada (0.18.0 é a última) e o projeto a utiliza para conversão em `parquet_convert.rs`. Uma migração para a nova stack `arrow` (apache) exigirá refatoração substancial. O risco de exploração do OOB (Out Of Bounds) é baixo no contexto local. Aceito temporariamente como exceção justificada.
+
+### Resumo Final
+
+O programa de remediação de segurança reduziu os alertas totais em **~92%**, virtualmente eliminando as vulnerabilidades `critical` e `high` de todo o ecossistema (Node, Rust) de maneira faseada, garantindo estabilidade no cluster. O residual é de baixo impacto ou aceito como risco justificado.
