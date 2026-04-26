@@ -262,6 +262,9 @@ jobs:
       - name: typecheck
         run: cd apps/react-static && npm run typecheck
 
+      - name: build
+        run: cd apps/react-static && npm run build
+
       - name: test:ci
         run: cd apps/react-static && npm run test:ci
         env:
