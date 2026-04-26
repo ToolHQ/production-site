@@ -37,10 +37,10 @@ Guardrails:
 - [x] Definir estratégia por onda com ordem de execução e risco
 - [/] Aplicar onda 1: atualizações de baixo risco (patch/minor) em ferramentas e CI
 - [/] Validar onda 1 com harness/checks relevantes
-- [ ] Aplicar onda 2: bibliotecas de aplicação com impacto funcional moderado
-- [ ] Validar onda 2 com testes/gates por stack
+- [/] Aplicar onda 2: bibliotecas de aplicação com impacto funcional moderado
+- [/] Validar onda 2 com testes/gates por stack
 - [ ] Aplicar onda 3: upgrades major necessários com plano de compatibilidade
-- [ ] Registrar exceções justificadas (quando upgrade não for viável imediato)
+- [/] Registrar exceções justificadas (quando upgrade não for viável imediato)
 - [ ] Publicar resumo final: alertas mitigados, residual, plano de continuidade
 
 ## Validação
@@ -112,3 +112,49 @@ Resultado:
 - Resultado no PR #35:
 	- `Quality Gates/Detect changed paths`: success
 	- `Quality Gates/JS quality gates (back-end)`: success (skip controlado por reachability)
+
+### Baseline pós-merge da PR #35 (2026-04-26)
+
+- Total de alertas abertos: 163
+- Por severidade:
+	- critical: 4
+	- high: 70
+	- medium: 60
+	- low: 29
+- Por ecossistema:
+	- npm: 142
+	- rust: 20
+	- pip: 1
+
+Comando utilizado:
+
+- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
+
+### Onda 2 — Lote 1 concluído (apps/static)
+
+- Ajustes realizados em dependências diretas:
+	- `axios` -> `1.15.2`
+	- `webpack` -> `5.106.2`
+	- `webpack-dev-server` -> `5.2.3`
+- Resultado de segurança no `apps/static`:
+	- antes: 6 vulnerabilidades (1 high, 5 moderate)
+	- depois: 4 vulnerabilidades (0 high, 4 moderate)
+
+Comandos de validação executados:
+
+- `cd apps/static && npm install --no-audit --no-fund`
+- `cd apps/static && npm run typecheck`
+- `cd apps/static && npm run build`
+- `cd apps/static && npm audit --json`
+- `./tools/harness/verify.sh verify-changed --paths apps/static/package.json apps/static/package-lock.json tasks/2026/Q2/T-154-Dependabot-Security-Remediation-Program.md`
+
+Resultado:
+
+- Build/typecheck: `PASS`
+- Harness: `PASS` (js-static `PASS`; demais gates `SKIP` por escopo)
+
+### Onda 2 — exceção parcial registrada (apps/react-static)
+
+- Diagnóstico: `apps/react-static` mantém cadeia legacy de `react-scripts` com 59 vulnerabilidades abertas (1 critical, 28 high, 16 moderate, 14 low).
+- O `npm audit` indica correções amplas dependentes de migração major (fora do escopo de patch/minor imediato).
+- Decisão operacional atual: segurar em exceção temporária e preparar plano dedicado de migração de toolchain para reduzir risco sem regressão funcional.
