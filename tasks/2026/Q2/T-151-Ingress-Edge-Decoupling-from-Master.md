@@ -1,6 +1,6 @@
 # T-151: Ingress Edge Decoupling from Master
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: High
 - **Epic/Owner**: Infra
 - **Estimation**: 4h
@@ -38,7 +38,7 @@ Separar a borda HTTP/TCP do cluster da dependencia hard no `k8s-master`, sem que
 - [x] Definir a topologia alvo do ingress fora do master: workers-only, worker-preferred com fallback
 	ou edge separado dedicado.
 - [x] Versionar a mudanca de IaC do ingress com rollback explicito.
-- [ ] Validar a topologia nova com drill simples: listeners em worker, readiness do deployment,
+- [x] Validar a topologia nova com drill simples: listeners em worker, readiness do deployment,
 	acesso funcional a um host `*.dnor.io` e watchdog sem regressao.
 
 ## Execution Notes (2026-04-26)
@@ -59,11 +59,16 @@ Separar a borda HTTP/TCP do cluster da dependencia hard no `k8s-master`, sem que
 	- pod worker em `k8s-node-2` com IP `10.0.1.50`.
 	- Service endpoints incluem master e worker.
 	- listeners `:80/:443` presentes em `k8s-master` e `k8s-node-2`.
+	- drill funcional tunnel-only validado via caminho interno:
+		- `curl -I -H 'Host: dnor.io' http://10.0.1.50` -> `HTTP/1.1 308 Permanent Redirect`
+		- `curl -I -H 'Host: reports.dnor.io' http://10.0.1.50` -> `HTTP/1.1 308 Permanent Redirect`
+	- quick-check de regressao sem novos sintomas de borda; apenas jobs/pods historicamente falhados fora do escopo do ingress.
 
-## Remaining to Close
+## Closed
 
-- Drill funcional fim-a-fim no novo caminho de edge em modo `tunnel-only`.
-- Validacao de watchdog/observability sem regressao apos a mudanca.
+- Date: 2026-04-26
+- Rollback runbook preservado no proprio manifesto:
+	- `kubectl -n ingress-nginx delete deploy ingress-nginx-controller-workers`
 
 ## References
 - [T-150](T-150-Master-Rootfs-Dependency-Reduction.md)

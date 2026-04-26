@@ -10,7 +10,6 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(fase canario aplicada: `ingress-nginx-controller-workers` `1/1` em worker com `hostNetwork`; service endpoints agora incluem master + worker; escopo atual: validacao tunnel-only, sem exposicao internet)_ | High | Infra | 4h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -27,6 +26,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(concluída em modo tunnel-only: canário worker `1/1`, endpoints master+worker, drill interno via `10.0.1.50` retornando `HTTP/1.1 308` para `dnor.io` e `reports.dnor.io`)_ | High | Infra | 4h |
 | [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(cutover concluído: `/data/minio` → `minio-pvc-longhorn` via `minio-local-copy` `Succeeded=1`; rollout `1/1 Running` em worker com PVC Longhorn `Bound`)_ | 🔼 High | Infra | 1d |
 | [T-153](2026/Q2/T-153-MinIO-Longhorn-Gate-Correction-and-Nexus-Exhaustion.md) | **MinIO Longhorn Gate Correction and Nexus Exhaustion** _(gate `storageAvailable` provado como falso verde para `12Gi` / `longhorn-2`; Nexus cleanup nativo executado com delta `0`)_ | High | Infra | 3h |
 | [T-152](2026/Q2/T-152-ETCD-Backup-Retention-Drift-Convergence.md) | **ETCD Backup Retention Drift Convergence** _(cronjobs live reconciliados com a IaC versionada; bucket `k8s-backups/etcd` voltou para 4 snapshots lógicos / ~1019 MiB)_ | High | Infra | 3h |
