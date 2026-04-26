@@ -1,0 +1,46 @@
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project are documented here.
+Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) spec.\n
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] — {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}\
+- {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }} \
+([`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/commit/{{ commit.id }}))\
+{% endfor %}
+{% endfor %}\n
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_parsers = [
+  { message = "^feat",     group = "Features"       },
+  { message = "^fix",      group = "Bug Fixes"      },
+  { message = "^perf",     group = "Performance"    },
+  { message = "^refactor", group = "Refactor"       },
+  { message = "^chore",    group = "Chores"         },
+  { message = "^docs",     group = "Documentation"  },
+  { message = "^test",     group = "Testing"        },
+  { message = "^ci",       group = "CI"             },
+  { message = "^build",    group = "Build"          },
+  { message = "^revert",   group = "Reverts"        },
+]
+filter_commits = false
+tag_pattern = "v[0-9].*"
+
+[remote.github]
+owner = "dnorio"
+repo  = "production-site"
