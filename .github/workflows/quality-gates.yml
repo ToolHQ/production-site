@@ -191,7 +191,10 @@ jobs:
           for attempt in 1 2 3; do
             echo "[info] npm install attempt ${attempt}/3"
             if timeout 420 npm install --include=dev --no-audit --no-fund; then
-              exit 0
+              if node -e "require.resolve('express'); require.resolve('typescript'); require.resolve('@types/node')"; then
+                exit 0
+              fi
+              echo "[warn] install returned success but required modules were not resolvable"
             fi
             if [[ "$attempt" -lt 3 ]]; then
               echo "[warn] npm install failed, retrying after npm cache verify"
