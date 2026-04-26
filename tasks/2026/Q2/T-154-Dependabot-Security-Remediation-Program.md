@@ -159,3 +159,17 @@ Resultado:
 - O `npm audit` indica correções amplas dependentes de migração major (fora do escopo de patch/minor imediato).
 - Decisão operacional atual: segurar em exceção temporária e preparar plano dedicado de migração de toolchain para reduzir risco sem regressão funcional.
 - Continuidade aberta em task dedicada: `T-155 React-Static Toolchain Security Migration`.
+
+### Onda 2 — Lote 2 parcial (apps/react-static, fase 1)
+
+- Ação executada: hardening sem `--force` via `npm audit fix` em `apps/react-static`.
+- Resultado de segurança:
+	- antes: 59 vulnerabilidades (1 critical, 28 high, 16 moderate, 14 low)
+	- depois: 28 vulnerabilidades (0 critical, 14 high, 5 moderate, 9 low)
+- Validação funcional local:
+	- `npm run typecheck`: PASS
+	- `npm run build`: PASS
+	- `npm run test:ci`: PASS (no tests found)
+- Residual de risco principal:
+	- cadeia de dependências legado ligada a `react-scripts@5.0.1`
+	- redução adicional relevante exige migração de toolchain em trilha dedicada (T-155)
