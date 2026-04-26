@@ -15,5 +15,11 @@
 # sudo ctr -n k8s.io images import /tmp/openmaxio-object-browser-1.1.0.tar
 # cd ..
 
-## TODO: Instalation of direct pv
+## Live baseline
 kubectl apply -f minio-resources.yaml
+
+echo "ℹ️  T-150 preparation artifacts are versioned but intentionally not auto-applied:"
+echo "   - components/minio/minio-longhorn-preflight.yaml"
+echo "   - components/minio/minio-longhorn-target.yaml"
+echo "   - components/minio/minio-longhorn-cutover.md"
+echo "   Gate: keep hostPath-backed MinIO live until /data/minio fits the validated Longhorn envelope."
