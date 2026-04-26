@@ -34,9 +34,9 @@ Guardrails:
 - [x] Criar task T-154 e mover para In Progress
 - [x] Consolidar inventário atual de alertas Dependabot (critical/high/medium/low)
 - [x] Agrupar alertas por ecossistema (github-actions, npm, cargo, outros)
-- [ ] Definir estratégia por onda com ordem de execução e risco
-- [ ] Aplicar onda 1: atualizações de baixo risco (patch/minor) em ferramentas e CI
-- [ ] Validar onda 1 com harness/checks relevantes
+- [x] Definir estratégia por onda com ordem de execução e risco
+- [/] Aplicar onda 1: atualizações de baixo risco (patch/minor) em ferramentas e CI
+- [/] Validar onda 1 com harness/checks relevantes
 - [ ] Aplicar onda 2: bibliotecas de aplicação com impacto funcional moderado
 - [ ] Validar onda 2 com testes/gates por stack
 - [ ] Aplicar onda 3: upgrades major necessários com plano de compatibilidade
@@ -63,3 +63,41 @@ Guardrails:
 Comando utilizado:
 
 - `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
+
+### Estratégia por ondas (2026-04-26)
+
+1. Onda 1 (baixo risco):
+	- fixes patch/minor e overrides cirúrgicos em dependências transitivas
+	- foco inicial em `apps/back-end` (escopo menor e gates já ativos)
+2. Onda 2 (risco moderado):
+	- atualização de bibliotecas de app em `apps/static` e `apps/react-static`
+	- validação por build/typecheck/lint por stack
+3. Onda 3 (risco alto):
+	- upgrades major e remediações que exigem ajuste de código
+	- execução fatiada por pacote e evidência de regressão controlada
+
+### Onda 1 — Lote inicial concluído (apps/back-end)
+
+- Ajustes realizados:
+  - `ajv` atualizado para `8.18.0` (dependência direta)
+  - `overrides` adicionados para:
+	 - `tar` -> `7.5.11`
+	 - `qs` -> `6.14.2`
+	 - `path-to-regexp` -> `0.1.13`
+- Resultado técnico observado com `npm ls`:
+  - `tar@7.5.11 overridden`
+  - `qs@6.14.2 overridden`
+  - `path-to-regexp@0.1.13 overridden`
+  - `ajv@8.18.0` no root
+
+Comandos de validação executados:
+
+- `cd apps/back-end && npm install --package-lock-only`
+- `cd apps/back-end && npm ci`
+- `cd apps/back-end && npm run typecheck`
+- `cd apps/back-end && npm run lint`
+- `./tools/harness/verify.sh verify-changed --paths apps/back-end/package.json apps/back-end/package-lock.json tasks/2026/Q2/T-154-Dependabot-Security-Remediation-Program.md`
+
+Resultado:
+
+- Harness: `PASS` (js-back-end `PASS`; demais gates `SKIP` por escopo)
