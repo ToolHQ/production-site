@@ -23,6 +23,13 @@ trafego para `*.dnor.io` e qual rewire de edge e necessario para preservar dispo
 Separar a borda HTTP/TCP do cluster da dependencia hard no `k8s-master`, sem quebrar o acesso atual a
 `80/443` e sem assumir um `LoadBalancer` que nao esteja efetivamente presente.
 
+## Scope Guardrails (Current Phase)
+
+- Validacao estritamente `tunnel-only` (SSH tunnel + `kubectl`).
+- Nao expor novos endpoints na internet nesta fase.
+- Nao considerar DNS publico `*.dnor.io` como criterio de aceite enquanto o dominio estiver em maturacao.
+- Todos os drills funcionais devem usar caminho interno/controlado (cluster/tunnel).
+
 ## Tasks
 - [x] Mapear o path de entrada atual para `*.dnor.io`: DNS, Tailscale/CoreDNS, IP publico, listeners
 	locais e qualquer dependencia oculta do master.
@@ -55,7 +62,7 @@ Separar a borda HTTP/TCP do cluster da dependencia hard no `k8s-master`, sem que
 
 ## Remaining to Close
 
-- Drill funcional fim-a-fim de host `*.dnor.io` no novo caminho de edge.
+- Drill funcional fim-a-fim no novo caminho de edge em modo `tunnel-only`.
 - Validacao de watchdog/observability sem regressao apos a mudanca.
 
 ## References

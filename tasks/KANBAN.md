@@ -10,7 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(fase canario aplicada: `ingress-nginx-controller-workers` `1/1` em worker com `hostNetwork`; service endpoints agora incluem master + worker)_ | High | Infra | 4h |
+| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(fase canario aplicada: `ingress-nginx-controller-workers` `1/1` em worker com `hostNetwork`; service endpoints agora incluem master + worker; escopo atual: validacao tunnel-only, sem exposicao internet)_ | High | Infra | 4h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
