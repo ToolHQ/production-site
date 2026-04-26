@@ -21,6 +21,7 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(13 bugs medium/low e o `arrow2` deprecated pendentes de bump major ou refactor)_ | 🔽 Low | Security / Tech Debt | 1d |
 | [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** | High | Infra | 4h |
 | [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
 
