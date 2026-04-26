@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 # Cancel in-flight runs for the same ref — keeps resource usage minimal
 concurrency:
   group: quality-gates-${{ github.ref }}
