@@ -51,6 +51,31 @@ journalctl --vacuum-size=500M > /dev/null 2>&1
 echo "✅ Logs Validated."
 print_freed "$START_SPACE" "$(get_space)"
 
+echo "---"
+echo "📝 Processing Rsyslog Files..."
+START_SPACE=$(get_space)
+for log_file in \
+    /var/log/syslog \
+    /var/log/syslog.1 \
+    /var/log/auth.log \
+    /var/log/auth.log.1 \
+    /var/log/kern.log \
+    /var/log/kern.log.1 \
+    /var/log/daemon.log \
+    /var/log/daemon.log.1; do
+    [ -f "$log_file" ] || continue
+    file_size=$(stat -c%s "$log_file" 2>/dev/null || echo 0)
+    if [ "$file_size" -gt $((1024 * 1024 * 1024)) ]; then
+        echo "   Truncating $(basename "$log_file") ($(du -h "$log_file" | awk '{print $1}'))..."
+        truncate -s 0 "$log_file" 2>/dev/null || true
+    fi
+done
+find /var/log -maxdepth 1 \
+    \( -name 'syslog.*.gz' -o -name 'auth.log.*.gz' -o -name 'kern.log.*.gz' -o -name 'daemon.log.*.gz' \) \
+    -mtime +2 -delete 2>/dev/null || true
+echo "✅ Rsyslog Files Checked."
+print_freed "$START_SPACE" "$(get_space)"
+
 # DEEP ONLY: Heavy lifting
 if [ "$MODE" == "deep" ]; then
 
@@ -88,7 +113,7 @@ if [ "$MODE" == "deep" ]; then
                 echo "   Removing $snapname (revision $revision)..."
                 snap remove "$snapname" --revision="$revision" > /dev/null 2>&1
             done
-        set -e
+        set +e
         # Clean cache
         rm -rf /var/lib/snapd/cache/*
         echo "✅ Snap Cache Cleaned."
@@ -116,7 +141,30 @@ if [ "$MODE" == "deep" ]; then
     
     if command -v buildctl &> /dev/null; then
         echo "   Buildctl Prune..."
-        buildctl prune --all --force --keep-storage 1000000000 > /dev/null 2>&1
+        buildctl prune --all --force --keep-storage 1000000000 > /dev/null 2>&1 || true
+    fi
+
+    ROOTLESS_BUILDKIT_USER="ubuntu"
+    ROOTLESS_BUILDKIT_BIN="/home/${ROOTLESS_BUILDKIT_USER}/bin/buildctl"
+    ROOTLESS_BUILDKIT_SOCK="/home/${ROOTLESS_BUILDKIT_USER}/.local/share/buildkit/buildkitd.sock"
+    ROOTLESS_BUILDKIT_DIR="/home/${ROOTLESS_BUILDKIT_USER}/.local/share/buildkit"
+    if id "$ROOTLESS_BUILDKIT_USER" >/dev/null 2>&1 && [ -x "$ROOTLESS_BUILDKIT_BIN" ]; then
+        echo "   Rootless BuildKit Prune (${ROOTLESS_BUILDKIT_USER})..."
+        ROOTLESS_UID=$(id -u "$ROOTLESS_BUILDKIT_USER")
+        if [ -S "$ROOTLESS_BUILDKIT_SOCK" ]; then
+            sudo -u "$ROOTLESS_BUILDKIT_USER" \
+                XDG_RUNTIME_DIR="/run/user/${ROOTLESS_UID}" \
+                "$ROOTLESS_BUILDKIT_BIN" \
+                --addr "unix://${ROOTLESS_BUILDKIT_SOCK}" \
+                prune --all --force --keep-storage 1000000000 > /dev/null 2>&1 || true
+        elif pgrep -u "$ROOTLESS_BUILDKIT_USER" -f buildkitd >/dev/null 2>&1; then
+            echo "   Rootless BuildKit daemon active without socket path; skipping offline cleanup."
+        elif [ -d "$ROOTLESS_BUILDKIT_DIR" ]; then
+            echo "   Rootless BuildKit daemon inactive; clearing stale cache directory..."
+            find "$ROOTLESS_BUILDKIT_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+        else
+            echo "   Rootless BuildKit socket not present; skipping live prune."
+        fi
     fi
     print_freed "$START_SPACE" "$(get_space)"
 
