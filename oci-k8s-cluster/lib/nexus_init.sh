@@ -873,6 +873,80 @@ nexus_show_cleanup_status() {
     fi
 }
 
+# Resolve the public task endpoint.
+# Usage: nexus_tasks_api_path
+nexus_tasks_api_path() {
+    echo "$NEXUS_API_BASE/service/rest/v1/tasks"
+}
+
+# List cleanup- and compact-related tasks.
+# Usage: nexus_list_cleanup_tasks
+nexus_list_cleanup_tasks() {
+    nexus_check_tunnel || return 1
+
+    local password
+    password=$(nexus_get_admin_password)
+
+    local endpoint
+    endpoint=$(nexus_tasks_api_path)
+
+    curl -fsS -u "admin:$password" "$endpoint" | jq '[.items[] | select((.name | ascii_downcase | test("cleanup|compact")) or (.type | ascii_downcase | test("cleanup|compact")))]'
+}
+
+# Read a single Nexus task JSON payload.
+# Usage: nexus_get_task_json <task_id>
+nexus_get_task_json() {
+    local task_id="$1"
+
+    if [ -z "$task_id" ]; then
+        echo "Usage: nexus_get_task_json <task_id>" >&2
+        return 1
+    fi
+
+    nexus_check_tunnel || return 1
+
+    local password
+    password=$(nexus_get_admin_password)
+
+    local endpoint
+    endpoint=$(nexus_tasks_api_path)
+
+    curl -fsS -u "admin:$password" "$endpoint/$task_id"
+}
+
+# Trigger an existing Nexus task run.
+# Usage: nexus_run_task <task_id>
+nexus_run_task() {
+    local task_id="$1"
+
+    if [ -z "$task_id" ]; then
+        echo "Usage: nexus_run_task <task_id>" >&2
+        return 1
+    fi
+
+    nexus_check_tunnel || return 1
+
+    local password
+    password=$(nexus_get_admin_password)
+
+    local endpoint
+    endpoint=$(nexus_tasks_api_path)
+
+    local http_code
+    http_code=$(curl -s -o /dev/null -w '%{http_code}' -u "admin:$password" -X POST "$endpoint/$task_id/run" || echo "000")
+
+    case "$http_code" in
+        200|202|204)
+            echo "✓ Task '$task_id' triggered" >&2
+            return 0
+            ;;
+        *)
+            echo "Error: Failed to trigger task '$task_id' (HTTP $http_code)" >&2
+            return 1
+            ;;
+    esac
+}
+
 # Create NPM group repository (single endpoint: npm-proxy + npm-repo)
 # Usage: nexus_create_npm_group <group_name> <blobstore_name>
 nexus_create_npm_group() {
@@ -1083,5 +1157,6 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     nexus_build_npm_proxy_cleanup_preview_json nexus_preview_npm_proxy_cleanup \
     nexus_set_repository_cleanup_policies nexus_clear_repository_cleanup_policies \
     nexus_set_npm_proxy_cleanup_policies nexus_set_npm_hosted_cleanup_policies nexus_set_docker_hosted_cleanup_policies \
-    nexus_show_cleanup_status nexus_initialize nexus_reset
+    nexus_show_cleanup_status nexus_tasks_api_path nexus_list_cleanup_tasks nexus_get_task_json nexus_run_task \
+    nexus_initialize nexus_reset
 fi
