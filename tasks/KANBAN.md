@@ -10,6 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(cutover executado: `/data/minio` copiado para `minio-pvc-longhorn` com Job `minio-local-copy` `Succeeded=1`; `minio-deployment` aplicado via `minio-longhorn-target.yaml` e rollout concluído)_ | 🔼 High | Infra | 1d |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -20,12 +21,16 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** | High | Infra | 4h |
 | [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
 
 ## ✅ Done
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-153](2026/Q2/T-153-MinIO-Longhorn-Gate-Correction-and-Nexus-Exhaustion.md) | **MinIO Longhorn Gate Correction and Nexus Exhaustion** _(gate `storageAvailable` provado como falso verde para `12Gi` / `longhorn-2`; Nexus cleanup nativo executado com delta `0`)_ | High | Infra | 3h |
+| [T-152](2026/Q2/T-152-ETCD-Backup-Retention-Drift-Convergence.md) | **ETCD Backup Retention Drift Convergence** _(cronjobs live reconciliados com a IaC versionada; bucket `k8s-backups/etcd` voltou para 4 snapshots lógicos / ~1019 MiB)_ | High | Infra | 3h |
+| [T-149](2026/Q2/T-149-Master-DiskPressure-Recurrence-Hardening.md) | **Master DiskPressure Recurrence Hardening** _(recorrencia fechada; cleaner/watchdog endurecidos; master saiu de `DiskPressure` e cluster voltou a warning-only)_ | High | Ops | 4h |
 | [T-148](2026/Q2/T-148-Harness-Execution-Summary.md) | **Harness Execution Summary** | High | DevExp / Tooling | 2h |
 | [T-147](2026/Q2/T-147-yamllint-gate-for-K8s-manifests.md) | **yamllint gate for K8s manifests** | 🔼 High | DevExp / Tooling | 2h |
 | [T-146](2026/Q2/T-146-CI-path-aware-required-checks-rollout.md) | **CI path-aware required checks rollout** | 🔼 High | DevExp / Tooling | 4h |
