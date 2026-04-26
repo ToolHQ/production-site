@@ -1,6 +1,6 @@
 # T-155: React-Static Toolchain Security Migration
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Security / Frontend
 - **Estimation**: 2d

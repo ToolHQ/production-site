@@ -10,7 +10,6 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
 | [T-154](2026/Q2/T-154-Dependabot-Security-Remediation-Program.md) | **Dependabot Security Remediation Program** | 🚨 Critical | Security / DevExp | 3d |
 | [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(cutover executado: `/data/minio` copiado para `minio-pvc-longhorn` com Job `minio-local-copy` `Succeeded=1`; `minio-deployment` aplicado via `minio-longhorn-target.yaml` e rollout concluído)_ | 🔼 High | Infra | 1d |
 
@@ -30,6 +29,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
 | [T-153](2026/Q2/T-153-MinIO-Longhorn-Gate-Correction-and-Nexus-Exhaustion.md) | **MinIO Longhorn Gate Correction and Nexus Exhaustion** _(gate `storageAvailable` provado como falso verde para `12Gi` / `longhorn-2`; Nexus cleanup nativo executado com delta `0`)_ | High | Infra | 3h |
 | [T-152](2026/Q2/T-152-ETCD-Backup-Retention-Drift-Convergence.md) | **ETCD Backup Retention Drift Convergence** _(cronjobs live reconciliados com a IaC versionada; bucket `k8s-backups/etcd` voltou para 4 snapshots lógicos / ~1019 MiB)_ | High | Infra | 3h |
 | [T-149](2026/Q2/T-149-Master-DiskPressure-Recurrence-Hardening.md) | **Master DiskPressure Recurrence Hardening** _(recorrencia fechada; cleaner/watchdog endurecidos; master saiu de `DiskPressure` e cluster voltou a warning-only)_ | High | Ops | 4h |

@@ -15,7 +15,6 @@ futures-util = "0.3.31"
 http-body = "1.0"
 http-body-util = "0.1"
 indexmap = "2"
-multipart = "0.18.0"
 once_cell = "1.19"
 parquet2 = "0.17.2"
 polars = { version = "0.46.0", features = ["parquet", "lazy", "json"] }
