@@ -190,7 +190,7 @@ jobs:
           cd apps/back-end
           for attempt in 1 2 3; do
             echo "[info] npm ci attempt ${attempt}/3"
-            if npm ci; then
+            if timeout 420 npm ci --no-audit --no-fund; then
               exit 0
             fi
             if [[ "$attempt" -lt 3 ]]; then
