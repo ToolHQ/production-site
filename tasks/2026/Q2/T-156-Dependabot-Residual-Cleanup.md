@@ -1,6 +1,6 @@
 # T-156: Dependabot Residual Cleanup (Tech Debt)
 
-- **Status**: To Do
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Security / Tech Debt
 - **Estimation**: 1d
