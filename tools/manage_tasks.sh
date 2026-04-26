@@ -93,6 +93,11 @@ function add_task() {
 - [ ] Initial investigation
 - [ ] Implement focus area 1
 - [ ] Validate and test
+
+## Validação
+# TODO: Registre comandos reais executados e o resultado objetivo.
+# Para mudança de código, o mínimo esperado é o comando root path-aware quando aplicável:
+# - ./tools/harness/verify.sh verify-changed --paths <arquivos alterados>
 EOF
 
 	# Add to KANBAN.md (Backlog section starts at line 10-ish)
