@@ -75,15 +75,18 @@ done < <(
     kubectl -n longhorn-system get backupvolumes.longhorn.io -o json | jq -r '
         .items
         | map(
-            (.status.labels.KubernetesStatus? | fromjson? // {}) as $ks
+            ((.status.labels.KubernetesStatus? // "") as $rawKs
+            | if $rawKs == "" then {} else ($rawKs | fromjson? // {}) end) as $ks
+            | ((.status.dataStored // "") as $rawDataStored
+            | if $rawDataStored == "" then 0 else ($rawDataStored | tonumber) end) as $dataStored
             | {
                 name: .metadata.name,
                 volume: (.spec.volumeName // ""),
                 namespace: ($ks.namespace // "-"),
                 pvc: ($ks.pvcName // "-"),
                 recurring: (.status.labels.RecurringJob // "-"),
-                dataStored: ((.status.dataStored // "0") | tonumber),
-                lastBackupAt: (.status.lastBackupAt // "-")
+                dataStored: $dataStored,
+                lastBackupAt: ((.status.lastBackupAt // "") | if . == "" then "-" else . end)
             }
         )
         | sort_by(-.dataStored, .lastBackupAt)
