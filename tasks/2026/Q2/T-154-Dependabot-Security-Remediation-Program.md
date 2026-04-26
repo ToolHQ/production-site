@@ -158,3 +158,4 @@ Resultado:
 - Diagnóstico: `apps/react-static` mantém cadeia legacy de `react-scripts` com 59 vulnerabilidades abertas (1 critical, 28 high, 16 moderate, 14 low).
 - O `npm audit` indica correções amplas dependentes de migração major (fora do escopo de patch/minor imediato).
 - Decisão operacional atual: segurar em exceção temporária e preparar plano dedicado de migração de toolchain para reduzir risco sem regressão funcional.
+- Continuidade aberta em task dedicada: `T-155 React-Static Toolchain Security Migration`.
