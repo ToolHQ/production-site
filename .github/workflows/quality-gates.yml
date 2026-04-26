@@ -187,7 +187,7 @@ jobs:
 
       - name: Pin npm version
         run: |
-          npm install -g npm@10.8.2
+          npm install -g npm@9.9.4
           npm --version
 
       - name: Install dependencies
