@@ -8,21 +8,14 @@ use futures::TryStreamExt;
 use http_body::Frame;
 use http_body_util::StreamBody;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
-use std::{
-    fs::File,
-};
+use serde_json::{Value};
+use std::fs::File;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio::io::AsyncWriteExt;
 
 use utoipa::ToSchema;
-
-use arrow2::{
-    array::{Utf8Array, PrimitiveArray},
-    datatypes::{DataType},
-};
-use arrow2::io::parquet::read::{read_metadata as read_parquet_metadata, infer_schema, FileReader};
+use polars::prelude::*;
 use crate::logger::JsonLogger;
 
 #[derive(Deserialize, ToSchema)]
@@ -78,84 +71,34 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> Result<impl 
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let file = File::open(&temp_path).map_err(|e| {
-        logger.error(&format!("Failed to open temp parquet file: {:?}", e), None);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-    let cloned_file = file.try_clone().map_err(|e| {
-        logger.error(&format!("Failed to clone file handle: {:?}", e), None);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-    let metadata = read_parquet_metadata(&mut { cloned_file }).map_err(|e| {
-        logger.error(&format!("Failed to read parquet metadata: {:?}", e), None);
-        StatusCode::UNPROCESSABLE_ENTITY
-    })?;
-    let schema = infer_schema(&metadata).map_err(|e| {
-        logger.error(&format!("Failed to infer parquet schema: {:?}", e), None);
-        StatusCode::UNPROCESSABLE_ENTITY
-    })?;
-    let row_groups = metadata.row_groups.clone();
-    let projection = None;
-
-    let reader = FileReader::new(file, row_groups, schema.clone(), projection, None, None);
+    let json_bytes = {
+        let file = File::open(&temp_path).map_err(|e| {
+            logger.error(&format!("Failed to open temp parquet file: {:?}", e), None);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        let mut df = ParquetReader::new(file).finish().map_err(|e| {
+            logger.error(&format!("Failed to read parquet with Polars: {:?}", e), None);
+            StatusCode::UNPROCESSABLE_ENTITY
+        })?;
+        
+        let mut buf = Vec::new();
+        JsonWriter::new(&mut buf).with_json_format(JsonFormat::Json).finish(&mut df).map_err(|e| {
+            logger.error(&format!("Failed to write JSON with Polars: {:?}", e), None);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+        buf
+    };
+    
     let (tx, rx) = mpsc::channel::<Result<Bytes, std::io::Error>>(8);
 
     tokio::spawn(async move {
-        let mut first = true;
-        let _ = tx.send(Ok(Bytes::from("["))).await;
-
-        for maybe_batch in reader {
-            let batch = match maybe_batch {
-                Ok(b) => b,
-                Err(e) => {
-                    JsonLogger::new().error(&format!("Failed to read parquet batch: {:?}", e), None);
-                    let _ = tx.send(Err(std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))).await;
-                    return;
-                }
-            };
-            let columns = batch.columns();
-            let names = schema.fields.iter().map(|f| f.name.as_str()).collect::<Vec<_>>();
-
-            for row_idx in 0..batch.len() {
-                let mut map = Map::new();
-                for (col_idx, col) in columns.iter().enumerate() {
-                    let name = names
-                        .get(col_idx)
-                        .map(|s| s.to_string())
-                        .unwrap_or_else(|| format!("col_{}", col_idx));
-                    let value = match schema.fields[col_idx].data_type {
-                        DataType::Utf8 => {
-                            if let Some(arr) = col.as_any().downcast_ref::<Utf8Array<i32>>() {
-                                Value::from(arr.value(row_idx))
-                            } else {
-                                Value::Null
-                            }
-                        }
-                        DataType::Int32 => {
-                            if let Some(arr) = col.as_any().downcast_ref::<PrimitiveArray<i32>>() {
-                                Value::from(arr.value(row_idx))
-                            } else {
-                                Value::Null
-                            }
-                        }
-                        _ => Value::Null,
-                    };
-                    map.insert(name, value);
-                }
-                let json = Value::Object(map).to_string();
-                let line = if first {
-                    first = false;
-                    json
-                } else {
-                    format!(",{}", json)
-                };
-                if tx.send(Ok(Bytes::from(line))).await.is_err() {
-                    return;
-                }
+        // Send the JSON bytes in chunks or all at once since we already buffered it
+        let chunk_size = 64 * 1024;
+        for chunk in json_bytes.chunks(chunk_size) {
+            if tx.send(Ok(Bytes::copy_from_slice(chunk))).await.is_err() {
+                break;
             }
         }
-
-        let _ = tx.send(Ok(Bytes::from("]"))).await;
         let _ = tokio::fs::remove_file(&temp_path).await;
     });
 
@@ -164,7 +107,7 @@ pub async fn upload_and_stream_parquet(mut multipart: Multipart) -> Result<impl 
         .header(header::CONTENT_TYPE, "application/json")
         .body(body)
         .map_err(|e| {
-            JsonLogger::new().error(&format!("Failed to build response: {:?}", e), None);
+            logger.error(&format!("Failed to build response: {:?}", e), None);
             StatusCode::INTERNAL_SERVER_ERROR
         })
 }

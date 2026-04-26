@@ -21,7 +21,6 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(13 bugs medium/low e o `arrow2` deprecated pendentes de bump major ou refactor)_ | 🔽 Low | Security / Tech Debt | 1d |
 | [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** | High | Infra | 4h |
 | [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
 
@@ -29,6 +28,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(arrow2 refactored to polars, all NPM & Rust bumps applied)_ | 🔽 Low | Security / Tech Debt | 1d |
 | [T-154](2026/Q2/T-154-Dependabot-Security-Remediation-Program.md) | **Dependabot Security Remediation Program** | 🚨 Critical | Security / DevExp | 3d |
 | [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
 | [T-153](2026/Q2/T-153-MinIO-Longhorn-Gate-Correction-and-Nexus-Exhaustion.md) | **MinIO Longhorn Gate Correction and Nexus Exhaustion** _(gate `storageAvailable` provado como falso verde para `12Gi` / `longhorn-2`; Nexus cleanup nativo executado com delta `0`)_ | High | Infra | 3h |
