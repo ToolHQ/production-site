@@ -51,6 +51,37 @@ FZF_BIN="/tmp/k8s_ops_fzf"
 APP_DEPLOY_LAST_LOG_FILE=""
 JSLIBS_NEXUS_PASSWORD=""
 
+# WSL_DISTRO_NAME is only set by WSL on native terminal sessions.
+# SSH sessions (e.g. via Tailscale) do not inherit it, causing `set -u` to abort.
+# Resolve it here so all downstream code (Windows bridge / netsh UAC path) is safe.
+if [[ -z "${WSL_DISTRO_NAME:-}" ]] && grep -qEi "(Microsoft|WSL)" /proc/version 2>/dev/null; then
+    _wsl_exe="/mnt/c/Windows/System32/wsl.exe"
+    if [[ -x "$_wsl_exe" ]]; then
+        WSL_DISTRO_NAME=$(
+            "$_wsl_exe" --list --running 2>/dev/null \
+            | iconv -f UTF-16LE -t UTF-8 2>/dev/null \
+            | tr -d '\r' \
+            | grep -vE "^(Windows Subsystem|running distributions|-+|$)" \
+            | head -1 \
+            | sed 's/ (Default)//' \
+            | xargs
+        ) || true
+    fi
+    # Fallback: derive from /etc/os-release NAME (e.g. "Ubuntu")
+    if [[ -z "${WSL_DISTRO_NAME:-}" ]]; then
+        WSL_DISTRO_NAME=$(awk -F= '/^NAME=/{ gsub(/"/, "", $2); print $2 }' /etc/os-release 2>/dev/null) || true
+    fi
+    export WSL_DISTRO_NAME
+fi
+# Final safety net: ensure the variable is always defined (empty string) so set -u never aborts.
+: "${WSL_DISTRO_NAME:=}"
+
+# Returns true only when Windows UAC elevation via cmd.exe /c start is feasible.
+# Requires: an interactive Windows desktop session (not available in SSH/headless).
+_wsl_uac_available() {
+    [[ -n "${WSL_DISTRO_NAME}" ]] && [[ -z "${SSH_CONNECTION:-}${SSH_CLIENT:-}" ]]
+}
+
 # --- FZF SETUP (Local) ---
 ensure_fzf() {
   if command -v fzf >/dev/null 2>&1; then
@@ -1261,8 +1292,13 @@ netsh interface portproxy add v4tov4 listenaddress=\$bindIP listenport=\$bindPor
 Write-Host "✅ [Netsh] PortProxy Rule Added: \${bindIP}:\${bindPort} -> \${targetIP}:\${targetPort}" -ForegroundColor Green
 Start-Sleep -Seconds 4
 EOF
-                 /mnt/c/Windows/System32/cmd.exe /c start "Updating Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${ps_runner}'"
-                 echo -e "${GREEN}✅ Windows Bridge Activated via netsh!${NC}"
+                 if _wsl_uac_available; then
+                     /mnt/c/Windows/System32/cmd.exe /c start "Updating Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${ps_runner}'"
+                     echo -e "${GREEN}✅ Windows Bridge Activated via netsh!${NC}"
+                 else
+                     echo -e "${YELLOW}⚠️  UAC popup unavailable in SSH/headless session. Run this as Admin in Windows:${NC}"
+                     echo -e "${CYAN}   netsh interface portproxy add v4tov4 listenaddress=${win_bind_ip} listenport=${win_bind_port} connectaddress=${wsl_target_ip} connectport=${bridge_port}${NC}"
+                 fi
             fi
 
             echo -e "  You can now connect from Windows using: ${CYAN}${bind_ip}:${local_port}${NC}"
@@ -1413,7 +1449,12 @@ netsh interface portproxy delete v4tov4 listenaddress=${n_ip} listenport=${n_por
 Write-Host "✅ Rule Deleted: ${n_ip}:${n_port}" -ForegroundColor Green
 Start-Sleep -Seconds 2
 EOF
-                             /mnt/c/Windows/System32/cmd.exe /c start "Cleaning Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${runner_del}'"
+                             if _wsl_uac_available; then
+                                 /mnt/c/Windows/System32/cmd.exe /c start "Cleaning Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${runner_del}'"
+                             else
+                                 echo -e "${YELLOW}⚠️  UAC popup unavailable in SSH/headless session. Run this as Admin in Windows:${NC}"
+                                 echo -e "${CYAN}   netsh interface portproxy delete v4tov4 listenaddress=${n_ip} listenport=${n_port}${NC}"
+                             fi
                         fi
                     else
                         echo -e "${GRAY}No matching Netsh rule found for bridge port $bridge_port_kill.${NC}"
@@ -1915,7 +1956,12 @@ Start-Sleep -Seconds 2
 EOF
                 # Run it
                 # Added < /dev/null
-                /mnt/c/Windows/System32/cmd.exe /c start "Cleaning Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${runner_del}'" < /dev/null
+                if _wsl_uac_available; then
+                    /mnt/c/Windows/System32/cmd.exe /c start "Cleaning Network Rules" powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -Command "Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File \\\\wsl\$\\${WSL_DISTRO_NAME}${runner_del}'" < /dev/null
+                else
+                    echo -e "${YELLOW}⚠️  UAC popup unavailable in SSH/headless session. Run this as Admin in Windows:${NC}"
+                    echo -e "${CYAN}   netsh interface portproxy delete v4tov4 listenaddress=${raw_bind} listenport=${lport}${NC}"
+                fi
             fi
         fi
         
