@@ -26,7 +26,7 @@
     "@dnorio/pg-query-binding": "0.0.175",
     "@dnorio/swagger-router": "0.0.175",
     "@types/express": "5.0.0",
-    "ajv": "8.17.1",
+    "ajv": "8.18.0",
     "ajv-formats": "3.0.1",
     "elastic-apm-node": "4.11.0",
     "express": "4.21.2",
@@ -43,6 +43,11 @@
     "eslint": "8.57.0",
     "nodemon": "3.1.9",
     "typescript-eslint": "7.13.0"
+  },
+  "overrides": {
+    "path-to-regexp": "0.1.13",
+    "qs": "6.14.2",
+    "tar": "7.5.11"
   },
   "sideEffects": false
 }
