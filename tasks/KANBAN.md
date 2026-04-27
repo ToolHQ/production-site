@@ -10,7 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(cutover executado: `/data/minio` copiado para `minio-pvc-longhorn` com Job `minio-local-copy` `Succeeded=1`; `minio-deployment` aplicado via `minio-longhorn-target.yaml` e rollout concluído)_ | 🔼 High | Infra | 1d |
+
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -28,6 +28,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(MinIO migrado do rootfs do master para PVC Longhorn `minio-pvc-longhorn` 12Gi; dataset legado arquivado e removido do `/data/minio` em 2026-04-26)_ | 🔼 High | Infra | 1d |
 | [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(arrow2 refactored to polars, all NPM & Rust bumps applied)_ | 🔽 Low | Security / Tech Debt | 1d |
 | [T-154](2026/Q2/T-154-Dependabot-Security-Remediation-Program.md) | **Dependabot Security Remediation Program** | 🚨 Critical | Security / DevExp | 3d |
 | [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |

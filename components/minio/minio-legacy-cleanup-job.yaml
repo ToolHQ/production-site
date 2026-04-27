@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-legacy-cleanup
+  namespace: minio
+spec:
+  template:
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-master
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+      - name: cleanup
+        image: alpine:latest
+        command:
+        - "/bin/sh"
+        - "-c"
+        - |
+          echo "Starting legacy MinIO data cleanup..."
+          if [ -d "/host-data/minio" ]; then
+            echo "Archiving /host-data/minio to /host-data/minio_legacy_backup.tar (no compression for speed)..."
+            tar -cf /host-data/minio_legacy_backup.tar -C /host-data minio
+            echo "Archive created. Size: $(du -sh /host-data/minio_legacy_backup.tar)"
+            echo "Removing /host-data/minio directory..."
+            rm -rf /host-data/minio
+            echo "Cleanup completed successfully."
+            df -h /host-data
+          else
+            echo "/host-data/minio does not exist. Already cleaned up?"
+            df -h /host-data
+          fi
+        volumeMounts:
+        - name: data-dir
+          mountPath: /host-data
+      volumes:
+      - name: data-dir
+        hostPath:
+          path: /data
+          type: Directory
+      restartPolicy: Never
+  backoffLimit: 0
