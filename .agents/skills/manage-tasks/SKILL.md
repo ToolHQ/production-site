@@ -15,6 +15,7 @@ Este skill descreve como o agente deve gerenciar o ciclo de vida das tarefas no 
    - Expandir a seção `## Context` com detalhes técnicos do problema.
    - Quebrar a seção `## Tasks` em sub-tarefas granulares (ex: "Criar configmap", "Validar log", "Testar persistência").
 4. **Atualização Contínua**: À medida que progride, o agente deve marcar os itens de `## Tasks` como concluídos (`[x]`). Não deixe a tarefa com apenas um item genérico.
+5. **GitFlow Obrigatório**: Antes de executar qualquer alteração no código, crie uma nova branch a partir da `main` atualizada (ex: `feat/T-XXX-nome-da-feature`). **Nunca** commite diretamente na `main`. Todo o trabalho deve ser mesclado através de um Pull Request (PR).
 
 ## Fluxo de Trabalho
 
