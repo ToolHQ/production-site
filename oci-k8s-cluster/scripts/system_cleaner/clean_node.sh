@@ -113,7 +113,6 @@ if [ "$MODE" == "deep" ]; then
                 echo "   Removing $snapname (revision $revision)..."
                 snap remove "$snapname" --revision="$revision" > /dev/null 2>&1
             done
-        set +e
         # Clean cache
         rm -rf /var/lib/snapd/cache/*
         echo "✅ Snap Cache Cleaned."
