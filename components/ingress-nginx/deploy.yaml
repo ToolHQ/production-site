@@ -517,7 +517,16 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:
         kubernetes.io/os: linux
-        kubernetes.io/hostname: k8s-master
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 10
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - k8s-master
       tolerations:
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"
@@ -532,8 +541,8 @@ spec:
           secret:
             secretName: ingress-nginx-admission
 ---
-# T-151 canary: adiciona uma instancia de ingress em worker para desacoplar a borda do master.
-# Rollback imediato: kubectl -n ingress-nginx delete deploy ingress-nginx-controller-workers
+# Workers-only ingress replica — runs on any worker node (excludes k8s-master)
+# Provides edge redundancy so the master is not a SPOF for HTTP/HTTPS traffic.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -548,8 +557,7 @@ metadata:
   namespace: ingress-nginx
 spec:
   replicas: 1
-  minReadySeconds: 0
-  revisionHistoryLimit: 10
+  revisionHistoryLimit: 5
   selector:
     matchLabels:
       app.kubernetes.io/component: controller
@@ -558,7 +566,7 @@ spec:
       dnor.io/edge-role: workers
   strategy:
     rollingUpdate:
-      maxUnavailable: 1
+      maxUnavailable: 0
     type: RollingUpdate
   template:
     metadata:
@@ -667,11 +675,11 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: NotIn
-                    values:
-                      - k8s-master
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - k8s-master
       serviceAccountName: ingress-nginx
       terminationGracePeriodSeconds: 300
       volumes:
@@ -680,6 +688,7 @@ spec:
             secretName: ingress-nginx-admission
 ---
 apiVersion: batch/v1
+
 kind: Job
 metadata:
   labels:
