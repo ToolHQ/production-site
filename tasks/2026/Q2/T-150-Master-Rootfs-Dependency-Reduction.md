@@ -4,6 +4,7 @@
 - **Priority**: High
 - **Epic/Owner**: Infra
 - **Estimation**: 1d
+- **Closed**: 2026-04-26
 
 ## Context
 T-149 resolveu a recorrencia operacional do `DiskPressure` no `k8s-master`, mas a causa estrutural

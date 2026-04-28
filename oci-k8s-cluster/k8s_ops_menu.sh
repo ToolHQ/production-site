@@ -2729,8 +2729,8 @@ schedule_snapshots() {
             1)
                 echo -e "${BLUE}📊 Checking Backup Status...${NC}"
                 echo -e "${YELLOW}--- Etcd Backups ---${NC}"
-              run_kubectl "get cronjob etcd-backup etcd-backup-prune -n kube-system"
-              echo -e "${YELLOW}IaC:${NC} components/backup/etcd-backup-cronjob.yaml"
+                run_kubectl "get cronjob etcd-backup etcd-backup-prune -n kube-system"
+                echo -e "${YELLOW}IaC:${NC} components/backup/etcd-backup-cronjob.yaml"
                 echo ""
                 echo -e "${YELLOW}--- Longhorn Backups ---${NC}"
                 run_kubectl "get recurringjob -n longhorn-system"
@@ -2740,7 +2740,7 @@ schedule_snapshots() {
                 echo -e "${BLUE}💾 Triggering Manual Etcd Backup...${NC}"
                 run_kubectl "create job --from=cronjob/etcd-backup etcd-backup-manual-$(date +%s) -n kube-system"
                 echo -e "${GREEN}✅ Backup job created.${NC}"
-              echo -e "${YELLOW}ℹ️  Retention source of truth: components/backup/etcd-backup-cronjob.yaml${NC}"
+                echo -e "${YELLOW}ℹ️  Retention source of truth: components/backup/etcd-backup-cronjob.yaml${NC}"
                 read -p "$(t "press_enter")"
                 ;;
             3)
@@ -2807,7 +2807,7 @@ EOF
                 echo -e "${BLUE}🕒 Backup Schedules...${NC}"
                 run_kubectl "get cronjobs -A"
                 run_kubectl "get recurringjobs -n longhorn-system"
-              echo -e "${YELLOW}ℹ️  ETCD backup/prune manifest: components/backup/etcd-backup-cronjob.yaml${NC}"
+                echo -e "${YELLOW}ℹ️  ETCD backup/prune manifest: components/backup/etcd-backup-cronjob.yaml${NC}"
                 read -p "$(t "press_enter")"
                 ;;
             5)

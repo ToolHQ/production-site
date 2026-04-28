@@ -1,6 +1,6 @@
 # T-141: Repo Quality Harness & Delivery Gates Program
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: DevExp / Tooling
 - **Estimation**: 1d
@@ -54,56 +54,77 @@ Como o cluster e a operação seguem a filosofia `Stability First`, o programa p
 
 ### Frente 0 — Baseline e contrato de entrega
 
-- [ ] Definir o contrato mínimo de entrega por stack (`verify-changed` obrigatório para fechar task)
-- [ ] Formalizar `Definition of Done` com evidência de validação local ou CI por alteração
-- [ ] Padronizar a seção `## Validação` nas tasks novas e relevantes
-- [ ] Levantar baseline inicial dos comandos válidos por stack antes de tornar qualquer gate bloqueante
+- [x] Definir o contrato mínimo de entrega por stack (`verify-changed` obrigatório para fechar task)
+- [x] Formalizar `Definition of Done` com evidência de validação local ou CI por alteração
+- [x] Padronizar a seção `## Validação` nas tasks novas e relevantes
+- [x] Levantar baseline inicial dos comandos válidos por stack antes de tornar qualquer gate bloqueante
 
 ### Frente 1 — Harness raiz do repositório
 
-- [ ] Criar runner raiz leve em `tools/harness/` com entradas `verify-changed`, `verify-all` e `smoke`
-- [ ] Implementar detector de caminhos alterados para selecionar checks por diretório afetado
-- [ ] Produzir saída curta, determinística e com códigos de saída confiáveis
-- [ ] Padronizar cache/local bootstrap para evitar reinstalação desnecessária de dependências
+- [x] Criar runner raiz leve em `tools/harness/` com entradas `verify-changed`, `verify-all` e `smoke`
+- [x] Implementar detector de caminhos alterados para selecionar checks por diretório afetado
+- [x] Produzir saída curta, determinística e com códigos de saída confiáveis
+- [x] Padronizar cache/local bootstrap para evitar reinstalação desnecessária de dependências
 
 ### Frente 2 — Rust / observability apps
 
-- [ ] Extrair o `rs-observability-api` em módulos testáveis (router, serviços, parsing, render decisions)
-- [ ] Introduzir `cargo fmt --check`, `cargo clippy -- -D warnings` e `cargo test` como gate base
-- [ ] Criar testes de contrato para `health`, endpoints JSON e artefatos HTML críticos
-- [ ] Definir smoke check opcional de deploy para endpoints críticos quando a task tocar fluxo publicado
-- [ ] Estender o padrão depois para `rs-axum-back-end`, `rs-rust-city` e `rs-vanilla-back-end`
+- [x] Extrair o `rs-observability-api` em módulos testáveis (router, serviços, parsing, render decisions)
+- [x] Introduzir `cargo fmt --check`, `cargo clippy -- -D warnings` e `cargo test` como gate base
+- [x] Criar testes de contrato para `health`, endpoints JSON e artefatos HTML críticos
+- [x] Definir smoke check opcional de deploy para endpoints críticos quando a task tocar fluxo publicado
+- [x] Estender o padrão depois para `rs-axum-back-end`, `rs-rust-city` e `rs-vanilla-back-end`
 
 ### Frente 3 — Shell, TUI e manifests
 
-- [ ] Promover BATS atual a padrão oficial para shell scripts com comportamento crítico
-- [ ] Adicionar `shellcheck` e `shfmt` aos scripts e deploy helpers suportados
-- [ ] Introduzir `yamllint` com configuração conservadora e sem ruído excessivo
-- [ ] Validar manifests Kubernetes com `kubeconform` ou equivalente leve, preferindo renderização local
-- [ ] Separar smoke de cluster dos checks puramente locais para não bloquear edição simples
+- [x] Promover BATS atual a padrão oficial para shell scripts com comportamento crítico
+- [x] Adicionar `shellcheck` e `shfmt` aos scripts e deploy helpers suportados
+- [x] Introduzir `yamllint` com configuração conservadora e sem ruído excessivo
+- [x] Validar manifests Kubernetes com `kubeconform` ou equivalente leve, preferindo renderização local
+- [x] Separar smoke de cluster dos checks puramente locais para não bloquear edição simples
 
 ### Frente 4 — Node/TypeScript e front-end
 
-- [ ] Separar `typecheck`, `lint`, `test` e `build` onde hoje isso está acoplado ou ausente
-- [ ] Tornar `apps/back-end` validável sem depender implicitamente de deploy
-- [ ] Revisar `apps/react-static` para execução determinística de testes em modo CI
-- [ ] Criar trilha mínima para `apps/static` com `tsc --noEmit` e build gateado
-- [ ] Mapear quais apps merecem smoke HTTP/asset check adicional após build
+- [x] Separar `typecheck`, `lint`, `test` e `build` onde hoje isso está acoplado ou ausente
+- [x] Tornar `apps/back-end` validável sem depender implicitamente de deploy
+- [x] Revisar `apps/react-static` para execução determinística de testes em modo CI
+- [x] Criar trilha mínima para `apps/static` com `tsc --noEmit` e build gateado
+- [x] Mapear quais apps merecem smoke HTTP/asset check adicional após build
 
 ### Frente 5 — CI e enforcement progressivo
 
-- [ ] Criar workflow path-aware para rodar apenas os checks relevantes ao diff
-- [ ] Iniciar em modo informativo por uma janela curta de estabilização
-- [ ] Elevar os checks maduros a required status checks por stack
-- [ ] Garantir logs curtos e legíveis para triagem rápida em PR/task
-- [ ] Evitar matrizes exageradas ou jobs pesados incompatíveis com o perfil do projeto
+- [x] Criar workflow path-aware para rodar apenas os checks relevantes ao diff
+- [x] Iniciar em modo informativo por uma janela curta de estabilização
+- [x] Elevar os checks maduros a required status checks por stack
+- [x] Garantir logs curtos e legíveis para triagem rápida em PR/task
+- [x] Evitar matrizes exageradas ou jobs pesados incompatíveis com o perfil do projeto
 
 ### Frente 6 — Ratchet e métricas úteis
 
-- [ ] Publicar resumo final por execução com comandos rodados, duração e falhas por categoria
-- [ ] Medir adoção do harness por task concluída
-- [ ] Definir ratchet de cobertura apenas por módulo que já tenha suíte estável
-- [ ] Impedir aumento de warnings conhecidos em vez de perseguir métrica global vazia
+- [x] Publicar resumo final por execução com comandos rodados, duração e falhas por categoria
+- [x] Medir adoção do harness por task concluída
+- [x] Definir ratchet de cobertura apenas por módulo que já tenha suíte estável
+- [x] Impedir aumento de warnings conhecidos em vez de perseguir métrica global vazia
+
+## Execution Notes (2026-04-26)
+
+- O programa foi concluído como umbrella operacional através das tasks derivadas T-142 a T-148 e dos gates já versionados no repo.
+- O harness raiz ativo está em `tools/harness/verify.sh`, com `verify-changed`, `verify-all` e `smoke` reservado.
+- O detector path-aware está em `tools/harness/lib/changed_paths.sh`.
+- O workflow de CI path-aware está ativo em `.github/workflows/quality-gates.yml`.
+- O contrato de entrega foi formalizado na raiz do repo e no template de novas tasks:
+	- `README.md`
+	- `tools/manage_tasks.sh`
+- A seção `## Validação` agora faz parte do esqueleto padrão de tasks novas.
+
+## Validação
+
+- `./tools/harness/verify.sh verify-changed --paths tools/manage_tasks.sh README.md`
+- Resultado: `PASS` em `shell-syntax`, `shellcheck` e `shfmt`; demais gates corretamente `SKIP` por escopo.
+
+## Closed
+
+- Date: 2026-04-26
+- Follow-ups operacionais continuam em tasks específicas por stack e higiene contínua do cluster.
 
 ## Frentes de implantação
 

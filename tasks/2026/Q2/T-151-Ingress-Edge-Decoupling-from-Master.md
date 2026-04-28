@@ -45,6 +45,13 @@ dois nodes ouvindo 80/443 via `hostNetwork`.
 Separar a borda HTTP/TCP do cluster da dependencia hard no `k8s-master`, sem quebrar o acesso atual a
 `80/443` e sem assumir um `LoadBalancer` que nao esteja efetivamente presente.
 
+## Scope Guardrails (Current Phase)
+
+- Validacao estritamente `tunnel-only` (SSH tunnel + `kubectl`).
+- Nao expor novos endpoints na internet nesta fase.
+- Nao considerar DNS publico `*.dnor.io` como criterio de aceite enquanto o dominio estiver em maturacao.
+- Todos os drills funcionais devem usar caminho interno/controlado (cluster/tunnel).
+
 ## Tasks
 - [x] Mapear o path de entrada atual para `*.dnor.io`: DNS, Tailscale/CoreDNS, IP publico, listeners
       locais e qualquer dependencia oculta do master.
@@ -64,6 +71,35 @@ Separar a borda HTTP/TCP do cluster da dependencia hard no `k8s-master`, sem que
   trafego via workers.
 - O `externalTrafficPolicy: Local` no Service significa que o LB externo precisa rotear para nodes
   onde o pod do ingress realmente esta. Confirmar que o health check do OCI LB inclui os workers.
+
+## Execution Notes (2026-04-26)
+
+- Path atual confirmado:
+	- `ingress-nginx-controller` original permanece em `hostNetwork: true`, pinned no `k8s-master`.
+	- DNS publico dos hosts `*.dnor.io` resolve para `3.33.130.190` e `15.197.148.33`.
+	- Service `ingress-nginx-controller` segue `type=LoadBalancer` com `EXTERNAL-IP <pending>` (sem OCI LB funcional).
+- Topologia alvo adotada para mitigacao sem downtime: `worker-preferred com fallback`.
+- IaC versionada em `components/ingress-nginx/deploy.yaml`:
+	- adicionado deployment canario `ingress-nginx-controller-workers` com `replicas: 1`.
+	- `hostNetwork: true` mantido para preservar bind em `80/443`.
+	- `nodeAffinity` com `NotIn: k8s-master` para forcar worker.
+	- rollback explicito no comentario do manifesto:
+		- `kubectl -n ingress-nginx delete deploy ingress-nginx-controller-workers`
+- Validacao concluida ate aqui:
+	- rollout `ingress-nginx-controller-workers` `1/1 Available`.
+	- pod worker em `k8s-node-2` com IP `10.0.1.50`.
+	- Service endpoints incluem master e worker.
+	- listeners `:80/:443` presentes em `k8s-master` e `k8s-node-2`.
+	- drill funcional tunnel-only validado via caminho interno:
+		- `curl -I -H 'Host: dnor.io' http://10.0.1.50` -> `HTTP/1.1 308 Permanent Redirect`
+		- `curl -I -H 'Host: reports.dnor.io' http://10.0.1.50` -> `HTTP/1.1 308 Permanent Redirect`
+	- quick-check de regressao sem novos sintomas de borda; apenas jobs/pods historicamente falhados fora do escopo do ingress.
+
+## Closed
+
+- Date: 2026-04-26
+- Rollback runbook preservado no proprio manifesto:
+	- `kubectl -n ingress-nginx delete deploy ingress-nginx-controller-workers`
 
 ## References
 - [T-150](T-150-Master-Rootfs-Dependency-Reduction.md)

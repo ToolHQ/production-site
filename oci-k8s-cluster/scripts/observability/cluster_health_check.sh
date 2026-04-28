@@ -305,7 +305,7 @@ if [[ -n "$ingress_pinned_node" && "${NODE_DISK_PRESSURE[$ingress_pinned_node]:-
 fi
 
 # ══════════════════════════════════════════════════════════════════════════
-# 1.3  CPU HEADROOM PER NODE
+# 1.4  CPU HEADROOM PER NODE
 # ══════════════════════════════════════════════════════════════════════════
 section "CPU Headroom per Node"
 

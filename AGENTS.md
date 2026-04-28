@@ -13,6 +13,8 @@
   OCI Object Storage, managed databases, and any metered cloud APIs are **off-limits**.
   Approved free alternatives: self-hosted MinIO (in-cluster), Google Drive via rclone, NFS on cluster nodes.
 - **Tools**: You operate primarily via the TUI (`k8s_ops_menu.sh`) or direct `kubectl`/`ssh` when necessary.
+- **Tool Restrictions**: **NEVER use the GitKraken MCP server** (`mcp_gitkraken_*` tools) for any Git operations.
+  Use the `gh` CLI (available locally) or direct `git` commands instead. GitKraken MCP is permanently off-limits.
 
 **Responsibilities**:
 
