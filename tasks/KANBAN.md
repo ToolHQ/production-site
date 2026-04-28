@@ -11,6 +11,7 @@
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 
+
 ## 🔥 Blocker (Deploy back-end travado)
 
 | ID  | Task Name | Priority | Epic | Est. |
@@ -25,9 +26,12 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(arrow2 refactored to polars, all NPM & Rust bumps applied)_ | 🔽 Low | Security / Tech Debt | 1d |
+| [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
+| [T-154](2026/Q2/T-154-Dependabot-Security-Remediation-Program.md) | **Dependabot Security Remediation Program** | 🚨 Critical | Security / DevExp | 3d |
+| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(audit completa: OCI LB externo confirmado, nodeSelector: k8s-master removido, ingress-nginx-controller-workers adicionado ao repo, ambos os pods Running com endpoints ativos)_ | 🔼 High | Infra | 4h |
+| [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(MinIO migrado do rootfs do master para PVC Longhorn `minio-pvc-longhorn` 12Gi; dataset legado arquivado e removido do `/data/minio` em 2026-04-26)_ | 🔼 High | Infra | 1d |
 | [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
-| [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(concluída em modo tunnel-only: canário worker `1/1`, endpoints master+worker, drill interno via `10.0.1.50` retornando `HTTP/1.1 308` para `dnor.io` e `reports.dnor.io`)_ | High | Infra | 4h |
-| [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(cutover concluído: `/data/minio` → `minio-pvc-longhorn` via `minio-local-copy` `Succeeded=1`; rollout `1/1 Running` em worker com PVC Longhorn `Bound`)_ | 🔼 High | Infra | 1d |
 | [T-153](2026/Q2/T-153-MinIO-Longhorn-Gate-Correction-and-Nexus-Exhaustion.md) | **MinIO Longhorn Gate Correction and Nexus Exhaustion** _(gate `storageAvailable` provado como falso verde para `12Gi` / `longhorn-2`; Nexus cleanup nativo executado com delta `0`)_ | High | Infra | 3h |
 | [T-152](2026/Q2/T-152-ETCD-Backup-Retention-Drift-Convergence.md) | **ETCD Backup Retention Drift Convergence** _(cronjobs live reconciliados com a IaC versionada; bucket `k8s-backups/etcd` voltou para 4 snapshots lógicos / ~1019 MiB)_ | High | Infra | 3h |
 | [T-149](2026/Q2/T-149-Master-DiskPressure-Recurrence-Hardening.md) | **Master DiskPressure Recurrence Hardening** _(recorrencia fechada; cleaner/watchdog endurecidos; master saiu de `DiskPressure` e cluster voltou a warning-only)_ | High | Ops | 4h |

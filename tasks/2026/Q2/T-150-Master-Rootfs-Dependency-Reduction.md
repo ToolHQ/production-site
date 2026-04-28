@@ -165,9 +165,10 @@ Com isso, a remocao do pinning do ingress sai desta task e passa a ser rastreada
   snapshots logicos remotos como novo baseline estavel.
 - [x] Validar o gate fonte em bytes reais e provar no live que o preflight `12Gi` / `longhorn-2`
   continua bloqueado por envelope Longhorn, nao mais por ETCD/backupstore/Nexus.
-- [ ] Reduzir o restante do dataset do `MinIO` para caber no envelope Longhorn validado, agora com foco
-  em `backupstore`, payload do `Nexus` e qualquer outro consumo residual fora do ETCD, ou registrar um
-  bloqueio estrutural definitivo que exija storage dedicado fora do estado atual do cluster.
+- [x] Reduzir o restante do dataset do `MinIO` para caber no envelope Longhorn validado. Cutover executado
+  com sucesso via Job `minio-local-copy`; deployment do MinIO rodando em worker com `minio-pvc-longhorn`.
+  Dataset legado em `/data/minio` arquivado em `minio_legacy_backup.tar.gz` e removido via Job
+  `minio-legacy-cleanup` em 2026-04-26.
 - [x] Validar a topologia de borda atual do `ingress-nginx` e decidir se a remocao do pinning ao
   master pode entrar nesta task ou precisa de follow-up separado.
 - [x] Atualizar a task com o comando/plano exato de execucao live e os gates de aprovacao, porque a

@@ -1,0 +1,9 @@
+[submodule "oci-k8s-cluster/testing/libs/bats-core"]
+	path = oci-k8s-cluster/testing/libs/bats-core
+	url = https://github.com/bats-core/bats-core.git
+[submodule "oci-k8s-cluster/testing/libs/bats-support"]
+	path = oci-k8s-cluster/testing/libs/bats-support
+	url = https://github.com/bats-core/bats-support.git
+[submodule "oci-k8s-cluster/testing/libs/bats-assert"]
+	path = oci-k8s-cluster/testing/libs/bats-assert
+	url = https://github.com/bats-core/bats-assert.git
