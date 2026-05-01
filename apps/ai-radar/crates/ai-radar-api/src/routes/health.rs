@@ -23,7 +23,14 @@ pub struct HealthResponse {
 }
 
 /// Build the `/health` sub-router.
-pub fn router() -> Router {
+///
+/// Generic over the application state so it can be merged into both
+/// the production router (state = `AppState`) and the bare unit-test
+/// router (state = `()`).
+pub fn router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new().route("/health", get(handler))
 }
 
@@ -47,7 +54,7 @@ mod tests {
 
     #[tokio::test]
     async fn health_returns_ok_payload() {
-        let app = router();
+        let app: Router<()> = router();
 
         let response = app
             .oneshot(
