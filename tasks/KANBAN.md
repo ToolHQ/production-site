@@ -11,7 +11,6 @@
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(conflitos de scheduling/hostPort e quotas transitorias sob tratamento)_ | 🔼 High | Infra / Platform | 1d |
-| [T-159](2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md) | **AI Radar — Bootstrap Rust Workspace** _(workspace Cargo, 3 crates, Axum /health, tracing JSON, Dockerfile distroless ARM64, compose com Postgres)_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -43,6 +42,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-159](2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md) | **AI Radar — Bootstrap Rust Workspace** _(workspace Cargo + 3 crates; Axum `/health` 200; tracing JSON com `request_id` correlation; AppConfig figment; Dockerfiles distroless 25.7MB/24.3MB; docker-compose Postgres+API com healthcheck; justfile + README; harness `rust-ai-radar` gate adicionado)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-157](2026/Q2/T-157-Longhorn-Quota-Headroom-and-Node3-Recovery.md) | **Longhorn Quota Headroom and Node-3 Recovery** _(quota expandida 8→12Gi; node-3 cordoned; postgres-0 1/1 Running; volume rebuilding 3ª replica)_ | 🚨 Critical | Infra / Storage | 1d |
 | [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(arrow2 refactored to polars, all NPM & Rust bumps applied)_ | 🔽 Low | Security / Tech Debt | 1d |
 | [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
