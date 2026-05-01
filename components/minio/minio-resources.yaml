@@ -184,6 +184,7 @@ metadata:
   name: minio-ingress
   namespace: minio
   annotations:
+    cert-manager.io/cluster-issuer: dnor-ca-issuer
     nginx.ingress.kubernetes.io/proxy-body-size: 800m
 spec:
   ingressClassName: nginx
@@ -218,6 +219,12 @@ spec:
                 port:
                   number: 9001
             pathType: Prefix
+  tls:
+    - hosts:
+        - minio.dnor.io
+        - minio-browser.dnor.io
+        - minio-console.dnor.io
+      secretName: minio-ingress-tls
 ---
 # Idempotent bootstrap: creates bucket 'my-site' and sets public-read on static/*
 # Re-run safely: mc mb --ignore-existing and mc anonymous set are idempotent
