@@ -47,6 +47,8 @@ RUN cargo build --release --locked --bin ai-radar-api
 
 # Replace the stubs with the real source tree, then rebuild.
 COPY crates/ crates/
+COPY migrations/ migrations/
+
 # Bust the cargo cache for our own crates so they actually rebuild.
 RUN find crates -name '*.rs' -exec touch {} +
 RUN cargo build --release --locked --bin ai-radar-api
