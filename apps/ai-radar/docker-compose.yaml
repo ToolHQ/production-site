@@ -55,7 +55,9 @@ services:
     environment:
       AI_RADAR_API_BIND: 0.0.0.0:8080
       AI_RADAR_LOG_LEVEL: ${AI_RADAR_LOG_LEVEL:-info}
-      DATABASE_URL: postgres://ai_radar:ai_radar@postgres:5432/ai_radar
+      # search_path=public keeps SQLx _sqlx_migrations out of ai_radar
+      # so revert cycles stay deterministic. See .env.example.
+      DATABASE_URL: postgres://ai_radar:ai_radar@postgres:5432/ai_radar?options=-csearch_path%3Dpublic
       LLM_ENABLED: "${LLM_ENABLED:-false}"
       LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
       LLM_API_KEY: ${LLM_API_KEY:-}

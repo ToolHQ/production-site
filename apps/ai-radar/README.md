@@ -130,13 +130,34 @@ the deterministic-only path keeps working when only a subset is supplied.
 |---|---|---|
 | `AI_RADAR_API_BIND` | `0.0.0.0:8080` | HTTP listener address |
 | `AI_RADAR_LOG_LEVEL` | `info` | Tracing filter; overridden by `RUST_LOG` |
-| `DATABASE_URL` | _unset_ | Required from T-160 onwards |
+| `DATABASE_URL` | _unset_ | `postgres://...?options=-csearch_path%3Dpublic` (see notes below) |
 | `LLM_ENABLED` | `false` | Must be `true` to call the LLM provider |
 | `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible endpoint |
 | `LLM_API_KEY` | _unset_ | OpenRouter / Ollama / vLLM secret |
 | `LLM_MODEL` | _unset_ | e.g. `meta-llama/llama-3.3-70b-instruct:free` |
 | `LLM_TIMEOUT_SECONDS` | `60` | Per-request timeout |
 | `GITHUB_TOKEN` | _unset_ | Optional, raises GitHub rate-limit |
+
+> **DATABASE_URL search_path note** — the connection string ships with
+> `?options=-csearch_path%3Dpublic` (URL-encoded `-c search_path=public`).
+> This forces SQLx to store its `_sqlx_migrations` ledger in `public`
+> rather than `ai_radar`. Without it, the ledger drifts to `ai_radar` once
+> the schema is created and `sqlx migrate revert` cycles become
+> unreliable. Migrations always qualify table names (`ai_radar.sources`,
+> etc.) so the search path never affects domain queries.
+
+## Migrations
+
+```sh
+just migrate         # sqlx migrate run --source migrations
+just migrate-info    # see applied vs pending
+just migrate-revert  # roll back the most recent migration
+just migrate-add my-change  # create a new reversible pair
+```
+
+The `0001_init.down.sql` script intentionally **leaves the empty
+`ai_radar` schema in place** after a revert — never drops it — so
+SQLx-installed metadata in `public._sqlx_migrations` keeps working.
 
 ## Quality gates
 

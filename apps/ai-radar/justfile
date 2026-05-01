@@ -83,8 +83,24 @@ docker-build-cli:
     docker buildx build --builder default --platform linux/amd64 \
         -f docker/Dockerfile.cli -t ai-radar-cli:dev --load .
 
-# ── Migrations (T-160) ────────────────────────────────────────────────────
+# ── Migrations ────────────────────────────────────────────────────────────
 
-# Apply SQLx migrations (requires DATABASE_URL).
+# Apply all pending SQLx migrations (requires DATABASE_URL).
 migrate:
-    @echo "T-160 will define this target with sqlx-cli; placeholder for now."
+    sqlx migrate run --source migrations
+
+# Revert the most recent migration (one-step rollback).
+migrate-revert:
+    sqlx migrate revert --source migrations
+
+# List migration status.
+migrate-info:
+    sqlx migrate info --source migrations
+
+# Add a new migration. Usage: `just migrate-add my-change`.
+migrate-add NAME:
+    sqlx migrate add --source migrations -r {{NAME}}
+
+# Refresh sqlx offline cache so the workspace builds without DATABASE_URL.
+sqlx-prepare:
+    cargo sqlx prepare --workspace -- --all-targets

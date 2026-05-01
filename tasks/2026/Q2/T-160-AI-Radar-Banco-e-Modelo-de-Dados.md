@@ -17,9 +17,9 @@ SQLx com `rustls` (sem `openssl-sys`) — crítico para build distroless ARM64.
 
 ## Tasks
 
-- [ ] Migration `0001_init.up.sql`: `CREATE SCHEMA IF NOT EXISTS ai_radar` + extension `pgcrypto` (uuid v4) + tabela `sources` com CHECK constraint em `source_type` (`rss`, `github_repo`, `github_releases`, `webpage`, `youtube`)
-- [ ] Migration `0002_pipeline.up.sql`: tabelas `raw_items`, `extracted_items`, `scores`, `feedback`, `digests` com FKs e índices (`raw_items(collected_at DESC)`, `scores(score DESC, decision)`)
-- [ ] Migrations `.down.sql` correspondentes para todas as up
+- [x] Migration `0001_init.up.sql`: `CREATE SCHEMA IF NOT EXISTS ai_radar` + extension `pgcrypto` + tabela `sources` com CHECK em `source_type` (`rss`,`github_repo`,`github_releases`,`webpage`,`youtube`), CHECK em `poll_interval_minutes ∈ [1,1440]`, UNIQUE(`source_type`,`url`), índice parcial em `enabled=TRUE`, trigger `tg_touch_updated_at`
+- [x] Migration `0002_pipeline.up.sql`: tabelas `raw_items` (UNIQUE `source_id,content_hash` + CHECK status), `extracted_items` (CHECK maturity/risk/version + UNIQUE `raw_item_id,version`), `scores` (CHECK score 0–1 + decision adopt/test/monitor/ignore + UNIQUE `extracted_item_id,scoring_version`), `feedback` (CHECK 9 tipos), `digests` (CHECK type/period). FKs CASCADE. Índices em `collected_at DESC`, `score DESC,decision`, `category`, etc. **22 índices totais**.
+- [x] Migrations `.down.sql` correspondentes — `DROP SCHEMA ai_radar CASCADE` em 0001 (seguro porque ledger SQLx fica em `public._sqlx_migrations` via `?options=-csearch_path%3Dpublic` no DATABASE_URL); `pgcrypto` preservado (compartilhado com cluster)
 - [ ] Configurar pool SQLx em `ai-radar-core::db` com `max_connections=8`, `min_connections=1`, `acquire_timeout=5s`
 - [ ] Trait `SourceRepository` + impl Postgres com métodos `list_enabled`, `get`, `create`, `update`, `set_enabled`
 - [ ] Repos restantes: `RawItemRepository` (insert idempotente, list_unprocessed, mark_status), `ExtractedItemRepository`, `ScoreRepository`, `FeedbackRepository`, `DigestRepository`
