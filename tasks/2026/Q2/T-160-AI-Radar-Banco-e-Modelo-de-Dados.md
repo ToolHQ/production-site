@@ -29,9 +29,13 @@ SQLx com `rustls` (sem `openssl-sys`) — crítico para build distroless ARM64.
     - `FeedbackRepository`: `insert`, `list_for_item`. Enum `FeedbackType` (9 variantes do roadmap).
     - `DigestRepository`: `insert` (validação `period_end >= period_start` + markdown não vazio), `get`, `list_recent`, `list_recent_by_type`. Enum `DigestType` (4 variantes).
 - [x] Erros tipados via `thiserror` (`NotFound`, `Conflict(msg)`, `Validation(msg)`, `Database(Box<sqlx::Error>)`) com `RepoError::from_sqlx` mapeando 23505/RowNotFound
-- [ ] `cargo sqlx prepare` para builds offline (commitar `.sqlx/`)
-- [ ] Endpoints `GET /sources` e `POST /sources` lendo/gravando do banco real
-- [ ] Testes de integração com Postgres (testcontainers ou compose dedicado de teste) cobrindo CRUDs + idempotência
+- [x] **`cargo sqlx prepare` não é necessário nesta fase**: a primeira implementação dos repositories usa `sqlx::query`/`query_as` (runtime-checked) em vez das macros `query!`/`query_as!` (compile-time). Build no CI/Docker funciona sem `DATABASE_URL` e sem `.sqlx/` cache, mantendo o pipeline mais simples e o feedback de schema fica nos integration tests com Postgres real. Migração para macros + commit de `.sqlx/` fica como follow-up opcional quando alguma query passar a ser tão crítica que justifique o overhead. (Justificativa registrada em `apps/ai-radar/crates/ai-radar-core/src/repos/mod.rs`.)
+- [x] Endpoints HTTP em `ai-radar-api`:
+    - `GET /sources` → `{ items: [...], count }` (todas as fontes)
+    - `GET /sources/enabled` → mesmas semânticas, filtrado por `enabled=TRUE`
+    - `POST /sources` → 201 Created com payload completo; mapeamento `RepoError → HTTP`: `Validation → 422`, `Conflict → 409`, `NotFound → 404`, `Database → 500`; `bad_request → 400` para `source_type` inválido na desserialização
+    - Integrado a `AppState` que carrega o `Database` + 6 repositories (sources/raw_items/extracted_items/scores/feedback/digests) prontos para os próximos épicos
+- [x] Testes de integração com Postgres compose cobrindo CRUDs, idempotência, conflict handling, validação, versioning de extracted_items, ranking de scores. **8 integration tests passam** com `--ignored` quando o compose stack está de pé.
 
 ## DoD
 

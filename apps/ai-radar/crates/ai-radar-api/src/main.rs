@@ -1,24 +1,30 @@
 //! AI Radar — HTTP API binary entrypoint.
 //!
 //! Wires together configuration loading (figment env), JSON tracing,
-//! the request-id middleware and the Axum router exposing `/health`.
-//! Future epics extend the router with sources, items, digests, feedback,
-//! metrics, etc. — see `docs/AI-RADAR-DECISIONS.md`.
+//! the request-id middleware, the database pool, the repositories
+//! shared via `AppState`, and the Axum router exposing `/health` and
+//! `/sources`. Future epics extend the router with items, digests,
+//! feedback, metrics, etc. — see `docs/AI-RADAR-DECISIONS.md`.
 
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
 
+mod error;
 mod middleware;
 mod router;
 mod routes;
+mod state;
 
 use std::net::SocketAddr;
 
 use ai_radar_core::config::AppConfig;
+use ai_radar_core::db::Database;
 use ai_radar_core::telemetry;
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use tokio::net::TcpListener;
 use tokio::signal;
+
+use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -30,13 +36,25 @@ async fn main() -> anyhow::Result<()> {
     telemetry::init_tracing(&config.log_level)
         .context("failed to initialize tracing subscriber")?;
 
+    let database_url = config
+        .database_url
+        .clone()
+        .ok_or_else(|| anyhow!("DATABASE_URL is required to start the API (T-160 onwards)"))?;
+
     tracing::info!(
         version = ai_radar_core::VERSION,
         bind = %config.api_bind,
         "starting ai-radar-api"
     );
 
-    let app = router::build_router();
+    let db = Database::connect(&database_url)
+        .await
+        .context("failed to connect to Postgres")?;
+    tracing::info!("postgres pool ready");
+
+    let state = AppState::new(db);
+    let app = router::build_router(state);
+
     let addr: SocketAddr = config
         .api_bind
         .parse()
