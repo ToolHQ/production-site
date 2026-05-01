@@ -1,11 +1,12 @@
 # T-159: AI Radar — Bootstrap Rust Workspace
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
 - **Opened**: 2026-05-01
 - **Started**: 2026-05-01
+- **Closed**: 2026-05-01
 
 ## Context
 
