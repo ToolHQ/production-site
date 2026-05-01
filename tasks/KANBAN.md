@@ -10,8 +10,8 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-159](2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md) | **AI Radar — Bootstrap Rust Workspace** _(workspace Cargo, 3 crates, Axum /health, tracing JSON, Dockerfile distroless ARM64, compose com Postgres)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(conflitos de scheduling/hostPort e quotas transitorias sob tratamento)_ | 🔼 High | Infra / Platform | 1d |
+| [T-159](2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md) | **AI Radar — Bootstrap Rust Workspace** _(workspace Cargo, 3 crates, Axum /health, tracing JSON, Dockerfile distroless ARM64, compose com Postgres)_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
