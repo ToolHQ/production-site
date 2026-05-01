@@ -207,13 +207,24 @@ just k8s-validate
 ./deploy.sh
 ```
 
-**Namespace e pull secret.** O overlay cria **`ai-radar`**. Secrets de registry são
-por namespace; use o mesmo padrão `regsecret` que os outros serviços:
+**Namespace e pull secret.** O primeiro `kubectl apply` do overlay cria **`ai-radar`**
+junto dos demais recursos. **`regsecret` é obrigatório em cada namespace** e o script
+[`create_registry_secret.sh`](../../components/nexus/create_registry_secret.sh) **só
+imprime YAML** para stdout (não aplica). Com `KUBECONFIG` apontando para o cluster-alvo:
 
 ```bash
-# A partir da raiz do repo, com kubectl apontando para o cluster-alvo:
-./components/nexus/create_registry_secret.sh ai-radar
+cd /path/to/production-site
+
+# Se o namespace ainda não existir, crie-o antes ou aplique apenas o recurso Namespace.
+./components/nexus/create_registry_secret.sh ai-radar 2>/dev/null | kubectl apply -f -
 ```
+
+Erros típicos: `namespaces "ai-radar" not found` → `kubectl apply -f apps/ai-radar/k8s/base/namespace.yaml`
+(depois aplique os demais recursos pelo `deploy.sh` ou `kubectl kustomize …`),
+**antes** do pipe acima.
+
+**Postgres em transação só leitura.** Se `sqlx migrate` ou comandos DDL via `kubectl exec postgres-… -- psql` responderem com **`cannot execute … in a read-only transaction`** e `SELECT pg_is_in_recovery();` for **`t`** no endpoint que você está usando, não há gravável suficiente para criar schema/tabelas — a API ficará inconsistente até o Postgres voltar a ter primário (**exposição relacionada ao cluster**: incidente **T-190**).
+Nesse caso, priorize recuperação do banco antes de rollout da API.
 
 **`DATABASE_URL`.** [`k8s/base/secret-database-url.placeholder.yaml`](k8s/base/secret-database-url.placeholder.yaml)
 contém apenas placeholders (`REPLACE_*`) para versionar formato e a query
