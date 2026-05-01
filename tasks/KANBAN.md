@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟢 Operacional — DiskPressure incidente resolvido 2026-05-01; kube-controller-manager estável (0 restarts); todos os pods Running | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: � Operacional — MinIO em 87% (1.6G livre); nexus/content 4.5GiB pendente cleanup; kube-controller-manager estável; todos os pods Running | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -23,7 +23,8 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| T-191 | **MinIO Backup Retention Audit & Cleanup** — auditar `backupstore/volumes/` (5.2G) e `nexus/content/` (4.6G); implementar política de retenção nos Recurring Jobs do Longhorn e no backup do Nexus; objetivo: liberar ≥2G sem expansão de PVC. _Blocker para T-192._ | 🚨 Critical | Infra / Storage | 3h |
+| T-194 | **Nexus Cleanup Policy — MinIO nexus/content/ (4.5GiB)** — implementar e aplicar cleanup policies no Nexus para `npm-proxy` (cache público), revisar `docker-repo`; objetivo: liberar ≥2GiB de `nexus/content/` para baixar MinIO de 87%→75%; usar helpers em `lib/nexus_init.sh` + API interna; testar via `nexus_preview_npm_proxy_cleanup` antes de aplicar. _Pré-requisito: tunnel ativo._ | 🔼 High | Infra / Storage | 2h |
+| T-191 | **MinIO Backup Retention Audit & Cleanup** — ✅ fase 1 concluída: 18 backups postgres-0 deletados + 2 etcd duplicados + 500MiB .trash = 1.3GiB liberados (92%→87%); ⏳ fase 2 pendente: `nexus/content/` 4.5GiB (cleanup policies via Nexus API). _Blocker para T-192._ | 🔼 High | Infra / Storage | +1h |
 | T-192 | **MinIO PVC Expansion — Planejamento Condicional** — só executar se T-191 liberar <1.5G; capacidade: node-1 tem 17G livre, réplica única (1:1 sem multiplicação), expansão 12→20G eleva node-1 para ~82% disco; requer validação de `storageScheduled` vs `storageAvailable` em node-1 antes de aprovar. _Bloqueado por T-191._ | 🔼 High | Infra / Storage | 2h |
 
 ## ✅ Done
