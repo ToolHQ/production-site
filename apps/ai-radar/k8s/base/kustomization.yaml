@@ -10,6 +10,5 @@ resources:
   - namespace.yaml
   - serviceaccount.yaml
   - configmap.yaml
-  - secret-database-url.placeholder.yaml
   - deployment-api.yaml
   - service.yaml
