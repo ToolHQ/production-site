@@ -1,0 +1,104 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ai-radar-core",
+    "crates/ai-radar-api",
+    "crates/ai-radar-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+authors = ["dnorio <dnorio@dnor.io>"]
+repository = "https://github.com/dnorio/production-site"
+
+[workspace.dependencies]
+# Internal crates
+ai-radar-core = { path = "crates/ai-radar-core" }
+
+# Async runtime
+tokio = { version = "1.40", default-features = false, features = [
+    "macros",
+    "rt-multi-thread",
+    "signal",
+    "net",
+    "time",
+    "sync",
+    "fs",
+] }
+
+# HTTP server
+axum = { version = "0.7", default-features = false, features = [
+    "http1",
+    "json",
+    "tokio",
+    "tower-log",
+] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace", "request-id", "util"] }
+
+# HTTP client
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "json",
+    "stream",
+    "gzip",
+] }
+
+# Database (SQLx with rustls — critical for distroless ARM64)
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "macros",
+    "migrate",
+    "uuid",
+    "chrono",
+    "json",
+] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Errors
+anyhow = "1"
+thiserror = "2"
+
+# Logging / tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "env-filter",
+    "fmt",
+    "json",
+    "registry",
+    "tracing-log",
+] }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Config
+figment = { version = "0.10", features = ["toml", "env"] }
+
+# Utilities
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4", default-features = false, features = [
+    "clock",
+    "serde",
+] }
+sha2 = "0.10"
+async-trait = "0.1"
+futures = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true
