@@ -12,7 +12,6 @@
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Instance-Manager Flapping and Nexus Containment** _(mitigacao ativa; postgres/coroot ainda sensiveis a oscilacao de volume)_ | 🚨 Critical | Infra / Storage | 1d |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(conflitos de scheduling/hostPort e quotas transitorias sob tratamento)_ | 🔼 High | Infra / Platform | 1d |
-| [T-160](2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md) | **AI Radar — Banco e Modelo de Dados** _(schema ai_radar no Postgres compartilhado, migrations SQLx, repositories tipados)_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -26,6 +25,7 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-174](2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md) | **AI Radar — K8s baseline (primeiro deploy API)** _(namespace `ai-radar`, Deployment+Service+Secret `DATABASE_URL`, Kustomize+Nexus ARM64, probes `/health`, smoke `/sources`; **T-171** fecha CronJobs)_ | 🔽 Low | AI Radar / DevExp / Infra | 4h |
 | [T-161](2026/Q2/T-161-AI-Radar-RSS-Collector.md) | **AI Radar — RSS Collector** _(feed-rs, dedup por content_hash, isolamento de erro por fonte, CLI collect)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md) | **AI Radar — GitHub Collector** _(releases + metadados de repo, rate-limit aware, GITHUB_TOKEN opcional)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md) | **AI Radar — Webpage Fetcher** _(URL manual, HTML cleaner, size cap 1MB)_ | 🔽 Low | AI Radar / DevExp | 4h |
@@ -36,7 +36,7 @@
 | [T-168](2026/Q2/T-168-AI-Radar-Comparator.md) | **AI Radar — Comparator** _(matriz por categoria, Markdown comparativo, persistência)_ | 🔽 Low | AI Radar / DevExp | 4h |
 | [T-169](2026/Q2/T-169-AI-Radar-Digest-Generator.md) | **AI Radar — Digest Generator** _(Markdown daily/weekly, agrupado por decisão, API + CLI)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md) | **AI Radar — Feedback Loop** _(POST feedback, relatório de divergência humano vs sistema)_ | 🔽 Low | AI Radar / DevExp | 4h |
-| [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — Kubernetes Operação Leve** _(Kustomize base+overlay, CronJobs, securityContext hardenado, budget conservador)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |
+| [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — K8s onda 2 (CronJobs + demo agendado)** _(estende **T-174**: CronJobs CLI, schedules, smoke `kubectl create job`; depende **T-174+T-169**)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |
 | [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(logs JSON com job_id, /metrics Prometheus, custo LLM, hooks OTEL/Langfuse)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
 | [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(retry/backoff, limits, idempotência reforçada, reprocess versionado, chaos tests)_ | 🔽 Low | AI Radar / DevExp | 1d |
 

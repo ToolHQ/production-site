@@ -4,7 +4,7 @@
 //! shared by `ai-radar-api` (HTTP) and `ai-radar-cli` (`CronJob` entrypoint).
 //!
 //! Modules are added incrementally as the program advances through epics
-//! T-159..T-173 (see `docs/AI-RADAR-DECISIONS.md`).
+//! T-159..T-174 (see `docs/AI-RADAR-DECISIONS.md`).
 
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic, missing_docs)]

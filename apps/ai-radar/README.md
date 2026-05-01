@@ -11,15 +11,19 @@ designed to run on a **resource-constrained ARM64 Kubernetes cluster** (1 vCPU
 The full product vision lives in [`docs/AI-RADAR-ROADMAP.md`](../../docs/AI-RADAR-ROADMAP.md)
 and the architecture decisions consulted by every epic in
 [`docs/AI-RADAR-DECISIONS.md`](../../docs/AI-RADAR-DECISIONS.md). Tasks are tracked in
-[`tasks/KANBAN.md`](../../tasks/KANBAN.md) under the IDs `T-159..T-173`.
+[`tasks/KANBAN.md`](../../tasks/KANBAN.md) under the IDs `T-159..T-174`.
 
 ## Status
 
-This is a **bootstrap**. Only the foundation (epic [`T-159`](../../tasks/2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md))
-is implemented today: workspace, three crates, `/health`, JSON tracing,
-request-id correlation, configuration loader, Docker images and the local
-compose stack. The pipeline (collectors, extractor, scorer, digest) lands in
-`T-160..T-173`.
+Bootstrap ([`T-159`](../../tasks/2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md))
+plus **database layer and HTTP `/sources`** ([`T-160`](../../tasks/2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md))
+are implemented today. Planned **incremental cluster validation**: epic
+[`T-174`](../../tasks/2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md)
+(API Deployment + Service + Postgres secret) shortly after **T-160**, in
+parallel with collectors; **CronJobs** and full scheduled demo land in
+[`T-171`](../../tasks/2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md). The
+remaining product pipeline (RSS/GitHub/web, LLM, extract, score, digest)
+spans **T-161..T-173** alongside that infra track.
 
 ## Architecture in one diagram
 

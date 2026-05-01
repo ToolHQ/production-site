@@ -2,12 +2,12 @@
 
 > Documento de decisões técnicas e arquitetura do programa **AI Radar** (Decision Engine de curadoria contínua de ferramentas de IA).
 >
-> Este arquivo é a **spec consultada pelas tasks** `T-159..T-173`. Os passos de execução vivem em cada task individual (`tasks/2026/Q2/T-XXX-AI-Radar-*.md`). Aqui ficam só decisões transversais, schema, contratos e riscos.
+> Este arquivo é a **spec consultada pelas tasks** `T-159..T-174`. Os passos de execução vivem em cada task individual (`tasks/2026/Q2/T-XXX-AI-Radar-*.md`). Aqui ficam só decisões transversais, schema, contratos e riscos.
 
 ## Origem
 
 - **Prompt-pai**: `docs/AI-RADAR-ROADMAP.md` (super prompt do usuário descrevendo a visão completa).
-- **Status**: Backlog (15 épicos, T-159..T-173).
+- **Status**: Backlog (16 épicos programáticos AI Radar: T-159..T-174 — **T-174** é infra baseline no cluster antes do fechamento MVP agendado em **T-171**).
 - **Owner**: AI Radar / DevExp.
 
 ## Visão de produto
@@ -135,12 +135,13 @@ MAX_EXTRACT_INPUT_TOKENS=8000
 MAX_CONCURRENT_LLM_REQUESTS=2
 ```
 
-## Mapa de épicos (T-159..T-173)
+## Mapa de épicos (T-159..T-174)
 
 | ID | Fase | Épico | Estim. | Depende de |
 |---|---|---|---|---|
 | T-159 | 1 | Bootstrap Rust Workspace | 1d | — |
 | T-160 | 2 | Banco e Modelo de Dados | 1d | T-159 |
+| T-174 | 2b | Kubernetes — baseline primeiro deploy API | 4h | T-160 |
 | T-161 | 3 | RSS Collector | 1d | T-160 |
 | T-162 | 4 | GitHub Collector | 1d | T-160 (paralelo a T-161) |
 | T-163 | 5 | Webpage Fetcher | 4h | T-160 (paralelo) |
@@ -151,13 +152,28 @@ MAX_CONCURRENT_LLM_REQUESTS=2
 | T-168 | 10 | Comparator | 4h | T-166 |
 | T-169 | 11 | Digest Generator | 1d | T-166 |
 | T-170 | 12 | Feedback Loop | 4h | T-169 |
-| T-171 | 13 | Kubernetes Operação Leve | 1d | T-169 (MVP demo-ready) |
-| T-172 | 14 | Observabilidade | 4h | T-171 (paralelo) |
+| T-171 | 13 | Kubernetes — CronJobs e demo agendado | 1d | T-174 + T-169 (+ produtos T-161/T-165/T-166 conforme cada job) |
+| T-172 | 14 | Observabilidade | 4h | T-174 (mínimo); completar smoke CronJob após **T-171** |
 | T-173 | 15 | Hardening | 1d | T-172 |
 
-### Caminho crítico até MVP demo-ready
+### Caminho crítico até MVP demo-ready (produto)
 
-`T-159 → T-160 → T-161 → T-164 → T-165 → T-166 → T-169 → T-171` (8 épicos, ~7 dias úteis somados)
+`T-159 → T-160 → T-161 → T-164 → T-165 → T-166 → T-169 → T-171`
+
+### Validação incremental no cluster (recomendado)
+
+Subir **`T-174` logo após `T-160`** (paralelo a **T-161** / **T-164**) para falhar cedo em imagem Nexus, probes, limits e `DATABASE_URL` no Postgres compartilhado. **`T-171`** adiciona CronJobs e fecha o MVP **agendado** no cluster; não concentrar apenas no fim o risco de infra.
+
+### Diagrama rápido (ondas K8s)
+
+```text
+T-160 ──► T-174  (Deployment API + Service + Secret + smoke /health,/sources)
+            │
+            └──────────────► (paralelo pipeline produto até T-169)
+                                           │
+                                           ▼
+                                    T-171 CronJobs (+ opcional gancho TUI)
+```
 
 ## Riscos transversais
 
