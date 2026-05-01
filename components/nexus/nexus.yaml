@@ -69,6 +69,10 @@ spec:
         - name: nexusdata
           persistentVolumeClaim:
             claimName: nexus-pvc
+      # Temporary containment after Longhorn flapping on k8s-node-1.
+      # Keep Nexus pinned to node-2 until T-190 closes.
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node-2
       tolerations:
         - key: "node.kubernetes.io/disk-pressure"
           operator: "Exists"
