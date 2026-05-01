@@ -5,6 +5,7 @@
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
 - **Opened**: 2026-05-01
+- **Started**: 2026-05-01
 
 ## Context
 
@@ -16,18 +17,18 @@ Decisões transversais (LLM, schema banco, schedules, budget de recursos) estão
 
 ## Tasks
 
-- [ ] Criar workspace Cargo em `apps/ai-radar/` (`Cargo.toml` + `rust-toolchain.toml` pinando `1.83.0`)
-- [ ] Scaffold dos 3 crates: `crates/ai-radar-core` (lib), `crates/ai-radar-api` (bin), `crates/ai-radar-cli` (bin)
-- [ ] Centralizar versões em `[workspace.dependencies]` (axum 0.7, tokio, sqlx 0.8 com `rustls`, reqwest, serde, tracing, tracing-subscriber, anyhow, thiserror, clap, figment, uuid, chrono)
+- [x] Criar workspace Cargo em `apps/ai-radar/` (`Cargo.toml` + `rust-toolchain.toml` pinando `1.88.0`) — _versão ajustada de `1.83.0` para `1.88.0` por dependências do ecossistema 2026 (icu/idna/home exigem ≥1.86; clap/sha2 exigem edition2024 estabilizado em 1.85)_
+- [x] Scaffold dos 3 crates: `crates/ai-radar-core` (lib), `crates/ai-radar-api` (bin), `crates/ai-radar-cli` (bin)
+- [x] Centralizar versões em `[workspace.dependencies]` (axum 0.7, tokio, sqlx 0.8 com `rustls`, reqwest, serde, tracing, tracing-subscriber, anyhow, thiserror, clap, figment, uuid, chrono, sha2, async-trait, futures, tower, tower-http)
 - [ ] Implementar `GET /health` em `ai-radar-api` retornando `{"status":"ok"}` com graceful shutdown em SIGTERM/SIGINT
 - [ ] Implementar `init_tracing()` com formatter JSON + `EnvFilter` (`AI_RADAR_LOG_LEVEL`/`RUST_LOG`)
 - [ ] Implementar middleware Axum de `request_id` (header `X-Request-Id` + span)
 - [ ] Implementar `AppConfig` (figment) lendo env + `.env` em dev, com `.env.example` documentado
-- [ ] Criar `docker/Dockerfile.api` e `docker/Dockerfile.cli` multi-stage (builder `rust:1.83-slim` → runtime `gcr.io/distroless/cc-debian12:nonroot`)
+- [ ] Criar `docker/Dockerfile.api` e `docker/Dockerfile.cli` multi-stage (builder `rust:1.88-slim` → runtime `gcr.io/distroless/cc-debian12:nonroot`)
 - [ ] Criar `docker-compose.yaml` com Postgres 16-alpine + api dev (volume nomeado, healthcheck `pg_isready`)
 - [ ] Criar `justfile` com targets `build`, `test`, `lint`, `fmt`, `compose-up`, `compose-down`, `migrate`, `cli`
 - [ ] Criar `apps/ai-radar/README.md` cobrindo visão, requisitos, run local, env vars, troubleshooting
-- [ ] Criar `apps/ai-radar/.gitignore` (target/, .env)
+- [x] Criar `apps/ai-radar/.gitignore` (target/, .env, .sqlx/)
 
 ## DoD
 
