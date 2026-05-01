@@ -27,7 +27,7 @@ Seguir `deploy-service` e `operational-safety` (`AGENTS.md`). Não alterar workl
 - [x] `k8s/base/kustomization.yaml` + `k8s/overlays/production/kustomization.yaml`
 - [x] `apps/ai-radar/deploy.sh` — build `docker/Dockerfile.api`, push ARM64, `kubectl apply` via Kustomize render + substituição de tag
 - [x] `just k8s-validate` + `kubectl apply --dry-run=client`; **kubeconform** opcional (comando mantido na seção Validação se a ferramenta estiver instalada)
-- [ ] Smoke pós-deploy com cluster real + Secret real + migrações: pod `Running`, `GET /health` e `GET /sources` (port-forward; sem `wget` dentro do Pod)
+- [ ] Smoke pós-deploy com cluster real + Secret real + migrações: pod `Running`, `GET /health` e `GET /sources` (port-forward). **Possível bloqueio de infraestrutura:** ambos os pods Postgres no namespace `postgres` relataram `pg_is_in_recovery() = true` durante validação pré-deploy (somente-leitura) — DDL/migrações falham até existir um primário gravável; tratar antes com **T-190** na fila Critical.
 
 ## DoD
 

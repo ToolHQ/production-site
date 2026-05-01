@@ -3,8 +3,8 @@
 # Pré-requisitos:
 #   oci-builder: ~/production-site/oci-k8s-cluster/scripts/setup-dev-deploy.sh
 #   kubectl:     export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
-# regsecret neste namespace (uma vez por namespace):
-#   ~/production-site/components/nexus/create_registry_secret.sh ai-radar
+# regsecret neste namespace (uma vez por namespace — o script imprime YAML, não aplica):
+#   ~/production-site/components/nexus/create_registry_secret.sh ai-radar 2>/dev/null | kubectl apply -f -
 #
 # DATABASE_URL: substituir o Secret placeholder (SealedSecrets/SOPS/etc.) antes
 # do rollout em produção. O artefato no Git usa apenas marcadores REPLACE_*.
