@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟡 Atenção (Longhorn com flapping em instance-manager no node-1; Nexus contido no node-2) | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: � Operacional (todos os volumes healthy; postgres HA 2/2; ingress sem conflito de hostPort) | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -10,16 +10,14 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Instance-Manager Flapping and Nexus Containment** _(mitigacao ativa; postgres/coroot ainda sensiveis a oscilacao de volume)_ | 🚨 Critical | Infra / Storage | 1d |
-| [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(conflitos de scheduling/hostPort e quotas transitorias sob tratamento)_ | 🔼 High | Infra / Platform | 1d |
+
 
 
 ## 🔥 Blocker (Deploy back-end travado)
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | Flapping recorrente no `instance-manager` do node-1 (falhas 8501/8503), volumes `faulted/detaching` e risco de re-queda em stateful críticos | 🚨 Critical | Infra / Storage | 1d |
-| [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | `postgres-1` com scheduling sensivel a `hostPort 5432` + node isolamento; resiliencia de failover incompleta no estado atual | 🚨 Critical | Infra / Platform | 1d |
+
 
 ## 📅 Backlog (To Do)
 
@@ -30,6 +28,8 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Flapping + Nexus Containment** _(todos os volumes healthy; nexus pin node-2; minio TLS corrigido; ingress hostPort 5432 removido; postgres-1 restaurado em node-1)_ | 🚨 Critical | Infra / Storage | 1d |
+| [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(hostPort 5432 removido do ingress-nginx; postgres-1 `1/1 Running` no node-1; volume healthy)_ | 🚨 Critical | Infra / Platform | 1d |
 | [T-157](2026/Q2/T-157-Longhorn-Quota-Headroom-and-Node3-Recovery.md) | **Longhorn Quota Headroom and Node-3 Recovery** _(quota expandida 8→12Gi; node-3 cordoned; postgres-0 1/1 Running; volume rebuilding 3ª replica)_ | 🚨 Critical | Infra / Storage | 1d |
 | [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(arrow2 refactored to polars, all NPM & Rust bumps applied)_ | 🔽 Low | Security / Tech Debt | 1d |
 | [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
