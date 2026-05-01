@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: � Operacional (volume degraded rebuilding — não crítico) | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional (volume degraded rebuilding — não crítico) | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
