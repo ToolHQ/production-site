@@ -13,7 +13,7 @@ use uuid::Uuid;
 pub enum SourceType {
     /// Generic RSS/Atom feed.
     Rss,
-    /// `GitHub` repository metadata (stars, forks, license, pushed_at).
+    /// `GitHub` repository metadata (stars, forks, license, `pushed_at`).
     GithubRepo,
     /// `GitHub` releases stream (one row per release).
     GithubReleases,

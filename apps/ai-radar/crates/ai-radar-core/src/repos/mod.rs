@@ -11,6 +11,16 @@
 //! `cargo test` runs cleanly without a Postgres available. CI plus the
 //! `tools/harness/verify.sh rust-ai-radar` gate run them explicitly.
 
+pub mod digest;
+pub mod extracted_item;
+pub mod feedback;
+pub mod raw_item;
+pub mod score;
 pub mod source;
 
+pub use digest::{DigestRepository, PgDigestRepository};
+pub use extracted_item::{ExtractedItemRepository, PgExtractedItemRepository};
+pub use feedback::{FeedbackRepository, PgFeedbackRepository};
+pub use raw_item::{PgRawItemRepository, RawItemRepository};
+pub use score::{PgScoreRepository, ScoreRepository};
 pub use source::{PgSourceRepository, SourceRepository};

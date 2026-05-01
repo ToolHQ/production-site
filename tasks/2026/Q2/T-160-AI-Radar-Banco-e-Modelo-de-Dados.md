@@ -22,7 +22,12 @@ SQLx com `rustls` (sem `openssl-sys`) — crítico para build distroless ARM64.
 - [x] Migrations `.down.sql` correspondentes — `DROP SCHEMA ai_radar CASCADE` em 0001 (seguro porque ledger SQLx fica em `public._sqlx_migrations` via `?options=-csearch_path%3Dpublic` no DATABASE_URL); `pgcrypto` preservado (compartilhado com cluster)
 - [x] Configurar pool SQLx em `ai-radar-core::db` com `max_connections=8`, `min_connections=1`, `acquire_timeout=5s` + `Database::connect`/`connect_with(PoolConfig)`/`migrate()` + `RepoError` tipado (`NotFound`/`Conflict`/`Validation`/`Database`) com `RepoError::from_sqlx` mapeando 23505→Conflict e RowNotFound→NotFound
 - [x] Trait `SourceRepository` (async-trait) + impl `PgSourceRepository` com `list_enabled`, `list_all`, `get`, `create` (validação + INSERT com COALESCE para defaults), `update` (PATCH semantics via COALESCE), `set_enabled`, `touch_polled` (last_polled_at + last_error). Domínio com `SourceType` enum, `Source`, `NewSource`, `SourceUpdate` + 4 unit tests + 4 integration tests (`crud_roundtrip`, `unique_url_violation_returns_conflict`, `validation_blocks_blank_name`, `touch_polled_records_error`) `#[ignore]` por padrão
-- [ ] Repos restantes: `RawItemRepository` (insert idempotente, list_unprocessed, mark_status), `ExtractedItemRepository`, `ScoreRepository`, `FeedbackRepository`, `DigestRepository`
+- [x] Repos restantes (todas com trait + impl Postgres + domain types):
+    - `RawItemRepository`: `insert_idempotent` (`ON CONFLICT (source_id, content_hash) DO NOTHING`, retorna `Option<RawItem>`), `get`, `list_pending(limit)`, `mark_status`. `NewRawItem::compute_hash` usa SHA-256.
+    - `ExtractedItemRepository`: `insert` com auto-versioning (`COALESCE(MAX(version),0)+1` quando `payload.version=None`), `get_latest_for_raw_item`, `get`. Domain inclui `Maturity` (5 variantes) e `RiskLevel` (3 variantes) com parse/as_str espelhando CHECKs SQL.
+    - `ScoreRepository`: `insert` (validação de score finito ∈ [0,1]), `get_latest`, `list_top(limit)` ordenado `score DESC, created_at DESC`. Enum `Decision` (4 variantes).
+    - `FeedbackRepository`: `insert`, `list_for_item`. Enum `FeedbackType` (9 variantes do roadmap).
+    - `DigestRepository`: `insert` (validação `period_end >= period_start` + markdown não vazio), `get`, `list_recent`, `list_recent_by_type`. Enum `DigestType` (4 variantes).
 - [x] Erros tipados via `thiserror` (`NotFound`, `Conflict(msg)`, `Validation(msg)`, `Database(Box<sqlx::Error>)`) com `RepoError::from_sqlx` mapeando 23505/RowNotFound
 - [ ] `cargo sqlx prepare` para builds offline (commitar `.sqlx/`)
 - [ ] Endpoints `GET /sources` e `POST /sources` lendo/gravando do banco real
