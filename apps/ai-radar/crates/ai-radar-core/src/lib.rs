@@ -10,5 +10,8 @@
 #![warn(clippy::pedantic, missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod config;
+pub mod telemetry;
+
 /// Crate version exposed for telemetry and HTTP responses.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
