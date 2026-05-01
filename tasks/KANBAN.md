@@ -11,6 +11,7 @@
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(conflitos de scheduling/hostPort e quotas transitorias sob tratamento)_ | 🔼 High | Infra / Platform | 1d |
+| [T-160](2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md) | **AI Radar — Banco e Modelo de Dados** _(schema ai_radar no Postgres compartilhado, migrations SQLx, repositories tipados)_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -23,7 +24,6 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-160](2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md) | **AI Radar — Banco e Modelo de Dados** _(schema ai_radar no Postgres compartilhado, migrations SQLx, repositories tipados)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-161](2026/Q2/T-161-AI-Radar-RSS-Collector.md) | **AI Radar — RSS Collector** _(feed-rs, dedup por content_hash, isolamento de erro por fonte, CLI collect)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md) | **AI Radar — GitHub Collector** _(releases + metadados de repo, rate-limit aware, GITHUB_TOKEN opcional)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md) | **AI Radar — Webpage Fetcher** _(URL manual, HTML cleaner, size cap 1MB)_ | 🔽 Low | AI Radar / DevExp | 4h |

@@ -1,10 +1,11 @@
 # T-160: AI Radar — Banco e Modelo de Dados
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
 - **Opened**: 2026-05-01
+- **Started**: 2026-05-01
 
 ## Context
 
