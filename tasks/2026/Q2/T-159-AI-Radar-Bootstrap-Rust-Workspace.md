@@ -25,9 +25,9 @@ Decisões transversais (LLM, schema banco, schedules, budget de recursos) estão
 - [x] Implementar middleware Axum de `request_id` (header `X-Request-Id` echoed + span + UUID v4 gerado quando ausente)
 - [x] Implementar `AppConfig` (figment) lendo env + `.env` em dev (via `dotenvy` em debug), com `.env.example` documentado
 - [x] Criar `docker/Dockerfile.api` e `docker/Dockerfile.cli` multi-stage (builder `rust:1.88-slim-bookworm` → runtime `gcr.io/distroless/cc-debian12:nonroot`); imagens **25.7MB / 24.3MB** (target <80MB), multi-arch `linux/amd64,linux/arm64`, USER nonroot, RUSTFLAGS=-C strip=symbols, cargo cache layer, `.dockerignore` evitando target/.env/.sqlx
-- [ ] Criar `docker-compose.yaml` com Postgres 16-alpine + api dev (volume nomeado, healthcheck `pg_isready`)
-- [ ] Criar `justfile` com targets `build`, `test`, `lint`, `fmt`, `compose-up`, `compose-down`, `migrate`, `cli`
-- [ ] Criar `apps/ai-radar/README.md` cobrindo visão, requisitos, run local, env vars, troubleshooting
+- [x] Criar `docker-compose.yaml` com Postgres 16-alpine + api dev (volume nomeado `ai-radar-pg-data`, healthcheck `pg_isready` e API dependente via `service_healthy`); host port configurável via `AI_RADAR_PG_HOST_PORT` (default 5432, override 5433+ quando porta local em uso)
+- [x] Criar `justfile` com targets `build`, `build-release`, `test`, `lint`, `fmt`, `fmt-check`, `harness`, `run-api`, `cli`, `compose-up`, `compose-logs`, `compose-down`, `compose-smoke`, `docker-build-api`, `docker-build-cli`, `migrate` (placeholder T-160)
+- [x] Criar `apps/ai-radar/README.md` cobrindo visão, status, arquitetura, layout do workspace, requisitos, run local (nativo + compose), CLI, configuração (tabela de envs), quality gates, build de imagens e troubleshooting
 - [x] Criar `apps/ai-radar/.gitignore` (target/, .env, .sqlx/)
 
 ## DoD
