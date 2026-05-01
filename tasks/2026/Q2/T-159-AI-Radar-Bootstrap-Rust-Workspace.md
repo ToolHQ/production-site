@@ -24,7 +24,7 @@ Decisões transversais (LLM, schema banco, schedules, budget de recursos) estão
 - [x] Implementar `init_tracing()` com formatter JSON + `EnvFilter` (`AI_RADAR_LOG_LEVEL`/`RUST_LOG`)
 - [x] Implementar middleware Axum de `request_id` (header `X-Request-Id` echoed + span + UUID v4 gerado quando ausente)
 - [x] Implementar `AppConfig` (figment) lendo env + `.env` em dev (via `dotenvy` em debug), com `.env.example` documentado
-- [ ] Criar `docker/Dockerfile.api` e `docker/Dockerfile.cli` multi-stage (builder `rust:1.88-slim` → runtime `gcr.io/distroless/cc-debian12:nonroot`)
+- [x] Criar `docker/Dockerfile.api` e `docker/Dockerfile.cli` multi-stage (builder `rust:1.88-slim-bookworm` → runtime `gcr.io/distroless/cc-debian12:nonroot`); imagens **25.7MB / 24.3MB** (target <80MB), multi-arch `linux/amd64,linux/arm64`, USER nonroot, RUSTFLAGS=-C strip=symbols, cargo cache layer, `.dockerignore` evitando target/.env/.sqlx
 - [ ] Criar `docker-compose.yaml` com Postgres 16-alpine + api dev (volume nomeado, healthcheck `pg_isready`)
 - [ ] Criar `justfile` com targets `build`, `test`, `lint`, `fmt`, `compose-up`, `compose-down`, `migrate`, `cli`
 - [ ] Criar `apps/ai-radar/README.md` cobrindo visão, requisitos, run local, env vars, troubleshooting

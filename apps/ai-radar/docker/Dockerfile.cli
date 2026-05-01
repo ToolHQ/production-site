@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1.7
+#
+# AI Radar — CLI image (Kubernetes CronJob entrypoint).
+#
+# Mirrors Dockerfile.api but ships the `ai-radar` binary (the CLI). Same
+# distroless runtime, same multi-arch support, same Cargo cache strategy.
+
+# ── Builder ───────────────────────────────────────────────────────────────
+FROM --platform=$BUILDPLATFORM rust:1.88-slim-bookworm AS builder
+
+ARG TARGETARCH
+ARG TARGETOS
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
+
+ENV CARGO_TERM_COLOR=never \
+    CARGO_INCREMENTAL=0 \
+    RUSTFLAGS="-C strip=symbols" \
+    DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    build-essential pkg-config \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates/ai-radar-core/Cargo.toml crates/ai-radar-core/Cargo.toml
+COPY crates/ai-radar-api/Cargo.toml  crates/ai-radar-api/Cargo.toml
+COPY crates/ai-radar-cli/Cargo.toml  crates/ai-radar-cli/Cargo.toml
+
+RUN mkdir -p crates/ai-radar-core/src crates/ai-radar-api/src crates/ai-radar-cli/src \
+ && echo 'pub const VERSION: &str = "0.0.0-stub";' > crates/ai-radar-core/src/lib.rs \
+ && printf 'fn main() {}\n' > crates/ai-radar-api/src/main.rs \
+ && printf 'fn main() {}\n' > crates/ai-radar-cli/src/main.rs
+
+RUN cargo fetch --locked
+
+RUN cargo build --release --locked --bin ai-radar
+
+COPY crates/ crates/
+RUN find crates -name '*.rs' -exec touch {} +
+RUN cargo build --release --locked --bin ai-radar
+
+# ── Runtime ───────────────────────────────────────────────────────────────
+FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
+
+LABEL org.opencontainers.image.title="ai-radar-cli" \
+      org.opencontainers.image.description="AI Radar Decision Engine — CronJob CLI" \
+      org.opencontainers.image.source="https://github.com/dnorio/production-site" \
+      org.opencontainers.image.licenses="MIT"
+
+WORKDIR /app
+
+COPY --from=builder /workspace/target/release/ai-radar /usr/local/bin/ai-radar
+
+ENV AI_RADAR_LOG_LEVEL=info
+
+USER nonroot:nonroot
+
+ENTRYPOINT ["/usr/local/bin/ai-radar"]
+CMD ["--help"]

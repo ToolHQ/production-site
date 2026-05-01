@@ -1,0 +1,72 @@
+# syntax=docker/dockerfile:1.7
+#
+# AI Radar — HTTP API image.
+#
+# Multi-stage, multi-arch (linux/amd64 and linux/arm64). Final stage uses
+# Google's distroless `cc-debian12:nonroot` so we get glibc (required by
+# SQLx + reqwest with rustls + chrono tzdata) without a shell or package
+# manager. SQLx is built with rustls, so no openssl-sys / native-tls.
+
+# ── Builder ───────────────────────────────────────────────────────────────
+FROM --platform=$BUILDPLATFORM rust:1.88-slim-bookworm AS builder
+
+ARG TARGETARCH
+ARG TARGETOS
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
+
+ENV CARGO_TERM_COLOR=never \
+    CARGO_INCREMENTAL=0 \
+    RUSTFLAGS="-C strip=symbols" \
+    DEBIAN_FRONTEND=noninteractive
+
+# Build-essential for crates that compile minimal C shims (e.g. ring).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    build-essential pkg-config \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Copy manifests first so Docker layer cache is reused while sources change.
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates/ai-radar-core/Cargo.toml crates/ai-radar-core/Cargo.toml
+COPY crates/ai-radar-api/Cargo.toml  crates/ai-radar-api/Cargo.toml
+COPY crates/ai-radar-cli/Cargo.toml  crates/ai-radar-cli/Cargo.toml
+
+# Stub source files so `cargo fetch` and a deps-only build can resolve.
+RUN mkdir -p crates/ai-radar-core/src crates/ai-radar-api/src crates/ai-radar-cli/src \
+ && echo 'pub const VERSION: &str = "0.0.0-stub";' > crates/ai-radar-core/src/lib.rs \
+ && printf 'fn main() {}\n' > crates/ai-radar-api/src/main.rs \
+ && printf 'fn main() {}\n' > crates/ai-radar-cli/src/main.rs
+
+RUN cargo fetch --locked
+
+# Build only the API binary so other crates' deps stay in cache anyway.
+RUN cargo build --release --locked --bin ai-radar-api
+
+# Replace the stubs with the real source tree, then rebuild.
+COPY crates/ crates/
+# Bust the cargo cache for our own crates so they actually rebuild.
+RUN find crates -name '*.rs' -exec touch {} +
+RUN cargo build --release --locked --bin ai-radar-api
+
+# ── Runtime ───────────────────────────────────────────────────────────────
+FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
+
+LABEL org.opencontainers.image.title="ai-radar-api" \
+      org.opencontainers.image.description="AI Radar Decision Engine — HTTP API" \
+      org.opencontainers.image.source="https://github.com/dnorio/production-site" \
+      org.opencontainers.image.licenses="MIT"
+
+WORKDIR /app
+
+COPY --from=builder /workspace/target/release/ai-radar-api /usr/local/bin/ai-radar-api
+
+ENV AI_RADAR_API_BIND=0.0.0.0:8080 \
+    AI_RADAR_LOG_LEVEL=info
+
+EXPOSE 8080
+USER nonroot:nonroot
+
+ENTRYPOINT ["/usr/local/bin/ai-radar-api"]
