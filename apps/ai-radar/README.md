@@ -51,7 +51,9 @@ schedules and the full data model.
 apps/ai-radar/
 ├── Cargo.toml                  # Cargo workspace + [workspace.dependencies]
 ├── rust-toolchain.toml         # Pinned to 1.88.0
-├── deploy.sh                   # ARM64 push to Nexus + kubectl apply (Kustomize)
+├── deploy.sh                   # bash: namespace + regsecret + DATABASE_URL opcional + build + apply Kustomize
+├── scripts/
+│   └── render-ai-radar-database-url.py  # Opcional — monta DATABASE_URL com postgres-secret ( kubectl )
 ├── crates/
 │   ├── ai-radar-core/          # lib: domain, config, telemetry, repos, providers
 │   ├── ai-radar-api/           # bin: Axum HTTP server
@@ -194,51 +196,38 @@ shipping a shell or package manager.
 
 ## Kubernetes (OCI / ARM64)
 
-Follow [`deploy-service`](../../.agents/skills/deploy-service/SKILL.md): load the
-tunnel + `oci-builder`, then deploy from **`apps/ai-radar`**:
+Follow [`deploy-service`](../../.agents/skills/deploy-service/SKILL.md): na raiz do repo carregue **`setup-dev-deploy.sh`** (socket buildkit remote + kubectl tunnel + auth Nexus), export **`KUBECONFIG`** tunnel, depois em **`apps/ai-radar`**:
 
 ```bash
+cd ~/production-site
+source oci-k8s-cluster/scripts/setup-dev-deploy.sh
+export KUBECONFIG=/home/$(whoami)/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+
 cd apps/ai-radar
+just k8s-validate   # opcional
 
-# Opcional antes do primeiro apply — valida manifests locais sem cluster:
-just k8s-validate
-
-# Build + push (ARM64 para Nexus) e apply do overlay production:
-./deploy.sh
+# Caminho automatizado recomendado para este cluster Postgres compartilhado:
+AI_RADAR_FROM_CLUSTER_PG_SECRET=1 ./deploy.sh
 ```
 
-**Namespace e pull secret.** O primeiro `kubectl apply` do overlay cria **`ai-radar`**
-junto dos demais recursos. **`regsecret` é obrigatório em cada namespace** e o script
-[`create_registry_secret.sh`](../../components/nexus/create_registry_secret.sh) **só
-imprime YAML** para stdout (não aplica). Com `KUBECONFIG` apontando para o cluster-alvo:
+**O que o `deploy.sh` faz só** (`bash`): `kubectl apply namespace`, **pipe automático**
+`components/nexus/create_registry_secret.sh ai-radar → kubectl apply` (regsecret Nexus),
+ **`Secret ai-radar-database`** se ainda não existir (prioridade):
 
-```bash
-cd /path/to/production-site
+1. Reutiliza Secret já aplicado pelo operador (**SealedSecret / SOPS / manual** — preferido quando existir política forte).
+2. Ou `AI_RADAR_DATABASE_URL='postgres://…' ./deploy.sh`.
+3. Ou `AI_RADAR_FROM_CLUSTER_PG_SECRET=1` → monta URL com `postgres-secret`
+   no namespace **`postgres`** (host default `postgres-service.postgres.svc.cluster.local`,
+   base default `postgres` — suficiente para o schema **`ai_radar`** nas migrações).
+   Overrides: `AI_RADAR_PG_HOST`, `AI_RADAR_PG_DATABASE`.
 
-# Se o namespace ainda não existir, crie-o antes ou aplique apenas o recurso Namespace.
-./components/nexus/create_registry_secret.sh ai-radar 2>/dev/null | kubectl apply -f -
-```
+**IMPORTANTE.** O recurso **`k8s/base/secret-database-url.placeholder.yaml`** continua apenas como template de referência; **não** entra mais no render Kustomize, para **`deploy.sh`/apply não pisarem uma `DATABASE_URL` real**.
 
-Erros típicos: `namespaces "ai-radar" not found` → `kubectl apply -f apps/ai-radar/k8s/base/namespace.yaml`
-(depois aplique os demais recursos pelo `deploy.sh` ou `kubectl kustomize …`),
-**antes** do pipe acima.
+**Docker build.** Se aparecer **`context deadline exceeded`** no primeiro passo `#1 waiting for connection` no buildx **`oci-builder`**, o daemon **buildkitd** no **`oci-k8s-master`** ou o forwarding do socket ficou stale — volta a rodar **`setup-dev-deploy.sh`**; se persistir, use **`oci-k8s-cluster/k8s_ops_menu.sh`** para maintenance / comandos remotos até o worker remoto voltar a responder (ex. `buildctl debug workers`, ou revise `systemctl --user` do buildkit no master).
 
-**Postgres em transação só leitura.** Se `sqlx migrate` ou comandos DDL via `kubectl exec postgres-… -- psql` responderem com **`cannot execute … in a read-only transaction`** e `SELECT pg_is_in_recovery();` for **`t`** no endpoint que você está usando, não há gravável suficiente para criar schema/tabelas — a API ficará inconsistente até o Postgres voltar a ter primário (**exposição relacionada ao cluster**: incidente **T-190**).
-Nesse caso, priorize recuperação do banco antes de rollout da API.
+**Postgres só leitura / sem primário.** Se o Postgres relatou `pg_is_in_recovery()=true` e DDL falha (**T-190**), trate o Postgres antes das migrações e do rollout definitivo (`deploy.sh` imprime apenas um warning).
 
-**`DATABASE_URL`.** [`k8s/base/secret-database-url.placeholder.yaml`](k8s/base/secret-database-url.placeholder.yaml)
-contém apenas placeholders (`REPLACE_*`) para versionar formato e a query
-`?options=-csearch_path%3Dpublic`. Em ambiente real, aplique uma variante gerada por
-SealedSecrets, SOPS ou outro fluxo aprovado no cluster (**nunca** valores reais
-no Git).
-
-**Migrações na primeira subida.** A imagem da API é **distroless** (sem shell,
-sem `wget`/`curl`). Não use `kubectl exec` para ferramentas de debug. Rode as
-SQLx migrations a partir da sua estação (**ou** de um Job com imagem tooling),
-com uma `DATABASE_URL` que alcance o mesmo Postgres aplicado pelo Secret do
-deployment — por exemplo **`just migrate`** (ver [Migrations](#migrations)),
-com rede/VPN até o host do banco já resolvido. Execute **antes** ou **entre**
-restarts da API sempre que mudar revisão schema.
+**Migrações.** Rodar **`just migrate`** (ou Job tooling) quando houver endpoint **gravável** e com a mesma `DATABASE_URL` que o Deployment usa (ver [Migrations](#migrations)).
 
 **Smoke no cluster.**
 

@@ -21,11 +21,11 @@ Seguir `deploy-service` e `operational-safety` (`AGENTS.md`). Não alterar workl
 - [x] `apps/ai-radar/k8s/base/deployment-api.yaml` — `replicas: 1`, `ai-radar-api`, `securityContext` endurecido, probes em `GET /health`, resources 25m/64Mi → 250m/256Mi
 - [x] `apps/ai-radar/k8s/base/service.yaml` — ClusterIP :8080
 - [x] `apps/ai-radar/k8s/base/configmap.yaml` — envs não secretas (`AI_RADAR_LOG_LEVEL`)
-- [x] `apps/ai-radar/k8s/base/secret-database-url.placeholder.yaml` — `DATABASE_URL` com placeholder + `?options=-csearch_path%3Dpublic`; documentação SealedSecrets/SOPS no README
+- [x] `apps/ai-radar/k8s/base/secret-database-url.placeholder.yaml` — apenas **referência**, **fora do Kustomize** (deploy não pisar credenciais reais)
 - [x] Runbook de migrações: distroless sem shell → `README` (estação tooling / `just migrate`, não `exec … wget`)
 - [x] `imagePullSecrets: regsecret` (igual outros serviços ARM64 Nexus)
 - [x] `k8s/base/kustomization.yaml` + `k8s/overlays/production/kustomization.yaml`
-- [x] `apps/ai-radar/deploy.sh` — build `docker/Dockerfile.api`, push ARM64, `kubectl apply` via Kustomize render + substituição de tag
+- [x] `apps/ai-radar/deploy.sh` (`bash`): namespace idempotente + pipe `create_registry_secret.sh → kubectl`; `Secret ai-radar-database` opcionalmente via `AI_RADAR_DATABASE_URL` ou **`AI_RADAR_FROM_CLUSTER_PG_SECRET=1`** + `scripts/render-ai-radar-database-url.py`; oci-builder ARM64 push + render Kustomize + apply
 - [x] `just k8s-validate` + `kubectl apply --dry-run=client`; **kubeconform** opcional (comando mantido na seção Validação se a ferramenta estiver instalada)
 - [ ] Smoke pós-deploy com cluster real + Secret real + migrações: pod `Running`, `GET /health` e `GET /sources` (port-forward). **Possível bloqueio de infraestrutura:** ambos os pods Postgres no namespace `postgres` relataram `pg_is_in_recovery() = true` durante validação pré-deploy (somente-leitura) — DDL/migrações falham até existir um primário gravável; tratar antes com **T-190** na fila Critical.
 
