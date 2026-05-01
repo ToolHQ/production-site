@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟢 Operacional (volume degraded rebuilding — não crítico) | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟡 Atenção (Longhorn com flapping em instance-manager no node-1; Nexus contido no node-2) | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -10,6 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Instance-Manager Flapping and Nexus Containment** _(mitigacao ativa; postgres/coroot ainda sensiveis a oscilacao de volume)_ | 🚨 Critical | Infra / Storage | 1d |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(conflitos de scheduling/hostPort e quotas transitorias sob tratamento)_ | 🔼 High | Infra / Platform | 1d |
 
 
@@ -17,6 +18,7 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | Flapping recorrente no `instance-manager` do node-1 (falhas 8501/8503), volumes `faulted/detaching` e risco de re-queda em stateful críticos | 🚨 Critical | Infra / Storage | 1d |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | `postgres-1` com scheduling sensivel a `hostPort 5432` + node isolamento; resiliencia de failover incompleta no estado atual | 🚨 Critical | Infra / Platform | 1d |
 
 ## 📅 Backlog (To Do)
