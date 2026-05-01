@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: � Operacional (todos os volumes healthy; postgres HA 2/2; ingress sem conflito de hostPort) | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional — DiskPressure incidente resolvido 2026-05-01; kube-controller-manager estável (0 restarts); todos os pods Running | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -23,11 +23,14 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| T-191 | **MinIO Backup Retention Audit & Cleanup** — auditar `backupstore/volumes/` (5.2G) e `nexus/content/` (4.6G); implementar política de retenção nos Recurring Jobs do Longhorn e no backup do Nexus; objetivo: liberar ≥2G sem expansão de PVC. _Blocker para T-192._ | 🚨 Critical | Infra / Storage | 3h |
+| T-192 | **MinIO PVC Expansion — Planejamento Condicional** — só executar se T-191 liberar <1.5G; capacidade: node-1 tem 17G livre, réplica única (1:1 sem multiplicação), expansão 12→20G eleva node-1 para ~82% disco; requer validação de `storageScheduled` vs `storageAvailable` em node-1 antes de aprovar. _Bloqueado por T-191._ | 🔼 High | Infra / Storage | 2h |
 
 ## ✅ Done
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| T-193 | **DiskPressure Master + kube-controller-manager CrashLoop — Incidente 2026-05-01** _(18G de réplicas órfãs deletadas do master; disco 97%→49%; kube-controller-manager limits 128Mi→256Mi / 300m→500m; todos os pods Running; `static-pod-resources.yaml` atualizado e commitado)_ | 🚨 Critical | Infra / Control-Plane | 2h |
 | [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Flapping + Nexus Containment** _(todos os volumes healthy; nexus pin node-2; minio TLS corrigido; ingress hostPort 5432 removido; postgres-1 restaurado em node-1)_ | 🚨 Critical | Infra / Storage | 1d |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(hostPort 5432 removido do ingress-nginx; postgres-1 `1/1 Running` no node-1; volume healthy)_ | 🚨 Critical | Infra / Platform | 1d |
 | [T-157](2026/Q2/T-157-Longhorn-Quota-Headroom-and-Node3-Recovery.md) | **Longhorn Quota Headroom and Node-3 Recovery** _(quota expandida 8→12Gi; node-3 cordoned; postgres-0 1/1 Running; volume rebuilding 3ª replica)_ | 🚨 Critical | Infra / Storage | 1d |
