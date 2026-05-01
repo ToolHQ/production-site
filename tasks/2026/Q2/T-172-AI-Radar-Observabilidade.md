@@ -57,5 +57,5 @@ cargo test -p ai-radar-core --test metrics
 
 - `docs/AI-RADAR-DECISIONS.md` — política observabilidade
 - `docs/AI-RADAR-ROADMAP.md` — Fase 14
-- Depende de: **T-171** (paralelizável)
+- Depende de: **T-174** (API no cluster para scrape `Service`/`/metrics`); exemplos e DoD que citam **`kubectl logs` de CronJobs** completam após **T-171**
 - Branch sugerida: `feat/T-172-ai-radar-observability`

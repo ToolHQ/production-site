@@ -1,4 +1,4 @@
-# T-171: AI Radar — Kubernetes Operação Leve
+# T-171: AI Radar — Kubernetes Operação Leve (onda 2 — CronJobs)
 
 - **Status**: Backlog
 - **Priority**: 🔽 Low
@@ -8,65 +8,54 @@
 
 ## Context
 
-Deploy do AI Radar no cluster OCI ARM64 com **resource budget conservador** (cluster 1 vCPU/6GB por node). Padrão Kustomize (`base/` + `overlays/production/`), CronJobs em vez de workers 24/7, securityContext hardenado, integração com Nexus para image pull.
+**Onda 2** do Kubernetes: estende o **baseline** entregue em **T-174** (API + Service + Secret + imagem Nexus já validados no cluster).
 
-**Importante**: seguir skill `deploy-service` e `operational-safety` do `AGENTS.md`. Nunca tocar workloads stateful críticos (Postgres, Nexus, Longhorn). Usar Postgres existente via Secret (DATABASE_URL).
+Aqui entram **CronJobs** substituindo workers 24/7, quotas adicionais se o cluster exigir, e smoke **demo-ready** (incl. jobs derivados dos schedules do `AI-RADAR-DECISIONS.md`). Não repetir trabalho já feito na Deployment/Service baseline — apenas referenciar e evoluir o mesmo `apps/ai-radar/k8s/` com novos manifests.
 
-Este é o épico que **fecha o MVP demo-ready** no cluster real.
+Seguir skill `deploy-service` e `operational-safety` do `AGENTS.md`. Sem tocar Postgres/Nexus/Longhorn como workloads a migrar — só consumo via Secret.
+
+Este épico **fecha o MVP demo-ready no cluster** no sentido pipeline agendado (collect → … → digest), assumindo CLI/subcomandos estáveis conforme épicos anteriores.
 
 ## Tasks
 
-- [ ] `apps/ai-radar/k8s/base/deployment.yaml` (API): replicas=1, securityContext hardenado, probes (liveness/readiness/startup em `/health`), resources `req cpu=25m mem=64Mi / lim cpu=250m mem=256Mi`
-- [ ] `apps/ai-radar/k8s/base/service.yaml` ClusterIP porta 8080
-- [ ] `apps/ai-radar/k8s/base/configmap.yaml` (envs não-sensíveis: log_level, schedules, max_*, base_url)
-- [ ] `apps/ai-radar/k8s/base/secret.yaml` template (DATABASE_URL, OPENROUTER_API_KEY, GITHUB_TOKEN) — **valores reais via SealedSecrets/SOPS conforme padrão do cluster**
-- [ ] `apps/ai-radar/k8s/base/serviceaccount.yaml` SA dedicada sem permissões cluster
-- [ ] CronJobs em `apps/ai-radar/k8s/base/cronjobs/`: collect (`*/30 * * * *`), extract (`15,45 * * * *`), score (`5 * * * *`), digest-daily (`0 6 * * *`), digest-weekly (`0 7 * * 1`)
+- [ ] CronJobs em `apps/ai-radar/k8s/base/cronjobs/` (ou subpasta mantida pelo Kustomize): `collect` (`*/30 * * * *`), `extract` (`15,45 * * * *`), `score` (`5 * * * *`), `digest-daily` (`0 6 * * *`), `digest-weekly` (`0 7 * * 1`) — imagem **`ai-radar-cli`**, comandos alinhados ao que existir na CLI na época do merge
 - [ ] `concurrencyPolicy: Forbid`, `successfulJobsHistoryLimit: 3`, `failedJobsHistoryLimit: 5`, `activeDeadlineSeconds: 600`
-- [ ] Resources cron: `req cpu=50m mem=128Mi / lim cpu=500m mem=512Mi`
-- [ ] securityContext: `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, drop ALL capabilities
-- [ ] `nodeSelector: kubernetes.io/arch: arm64` (opcional, default cluster)
-- [ ] `imagePullSecrets` apontando para Nexus
-- [ ] `kustomization.yaml` em base + overlay `production` com patch de imagens (Nexus tag)
-- [ ] Namespace dedicado `ai-radar` + ResourceQuota se cluster usa
-- [ ] Lint manifests com `kubeconform`/`kubeval` (CI)
-- [ ] Integração com `deploy.sh` ou skill `deploy-service`
-- [ ] Smoke deploy no cluster: pods Running, `/health` acessível via Service interno
+- [ ] Resources CronJob: `req cpu=50m mem=128Mi / lim cpu=500m mem=512Mi`
+- [ ] securityContext nos Jobs: `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, drop ALL caps
+- [ ] `nodeSelector: kubernetes.io/arch: arm64` se aplicável ao cluster de produção
+- [ ] Reutilizar mesmo `Namespace`/`ServiceAccount`/padrão `imagePullSecrets` já aplicados na **T-174**; apenas estender `kustomization.yaml`
+- [ ] ConfigMap overlay para schedules/envs não secretos quando fizer sentido
+- [ ] Opcional: atalho **TUI** (`oci-k8s-cluster/k8s_ops_menu.sh`) — entrada mínima (logs/status namespace `ai-radar`)
+- [ ] Lint manifests (kubeconform) incluindo cron manifests
+- [ ] Smoke: `kubectl create job --from=cronjob/<nome> …` para pelo menos um job; logs com `kubectl logs job/...`; ausência de OOM/scheduling surprises
 
 ## DoD
 
-- `kustomize build k8s/base` produz YAML válido.
-- `kubeconform` passa sem erros.
-- `kubectl apply --dry-run=client` passa.
-- Deploy real (PR review) → pods Running, dentro dos limites de recurso.
-- CronJobs rodam com `kubectl create job --from=cronjob/...` ad-hoc.
-- `/health` responde via Service.
-- Logs aparecem em `kubectl logs`.
-- Sem warning de quota / scheduling.
+- `kustomize build k8s/overlays/production` inclui baseline **T-174** + CronJobs válidos.
+- `kubeconform` passa.
+- Deploy revisado em PR → CronJobs listados em `kubectl -n ai-radar get cronjobs`; job ad-hoc a partir de um CronJob executa até completar ou falhar com erro de **negócio** (feed/LLM), não infraestrutura.
+- `/health` da API segue OK (sem regressão).
+- Logs de job rastreáveis (baseline para T-172 enriquecer com `job_id`).
 
 ## Validação
 
 ```bash
 cd apps/ai-radar
-kustomize build k8s/base | kubeconform -strict -summary
+kustomize build k8s/overlays/production | kubeconform -strict -summary
 kustomize build k8s/overlays/production | kubectl apply --dry-run=client -f -
 
-# Deploy real (após PR aprovado)
-./deploy.sh ai-radar  # ou seguindo .agents/skills/deploy-service/SKILL.md
-
-kubectl -n ai-radar get pods,cronjobs
-kubectl -n ai-radar describe pod <api-pod> | grep -A2 -E 'Limits|Requests'
-kubectl -n ai-radar exec <api-pod> -- wget -qO- localhost:8080/health
-kubectl -n ai-radar create job --from=cronjob/ai-radar-collect collect-test-1
-kubectl -n ai-radar logs job/collect-test-1
+kubectl -n ai-radar get deploy,cronjobs
+kubectl -n ai-radar create job --from=cronjob/ai-radar-collect collect-test-$(date +%s)
+kubectl -n ai-radar logs job/<job-name>
 ```
 
 ## References
 
-- `docs/AI-RADAR-DECISIONS.md` — schedules, budget detalhado
+- `docs/AI-RADAR-DECISIONS.md` — schedules e budget CronJob
 - `docs/AI-RADAR-ROADMAP.md` — Fase 13
+- **T-174** — baseline API (pré-requisito)
 - `.agents/skills/deploy-service/SKILL.md`
 - `.agents/skills/operational-safety/SKILL.md`
 - `AGENTS.md` — Stability First, GitFlow obrigatório
-- Depende de: **T-169**
-- Branch sugerida: `feat/T-171-ai-radar-k8s-deployment`
+- Depende de: **T-174** + **T-169** — digest CronJobs exigem o gerador (**T-169**); jobs `collect` / `extract` / `score` tornam-se operacionais à medida que **T-161**, **T-165**, **T-166** forem mergeados (entrega incremental).
+- Branch sugerida: `feat/T-171-ai-radar-k8s-cronjobs`
