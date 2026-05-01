@@ -12,6 +12,8 @@
 
 pub mod config;
 pub mod db;
+pub mod domain;
+pub mod repos;
 pub mod telemetry;
 
 /// Crate version exposed for telemetry and HTTP responses.
