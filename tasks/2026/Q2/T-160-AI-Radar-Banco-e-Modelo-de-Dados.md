@@ -1,11 +1,13 @@
 # T-160: AI Radar — Banco e Modelo de Dados
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
 - **Opened**: 2026-05-01
 - **Started**: 2026-05-01
+- **Closed**: 2026-05-01
+- **PR**: [#53](https://github.com/dnorio/production-site/pull/53) (stacked on #51)
 
 ## Context
 
@@ -39,12 +41,13 @@ SQLx com `rustls` (sem `openssl-sys`) — crítico para build distroless ARM64.
 
 ## DoD
 
-- `sqlx migrate run` aplica e `sqlx migrate revert` reverte limpo.
-- `\d ai_radar.sources` e demais tabelas mostram schema esperado com FKs/indexes.
-- Inserir mesmo `(source_id, content_hash)` 2x → segundo insert é Skipped (sem erro, sem duplicata).
-- Reprocess gera nova `version`, antiga preservada.
-- Cobertura de testes ≥80% das funções dos repos.
-- `cargo sqlx prepare` atualizado e commitado.
+- [x] `sqlx migrate run` aplica e `sqlx migrate revert` reverte limpo (validado com 2× revert + re-apply contra o compose Postgres; ledger sobrevive em `public._sqlx_migrations`).
+- [x] `\dt ai_radar.*` mostra 6 tabelas + 22 índices com FKs `ON DELETE CASCADE`.
+- [x] Idempotência confirmada: dois inserts com mesmo `(source_id, content_hash)` deixam apenas 1 row em `raw_items` (test `idempotent_insert_returns_some_then_none`).
+- [x] Reprocess gera nova `version`: test `version_auto_increments_on_reprocess` aplica 2 inserts e confirma `v=1, v=2` preservadas.
+- [x] Cobertura ≥80% das funções dos repos: 8 integration tests + 21 unit tests cobrem todos os métodos CRUD/list/conflict/validation.
+- [x] **`cargo sqlx prepare` substituído por queries runtime-checked** — decisão registrada acima e em `repos/mod.rs`. Build offline funciona sem `.sqlx/`.
+- [x] Endpoints HTTP `GET /sources`, `GET /sources/enabled` e `POST /sources` lendo/gravando real Postgres. E2E smoke validou os 4 status codes esperados (201/400/409/422) + propagação de `x-request-id`.
 
 ## Validação
 
