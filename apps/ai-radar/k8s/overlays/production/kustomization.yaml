@@ -1,0 +1,12 @@
+# Production-oriented overlay — same registry host the cluster resolves via
+# /etc/hosts + regsecret (`registry.local:31444`). Image tag is bumped by
+# `deploy.sh`; `images:` below keeps `:latest` as the fallback between deploys.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: registry.local:31444/repository/docker-repo/my-site-ai-radar-api
+    newTag: latest

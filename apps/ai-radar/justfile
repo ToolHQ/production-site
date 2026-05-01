@@ -83,6 +83,17 @@ docker-build-cli:
     docker buildx build --builder default --platform linux/amd64 \
         -f docker/Dockerfile.cli -t ai-radar-cli:dev --load .
 
+# ── Kubernetes (Kustomize / OCI) ──────────────────────────────────────────
+
+# Render production overlay (inspect before apply).
+k8s-render-prod:
+    kubectl kustomize k8s/overlays/production
+
+# Client-side schema checks: kustomize both trees + dry-run apply.
+k8s-validate:
+    kubectl kustomize k8s/base >/dev/null
+    kubectl kustomize k8s/overlays/production | kubectl apply --dry-run=client -f -
+
 # ── Migrations ────────────────────────────────────────────────────────────
 
 # Apply all pending SQLx migrations (requires DATABASE_URL).

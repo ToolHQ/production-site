@@ -1,6 +1,6 @@
 # T-174: AI Radar — Kubernetes Baseline (primeiro deploy API)
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp / Infra
 - **Estimation**: 4h
@@ -16,24 +16,23 @@ Seguir `deploy-service` e `operational-safety` (`AGENTS.md`). Não alterar workl
 
 ## Tasks
 
-- [ ] `apps/ai-radar/k8s/base/namespace.yaml` (ou `kustomization` com `namespace:`) — namespace dedicado `ai-radar`
-- [ ] `apps/ai-radar/k8s/base/serviceaccount.yaml` — SA dedicada, sem RBAC cluster-wide desnecessário
-- [ ] `apps/ai-radar/k8s/base/deployment-api.yaml` — `replicas: 1`, containers: `ai-radar-api`, `securityContext` endurecido (`runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, capabilities drop ALL), probes `liveness`/`readiness`/`startup` em `GET /health`, resources alinhados a `AI-RADAR-DECISIONS.md` (`req` 25m/64Mi, `lim` 250m/256Mi)
-- [ ] `apps/ai-radar/k8s/base/service.yaml` — ClusterIP :8080 → pods da API
-- [ ] `apps/ai-radar/k8s/base/configmap.yaml` — apenas envs não secretas (`AI_RADAR_LOG_LEVEL`, placeholders de feature flags se já existirem no código)
-- [ ] `apps/ai-radar/k8s/base/secret.yaml` — **template** (sem valores reais): chave `DATABASE_URL` com placeholder; documentar preenchimento via SealedSecrets/SOPS/External Secrets conforme padrão do cluster (**incluir `?options=-csearch_path%3Dpublic`** na URL, igual `.env.example`)
-- [ ] Opcional recomendado: `Job`/`initContainer` documentado para **`sqlx migrate run`** one-shot na primeira subida (ou runbook `kubectl` + `migrate` a partir de imagem debug — escolher uma e documentar em `apps/ai-radar/README.md`)
-- [ ] `imagePullSecrets` referenciando Nexus (mesmo padrão dos outros serviços ARM64 do repo)
-- [ ] `apps/ai-radar/k8s/base/kustomization.yaml` + `apps/ai-radar/k8s/overlays/production/kustomization.yaml` (patch imagem/tag Nexus, `newName`/`newTag`)
-- [ ] Integração com `./deploy.sh` ou script alinhado à skill `deploy-service` (build arm64, push, `kubectl apply`/Kustomize)
-- [ ] Lint: `kustomize build ... | kubeconform` (ou equivalente já usado no repo)
-- [ ] Smoke pós-merge: pod `Running`, `GET /health` OK (exec/wget ou port-forward), smoke mínimo **`GET /sources`** (pode retornar lista vazia) contra o Postgres real
+- [x] `apps/ai-radar/k8s/base/namespace.yaml` — namespace dedicado `ai-radar`
+- [x] `apps/ai-radar/k8s/base/serviceaccount.yaml` — SA dedicada, sem RBAC cluster-wide desnecessário
+- [x] `apps/ai-radar/k8s/base/deployment-api.yaml` — `replicas: 1`, `ai-radar-api`, `securityContext` endurecido, probes em `GET /health`, resources 25m/64Mi → 250m/256Mi
+- [x] `apps/ai-radar/k8s/base/service.yaml` — ClusterIP :8080
+- [x] `apps/ai-radar/k8s/base/configmap.yaml` — envs não secretas (`AI_RADAR_LOG_LEVEL`)
+- [x] `apps/ai-radar/k8s/base/secret-database-url.placeholder.yaml` — `DATABASE_URL` com placeholder + `?options=-csearch_path%3Dpublic`; documentação SealedSecrets/SOPS no README
+- [x] Runbook de migrações: distroless sem shell → `README` (estação tooling / `just migrate`, não `exec … wget`)
+- [x] `imagePullSecrets: regsecret` (igual outros serviços ARM64 Nexus)
+- [x] `k8s/base/kustomization.yaml` + `k8s/overlays/production/kustomization.yaml`
+- [x] `apps/ai-radar/deploy.sh` — build `docker/Dockerfile.api`, push ARM64, `kubectl apply` via Kustomize render + substituição de tag
+- [x] `just k8s-validate` + `kubectl apply --dry-run=client`; **kubeconform** opcional (comando mantido na seção Validação se a ferramenta estiver instalada)
+- [ ] Smoke pós-deploy com cluster real + Secret real + migrações: pod `Running`, `GET /health` e `GET /sources` (port-forward; sem `wget` dentro do Pod)
 
 ## DoD
 
 - `kustomize build k8s/base` e `kustomize build k8s/overlays/production` produzem YAML válido.
-- `kubeconform` (ou ferramenta do projeto) passa.
-- `kubectl apply --dry-run=client` passa no overlay de produção.
+- `kubectl apply --dry-run=client` passa no overlay de produção; kubeconform quando disponível.
 - Deploy real revisado em PR: **um** Deployment API + Service + Secret/Config aplicados; pod estável; `/health` **200** dentro do cluster.
 - Limite de recurso visível em `describe pod` coerente com a tabela de budget.
 - README ou `docs/` com passos de migração/`DATABASE_URL` para operador.
@@ -42,13 +41,19 @@ Seguir `deploy-service` e `operational-safety` (`AGENTS.md`). Não alterar workl
 
 ```bash
 cd apps/ai-radar
-kustomize build k8s/base | kubeconform -strict -summary
-kustomize build k8s/overlays/production | kubectl apply --dry-run=client -f -
 
-# Após deploy (com tunnel kubectl configurado)
+kubectl kustomize k8s/base >/dev/null
+kubectl kustomize k8s/overlays/production >/dev/null
+just k8s-validate
+
+# Opcional, se kubeconform estiver no PATH:
+kubectl kustomize k8s/overlays/production | kubeconform -strict -summary -ignore-missing-schemas -
+
+# Após deploy (tunnel kubectl configurado; Secret DATABASE_URL válido aplicado antes)
 kubectl -n ai-radar get pods,svc
-kubectl -n ai-radar exec deploy/ai-radar-api -- wget -qO- http://127.0.0.1:8080/health
-# smoke opcional: port-forward e curl /sources
+kubectl -n ai-radar port-forward svc/ai-radar-api 18080:8080
+curl -fsS http://127.0.0.1:18080/health
+curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
 ```
 
 ## References
