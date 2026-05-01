@@ -18,10 +18,10 @@ metadata:
   namespace: longhorn-system
 spec:
   hard:
-    requests.cpu: "1000m" # was 1200m; used 752m (2026-04-04), 248m headroom for replica ops
-    requests.memory: "2Gi"
-    limits.cpu: "3500m"
-    limits.memory: "5Gi"
+    requests.cpu: "1000m" # baseline request envelope remains conservative for 1 vCPU nodes
+    requests.memory: "5Gi"
+    limits.cpu: "8"
+    limits.memory: "12Gi" # hotfix 2026-05-01: avoid 8Gi hard-cap deadlock for instance-manager/jobs
 ---
 apiVersion: v1
 kind: ResourceQuota
