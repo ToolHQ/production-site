@@ -17,10 +17,9 @@ and the architecture decisions consulted by every epic in
 
 Bootstrap ([`T-159`](../../tasks/2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md))
 plus **database layer and HTTP `/sources`** ([`T-160`](../../tasks/2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md))
-are implemented today. Planned **incremental cluster validation**: epic
-[`T-174`](../../tasks/2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md)
-(API Deployment + Service + Postgres secret) shortly after **T-160**, in
-parallel with collectors; **CronJobs** and full scheduled demo land in
+are implemented today. **`T-174`** manifests live under **`k8s/`** (`kubectl
+kustomize`, overlay `production`, `deploy.sh` arm64+Nexus).
+**CronJobs** and the full scheduled demo continue in
 [`T-171`](../../tasks/2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md). The
 remaining product pipeline (RSS/GitHub/web, LLM, extract, score, digest)
 spans **T-161..T-173** alongside that infra track.
@@ -52,6 +51,7 @@ schedules and the full data model.
 apps/ai-radar/
 ├── Cargo.toml                  # Cargo workspace + [workspace.dependencies]
 ├── rust-toolchain.toml         # Pinned to 1.88.0
+├── deploy.sh                   # ARM64 push to Nexus + kubectl apply (Kustomize)
 ├── crates/
 │   ├── ai-radar-core/          # lib: domain, config, telemetry, repos, providers
 │   ├── ai-radar-api/           # bin: Axum HTTP server
@@ -59,6 +59,9 @@ apps/ai-radar/
 ├── docker/
 │   ├── Dockerfile.api          # distroless multi-stage, multi-arch
 │   └── Dockerfile.cli
+├── k8s/
+│   ├── base/                   # Namespace, SA, ConfigMap, Secret template, Deploy, Service
+│   └── overlays/production/    # Tag/latest wiring for oci-builder images
 ├── docker-compose.yaml         # Postgres + api for local development
 ├── justfile                    # `just --list` for the DX targets
 ├── .env.example                # Documented environment variables
@@ -171,6 +174,7 @@ SQLx-installed metadata in `public._sqlx_migrations` keeps working.
 | Tests | `just test` | `cargo test --workspace` |
 | Lint | `just lint` | `cargo clippy --workspace --all-targets -- -D warnings` |
 | Format | `just fmt-check` | `cargo fmt --check` |
+| Kustomize dry-run | `just k8s-validate` | `kubectl apply --dry-run=client` sobre o overlay production |
 | Harness | `just harness` | `tools/harness/verify.sh verify-changed` (whole repo) |
 
 CI enforces the same set on every PR (see
@@ -187,6 +191,56 @@ Both Dockerfiles are multi-stage and multi-arch (`linux/amd64` and
 `linux/arm64`). The runtime layer is `gcr.io/distroless/cc-debian12:nonroot`
 which gives us glibc (required by SQLx + reqwest with rustls + chrono) without
 shipping a shell or package manager.
+
+## Kubernetes (OCI / ARM64)
+
+Follow [`deploy-service`](../../.agents/skills/deploy-service/SKILL.md): load the
+tunnel + `oci-builder`, then deploy from **`apps/ai-radar`**:
+
+```bash
+cd apps/ai-radar
+
+# Opcional antes do primeiro apply — valida manifests locais sem cluster:
+just k8s-validate
+
+# Build + push (ARM64 para Nexus) e apply do overlay production:
+./deploy.sh
+```
+
+**Namespace e pull secret.** O overlay cria **`ai-radar`**. Secrets de registry são
+por namespace; use o mesmo padrão `regsecret` que os outros serviços:
+
+```bash
+# A partir da raiz do repo, com kubectl apontando para o cluster-alvo:
+./components/nexus/create_registry_secret.sh ai-radar
+```
+
+**`DATABASE_URL`.** [`k8s/base/secret-database-url.placeholder.yaml`](k8s/base/secret-database-url.placeholder.yaml)
+contém apenas placeholders (`REPLACE_*`) para versionar formato e a query
+`?options=-csearch_path%3Dpublic`. Em ambiente real, aplique uma variante gerada por
+SealedSecrets, SOPS ou outro fluxo aprovado no cluster (**nunca** valores reais
+no Git).
+
+**Migrações na primeira subida.** A imagem da API é **distroless** (sem shell,
+sem `wget`/`curl`). Não use `kubectl exec` para ferramentas de debug. Rode as
+SQLx migrations a partir da sua estação (**ou** de um Job com imagem tooling),
+com uma `DATABASE_URL` que alcance o mesmo Postgres aplicado pelo Secret do
+deployment — por exemplo **`just migrate`** (ver [Migrations](#migrations)),
+com rede/VPN até o host do banco já resolvido. Execute **antes** ou **entre**
+restarts da API sempre que mudar revisão schema.
+
+**Smoke no cluster.**
+
+```bash
+kubectl -n ai-radar get pods,svc deploy/ai-radar-api
+kubectl -n ai-radar port-forward svc/ai-radar-api 18080:8080
+curl -fsS http://127.0.0.1:18080/health
+curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
+```
+
+Se `kubeconform` estiver instalado, você pode usar o comando da task
+[**T-174**](../../tasks/2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md)
+(`kubectl kustomize … | kubeconform …`) além do `just k8s-validate`.
 
 ## Troubleshooting
 
