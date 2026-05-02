@@ -67,6 +67,7 @@ RUN RUST_TARGET="$(cat rust-target.txt)" \
  && cargo build --release --locked --bin ai-radar --target "$RUST_TARGET"
 
 COPY crates/ crates/
+COPY migrations/ migrations/
 
 RUN find crates -name '*.rs' -exec touch {} +
 RUN RUST_TARGET="$(cat rust-target.txt)" \
