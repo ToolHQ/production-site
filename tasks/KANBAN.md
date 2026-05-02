@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: � Operacional — MinIO em 87% (1.6G livre); nexus/content 4.5GiB pendente cleanup; kube-controller-manager estável; todos os pods Running | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional — MinIO em 71% (3.4G livre); nexus/content 2.5GiB (npm-proxy zerado, compact executado); kube-controller-manager estável; todos os pods Running | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -23,14 +23,14 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| T-194 | **Nexus Cleanup Policy — MinIO nexus/content/ (4.5GiB)** — implementar e aplicar cleanup policies no Nexus para `npm-proxy` (cache público), revisar `docker-repo`; objetivo: liberar ≥2GiB de `nexus/content/` para baixar MinIO de 87%→75%; usar helpers em `lib/nexus_init.sh` + API interna; testar via `nexus_preview_npm_proxy_cleanup` antes de aplicar. _Pré-requisito: tunnel ativo._ | 🔼 High | Infra / Storage | 2h |
-| T-191 | **MinIO Backup Retention Audit & Cleanup** — ✅ fase 1 concluída: 18 backups postgres-0 deletados + 2 etcd duplicados + 500MiB .trash = 1.3GiB liberados (92%→87%); ⏳ fase 2 pendente: `nexus/content/` 4.5GiB (cleanup policies via Nexus API). _Blocker para T-192._ | 🔼 High | Infra / Storage | +1h |
-| T-192 | **MinIO PVC Expansion — Planejamento Condicional** — só executar se T-191 liberar <1.5G; capacidade: node-1 tem 17G livre, réplica única (1:1 sem multiplicação), expansão 12→20G eleva node-1 para ~82% disco; requer validação de `storageScheduled` vs `storageAvailable` em node-1 antes de aprovar. _Bloqueado por T-191._ | 🔼 High | Infra / Storage | 2h |
+| T-192 | **MinIO PVC Expansion 12→20G** — capacidade: node-1 tem 17G livre, réplica única (1:1); expansão preventiva recomendada para quando chegar a 85%+; daily Longhorn backups podem atingir 85% em ~2 semanas (coroot-prometheus cresce 1.2GiB/backup). _Não urgente — MinIO em 71% com 3.4G livre após T-191/T-194._ | 🔽 Low | Infra / Storage | 2h |
 
 ## ✅ Done
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| T-194 | **Nexus npm-proxy Cleanup + Compact blob store** _(402 componentes npm-proxy deletados via REST API; compact task criada via ExtDirect API; 3 rounds de compact executados; nexus/content 4.5GiB→2.5GiB; MinIO 99%→71%; 3.4GiB livres)_ | 🔼 High | Infra / Storage | 2h |
+| T-191 | **MinIO Backup Retention Audit & Cleanup** _(fase 1: 18 backups postgres-0 + 2 etcd + .trash = 1.3GiB liberados 92%→87%; fase 2: ver T-194; backup Error coroot-prometheus cc2747a5 deletado; total MinIO: 99%→71%)_ | 🔼 High | Infra / Storage | 3h |
 | T-193 | **DiskPressure Master + kube-controller-manager CrashLoop — Incidente 2026-05-01** _(18G de réplicas órfãs deletadas do master; disco 97%→49%; kube-controller-manager limits 128Mi→256Mi / 300m→500m; todos os pods Running; `static-pod-resources.yaml` atualizado e commitado)_ | 🚨 Critical | Infra / Control-Plane | 2h |
 | [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Flapping + Nexus Containment** _(todos os volumes healthy; nexus pin node-2; minio TLS corrigido; ingress hostPort 5432 removido; postgres-1 restaurado em node-1)_ | 🚨 Critical | Infra / Storage | 1d |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(hostPort 5432 removido do ingress-nginx; postgres-1 `1/1 Running` no node-1; volume healthy)_ | 🚨 Critical | Infra / Platform | 1d |
