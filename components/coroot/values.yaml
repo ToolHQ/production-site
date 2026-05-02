@@ -10,10 +10,10 @@ corootCE:
   resources:
     requests:
       cpu: 10m
-      memory: 50Mi
+      memory: 100Mi
     limits:
       cpu: 300m
-      memory: 600Mi
+      memory: 900Mi  # raised from 600Mi — OOMKilled 2026-05-02 after clickhouse restart
       ephemeral-storage: 1Gi
   # Persistence and Ingress from original
   persistentVolume:

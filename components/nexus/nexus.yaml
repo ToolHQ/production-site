@@ -46,7 +46,7 @@ spec:
             successThreshold: 1
           env:
             - name: INSTALL4J_ADD_VM_PARAMS
-              value: "-Xms512m -Xmx512m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
+              value: "-Xms512m -Xmx512m -XX:MaxDirectMemorySize=512m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
           resources:
             requests:
               cpu: 80m # was 170m, then 100m — actual usage ~4m (T-103)
