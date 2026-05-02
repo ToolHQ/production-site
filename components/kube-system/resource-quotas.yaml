@@ -20,7 +20,7 @@ spec:
   hard:
     requests.cpu: "3000m" # T-200 2026-05-02: raised from 1000m (was 95% used); headroom for instance-manager churn
     requests.memory: "8Gi" # bumped from 5Gi: v1.11.1 higher container memory requests
-    limits.cpu: "20" # hotfix T-199 2026-05-02: v1.11.1 adds longhorn-csi-plugin DaemonSet (3×1500m=4500m) + increased UI limits
+    limits.cpu: "24" # T-201 2026-05-02: raised from 20 after FailedCreate events (used 19900m/20); keeps maintenance jobs schedulable
     limits.memory: "24Gi" # bumped from 16Gi: v1.11.1 csi-plugin + manager memory overhead
 ---
 apiVersion: v1
