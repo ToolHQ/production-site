@@ -225,6 +225,16 @@ AI_RADAR_FROM_CLUSTER_PG_SECRET=1 ./deploy.sh
 
 **O que o `deploy.sh` faz só** (`bash`): `kubectl apply namespace`, **pipe automático**
 `components/nexus/create_registry_secret.sh ai-radar → kubectl apply` (regsecret Nexus),
+build/push **duas** imagens ARM64 — **`my-site-ai-radar-api`** (Deployment) e
+**`my-site-ai-radar-cli`** (CronJob `ai-radar-collect` — ver
+[`T-171`](../../tasks/2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md)) —, render
+Kustomize + `kubectl apply` com tags **sincronizadas** (mesmo `TAG_VERSION`).
+
+Após o apply, `kubectl -n ai-radar get cronjobs` deve listar **`ai-radar-collect`**
+(agenda `*/30 * * * *`). Smoke ad-hoc:
+
+`kubectl -n ai-radar create job --from=cronjob/ai-radar-collect collect-test-$(date +%s)`
+
  **`Secret ai-radar-database`** se ainda não existir (prioridade):
 
 1. Reutiliza Secret já aplicado pelo operador (**SealedSecret / SOPS / manual** — preferido quando existir política forte).
