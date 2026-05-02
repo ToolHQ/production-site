@@ -1,5 +1,7 @@
 //! Run the RSS collect pipeline with bounded concurrency and per-source isolation.
 
+use std::time::Instant;
+
 use futures::stream::{self, StreamExt};
 use uuid::Uuid;
 
@@ -8,6 +10,7 @@ use crate::collector::Collector;
 use crate::config::AppConfig;
 use crate::db::Database;
 use crate::domain::{Source, SourceType};
+use crate::metrics;
 use crate::repos::{PgRawItemRepository, PgSourceRepository, RawItemRepository, SourceRepository};
 
 /// Aggregated counters printed by the CLI.
@@ -37,15 +40,24 @@ pub async fn run_collect(
     filter_type: SourceType,
     source_id: Option<Uuid>,
 ) -> anyhow::Result<CollectStats> {
+    let started = Instant::now();
     let sources = list_sources(db, filter_type, source_id).await?;
     let total_sources = sources.len() as u64;
 
     if sources.is_empty() {
         tracing::info!("collect: no matching sources — nothing to do");
-        return Ok(CollectStats {
+        let stats = CollectStats {
             total_sources: 0,
             ..CollectStats::default()
-        });
+        };
+        metrics::record_collect_pass(
+            filter_type,
+            stats.collected,
+            stats.skipped,
+            stats.source_errors,
+            started.elapsed(),
+        );
+        return Ok(stats);
     }
 
     let client = RssCollector::default_http_client()?;
@@ -80,6 +92,14 @@ pub async fn run_collect(
             }
         }
     }
+
+    metrics::record_collect_pass(
+        filter_type,
+        stats.collected,
+        stats.skipped,
+        stats.source_errors,
+        started.elapsed(),
+    );
 
     Ok(stats)
 }
