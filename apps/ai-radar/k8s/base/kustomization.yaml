@@ -1,0 +1,14 @@
+# Base manifests for ai-radar (namespace `ai-radar`).
+#
+# Build: kubectl kustomize k8s/base  (kubectl includes kustomize)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ai-radar
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - configmap.yaml
+  - deployment-api.yaml
+  - service.yaml

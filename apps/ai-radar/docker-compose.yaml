@@ -1,0 +1,78 @@
+# AI Radar — local development stack.
+#
+# Postgres 16 (alpine) + ai-radar-api built from docker/Dockerfile.api.
+# The API is wired to the Postgres service via DATABASE_URL pointing at the
+# `ai_radar` user/db that the postgres container creates on first boot.
+#
+# Use:
+#   cp .env.example .env
+#   docker compose up -d        # start
+#   curl localhost:8080/health
+#   docker compose logs -f api  # tail JSON logs
+#   docker compose down -v      # tear down + drop volumes
+
+name: ai-radar
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-radar-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ai_radar
+      POSTGRES_PASSWORD: ai_radar
+      POSTGRES_DB: ai_radar
+    # Local-only port mapping. Production uses the cluster-internal
+    # Postgres via DATABASE_URL secret (see docs/AI-RADAR-DECISIONS.md).
+    # The host-side port is configurable to avoid clashing with a local
+    # Postgres install (default 5432). Set AI_RADAR_PG_HOST_PORT=5433
+    # when 5432 is taken.
+    ports:
+      - "127.0.0.1:${AI_RADAR_PG_HOST_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_radar -d ai_radar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - ai-radar-net
+
+  api:
+    image: ai-radar-api:dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+      platforms:
+        - linux/amd64
+    container_name: ai-radar-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AI_RADAR_API_BIND: 0.0.0.0:8080
+      AI_RADAR_LOG_LEVEL: ${AI_RADAR_LOG_LEVEL:-info}
+      # search_path=public keeps SQLx _sqlx_migrations out of ai_radar
+      # so revert cycles stay deterministic. See .env.example.
+      DATABASE_URL: postgres://ai_radar:ai_radar@postgres:5432/ai_radar?options=-csearch_path%3Dpublic
+      LLM_ENABLED: "${LLM_ENABLED:-false}"
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - ai-radar-net
+
+volumes:
+  pg_data:
+    name: ai-radar-pg-data
+
+networks:
+  ai-radar-net:
+    name: ai-radar-net

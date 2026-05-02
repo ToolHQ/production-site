@@ -1,0 +1,117 @@
+# AI Radar — developer experience targets.
+#
+# Install just: https://github.com/casey/just
+# Run `just --list` to see all targets.
+
+# Default target: list all available recipes.
+default:
+    @just --list
+
+# ── Cargo ─────────────────────────────────────────────────────────────────
+
+# Build the workspace (debug).
+build:
+    cargo build --workspace
+
+# Build the workspace in release mode.
+build-release:
+    cargo build --workspace --release
+
+# Run the full unit test suite.
+test:
+    cargo test --workspace
+
+# Run clippy with -D warnings (matches the harness gate).
+lint:
+    cargo clippy --workspace --all-targets -- -D warnings
+
+# Format check (no changes).
+fmt-check:
+    cargo fmt --check
+
+# Apply formatting in-place.
+fmt:
+    cargo fmt
+
+# Run the project harness verify-changed for ai-radar paths.
+harness:
+    cd ../.. && ./tools/harness/verify.sh verify-changed
+
+# ── Run ───────────────────────────────────────────────────────────────────
+
+# Run the HTTP API locally (uses .env if present).
+run-api *args:
+    cargo run -p ai-radar-api {{args}}
+
+# Run the CLI locally. Pass arguments after `--`, e.g. `just cli -- --help`.
+cli *args:
+    cargo run -p ai-radar-cli {{args}}
+
+# ── Compose stack ─────────────────────────────────────────────────────────
+
+# Start postgres + api in the background.
+compose-up:
+    docker compose up -d --build
+
+# Tail logs from the api container.
+compose-logs:
+    docker compose logs -f api
+
+# Tear down compose, removing volumes.
+compose-down:
+    docker compose down -v
+
+# Smoke check: wait for the API and curl /health.
+compose-smoke:
+    @set -e; \
+    for i in $(seq 1 30); do \
+        if curl -fsS -o /dev/null http://127.0.0.1:8080/health; then \
+            echo "API up after $${i}s"; break; \
+        fi; sleep 1; \
+    done; \
+    curl -fsS -H 'X-Request-Id: just-smoke' http://127.0.0.1:8080/health -i
+
+# ── Docker images ─────────────────────────────────────────────────────────
+
+# Build the API image (linux/amd64) tagged ai-radar-api:dev.
+docker-build-api:
+    docker buildx build --builder default --platform linux/amd64 \
+        -f docker/Dockerfile.api -t ai-radar-api:dev --load .
+
+# Build the CLI image (linux/amd64) tagged ai-radar-cli:dev.
+docker-build-cli:
+    docker buildx build --builder default --platform linux/amd64 \
+        -f docker/Dockerfile.cli -t ai-radar-cli:dev --load .
+
+# ── Kubernetes (Kustomize / OCI) ──────────────────────────────────────────
+
+# Render production overlay (inspect before apply).
+k8s-render-prod:
+    kubectl kustomize k8s/overlays/production
+
+# Client-side schema checks: kustomize both trees + dry-run apply.
+k8s-validate:
+    kubectl kustomize k8s/base >/dev/null
+    kubectl kustomize k8s/overlays/production | kubectl apply --dry-run=client -f -
+
+# ── Migrations ────────────────────────────────────────────────────────────
+
+# Apply all pending SQLx migrations (requires DATABASE_URL).
+migrate:
+    sqlx migrate run --source migrations
+
+# Revert the most recent migration (one-step rollback).
+migrate-revert:
+    sqlx migrate revert --source migrations
+
+# List migration status.
+migrate-info:
+    sqlx migrate info --source migrations
+
+# Add a new migration. Usage: `just migrate-add my-change`.
+migrate-add NAME:
+    sqlx migrate add --source migrations -r {{NAME}}
+
+# Refresh sqlx offline cache so the workspace builds without DATABASE_URL.
+sqlx-prepare:
+    cargo sqlx prepare --workspace -- --all-targets

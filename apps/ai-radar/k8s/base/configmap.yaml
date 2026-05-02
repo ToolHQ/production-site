@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-radar-config
+  labels:
+    app.kubernetes.io/name: ai-radar-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: ai-radar
+data:
+  AI_RADAR_LOG_LEVEL: "info"

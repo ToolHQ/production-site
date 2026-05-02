@@ -180,6 +180,7 @@ collect_verify_scope() {
 	shift 2
 
 	VERIFY_SCOPE_RUST_NEEDED=0
+	VERIFY_SCOPE_RUST_AI_RADAR_NEEDED=0
 	VERIFY_SCOPE_BATS_NEEDED=0
 	VERIFY_SCOPE_JS_BACKEND_NEEDED=0
 	VERIFY_SCOPE_JS_REACT_NEEDED=0
@@ -193,6 +194,8 @@ collect_verify_scope() {
 
 		if [[ "$path" == apps/rs-observability-api/* ]]; then
 			VERIFY_SCOPE_RUST_NEEDED=1
+		elif [[ "$path" == apps/ai-radar/* ]]; then
+			VERIFY_SCOPE_RUST_AI_RADAR_NEEDED=1
 		elif [[ "$path" == oci-k8s-cluster/testing/* || "$path" == oci-k8s-cluster/run_tests.sh || "$path" == oci-k8s-cluster/k8s_ops_menu.sh || "$path" == oci-k8s-cluster/scripts/* || "$path" == oci-k8s-cluster/lib/* ]]; then
 			VERIFY_SCOPE_BATS_NEEDED=1
 		elif [[ "$path" == apps/back-end/* ]]; then
@@ -335,6 +338,14 @@ run_rust_observability_gate() {
 	run_checked "rust test: rs-observability-api" bash -lc "cd '$app_dir' && cargo test"
 }
 
+run_rust_ai_radar_gate() {
+	local app_dir="$REPO_ROOT/apps/ai-radar"
+
+	run_checked "rust fmt: ai-radar" bash -lc "cd '$app_dir' && cargo fmt --check"
+	run_checked "rust clippy: ai-radar" bash -lc "cd '$app_dir' && cargo clippy --workspace --all-targets -- -D warnings"
+	run_checked "rust test: ai-radar" bash -lc "cd '$app_dir' && cargo test --workspace"
+}
+
 run_cluster_bats_gate() {
 	local cluster_dir="$REPO_ROOT/oci-k8s-cluster"
 	run_checked "bats: oci-k8s-cluster" bash -lc "cd '$cluster_dir' && ./run_tests.sh"
@@ -373,6 +384,7 @@ verify_changed() {
 
 	collect_verify_scope shell_paths unmapped_paths "${changed_paths[@]}"
 	rust_needed=$VERIFY_SCOPE_RUST_NEEDED
+	local rust_ai_radar_needed=$VERIFY_SCOPE_RUST_AI_RADAR_NEEDED
 	bats_needed=$VERIFY_SCOPE_BATS_NEEDED
 	js_backend_needed=$VERIFY_SCOPE_JS_BACKEND_NEEDED
 	js_react_needed=$VERIFY_SCOPE_JS_REACT_NEEDED
@@ -398,6 +410,13 @@ verify_changed() {
 	else
 		HARNESS_RESULTS+=("rust|SKIP|-")
 		warn "Rust gate not selected"
+	fi
+
+	if [[ $rust_ai_radar_needed -eq 1 ]]; then
+		timed_gate "rust-ai-radar" run_rust_ai_radar_gate
+	else
+		HARNESS_RESULTS+=("rust-ai-radar|SKIP|-")
+		warn "Rust ai-radar gate not selected"
 	fi
 
 	if [[ $bats_needed -eq 1 ]]; then
@@ -456,6 +475,7 @@ verify_all() {
 	timed_gate "shell-shellcheck" run_shellcheck_checks "${shell_paths[@]}"
 	timed_gate "shell-shfmt" run_shfmt_checks "${shell_paths[@]}"
 	timed_gate "rust" run_rust_observability_gate
+	timed_gate "rust-ai-radar" run_rust_ai_radar_gate
 	timed_gate "bats" run_cluster_bats_gate
 	timed_gate "js-back-end" run_js_back_end_gate
 	timed_gate "js-react-static" run_js_react_static_gate
