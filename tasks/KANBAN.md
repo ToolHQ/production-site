@@ -10,7 +10,6 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-174](2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md) | **AI Radar — K8s baseline (primeiro deploy API)** _(namespace `ai-radar`, Deployment+Service+Secret `DATABASE_URL`, Kustomize+Nexus ARM64, probes `/health`, smoke `/sources`; merge **PR #54**)_ | 🔽 Low | AI Radar / DevExp / Infra | 4h |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -43,6 +42,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-174](2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md) | **AI Radar — K8s baseline (primeiro deploy API)** _(namespace `ai-radar`, Deployment+Service+Secret `DATABASE_URL`, Kustomize+Nexus ARM64, probes `/health`, smoke `/sources`; merge **PR #54**)_ | 🔽 Low | AI Radar / DevExp / Infra | 4h |
 | T-194 | **Nexus npm-proxy Cleanup + Compact blob store** _(402 componentes npm-proxy deletados via REST API; compact task criada via ExtDirect API; 3 rounds de compact executados; nexus/content 4.5GiB→2.5GiB; MinIO 99%→71%; 3.4GiB livres)_ | 🔼 High | Infra / Storage | 2h |
 | T-196 | **Coroot OOM fix + Nexus JVM overcommit fix** _(coroot limits 600→900Mi + requests 50→100Mi; Nexus MaxDirectMemorySize capped 2703m→512m evitando OOMKill; ambos aplicados live + versionados em IaC; PR #57)_ | 🔼 High | Infra / Reliability | 1h |
 | T-191 | **MinIO Backup Retention Audit & Cleanup** _(fase 1: 18 backups postgres-0 + 2 etcd + .trash = 1.3GiB liberados 92%→87%; fase 2: ver T-194; backup Error coroot-prometheus cc2747a5 deletado; total MinIO: 99%→71%)_ | 🔼 High | Infra / Storage | 3h |
