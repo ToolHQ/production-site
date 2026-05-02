@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟢 Operacional — MinIO em 71% (3.4G livre); nexus/content 2.5GiB (npm-proxy zerado, compact executado); kube-controller-manager estável; todos os pods Running | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional — MinIO em 71% (3.4G livre); todos os volumes Longhorn healthy; coroot 1/1 Running (OOM fix aplicado); kube-controller-manager estável | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -22,8 +22,7 @@
 ## 📅 Backlog (To Do)
 
 | ID  | Task Name | Priority | Epic | Est. |
-| :-: | :-------- | :------: | :--- | :--: |
-| T-192 | **MinIO PVC Expansion 12→20G** — capacidade: node-1 tem 17G livre, réplica única (1:1); expansão preventiva recomendada para quando chegar a 85%+; daily Longhorn backups podem atingir 85% em ~2 semanas (coroot-prometheus cresce 1.2GiB/backup). _Não urgente — MinIO em 71% com 3.4G livre após T-191/T-194._ | 🔽 Low | Infra / Storage | 2h |
+| :-: | :-------- | :------: | :--- | :--: || T-195 | **Coroot Clickhouse FailedMount — Investigar race condition no attach Longhorn** — clickhouse `pvc-efbe8d2c` (2Gi, longhorn-2) falha ao montar durante restart do pod com `volume hasn't been attached yet`; cascadeia restart do instance-manager no node-3 + OOMKill no coroot UI; investigar se `volumeBindingMode: WaitForFirstConsumer` ou attach timeout do CSI Longhorn causam o race; avaliar `podStartupDelay` ou annotation de prioritidade no StatefulSet. _Recorrente: visto múltiplas vezes esta semana._ | 🔼 High | Infra / Storage | 3h || T-192 | **MinIO PVC Expansion 12→20G** — capacidade: node-1 tem 17G livre, réplica única (1:1); expansão preventiva recomendada para quando chegar a 85%+; daily Longhorn backups podem atingir 85% em ~2 semanas (coroot-prometheus cresce 1.2GiB/backup). _Não urgente — MinIO em 71% com 3.4G livre após T-191/T-194._ | 🔽 Low | Infra / Storage | 2h |
 
 ## ✅ Done
 
