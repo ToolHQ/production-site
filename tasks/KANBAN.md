@@ -10,7 +10,6 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — K8s onda 2 (CronJobs + demo agendado)** _(estende **T-174**: CronJobs CLI, schedules, smoke `kubectl create job`; depende **T-174+T-169**)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -41,6 +40,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — K8s onda 2 (CronJob collect + validação)** _(CronJob `ai-radar-collect`, dual-image deploy, Dockerfile.cli migrations fix PR #67, kubeconform CI + `just k8s-validate`; CronJobs extract/score/digest ficam para **T-165/T-166/T-169**)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |
 | [T-161](2026/Q2/T-161-AI-Radar-RSS-Collector.md) | **AI Radar — RSS Collector** _(feed-rs, dedup por content_hash, isolamento de erro por fonte, CLI collect)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | T-200 | **Longhorn-quota CPU Headroom + Coroot/ClickHouse Node Pinning** _(requests.cpu 1→3 (era 92% saturado); coroot pinado em k8s-node-1 + clickhouse pinado em k8s-node-3 via nodeSelector; elimina race condition FailedMount (T-195); PR #64)_ | 🔼 High | Infra / Stability | 1h |
 | T-199 | **Component Upgrades: Coroot 1.18.6 + Nexus 3.91.1-alpine + Longhorn v1.11.1** _(Coroot 1.18.6 via helm values tag override; Nexus 3.91.1-alpine live 200; Longhorn v1.11.1 rolling upgrade — longhorn-quota bumped 8→20cpu/12→24Gi para suportar novo longhorn-csi-plugin DaemonSet; engine image v1.11.1 deploying; PR #62)_ | 🔼 High | Infra / Upgrade | 4h |
