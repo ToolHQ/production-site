@@ -23,10 +23,10 @@ spec:
             - containerPort: 3000
           resources:
             requests:
-              memory: 72Mi
+              memory: 128Mi
               cpu: 60m
             limits:
-              memory: 256Mi
+              memory: 384Mi  # raised from 256Mi — OOMKilled 6x (Exit 137); actual steady-state ~64Mi but spikes on startup/load
               cpu: 160m
           env:
             - name: NODE_ENV

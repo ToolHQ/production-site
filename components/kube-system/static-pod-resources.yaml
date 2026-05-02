@@ -13,10 +13,10 @@ kube-controller-manager:
 kube-scheduler:
   requests:
     cpu: 50m
-    memory: 32Mi
+    memory: 48Mi
   limits:
     cpu: 150m
-    memory: 64Mi
+    memory: 128Mi  # raised from 64Mi — 22 restarts in 87d; usage peaks at 40Mi+ during Longhorn volume attach storms
 
 etcd:
   requests:
