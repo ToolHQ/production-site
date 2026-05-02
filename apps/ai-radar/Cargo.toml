@@ -91,6 +91,7 @@ chrono = { version = "0.4", default-features = false, features = [
 sha2 = "0.10"
 async-trait = "0.1"
 futures = "0.3"
+feed-rs = "2"
 dotenvy = "0.15"
 
 [profile.release]

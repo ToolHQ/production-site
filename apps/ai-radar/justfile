@@ -97,6 +97,10 @@ k8s-validate:
 # ── Migrations ────────────────────────────────────────────────────────────
 
 # Apply all pending SQLx migrations (requires DATABASE_URL).
+# Fetch RSS/Atom feeds into raw_items (needs DATABASE_URL).
+collect:
+    cargo run -p ai-radar-cli -- collect
+
 migrate:
     sqlx migrate run --source migrations
 
