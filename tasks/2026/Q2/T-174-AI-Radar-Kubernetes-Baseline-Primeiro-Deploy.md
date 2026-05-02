@@ -1,6 +1,6 @@
 # T-174: AI Radar — Kubernetes Baseline (primeiro deploy API)
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp / Infra
 - **Estimation**: 4h
@@ -29,7 +29,7 @@ Seguir `deploy-service` e `operational-safety` (`AGENTS.md`). Não alterar workl
 - [x] `just k8s-validate` + `kubectl apply --dry-run=client`; **kubeconform** opcional (comando mantido na seção Validação se a ferramenta estiver instalada)
 - [x] Pod `Running` + Secret `DATABASE_URL` com host válido (operacional; corrigiu-se imagem **`exec format error`** via Dockerfile **`--target` por `TARGETARCH`** + redeploy Nexus `:latest`; commit `feat/T-174` trata cross-compile amd64→arm64).
 - [x] `GET /health` **200** (port-forward `svc/ai-radar-api`, validado cluster real).
-- [ ] `GET /sources` smoke **bloqueado** até schema **`ai_radar.*` existir** — `sqlx migrate run` contra o endpoint atual falha com **`cannot execute CREATE TABLE in a read-only transaction`** e `postgres-0` segue **`pg_is_in_recovery() = t`**; fechar DDL/migrations e `/sources` 200 quando **primário gravável** (infra **T-190** ou failover estável).
+- [x] `GET /sources` smoke — schema **`ai_radar.*`** aplicado com **`cargo sqlx migrate run`** (migrations `0001`–`0002`) contra o Postgres primário; **`GET /sources` → 200** com lista vazia (`{"items":[],"count":0}`) via port-forward `svc/ai-radar-api`.
 
 ## Operational notes (2026-05-02)
 
@@ -37,7 +37,7 @@ Seguir `deploy-service` e `operational-safety` (`AGENTS.md`). Não alterar workl
 | ----- | ------ |
 | Imagem Nexus | ARM64 ELF real (distroless); antes o binário era x86-64 dentro de manifest arm64 → `exec format error` nos nós Ampere |
 | Métricas do pod | Requests 25m/64Mi conforme manifest |
-| DB | Pool conecta; sem tabelas ainda porque standby bloqueia migrações |
+| DB | Migrações aplicadas; `ai_radar.sources` e demais objetos do pipeline presentes; `/sources` 200 validado |
 
 ## DoD
 
