@@ -73,6 +73,16 @@ pub struct AppConfig {
 
     /// GitHub token for higher rate limit. Env: `GITHUB_TOKEN`.
     pub github_token: Option<String>,
+
+    /// Max concurrent source fetches in `ai-radar collect`. Env:
+    /// `AI_RADAR_COLLECT_CONCURRENCY`. Default `2` for the small cluster.
+    #[serde(default = "default_collect_concurrency")]
+    pub collect_concurrency: usize,
+
+    /// Cap RSS/Atom items ingested per source per run. Env:
+    /// `AI_RADAR_MAX_ITEMS_PER_RUN`. Default `50`.
+    #[serde(default = "default_max_items_per_run")]
+    pub max_items_per_run: usize,
 }
 
 fn default_api_bind() -> String {
@@ -86,6 +96,14 @@ fn default_llm_base_url() -> String {
 }
 fn default_llm_timeout_seconds() -> u64 {
     DEFAULT_LLM_TIMEOUT_SECONDS
+}
+
+fn default_collect_concurrency() -> usize {
+    2
+}
+
+fn default_max_items_per_run() -> usize {
+    50
 }
 
 impl AppConfig {
@@ -132,6 +150,8 @@ mod tests {
             assert!(cfg.database_url.is_none());
             assert!(cfg.llm_api_key.is_none());
             assert!(cfg.github_token.is_none());
+            assert_eq!(cfg.collect_concurrency, 2);
+            assert_eq!(cfg.max_items_per_run, 50);
             Ok(())
         });
     }
