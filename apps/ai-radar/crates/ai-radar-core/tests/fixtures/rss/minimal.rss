@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Minimal Fixture</title>
+    <link>https://example.com/</link>
+    <item>
+      <guid isPermaLink="false">urn:minimal:1</guid>
+      <title>Hello RSS</title>
+      <link>https://example.com/posts/hello</link>
+      <description><![CDATA[<p>Body line one.</p>]]></description>
+      <pubDate>Mon, 01 Jan 2024 12:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

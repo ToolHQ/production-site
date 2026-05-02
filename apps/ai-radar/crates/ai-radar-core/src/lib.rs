@@ -10,11 +10,14 @@
 #![warn(clippy::pedantic, missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 
+pub mod collector;
 pub mod config;
 pub mod db;
 pub mod domain;
+pub mod pipeline;
 pub mod repos;
 pub mod telemetry;
+pub mod util;
 
 /// Crate version exposed for telemetry and HTTP responses.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
