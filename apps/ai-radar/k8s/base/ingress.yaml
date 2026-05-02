@@ -1,0 +1,30 @@
+# Public edge for the API — same pattern as rs-observability-api (cert-manager + nginx).
+# DNS: point ai-radar.dnor.io to the OCI load balancer (same A record family as other *.dnor.io).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-radar-api
+  labels:
+    app.kubernetes.io/name: ai-radar-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: ai-radar
+  annotations:
+    cert-manager.io/cluster-issuer: dnor-ca-issuer
+    nginx.ingress.kubernetes.io/proxy-body-size: 2m
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - ai-radar.dnor.io
+      secretName: ai-radar-ingress-tls
+  rules:
+    - host: ai-radar.dnor.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ai-radar-api
+                port:
+                  name: http
