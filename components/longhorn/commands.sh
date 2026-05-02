@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "🚀 Deploying Longhorn v1.10.1 (Optimized)..."
+echo "🚀 Deploying Longhorn v1.11.1 (Optimized)..."
 
 kubectl apply -f longhorn.yaml
 

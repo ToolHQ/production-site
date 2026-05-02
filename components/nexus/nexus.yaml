@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: nexus
-          image: "sonatype/nexus3:3.85.0-java17-alpine"
+          image: "sonatype/nexus3:3.91.1-alpine"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
