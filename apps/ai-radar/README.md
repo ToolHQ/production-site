@@ -262,7 +262,7 @@ curl -fsS http://127.0.0.1:18080/metrics | head -30
 curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
 ```
 
-**HTTPS público (Ingress).** Com o manifesto `k8s/base/ingress.yaml` aplicado, a API responde em **`https://ai-radar.dnor.io`** (TLS via cert-manager). Garanta um registo **`A`** para `ai-radar.dnor.io` apontando para o **mesmo IP** do balanceador usado pelos outros hosts `*.dnor.io` (mesma família que `reports.dnor.io`). Smoke:
+**HTTPS público (Ingress).** Com o manifesto `k8s/base/ingress.yaml` aplicado, a API responde em **`https://ai-radar.dnor.io`** (TLS via cert-manager). **`GET /` redireciona para `/health`** (evita 404 no browser na raiz). Garanta um registo **`A`** para `ai-radar.dnor.io` apontando para o **mesmo IP** do balanceador usado pelos outros hosts `*.dnor.io` (mesma família que `reports.dnor.io`). Smoke:
 
 ```bash
 curl -fsS https://ai-radar.dnor.io/health

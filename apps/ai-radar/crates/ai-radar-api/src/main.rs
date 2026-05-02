@@ -2,8 +2,8 @@
 //!
 //! Wires together configuration loading (figment env), JSON tracing,
 //! the request-id middleware, the database pool, the repositories
-//! shared via `AppState`, and the Axum router exposing `/health`,
-//! `/metrics`, and `/sources`. Future epics extend the router with items, digests,
+//! shared via `AppState`, and the Axum router exposing `/` (redirect),
+//! `/health`, `/metrics`, and `/sources`. Future epics extend the router with items, digests,
 //! feedback, metrics, etc. — see `docs/AI-RADAR-DECISIONS.md`.
 
 #![forbid(unsafe_code)]
