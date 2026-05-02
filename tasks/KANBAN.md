@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟢 Operacional — MinIO em 71% (3.4G livre); todos os volumes Longhorn healthy; coroot 1/1 Running (OOM fix 600→900Mi); Nexus JVM capped (MaxDirectMemorySize=512m); kube-controller-manager estável | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional — Coroot 1.18.6 / Nexus 3.91.1-alpine / Longhorn v1.11.1 live; todos os volumes healthy; longhorn-quota 20cpu/24Gi; engine image v1.11.1 deploying (upgrade gradual de volumes) | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -42,6 +42,8 @@
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
 | [T-161](2026/Q2/T-161-AI-Radar-RSS-Collector.md) | **AI Radar — RSS Collector** _(feed-rs, dedup por content_hash, isolamento de erro por fonte, CLI collect)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| T-199 | **Component Upgrades: Coroot 1.18.6 + Nexus 3.91.1-alpine + Longhorn v1.11.1** _(Coroot 1.18.6 via helm values tag override; Nexus 3.91.1-alpine live 200; Longhorn v1.11.1 rolling upgrade — longhorn-quota bumped 8→20cpu/12→24Gi para suportar novo longhorn-csi-plugin DaemonSet; engine image v1.11.1 deploying; PR #61)_ | 🔼 High | Infra / Upgrade | 4h |
+| T-198 | **Longhorn Instance-Manager Rollout Controlado** _(LimitRange 500m/512Mi aplicado; instance-managers reciclados; PR #60)_ | 🔼 High | Infra / Storage | 1h |
 | [T-174](2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md) | **AI Radar — K8s baseline (primeiro deploy API)** _(namespace `ai-radar`, Deployment+Service+Secret `DATABASE_URL`, Kustomize+Nexus ARM64, probes `/health`, smoke `/sources`; merge **PR #54**)_ | 🔽 Low | AI Radar / DevExp / Infra | 4h |
 | T-194 | **Nexus npm-proxy Cleanup + Compact blob store** _(402 componentes npm-proxy deletados via REST API; compact task criada via ExtDirect API; 3 rounds de compact executados; nexus/content 4.5GiB→2.5GiB; MinIO 99%→71%; 3.4GiB livres)_ | 🔼 High | Infra / Storage | 2h |
 | T-196 | **Coroot OOM fix + Nexus JVM overcommit fix** _(coroot limits 600→900Mi + requests 50→100Mi; Nexus MaxDirectMemorySize capped 2703m→512m evitando OOMKill; ambos aplicados live + versionados em IaC; PR #57)_ | 🔼 High | Infra / Reliability | 1h |
