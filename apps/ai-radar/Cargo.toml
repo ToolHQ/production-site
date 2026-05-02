@@ -94,6 +94,10 @@ futures = "0.3"
 feed-rs = "2"
 dotenvy = "0.15"
 
+# Metrics (Prometheus text format on API `/metrics`; CLI increments no-op without exporter)
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
+
 [profile.release]
 opt-level = 3
 lto = "thin"

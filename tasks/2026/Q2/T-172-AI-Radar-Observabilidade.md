@@ -1,6 +1,6 @@
 # T-172: AI Radar — Observabilidade
 
-- **Status**: Backlog
+- **Status**: In Progress _(slice 2026-05-02: `/metrics`, collect metrics, CLI `job_id`; LLM cost / OTEL / gauges — pendente)_
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp / Observability
 - **Estimation**: 4h
@@ -16,20 +16,20 @@ Cluster usa Coroot/Loki potencialmente; logs JSON facilitam ingestão futura sem
 
 ## Tasks
 
-- [ ] Wrapper em cada subcommand CLI gerando `job_id` (uuid) propagado em `tracing::Span`
+- [x] Wrapper em cada subcommand CLI gerando `job_id` (uuid) propagado em `tracing::Span` _(collect; outros subcomandos quando existirem)_
 - [ ] Garantir que todos os logs incluem campos: `job_id` ou `request_id`, `source_id`, `raw_item_id` quando aplicável
-- [ ] Crate `metrics` + `metrics-exporter-prometheus` em `ai-radar-core::metrics`
-- [ ] Endpoint `/metrics` na API expondo formato Prometheus
-- [ ] Counters: `ai_radar_collected_total{source_type}`, `ai_radar_extracted_total`, `ai_radar_scored_total{decision}`, `ai_radar_errors_total{stage}`
-- [ ] Histogram: `ai_radar_stage_duration_seconds{stage}`
+- [x] Crate `metrics` + registro em `ai-radar-core::metrics`; `metrics-exporter-prometheus` só na API
+- [x] Endpoint `/metrics` na API expondo formato Prometheus
+- [x] Counters: `ai_radar_collected_total{source_type}`, `ai_radar_skipped_total{source_type}`, `ai_radar_errors_total{stage}` _(extract/scored quando T-165/T-166)_
+- [x] Histogram: `ai_radar_stage_duration_seconds{stage}` _(collect)_
 - [ ] Gauge: `ai_radar_pending_raw_items`
-- [ ] CronJobs emitem log estruturado de sumário no fim (`event="job.completed", job="collect", processed=42, errors=1, duration_ms=...`)
+- [x] CronJobs emitem log estruturado de sumário no fim (`event="job.completed"`, `duration_secs`, contagens)
 - [ ] Cálculo de custo LLM: tabela `LlmCostTable` (modelo → $/1M tokens in/out), log `llm.request.completed` por chamada
 - [ ] Feature flag `otel` no Cargo.toml (default off) com stub init pronto
 - [ ] Stub `langfuse_export` que loga warn "not configured"
-- [ ] Anotar Service Kubernetes com `prometheus.io/scrape: "true"` se cluster scrape via annotation
+- [x] Anotar Service Kubernetes com `prometheus.io/scrape` / port / path
 - [ ] Test integração validando contadores incrementam após operações
-- [ ] Documentar dashboards/queries sugeridas no README
+- [x] Documentar smoke `/metrics` no README _(dashboards Coroot — futuro)_
 
 ## DoD
 

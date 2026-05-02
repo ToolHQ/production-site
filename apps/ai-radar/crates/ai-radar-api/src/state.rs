@@ -10,6 +10,7 @@ use ai_radar_core::repos::{
     PgDigestRepository, PgExtractedItemRepository, PgFeedbackRepository, PgRawItemRepository,
     PgScoreRepository, PgSourceRepository,
 };
+use metrics_exporter_prometheus::PrometheusHandle;
 
 /// Shared application state. Use `Arc<AppState>` if you need cheap
 /// cloning across async tasks.
@@ -21,6 +22,8 @@ use ai_radar_core::repos::{
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct AppState {
+    /// Prometheus text renderer (`GET /metrics`).
+    pub prometheus: PrometheusHandle,
     /// Database pool wrapper.
     pub db: Database,
     /// `sources` repository.
@@ -38,10 +41,11 @@ pub struct AppState {
 }
 
 impl AppState {
-    /// Build a fresh state from a [`Database`].
+    /// Build a fresh state from a [`Database`] and Prometheus handle.
     #[must_use]
-    pub fn new(db: Database) -> Self {
+    pub fn new(db: Database, prometheus: PrometheusHandle) -> Self {
         Self {
+            prometheus,
             sources: Arc::new(PgSourceRepository::new(&db)),
             raw_items: Arc::new(PgRawItemRepository::new(&db)),
             extracted_items: Arc::new(PgExtractedItemRepository::new(&db)),
