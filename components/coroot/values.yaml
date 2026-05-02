@@ -4,6 +4,8 @@ corootCE:
   replicas: 1
   image:
     tag: "1.18.6"
+  nodeSelector:
+    kubernetes.io/hostname: k8s-node-1  # pin to node where coroot-data PVC is attached (pvc-efbe8d2c) — T-195/T-200
   env:
     - name: BOOTSTRAP_CLICKHOUSE_ADDRESS
       value: "clickhouse:9000"
@@ -55,6 +57,8 @@ node-agent:
 
 clickhouse:
   enabled: true
+  nodeSelector:
+    kubernetes.io/hostname: k8s-node-3  # pin to node where clickhouse PVC is attached (pvc-23ab203e) — T-195/T-200
   command: []
   image:
     registry: "docker.io"
