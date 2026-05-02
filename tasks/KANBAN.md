@@ -10,6 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — K8s onda 2 (CronJobs + demo agendado)** _(estende **T-174**: CronJobs CLI, schedules, smoke `kubectl create job`; depende **T-174+T-169**)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -33,7 +34,6 @@
 | [T-168](2026/Q2/T-168-AI-Radar-Comparator.md) | **AI Radar — Comparator** _(matriz por categoria, Markdown comparativo, persistência)_ | 🔽 Low | AI Radar / DevExp | 4h |
 | [T-169](2026/Q2/T-169-AI-Radar-Digest-Generator.md) | **AI Radar — Digest Generator** _(Markdown daily/weekly, agrupado por decisão, API + CLI)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md) | **AI Radar — Feedback Loop** _(POST feedback, relatório de divergência humano vs sistema)_ | 🔽 Low | AI Radar / DevExp | 4h |
-| [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — K8s onda 2 (CronJobs + demo agendado)** _(estende **T-174**: CronJobs CLI, schedules, smoke `kubectl create job`; depende **T-174+T-169**)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |
 | [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(logs JSON com job_id, /metrics Prometheus, custo LLM, hooks OTEL/Langfuse)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
 | [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(retry/backoff, limits, idempotência reforçada, reprocess versionado, chaos tests)_ | 🔽 Low | AI Radar / DevExp | 1d |
 

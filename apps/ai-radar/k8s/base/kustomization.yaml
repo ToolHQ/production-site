@@ -13,3 +13,4 @@ resources:
   - deployment-api.yaml
   - service.yaml
   - ingress.yaml
+  - cronjobs/cronjob-collect.yaml

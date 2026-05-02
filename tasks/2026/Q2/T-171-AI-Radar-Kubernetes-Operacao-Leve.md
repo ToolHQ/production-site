@@ -1,6 +1,6 @@
 # T-171: AI Radar — Kubernetes Operação Leve (onda 2 — CronJobs)
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp / Infra
 - **Estimation**: 1d
@@ -18,16 +18,18 @@ Este épico **fecha o MVP demo-ready no cluster** no sentido pipeline agendado (
 
 ## Tasks
 
-- [ ] CronJobs em `apps/ai-radar/k8s/base/cronjobs/` (ou subpasta mantida pelo Kustomize): `collect` (`*/30 * * * *`), `extract` (`15,45 * * * *`), `score` (`5 * * * *`), `digest-daily` (`0 6 * * *`), `digest-weekly` (`0 7 * * 1`) — imagem **`ai-radar-cli`**, comandos alinhados ao que existir na CLI na época do merge
-- [ ] `concurrencyPolicy: Forbid`, `successfulJobsHistoryLimit: 3`, `failedJobsHistoryLimit: 5`, `activeDeadlineSeconds: 600`
-- [ ] Resources CronJob: `req cpu=50m mem=128Mi / lim cpu=500m mem=512Mi`
-- [ ] securityContext nos Jobs: `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, drop ALL caps
-- [ ] `nodeSelector: kubernetes.io/arch: arm64` se aplicável ao cluster de produção
-- [ ] Reutilizar mesmo `Namespace`/`ServiceAccount`/padrão `imagePullSecrets` já aplicados na **T-174**; apenas estender `kustomization.yaml`
-- [ ] ConfigMap overlay para schedules/envs não secretos quando fizer sentido
+- [x] CronJob **`ai-radar-collect`** em `k8s/base/cronjobs/cronjob-collect.yaml` (`*/30 * * * *`), imagem **`my-site-ai-radar-cli`**, `args: [collect]` — **merge incremental** (extract/score/digest quando T-165/T-166/T-169 existirem na CLI)
+- [x] `concurrencyPolicy: Forbid`, `successfulJobsHistoryLimit: 3`, `failedJobsHistoryLimit: 5`, `activeDeadlineSeconds: 600`
+- [x] Resources CronJob: `req cpu=50m mem=128Mi / lim cpu=500m mem=512Mi`
+- [x] securityContext nos Jobs: `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, drop ALL caps
+- [x] `nodeSelector: kubernetes.io/arch: arm64`
+- [x] Reutilizar mesmo `Namespace`/`ServiceAccount`/padrão `imagePullSecrets` já aplicados na **T-174**; `kustomization.yaml` + overlay `images` para CLI
+- [x] `deploy.sh`: build/push **API + CLI** com o mesmo `TAG_VERSION`; `sed` em ambas as referências de imagem antes do `kubectl apply`
+- [x] `Dockerfile.cli` alinhado ao cross-build do `Dockerfile.api` (sem `exec format error` ARM64)
+- [ ] CronJobs `extract` / `score` / `digest-*` — dependem **T-165**, **T-166**, **T-169**
 - [ ] Opcional: atalho **TUI** (`oci-k8s-cluster/k8s_ops_menu.sh`) — entrada mínima (logs/status namespace `ai-radar`)
-- [ ] Lint manifests (kubeconform) incluindo cron manifests
-- [ ] Smoke: `kubectl create job --from=cronjob/<nome> …` para pelo menos um job; logs com `kubectl logs job/...`; ausência de OOM/scheduling surprises
+- [ ] Lint manifests (kubeconform) incluindo cron manifests — CI YAML gate + `just k8s-validate`
+- [ ] Smoke em cluster: `kubectl create job --from=cronjob/ai-radar-collect …` + logs (operador após deploy)
 
 ## DoD
 
