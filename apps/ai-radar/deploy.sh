@@ -19,10 +19,13 @@ set -euo pipefail
 TAG_VERSION="$(date +%s)"
 REGISTRY='registry.local:31444'
 REPO='repository/docker-repo'
-SERVICE='my-site-ai-radar-api'
+SERVICE_API='my-site-ai-radar-api'
+SERVICE_CLI='my-site-ai-radar-cli'
 
-IMAGE_TAG="$REGISTRY/$REPO/$SERVICE:$TAG_VERSION"
-IMAGE_LATEST="$REGISTRY/$REPO/$SERVICE:latest"
+IMAGE_API_TAG="$REGISTRY/$REPO/$SERVICE_API:$TAG_VERSION"
+IMAGE_API_LATEST="$REGISTRY/$REPO/$SERVICE_API:latest"
+IMAGE_CLI_TAG="$REGISTRY/$REPO/$SERVICE_CLI:$TAG_VERSION"
+IMAGE_CLI_LATEST="$REGISTRY/$REPO/$SERVICE_CLI:latest"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
@@ -91,8 +94,17 @@ docker buildx build \
 	--platform linux/arm64 \
 	--push \
 	-f docker/Dockerfile.api \
-	-t "$IMAGE_TAG" \
-	-t "$IMAGE_LATEST" \
+	-t "$IMAGE_API_TAG" \
+	-t "$IMAGE_API_LATEST" \
+	"$ROOT_DIR"
+
+docker buildx build \
+	--builder oci-builder \
+	--platform linux/arm64 \
+	--push \
+	-f docker/Dockerfile.cli \
+	-t "$IMAGE_CLI_TAG" \
+	-t "$IMAGE_CLI_LATEST" \
 	"$ROOT_DIR"
 
 MANIFEST="$(mktemp)"
@@ -102,6 +114,7 @@ cleanup() {
 trap cleanup EXIT
 
 kubectl kustomize "$ROOT_DIR/k8s/overlays/production" >"$MANIFEST"
-sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-api:[^[:space:]]*|${IMAGE_TAG}|g" "$MANIFEST"
+sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-api:[^[:space:]]*|${IMAGE_API_TAG}|g" "$MANIFEST"
+sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-cli:[^[:space:]]*|${IMAGE_CLI_TAG}|g" "$MANIFEST"
 
 kubectl apply -f "$MANIFEST"
