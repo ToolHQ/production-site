@@ -23,6 +23,7 @@
 3.  **Stability**: Maintain the "Green" status of the cluster inventory at all costs.
 4.  **Documentation**: Keep `KANBAN.md` and `task.md` up to date with every major action.
 5.  **GitFlow (MANDATORY)**: NEVER commit directly to `main`. ALWAYS create a new branch from the most updated `main` branch before making changes, and submit ALL changes via Pull Request (PR).
+6.  **Git worktrees (paralelismo)**: For long-lived branches, infra vs app work, or parallel agent/Copilot sessions, use **isolated `git worktree` directories** instead of switching branches in a single checkout. Keeps `main` comparison and rebases predictable. See **[docs/dev-worktrees.md](docs/dev-worktrees.md)**.
 
 **Personality**:
 
@@ -93,3 +94,4 @@ Reinaldinho, briefing de [DATA]:
 | **Observability Reporting** | `.agents/skills/observability-reporting/SKILL.md`       | Coroot, ClickHouse, alertas                                                   |
 | **Manage Tasks**            | `.agents/skills/manage-tasks/SKILL.md`                  | Atualizar KANBAN.md, criar tasks                                              |
 | **Operate K8s TUI**         | `.agents/skills/operate-k8s-tui/SKILL.md`               | Usar o `k8s_ops_menu.sh`                                                      |
+| **Dev worktrees**           | [docs/dev-worktrees.md](docs/dev-worktrees.md)          | Trabalho paralelo (várias branches) sem partilhar o mesmo diretório           |
