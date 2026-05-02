@@ -29,6 +29,7 @@ Sistema self-hosted que **monitora → coleta → deduplica → estrutura → po
 | Imagens Docker | **Distroless `gcr.io/distroless/cc-debian12:nonroot`** multi-arch | <80MB, nonroot, glibc presente |
 | Jobs | **Kubernetes CronJobs** (não workers 24/7) | Cluster pequeno; ciclos curtos previsíveis |
 | Logs | **JSON estruturado** com `request_id`/`job_id` | Cluster usa Coroot/Loki potencialmente |
+| Exposição HTTP (cluster) | **Ingress nginx + TLS** em **`https://ai-radar.dnor.io`** (`cert-manager` / `dnor-ca-issuer`, secret `ai-radar-ingress-tls`) | Mesmo padrão de `reports.dnor.io` / `coroot.dnor.io`; DNS `A` para o load balancer OCI |
 | Métricas | **Prometheus** via `/metrics` | Padrão do cluster |
 | OpenTelemetry/Langfuse | Hooks prontos, **desligados por feature flag** | Liga só quando coletor estiver disponível |
 

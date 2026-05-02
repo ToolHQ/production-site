@@ -12,3 +12,4 @@ resources:
   - configmap.yaml
   - deployment-api.yaml
   - service.yaml
+  - ingress.yaml
