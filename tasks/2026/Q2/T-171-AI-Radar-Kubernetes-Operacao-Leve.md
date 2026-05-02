@@ -1,6 +1,6 @@
 # T-171: AI Radar — Kubernetes Operação Leve (onda 2 — CronJobs)
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp / Infra
 - **Estimation**: 1d
@@ -28,8 +28,8 @@ Este épico **fecha o MVP demo-ready no cluster** no sentido pipeline agendado (
 - [x] `Dockerfile.cli` alinhado ao cross-build do `Dockerfile.api` (sem `exec format error` ARM64)
 - [ ] CronJobs `extract` / `score` / `digest-*` — dependem **T-165**, **T-166**, **T-169**
 - [ ] Opcional: atalho **TUI** (`oci-k8s-cluster/k8s_ops_menu.sh`) — entrada mínima (logs/status namespace `ai-radar`)
-- [ ] Lint manifests (kubeconform) incluindo cron manifests — CI YAML gate + `just k8s-validate`
-- [ ] Smoke em cluster: `kubectl create job --from=cronjob/ai-radar-collect …` + logs (operador após deploy)
+- [x] Lint manifests (kubeconform) incluindo cron manifests — CI `yaml-quality` + `just k8s-validate` (kubeconform opcional no PATH)
+- [x] Smoke em cluster: `kubectl create job --from=cronjob/ai-radar-collect …` + logs (job manual OK)
 
 ## DoD
 

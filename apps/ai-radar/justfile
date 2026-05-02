@@ -89,10 +89,16 @@ docker-build-cli:
 k8s-render-prod:
     kubectl kustomize k8s/overlays/production
 
-# Client-side schema checks: kustomize both trees + dry-run apply.
+# Client-side checks: kustomize both trees + dry-run apply; kubeconform when installed.
 k8s-validate:
+    #!/usr/bin/env bash
+    set -euo pipefail
     kubectl kustomize k8s/base >/dev/null
     kubectl kustomize k8s/overlays/production | kubectl apply --dry-run=client -f -
+    if command -v kubeconform >/dev/null 2>&1; then
+        kubectl kustomize k8s/overlays/production \
+            | kubeconform -strict -summary -ignore-missing-schemas -
+    fi
 
 # ── Migrations ────────────────────────────────────────────────────────────
 
