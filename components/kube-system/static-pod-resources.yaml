@@ -7,16 +7,16 @@ kube-controller-manager:
     cpu: 100m
     memory: 64Mi
   limits:
-    cpu: 300m
-    memory: 128Mi
+    cpu: 500m    # raised from 300m — 2026-05-01 incident: liveness probe TLS timeout under GC pressure
+    memory: 256Mi  # raised from 128Mi — insufficient for informer caches with 50+ namespaces + Longhorn
 
 kube-scheduler:
   requests:
     cpu: 50m
-    memory: 32Mi
+    memory: 48Mi
   limits:
     cpu: 150m
-    memory: 64Mi
+    memory: 128Mi  # raised from 64Mi — 22 restarts in 87d; usage peaks at 40Mi+ during Longhorn volume attach storms
 
 etcd:
   requests:
