@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟡 Atenção (Longhorn com flapping em instance-manager no node-1; Nexus contido no node-2) | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional — MinIO em 71% (3.4G livre); todos os volumes Longhorn healthy; coroot 1/1 Running (OOM fix 600→900Mi); Nexus JVM capped (MaxDirectMemorySize=512m); kube-controller-manager estável | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -10,22 +10,21 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-174](2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md) | **AI Radar — K8s baseline (primeiro deploy API)** _(namespace `ai-radar`, Deployment+Service+Secret `DATABASE_URL`, Kustomize+Nexus ARM64, probes `/health`, smoke `/sources`; **T-171** fecha CronJobs)_ | 🔽 Low | AI Radar / DevExp / Infra | 4h |
-| [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Instance-Manager Flapping and Nexus Containment** _(mitigacao ativa; postgres/coroot ainda sensiveis a oscilacao de volume)_ | 🚨 Critical | Infra / Storage | 1d |
-| [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(conflitos de scheduling/hostPort e quotas transitorias sob tratamento)_ | 🔼 High | Infra / Platform | 1d |
+| [T-174](2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md) | **AI Radar — K8s baseline (primeiro deploy API)** _(namespace `ai-radar`, Deployment+Service+Secret `DATABASE_URL`, Kustomize+Nexus ARM64, probes `/health`, smoke `/sources`; merge **PR #54**)_ | 🔽 Low | AI Radar / DevExp / Infra | 4h |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | Flapping recorrente no `instance-manager` do node-1 (falhas 8501/8503), volumes `faulted/detaching` e risco de re-queda em stateful críticos | 🚨 Critical | Infra / Storage | 1d |
-| [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | `postgres-1` com scheduling sensivel a `hostPort 5432` + node isolamento; resiliencia de failover incompleta no estado atual | 🚨 Critical | Infra / Platform | 1d |
+
 
 ## 📅 Backlog (To Do)
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| T-195 | **Coroot Clickhouse FailedMount — Investigar race condition no attach Longhorn** — clickhouse `pvc-efbe8d2c` (2Gi, longhorn-2) falha ao montar durante restart do pod com `volume hasn't been attached yet`; cascadeia restart do instance-manager no node-3 + OOMKill no coroot UI; investigar se `volumeBindingMode: WaitForFirstConsumer` ou attach timeout do CSI Longhorn causam o race; avaliar `podStartupDelay` ou annotation de prioritidade no StatefulSet. _Recorrente: visto múltiplas vezes esta semana._ | 🔼 High | Infra / Storage | 3h |
+| T-192 | **MinIO PVC Expansion 12→20G** — capacidade: node-1 tem 17G livre, réplica única (1:1); expansão preventiva recomendada para quando chegar a 85%+; daily Longhorn backups podem atingir 85% em ~2 semanas (coroot-prometheus cresce 1.2GiB/backup). _Não urgente — MinIO em 71% com 3.4G livre após T-191/T-194._ | 🔽 Low | Infra / Storage | 2h |
 | [T-161](2026/Q2/T-161-AI-Radar-RSS-Collector.md) | **AI Radar — RSS Collector** _(feed-rs, dedup por content_hash, isolamento de erro por fonte, CLI collect)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md) | **AI Radar — GitHub Collector** _(releases + metadados de repo, rate-limit aware, GITHUB_TOKEN opcional)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md) | **AI Radar — Webpage Fetcher** _(URL manual, HTML cleaner, size cap 1MB)_ | 🔽 Low | AI Radar / DevExp | 4h |
@@ -44,6 +43,12 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| T-194 | **Nexus npm-proxy Cleanup + Compact blob store** _(402 componentes npm-proxy deletados via REST API; compact task criada via ExtDirect API; 3 rounds de compact executados; nexus/content 4.5GiB→2.5GiB; MinIO 99%→71%; 3.4GiB livres)_ | 🔼 High | Infra / Storage | 2h |
+| T-196 | **Coroot OOM fix + Nexus JVM overcommit fix** _(coroot limits 600→900Mi + requests 50→100Mi; Nexus MaxDirectMemorySize capped 2703m→512m evitando OOMKill; ambos aplicados live + versionados em IaC; PR #57)_ | 🔼 High | Infra / Reliability | 1h |
+| T-191 | **MinIO Backup Retention Audit & Cleanup** _(fase 1: 18 backups postgres-0 + 2 etcd + .trash = 1.3GiB liberados 92%→87%; fase 2: ver T-194; backup Error coroot-prometheus cc2747a5 deletado; total MinIO: 99%→71%)_ | 🔼 High | Infra / Storage | 3h |
+| T-193 | **DiskPressure Master + kube-controller-manager CrashLoop — Incidente 2026-05-01** _(18G de réplicas órfãs deletadas do master; disco 97%→49%; kube-controller-manager limits 128Mi→256Mi / 300m→500m; todos os pods Running; `static-pod-resources.yaml` atualizado e commitado)_ | 🚨 Critical | Infra / Control-Plane | 2h |
+| [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Flapping + Nexus Containment** _(todos os volumes healthy; nexus pin node-2; minio TLS corrigido; ingress hostPort 5432 removido; postgres-1 restaurado em node-1)_ | 🚨 Critical | Infra / Storage | 1d |
+| [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(hostPort 5432 removido do ingress-nginx; postgres-1 `1/1 Running` no node-1; volume healthy)_ | 🚨 Critical | Infra / Platform | 1d |
 | [T-160](2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md) | **AI Radar — Banco e Modelo de Dados** _(schema `ai_radar` no Postgres compartilhado: 6 tabelas, 22 índices, FKs CASCADE, idempotência via UNIQUE `(source_id,content_hash)`; pool SQLx com `RepoError` tipado; 6 traits + impls Postgres; `GET /sources`+`POST /sources` E2E com mapeamento `RepoError → HTTP` 4xx/5xx; 21 unit + 8 integration tests; ledger SQLx fixado em `public._sqlx_migrations` via search_path)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-159](2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md) | **AI Radar — Bootstrap Rust Workspace** _(workspace Cargo + 3 crates; Axum `/health` 200; tracing JSON com `request_id` correlation; AppConfig figment; Dockerfiles distroless 25.7MB/24.3MB; docker-compose Postgres+API com healthcheck; justfile + README; harness `rust-ai-radar` gate adicionado)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-157](2026/Q2/T-157-Longhorn-Quota-Headroom-and-Node3-Recovery.md) | **Longhorn Quota Headroom and Node-3 Recovery** _(quota expandida 8→12Gi; node-3 cordoned; postgres-0 1/1 Running; volume rebuilding 3ª replica)_ | 🚨 Critical | Infra / Storage | 1d |
