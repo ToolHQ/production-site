@@ -63,6 +63,7 @@ jobs:
               - 'components/**/*.yml'
               - 'apps/**/*.yaml'
               - 'apps/**/*.yml'
+              - '.github/workflows/**'
               - '.yamllint.yaml'
 
   # ─────────────────────────────────────────────────────────────────
@@ -315,3 +316,16 @@ jobs:
           find components apps -name '*.yaml' -o -name '*.yml' \
             | grep -v 'node_modules\|/target/' \
             | xargs yamllint -c .yamllint.yaml
+
+      - name: kubeconform (ai-radar production overlay)
+        run: |
+          set -euo pipefail
+          KVER="$(curl -Ls https://dl.k8s.io/release/stable.txt)"
+          curl -fsSL "https://dl.k8s.io/release/${KVER}/bin/linux/amd64/kubectl" -o /tmp/kubectl
+          chmod +x /tmp/kubectl
+          KCFM_VER=v0.6.7
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KCFM_VER}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz -C /tmp kubeconform
+          cd apps/ai-radar
+          /tmp/kubectl kustomize k8s/overlays/production \
+            | /tmp/kubeconform -strict -summary -ignore-missing-schemas -
