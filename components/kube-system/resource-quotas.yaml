@@ -19,9 +19,9 @@ metadata:
 spec:
   hard:
     requests.cpu: "1000m" # baseline request envelope remains conservative for 1 vCPU nodes
-    requests.memory: "5Gi"
-    limits.cpu: "8"
-    limits.memory: "12Gi" # hotfix 2026-05-01: avoid 8Gi hard-cap deadlock for instance-manager/jobs
+    requests.memory: "8Gi" # bumped from 5Gi: v1.11.1 higher container memory requests
+    limits.cpu: "20" # hotfix T-199 2026-05-02: v1.11.1 adds longhorn-csi-plugin DaemonSet (3×1500m=4500m) + increased UI limits
+    limits.memory: "24Gi" # bumped from 16Gi: v1.11.1 csi-plugin + manager memory overhead
 ---
 apiVersion: v1
 kind: ResourceQuota
