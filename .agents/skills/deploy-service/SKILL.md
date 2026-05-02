@@ -34,7 +34,7 @@ dev local ──(SSH socket fwd)──► buildkitd ARM64 (oci-k8s-master)
 | `--push` do buildkitd         | `registry.local:31444` | buildkitd usa slirp4netns NAT → localhost:31444 não funciona (rootlesskit --disable-host-loopback) |
 | K8s image ref (manifesto)     | `registry.local:31444` | Resolve para `127.0.0.1` nos nós via `/etc/hosts` + containerd `hosts.toml`   |
 | `docker login` local          | `localhost:31444`      | Via tunnel SSH `-L 31444:localhost:31444 oci-k8s-master`                      |
-| Pull secret                   | `regsecret`            | Configurado com `registry.local:31444`; apply via `create_registry_secret.sh` |
+| Pull secret                   | `regsecret`            | **`create_registry_secret.sh <namespace> \| kubectl apply -f -`** imprime só YAML; aplique assim no namespace (**deve existir**): `~/production-site/components/nexus/create_registry_secret.sh`. |
 
 > **IMPORTANTE**: `oci-builder` é um buildx remote driver apontando para o buildkitd do master.  
 > Não é binfmt local — é execução nativa ARM64 no nó.

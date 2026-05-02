@@ -12,7 +12,6 @@
 | :-: | :-------- | :------: | :---: | :--: |
 
 
-
 ## 🔥 Blocker (Deploy back-end travado)
 
 | ID  | Task Name | Priority | Epic | Est. |
@@ -22,18 +21,36 @@
 ## 📅 Backlog (To Do)
 
 | ID  | Task Name | Priority | Epic | Est. |
-| :-: | :-------- | :------: | :--- | :--: || T-195 | **Coroot Clickhouse FailedMount — Investigar race condition no attach Longhorn** — clickhouse `pvc-efbe8d2c` (2Gi, longhorn-2) falha ao montar durante restart do pod com `volume hasn't been attached yet`; cascadeia restart do instance-manager no node-3 + OOMKill no coroot UI; investigar se `volumeBindingMode: WaitForFirstConsumer` ou attach timeout do CSI Longhorn causam o race; avaliar `podStartupDelay` ou annotation de prioritidade no StatefulSet. _Recorrente: visto múltiplas vezes esta semana._ | 🔼 High | Infra / Storage | 3h || T-192 | **MinIO PVC Expansion 12→20G** — capacidade: node-1 tem 17G livre, réplica única (1:1); expansão preventiva recomendada para quando chegar a 85%+; daily Longhorn backups podem atingir 85% em ~2 semanas (coroot-prometheus cresce 1.2GiB/backup). _Não urgente — MinIO em 71% com 3.4G livre após T-191/T-194._ | 🔽 Low | Infra / Storage | 2h |
+| :-: | :-------- | :------: | :--- | :--: |
+| T-195 | **Coroot Clickhouse FailedMount — Investigar race condition no attach Longhorn** — clickhouse `pvc-efbe8d2c` (2Gi, longhorn-2) falha ao montar durante restart do pod com `volume hasn't been attached yet`; cascadeia restart do instance-manager no node-3 + OOMKill no coroot UI; investigar se `volumeBindingMode: WaitForFirstConsumer` ou attach timeout do CSI Longhorn causam o race; avaliar `podStartupDelay` ou annotation de prioritidade no StatefulSet. _Recorrente: visto múltiplas vezes esta semana._ | 🔼 High | Infra / Storage | 3h |
+| T-192 | **MinIO PVC Expansion 12→20G** — capacidade: node-1 tem 17G livre, réplica única (1:1); expansão preventiva recomendada para quando chegar a 85%+; daily Longhorn backups podem atingir 85% em ~2 semanas (coroot-prometheus cresce 1.2GiB/backup). _Não urgente — MinIO em 71% com 3.4G livre após T-191/T-194._ | 🔽 Low | Infra / Storage | 2h |
+| [T-161](2026/Q2/T-161-AI-Radar-RSS-Collector.md) | **AI Radar — RSS Collector** _(feed-rs, dedup por content_hash, isolamento de erro por fonte, CLI collect)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md) | **AI Radar — GitHub Collector** _(releases + metadados de repo, rate-limit aware, GITHUB_TOKEN opcional)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md) | **AI Radar — Webpage Fetcher** _(URL manual, HTML cleaner, size cap 1MB)_ | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-164](2026/Q2/T-164-AI-Radar-LLM-Provider-Abstraction.md) | **AI Radar — LLM Provider Abstraction** _(trait LlmProvider + OpenRouter + Mock; deterministic-only quando LLM_ENABLED=false)_ | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-165](2026/Q2/T-165-AI-Radar-Extractor-Pipeline.md) | **AI Radar — Extractor Pipeline** _(prompt v1, raw → extracted, fallback JSON, retry corretivo)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-166](2026/Q2/T-166-AI-Radar-Scorer-Deterministico.md) | **AI Radar — Scorer Determinístico** _(regras versionadas v1, decisão por threshold, reasons explicáveis)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md) | **AI Radar — Scorer com LLM Opcional** _(MergePolicy 70/30 deterministic+LLM, ambos persistidos para auditoria)_ | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-168](2026/Q2/T-168-AI-Radar-Comparator.md) | **AI Radar — Comparator** _(matriz por categoria, Markdown comparativo, persistência)_ | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-169](2026/Q2/T-169-AI-Radar-Digest-Generator.md) | **AI Radar — Digest Generator** _(Markdown daily/weekly, agrupado por decisão, API + CLI)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md) | **AI Radar — Feedback Loop** _(POST feedback, relatório de divergência humano vs sistema)_ | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — K8s onda 2 (CronJobs + demo agendado)** _(estende **T-174**: CronJobs CLI, schedules, smoke `kubectl create job`; depende **T-174+T-169**)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |
+| [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(logs JSON com job_id, /metrics Prometheus, custo LLM, hooks OTEL/Langfuse)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
+| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(retry/backoff, limits, idempotência reforçada, reprocess versionado, chaos tests)_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 ## ✅ Done
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-174](2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md) | **AI Radar — K8s baseline (primeiro deploy API)** _(namespace `ai-radar`, Deployment+Service+Secret `DATABASE_URL`, Kustomize+Nexus ARM64, probes `/health`, smoke `/sources`; merge **PR #54**)_ | 🔽 Low | AI Radar / DevExp / Infra | 4h |
 | T-194 | **Nexus npm-proxy Cleanup + Compact blob store** _(402 componentes npm-proxy deletados via REST API; compact task criada via ExtDirect API; 3 rounds de compact executados; nexus/content 4.5GiB→2.5GiB; MinIO 99%→71%; 3.4GiB livres)_ | 🔼 High | Infra / Storage | 2h |
 | T-196 | **Coroot OOM fix + Nexus JVM overcommit fix** _(coroot limits 600→900Mi + requests 50→100Mi; Nexus MaxDirectMemorySize capped 2703m→512m evitando OOMKill; ambos aplicados live + versionados em IaC; PR #57)_ | 🔼 High | Infra / Reliability | 1h |
 | T-191 | **MinIO Backup Retention Audit & Cleanup** _(fase 1: 18 backups postgres-0 + 2 etcd + .trash = 1.3GiB liberados 92%→87%; fase 2: ver T-194; backup Error coroot-prometheus cc2747a5 deletado; total MinIO: 99%→71%)_ | 🔼 High | Infra / Storage | 3h |
 | T-193 | **DiskPressure Master + kube-controller-manager CrashLoop — Incidente 2026-05-01** _(18G de réplicas órfãs deletadas do master; disco 97%→49%; kube-controller-manager limits 128Mi→256Mi / 300m→500m; todos os pods Running; `static-pod-resources.yaml` atualizado e commitado)_ | 🚨 Critical | Infra / Control-Plane | 2h |
 | [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Flapping + Nexus Containment** _(todos os volumes healthy; nexus pin node-2; minio TLS corrigido; ingress hostPort 5432 removido; postgres-1 restaurado em node-1)_ | 🚨 Critical | Infra / Storage | 1d |
 | [T-158](2026/Q2/T-158-Stateful-Placement-and-HostPort-Conflict-Remediation.md) | **Stateful Placement and HostPort Conflict Remediation** _(hostPort 5432 removido do ingress-nginx; postgres-1 `1/1 Running` no node-1; volume healthy)_ | 🚨 Critical | Infra / Platform | 1d |
+| [T-160](2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md) | **AI Radar — Banco e Modelo de Dados** _(schema `ai_radar` no Postgres compartilhado: 6 tabelas, 22 índices, FKs CASCADE, idempotência via UNIQUE `(source_id,content_hash)`; pool SQLx com `RepoError` tipado; 6 traits + impls Postgres; `GET /sources`+`POST /sources` E2E com mapeamento `RepoError → HTTP` 4xx/5xx; 21 unit + 8 integration tests; ledger SQLx fixado em `public._sqlx_migrations` via search_path)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-159](2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md) | **AI Radar — Bootstrap Rust Workspace** _(workspace Cargo + 3 crates; Axum `/health` 200; tracing JSON com `request_id` correlation; AppConfig figment; Dockerfiles distroless 25.7MB/24.3MB; docker-compose Postgres+API com healthcheck; justfile + README; harness `rust-ai-radar` gate adicionado)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-157](2026/Q2/T-157-Longhorn-Quota-Headroom-and-Node3-Recovery.md) | **Longhorn Quota Headroom and Node-3 Recovery** _(quota expandida 8→12Gi; node-3 cordoned; postgres-0 1/1 Running; volume rebuilding 3ª replica)_ | 🚨 Critical | Infra / Storage | 1d |
 | [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(arrow2 refactored to polars, all NPM & Rust bumps applied)_ | 🔽 Low | Security / Tech Debt | 1d |
 | [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
