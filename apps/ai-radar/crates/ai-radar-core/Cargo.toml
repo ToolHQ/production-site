@@ -29,6 +29,7 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 figment = { workspace = true }
 feed-rs = { workspace = true }
+metrics = { workspace = true }
 
 [dev-dependencies]
 figment = { workspace = true, features = ["test"] }

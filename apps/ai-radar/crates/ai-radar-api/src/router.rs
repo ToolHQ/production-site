@@ -32,6 +32,7 @@ pub fn build_router_no_state() -> Router {
 pub fn build_router(state: AppState) -> Router {
     Router::new()
         .merge(routes::health::router())
+        .merge(routes::metrics::router())
         .merge(routes::sources::router())
         .with_state(state)
         .layer(axum_middleware::from_fn(request_id_middleware))

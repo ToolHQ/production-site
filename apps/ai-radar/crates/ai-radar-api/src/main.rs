@@ -2,8 +2,8 @@
 //!
 //! Wires together configuration loading (figment env), JSON tracing,
 //! the request-id middleware, the database pool, the repositories
-//! shared via `AppState`, and the Axum router exposing `/health` and
-//! `/sources`. Future epics extend the router with items, digests,
+//! shared via `AppState`, and the Axum router exposing `/health`,
+//! `/metrics`, and `/sources`. Future epics extend the router with items, digests,
 //! feedback, metrics, etc. — see `docs/AI-RADAR-DECISIONS.md`.
 
 #![forbid(unsafe_code)]
@@ -19,8 +19,10 @@ use std::net::SocketAddr;
 
 use ai_radar_core::config::AppConfig;
 use ai_radar_core::db::Database;
+use ai_radar_core::metrics as radar_metrics;
 use ai_radar_core::telemetry;
 use anyhow::{anyhow, Context};
+use metrics_exporter_prometheus::PrometheusBuilder;
 use tokio::net::TcpListener;
 use tokio::signal;
 
@@ -52,7 +54,12 @@ async fn main() -> anyhow::Result<()> {
         .context("failed to connect to Postgres")?;
     tracing::info!("postgres pool ready");
 
-    let state = AppState::new(db);
+    let prometheus = PrometheusBuilder::new()
+        .install_recorder()
+        .context("failed to install Prometheus metrics recorder")?;
+    radar_metrics::describe_metrics();
+
+    let state = AppState::new(db, prometheus);
     let app = router::build_router(state);
 
     let addr: SocketAddr = config

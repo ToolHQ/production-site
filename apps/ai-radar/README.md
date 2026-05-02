@@ -258,6 +258,7 @@ Após o apply, `kubectl -n ai-radar get cronjobs` deve listar **`ai-radar-collec
 kubectl -n ai-radar get pods,svc deploy/ai-radar-api
 kubectl -n ai-radar port-forward svc/ai-radar-api 18080:8080
 curl -fsS http://127.0.0.1:18080/health
+curl -fsS http://127.0.0.1:18080/metrics | head -30
 curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
 ```
 
@@ -265,6 +266,7 @@ curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
 
 ```bash
 curl -fsS https://ai-radar.dnor.io/health
+curl -fsS https://ai-radar.dnor.io/metrics | grep ai_radar | head
 curl -fsS -H 'X-Request-Id: edge-001' https://ai-radar.dnor.io/sources
 ```
 
