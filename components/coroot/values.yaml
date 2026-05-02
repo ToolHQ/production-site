@@ -82,11 +82,11 @@ prometheus:
       - storage.tsdb.retention.size=1500MB
     resources:
       requests:
-        cpu: 60m  # was 70m — actual usage recently ~80m incl. reload sidecar (T-103 follow-up)
-        memory: 400Mi
+        cpu: 60m
+        memory: 300Mi  # actual steady-state ~267Mi; was 400Mi (over-provisioned request)
       limits:
         cpu: 300m
-        memory: 600Mi
+        memory: 800Mi  # raised from 600Mi — 6 restarts (Exit 2); TSDB WAL replay spikes at startup
     persistentVolume:
       enabled: true
       size: 4Gi
