@@ -122,11 +122,22 @@ Set `LLM_ENABLED=true`, `LLM_API_KEY` and `LLM_MODEL` in `.env` once
 
 ```sh
 cargo run -p ai-radar-cli -- --help
+cargo run -p ai-radar-cli -- collect --help
 ```
 
-Subcommands (`collect`, `extract`, `score`, `digest`, `compare`, `reprocess`,
-`run-all`) arrive in subsequent epics. The CLI image
-(`docker/Dockerfile.cli`) is the entrypoint used by the Kubernetes CronJobs.
+**Collect ([`T-161`](../../tasks/2026/Q2/T-161-AI-Radar-RSS-Collector.md)).**
+Requires `DATABASE_URL`. Polls every **enabled** RSS source (or `--source-id`),
+inserts idempotent `raw_items`, prints `collected=… skipped=… errors=…` and exits
+**1** only when **every** source fails.
+
+```sh
+export DATABASE_URL='postgres://…?options=-csearch_path%3Dpublic'
+cargo run -p ai-radar-cli -- collect
+cargo run -p ai-radar-cli -- collect --source-id '<uuid>'
+```
+
+Further subcommands (`extract`, `score`, `digest`, …) land in later epics. The
+CLI image (`docker/Dockerfile.cli`) is the CronJob entrypoint.
 
 ## Configuration
 
@@ -146,6 +157,8 @@ the deterministic-only path keeps working when only a subset is supplied.
 | `LLM_MODEL` | _unset_ | e.g. `meta-llama/llama-3.3-70b-instruct:free` |
 | `LLM_TIMEOUT_SECONDS` | `60` | Per-request timeout |
 | `GITHUB_TOKEN` | _unset_ | Optional, raises GitHub rate-limit |
+| `AI_RADAR_COLLECT_CONCURRENCY` | `2` | Parallel RSS fetches (`collect`) |
+| `AI_RADAR_MAX_ITEMS_PER_RUN` | `50` | Cap entries ingested per source per run |
 
 > **DATABASE_URL search_path note** — the connection string ships with
 > `?options=-csearch_path%3Dpublic` (URL-encoded `-c search_path=public`).
