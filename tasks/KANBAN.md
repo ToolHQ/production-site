@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟢 Operacional — MinIO em 71% (3.4G livre); todos os volumes Longhorn healthy; coroot 1/1 Running (OOM fix aplicado); kube-controller-manager estável | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional — MinIO em 71% (3.4G livre); todos os volumes Longhorn healthy; coroot 1/1 Running (OOM fix 600→900Mi); Nexus JVM capped (MaxDirectMemorySize=512m); kube-controller-manager estável | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -29,6 +29,7 @@
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
 | T-194 | **Nexus npm-proxy Cleanup + Compact blob store** _(402 componentes npm-proxy deletados via REST API; compact task criada via ExtDirect API; 3 rounds de compact executados; nexus/content 4.5GiB→2.5GiB; MinIO 99%→71%; 3.4GiB livres)_ | 🔼 High | Infra / Storage | 2h |
+| T-196 | **Coroot OOM fix + Nexus JVM overcommit fix** _(coroot limits 600→900Mi + requests 50→100Mi; Nexus MaxDirectMemorySize capped 2703m→512m evitando OOMKill; ambos aplicados live + versionados em IaC; PR #57)_ | 🔼 High | Infra / Reliability | 1h |
 | T-191 | **MinIO Backup Retention Audit & Cleanup** _(fase 1: 18 backups postgres-0 + 2 etcd + .trash = 1.3GiB liberados 92%→87%; fase 2: ver T-194; backup Error coroot-prometheus cc2747a5 deletado; total MinIO: 99%→71%)_ | 🔼 High | Infra / Storage | 3h |
 | T-193 | **DiskPressure Master + kube-controller-manager CrashLoop — Incidente 2026-05-01** _(18G de réplicas órfãs deletadas do master; disco 97%→49%; kube-controller-manager limits 128Mi→256Mi / 300m→500m; todos os pods Running; `static-pod-resources.yaml` atualizado e commitado)_ | 🚨 Critical | Infra / Control-Plane | 2h |
 | [T-190](2026/Q2/T-190-Longhorn-Instance-Manager-Flapping-and-Nexus-Containment.md) | **Longhorn Flapping + Nexus Containment** _(todos os volumes healthy; nexus pin node-2; minio TLS corrigido; ingress hostPort 5432 removido; postgres-1 restaurado em node-1)_ | 🚨 Critical | Infra / Storage | 1d |
