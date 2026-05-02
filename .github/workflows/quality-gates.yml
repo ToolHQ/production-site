@@ -63,6 +63,7 @@ jobs:
               - 'components/**/*.yml'
               - 'apps/**/*.yaml'
               - 'apps/**/*.yml'
+              - '.github/workflows/**'
               - '.yamllint.yaml'
 
   # ─────────────────────────────────────────────────────────────────
