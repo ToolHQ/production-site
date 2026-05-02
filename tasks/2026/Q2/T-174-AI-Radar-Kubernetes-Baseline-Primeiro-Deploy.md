@@ -27,7 +27,17 @@ Seguir `deploy-service` e `operational-safety` (`AGENTS.md`). Não alterar workl
 - [x] `k8s/base/kustomization.yaml` + `k8s/overlays/production/kustomization.yaml`
 - [x] `apps/ai-radar/deploy.sh` (`bash`): namespace idempotente + pipe `create_registry_secret.sh → kubectl`; `Secret ai-radar-database` opcionalmente via `AI_RADAR_DATABASE_URL` ou **`AI_RADAR_FROM_CLUSTER_PG_SECRET=1`** + `scripts/render-ai-radar-database-url.py`; oci-builder ARM64 push + render Kustomize + apply
 - [x] `just k8s-validate` + `kubectl apply --dry-run=client`; **kubeconform** opcional (comando mantido na seção Validação se a ferramenta estiver instalada)
-- [ ] Smoke pós-deploy com cluster real + Secret real + migrações: pod `Running`, `GET /health` e `GET /sources` (port-forward). **Possível bloqueio de infraestrutura:** ambos os pods Postgres no namespace `postgres` relataram `pg_is_in_recovery() = true` durante validação pré-deploy (somente-leitura) — DDL/migrações falham até existir um primário gravável; tratar antes com **T-190** na fila Critical.
+- [x] Pod `Running` + Secret `DATABASE_URL` com host válido (operacional; corrigiu-se imagem **`exec format error`** via Dockerfile **`--target` por `TARGETARCH`** + redeploy Nexus `:latest`; commit `feat/T-174` trata cross-compile amd64→arm64).
+- [x] `GET /health` **200** (port-forward `svc/ai-radar-api`, validado cluster real).
+- [ ] `GET /sources` smoke **bloqueado** até schema **`ai_radar.*` existir** — `sqlx migrate run` contra o endpoint atual falha com **`cannot execute CREATE TABLE in a read-only transaction`** e `postgres-0` segue **`pg_is_in_recovery() = t`**; fechar DDL/migrations e `/sources` 200 quando **primário gravável** (infra **T-190** ou failover estável).
+
+## Operational notes (2026-05-02)
+
+| Check | Result |
+| ----- | ------ |
+| Imagem Nexus | ARM64 ELF real (distroless); antes o binário era x86-64 dentro de manifest arm64 → `exec format error` nos nós Ampere |
+| Métricas do pod | Requests 25m/64Mi conforme manifest |
+| DB | Pool conecta; sem tabelas ainda porque standby bloqueia migrações |
 
 ## DoD
 
