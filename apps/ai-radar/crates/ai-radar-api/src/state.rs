@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use ai_radar_core::config::AppConfig;
 use ai_radar_core::db::Database;
 use ai_radar_core::repos::{
     PgDigestRepository, PgExtractedItemRepository, PgFeedbackRepository, PgRawItemRepository,
@@ -22,6 +23,8 @@ use metrics_exporter_prometheus::PrometheusHandle;
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct AppState {
+    /// Process configuration (LLM toggles, bind address, …).
+    pub config: Arc<AppConfig>,
     /// Prometheus text renderer (`GET /metrics`).
     pub prometheus: PrometheusHandle,
     /// Database pool wrapper.
@@ -43,8 +46,9 @@ pub struct AppState {
 impl AppState {
     /// Build a fresh state from a [`Database`] and Prometheus handle.
     #[must_use]
-    pub fn new(db: Database, prometheus: PrometheusHandle) -> Self {
+    pub fn new(db: Database, prometheus: PrometheusHandle, config: Arc<AppConfig>) -> Self {
         Self {
+            config,
             prometheus,
             sources: Arc::new(PgSourceRepository::new(&db)),
             raw_items: Arc::new(PgRawItemRepository::new(&db)),

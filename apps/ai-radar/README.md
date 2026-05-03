@@ -134,6 +134,19 @@ fine for dev, less predictable under load):
 cargo run -p ai-radar-cli -- --help
 cargo run -p ai-radar-cli -- collect --help
 cargo run -p ai-radar-cli -- llm-ping --help
+cargo run -p ai-radar-cli -- extract --help
+```
+
+**Extract ([`T-165`](../../tasks/2026/Q2/T-165-AI-Radar-Extractor-Pipeline.md)).**
+Requires `DATABASE_URL`, `LLM_ENABLED=true`, and valid `LLM_*` credentials.
+Claims up to `--limit` pending `raw_items` (FIFO), runs the versioned LLM prompt
+(`llm-v1`), inserts `extracted_items`, and sets `raw_items.status` to `extracted`
+or `failed`. Concurrency is **1** per process (CronJob-safe).
+
+```sh
+export DATABASE_URL='postgres://…?options=-csearch_path%3Dpublic'
+export LLM_ENABLED=true LLM_API_KEY='…' LLM_MODEL='…'
+cargo run -p ai-radar-cli -- extract --limit 10
 ```
 
 **Collect ([`T-161`](../../tasks/2026/Q2/T-161-AI-Radar-RSS-Collector.md)).**
@@ -161,8 +174,10 @@ cargo run -p ai-radar-cli -- llm-ping
 cargo run -p ai-radar-cli -- llm-ping --prompt 'Say only: ok'
 ```
 
-Further subcommands (`extract`, `score`, `digest`, …) land in later epics. The
-CLI image (`docker/Dockerfile.cli`) is the CronJob entrypoint.
+Further subcommands (`score`, `digest`, …) land in later epics. The CLI image
+(`docker/Dockerfile.cli`) is the CronJob entrypoint.
+
+**API:** `POST /extract/run` with JSON `{"limit": 50}` (defaults apply) triggers the same pipeline as the CLI (requires the API process to have `DATABASE_URL` + `LLM_*` configured).
 
 ## Configuration
 
