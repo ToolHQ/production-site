@@ -11,6 +11,7 @@
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(gauge `ai_radar_pending_raw_items` no scrape; stubs `otel` + Langfuse; collect com `raw_item_id` em trace de insert; falta LLM cost / OTEL real / testes integração)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
+| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(limits centralizados, RSS rejeita oversize + métrica, README failure modes; falta wrapper genérico, chaos multi-fonte, reprocess)_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -34,7 +35,6 @@
 | [T-168](2026/Q2/T-168-AI-Radar-Comparator.md) | **AI Radar — Comparator** _(matriz por categoria, Markdown comparativo, persistência)_ | 🔽 Low | AI Radar / DevExp | 4h |
 | [T-169](2026/Q2/T-169-AI-Radar-Digest-Generator.md) | **AI Radar — Digest Generator** _(Markdown daily/weekly, agrupado por decisão, API + CLI)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md) | **AI Radar — Feedback Loop** _(POST feedback, relatório de divergência humano vs sistema)_ | 🔽 Low | AI Radar / DevExp | 4h |
-| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(retry/backoff, limits, idempotência reforçada, reprocess versionado, chaos tests)_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 ## ✅ Done
 

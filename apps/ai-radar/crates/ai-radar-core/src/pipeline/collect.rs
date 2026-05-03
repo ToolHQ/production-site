@@ -2,6 +2,7 @@
 
 use std::time::Instant;
 
+use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use uuid::Uuid;
 
@@ -24,6 +25,9 @@ pub struct CollectStats {
     pub source_errors: u64,
     /// Sources matching the filter (size of the work batch).
     pub total_sources: u64,
+    /// Enabled sources skipped because `poll_interval_minutes` has not elapsed
+    /// since `last_polled_at` (batch collect only).
+    pub skipped_poll: u64,
 }
 
 /// Execute one collect pass for every enabled source of `filter_type`, or a
@@ -41,13 +45,17 @@ pub async fn run_collect(
     source_id: Option<Uuid>,
 ) -> anyhow::Result<CollectStats> {
     let started = Instant::now();
-    let sources = list_sources(db, filter_type, source_id).await?;
+    let (sources, skipped_poll) = list_sources(db, filter_type, source_id).await?;
     let total_sources = sources.len() as u64;
 
     if sources.is_empty() {
-        tracing::info!("collect: no matching sources — nothing to do");
+        tracing::info!(
+            skipped_poll,
+            "collect: nothing to do (no matching sources or all inside poll interval)"
+        );
         let stats = CollectStats {
             total_sources: 0,
+            skipped_poll,
             ..CollectStats::default()
         };
         metrics::record_collect_pass(
@@ -55,6 +63,7 @@ pub async fn run_collect(
             stats.collected,
             stats.skipped,
             stats.source_errors,
+            stats.skipped_poll,
             started.elapsed(),
         );
         return Ok(stats);
@@ -78,6 +87,7 @@ pub async fn run_collect(
 
     let mut stats = CollectStats {
         total_sources,
+        skipped_poll,
         ..CollectStats::default()
     };
 
@@ -98,6 +108,7 @@ pub async fn run_collect(
         stats.collected,
         stats.skipped,
         stats.source_errors,
+        stats.skipped_poll,
         started.elapsed(),
     );
 
@@ -175,7 +186,7 @@ async fn list_sources(
     db: &Database,
     filter_type: SourceType,
     source_id: Option<Uuid>,
-) -> anyhow::Result<Vec<Source>> {
+) -> anyhow::Result<(Vec<Source>, u64)> {
     let repo = PgSourceRepository::new(db);
     if let Some(id) = source_id {
         let s = repo.get(id).await?;
@@ -189,12 +200,80 @@ async fn list_sources(
                 filter_type
             );
         }
-        return Ok(vec![s]);
+        return Ok((vec![s], 0));
     }
 
+    let now = Utc::now();
     let all = repo.list_enabled().await?;
-    Ok(all
+    let mut skipped_poll = 0u64;
+    let filtered: Vec<Source> = all
         .into_iter()
         .filter(|s| s.source_type == filter_type)
-        .collect())
+        .filter(|s| {
+            if source_poll_due(s, now) {
+                true
+            } else {
+                skipped_poll += 1;
+                false
+            }
+        })
+        .collect();
+    Ok((filtered, skipped_poll))
+}
+
+/// Whether a batch collect should hit this source now (`last_polled_at` + interval).
+#[inline]
+fn source_poll_due(source: &Source, now: DateTime<Utc>) -> bool {
+    match source.last_polled_at {
+        None => true,
+        Some(last) => {
+            let mins = source.poll_interval_minutes.max(1);
+            let interval = chrono::Duration::minutes(i64::from(mins));
+            now >= last + interval
+        }
+    }
+}
+
+#[cfg(test)]
+mod poll_due_tests {
+    use super::*;
+    use crate::domain::{Source, SourceType};
+    use chrono::Duration as ChDuration;
+    use uuid::Uuid;
+
+    fn sample_source(last_polled_at: Option<DateTime<Utc>>, poll_interval_minutes: i32) -> Source {
+        Source {
+            id: Uuid::nil(),
+            name: "t".into(),
+            source_type: SourceType::Rss,
+            url: "https://example.com/feed.xml".into(),
+            enabled: true,
+            poll_interval_minutes,
+            last_polled_at,
+            last_error: None,
+            metadata_json: serde_json::json!({}),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn never_polled_is_always_due() {
+        let now = Utc::now();
+        assert!(source_poll_due(&sample_source(None, 30), now));
+    }
+
+    #[test]
+    fn inside_poll_window_is_skipped() {
+        let now = Utc::now();
+        let last = now - ChDuration::minutes(5);
+        assert!(!source_poll_due(&sample_source(Some(last), 30), now));
+    }
+
+    #[test]
+    fn after_poll_window_is_due() {
+        let now = Utc::now();
+        let last = now - ChDuration::minutes(45);
+        assert!(source_poll_due(&sample_source(Some(last), 30), now));
+    }
 }
