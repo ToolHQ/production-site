@@ -12,6 +12,11 @@ description = "AI Radar — domain, repositories, providers and pipelines"
 name = "ai_radar_core"
 path = "src/lib.rs"
 
+[features]
+default = []
+# Compile-only hook for future OpenTelemetry wiring (T-172); `cargo build --features otel` must pass.
+otel = []
+
 [dependencies]
 tokio = { workspace = true }
 serde = { workspace = true }

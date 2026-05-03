@@ -1,6 +1,6 @@
 # T-172: AI Radar — Observabilidade
 
-- **Status**: In Progress _(slice 2026-05-02: `/metrics`, collect metrics, CLI `job_id`; LLM cost / OTEL / gauges — pendente)_
+- **Status**: In Progress _(slice 2026-05-02: gauge `pending_raw_items`, features `otel` + stub Langfuse; LLM cost / OTEL real / testes integração — pendente)_
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp / Observability
 - **Estimation**: 4h
@@ -22,11 +22,11 @@ Cluster usa Coroot/Loki potencialmente; logs JSON facilitam ingestão futura sem
 - [x] Endpoint `/metrics` na API expondo formato Prometheus
 - [x] Counters: `ai_radar_collected_total{source_type}`, `ai_radar_skipped_total{source_type}`, `ai_radar_errors_total{stage}` _(extract/scored quando T-165/T-166)_
 - [x] Histogram: `ai_radar_stage_duration_seconds{stage}` _(collect)_
-- [ ] Gauge: `ai_radar_pending_raw_items`
+- [x] Gauge: `ai_radar_pending_raw_items` _(atualizado no handler `GET /metrics` via `COUNT` em Postgres)_
 - [x] CronJobs emitem log estruturado de sumário no fim (`event="job.completed"`, `duration_secs`, contagens)
 - [ ] Cálculo de custo LLM: tabela `LlmCostTable` (modelo → $/1M tokens in/out), log `llm.request.completed` por chamada
-- [ ] Feature flag `otel` no Cargo.toml (default off) com stub init pronto
-- [ ] Stub `langfuse_export` que loga warn "not configured"
+- [x] Feature flag `otel` no Cargo.toml (default off) com stub init pronto
+- [x] Stub `langfuse_export` que loga warn "not configured"
 - [x] Anotar Service Kubernetes com `prometheus.io/scrape` / port / path
 - [ ] Test integração validando contadores incrementam após operações
 - [x] Documentar smoke `/metrics` no README _(dashboards Coroot — futuro)_

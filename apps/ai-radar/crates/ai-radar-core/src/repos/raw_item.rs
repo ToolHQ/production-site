@@ -23,6 +23,9 @@ pub trait RawItemRepository: Send + Sync {
     /// FIFO.
     async fn list_pending(&self, limit: i64) -> RepoResult<Vec<RawItem>>;
 
+    /// Count rows in `pending` status (queue depth for extract).
+    async fn count_pending(&self) -> RepoResult<i64>;
+
     /// Update the lifecycle status.
     async fn mark_status(&self, id: Uuid, status: RawItemStatus) -> RepoResult<RawItem>;
 }
@@ -120,6 +123,16 @@ impl RawItemRepository for PgRawItemRepository {
             .await
             .map_err(RepoError::from_sqlx)?;
         rows.iter().map(row_to_raw_item).collect()
+    }
+
+    async fn count_pending(&self) -> RepoResult<i64> {
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*)::bigint FROM ai_radar.raw_items WHERE status = 'pending'",
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(RepoError::from_sqlx)?;
+        Ok(count)
     }
 
     async fn mark_status(&self, id: Uuid, status: RawItemStatus) -> RepoResult<RawItem> {
@@ -239,6 +252,8 @@ mod integration {
             .await
             .expect("list_pending after mark");
         assert_eq!(still_pending.len(), 2);
+
+        assert_eq!(repo.count_pending().await.expect("count_pending"), 2);
 
         cleanup(&db.pool).await;
     }

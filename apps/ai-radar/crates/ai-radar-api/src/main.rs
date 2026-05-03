@@ -38,6 +38,11 @@ async fn main() -> anyhow::Result<()> {
     telemetry::init_tracing(&config.log_level)
         .context("failed to initialize tracing subscriber")?;
 
+    #[cfg(feature = "otel")]
+    ai_radar_core::telemetry::init_otel_stub();
+
+    ai_radar_core::langfuse_export::log_not_configured();
+
     let database_url = config
         .database_url
         .clone()
