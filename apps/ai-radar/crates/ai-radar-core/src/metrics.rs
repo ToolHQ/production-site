@@ -49,6 +49,14 @@ pub fn describe_metrics() {
         "ai_radar_extract_failed_total",
         "raw_items marked failed after extract pass"
     );
+    describe_counter!(
+        "ai_radar_scored_total",
+        "extracted_items scored successfully in score pass"
+    );
+    describe_counter!(
+        "ai_radar_score_failed_total",
+        "score inserts that failed in score pass"
+    );
 }
 
 /// Refresh gauge from DB count (call from `/metrics` before render).
@@ -93,6 +101,16 @@ pub fn record_collect_pass(
     }
     histogram!("ai_radar_stage_duration_seconds", "stage" => "collect")
         .record(elapsed.as_secs_f64());
+}
+
+/// Emit counters after one `score` pass completes.
+pub fn record_score_pass(scored: u64, failed: u64, elapsed: Duration) {
+    counter!("ai_radar_scored_total").increment(scored);
+    counter!("ai_radar_score_failed_total").increment(failed);
+    if failed > 0 {
+        counter!("ai_radar_errors_total", "stage" => "score").increment(failed);
+    }
+    histogram!("ai_radar_stage_duration_seconds", "stage" => "score").record(elapsed.as_secs_f64());
 }
 
 /// Emit counters after one `extract` pass completes.

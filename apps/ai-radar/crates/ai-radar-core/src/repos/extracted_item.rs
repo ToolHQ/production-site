@@ -22,6 +22,19 @@ pub trait ExtractedItemRepository: Send + Sync {
 
     /// Fetch by primary key.
     async fn get(&self, id: Uuid) -> RepoResult<ExtractedItem>;
+
+    /// Rows due for scoring with `scoring_version` (FIFO by `created_at`).
+    ///
+    /// When `rescore_all` is true, returns the oldest `limit` rows regardless of
+    /// recent scores. Otherwise returns rows with **no** score for `scoring_version`
+    /// or whose **latest** such score is older than `stale_hours` hours.
+    async fn list_pending_scoring(
+        &self,
+        limit: i64,
+        scoring_version: &str,
+        stale_hours: i64,
+        rescore_all: bool,
+    ) -> RepoResult<Vec<ExtractedItem>>;
 }
 
 const SELECT_COLS: &str = "id, raw_item_id, version, extractor, tool_name, category, summary, \
@@ -163,6 +176,35 @@ impl ExtractedItemRepository for PgExtractedItemRepository {
             .map_err(RepoError::from_sqlx)?
             .ok_or(RepoError::NotFound)?;
         row_to_extracted_item(&row)
+    }
+
+    async fn list_pending_scoring(
+        &self,
+        limit: i64,
+        scoring_version: &str,
+        stale_hours: i64,
+        rescore_all: bool,
+    ) -> RepoResult<Vec<ExtractedItem>> {
+        let sql = format!(
+            "SELECT {SELECT_COLS} FROM ai_radar.extracted_items ei \
+             WHERE ($4::bool OR ( \
+                 COALESCE(( \
+                     SELECT MAX(s.created_at) FROM ai_radar.scores s \
+                     WHERE s.extracted_item_id = ei.id AND s.scoring_version = $1 \
+                 ), 'epoch'::timestamptz) < (CURRENT_TIMESTAMP - ($2::bigint * INTERVAL '1 hour')) \
+             )) \
+             ORDER BY ei.created_at ASC \
+             LIMIT $3"
+        );
+        let rows = sqlx::query(&sql)
+            .bind(scoring_version)
+            .bind(stale_hours)
+            .bind(limit)
+            .bind(rescore_all)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RepoError::from_sqlx)?;
+        rows.iter().map(row_to_extracted_item).collect()
     }
 }
 
