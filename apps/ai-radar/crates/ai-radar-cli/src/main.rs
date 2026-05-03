@@ -81,13 +81,18 @@ async fn run_collect_command(
         skipped = stats.skipped,
         source_errors = stats.source_errors,
         total_sources = stats.total_sources,
+        skipped_poll = stats.skipped_poll,
         duration_secs = started.elapsed().as_secs_f64(),
         "collect job finished"
     );
 
     println!(
-        "collected={} skipped={} errors={} ({} sources)",
-        stats.collected, stats.skipped, stats.source_errors, stats.total_sources
+        "collected={} skipped={} errors={} ({} sources, {} skipped poll)",
+        stats.collected,
+        stats.skipped,
+        stats.source_errors,
+        stats.total_sources,
+        stats.skipped_poll
     );
 
     if stats.total_sources > 0 && stats.source_errors == stats.total_sources {
