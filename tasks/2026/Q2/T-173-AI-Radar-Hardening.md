@@ -1,6 +1,6 @@
 # T-173: AI Radar — Hardening
 
-- **Status**: In Progress _(slice 2026-05-02: `util/retry`, RSS retries, `poll_interval`, `util/limits`, rejeição + métrica oversize, README failure modes; wrapper genérico / chaos restante / reprocess — pendente)_
+- **Status**: In Progress _(slice: `with_retry` + teste paralelo RSS; antes: limits, oversize, poll, RSS retry; falta refatorar fetch para `with_retry`, reprocess, chaos DB/LLM)_
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
@@ -14,7 +14,7 @@ Fecha o ciclo de qualidade do MVP. Posiciona o sistema para operar autônomo no 
 
 ## Tasks
 
-- [ ] Wrapper `with_retry(op, policy)` em `util/retry.rs` com policies tipadas: `LlmDefault`, `HttpDefault`, `GitHub` (respeita `Retry-After`) — _hoje: helpers + loop dedicado no RSS_
+- [x] Wrapper `with_retry(op, policy)` em `util/retry.rs` com policies tipadas: `LlmDefault`, `HttpDefault`, `GitHub` (respeita `Retry-After`) — _slice: [`with_retry`](../../../apps/ai-radar/crates/ai-radar-core/src/util/retry.rs) + `RetryPolicy`/`RetryDirective`; RSS ainda usa loop dedicado — refatorar depois_
 - [x] Jitter ±20% para evitar thundering herd
 - [ ] Aplicar wrapper em todos os call sites externos (RSS, GitHub, Web, LLM) — _RSS fetch coberto_
 - [x] `limits.rs` centralizando: `MAX_RAW_CONTENT_BYTES=200_000`, `MAX_EXTRACT_INPUT_TOKENS=8000`, `MAX_CONCURRENT_LLM_REQUESTS=2` _(RSS honra `MAX_RAW_CONTENT_BYTES`; extract/LLM ainda por T-164/T-165)_
@@ -25,7 +25,7 @@ Fecha o ciclo de qualidade do MVP. Posiciona o sistema para operar autônomo no 
 - [ ] Reprocess gera **nova versão**, não substitui; queries de "latest" via `DISTINCT ON`
 - [ ] Sanitização HTML defensiva (remover javascript: URIs, on* handlers em casos extremos)
 - [ ] Bateria de chaos tests em `crates/ai-radar-core/tests/chaos.rs`:
-  - [ ] RSS source retorna 500 → outras OK, exit 0
+  - [x] RSS source retorna 500 → outras OK, exit 0 _(teste integração `tests/parallel_rss_collect.rs`: dois collectors em `join!`)_
   - [ ] LLM timeout → `extract_failed`, raw_item permanece pra retry
   - [ ] Postgres derruba conexão → erro claro, sem panic
   - [x] Conteúdo >200KB → rejected, métrica incrementada _(RSS + `ai_radar_entries_rejected_total`)_
