@@ -2,6 +2,9 @@
 """Emit a Postgres DATABASE_URL for AI Radar using in-cluster postgres-secret.
 
 Requires kubectl reachable (tunnel + KUBECONFIG). Does not modify the cluster.
+
+Env overrides: AI_RADAR_PG_HOST, AI_RADAR_PG_PORT (default 5432; use with local
+port-forward to the cluster), AI_RADAR_PG_DATABASE.
 """
 from __future__ import annotations
 
@@ -27,6 +30,7 @@ def main() -> None:
     host = os.environ.get(
         "AI_RADAR_PG_HOST", "postgres-service.postgres.svc.cluster.local"
     )
+    port = os.environ.get("AI_RADAR_PG_PORT", "5432")
     db = os.environ.get("AI_RADAR_PG_DATABASE", "postgres")
 
     user = urllib.parse.quote(raw_user, safe="")
@@ -34,7 +38,7 @@ def main() -> None:
 
     qs = "?options=-csearch_path%3Dpublic"
 
-    print(f"postgres://{user}:{password}@{host}:5432/{db}{qs}")
+    print(f"postgres://{user}:{password}@{host}:{port}/{db}{qs}")
 
 
 if __name__ == "__main__":
