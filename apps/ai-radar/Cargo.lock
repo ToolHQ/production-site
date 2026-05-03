@@ -73,6 +73,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "fastrand",
  "feed-rs",
  "figment",
  "futures",

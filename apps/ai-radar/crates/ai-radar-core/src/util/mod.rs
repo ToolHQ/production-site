@@ -1,3 +1,4 @@
-//! Shared helpers (hashing, sizing).
+//! Shared helpers (hashing, sizing, retries).
 
 pub mod hash;
+pub mod retry;
