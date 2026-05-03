@@ -11,7 +11,7 @@
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(gauge `ai_radar_pending_raw_items` no scrape; stubs `otel` + Langfuse; collect com `raw_item_id` em trace de insert; falta LLM cost / OTEL real / testes integração)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
-| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(limits centralizados, RSS rejeita oversize + métrica, README failure modes; falta wrapper genérico, chaos multi-fonte, reprocess)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _`with_retry` + teste paralelo RSS; limits/oversize/poll/retry já no main; falta refator fetch, reprocess, chaos DB/LLM_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)

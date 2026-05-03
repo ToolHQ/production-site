@@ -2,7 +2,11 @@
 //!
 //! Used by collectors for transient `reqwest` failures and retryable status
 //! codes. Jitter is ±20% around the exponential step to reduce thundering herd.
+//!
+//! [`with_retry`] is a small generic loop for other pipelines (GitHub, LLM) once
+//! their error types map into [`RetryDirective`].
 
+use std::future::Future;
 use std::time::Duration;
 
 use reqwest::header::HeaderMap;
@@ -62,9 +66,77 @@ pub async fn sleep_before_http_retry(attempt: u32, retry_after: Option<Duration>
     tokio::time::sleep(delay).await;
 }
 
+/// How to proceed after a failed attempt in [`with_retry`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RetryDirective {
+    /// Stop retrying and surface the error to the caller.
+    Abort,
+    /// Sleep (jitter + optional `retry_after`) and invoke the operation again.
+    Again {
+        /// Server hint (e.g. HTTP 429 `Retry-After`).
+        retry_after: Option<Duration>,
+    },
+}
+
+/// Max attempts for [`with_retry`] (includes the first try).
+#[derive(Debug, Clone, Copy)]
+pub struct RetryPolicy {
+    /// Total attempts before giving up (`>= 1`).
+    pub max_attempts: u32,
+}
+
+impl RetryPolicy {
+    /// Default aligned with RSS HTTP collect (first try + 3 retries).
+    #[must_use]
+    pub const fn http_default() -> Self {
+        Self { max_attempts: 4 }
+    }
+}
+
+/// Generic async retry loop with jittered sleeps between attempts.
+///
+/// `op` is re-invoked after each [`RetryDirective::Again`]. The classifier runs
+/// only on `Err`; return [`RetryDirective::Abort`] for non-transient failures.
+///
+/// # Errors
+///
+/// Returns the last `Err` from `op` when attempts are exhausted or the
+/// classifier returns [`RetryDirective::Abort`].
+pub async fn with_retry<T, E, F, Fut, C>(policy: RetryPolicy, mut op: F, mut classify: C) -> Result<T, E>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T, E>>,
+    C: FnMut(u32, &E) -> RetryDirective,
+{
+    let max_attempts = policy.max_attempts.max(1);
+    let mut retry_after: Option<Duration> = None;
+    let mut attempt: u32 = 0;
+    loop {
+        if attempt > 0 {
+            sleep_before_http_retry(attempt - 1, retry_after.take()).await;
+        }
+        match op().await {
+            Ok(v) => return Ok(v),
+            Err(e) => {
+                if attempt + 1 >= max_attempts {
+                    return Err(e);
+                }
+                match classify(attempt, &e) {
+                    RetryDirective::Abort => return Err(e),
+                    RetryDirective::Again { retry_after: ra } => {
+                        retry_after = ra;
+                    }
+                }
+            }
+        }
+        attempt = attempt.saturating_add(1);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
     #[test]
     fn jittered_backoff_stays_within_twenty_percent_band() {
@@ -92,5 +164,51 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(reqwest::header::RETRY_AFTER, "9999".parse().unwrap());
         assert_eq!(parse_retry_after(&headers), Some(Duration::from_secs(120)));
+    }
+
+    #[tokio::test]
+    async fn with_retry_succeeds_after_transient_failures() {
+        let attempts = AtomicU32::new(0);
+        let policy = RetryPolicy {
+            max_attempts: 4,
+        };
+        let v = with_retry(
+            policy,
+            || {
+                let n = attempts.fetch_add(1, Ordering::SeqCst);
+                async move {
+                    if n < 2 {
+                        Err(n)
+                    } else {
+                        Ok(7)
+                    }
+                }
+            },
+            |_, _| RetryDirective::Again {
+                retry_after: None,
+            },
+        )
+        .await
+        .expect("ok");
+        assert_eq!(v, 7);
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn with_retry_aborts_on_classifier_abort() {
+        let attempts = AtomicU32::new(0);
+        let policy = RetryPolicy { max_attempts: 4 };
+        let err = with_retry(
+            policy,
+            || {
+                attempts.fetch_add(1, Ordering::SeqCst);
+                async move { Err::<u8, &str>("transient") }
+            },
+            |_, _| RetryDirective::Abort,
+        )
+        .await
+        .expect_err("abort");
+        assert_eq!(err, "transient");
+        assert_eq!(attempts.load(Ordering::SeqCst), 1);
     }
 }
