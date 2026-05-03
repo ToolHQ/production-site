@@ -301,7 +301,7 @@ Após o apply, `kubectl -n ai-radar get cronjobs` deve listar **`ai-radar-collec
 3. Ou `AI_RADAR_FROM_CLUSTER_PG_SECRET=1` → monta URL com `postgres-secret`
    no namespace **`postgres`** (host default `postgres-service.postgres.svc.cluster.local`,
    base default `postgres` — suficiente para o schema **`ai_radar`** nas migrações).
-   Overrides: `AI_RADAR_PG_HOST`, `AI_RADAR_PG_DATABASE`.
+   Overrides: `AI_RADAR_PG_HOST`, `AI_RADAR_PG_PORT` (ex. `36432` com `kubectl port-forward` local), `AI_RADAR_PG_DATABASE`.
 
 **IMPORTANTE.** O recurso **`k8s/base/secret-database-url.placeholder.yaml`** continua apenas como template de referência; **não** entra mais no render Kustomize, para **`deploy.sh`/apply não pisarem uma `DATABASE_URL` real**.
 
@@ -309,7 +309,7 @@ Após o apply, `kubectl -n ai-radar get cronjobs` deve listar **`ai-radar-collec
 
 **Postgres só leitura / sem primário.** Se o Postgres relatou `pg_is_in_recovery()=true` e DDL falha (**T-190**), trate o Postgres antes das migrações e do rollout definitivo (`deploy.sh` imprime apenas um warning).
 
-**Migrações.** Rodar **`just migrate`** (ou Job tooling) quando houver endpoint **gravável** e com a mesma `DATABASE_URL` que o Deployment usa (ver [Migrations](#migrations)).
+**Migrações.** Rodar **`just migrate`** (ou Job tooling) quando houver endpoint **gravável** e com a mesma `DATABASE_URL` que o Deployment usa (ver [Migrations](#migrations)). Para aplicar do laptop contra o Postgres do cluster: túnel SSH + `KUBECONFIG` (ver `.agents/skills/connect-to-cluster`), `kubectl -n postgres port-forward svc/postgres-service 36432:5432`, depois `export DATABASE_URL="$(AI_RADAR_PG_HOST=127.0.0.1 AI_RADAR_PG_PORT=36432 python3 scripts/render-ai-radar-database-url.py)"` e `sqlx migrate run --source migrations` em `apps/ai-radar`.
 
 **Smoke no cluster.**
 

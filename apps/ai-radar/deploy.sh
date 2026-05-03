@@ -55,6 +55,7 @@ elif [[ "${AI_RADAR_FROM_CLUSTER_PG_SECRET:-0}" =~ ^(1|true|yes)$ ]]; then
 	URL="$(
 		env \
 			AI_RADAR_PG_HOST="${AI_RADAR_PG_HOST:-}" \
+			AI_RADAR_PG_PORT="${AI_RADAR_PG_PORT:-}" \
 			AI_RADAR_PG_DATABASE="${AI_RADAR_PG_DATABASE:-}" \
 			python3 "$ROOT_DIR/scripts/render-ai-radar-database-url.py"
 	)"
