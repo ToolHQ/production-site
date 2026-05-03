@@ -28,7 +28,6 @@
 | T-192 | **MinIO PVC Expansion 12→20G** — capacidade: node-1 tem 17G livre, réplica única (1:1); expansão preventiva recomendada para quando chegar a 85%+; daily Longhorn backups podem atingir 85% em ~2 semanas (coroot-prometheus cresce 1.2GiB/backup). _Não urgente — MinIO em 71% com 3.4G livre após T-191/T-194._ | 🔽 Low | Infra / Storage | 2h |
 | [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md) | **AI Radar — GitHub Collector** _(releases + metadados de repo, rate-limit aware, GITHUB_TOKEN opcional)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md) | **AI Radar — Webpage Fetcher** _(URL manual, HTML cleaner, size cap 1MB)_ | 🔽 Low | AI Radar / DevExp | 4h |
-| [T-166](2026/Q2/T-166-AI-Radar-Scorer-Deterministico.md) | **AI Radar — Scorer Determinístico** _(regras versionadas v1, decisão por threshold, reasons explicáveis)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md) | **AI Radar — Scorer com LLM Opcional** _(MergePolicy 70/30 deterministic+LLM, ambos persistidos para auditoria)_ | 🔽 Low | AI Radar / DevExp | 4h |
 | [T-168](2026/Q2/T-168-AI-Radar-Comparator.md) | **AI Radar — Comparator** _(matriz por categoria, Markdown comparativo, persistência)_ | 🔽 Low | AI Radar / DevExp | 4h |
 | [T-169](2026/Q2/T-169-AI-Radar-Digest-Generator.md) | **AI Radar — Digest Generator** _(Markdown daily/weekly, agrupado por decisão, API + CLI)_ | 🔽 Low | AI Radar / DevExp | 1d |
@@ -38,6 +37,7 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| [T-166](2026/Q2/T-166-AI-Radar-Scorer-Deterministico.md) | **AI Radar — Scorer Determinístico** _(regras versionadas v1, decisão por threshold, reasons explicáveis)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-165](2026/Q2/T-165-AI-Radar-Extractor-Pipeline.md) | **AI Radar — Extractor Pipeline** _(prompt v1, raw → extracted, fallback JSON, retry corretivo)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-164](2026/Q2/T-164-AI-Radar-LLM-Provider-Abstraction.md) | **AI Radar — LLM Provider Abstraction** _(trait LlmProvider + OpenRouter + Mock; deterministic-only quando LLM_ENABLED=false)_ | 🔽 Low | AI Radar / DevExp | 4h |
 | [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — K8s onda 2 (CronJob collect + validação)** _(CronJob `ai-radar-collect`, dual-image deploy, Dockerfile.cli migrations fix PR #67, kubeconform CI + `just k8s-validate`; CronJobs extract/score/digest ficam para **T-165/T-166/T-169**)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |

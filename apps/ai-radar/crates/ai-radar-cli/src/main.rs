@@ -12,9 +12,10 @@ use ai_radar_core::domain::SourceType;
 use ai_radar_core::llm::{build_llm_provider, CompletionRequest};
 use ai_radar_core::pipeline::collect::run_collect;
 use ai_radar_core::pipeline::extract::run_extract;
+use ai_radar_core::pipeline::score::{run_score, DEFAULT_SCORE_STALE_HOURS};
 use ai_radar_core::telemetry;
 use anyhow::Context;
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 use tracing::Instrument;
 use uuid::Uuid;
 
@@ -40,6 +41,18 @@ enum Command {
             default_value = "Reply with only the lowercase word ok and nothing else."
         )]
         prompt: String,
+    },
+    /// Score `extracted_items` with deterministic rules (`deterministic-v1`).
+    Score {
+        /// Max rows to process.
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+        /// Hours since last score of the same version before re-eligibility.
+        #[arg(long, default_value_t = DEFAULT_SCORE_STALE_HOURS)]
+        stale_hours: i64,
+        /// Ignore recency and rescore the oldest rows up to `--limit`.
+        #[arg(long, action = ArgAction::SetTrue)]
+        rescore_all: bool,
     },
     /// Turn `pending` `raw_items` into `extracted_items` via LLM (sequential).
     Extract {
@@ -115,6 +128,54 @@ async fn run_collect_command(
     if stats.total_sources > 0 && stats.source_errors == stats.total_sources {
         std::process::exit(1);
     }
+
+    Ok(())
+}
+
+async fn run_score_command(
+    job_id: Uuid,
+    limit: i64,
+    stale_hours: i64,
+    rescore_all: bool,
+) -> anyhow::Result<()> {
+    let started = std::time::Instant::now();
+    let config = AppConfig::from_env().context("configuration")?;
+    telemetry::init_tracing(&config.log_level).context("tracing")?;
+
+    tracing::info!(
+        event = "job.started",
+        job = "score",
+        job_id = %job_id,
+        limit,
+        stale_hours,
+        rescore_all,
+        "score job started"
+    );
+
+    let database_url = config
+        .database_url
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required for score"))?;
+
+    let db = Database::connect(&database_url)
+        .await
+        .map_err(|e| anyhow::anyhow!("database: {e}"))?;
+
+    let stats = run_score(&db, limit.max(1), stale_hours.max(1), rescore_all)
+        .await
+        .context("score pipeline")?;
+
+    tracing::info!(
+        event = "job.completed",
+        job = "score",
+        job_id = %job_id,
+        scored = stats.scored,
+        failed = stats.failed,
+        duration_secs = started.elapsed().as_secs_f64(),
+        "score job finished"
+    );
+
+    println!("scored={} failed={}", stats.scored, stats.failed);
 
     Ok(())
 }
@@ -196,6 +257,17 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Command::LlmPing { prompt } => {
             run_llm_ping(prompt).await?;
+        }
+        Command::Score {
+            limit,
+            stale_hours,
+            rescore_all,
+        } => {
+            let job_id = Uuid::new_v4();
+            let span = tracing::info_span!("score_job", job_id = %job_id);
+            run_score_command(job_id, limit, stale_hours, rescore_all)
+                .instrument(span)
+                .await?;
         }
         Command::Extract { limit } => {
             let job_id = Uuid::new_v4();
