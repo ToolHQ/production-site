@@ -135,6 +135,21 @@ cargo run -p ai-radar-cli -- --help
 cargo run -p ai-radar-cli -- collect --help
 cargo run -p ai-radar-cli -- llm-ping --help
 cargo run -p ai-radar-cli -- extract --help
+cargo run -p ai-radar-cli -- score --help
+```
+
+**Score ([`T-166`](../../tasks/2026/Q2/T-166-AI-Radar-Scorer-Deterministico.md)).**
+Deterministic ruleset `deterministic-v1` (no LLM): integer points start at **50**, rules add/subtract,
+clamp to **[0, 100]**, map to `scores.score` as **points / 100**, thresholds **≥80 adopt**, **≥60 test**,
+**≥35 monitor**, else **ignore**. Re-score after **24h** by default (`--stale-hours`), or pass
+`--rescore-all` to bypass recency. Migration **`0003_scores_history`** drops the old unique constraint so
+history keeps multiple rows per `(extracted_item_id, scoring_version)`.
+
+```sh
+export DATABASE_URL='postgres://…?options=-csearch_path%3Dpublic'
+sqlx migrate run   # applies 0003 on existing DBs
+cargo run -p ai-radar-cli -- score --limit 20
+cargo run -p ai-radar-cli -- score --limit 50 --rescore-all
 ```
 
 **Extract ([`T-165`](../../tasks/2026/Q2/T-165-AI-Radar-Extractor-Pipeline.md)).**
@@ -177,7 +192,10 @@ cargo run -p ai-radar-cli -- llm-ping --prompt 'Say only: ok'
 Further subcommands (`score`, `digest`, …) land in later epics. The CLI image
 (`docker/Dockerfile.cli`) is the CronJob entrypoint.
 
-**API:** `POST /extract/run` with JSON `{"limit": 50}` (defaults apply) triggers the same pipeline as the CLI (requires the API process to have `DATABASE_URL` + `LLM_*` configured).
+**API:** `POST /extract/run` with JSON `{"limit": 50}` (defaults apply) triggers extract (needs `LLM_*`).
+`POST /score/run` with `{"limit": 50, "stale_hours": 24, "rescore_all": false}` runs deterministic scoring (DB only).
+
+Rule weights and predicates live in `crates/ai-radar-core/src/scorer/rules.rs` (roadmap-aligned; adjust there until config-driven scoring exists).
 
 ## Configuration
 
