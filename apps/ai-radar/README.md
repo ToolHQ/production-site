@@ -163,6 +163,7 @@ the deterministic-only path keeps working when only a subset is supplied.
 | `GITHUB_TOKEN` | _unset_ | Optional, raises GitHub rate-limit |
 | `AI_RADAR_COLLECT_CONCURRENCY` | `2` | Parallel RSS fetches (`collect`) |
 | `AI_RADAR_MAX_ITEMS_PER_RUN` | `50` | Cap entries ingested per source per run |
+| _(código)_ | `util/limits.rs` | `MAX_RAW_CONTENT_BYTES` (200 KiB), futuros caps extract/LLM |
 
 > **DATABASE_URL search_path note** — the connection string ships with
 > `?options=-csearch_path%3Dpublic` (URL-encoded `-c search_path=public`).
@@ -277,6 +278,13 @@ curl -fsS -H 'X-Request-Id: edge-001' https://ai-radar.dnor.io/sources
 Se `kubeconform` estiver instalado, você pode usar o comando da task
 [**T-174**](../../tasks/2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md)
 (`kubectl kustomize … | kubeconform …`) além do `just k8s-validate`.
+
+## Failure modes (collect / RSS)
+
+- **HTTP 5xx / 429 / timeouts**: o fetch do feed é **retentado** com backoff e jitter; ver logs do CronJob e Coroot para `source_id`.
+- **Corpo maior que `MAX_RAW_CONTENT_BYTES` (200 KiB)**: a entrada é **descartada** (não truncada); métrica `ai_radar_entries_rejected_total{reason="oversize_body"}` incrementa; ver `crates/ai-radar-core/src/util/limits.rs`.
+- **Batch dentro do `poll_interval`**: fonte não é consultada até passar o intervalo; use `--source-id` para forçar.
+- **Só erros**: o CLI sai com código **1** apenas quando **todas** as fontes efetivamente polled falham.
 
 ## Troubleshooting
 

@@ -11,7 +11,7 @@
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(slice: `/metrics`, métricas collect, CLI `job_id` + logs `job.completed`; gauge pending / LLM cost / OTEL — backlog dentro da task)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
-| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(slice: RSS retry+jitter, `poll_interval` no batch collect, métrica `skipped_poll`; falta wrapper genérico, limits, chaos)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(limits centralizados, RSS rejeita oversize + métrica, README failure modes; falta wrapper genérico, chaos multi-fonte, reprocess)_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)

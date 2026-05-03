@@ -12,11 +12,10 @@ use uuid::Uuid;
 
 use super::{CollectError, Collector};
 use crate::domain::{NewRawItem, Source, SourceType};
+use crate::metrics;
 use crate::util::hash::collector_content_hash;
+use crate::util::limits;
 use crate::util::retry;
-
-/// Maximum size stored in `raw_items.raw_content` per collected entry.
-pub const MAX_RAW_BODY_BYTES: usize = 512 * 1024;
 
 /// RSS/Atom pull collector.
 #[derive(Debug, Clone)]
@@ -46,7 +45,12 @@ impl RssCollector {
             .build()
     }
 
-    fn map_entry(source_id: Uuid, source_feed_url: &str, entry: &Entry) -> Option<NewRawItem> {
+    fn map_entry(
+        source_id: Uuid,
+        source_type: SourceType,
+        source_feed_url: &str,
+        entry: &Entry,
+    ) -> Option<NewRawItem> {
         let url = first_entry_link(entry).unwrap_or_else(|| entry.id.clone());
         if url.trim().is_empty() {
             return None;
@@ -66,7 +70,17 @@ impl RssCollector {
         if raw_body.trim().is_empty() {
             raw_body.clone_from(&url);
         }
-        let raw_body = truncate_bytes(&raw_body, MAX_RAW_BODY_BYTES);
+        if raw_body.len() > limits::MAX_RAW_CONTENT_BYTES {
+            tracing::warn!(
+                source_id = %source_id,
+                bytes = raw_body.len(),
+                max = limits::MAX_RAW_CONTENT_BYTES,
+                "rss entry rejected: raw body exceeds configured limit"
+            );
+            metrics::record_entry_rejected(source_type, "oversize_body");
+            return None;
+        }
+        let raw_body = truncate_bytes(&raw_body, limits::MAX_RAW_CONTENT_BYTES);
 
         let published_at: Option<DateTime<Utc>> = entry.published.or(entry.updated);
 
@@ -174,7 +188,9 @@ impl Collector for RssCollector {
 
         let mut out = Vec::new();
         for entry in parsed.entries.iter().take(self.max_items) {
-            if let Some(item) = Self::map_entry(source.id, source.url.as_str(), entry) {
+            if let Some(item) =
+                Self::map_entry(source.id, source.source_type, source.url.as_str(), entry)
+            {
                 if item.validate().is_ok() {
                     out.push(item);
                 }
@@ -226,8 +242,13 @@ mod tests {
         let xml = include_str!("../../tests/fixtures/rss/minimal.rss");
         let parsed = parser::parse(Cursor::new(xml.as_bytes())).expect("parse");
         let entry = &parsed.entries[0];
-        let item = RssCollector::map_entry(Uuid::nil(), "https://example.com/minimal.xml", entry)
-            .expect("mapped");
+        let item = RssCollector::map_entry(
+            Uuid::nil(),
+            SourceType::Rss,
+            "https://example.com/minimal.xml",
+            entry,
+        )
+        .expect("mapped");
         assert_eq!(item.url, "https://example.com/posts/hello");
         assert_eq!(item.title.as_deref(), Some("Hello RSS"));
         assert!(item.raw_content.contains("Body"));
@@ -343,5 +364,48 @@ mod tests {
 
         let items = collector.collect(&source).await.expect("collect");
         assert_eq!(items.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn http_200_oversize_entry_dropped() {
+        use crate::util::limits;
+
+        let big = "b".repeat(limits::MAX_RAW_CONTENT_BYTES + 50);
+        let xml = format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>t</title>
+<item><title>big</title><link>https://example.com/p1</link>
+<description><![CDATA[{big}]]></description>
+</item></channel></rss>"#
+        );
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/huge.xml"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(xml))
+            .mount(&server)
+            .await;
+
+        let client = RssCollector::default_http_client().expect("client");
+        let collector = RssCollector::new(client, 50);
+        let source = Source {
+            id: Uuid::new_v4(),
+            name: "huge".into(),
+            source_type: SourceType::Rss,
+            url: format!("{}/huge.xml", server.uri()),
+            enabled: true,
+            poll_interval_minutes: 30,
+            last_polled_at: None,
+            last_error: None,
+            metadata_json: serde_json::json!({}),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        let items = collector.collect(&source).await.expect("collect");
+        assert!(
+            items.is_empty(),
+            "oversize description must not produce raw_items"
+        );
     }
 }

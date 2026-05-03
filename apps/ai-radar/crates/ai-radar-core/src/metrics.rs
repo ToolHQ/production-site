@@ -33,6 +33,10 @@ pub fn describe_metrics() {
         "ai_radar_sources_skipped_poll_total",
         "Sources not fetched because poll_interval has not elapsed since last_polled_at"
     );
+    describe_counter!(
+        "ai_radar_entries_rejected_total",
+        "Domain rows dropped before insert (oversize, validation, …)"
+    );
 }
 
 /// Emit counters and histogram after one `collect` pass completes.
@@ -67,4 +71,16 @@ pub fn record_collect_pass(
     }
     histogram!("ai_radar_stage_duration_seconds", "stage" => "collect")
         .record(elapsed.as_secs_f64());
+}
+
+/// One feed entry rejected during collect (e.g. body larger than [`crate::util::limits::MAX_RAW_CONTENT_BYTES`]).
+#[inline]
+pub fn record_entry_rejected(source_type: SourceType, reason: &'static str) {
+    let st = source_type.as_str();
+    counter!(
+        "ai_radar_entries_rejected_total",
+        "source_type" => st,
+        "reason" => reason
+    )
+    .increment(1);
 }
