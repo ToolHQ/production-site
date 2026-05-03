@@ -9,6 +9,7 @@
 use ai_radar_core::config::AppConfig;
 use ai_radar_core::db::Database;
 use ai_radar_core::domain::SourceType;
+use ai_radar_core::llm::{build_llm_provider, CompletionRequest};
 use ai_radar_core::pipeline::collect::run_collect;
 use ai_radar_core::telemetry;
 use anyhow::Context;
@@ -30,6 +31,15 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// One-shot chat completion against the configured LLM (smoke / ops).
+    LlmPing {
+        /// User message sent to the model.
+        #[arg(
+            long,
+            default_value = "Reply with only the lowercase word ok and nothing else."
+        )]
+        prompt: String,
+    },
     /// Fetch RSS/Atom feeds and insert idempotent `raw_items` rows.
     Collect {
         /// Process only this source id (must be enabled and match `--source-type`).
@@ -102,6 +112,30 @@ async fn run_collect_command(
     Ok(())
 }
 
+async fn run_llm_ping(prompt: String) -> anyhow::Result<()> {
+    let config = AppConfig::from_env().context("configuration")?;
+    telemetry::init_tracing(&config.log_level).context("tracing")?;
+
+    let provider = build_llm_provider(&config);
+    let req = CompletionRequest {
+        system: "You are a concise assistant.".into(),
+        user: prompt,
+        max_tokens: 64,
+        temperature: 0.0,
+        json_mode: false,
+    };
+
+    match provider.complete(req).await {
+        Ok(resp) => {
+            println!("{}", resp.content.trim());
+            Ok(())
+        }
+        Err(e) => {
+            anyhow::bail!("llm: {e}")
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     if cfg!(debug_assertions) {
@@ -111,6 +145,9 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Command::LlmPing { prompt } => {
+            run_llm_ping(prompt).await?;
+        }
         Command::Collect {
             source_id,
             source_type,

@@ -15,6 +15,7 @@ pub mod config;
 pub mod db;
 pub mod domain;
 pub mod langfuse_export;
+pub mod llm;
 pub mod metrics;
 pub mod pipeline;
 pub mod repos;

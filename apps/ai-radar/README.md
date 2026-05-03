@@ -115,14 +115,25 @@ just compose-down      # stop and drop volumes
 ```
 
 By default the API runs in **deterministic-only mode** (`LLM_ENABLED=false`).
-Set `LLM_ENABLED=true`, `LLM_API_KEY` and `LLM_MODEL` in `.env` once
-[`T-164`](../../tasks/2026/Q2/T-164-AI-Radar-LLM-Provider-Abstraction.md) lands.
+To hit a live model, set `LLM_ENABLED=true`, `LLM_API_KEY`, and `LLM_MODEL` in
+`.env` (see [`T-164`](../../tasks/2026/Q2/T-164-AI-Radar-LLM-Provider-Abstraction.md)).
+`LLM_BASE_URL` defaults to OpenRouter’s OpenAI-compatible API; override it for
+**Ollama** (`http://localhost:11434/v1`), **vLLM**, or any compatible gateway.
+
+**Free-tier OpenRouter models** (quotas and availability change with provider policy;
+fine for dev, less predictable under load):
+
+| Model | Notes |
+| --- | --- |
+| `meta-llama/llama-3.3-70b-instruct:free` | Strong general instruct; may queue when busy. |
+| `google/gemini-2.0-flash-exp:free` | Fast “flash” tier; experimental naming/stability. |
 
 ## CLI
 
 ```sh
 cargo run -p ai-radar-cli -- --help
 cargo run -p ai-radar-cli -- collect --help
+cargo run -p ai-radar-cli -- llm-ping --help
 ```
 
 **Collect ([`T-161`](../../tasks/2026/Q2/T-161-AI-Radar-RSS-Collector.md)).**
@@ -138,6 +149,16 @@ force one feed). RSS HTTP uses **retries** with jittered backoff on transient
 export DATABASE_URL='postgres://…?options=-csearch_path%3Dpublic'
 cargo run -p ai-radar-cli -- collect
 cargo run -p ai-radar-cli -- collect --source-id '<uuid>'
+```
+
+**`llm-ping` ([`T-164`](../../tasks/2026/Q2/T-164-AI-Radar-LLM-Provider-Abstraction.md)).**
+Runs one completion via `build_llm_provider` (honours `LLM_*`, retries on 429/5xx).
+Useful smoke test before wiring extract/score.
+
+```sh
+export LLM_ENABLED=true LLM_API_KEY='sk-or-…' LLM_MODEL='meta-llama/llama-3.3-70b-instruct:free'
+cargo run -p ai-radar-cli -- llm-ping
+cargo run -p ai-radar-cli -- llm-ping --prompt 'Say only: ok'
 ```
 
 Further subcommands (`extract`, `score`, `digest`, …) land in later epics. The
