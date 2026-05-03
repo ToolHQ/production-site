@@ -102,7 +102,11 @@ impl RetryPolicy {
 ///
 /// Returns the last `Err` from `op` when attempts are exhausted or the
 /// classifier returns [`RetryDirective::Abort`].
-pub async fn with_retry<T, E, F, Fut, C>(policy: RetryPolicy, mut op: F, mut classify: C) -> Result<T, E>
+pub async fn with_retry<T, E, F, Fut, C>(
+    policy: RetryPolicy,
+    mut op: F,
+    mut classify: C,
+) -> Result<T, E>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, E>>,
@@ -169,9 +173,7 @@ mod tests {
     #[tokio::test]
     async fn with_retry_succeeds_after_transient_failures() {
         let attempts = AtomicU32::new(0);
-        let policy = RetryPolicy {
-            max_attempts: 4,
-        };
+        let policy = RetryPolicy { max_attempts: 4 };
         let v = with_retry(
             policy,
             || {
@@ -184,9 +186,7 @@ mod tests {
                     }
                 }
             },
-            |_, _| RetryDirective::Again {
-                retry_after: None,
-            },
+            |_, _| RetryDirective::Again { retry_after: None },
         )
         .await
         .expect("ok");
