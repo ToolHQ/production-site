@@ -28,6 +28,13 @@ pub trait RawItemRepository: Send + Sync {
 
     /// Update the lifecycle status.
     async fn mark_status(&self, id: Uuid, status: RawItemStatus) -> RepoResult<RawItem>;
+
+    /// Flip up to `limit` rows from `pending` to `extracting` in one transaction
+    /// (`FOR UPDATE SKIP LOCKED`), oldest `collected_at` first.
+    async fn claim_pending_batch(&self, limit: i64) -> RepoResult<Vec<RawItem>>;
+
+    /// Append a JSON object to `metadata_json.extract_attempts` (creates the array if missing).
+    async fn append_extract_attempt(&self, id: Uuid, entry: serde_json::Value) -> RepoResult<()>;
 }
 
 const SELECT_COLS: &str = "id, source_id, external_id, url, title, raw_content, content_hash, \
@@ -147,6 +154,51 @@ impl RawItemRepository for PgRawItemRepository {
             .map_err(RepoError::from_sqlx)?
             .ok_or(RepoError::NotFound)?;
         row_to_raw_item(&row)
+    }
+
+    async fn claim_pending_batch(&self, limit: i64) -> RepoResult<Vec<RawItem>> {
+        let sql = format!(
+            "WITH picked AS ( \
+                 SELECT id FROM ai_radar.raw_items \
+                 WHERE status = 'pending' \
+                 ORDER BY collected_at ASC \
+                 LIMIT $1 \
+                 FOR UPDATE SKIP LOCKED \
+             ) \
+             UPDATE ai_radar.raw_items AS r \
+             SET status = 'extracting' \
+             FROM picked \
+             WHERE r.id = picked.id \
+             RETURNING {SELECT_COLS}"
+        );
+        let rows = sqlx::query(&sql)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RepoError::from_sqlx)?;
+        rows.iter().map(row_to_raw_item).collect()
+    }
+
+    async fn append_extract_attempt(&self, id: Uuid, entry: serde_json::Value) -> RepoResult<()> {
+        let res = sqlx::query(
+            "UPDATE ai_radar.raw_items SET \
+                 metadata_json = jsonb_set( \
+                     metadata_json, \
+                     '{extract_attempts}', \
+                     COALESCE(metadata_json #> '{extract_attempts}', '[]'::jsonb) \
+                         || jsonb_build_array($2::jsonb) \
+                 ) \
+             WHERE id = $1",
+        )
+        .bind(id)
+        .bind(entry)
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from_sqlx)?;
+        if res.rows_affected() == 0 {
+            return Err(RepoError::NotFound);
+        }
+        Ok(())
     }
 }
 
