@@ -264,6 +264,7 @@ kubectl -n ai-radar get pods,svc deploy/ai-radar-api
 kubectl -n ai-radar port-forward svc/ai-radar-api 18080:8080
 curl -fsS http://127.0.0.1:18080/health
 curl -fsS http://127.0.0.1:18080/metrics | head -30
+curl -fsS http://127.0.0.1:18080/stats
 curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
 ```
 
@@ -271,6 +272,7 @@ curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
 
 ```bash
 curl -fsS https://ai-radar.dnor.io/health
+curl -fsS https://ai-radar.dnor.io/stats
 curl -fsS https://ai-radar.dnor.io/metrics | grep ai_radar | head
 # fila extract: gauge atualizado a cada scrape
 curl -fsS https://ai-radar.dnor.io/metrics | grep ai_radar_pending_raw_items
