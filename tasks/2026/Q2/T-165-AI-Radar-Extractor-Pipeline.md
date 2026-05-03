@@ -1,6 +1,6 @@
 # T-165: AI Radar — Extractor Pipeline
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
@@ -16,26 +16,26 @@ Concurrency=1 no MVP (jobs curtos via cron, não worker 24/7).
 
 ## Tasks
 
-- [ ] `extractor/prompt.rs` exporta `EXTRACTOR_PROMPT_V1` (string) + `extractor_version() -> &str = "v1"`
-- [ ] Prompt instrui: "Responda somente JSON válido, sem Markdown, sem code fences"
-- [ ] Struct `ExtractedFields` em `extractor/schema.rs` deserializável (campos opcionais com `null` permitido)
-- [ ] Truncate de input a `MAX_EXTRACT_INPUT_TOKENS≈8000` (chars-aprox)
-- [ ] `pipeline/extract.rs::run(limit)` itera `raw_items WHERE status='pending'`
-- [ ] Chamada LLM via `LlmProvider` com `json_mode=true` quando suportado
-- [ ] Parser robusto: remove code fences se presentes
-- [ ] Retry com prompt corretivo: "Sua resposta anterior não foi JSON válido. Repita apenas o JSON, sem texto adicional"
-- [ ] Persistir `ExtractedItem` com `version=1` (ou +1 se reprocess); status do raw_item → `extracted` ou `extract_failed`
-- [ ] Auditoria: persistir `extract_attempts` em `metadata_json`
-- [ ] CLI subcommand `ai-radar extract [--limit N]` com sumário `extracted=X failed=Y`
-- [ ] Testes com Mock provider: JSON perfeito, JSON em code fence, JSON inválido em ambas tentativas
-- [ ] Endpoint `POST /extract/run` para trigger via API
+- [x] `extractor/prompt.rs` exporta `EXTRACTOR_PROMPT_V1` + `EXTRACTOR_VERSION` + `extractor_id()` (`llm-v1`)
+- [x] Prompt instrui JSON-only (sem markdown / code fences)
+- [x] Struct `ExtractedFields` em `extractor/schema.rs` deserializável (`Option` + `key_points` como `Value`)
+- [x] Truncate de input via `MAX_EXTRACT_INPUT_CHARS` (= 8000 chars, alinhado a `MAX_EXTRACT_INPUT_TOKENS`)
+- [x] `pipeline/extract::run_extract` + `claim_pending_batch` (`pending` → `extracting` FIFO, `SKIP LOCKED`)
+- [x] Chamada LLM via `LlmProvider` com `json_mode=true`
+- [x] Parser robusto (`strip_json_fences` + `serde_json`)
+- [x] Segunda tentativa com prompt corretivo + trecho da resposta anterior
+- [x] Persistir `ExtractedItem` (`extractor=llm-v1`, version auto); `raw_items.status` → `extracted` ou `failed` (SQL; não há `extract_failed`)
+- [x] Auditoria: `extract_attempts` em `extracted_items.metadata_json` (sucesso) e `raw_items.metadata_json` (falha)
+- [x] CLI `extract --limit N` → `extracted=X failed=Y`
+- [x] Testes `tests/extractor.rs` (mock JSON, fence, lixo×2)
+- [x] `POST /extract/run` na API
 
 ## DoD
 
 - `ai-radar extract --limit 10` processa até 10 items.
 - Mock retornando JSON válido → extracted_item criado.
 - Mock retornando ` ```json ... ``` ` → parse OK.
-- Mock retornando lixo nas 2 tentativas → `extract_failed`, raw_item preservado para retry futuro.
+- Mock retornando lixo nas 2 tentativas → `raw_items.status=failed` + `extract_attempts` no metadata (re-enfileirar manualmente se necessário).
 - Custo LLM logado por chamada.
 - Coverage testes ≥80%.
 

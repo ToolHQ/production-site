@@ -3,8 +3,8 @@
 //! Wires together configuration loading (figment env), JSON tracing,
 //! the request-id middleware, the database pool, the repositories
 //! shared via `AppState`, and the Axum router exposing `/` (redirect),
-//! `/health`, `/metrics`, and `/sources`. Future epics extend the router with items, digests,
-//! feedback, metrics, etc. — see `docs/AI-RADAR-DECISIONS.md`.
+//! `/health`, `/metrics`, `/sources`, and `POST /extract/run`. Future epics extend the router with digests,
+//! feedback, etc. — see `docs/AI-RADAR-DECISIONS.md`.
 
 #![forbid(unsafe_code)]
 #![warn(clippy::pedantic)]
@@ -16,6 +16,7 @@ mod routes;
 mod state;
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use ai_radar_core::config::AppConfig;
 use ai_radar_core::db::Database;
@@ -64,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
         .context("failed to install Prometheus metrics recorder")?;
     radar_metrics::describe_metrics();
 
-    let state = AppState::new(db, prometheus);
+    let state = AppState::new(db, prometheus, Arc::new(config.clone()));
     let app = router::build_router(state);
 
     let addr: SocketAddr = config

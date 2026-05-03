@@ -11,6 +11,7 @@ use ai_radar_core::db::Database;
 use ai_radar_core::domain::SourceType;
 use ai_radar_core::llm::{build_llm_provider, CompletionRequest};
 use ai_radar_core::pipeline::collect::run_collect;
+use ai_radar_core::pipeline::extract::run_extract;
 use ai_radar_core::telemetry;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
@@ -39,6 +40,12 @@ enum Command {
             default_value = "Reply with only the lowercase word ok and nothing else."
         )]
         prompt: String,
+    },
+    /// Turn `pending` `raw_items` into `extracted_items` via LLM (sequential).
+    Extract {
+        /// Max rows to claim per run.
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
     },
     /// Fetch RSS/Atom feeds and insert idempotent `raw_items` rows.
     Collect {
@@ -112,6 +119,48 @@ async fn run_collect_command(
     Ok(())
 }
 
+async fn run_extract_command(job_id: Uuid, limit: i64) -> anyhow::Result<()> {
+    let started = std::time::Instant::now();
+    let config = AppConfig::from_env().context("configuration")?;
+    telemetry::init_tracing(&config.log_level).context("tracing")?;
+
+    tracing::info!(
+        event = "job.started",
+        job = "extract",
+        job_id = %job_id,
+        limit,
+        "extract job started"
+    );
+
+    let database_url = config
+        .database_url
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required for extract"))?;
+
+    let db = Database::connect(&database_url)
+        .await
+        .map_err(|e| anyhow::anyhow!("database: {e}"))?;
+
+    let llm = build_llm_provider(&config);
+    let stats = run_extract(&db, &config, llm, limit.max(1))
+        .await
+        .context("extract pipeline")?;
+
+    tracing::info!(
+        event = "job.completed",
+        job = "extract",
+        job_id = %job_id,
+        extracted = stats.extracted,
+        failed = stats.failed,
+        duration_secs = started.elapsed().as_secs_f64(),
+        "extract job finished"
+    );
+
+    println!("extracted={} failed={}", stats.extracted, stats.failed);
+
+    Ok(())
+}
+
 async fn run_llm_ping(prompt: String) -> anyhow::Result<()> {
     let config = AppConfig::from_env().context("configuration")?;
     telemetry::init_tracing(&config.log_level).context("tracing")?;
@@ -147,6 +196,11 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Command::LlmPing { prompt } => {
             run_llm_ping(prompt).await?;
+        }
+        Command::Extract { limit } => {
+            let job_id = Uuid::new_v4();
+            let span = tracing::info_span!("extract_job", job_id = %job_id);
+            run_extract_command(job_id, limit).instrument(span).await?;
         }
         Command::Collect {
             source_id,
