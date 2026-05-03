@@ -10,7 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(slice: `/metrics`, métricas collect, CLI `job_id` + logs `job.completed`; gauge pending / LLM cost / OTEL — backlog dentro da task)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
+| [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(gauge `ai_radar_pending_raw_items` no scrape; stubs `otel` + Langfuse; collect com `raw_item_id` em trace de insert; falta LLM cost / OTEL real / testes integração)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
 
 
 ## 🔥 Blocker (Deploy back-end travado)

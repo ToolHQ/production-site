@@ -267,6 +267,8 @@ curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
 ```bash
 curl -fsS https://ai-radar.dnor.io/health
 curl -fsS https://ai-radar.dnor.io/metrics | grep ai_radar | head
+# fila extract: gauge atualizado a cada scrape
+curl -fsS https://ai-radar.dnor.io/metrics | grep ai_radar_pending_raw_items
 curl -fsS -H 'X-Request-Id: edge-001' https://ai-radar.dnor.io/sources
 ```
 

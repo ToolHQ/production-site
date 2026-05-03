@@ -12,6 +12,10 @@ description = "AI Radar — HTTP API (Axum)"
 name = "ai-radar-api"
 path = "src/main.rs"
 
+[features]
+default = []
+otel = ["ai-radar-core/otel"]
+
 [dependencies]
 ai-radar-core = { workspace = true }
 tokio = { workspace = true }

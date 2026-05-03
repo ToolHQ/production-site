@@ -60,6 +60,16 @@ pub fn init_tracing(level: &str) -> Result<(), TelemetryError> {
         .map_err(|_| TelemetryError::AlreadyInitialized)
 }
 
+/// Placeholder when the `otel` feature is enabled: confirms the feature gate
+/// compiles without pulling an OpenTelemetry SDK yet.
+#[cfg(feature = "otel")]
+pub fn init_otel_stub() {
+    tracing::warn!(
+        target: "ai_radar::otel",
+        "OpenTelemetry export is not wired; built with feature `otel` as a compile gate only"
+    );
+}
+
 // Tests intentionally omitted in T-159: `init_tracing` mutates global
 // state (the `tracing` global default subscriber) and parallel tests
 // would race against it. Coverage will arrive via integration tests
