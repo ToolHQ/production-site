@@ -1,6 +1,6 @@
 # T-173: AI Radar — Hardening
 
-- **Status**: Backlog
+- **Status**: In Progress _(slice 2026-05-02: `util/retry`, RSS fetch retries + `Retry-After`, batch collect honra `poll_interval`; wrapper genérico / chaos / limits — pendente)_
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
@@ -14,11 +14,11 @@ Fecha o ciclo de qualidade do MVP. Posiciona o sistema para operar autônomo no 
 
 ## Tasks
 
-- [ ] Wrapper `with_retry(op, policy)` em `util/retry.rs` com policies tipadas: `LlmDefault`, `HttpDefault`, `GitHub` (respeita `Retry-After`)
-- [ ] Jitter ±20% para evitar thundering herd
-- [ ] Aplicar wrapper em todos os call sites externos (RSS, GitHub, Web, LLM)
+- [ ] Wrapper `with_retry(op, policy)` em `util/retry.rs` com policies tipadas: `LlmDefault`, `HttpDefault`, `GitHub` (respeita `Retry-After`) — _hoje: helpers + loop dedicado no RSS_
+- [x] Jitter ±20% para evitar thundering herd
+- [ ] Aplicar wrapper em todos os call sites externos (RSS, GitHub, Web, LLM) — _RSS fetch coberto_
 - [ ] `limits.rs` centralizando: `MAX_RAW_CONTENT_BYTES=200_000`, `MAX_EXTRACT_INPUT_TOKENS=8000`, `MAX_CONCURRENT_LLM_REQUESTS=2`
-- [ ] Honrar `sources.poll_interval_minutes`: skipar source com `last_polled_at` recente
+- [x] Honrar `sources.poll_interval_minutes`: skipar source com `last_polled_at` recente _(batch collect; `--source-id` força)_
 - [ ] Migration `0005_versioning.up.sql` adicionando `version int NOT NULL DEFAULT 1` em `extracted_items` e `scores`
 - [ ] Endpoint `POST /items/:id/reprocess { stage: "extract"|"score"|"all" }` enfileira reprocessamento síncrono no MVP
 - [ ] CLI `ai-radar reprocess --item <id> --stage all`

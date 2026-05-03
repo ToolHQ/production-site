@@ -29,6 +29,10 @@ pub fn describe_metrics() {
         "ai_radar_stage_duration_seconds",
         "Wall-clock duration of pipeline stages"
     );
+    describe_counter!(
+        "ai_radar_sources_skipped_poll_total",
+        "Sources not fetched because poll_interval has not elapsed since last_polled_at"
+    );
 }
 
 /// Emit counters and histogram after one `collect` pass completes.
@@ -37,6 +41,7 @@ pub fn record_collect_pass(
     collected: u64,
     skipped: u64,
     source_errors: u64,
+    skipped_poll: u64,
     elapsed: Duration,
 ) {
     let source_type = filter.as_str();
@@ -52,6 +57,13 @@ pub fn record_collect_pass(
     .increment(skipped);
     if source_errors > 0 {
         counter!("ai_radar_errors_total", "stage" => "collect").increment(source_errors);
+    }
+    if skipped_poll > 0 {
+        counter!(
+            "ai_radar_sources_skipped_poll_total",
+            "source_type" => source_type
+        )
+        .increment(skipped_poll);
     }
     histogram!("ai_radar_stage_duration_seconds", "stage" => "collect")
         .record(elapsed.as_secs_f64());

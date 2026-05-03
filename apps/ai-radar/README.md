@@ -127,8 +127,12 @@ cargo run -p ai-radar-cli -- collect --help
 
 **Collect ([`T-161`](../../tasks/2026/Q2/T-161-AI-Radar-RSS-Collector.md)).**
 Requires `DATABASE_URL`. Polls every **enabled** RSS source (or `--source-id`),
-inserts idempotent `raw_items`, prints `collected=… skipped=… errors=…` and exits
-**1** only when **every** source fails.
+inserts idempotent `raw_items`, prints
+`collected=… skipped=… errors=… (N sources, M skipped poll)` and exits **1** only
+when **every polled source** fails. Batch runs **skip** sources still inside
+`sources.poll_interval_minutes` since `last_polled_at` (use `--source-id` to
+force one feed). RSS HTTP uses **retries** with jittered backoff on transient
+5xx / 429 (`Retry-After` capped at 120s).
 
 ```sh
 export DATABASE_URL='postgres://…?options=-csearch_path%3Dpublic'

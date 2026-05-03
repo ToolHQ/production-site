@@ -7,11 +7,13 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use feed_rs::model::Entry;
 use feed_rs::parser;
+use reqwest::StatusCode;
 use uuid::Uuid;
 
 use super::{CollectError, Collector};
 use crate::domain::{NewRawItem, Source, SourceType};
 use crate::util::hash::collector_content_hash;
+use crate::util::retry;
 
 /// Maximum size stored in `raw_items.raw_content` per collected entry.
 pub const MAX_RAW_BODY_BYTES: usize = 512 * 1024;
@@ -101,23 +103,58 @@ impl RssCollector {
     }
 
     async fn fetch_feed_xml(&self, feed_url: &str) -> Result<Vec<u8>, CollectError> {
-        let response = self
-            .client
-            .get(feed_url)
-            .send()
-            .await
-            .map_err(|e| CollectError::from_reqwest(&e))?;
-        let status = response.status();
-        if !status.is_success() {
-            return Err(CollectError::Fetch(format!(
-                "unexpected status {status} for {feed_url}"
-            )));
+        /// Initial attempt plus retries for transient HTTP / transport failures.
+        const MAX_ATTEMPTS: u32 = 4;
+        let mut retry_after_hint: Option<std::time::Duration> = None;
+
+        for attempt in 0..MAX_ATTEMPTS {
+            if attempt > 0 {
+                retry::sleep_before_http_retry(attempt - 1, retry_after_hint.take()).await;
+            }
+
+            let response = match self.client.get(feed_url).send().await {
+                Ok(r) => r,
+                Err(e) => {
+                    if attempt + 1 < MAX_ATTEMPTS && retry::reqwest_send_error_is_retryable(&e) {
+                        continue;
+                    }
+                    return Err(CollectError::from_reqwest(&e));
+                }
+            };
+
+            let status = response.status();
+            if retry::status_is_retryable(status) {
+                retry_after_hint = if status == StatusCode::TOO_MANY_REQUESTS {
+                    retry::parse_retry_after(response.headers())
+                } else {
+                    None
+                };
+                let _ = response.bytes().await;
+                if attempt + 1 < MAX_ATTEMPTS {
+                    continue;
+                }
+                return Err(CollectError::Fetch(format!(
+                    "unexpected status {status} for {feed_url} (after retries)"
+                )));
+            }
+
+            if !status.is_success() {
+                let _ = response.bytes().await;
+                return Err(CollectError::Fetch(format!(
+                    "unexpected status {status} for {feed_url}"
+                )));
+            }
+
+            return response
+                .bytes()
+                .await
+                .map_err(|e| CollectError::from_reqwest(&e))
+                .map(|b| b.to_vec());
         }
-        response
-            .bytes()
-            .await
-            .map_err(|e| CollectError::from_reqwest(&e))
-            .map(|b| b.to_vec())
+
+        Err(CollectError::Fetch(format!(
+            "exhausted retries fetching {feed_url}"
+        )))
     }
 }
 
@@ -198,7 +235,48 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn http_500_surfaces_fetch_error() {
+    async fn http_400_fails_fast_without_backoff_storm() {
+        use std::time::Duration;
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/bad.xml"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("no"))
+            .mount(&server)
+            .await;
+
+        let client = RssCollector::default_http_client().expect("client");
+        let collector = RssCollector::new(client, 50);
+        let source = Source {
+            id: Uuid::new_v4(),
+            name: "bad".into(),
+            source_type: SourceType::Rss,
+            url: format!("{}/bad.xml", server.uri()),
+            enabled: true,
+            poll_interval_minutes: 30,
+            last_polled_at: None,
+            last_error: None,
+            metadata_json: serde_json::json!({}),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        let started = std::time::Instant::now();
+        let err = collector.collect(&source).await.expect_err("400");
+        assert!(
+            started.elapsed() < Duration::from_millis(800),
+            "non-retryable status should not wait for backoff"
+        );
+        match err {
+            CollectError::Fetch(msg) => assert!(msg.contains("400"), "{msg}"),
+            e @ CollectError::Parse(_) => panic!("expected Fetch, got {e:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn http_500_surfaces_after_retries() {
+        use std::time::Duration;
+
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/feed.xml"))
@@ -222,9 +300,17 @@ mod tests {
             updated_at: Utc::now(),
         };
 
+        let started = std::time::Instant::now();
         let err = collector.collect(&source).await.expect_err("500");
+        assert!(
+            started.elapsed() < Duration::from_secs(12),
+            "retries should finish within bounded time"
+        );
         match err {
-            CollectError::Fetch(msg) => assert!(msg.contains("500"), "{msg}"),
+            CollectError::Fetch(msg) => assert!(
+                msg.contains("500") && msg.contains("after retries"),
+                "unexpected message: {msg}"
+            ),
             e @ CollectError::Parse(_) => panic!("expected Fetch, got {e:?}"),
         }
     }
