@@ -1,0 +1,59 @@
+---
+# Longhorn Settings — Custom overrides for the production-site cluster
+# Resource-constrained: ARM64 OCI nodes, 1 vCPU / 6 GB RAM per node
+#
+# Apply order: AFTER longhorn.yaml (core install).
+# Command: kubectl apply -f settings.yaml
+#
+# Each entry maps to a `settings.longhorn.io` CRD instance.
+# Verify live: kubectl get settings.longhorn.io <name> -n longhorn-system -o yaml
+#
+# T-202 2026-05-03: Initial versioning of all non-default settings applied to the cluster.
+#   - concurrent-automatic-engine-upgrade-per-node-limit=1 was the root cause
+#     of the v1.10.1→v1.11.1 engine migration stall (was 0/blocked). Fixed live
+#     2026-05-03; now versioned here.
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: concurrent-automatic-engine-upgrade-per-node-limit
+  namespace: longhorn-system
+  annotations:
+    # T-202: was 0 (blocked engine upgrade); raised to 1 to unblock v1.11.1 migration
+    management.longhorn.io/reason: "enable-auto-engine-upgrade"
+value: "1"
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: concurrent-replica-rebuild-per-node-limit
+  namespace: longhorn-system
+  annotations:
+    management.longhorn.io/reason: "resource-constrained-1vcpu"
+value: "1"
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: storage-over-provisioning-percentage
+  namespace: longhorn-system
+  annotations:
+    management.longhorn.io/reason: "disable-overprovisioning"
+value: "100"
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: storage-minimal-available-percentage
+  namespace: longhorn-system
+  annotations:
+    management.longhorn.io/reason: "keep-10pct-free"
+value: "10"
+---
+apiVersion: longhorn.io/v1beta2
+kind: Setting
+metadata:
+  name: node-drain-policy
+  namespace: longhorn-system
+  annotations:
+    management.longhorn.io/reason: "protect-last-replica-during-drain"
+value: "block-if-contains-last-replica"
