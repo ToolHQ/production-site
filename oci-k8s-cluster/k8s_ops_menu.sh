@@ -841,8 +841,16 @@ find_available_port() {
 discover_active_tunnels() {
     # Find SSH processes with LISTEN state (local port forwarding)
     # lsof output sample: ssh 347987 dnorio 4u IPv6 ... TCP [::1]:8443 (LISTEN)
-    # Use sudo to detect tunnels on privileged ports (owned by root)
-    local lsof_output=$(sudo lsof -i -P -n 2>/dev/null | grep -E '^ssh.*LISTEN')
+  # Never block startup with an interactive sudo prompt.
+  # 1) Try sudo non-interactive to include privileged listeners.
+  # 2) Fallback to plain lsof (unprivileged only).
+  local lsof_output=""
+  if command -v sudo >/dev/null 2>&1; then
+    lsof_output=$(sudo -n lsof -i -P -n 2>/dev/null | grep -E '^ssh.*LISTEN' || true)
+  fi
+  if [ -z "$lsof_output" ]; then
+    lsof_output=$(lsof -i -P -n 2>/dev/null | grep -E '^ssh.*LISTEN' || true)
+  fi
     
     if [ -z "$lsof_output" ]; then
         return 1
