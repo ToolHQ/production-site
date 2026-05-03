@@ -121,23 +121,50 @@ async fn process_one_source(
             let mut skipped = 0u64;
             for item in items {
                 match raw_repo.insert_idempotent(&item).await {
-                    Ok(Some(_)) => collected += 1,
-                    Ok(None) => skipped += 1,
+                    Ok(Some(row)) => {
+                        collected += 1;
+                        tracing::trace!(
+                            source_id = %source.id,
+                            raw_item_id = %row.id,
+                            external_id = ?item.external_id,
+                            "raw_item inserted"
+                        );
+                    }
+                    Ok(None) => {
+                        skipped += 1;
+                    }
                     Err(e) => {
-                        tracing::error!(source_id = %source.id, error = %e, "raw_items insert");
+                        tracing::error!(
+                            source_id = %source.id,
+                            external_id = ?item.external_id,
+                            error = %e,
+                            "raw_items insert failed"
+                        );
                     }
                 }
             }
             if let Err(e) = source_repo.touch_polled(source.id, None).await {
-                tracing::error!(source_id = %source.id, error = %e, "touch_polled success path");
+                tracing::error!(
+                    source_id = %source.id,
+                    error = %e,
+                    "touch_polled failed after successful collect"
+                );
             }
             OneSource::Ok { collected, skipped }
         }
         Err(e) => {
-            tracing::warn!(source_id = %source.id, error = %e, "collector failed");
+            tracing::warn!(
+                source_id = %source.id,
+                error = %e,
+                "RSS collector failed for source"
+            );
             let msg = format!("{e}");
             if let Err(te) = source_repo.touch_polled(source.id, Some(&msg)).await {
-                tracing::error!(source_id = %source.id, error = %te, "touch_polled error path");
+                tracing::error!(
+                    source_id = %source.id,
+                    error = %te,
+                    "touch_polled failed after collector error"
+                );
             }
             OneSource::Failed
         }

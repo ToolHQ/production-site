@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-use metrics::{counter, describe_counter, describe_histogram, histogram};
+use metrics::{counter, describe_counter, describe_gauge, describe_histogram, gauge, histogram};
 
 use crate::domain::SourceType;
 
@@ -29,6 +29,20 @@ pub fn describe_metrics() {
         "ai_radar_stage_duration_seconds",
         "Wall-clock duration of pipeline stages"
     );
+    describe_gauge!(
+        "ai_radar_pending_raw_items",
+        "raw_items rows in pending status awaiting extract"
+    );
+}
+
+/// Refresh gauge from DB count (call from `/metrics` before render).
+///
+/// `f64` has a 52-bit mantissa; counts beyond ~9e15 lose exact integers in Prometheus,
+/// which is acceptable for queue depth.
+#[inline]
+#[allow(clippy::cast_precision_loss)]
+pub fn set_pending_raw_items_count(count: i64) {
+    gauge!("ai_radar_pending_raw_items").set(count.max(0) as f64);
 }
 
 /// Emit counters and histogram after one `collect` pass completes.
