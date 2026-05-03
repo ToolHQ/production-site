@@ -41,6 +41,14 @@ pub fn describe_metrics() {
         "ai_radar_entries_rejected_total",
         "Domain rows dropped before insert (oversize, validation, …)"
     );
+    describe_counter!(
+        "ai_radar_extracted_total",
+        "raw_items successfully promoted to extracted_items by extract pass"
+    );
+    describe_counter!(
+        "ai_radar_extract_failed_total",
+        "raw_items marked failed after extract pass"
+    );
 }
 
 /// Refresh gauge from DB count (call from `/metrics` before render).
@@ -87,8 +95,18 @@ pub fn record_collect_pass(
         .record(elapsed.as_secs_f64());
 }
 
+/// Emit counters after one `extract` pass completes.
+pub fn record_extract_pass(extracted: u64, failed: u64, elapsed: Duration) {
+    counter!("ai_radar_extracted_total").increment(extracted);
+    counter!("ai_radar_extract_failed_total").increment(failed);
+    if failed > 0 {
+        counter!("ai_radar_errors_total", "stage" => "extract").increment(failed);
+    }
+    histogram!("ai_radar_stage_duration_seconds", "stage" => "extract")
+        .record(elapsed.as_secs_f64());
+}
+
 /// One feed entry rejected during collect (e.g. body larger than [`crate::util::limits::MAX_RAW_CONTENT_BYTES`]).
-#[inline]
 pub fn record_entry_rejected(source_type: SourceType, reason: &'static str) {
     let st = source_type.as_str();
     counter!(
