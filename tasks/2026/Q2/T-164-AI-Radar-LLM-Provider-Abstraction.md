@@ -1,6 +1,6 @@
 # T-164: AI Radar — LLM Provider Abstraction
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 4h
@@ -16,19 +16,19 @@ Modelos free OpenRouter sugeridos: `meta-llama/llama-3.3-70b-instruct:free`, `go
 
 ## Tasks
 
-- [ ] Trait `LlmProvider` async-trait em `ai-radar-core::llm` com `complete(req: CompletionRequest) -> Result<CompletionResponse>`
-- [ ] Tipos: `CompletionRequest { system, user, max_tokens, temperature, json_mode }`, `CompletionResponse { content, prompt_tokens, completion_tokens, model, latency_ms }`
-- [ ] `MockLlmProvider` retornando respostas pré-programadas por hash do prompt (testes)
-- [ ] `OpenRouterProvider` falando com `https://openrouter.ai/api/v1/chat/completions`
-- [ ] Headers OpenRouter: `Authorization: Bearer`, `HTTP-Referer`, `X-Title: ai-radar`
-- [ ] Mapear erros HTTP → `LlmError::{Auth, RateLimited, Server, Timeout, Parse}`
-- [ ] Suporte a `json_mode=true` (OpenAI `response_format: json_object`)
-- [ ] `build_provider(cfg) -> Arc<dyn LlmProvider>` em `factory.rs` decidindo Mock/Real conforme `LLM_ENABLED`
-- [ ] Wrapper retry com backoff exponencial (3 tries, 1/2/4s + jitter ±20%) apenas em `RateLimited`/`Server`
-- [ ] Tracing span por request com `model`, `prompt_tokens`, `completion_tokens`, `latency_ms`
-- [ ] Cálculo aproximado de custo (tabela hardcoded $/1M tokens) em log estruturado
-- [ ] Testes: mock HTTP com `wiremock` cobrindo 200/401/429/500/timeout
-- [ ] Documentar modelos free-tier OpenRouter no README com trade-offs
+- [x] Trait `LlmProvider` async-trait em `ai-radar-core::llm` com `complete(req: CompletionRequest) -> Result<CompletionResponse>`
+- [x] Tipos: `CompletionRequest { system, user, max_tokens, temperature, json_mode }`, `CompletionResponse { content, prompt_tokens, completion_tokens, model, latency_ms }`
+- [x] `MockLlmProvider` retornando respostas pré-programadas por hash do prompt (testes)
+- [x] `OpenRouterLlmProvider` falando com `{LLM_BASE_URL}/chat/completions` (default OpenRouter)
+- [x] Headers OpenRouter: `Authorization: Bearer`, `HTTP-Referer`, `X-Title: ai-radar`
+- [x] Mapear erros HTTP → `LlmError::{Auth, RateLimited, Server, Timeout, Parse}`
+- [x] Suporte a `json_mode=true` (OpenAI `response_format: json_object`)
+- [x] `build_llm_provider(cfg) -> Arc<dyn LlmProvider>` em `factory.rs` conforme `LLM_ENABLED` (+ `MisconfiguredLlmProvider` se init falhar)
+- [x] Wrapper retry com backoff (3 tries, 1s/2s/4s + jitter 0.8–1.2×) apenas em `RateLimited`/`Server`
+- [x] Tracing span por request com `model`, `prompt_tokens`, `completion_tokens`, `latency_ms`
+- [x] Cálculo aproximado de custo (`approx_cost_usd`) em log/span estruturado
+- [x] Testes: mock HTTP com `wiremock` cobrindo 200/401/429/500/timeout + `llm-ping` CLI
+- [x] Documentar modelos free-tier OpenRouter no README com trade-offs
 
 ## DoD
 
@@ -48,7 +48,7 @@ export LLM_BASE_URL=https://openrouter.ai/api/v1
 export LLM_API_KEY=sk-or-...
 export LLM_MODEL=meta-llama/llama-3.3-70b-instruct:free
 
-cargo test -p ai-radar-core --test llm_provider
+cargo test -p ai-radar-core --test llm_openrouter_wiremock
 
 # Smoke test manual (script ou repl)
 cargo run -p ai-radar-cli -- llm-ping --prompt "say ok"
