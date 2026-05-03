@@ -290,9 +290,15 @@ build/push **duas** imagens ARM64 — **`my-site-ai-radar-api`** (Deployment) e
 Kustomize + `kubectl apply` com tags **sincronizadas** (mesmo `TAG_VERSION`).
 
 Após o apply, `kubectl -n ai-radar get cronjobs` deve listar **`ai-radar-collect`**
-(agenda `*/30 * * * *`). Smoke ad-hoc:
+(`*/30 * * * *`), **`ai-radar-extract`** (`15,45 * * * *`), **`ai-radar-score`** (`5 * * * *`).
+Smoke ad-hoc (exemplos):
 
-`kubectl -n ai-radar create job --from=cronjob/ai-radar-collect collect-test-$(date +%s)`
+`kubectl -n ai-radar create job --from=cronjob/ai-radar-collect collect-test-$(date +%s)`  
+`kubectl -n ai-radar create job --from=cronjob/ai-radar-score score-test-$(date +%s)`
+
+**Secret `ai-radar-llm` (CronJob extract).** Opcional no Git; quando ausente, o extract roda sem `LLM_*` e falha cedo (`LLM_ENABLED must be true`). Para habilitar:
+
+`kubectl -n ai-radar create secret generic ai-radar-llm --from-literal=LLM_ENABLED=true --from-literal=LLM_API_KEY='…' --from-literal=LLM_MODEL='…'` (e opcionalmente `LLM_BASE_URL`, `LLM_TIMEOUT_SECONDS` — ver [`.env.example`](.env.example)).
 
  **`Secret ai-radar-database`** se ainda não existir (prioridade):
 
