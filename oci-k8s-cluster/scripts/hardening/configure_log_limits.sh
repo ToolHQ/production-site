@@ -89,7 +89,43 @@ EOF
 }
 
 for node in "${CLUSTER_NODES[@]}"; do
-    apply_node "$node" &
+    apply_node "$node"
+done
+echo -e "✅ All nodes configured.\n"
+
+# ---------------------------------------------------------------------------
+# Phase 2: Aggressive logrotate for rsyslog (T-202 2026-05-03)
+# Default Ubuntu logrotate keeps 7 rotations — syslog.1 can grow to 3G+.
+# Override: daily rotation, max 3 kept, compress immediately, maxsize 200M.
+# ---------------------------------------------------------------------------
+
+LOGROTATE_CONF='# T-202: aggressive syslog rotation (production-site cluster)
+# Prevents syslog.1 from accumulating >1G between daily runs.
+/var/log/syslog
+/var/log/auth.log
+/var/log/kern.log
+/var/log/daemon.log {
+    daily
+    rotate 3
+    compress
+    delaycompress
+    maxsize 200M
+    missingok
+    notifempty
+    sharedscripts
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
+}
+'
+
+echo -e "\n📝 Applying rsyslog logrotate policy (maxsize 200M, rotate 3)..."
+for node in "${CLUSTER_NODES[@]}"; do
+    echo "   [${node}] Deploying logrotate config..."
+    echo "$LOGROTATE_CONF" | ssh -T -o StrictHostKeyChecking=no "$node" \
+        "sudo tee /etc/logrotate.d/rsyslog-aggressive > /dev/null && \
+         sudo logrotate --force /etc/logrotate.d/rsyslog-aggressive 2>/dev/null; \
+         echo '   ✅ Done'" &
 done
 wait
-echo -e "✅ All nodes configured.\n"
+echo -e "✅ Logrotate policy deployed to all nodes.\n"

@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟢 Operacional — Coroot 1.18.6 / Nexus 3.91.1-alpine / Longhorn v1.11.1 live; todos os volumes healthy; longhorn-quota 3cpu/20cpu/24Gi (headroom ok); coroot+clickhouse pinados em node-1/node-3; engine image v1.11.1 deploying (upgrade gradual de volumes) | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional — Coroot 1.18.6 / Nexus 3.91.1-alpine / Longhorn v1.11.1 live; todos 9 volumes em v1.11.1 (ei-3154f3aa REFCOUNT=0); longhorn-quota 3cpu/24cpu/24Gi (headroom ok); coroot+clickhouse pinados em node-1/node-3; logrotate agressivo aplicado (200M maxsize, rotate 3) | **Next Milestone**: Observability & Resilience (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -42,6 +42,7 @@
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
 | [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — K8s onda 2 (CronJob collect + validação)** _(CronJob `ai-radar-collect`, dual-image deploy, Dockerfile.cli migrations fix PR #67, kubeconform CI + `just k8s-validate`; CronJobs extract/score/digest ficam para **T-165/T-166/T-169**)_ | 🔽 Low | AI Radar / DevExp / Infra | 1d |
 | [T-161](2026/Q2/T-161-AI-Radar-RSS-Collector.md) | **AI Radar — RSS Collector** _(feed-rs, dedup por content_hash, isolamento de erro por fonte, CLI collect)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| T-202 | **Longhorn Engine Upgrade IaC + Worker Log Cleanup TUI** _(versiona `concurrent-automatic-engine-upgrade-per-node-limit=1` em `components/longhorn/settings.yaml`; adiciona 4 settings não-default ao IaC; logrotate agressivo (200M maxsize, rotate 3) via `configure_log_limits.sh`; commands.sh atualizado para aplicar settings.yaml; unbloqueia migração automática de engine em upgrades futuros)_ | 🔼 High | Infra / IaC | 1h |
 | T-200 | **Longhorn-quota CPU Headroom + Coroot/ClickHouse Node Pinning** _(requests.cpu 1→3 (era 92% saturado); coroot pinado em k8s-node-1 + clickhouse pinado em k8s-node-3 via nodeSelector; elimina race condition FailedMount (T-195); PR #64)_ | 🔼 High | Infra / Stability | 1h |
 | T-199 | **Component Upgrades: Coroot 1.18.6 + Nexus 3.91.1-alpine + Longhorn v1.11.1** _(Coroot 1.18.6 via helm values tag override; Nexus 3.91.1-alpine live 200; Longhorn v1.11.1 rolling upgrade — longhorn-quota bumped 8→20cpu/12→24Gi para suportar novo longhorn-csi-plugin DaemonSet; engine image v1.11.1 deploying; PR #62)_ | 🔼 High | Infra / Upgrade | 4h |
 | T-198 | **Longhorn Instance-Manager Rollout Controlado** _(LimitRange 500m/512Mi aplicado; instance-managers reciclados; PR #60)_ | 🔼 High | Infra / Storage | 1h |
