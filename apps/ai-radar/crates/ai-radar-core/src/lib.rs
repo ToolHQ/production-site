@@ -20,6 +20,7 @@ pub mod llm;
 pub mod metrics;
 pub mod pipeline;
 pub mod repos;
+pub mod scorer;
 pub mod telemetry;
 pub mod util;
 

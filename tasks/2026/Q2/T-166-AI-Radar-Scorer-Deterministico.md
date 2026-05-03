@@ -1,6 +1,6 @@
 # T-166: AI Radar — Scorer Determinístico
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
@@ -21,18 +21,18 @@ Regras inicialmente como código (sem YAML externo). Migrar para config quando p
 
 ## Tasks
 
-- [ ] Struct `Rule { id, weight: i32, predicate: fn(&ExtractedItem) -> bool, reason: &str }` em `scorer/rules.rs`
-- [ ] `RuleSet::v1()` retorna lista hardcoded das ~18 regras do roadmap (positivas e negativas)
-- [ ] `Scorer::new(rules)` + `score(item) -> ScoreResult { score, decision, reasons, risks, next_step }`
-- [ ] Cap do score em ±100
-- [ ] `next_step` derivado da decision (template strings)
-- [ ] `pipeline/score.rs::run(limit)` itera `extracted_items` sem score recente (>24h ou nunca)
-- [ ] Persistir em `scores` com `scoring_version='v1'`, `reasons_json`, `risks_json`
-- [ ] CLI subcommand `ai-radar score [--limit N] [--rescore-all]`
-- [ ] Endpoint `POST /score/run`
-- [ ] Snapshot tests com 5 ExtractedItems sintéticos cobrindo cada decisão (`adopt`/`test`/`monitor`/`ignore`)
-- [ ] Property test: score ∈ [-100, 100], decision sempre dentro do enum
-- [ ] Documentar regras e pesos no `apps/ai-radar/README.md`
+- [x] Struct `Rule` + `RulePredicate` + slice estático `RULES_V1` em `scorer/rules.rs` (~20 regras roadmap)
+- [x] `Scorer::v1()` + `Scorer::with_rules` (testes) sobre `RULES_V1`
+- [x] `Scorer::score` → `ScoreResult { points, decision, reasons, risks, next_step, applied_rules }`
+- [x] Pontos inteiros com prior **50**, soma das regras, **clamp [0, 100]** → `scores.score = points/100` (`f32` em `[0,1]`)
+- [x] `next_step` por `Decision` (templates curtos)
+- [x] `pipeline/score::run_score` + `extracted_items.list_pending_scoring` (24h / nunca / `--rescore-all`)
+- [x] Persistência `scores` com `scoring_version='deterministic-v1'`, `reasons_json`, `risks_json`, `metadata_json`
+- [x] Migração `0003_scores_history` remove `UNIQUE (extracted_item_id, scoring_version)` para histórico
+- [x] CLI `score --limit --stale-hours --rescore-all`
+- [x] `POST /score/run`
+- [x] Testes `scorer_deterministic`: 5 fixtures (4 decisões + banda monitor) + property 800 seeds
+- [x] README com thresholds, CLI/API e ponteiro para `scorer/rules.rs`
 
 ## DoD
 
@@ -40,7 +40,7 @@ Regras inicialmente como código (sem YAML externo). Migrar para config quando p
 - 4 fixtures cobrindo cada decisão produzem decisão correta.
 - Reasons explicam pontos ganhos/perdidos.
 - Histórico preservado: rescoring não deleta scores antigos.
-- Coverage ≥85% (regras críticas).
+- Coverage ≥85% (regras críticas) — não medido com `llvm-cov` neste slice.
 
 ## Validação
 
@@ -48,7 +48,7 @@ Regras inicialmente como código (sem YAML externo). Migrar para config quando p
 cd apps/ai-radar
 cargo run -p ai-radar-cli -- score --limit 20
 
-psql $DATABASE_URL -c "SELECT decision, count(*) FROM ai_radar.scores WHERE scoring_version='v1' GROUP BY decision"
+psql $DATABASE_URL -c "SELECT decision, count(*) FROM ai_radar.scores WHERE scoring_version='deterministic-v1' GROUP BY decision"
 psql $DATABASE_URL -c "SELECT score, decision, reasons_json FROM ai_radar.scores ORDER BY created_at DESC LIMIT 5"
 
 cargo test -p ai-radar-core --test scorer_deterministic
