@@ -1,6 +1,6 @@
 # 📋 OCI Cluster Project Board
 
-**System Status**: 🟢 Operacional — Coroot 1.18.6 / Nexus 3.91.1-alpine / Longhorn v1.11.1 live; todos 9 volumes em v1.11.1 (ei-3154f3aa REFCOUNT=0); longhorn-quota 3cpu/24cpu/24Gi (headroom ok); coroot+clickhouse pinados em node-1/node-3; logrotate agressivo aplicado (200M maxsize, rotate 3) | **Next Milestone**: Observability & Resilience (Q2 2026)
+**System Status**: 🟢 Operacional — Coroot 1.18.6 / Nexus 3.91.1-alpine / Longhorn v1.11.1 live; todos 9 volumes em v1.11.1; longhorn-quota 3cpu/24cpu/24Gi (headroom ok); coroot+clickhouse pinados em node-1/node-3; logrotate agressivo aplicado (200M maxsize, rotate 3); TUI sudo não-interativo (T-203); repo limpo (0 worktrees stale, 0 branches stale) | **Next Milestone**: AI Radar — Coletores adicionais (Q2 2026)
 
 > **Incident 2026-04-03**: Longhorn instance-manager on node-1 was in `error` for 132 days
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
@@ -10,8 +10,6 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(gauge `ai_radar_pending_raw_items` no scrape; stubs `otel` + Langfuse; collect com `raw_item_id` em trace de insert; falta LLM cost / OTEL real / testes integração)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
-| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _`with_retry` + teste paralelo RSS; limits/oversize/poll/retry já no main; falta refator fetch, reprocess, chaos DB/LLM_ | 🔽 Low | AI Radar / DevExp | 1d |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -37,6 +35,9 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                  |  Priority   |         Owner         |  Est.  |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :----: |
+| T-203 | **TUI Sudo Não-Interativo** _(`discover_active_tunnels` usa `sudo -n lsof` com fallback para `lsof` sem sudo; elimina prompt de senha no startup do k8s_ops_menu.sh; PR #76)_ | 🔼 High | Infra / DevExp | 30m |
+| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(`with_retry` helper + teste paralelo RSS chaos; limits/oversize/poll/retry; PR #77+#78+#86 fechado como stale — conteúdo já em main)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(gauge `ai_radar_pending_raw_items` no scrape; `/metrics` Prometheus; `GET /stats` pipeline counts; PRs #70+#79 mergeados)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
 | [T-166](2026/Q2/T-166-AI-Radar-Scorer-Deterministico.md) | **AI Radar — Scorer Determinístico** _(regras versionadas v1, decisão por threshold, reasons explicáveis)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-165](2026/Q2/T-165-AI-Radar-Extractor-Pipeline.md) | **AI Radar — Extractor Pipeline** _(prompt v1, raw → extracted, fallback JSON, retry corretivo)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-164](2026/Q2/T-164-AI-Radar-LLM-Provider-Abstraction.md) | **AI Radar — LLM Provider Abstraction** _(trait LlmProvider + OpenRouter + Mock; deterministic-only quando LLM_ENABLED=false)_ | 🔽 Low | AI Radar / DevExp | 4h |
