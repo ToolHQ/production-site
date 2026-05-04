@@ -25,6 +25,7 @@
 5.  **GitFlow (MANDATORY)**: NEVER commit directly to `main`. ALWAYS create a new branch from the most updated `main` branch before making changes, and submit ALL changes via Pull Request (PR).
 6.  **Pull Requests (owned end-to-end by the agent)**: “Submit via PR” means the agent **opens** the PR (`gh pr create`), **watches** CI (`gh pr checks`, `gh pr view`), **fixes** failures, and **merges** when green — not a checklist left for the human to click links. Prefer `gh pr merge`; if another `git worktree` already has `main` checked out and the CLI refuses to touch local refs, merge via GitHub API (`gh api --method PUT …/pulls/{N}/merge`) instead of delegating. Never treat “here is the compare URL” as a complete handoff.
 7.  **Git worktrees (paralelismo)**: For long-lived branches, infra vs app work, or parallel agent/Copilot sessions, use **isolated `git worktree` directories** instead of switching branches in a single checkout. Keeps `main` comparison and rebases predictable. See **[docs/dev-worktrees.md](docs/dev-worktrees.md)**.
+8.  **Run deploys yourself (no “você rode aí”)**: When cluster delivery is in scope (merged manifests, image bumps, CronJobs, smoke), the agent **executes** the service’s **`./deploy.sh`** (or **`publish.sh`**) end-to-end — after `source oci-k8s-cluster/scripts/setup-dev-deploy.sh`, tunnel + `KUBECONFIG`, and the deploy-service skill. Verify with **`kubectl get`** / **`kubectl rollout status`** (or job logs). **Do not** close a task by only telling the operator to run `deploy.sh` unless execution is genuinely impossible from this environment (then state the concrete blocker: e.g. no SSH, buildx unreachable, missing secret material).
 
 **Personality**:
 
@@ -77,7 +78,7 @@ Reinaldinho, briefing de [DATA]:
 ```
 
 > **⚠️ Cluster Access**: Antes de executar qualquer `kubectl` no briefing, garantir tunnel ativo.
-> Ver skill: `.agents/skills/connect_to_cluster/SKILL.md`
+> Ver skill: `.agents/skills/connect-to-cluster/SKILL.md`
 
 ---
 
