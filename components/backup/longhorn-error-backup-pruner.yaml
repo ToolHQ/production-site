@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: longhorn-backup-pruner
+  namespace: longhorn-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: longhorn-backup-pruner
+  namespace: longhorn-system
+rules:
+  - apiGroups: ["longhorn.io"]
+    resources: ["backups"]
+    verbs: ["get", "list", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: longhorn-backup-pruner
+  namespace: longhorn-system
+subjects:
+  - kind: ServiceAccount
+    name: longhorn-backup-pruner
+    namespace: longhorn-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: longhorn-backup-pruner
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: longhorn-error-backup-pruner
+  namespace: longhorn-system
+spec:
+  schedule: "*/20 * * * *"
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: longhorn-backup-pruner
+          restartPolicy: Never
+          containers:
+            - name: pruner
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -ceu
+                - |
+                  echo "[$(date -Iseconds)] scanning backups in Error state..."
+                  ERRORS=$(kubectl get backups.longhorn.io -n longhorn-system -o jsonpath='{range .items[?(@.status.state=="Error")]}{.metadata.name}{"\n"}{end}')
+                  if [ -z "${ERRORS}" ]; then
+                    echo "no Error backups found"
+                    exit 0
+                  fi
+
+                  COUNT=$(printf '%s\n' "$ERRORS" | sed '/^$/d' | wc -l)
+                  echo "found ${COUNT} Error backups"
+
+                  printf '%s\n' "$ERRORS" | sed '/^$/d' | while read -r b; do
+                    kubectl patch backup.longhorn.io "$b" -n longhorn-system --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' >/dev/null 2>&1 || true
+                    kubectl delete backup.longhorn.io "$b" -n longhorn-system --ignore-not-found=true >/dev/null 2>&1 || true
+                    echo "pruned $b"
+                  done
+
+                  echo "prune completed"
