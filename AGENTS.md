@@ -97,3 +97,4 @@ Reinaldinho, briefing de [DATA]:
 | **Manage Tasks**            | `.agents/skills/manage-tasks/SKILL.md`                  | Atualizar KANBAN.md, criar tasks                                              |
 | **Operate K8s TUI**         | `.agents/skills/operate-k8s-tui/SKILL.md`               | Usar o `k8s_ops_menu.sh`                                                      |
 | **Dev worktrees**           | [docs/dev-worktrees.md](docs/dev-worktrees.md)          | Trabalho paralelo (várias branches) sem partilhar o mesmo diretório           |
+| **Full Stability Check**    | `.agents/skills/full-stability-check/SKILL.md`          | Verificação completa de todos os componentes do cluster (8 blocos, ordem de dependência) |
