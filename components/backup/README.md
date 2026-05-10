@@ -52,6 +52,8 @@ kubectl apply -f components/backup/longhorn-backup-target.yaml
 kubectl apply -f components/backup/etcd-backup-cronjob.yaml
 kubectl apply -f components/backup/snapshot-automation-rbac.yaml
 kubectl apply -f components/backup/snapshot-cronjob.yaml
+kubectl apply -f components/backup/longhorn-error-backup-pruner.yaml
+kubectl apply -f components/backup/minio-capacity-watchdog.yaml
 ```
 
 `components/backup/etcd-backup-cronjob.yaml` is the ETCD source of truth and contains both
@@ -79,6 +81,18 @@ Audit stale Longhorn backup generations:
 
 ```bash
 components/backup/cleanup-longhorn-stale-backupvolumes.sh
+```
+
+Auto-prune Longhorn backups in `Error` state (anti-storm):
+
+```bash
+kubectl apply -f components/backup/longhorn-error-backup-pruner.yaml
+```
+
+Watch MinIO capacity (`WARNING >= 75%`, `CRITICAL >= 85%`):
+
+```bash
+kubectl apply -f components/backup/minio-capacity-watchdog.yaml
 ```
 
 Audit legacy ETCD artifacts in Google Drive:
