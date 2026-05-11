@@ -11,6 +11,7 @@ use ai_radar_core::db::Database;
 use ai_radar_core::domain::SourceType;
 use ai_radar_core::llm::{build_llm_provider, CompletionRequest};
 use ai_radar_core::pipeline::collect::run_collect;
+use ai_radar_core::pipeline::digest::{run_digest, DigestKind, DigestLimits};
 use ai_radar_core::pipeline::extract::run_extract;
 use ai_radar_core::pipeline::score::{run_score, DEFAULT_SCORE_STALE_HOURS};
 use ai_radar_core::telemetry;
@@ -68,6 +69,15 @@ enum Command {
         /// Filter sources by discriminator (`rss` today; GitHub arrives in T-162).
         #[arg(long, default_value = "rss")]
         source_type: String,
+    },
+    /// Generate a Markdown digest and persist it in `ai_radar.digests`.
+    Digest {
+        /// Generate a daily digest (last 24h).
+        #[arg(long, action = ArgAction::SetTrue)]
+        daily: bool,
+        /// Generate a weekly digest (last 7 days).
+        #[arg(long, action = ArgAction::SetTrue)]
+        weekly: bool,
     },
 }
 
@@ -222,6 +232,45 @@ async fn run_extract_command(job_id: Uuid, limit: i64) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn run_digest_command(job_id: Uuid, kind: DigestKind) -> anyhow::Result<()> {
+    let started = std::time::Instant::now();
+    let config = AppConfig::from_env().context("configuration")?;
+    telemetry::init_tracing(&config.log_level).context("tracing")?;
+
+    tracing::info!(
+        event = "job.started",
+        job = "digest",
+        job_id = %job_id,
+        kind = %kind.as_digest_type().as_str(),
+        "digest job started"
+    );
+
+    let database_url = config
+        .database_url
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required for digest"))?;
+
+    let db = Database::connect(&database_url)
+        .await
+        .map_err(|e| anyhow::anyhow!("database: {e}"))?;
+
+    let digest_id = run_digest(&db, kind, DigestLimits::default())
+        .await
+        .context("digest pipeline")?;
+
+    tracing::info!(
+        event = "job.completed",
+        job = "digest",
+        job_id = %job_id,
+        digest_id = %digest_id,
+        duration_secs = started.elapsed().as_secs_f64(),
+        "digest job finished"
+    );
+
+    println!("digest_id={digest_id}");
+    Ok(())
+}
+
 async fn run_llm_ping(prompt: String) -> anyhow::Result<()> {
     let config = AppConfig::from_env().context("configuration")?;
     telemetry::init_tracing(&config.log_level).context("tracing")?;
@@ -283,6 +332,16 @@ async fn main() -> anyhow::Result<()> {
             run_collect_command(job_id, source_id, source_type)
                 .instrument(span)
                 .await?;
+        }
+        Command::Digest { daily, weekly } => {
+            let kind = match (daily, weekly) {
+                (true, false) => DigestKind::Daily,
+                (false, true) => DigestKind::Weekly,
+                _ => anyhow::bail!("exactly one of --daily or --weekly must be set"),
+            };
+            let job_id = Uuid::new_v4();
+            let span = tracing::info_span!("digest_job", job_id = %job_id);
+            run_digest_command(job_id, kind).instrument(span).await?;
         }
     }
 
