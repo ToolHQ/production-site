@@ -6,16 +6,17 @@
 - **Estimation**: 2d
 
 ## Context
+
 Após o merge da PR #35 (T-154 Onda 1) e abertura da PR #36 (T-154 Onda 2 lote 1),
 o `apps/react-static` permaneceu com backlog crítico de vulnerabilidades Dependabot.
 
 Evidência objetiva levantada em 2026-04-26:
 
 - `apps/react-static` com 59 vulnerabilidades abertas via `npm audit`
-	- 1 critical
-	- 28 high
-	- 16 moderate
-	- 14 low
+  - 1 critical
+  - 28 high
+  - 16 moderate
+  - 14 low
 - Grande parte da superfície está ancorada em cadeia legacy do `react-scripts@5.0.1`,
   exigindo upgrade de toolchain e/ou migração para stack mais atual.
 
@@ -23,8 +24,8 @@ Restrições operacionais:
 
 - Ambiente `Stability First`: não fazer migração big-bang.
 - Preferir rollout em duas etapas:
-	1. endurecimento sem troca de framework de build (quando possível)
-	2. migração de toolchain com validação funcional e rollback explícito
+  1.  endurecimento sem troca de framework de build (quando possível)
+  2.  migração de toolchain com validação funcional e rollback explícito
 
 Arquivos-chave:
 
@@ -34,6 +35,7 @@ Arquivos-chave:
 - `tasks/2026/Q2/T-154-Dependabot-Security-Remediation-Program.md`
 
 ## Tasks
+
 - [x] Consolidar baseline de vulnerabilidades e classificar por severidade
 - [x] Registrar task dedicada em In Progress no KANBAN
 - [x] Mapear estratégia alvo de toolchain (react-scripts hardening vs migração para Vite)

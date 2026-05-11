@@ -51,14 +51,14 @@ Guardrails:
 
 - Total de alertas abertos: 173
 - Por severidade:
-	- critical: 4
-	- high: 77
-	- medium: 62
-	- low: 30
+  - critical: 4
+  - high: 77
+  - medium: 62
+  - low: 30
 - Por ecossistema:
-	- npm: 152
-	- rust: 20
-	- pip: 1
+  - npm: 152
+  - rust: 20
+  - pip: 1
 
 Comando utilizado:
 
@@ -67,23 +67,23 @@ Comando utilizado:
 ### Estratégia por ondas (2026-04-26)
 
 1. Onda 1 (baixo risco):
-	- fixes patch/minor e overrides cirúrgicos em dependências transitivas
-	- foco inicial em `apps/back-end` (escopo menor e gates já ativos)
+   - fixes patch/minor e overrides cirúrgicos em dependências transitivas
+   - foco inicial em `apps/back-end` (escopo menor e gates já ativos)
 2. Onda 2 (risco moderado):
-	- atualização de bibliotecas de app em `apps/static` e `apps/react-static`
-	- validação por build/typecheck/lint por stack
+   - atualização de bibliotecas de app em `apps/static` e `apps/react-static`
+   - validação por build/typecheck/lint por stack
 3. Onda 3 (risco alto):
-	- upgrades major e remediações que exigem ajuste de código
-	- execução fatiada por pacote e evidência de regressão controlada
+   - upgrades major e remediações que exigem ajuste de código
+   - execução fatiada por pacote e evidência de regressão controlada
 
 ### Onda 1 — Lote inicial concluído (apps/back-end)
 
 - Ajustes realizados:
   - `ajv` atualizado para `8.18.0` (dependência direta)
   - `overrides` adicionados para:
-	 - `tar` -> `7.5.11`
-	 - `qs` -> `6.14.2`
-	 - `path-to-regexp` -> `0.1.13`
+  - `tar` -> `7.5.11`
+  - `qs` -> `6.14.2`
+  - `path-to-regexp` -> `0.1.13`
 - Resultado técnico observado com `npm ls`:
   - `tar@7.5.11 overridden`
   - `qs@6.14.2 overridden`
@@ -105,26 +105,26 @@ Resultado:
 ### CI stabilization (PR #35)
 
 - Qualidade do back-end no GitHub Actions estava falhando por dependência de host privado no lockfile:
-	- erro observado: `getaddrinfo ENOTFOUND nexus.dnor.io`
+  - erro observado: `getaddrinfo ENOTFOUND nexus.dnor.io`
 - Ajuste aplicado em `.github/workflows/quality-gates.yml`:
-	- preflight de reachability do Nexus no runner
-	- quando indisponível, gates de install/typecheck/lint do back-end são pulados com warning explícito
+  - preflight de reachability do Nexus no runner
+  - quando indisponível, gates de install/typecheck/lint do back-end são pulados com warning explícito
 - Resultado no PR #35:
-	- `Quality Gates/Detect changed paths`: success
-	- `Quality Gates/JS quality gates (back-end)`: success (skip controlado por reachability)
+  - `Quality Gates/Detect changed paths`: success
+  - `Quality Gates/JS quality gates (back-end)`: success (skip controlado por reachability)
 
 ### Baseline pós-merge da PR #35 (2026-04-26)
 
 - Total de alertas abertos: 163
 - Por severidade:
-	- critical: 4
-	- high: 70
-	- medium: 60
-	- low: 29
+  - critical: 4
+  - high: 70
+  - medium: 60
+  - low: 29
 - Por ecossistema:
-	- npm: 142
-	- rust: 20
-	- pip: 1
+  - npm: 142
+  - rust: 20
+  - pip: 1
 
 Comando utilizado:
 
@@ -133,12 +133,12 @@ Comando utilizado:
 ### Onda 2 — Lote 1 concluído (apps/static)
 
 - Ajustes realizados em dependências diretas:
-	- `axios` -> `1.15.2`
-	- `webpack` -> `5.106.2`
-	- `webpack-dev-server` -> `5.2.3`
+  - `axios` -> `1.15.2`
+  - `webpack` -> `5.106.2`
+  - `webpack-dev-server` -> `5.2.3`
 - Resultado de segurança no `apps/static`:
-	- antes: 6 vulnerabilidades (1 high, 5 moderate)
-	- depois: 4 vulnerabilidades (0 high, 4 moderate)
+  - antes: 6 vulnerabilidades (1 high, 5 moderate)
+  - depois: 4 vulnerabilidades (0 high, 4 moderate)
 
 Comandos de validação executados:
 
@@ -164,28 +164,28 @@ Resultado:
 
 - Ação executada: hardening sem `--force` via `npm audit fix` em `apps/react-static`.
 - Resultado de segurança:
-	- antes: 59 vulnerabilidades (1 critical, 28 high, 16 moderate, 14 low)
-	- depois: 28 vulnerabilidades (0 critical, 14 high, 5 moderate, 9 low)
+  - antes: 59 vulnerabilidades (1 critical, 28 high, 16 moderate, 14 low)
+  - depois: 28 vulnerabilidades (0 critical, 14 high, 5 moderate, 9 low)
 - Validação funcional local:
-	- `npm run typecheck`: PASS
-	- `npm run build`: PASS
-	- `npm run test:ci`: PASS (no tests found)
+  - `npm run typecheck`: PASS
+  - `npm run build`: PASS
+  - `npm run test:ci`: PASS (no tests found)
 - Residual de risco principal:
-	- cadeia de dependências legado ligada a `react-scripts@5.0.1`
-	- redução adicional relevante exige migração de toolchain em trilha dedicada (T-155)
+  - cadeia de dependências legado ligada a `react-scripts@5.0.1`
+  - redução adicional relevante exige migração de toolchain em trilha dedicada (T-155)
 
 ### Baseline pós-merge da PR #37 (2026-04-26)
 
 - Total de alertas abertos: 42
 - Por severidade:
-	- critical: 2
-	- high: 9
-	- medium: 21
-	- low: 10
+  - critical: 2
+  - high: 9
+  - medium: 21
+  - low: 10
 - Por ecossistema:
-	- npm: 21
-	- rust: 20
-	- pip: 1
+  - npm: 21
+  - rust: 20
+  - pip: 1
 
 Comando utilizado:
 
@@ -195,14 +195,14 @@ Comando utilizado:
 
 - Ação executada: migração controlada de toolchain `react-scripts` -> `Vite/Vitest` em `apps/react-static`.
 - Resultado de segurança no app:
-	- antes: 28 vulnerabilidades (0 critical, 14 high, 5 moderate, 9 low)
-	- depois: 5 vulnerabilidades (0 critical, 0 high, 5 moderate, 0 low)
+  - antes: 28 vulnerabilidades (0 critical, 14 high, 5 moderate, 9 low)
+  - depois: 5 vulnerabilidades (0 critical, 0 high, 5 moderate, 0 low)
 - Validação funcional local:
-	- `npm run typecheck`: PASS
-	- `npm run build`: PASS
-	- `npm run test:ci`: PASS (no tests found)
+  - `npm run typecheck`: PASS
+  - `npm run build`: PASS
+  - `npm run test:ci`: PASS (no tests found)
 - Qualidade de CI:
-	- gate `JS quality gates (react-static)` atualizado para incluir `build`
+  - gate `JS quality gates (react-static)` atualizado para incluir `build`
 
 Residual atual:
 
@@ -242,14 +242,14 @@ Onda 3 finalizada com sucesso. PR mesclado em `main`.
 
 - Total de alertas abertos: 13 (redução massiva de 173 para 13)
 - Por severidade:
-	- critical: 0 (eram 4)
-	- high: 1 (eram 77)
-	- medium: 7 (eram 62)
-	- low: 5 (eram 30)
+  - critical: 0 (eram 4)
+  - high: 1 (eram 77)
+  - medium: 7 (eram 62)
+  - low: 5 (eram 30)
 - Por ecossistema:
-	- npm: 5
-	- rust: 7
-	- pip: 1
+  - npm: 5
+  - rust: 7
+  - pip: 1
 
 Comando utilizado:
 
