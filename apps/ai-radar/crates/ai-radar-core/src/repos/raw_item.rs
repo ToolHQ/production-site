@@ -157,6 +157,13 @@ impl RawItemRepository for PgRawItemRepository {
     }
 
     async fn claim_pending_batch(&self, limit: i64) -> RepoResult<Vec<RawItem>> {
+        // Qualify every column with `r.` to avoid "column reference 'id' is ambiguous"
+        // when PostgreSQL sees both `raw_items AS r` and the `picked` CTE in scope.
+        let returning = SELECT_COLS
+            .split(", ")
+            .map(|c| format!("r.{c}"))
+            .collect::<Vec<_>>()
+            .join(", ");
         let sql = format!(
             "WITH picked AS ( \
                  SELECT id FROM ai_radar.raw_items \
@@ -169,7 +176,7 @@ impl RawItemRepository for PgRawItemRepository {
              SET status = 'extracting' \
              FROM picked \
              WHERE r.id = picked.id \
-             RETURNING {SELECT_COLS}"
+             RETURNING {returning}"
         );
         let rows = sqlx::query(&sql)
             .bind(limit)
