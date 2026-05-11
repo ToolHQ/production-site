@@ -33,15 +33,7 @@ kubectl apply -f snapshot-automation-rbac.yaml
 echo "  - Applying Snapshot CronJob..."
 kubectl apply -f snapshot-cronjob.yaml
 
-# 7. Longhorn Error backup pruner (anti-storm)
-echo "  - Applying Longhorn Error backup pruner CronJob..."
-kubectl apply -f longhorn-error-backup-pruner.yaml
-
-# 8. MinIO capacity watchdog
-echo "  - Applying MinIO capacity watchdog CronJob..."
-kubectl apply -f minio-capacity-watchdog.yaml
-
-# 9. Verify minio-secret exists in longhorn-system
+# 7. Verify minio-secret exists in longhorn-system
 if kubectl get secret minio-secret -n longhorn-system &>/dev/null; then
     echo "  - ✅ minio-secret exists in longhorn-system"
 else
@@ -59,7 +51,7 @@ else
     echo "     See: components/backup/longhorn-backup-secret.template.yaml"
 fi
 
-# 10. Verify minio-secret exists in kube-system for ETCD upload/prune
+# 8. Verify minio-secret exists in kube-system for ETCD upload/prune
 if kubectl get secret minio-secret -n kube-system &>/dev/null; then
     echo "  - ✅ minio-secret exists in kube-system"
 else
@@ -77,8 +69,6 @@ else
 fi
 
 echo "  - ℹ️  ETCD backup/prune IaC: components/backup/etcd-backup-cronjob.yaml"
-echo "  - ℹ️  Longhorn Error backup pruner: components/backup/longhorn-error-backup-pruner.yaml"
-echo "  - ℹ️  MinIO capacity watchdog: components/backup/minio-capacity-watchdog.yaml"
 echo "  - ℹ️  Per-PVC backup groups: components/backup/apply-volume-backup-policy.sh"
 echo "  - ℹ️  Legacy Longhorn cleanup audit: components/backup/cleanup-longhorn-stale-backupvolumes.sh"
 echo "  - ℹ️  Legacy GDrive ETCD cleanup: oci-k8s-cluster/scripts/cloud_ops/cleanup_gdrive_etcd_legacy.sh"

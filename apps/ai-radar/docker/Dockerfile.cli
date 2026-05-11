@@ -14,41 +14,41 @@ ARG BUILDPLATFORM
 ARG TARGETPLATFORM
 
 ENV CARGO_TERM_COLOR=never \
-    CARGO_INCREMENTAL=0 \
-    RUSTFLAGS="-C strip=symbols" \
-    DEBIAN_FRONTEND=noninteractive
+  CARGO_INCREMENTAL=0 \
+  RUSTFLAGS="-C strip=symbols" \
+  DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-    build-essential pkg-config \
- && ARCH="$(uname -m)" \
- && if [ "$ARCH" = "x86_64" ] && [ "$TARGETARCH" = "arm64" ]; then \
-      apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu ; \
-    elif [ "$ARCH" = "aarch64" ] && [ "$TARGETARCH" = "amd64" ]; then \
-      apt-get install -y --no-install-recommends gcc-x86-64-linux-gnu ; \
-    fi \
- && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends \
+  build-essential pkg-config \
+  && ARCH="$(uname -m)" \
+  && if [ "$ARCH" = "x86_64" ] && [ "$TARGETARCH" = "arm64" ]; then \
+  apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu ; \
+  elif [ "$ARCH" = "aarch64" ] && [ "$TARGETARCH" = "amd64" ]; then \
+  apt-get install -y --no-install-recommends gcc-x86-64-linux-gnu ; \
+  fi \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
 RUN set -eux; \
   case "$TARGETARCH" in \
-    amd64) RUST_TARGET=x86_64-unknown-linux-gnu; LINKER=x86_64-linux-gnu-gcc ;; \
-    arm64) RUST_TARGET=aarch64-unknown-linux-gnu; LINKER=aarch64-linux-gnu-gcc ;; \
-    *) echo >&2 "unsupported TARGETARCH=$TARGETARCH"; exit 1 ;; \
+  amd64) RUST_TARGET=x86_64-unknown-linux-gnu; LINKER=x86_64-linux-gnu-gcc ;; \
+  arm64) RUST_TARGET=aarch64-unknown-linux-gnu; LINKER=aarch64-linux-gnu-gcc ;; \
+  *) echo >&2 "unsupported TARGETARCH=$TARGETARCH"; exit 1 ;; \
   esac; \
   echo "$RUST_TARGET" > rust-target.txt; \
   rustup target add "$RUST_TARGET"; \
   ARCH="$(uname -m)"; \
   NEED_CROSS=0; \
   case "$ARCH" in \
-    x86_64) [ "$TARGETARCH" != "amd64" ] && NEED_CROSS=1 ;; \
-    aarch64) [ "$TARGETARCH" != "arm64" ] && NEED_CROSS=1 ;; \
-    *) echo >&2 "unexpected builder uname $ARCH"; exit 1 ;; \
+  x86_64) [ "$TARGETARCH" != "amd64" ] && NEED_CROSS=1 ;; \
+  aarch64) [ "$TARGETARCH" != "arm64" ] && NEED_CROSS=1 ;; \
+  *) echo >&2 "unexpected builder uname $ARCH"; exit 1 ;; \
   esac; \
   if [ "$NEED_CROSS" -eq 1 ]; then \
-    mkdir -p .cargo; \
-    printf '[target.%s]\nlinker = "%s"\n' "$RUST_TARGET" "$LINKER" > .cargo/config.toml; \
+  mkdir -p .cargo; \
+  printf '[target.%s]\nlinker = "%s"\n' "$RUST_TARGET" "$LINKER" > .cargo/config.toml; \
   fi
 
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
@@ -57,30 +57,35 @@ COPY crates/ai-radar-api/Cargo.toml  crates/ai-radar-api/Cargo.toml
 COPY crates/ai-radar-cli/Cargo.toml  crates/ai-radar-cli/Cargo.toml
 
 RUN mkdir -p crates/ai-radar-core/src crates/ai-radar-api/src crates/ai-radar-cli/src \
- && echo 'pub const VERSION: &str = "0.0.0-stub";' > crates/ai-radar-core/src/lib.rs \
- && printf 'fn main() {}\n' > crates/ai-radar-api/src/main.rs \
- && printf 'fn main() {}\n' > crates/ai-radar-cli/src/main.rs
+  && echo 'pub const VERSION: &str = "0.0.0-stub";' > crates/ai-radar-core/src/lib.rs \
+  && printf 'fn main() {}\n' > crates/ai-radar-api/src/main.rs \
+  && printf 'fn main() {}\n' > crates/ai-radar-cli/src/main.rs
 
-RUN cargo fetch --locked
+RUN --mount=type=cache,id=cargo-registry-cli,target=/usr/local/cargo/registry \
+  cargo fetch --locked
 
-RUN RUST_TARGET="$(cat rust-target.txt)" \
- && cargo build --release --locked --bin ai-radar --target "$RUST_TARGET"
+RUN --mount=type=cache,id=cargo-registry-cli,target=/usr/local/cargo/registry \
+  --mount=type=cache,id=cargo-target-cli,target=/workspace/target \
+  RUST_TARGET="$(cat rust-target.txt)" \
+  && cargo build --release --locked --bin ai-radar --target "$RUST_TARGET"
 
 COPY crates/ crates/
 COPY migrations/ migrations/
 
 RUN find crates -name '*.rs' -exec touch {} +
-RUN RUST_TARGET="$(cat rust-target.txt)" \
- && cargo build --release --locked --bin ai-radar --target "$RUST_TARGET" \
- && cp "target/$RUST_TARGET/release/ai-radar" /workspace/ai-radar.binary
+RUN --mount=type=cache,id=cargo-registry-cli,target=/usr/local/cargo/registry \
+  --mount=type=cache,id=cargo-target-cli,target=/workspace/target \
+  RUST_TARGET="$(cat rust-target.txt)" \
+  && cargo build --release --locked --bin ai-radar --target "$RUST_TARGET" \
+  && cp "target/$RUST_TARGET/release/ai-radar" /workspace/ai-radar.binary
 
 # ── Runtime ───────────────────────────────────────────────────────────────
 FROM --platform=$TARGETPLATFORM gcr.io/distroless/cc-debian12:nonroot AS runtime
 
 LABEL org.opencontainers.image.title="ai-radar-cli" \
-      org.opencontainers.image.description="AI Radar Decision Engine — CronJob CLI" \
-      org.opencontainers.image.source="https://github.com/dnorio/production-site" \
-      org.opencontainers.image.licenses="MIT"
+  org.opencontainers.image.description="AI Radar Decision Engine — CronJob CLI" \
+  org.opencontainers.image.source="https://github.com/dnorio/production-site" \
+  org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
 

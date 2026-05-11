@@ -41,6 +41,7 @@ kubectl get nodes --no-headers   # espera: 4 Ready
   - Esperado: `maxsize 200M`, `rotate 3`, `su root adm` em todos os nós
 
 #### Comandos Block 1
+
 ```bash
 # 1.1 + 1.2
 kubectl get nodes && kubectl top nodes
@@ -81,6 +82,7 @@ done
   - `ls -lh /var/backup/etcd/ | wc -l`
 
 #### Comandos Block 2
+
 ```bash
 # 2.1 Volumes
 kubectl get volumes.longhorn.io -n longhorn-system --no-headers | awk '{print $1, $3, $4}'
@@ -110,10 +112,11 @@ kubectl exec -n minio "$MPOD" -- du -sh /data/* 2>/dev/null
 - [ ] **3.5 CoreDNS** → 2+ pods Running
   - `kubectl get pods -n kube-system -l k8s-app=kube-dns`
 - [ ] **3.6 Cert-Manager** → pods Running + certificados válidos
-  - `kubectl get cert -A`  — sem `False` em READY
+  - `kubectl get cert -A` — sem `False` em READY
   - `kubectl get cronjob -n cert-manager chain-repair` — ativo
 
 #### Comandos Block 3
+
 ```bash
 kubectl get pods -n ingress-nginx
 kubectl get ingress -A --no-headers
@@ -141,6 +144,7 @@ kubectl get cert -A --no-headers
   - `kubectl get pvc -n postgres`
 
 #### Comandos Block 4
+
 ```bash
 kubectl get pod -n nexus -o wide && kubectl top pod -n nexus
 kubectl get pods -n postgres
@@ -167,6 +171,7 @@ kubectl get jobs -n postgres --sort-by=.metadata.creationTimestamp --no-headers 
   - `kubectl get deployment -n kube-system metrics-server`
 
 #### Comandos Block 5
+
 ```bash
 kubectl get pods -n coroot && kubectl get pvc -n coroot
 kubectl get pods -n kubecost
@@ -188,6 +193,7 @@ kubectl get deployment -n kube-system metrics-server
   - `kubectl exec -n kube-system ds/cilium -- cilium status --brief`
 
 #### Comandos Block 6
+
 ```bash
 kubectl get pods -n kube-system | grep -E '(apiserver|etcd|scheduler|controller)'
 kubectl get cronjob -n kube-system
@@ -200,7 +206,7 @@ ssh oci-k8s-master "ls -lh /var/backup/etcd/"
 
 - [ ] **7.1 Pods no namespace `default`** → todos Running
   - `kubectl get pods -n default`
-  - Verificar: torproxy, reports, rs-* services
+  - Verificar: torproxy, reports, rs-\* services
 - [ ] **7.2 Pods no namespace `ai-radar`** → Running (API + DB + Jobs)
   - `kubectl get pods -n ai-radar`
 - [ ] **7.3 AI-Radar CronJobs** → collect/extract/score últimas runs OK
@@ -211,6 +217,7 @@ ssh oci-k8s-master "ls -lh /var/backup/etcd/"
   - `kubectl get pods -A | grep -vE '(Running|Completed|Succeeded)'`
 
 #### Comandos Block 7
+
 ```bash
 kubectl get pods -n default
 kubectl get pods -n ai-radar
@@ -234,6 +241,7 @@ kubectl get pods -A --no-headers | grep -vE '(Running|Completed|Succeeded)' || e
 - [ ] **8.5 TUI integração** → k8s_ops_menu.sh cobre backup/hardening ops
 
 #### Comandos Block 8
+
 ```bash
 git -C /home/dnorio/production-site status --short
 
@@ -258,16 +266,16 @@ done
 
 Após executar todos os blocos, avaliar:
 
-| Cor | Critério |
-|-----|----------|
-| 🟢 Verde | Todos os checks OK, nenhum risco imediato |
-| 🟡 Amarelo | 1-2 itens WARNING (ex.: RAM 77%, Disk 81%) — monitorar |
+| Cor         | Critério                                                                 |
+| ----------- | ------------------------------------------------------------------------ |
+| 🟢 Verde    | Todos os checks OK, nenhum risco imediato                                |
+| 🟡 Amarelo  | 1-2 itens WARNING (ex.: RAM 77%, Disk 81%) — monitorar                   |
 | 🔴 Vermelho | Qualquer pod em Error/CrashLoop, Disk >90%, MinIO >85%, Error backups >0 |
 
 ## Histórico de Execuções Notáveis
 
-| Data | Problema | Ação | Resultado |
-|------|----------|------|-----------|
-| 2026-05-10 | MinIO 100%, 53 Error backups | Limpeza + PR #90 (hardening CronJobs) | MinIO 32%, 0 Error |
-| 2026-05-10 | node-3 /var/log 4.5GB (syslog.1) | Logrotate aggressive + su root adm fix | 1.6GB (-2.9GB) |
-| 2026-05-10 | maintenance-cleanup drift IaC vs cluster | kubectl apply -f cleanup-job.yaml | Drift corrigido |
+| Data       | Problema                                 | Ação                                   | Resultado          |
+| ---------- | ---------------------------------------- | -------------------------------------- | ------------------ |
+| 2026-05-10 | MinIO 100%, 53 Error backups             | Limpeza + PR #90 (hardening CronJobs)  | MinIO 32%, 0 Error |
+| 2026-05-10 | node-3 /var/log 4.5GB (syslog.1)         | Logrotate aggressive + su root adm fix | 1.6GB (-2.9GB)     |
+| 2026-05-10 | maintenance-cleanup drift IaC vs cluster | kubectl apply -f cleanup-job.yaml      | Drift corrigido    |

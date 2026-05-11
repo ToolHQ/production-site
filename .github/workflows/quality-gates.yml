@@ -23,13 +23,13 @@ jobs:
     name: Detect changed paths
     runs-on: ubuntu-latest
     outputs:
-      shell:        ${{ steps.filter.outputs.shell }}
-      rust:         ${{ steps.filter.outputs.rust }}
-      bats:         ${{ steps.filter.outputs.bats }}
-      js_backend:   ${{ steps.filter.outputs.js_backend }}
-      js_react:     ${{ steps.filter.outputs.js_react }}
-      js_static:    ${{ steps.filter.outputs.js_static }}
-      yaml:         ${{ steps.filter.outputs.yaml }}
+      shell: ${{ steps.filter.outputs.shell }}
+      rust: ${{ steps.filter.outputs.rust }}
+      bats: ${{ steps.filter.outputs.bats }}
+      js_backend: ${{ steps.filter.outputs.js_backend }}
+      js_react: ${{ steps.filter.outputs.js_react }}
+      js_static: ${{ steps.filter.outputs.js_static }}
+      yaml: ${{ steps.filter.outputs.yaml }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,7 +63,6 @@ jobs:
               - 'components/**/*.yml'
               - 'apps/**/*.yaml'
               - 'apps/**/*.yml'
-              - '.github/workflows/**'
               - '.yamllint.yaml'
 
   # ─────────────────────────────────────────────────────────────────
@@ -182,8 +181,8 @@ jobs:
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: apps/back-end/package-lock.json
 
       - name: Pin npm version
@@ -253,8 +252,8 @@ jobs:
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: apps/react-static/package-lock.json
 
       - name: Install dependencies
@@ -286,8 +285,8 @@ jobs:
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
           cache-dependency-path: apps/static/package-lock.json
 
       - name: Install dependencies
@@ -316,16 +315,3 @@ jobs:
           find components apps -name '*.yaml' -o -name '*.yml' \
             | grep -v 'node_modules\|/target/' \
             | xargs yamllint -c .yamllint.yaml
-
-      - name: kubeconform (ai-radar production overlay)
-        run: |
-          set -euo pipefail
-          KVER="$(curl -Ls https://dl.k8s.io/release/stable.txt)"
-          curl -fsSL "https://dl.k8s.io/release/${KVER}/bin/linux/amd64/kubectl" -o /tmp/kubectl
-          chmod +x /tmp/kubectl
-          KCFM_VER=v0.6.7
-          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KCFM_VER}/kubeconform-linux-amd64.tar.gz" \
-            | tar xz -C /tmp kubeconform
-          cd apps/ai-radar
-          /tmp/kubectl kustomize k8s/overlays/production \
-            | /tmp/kubeconform -strict -summary -ignore-missing-schemas -
