@@ -10,6 +10,7 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)** | 🔼 High | AI Radar / DevExp | 4h |
 | [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(/metrics, job_id/request_id, OTEL/Langfuse hooks, LLM cost)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
 
