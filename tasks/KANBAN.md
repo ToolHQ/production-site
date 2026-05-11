@@ -10,6 +10,8 @@
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md) | **AI Radar — Observabilidade** _(/metrics, job_id/request_id, OTEL/Langfuse hooks, LLM cost)_ | 🔽 Low | AI Radar / DevExp / Observability | 4h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -20,91 +22,92 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-
-# <<<<<<< HEAD
-
 | [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
-
-> > > > > > > origin/main
+| [T-169](2026/Q2/T-169-AI-Radar-Digest-Generator.md) | **AI Radar — Digest Generator** _(digest Markdown daily/weekly + API/CLI + persistência)_ | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-168](2026/Q2/T-168-AI-Radar-Comparator.md) | **AI Radar — Comparator** _(comparação por categoria + Markdown)_ | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md) | **AI Radar — Scorer com LLM Opcional** | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md) | **AI Radar — Webpage Fetcher** | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md) | **AI Radar — GitHub Collector** | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md) | **AI Radar — Feedback Loop** | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-164](2026/Q2/T-164-AI-Radar-LLM-Provider-Abstraction.md) | **AI Radar — LLM Provider Abstraction** | 🔽 Low | AI Radar / DevExp | 4h |
+| [T-166](2026/Q2/T-166-AI-Radar-Scorer-Deterministico.md) | **AI Radar — Scorer Determinístico** | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-165](2026/Q2/T-165-AI-Radar-Extractor-Pipeline.md) | **AI Radar — Extractor Pipeline** | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-161](2026/Q2/T-161-AI-Radar-RSS-Collector.md) | **AI Radar — RSS Collector** | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-160](2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md) | **AI Radar — Banco e Modelo de Dados** | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-159](2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md) | **AI Radar — Bootstrap Rust Workspace** | 🔽 Low | AI Radar / DevExp | 1d |
+| [T-171](2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md) | **AI Radar — Kubernetes Operação Leve (CronJobs)** | 🔽 Low | AI Radar / DevExp / Infra | 1d |
+| [T-174](2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md) | **AI Radar — Kubernetes Baseline (primeiro deploy API)** | 🔽 Low | AI Radar / DevExp / Infra | 4h |
 
 ## ✅ Done
 
 | ID  | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-
-# <<<<<<< HEAD
-
+| [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(arrow2 refactored to polars, all NPM & Rust bumps applied)_ | 🔽 Low | Security / Tech Debt | 1d |
+| [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
+| [T-154](2026/Q2/T-154-Dependabot-Security-Remediation-Program.md) | **Dependabot Security Remediation Program** | 🚨 Critical | Security / DevExp | 3d |
+| [T-153](2026/Q2/T-153-MinIO-Longhorn-Gate-Correction-and-Nexus-Exhaustion.md) | **MinIO Longhorn Gate Correction and Nexus Exhaustion** _(gate `storageAvailable` provado como falso verde para `12Gi` / `longhorn-2`; Nexus cleanup nativo executado com delta `0`)_ | High | Infra | 3h |
+| [T-152](2026/Q2/T-152-ETCD-Backup-Retention-Drift-Convergence.md) | **ETCD Backup Retention Drift Convergence** _(cronjobs live reconciliados com a IaC versionada; bucket `k8s-backups/etcd` voltou para 4 snapshots lógicos / ~1019 MiB)_ | High | Infra | 3h |
 | [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(audit completa: OCI LB externo confirmado, nodeSelector: k8s-master removido, ingress-nginx-controller-workers adicionado ao repo, ambos os pods Running com endpoints ativos)_ | 🔼 High | Infra | 4h |
 | [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(MinIO migrado do rootfs do master para PVC Longhorn `minio-pvc-longhorn` 12Gi; dataset legado arquivado e removido do `/data/minio` em 2026-04-26)_ | 🔼 High | Infra | 1d |
-
-> > > > > > > origin/main
-> > > > > > > | [T-156](2026/Q2/T-156-Dependabot-Residual-Cleanup.md) | **Dependabot Residual Cleanup (Tech Debt)** _(arrow2 refactored to polars, all NPM & Rust bumps applied)_ | 🔽 Low | Security / Tech Debt | 1d |
-> > > > > > > | [T-155](2026/Q2/T-155-React-Static-Toolchain-Security-Migration.md) | **React-Static Toolchain Security Migration** | 🚨 Critical | Security / Frontend | 2d |
-> > > > > > > | [T-154](2026/Q2/T-154-Dependabot-Security-Remediation-Program.md) | **Dependabot Security Remediation Program** | 🚨 Critical | Security / DevExp | 3d |
-> > > > > > > | [T-151](2026/Q2/T-151-Ingress-Edge-Decoupling-from-Master.md) | **Ingress Edge Decoupling from Master** _(audit completa: OCI LB externo confirmado, nodeSelector: k8s-master removido, ingress-nginx-controller-workers adicionado ao repo, ambos os pods Running com endpoints ativos)_ | 🔼 High | Infra | 4h |
-> > > > > > > | [T-150](2026/Q2/T-150-Master-Rootfs-Dependency-Reduction.md) | **Master Rootfs Dependency Reduction** _(MinIO migrado do rootfs do master para PVC Longhorn `minio-pvc-longhorn` 12Gi; dataset legado arquivado e removido do `/data/minio` em 2026-04-26)_ | 🔼 High | Infra | 1d |
-> > > > > > > | [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
-> > > > > > > | [T-153](2026/Q2/T-153-MinIO-Longhorn-Gate-Correction-and-Nexus-Exhaustion.md) | **MinIO Longhorn Gate Correction and Nexus Exhaustion** _(gate `storageAvailable` provado como falso verde para `12Gi` / `longhorn-2`; Nexus cleanup nativo executado com delta `0`)_ | High | Infra | 3h |
-> > > > > > > | [T-152](2026/Q2/T-152-ETCD-Backup-Retention-Drift-Convergence.md) | **ETCD Backup Retention Drift Convergence** _(cronjobs live reconciliados com a IaC versionada; bucket `k8s-backups/etcd` voltou para 4 snapshots lógicos / ~1019 MiB)_ | High | Infra | 3h |
-> > > > > > > | [T-149](2026/Q2/T-149-Master-DiskPressure-Recurrence-Hardening.md) | **Master DiskPressure Recurrence Hardening** _(recorrencia fechada; cleaner/watchdog endurecidos; master saiu de `DiskPressure` e cluster voltou a warning-only)_ | High | Ops | 4h |
-> > > > > > > | [T-148](2026/Q2/T-148-Harness-Execution-Summary.md) | **Harness Execution Summary** | High | DevExp / Tooling | 2h |
-> > > > > > > | [T-147](2026/Q2/T-147-yamllint-gate-for-K8s-manifests.md) | **yamllint gate for K8s manifests** | 🔼 High | DevExp / Tooling | 2h |
-> > > > > > > | [T-146](2026/Q2/T-146-CI-path-aware-required-checks-rollout.md) | **CI path-aware required checks rollout** | 🔼 High | DevExp / Tooling | 4h |
-> > > > > > > | [T-145](2026/Q2/T-145-JS-TS-script-convergence.md) | **JS/TS script convergence** | 🔼 High | DevExp / Tooling | 4h |
-> > > > > > > | [T-144](2026/Q2/T-144-Shell-TUI-quality-gates.md) | **Shell TUI quality gates** | 🔼 High | DevExp / Tooling | 4h |
-> > > > > > > | [T-143](2026/Q2/T-143-rs-observability-api-modularization-for-testability.md) | **rs-observability-api modularization for testability** | 🔼 High | DevExp / Observability | 6h |
-> > > > > > > | [T-142](2026/Q2/T-142-Repo-Root-Harness-Minimum-Viable-Verify.md) | **Repo Root Harness Minimum Viable Verify** | 🔼 High | DevExp / Tooling | 4h |
-> > > > > > > | [T-140](2026/Q2/T-140-Persistent-MCP-Browser-Trust-for-Internal-dnor-CA.md) | **Persistent MCP Browser Trust for Internal dnor CA** | 🔼 High | DevExp / Tooling | 2h |
-> > > > > > > | [T-139](2026/Q2/T-139-Observability-Console-Ultrawide-UX-and-Text-Visibility-Pass.md) | **Observability Console Ultrawide UX and Text Visibility Pass** | 🔼 High | DevExp / Observability | 3h |
-> > > > > > > | [T-138](2026/Q2/T-138-Local-Trust-Refresh-for-Internal-dnor-CA.md) | **Local Trust Refresh for Internal dnor CA** | 🔼 High | DevExp / TLS | 1h |
-> > > > > > > | [T-137](2026/Q2/T-137-Observability-Console-Responsive-Polish-Pass-3.md) | **Observability Console Responsive Polish Pass 3** | 🔼 High | DevExp / Observability | 3h |
-> > > > > > > | [T-136](2026/Q2/T-136-Observability-Console-Responsive-Polish-and-QA-Report-Hygiene.md) | **Observability Console Responsive Polish and QA Report Hygiene** | 🔼 High | DevExp / Observability | 4h |
-> > > > > > > | [T-135](2026/Q2/T-135-Observability-Console-Operations-First-UX-Refactor.md) | **Observability Console Operations-First UX Refactor** | 🔼 High | DevExp / Observability | 6h |
-> > > > > > > | [T-134](2026/Q2/T-134-Observability-Console-Prometheus-Time-Series.md) | **Observability Console Prometheus Time-Series** | 🔼 High | DevExp / Observability | 6h |
-> > > > > > > | [T-133](2026/Q2/T-133-Rust-Observability-API-Thin-Slice.md) | **Rust Observability API Thin Slice** _(Axum API + static UI served in-cluster; ingress `reports.dnor.io` ready pending external DNS)_ | 🔼 High | DevExp / Infra | 4h |
-> > > > > > > | [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** _(pre-pull validated; postgres `0 -> 2` recovered with Nexus `0/1` and no `ErrImagePull`)_ | 🔽 Medium | Infra | 2h |
-> > > > > > > | [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ | 🔼 High | DevOps | 4h |
-> > > > > > > | [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md) | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_ | 🔽 Medium | DevOps | 3h |
-> > > > > > > | [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md) | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_ | 🔼 High | DevOps | 2h |
-> > > > > > > | [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md) | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_ | 🔼 High | DevOps / TUI | 3h |
-> > > > > > > | [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md) | **CPU Headroom Recovery & Sustained Margin Policy** _(recovery complete; watchdog owns ongoing drift detection)_ | 🔼 High | Infra | 3h |
-> > > > > > > | [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_ | 🚨 Critical | DevOps | 2h |
-> > > > > > > | [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md) | **Publicar @dnorio/\* no Nexus** _(8/8 @dnorio/\* publicados — v0.0.175)_ ✅ | 🚨 Critical | DevOps | 1h |
-> > > > > > > | [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅ | 🚨 Critical | DevOps | 2h |
-> > > > > > > | [T-132](2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md) | **Nexus: Cleanup Policy Automation** _(audit/attach helpers for existing policies; `npm-proxy` first, hosted repos conservative)_ | 🔼 High | Infra / DevOps | 3h |
-> > > > > > > | [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(ETCD/GDrive restaurados, `k8s-backups` em 8055 MiB, política do bucket Nexus documentada)_ | 🚨 Critical | Infra | 3h |
-> > > > > > > | [T-131](2026/Q2/T-131-Helm-Tunnel-Kubeconfig-Compatibility.md) | **Helm Tunnel Kubeconfig Compatibility** _(local Helm `v3.14.3` incompatível com `kubeconfig_tunnel.yaml`; wrapper `v3.19.0` fixado no repo)_ | 🚨 Critical | Infra / DevOps | 2h |
-> > > > > > > | [T-130](2026/Q2/T-130-Watchdog-Signal-Quality-and-False-Positive-Cleanup.md) | **Watchdog Signal Quality and False Positive Cleanup** _(VolumeAttachment/job/restart signal cleanup)_ | 🔼 High | Observability / Infra | 4h |
-> > > > > > > | [T-129](2026/Q2/T-129-Observability-Report-Modularization-and-API-Readiness.md) | **Observability Report Modularization & API Readiness** _(health report + catalog desacoplados, testáveis e prontos para backend/frontend)_ | 🔼 High | DevExp / Infra | 6h |
-> > > > > > > | [T-128](2026/Q2/T-128-Cluster-Yellow-State-Cleanup.md) | **Cluster Yellow-State Cleanup** _(kube-apiserver probe, cert-manager quota, postgres snapshot warnings)_ | 🔼 High | Infra | 4h |
-> > > > > > > | [T-127](2026/Q2/T-127-Backup-Retention-Review-MinIO-vs-GDrive.md) | **Backup Retention Review — MinIO vs GDrive** _(GDrive espelha quase 1:1 o MinIO; retain=7 nao bate com 17-20 backups; revisar Coroot/Kubecost/ETCD)_ | 🚨 Critical | Infra | 3h |
-> > > > > > > | [T-126](2026/Q2/T-126-MinIO-Bucket-Provisioning-IaC.md) | **MinIO: Provisionamento de bucket `my-site` via IaC** _(Job `minio-bootstrap-buckets` — idempotente, mc anonymous set download, ttl 5min)_ | 🔼 High | DevOps / Infra | 1h |
-> > > > > > > | [T-121](2026/Q2/T-121-My-Site-Ingress-TLS-for-dnor.io.md) | **My Site Ingress: TLS para `dnor.io`** _(Ingress com cert-manager interno Ready; borda publica validada com certificado confiavel)_ | 🚨 Critical | DevOps | 2h |
-> > > > > > > | [T-125](2026/Q2/T-125-Back-End-APM-Optional-and-Service-Recovery.md) | **Back-End: APM optional + service recovery** _(`optional: true` no APM secretKeyRef — back-end Running após 39h em CreateContainerConfigError)_ | 🚨 Critical | DevOps | 1h |
-> > > > > > > | [T-123](2026/Q2/T-123-Static-Deploy-Endpoint-Review-and-Env-Unblock.md) | **Static Deploy: endpoint review + env unblock** _(migrar de `minio.localhost` para `minio.dnor.io` — bucket criado + upload validado `dnor.io` HTTP 200)_ | 🚨 Critical | DevOps / TUI | 2h |
-> > > > > > > | [T-119](2026/Q2/T-119-TUI-App-Deploy-Execution-Logs.md) | **TUI: App Deploy Execution Logs** _(stream ao vivo + persistencia local no host)_ | 🔼 High | DevOps | 2h |
-> > > > > > > | [T-113](2026/Q2/T-113-Catalog-Deploy-Actions.md) | **Catalog: Deploy Actions para apps deployable** _(copy cmd, vscode link)_ | 🔽 Medium | DevExp | 3h |
-> > > > > > > | [T-112](2026/Q2/T-112-Catalog-Namespace-And-ClusterOnly-Fix.md) | **Catalog: Namespace extraction fix & cluster-only zero** _(chain-repair → cert-manager)_ | 🔽 Medium | DevExp | 2h |
-> > > > > > > | [T-111](2026/Q2/T-111-Catalog-Enrichment.md) | **Catalog & Inventory Enrichment** _(HTML SPA, drift detection, 5-state readiness)_ | 🔼 High | DevExp | 4h |
-> > > > > > > | [T-110](2026/Q2/T-110-Unified-Catalog-Inventory.md) | **Unified Catalog & Inventory Automation** | 🔼 High | DevExp/Ops | 6h |
-> > > > > > > | [T-109](2026/Q2/T-109-Postgres-Snapshot-Image-Recovery.md) | **Postgres Snapshot Job Image Recovery** | 🚨 Critical | Infra | 1h |
-> > > > > > > | [T-108](2026/Q2/T-108-Tailscale-Mobile-Access.md) | **Acesso Mobile às Ferramentas do Cluster via Tailscale** | 🌟 Feature | DevExp | 2h |
-> > > > > > > | [T-107](2026/Q2/T-107-PKI-Hardening.md) | **PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows** | 🔼 High | Infra | 2h |
-> > > > > > > | [T-106](2026/Q2/T-106-Backup-IaC-Codification.md) | **Backup Infrastructure Codification (IaC Gap)** | 🔼 High | Infra | 1h |
-> > > > > > > | [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md) | **Longhorn Replica Integrity Hardening** | 🔼 High | Storage | 2h |
-> > > > > > > | [T-102](2026/Q2/T-102-Cluster-Health-Watchdog.md) | **Cluster Health Watchdog & Proactive Alerting** | 🚨 Critical | Observability | 6h |
-> > > > > > > | [T-040](2026/Q1/T-040-Master-Stability-Proactive.md) | **Proactive Master Stabilization (PLEG/QoS)** | 🔼 High | Infra | 1d |
-> > > > > > > | [T-023](2026/Q1/T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
-> > > > > > > | [T-101](2026/Q1/T-101-Storage-Strategy-Pivot-Remote-over-Local.md) | **T-101 Storage Strategy Pivot: Remote over Local** | high | Epic-ZeroWaste | 1 hour |
-> > > > > > > | [T-100](2026/Q1/T-100-Zero-Waste-Resource-Lockdown.md) | **Zero-Waste Resource Lockdown & Completeness Audit** | 🚨 Critical | Ops | 6h |
-> > > > > > > | [T-098](task.md) | **WSL Native Chrome MCP Setup** | 🌟 Feature | DevExp | 4h |
-> > > > > > > | [T-095](2026/Q1/T-095-Fix-Inventory-Report-Exposure.md) | **Fix Inventory Report Exposure** | 🚨 Critical | Ops | 2h |
-> > > > > > > | [T-094](2026/Q1/T-094-Reorganize-Tasks-and-Tools.md) | **Reorganize Tasks and Tools** | 🚨 Critical | Ops | 2h |
-> > > > > > > | [T-054](2026/Q1/T-054-Cluster-Stabilization.md) | **Cluster Stabilization & IaC Audit** | 🔼 High | Infra | 3h |
-> > > > > > > | [T-053](2026/Q1/T-053-Resource-Optimization-V3.md) | **Resource Optimization V3 (Elastic/Longhorn/Coroot)** | 🔼 High | Infra | 2h |
-> > > > > > > | [T-037](2026/Q1/T-037-Deep-Space-Cleanup.md) | **Deep Space Cleanup (Docker/Journald)** | 🔽 Low | Ops | 4h |
-> > > > > > > | [T-015](2025/Q4/T-015-Pyroscope-Profiling.md) | **Deploy Pyroscope (Continuous Profiling)** | 🔼 Med | Obs. | 4h |
-> > > > > > > | [T-011](2025/Q4/T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
+| [T-149](2026/Q2/T-149-Master-DiskPressure-Recurrence-Hardening.md) | **Master DiskPressure Recurrence Hardening** _(recorrencia fechada; cleaner/watchdog endurecidos; master saiu de `DiskPressure` e cluster voltou a warning-only)_ | High | Ops | 4h |
+| [T-148](2026/Q2/T-148-Harness-Execution-Summary.md) | **Harness Execution Summary** | High | DevExp / Tooling | 2h |
+| [T-147](2026/Q2/T-147-yamllint-gate-for-K8s-manifests.md) | **yamllint gate for K8s manifests** | 🔼 High | DevExp / Tooling | 2h |
+| [T-146](2026/Q2/T-146-CI-path-aware-required-checks-rollout.md) | **CI path-aware required checks rollout** | 🔼 High | DevExp / Tooling | 4h |
+| [T-145](2026/Q2/T-145-JS-TS-script-convergence.md) | **JS/TS script convergence** | 🔼 High | DevExp / Tooling | 4h |
+| [T-144](2026/Q2/T-144-Shell-TUI-quality-gates.md) | **Shell TUI quality gates** | 🔼 High | DevExp / Tooling | 4h |
+| [T-143](2026/Q2/T-143-rs-observability-api-modularization-for-testability.md) | **rs-observability-api modularization for testability** | 🔼 High | DevExp / Observability | 6h |
+| [T-142](2026/Q2/T-142-Repo-Root-Harness-Minimum-Viable-Verify.md) | **Repo Root Harness Minimum Viable Verify** | 🔼 High | DevExp / Tooling | 4h |
+| [T-140](2026/Q2/T-140-Persistent-MCP-Browser-Trust-for-Internal-dnor-CA.md) | **Persistent MCP Browser Trust for Internal dnor CA** | 🔼 High | DevExp / Tooling | 2h |
+| [T-139](2026/Q2/T-139-Observability-Console-Ultrawide-UX-and-Text-Visibility-Pass.md) | **Observability Console Ultrawide UX and Text Visibility Pass** | 🔼 High | DevExp / Observability | 3h |
+| [T-138](2026/Q2/T-138-Local-Trust-Refresh-for-Internal-dnor-CA.md) | **Local Trust Refresh for Internal dnor CA** | 🔼 High | DevExp / TLS | 1h |
+| [T-137](2026/Q2/T-137-Observability-Console-Responsive-Polish-Pass-3.md) | **Observability Console Responsive Polish Pass 3** | 🔼 High | DevExp / Observability | 3h |
+| [T-136](2026/Q2/T-136-Observability-Console-Responsive-Polish-and-QA-Report-Hygiene.md) | **Observability Console Responsive Polish and QA Report Hygiene** | 🔼 High | DevExp / Observability | 4h |
+| [T-135](2026/Q2/T-135-Observability-Console-Operations-First-UX-Refactor.md) | **Observability Console Operations-First UX Refactor** | 🔼 High | DevExp / Observability | 6h |
+| [T-134](2026/Q2/T-134-Observability-Console-Prometheus-Time-Series.md) | **Observability Console Prometheus Time-Series** | 🔼 High | DevExp / Observability | 6h |
+| [T-133](2026/Q2/T-133-Rust-Observability-API-Thin-Slice.md) | **Rust Observability API Thin Slice** _(Axum API + static UI served in-cluster; ingress `reports.dnor.io` ready pending external DNS)_ | 🔼 High | DevExp / Infra | 4h |
+| [T-132](2026/Q2/T-132-Nexus-Cleanup-Policy-Automation.md) | **Nexus: Cleanup Policy Automation** _(audit/attach helpers for existing policies; `npm-proxy` first, hosted repos conservative)_ | 🔼 High | Infra / DevOps | 3h |
+| [T-131](2026/Q2/T-131-Helm-Tunnel-Kubeconfig-Compatibility.md) | **Helm Tunnel Kubeconfig Compatibility** _(local Helm `v3.14.3` incompatível com `kubeconfig_tunnel.yaml`; wrapper `v3.19.0` fixado no repo)_ | 🚨 Critical | Infra / DevOps | 2h |
+| [T-130](2026/Q2/T-130-Watchdog-Signal-Quality-and-False-Positive-Cleanup.md) | **Watchdog Signal Quality and False Positive Cleanup** _(VolumeAttachment/job/restart signal cleanup)_ | 🔼 High | Observability / Infra | 4h |
+| [T-129](2026/Q2/T-129-Observability-Report-Modularization-and-API-Readiness.md) | **Observability Report Modularization & API Readiness** _(health report + catalog desacoplados, testáveis e prontos para backend/frontend)_ | 🔼 High | DevExp / Infra | 6h |
+| [T-128](2026/Q2/T-128-Cluster-Yellow-State-Cleanup.md) | **Cluster Yellow-State Cleanup** _(kube-apiserver probe, cert-manager quota, postgres snapshot warnings)_ | 🔼 High | Infra | 4h |
+| [T-127](2026/Q2/T-127-Backup-Retention-Review-MinIO-vs-GDrive.md) | **Backup Retention Review — MinIO vs GDrive** _(GDrive espelha quase 1:1 o MinIO; retain=7 nao bate com 17-20 backups; revisar Coroot/Kubecost/ETCD)_ | 🚨 Critical | Infra | 3h |
+| [T-126](2026/Q2/T-126-MinIO-Bucket-Provisioning-IaC.md) | **MinIO: Provisionamento de bucket `my-site` via IaC** _(Job `minio-bootstrap-buckets` — idempotente, mc anonymous set download, ttl 5min)_ | 🔼 High | DevOps / Infra | 1h |
+| [T-125](2026/Q2/T-125-Back-End-APM-Optional-and-Service-Recovery.md) | **Back-End: APM optional + service recovery** _(`optional: true` no APM secretKeyRef — back-end Running após 39h em CreateContainerConfigError)_ | 🚨 Critical | DevOps | 1h |
+| [T-124](2026/Q2/T-124-Backup-Retention-Audit-and-ETCD-Recovery.md) | **Backup Retention Audit & ETCD Recovery** _(ETCD/GDrive restaurados, `k8s-backups` em 8055 MiB, política do bucket Nexus documentada)_ | 🚨 Critical | Infra | 3h |
+| [T-123](2026/Q2/T-123-Static-Deploy-Endpoint-Review-and-Env-Unblock.md) | **Static Deploy: endpoint review + env unblock** _(migrar de `minio.localhost` para `minio.dnor.io` — bucket criado + upload validado `dnor.io` HTTP 200)_ | 🚨 Critical | DevOps / TUI | 2h |
+| [T-122](2026/Q2/T-122-TUI-Static-Deploy-to-MinIO.md) | **TUI: Static Deploy para MinIO** _(build + sync do `dist` para `s3://my-site/static/`)_ | 🔼 High | DevOps / TUI | 3h |
+| [T-121](2026/Q2/T-121-My-Site-Ingress-TLS-for-dnor.io.md) | **My Site Ingress: TLS para `dnor.io`** _(Ingress com cert-manager interno Ready; borda publica validada com certificado confiavel)_ | 🚨 Critical | DevOps | 2h |
+| [T-120](2026/Q2/T-120-Nginx-Image-Build-Toolchain-Refresh.md) | **Nginx Image: Build Toolchain Refresh** _(destravar publish.sh apos quebra por Go `< 1.23`)_ | 🚨 Critical | DevOps | 2h |
+| [T-119](2026/Q2/T-119-TUI-App-Deploy-Execution-Logs.md) | **TUI: App Deploy Execution Logs** _(stream ao vivo + persistencia local no host)_ | 🔼 High | DevOps | 2h |
+| [T-118](2026/Q2/T-118-TUI-JSLibs-Manager.md) | **TUI: js-libs Manager** _(status local vs Nexus, publish via Lerna, check registry health)_ | 🔼 High | DevOps | 2h |
+| [T-117](2026/Q2/T-117-Publish-DNorio-Libs-Nexus.md) | **Publicar @dnorio/\* no Nexus** _(8/8 @dnorio/\* publicados — v0.0.175)_ ✅ | 🚨 Critical | DevOps | 1h |
+| [T-116](2026/Q2/T-116-Nexus-NPM-Registry-Bootstrap.md) | **Nexus: Bootstrap NPM Registry** _(npm-repo/proxy/group criados + NpmToken realm)_ ✅ | 🚨 Critical | DevOps | 2h |
+| [T-115](2026/Q2/T-115-TUI-App-Deploy-Menu.md) | **TUI: App Deploy Menu (Dynamic)** _(menu fzf de deploy de apps, status em linha, oci-builder check)_ | 🔽 Medium | DevOps | 3h |
+| [T-114](2026/Q2/T-114-OCI-Deploy-Pipeline-Migration.md) | **OCI Deploy Pipeline: minikube → OCI/Nexus Migration** _(5 apps, deploy.sh, manifest path, registry host)_ | 🔼 High | DevOps | 4h |
+| [T-113](2026/Q2/T-113-Catalog-Deploy-Actions.md) | **Catalog: Deploy Actions para apps deployable** _(copy cmd, vscode link)_ | 🔽 Medium | DevExp | 3h |
+| [T-112](2026/Q2/T-112-Catalog-Namespace-And-ClusterOnly-Fix.md) | **Catalog: Namespace extraction fix & cluster-only zero** _(chain-repair → cert-manager)_ | 🔽 Medium | DevExp | 2h |
+| [T-111](2026/Q2/T-111-Catalog-Enrichment.md) | **Catalog & Inventory Enrichment** _(HTML SPA, drift detection, 5-state readiness)_ | 🔼 High | DevExp | 4h |
+| [T-110](2026/Q2/T-110-Unified-Catalog-Inventory.md) | **Unified Catalog & Inventory Automation** | 🔼 High | DevExp/Ops | 6h |
+| [T-109](2026/Q2/T-109-Postgres-Snapshot-Image-Recovery.md) | **Postgres Snapshot Job Image Recovery** | 🚨 Critical | Infra | 1h |
+| [T-108](2026/Q2/T-108-Tailscale-Mobile-Access.md) | **Acesso Mobile às Ferramentas do Cluster via Tailscale** | 🌟 Feature | DevExp | 2h |
+| [T-107](2026/Q2/T-107-PKI-Hardening.md) | **PKI Hardening — CA Longevity, Chain Integrity & TUI Workflows** | 🔼 High | Infra | 2h |
+| [T-106](2026/Q2/T-106-Backup-IaC-Codification.md) | **Backup Infrastructure Codification (IaC Gap)** | 🔼 High | Infra | 1h |
+| [T-105](2026/Q2/T-105-Registry-Resilience.md) | **Internal Registry (Nexus) Resilience** _(pre-pull validated; postgres `0 -> 2` recovered with Nexus `0/1` and no `ErrImagePull`)_ | 🔽 Medium | Infra | 2h |
+| [T-104](2026/Q2/T-104-Longhorn-Replica-Integrity.md) | **Longhorn Replica Integrity Hardening** | 🔼 High | Storage | 2h |
+| [T-103](2026/Q2/T-103-CPU-Headroom-Recovery.md) | **CPU Headroom Recovery & Sustained Margin Policy** _(recovery complete; watchdog owns ongoing drift detection)_ | 🔼 High | Infra | 3h |
+| [T-102](2026/Q2/T-102-Cluster-Health-Watchdog.md) | **Cluster Health Watchdog & Proactive Alerting** | 🚨 Critical | Observability | 6h |
+| [T-101](2026/Q1/T-101-Storage-Strategy-Pivot-Remote-over-Local.md) | **T-101 Storage Strategy Pivot: Remote over Local** | high | Epic-ZeroWaste | 1 hour |
+| [T-100](2026/Q1/T-100-Zero-Waste-Resource-Lockdown.md) | **Zero-Waste Resource Lockdown & Completeness Audit** | 🚨 Critical | Ops | 6h |
+| [T-098](task.md) | **WSL Native Chrome MCP Setup** | 🌟 Feature | DevExp | 4h |
+| [T-095](2026/Q1/T-095-Fix-Inventory-Report-Exposure.md) | **Fix Inventory Report Exposure** | 🚨 Critical | Ops | 2h |
+| [T-094](2026/Q1/T-094-Reorganize-Tasks-and-Tools.md) | **Reorganize Tasks and Tools** | 🚨 Critical | Ops | 2h |
+| [T-054](2026/Q1/T-054-Cluster-Stabilization.md) | **Cluster Stabilization & IaC Audit** | 🔼 High | Infra | 3h |
+| [T-053](2026/Q1/T-053-Resource-Optimization-V3.md) | **Resource Optimization V3 (Elastic/Longhorn/Coroot)** | 🔼 High | Infra | 2h |
+| [T-040](2026/Q1/T-040-Master-Stability-Proactive.md) | **Proactive Master Stabilization (PLEG/QoS)** | 🔼 High | Infra | 1d |
+| [T-037](2026/Q1/T-037-Deep-Space-Cleanup.md) | **Deep Space Cleanup (Docker/Journald)** | 🔽 Low | Ops | 4h |
+| [T-023](2026/Q1/T-023-Storage-Resilience.md) | **Storage Resilience & Longhorn Stabilization** | 🚨 Critical | Infra | 4h |
+| [T-015](2025/Q4/T-015-Pyroscope-Profiling.md) | **Deploy Pyroscope (Continuous Profiling)** | 🔼 Med | Obs. | 4h |
+| [T-011](2025/Q4/T-011-Secrets-Review.md) | **Secrets & GitOps Audit** | 🔒 Sec | Sec | 2h |
 
 - [x] **[T-052](2026/Q1/T-052-Resource-Optimization-V2.md) Resource Optimization V2 (Tuning & Versioning)**
 - [x] **Cleaned up legacy scripts (`patch_longhorn.py`, `reinstall_longhorn.sh` etc)**
