@@ -1,6 +1,8 @@
 //! HTTP route handlers.
 
 pub mod extract;
+pub mod digest;
+pub mod digests;
 pub mod health;
 pub mod metrics;
 pub mod root;
