@@ -4096,10 +4096,12 @@ node_maintenance_menu() {
 # --- HARDENING MENU ---
 show_hardening_menu() {
   while true; do
-    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 15 70 4 \
+    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 18 75 6 \
       "1" "Force Cleanup (All Nodes)" \
       "2" "Re-apply Log Limits" \
       "3" "Re-deploy Watchdog" \
+      "4" "Verify Control Plane Config (T-192)" \
+      "5" "Re-apply Control Plane Hardening (T-192)" \
       "0" "Back" 3>&1 1>&2 2>&3)
     
     if [ $? != 0 ]; then return; fi
@@ -4119,6 +4121,48 @@ show_hardening_menu() {
       3)
         ./scripts/hardening/install_storage_protection.sh
         read -p "Press Enter..." 
+        ;;
+      4)
+        # T-192: Verifica sincronia entre cluster live e IaC esperada
+        echo -e "\n🔍 Control Plane Config Verification (T-192)..."
+        echo ""
+        echo "--- kube-apiserver: livenessProbe ---"
+        ssh -o StrictHostKeyChecking=no oci-k8s-master \
+          'sudo grep -A6 livenessProbe /etc/kubernetes/manifests/kube-apiserver.yaml 2>/dev/null || echo "❌ AUSENTE"'
+        echo ""
+        echo "--- kube-apiserver: request throttling ---"
+        ssh -o StrictHostKeyChecking=no oci-k8s-master \
+          'sudo grep "max-requests\|max-mutating" /etc/kubernetes/manifests/kube-apiserver.yaml 2>/dev/null || echo "❌ AUSENTE"'
+        echo ""
+        echo "--- etcd: compaction + quota ---"
+        ssh -o StrictHostKeyChecking=no oci-k8s-master \
+          'sudo grep "auto-compaction\|quota-backend" /etc/kubernetes/manifests/etcd.yaml 2>/dev/null || echo "❌ AUSENTE"'
+        echo ""
+        echo "--- cilium: operator-num-workers ---"
+        kubectl get cm -n kube-system cilium-config \
+          -o jsonpath='{.data.operator-num-workers}' 2>/dev/null \
+          && echo " (esperado: 2)" || echo "❌ não encontrado"
+        echo ""
+        echo "--- nodes: CPU e memória ---"
+        kubectl top nodes 2>/dev/null
+        read -p "Press Enter..."
+        ;;
+      5)
+        # T-192: Re-aplica hardening do control plane via IaC
+        echo -e "\n🛡️  Re-applying Control Plane Hardening (T-192)..."
+        echo "⚠️  Isso irá reiniciar kube-apiserver e etcd (kubelet detecta mudanças)"
+        read -p "Confirmar? (s/N): " CONFIRM
+        if [[ "$CONFIRM" =~ ^[sS]$ ]]; then
+          scp -o StrictHostKeyChecking=no \
+            "$(dirname "$0")/../components/kube-system/commands.sh" \
+            oci-k8s-master:/tmp/tune_control_plane.sh
+          ssh -o StrictHostKeyChecking=no oci-k8s-master \
+            'sudo chmod +x /tmp/tune_control_plane.sh && sudo /tmp/tune_control_plane.sh && rm /tmp/tune_control_plane.sh'
+          echo "✅ Control plane hardening re-aplicado."
+        else
+          echo "Cancelado."
+        fi
+        read -p "Press Enter..."
         ;;
       0) return ;;
     esac

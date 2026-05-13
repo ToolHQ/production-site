@@ -37,6 +37,58 @@ patch_manifest "/etc/kubernetes/manifests/etcd.yaml" "etcd" "100m" "512Mi" "200m
 
 echo "✅ Control plane tuning complete."
 
+# --- T-192: Apiserver livenessProbe + throttling ---
+echo "🛡️ T-192: Applying kube-apiserver livenessProbe + request throttling..."
+python3 - <<'PYEOF'
+import yaml, sys
+
+MANIFEST = "/etc/kubernetes/manifests/kube-apiserver.yaml"
+with open(MANIFEST) as f:
+    m = yaml.safe_load(f)
+c = m["spec"]["containers"][0]
+
+for flag in ["--max-requests-inflight=150", "--max-mutating-requests-inflight=50"]:
+    key = flag.split("=")[0]
+    if not any(x.startswith(key) for x in c["command"]):
+        c["command"].append(flag)
+        print("  Added: " + flag)
+
+if "livenessProbe" not in c:
+    c["livenessProbe"] = {
+        "failureThreshold": 3,
+        "httpGet": {"host": "10.0.1.100", "path": "/livez", "port": 6443, "scheme": "HTTPS"},
+        "initialDelaySeconds": 10,
+        "periodSeconds": 30,
+        "timeoutSeconds": 10
+    }
+    print("  Added: livenessProbe")
+
+with open(MANIFEST, "w") as f:
+    yaml.dump(m, f, default_flow_style=False, allow_unicode=True)
+print("  kube-apiserver patched OK")
+PYEOF
+
+# --- T-192: Etcd compaction + quota ---
+echo "🛡️ T-192: Applying etcd auto-compaction + quota-backend..."
+python3 - <<'PYEOF'
+import yaml
+
+MANIFEST = "/etc/kubernetes/manifests/etcd.yaml"
+with open(MANIFEST) as f:
+    m = yaml.safe_load(f)
+c = m["spec"]["containers"][0]
+
+for flag in ["--auto-compaction-retention=8h", "--quota-backend-bytes=1610612736"]:
+    key = flag.split("=")[0]
+    if not any(x.startswith(key) for x in c["command"]):
+        c["command"].append(flag)
+        print("  Added: " + flag)
+
+with open(MANIFEST, "w") as f:
+    yaml.dump(m, f, default_flow_style=False, allow_unicode=True)
+print("  etcd patched OK")
+PYEOF
+
 # --- T-100: Zero-Waste Lockdown ---
 echo "🔒 Applying Resource LimitRange for kube-system..."
 

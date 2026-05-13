@@ -1,6 +1,18 @@
 spec:
   template:
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - snapshot-controller
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: snapshot-controller
           resources:
