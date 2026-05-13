@@ -1,10 +1,12 @@
 # T-192: Control Plane Hardening — Apiserver + Cilium + Etcd (pós-outage 12/Mai)
 
-- **Status**: Backlog
+- **Status**: ✅ Done
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Infra / Ops
 - **Estimation**: 4h
 - **Opened**: 2026-05-13
+- **Closed**: 2026-05-13
+- **PR**: #96 (merged)
 
 ## Context
 
