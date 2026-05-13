@@ -2,6 +2,7 @@
 # Managed by Antigravity (T-096)
 
 operator:
+  numWorkers: 2  # T-192: reduz de default 10 — evita goroutine storm no apiserver (1 vCPU)
   resources:
     requests:
       cpu: 25m  # was 50m — actual usage ~2m (T-103)
