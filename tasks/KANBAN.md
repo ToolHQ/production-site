@@ -23,6 +23,7 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-192](2026/Q2/T-192-Control-Plane-Hardening-Apiserver-Cilium-Etcd.md) | **Control Plane Hardening — Apiserver + Cilium + Etcd** _(livenessProbe, max-requests-inflight, etcd compaction, cilium numWorkers, node balance, IaC sync — pós-outage 12/Mai)_ | 🚨 Critical | Infra / Ops | 4h |
 | [T-141](2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md) | **Repo Quality Harness & Delivery Gates Program** _(plano mestre faseado para checks locais, CI, DoD e smoke gates por stack)_ | 🔼 High | DevExp / Tooling | 1d |
 | [T-169](2026/Q2/T-169-AI-Radar-Digest-Generator.md) | **AI Radar — Digest Generator** _(digest Markdown daily/weekly + API/CLI + persistência)_ | 🔽 Low | AI Radar / DevExp | 1d |
 | [T-168](2026/Q2/T-168-AI-Radar-Comparator.md) | **AI Radar — Comparator** _(comparação por categoria + Markdown)_ | 🔽 Low | AI Radar / DevExp | 4h |
