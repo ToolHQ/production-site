@@ -13,13 +13,13 @@ goroutines (~350h de CPU acumulado em 4 dias). Accept queue saturou (4097/4096).
 TLS handshake timeout para todos os clientes — cluster completamente inacessível.
 Cascade failure: 12 componentes crasharam em 11 minutos.
 
-| Componente | Restarts | Causa direta |
-|---|---|---|
-| cilium-operator | 134 | apiserver inacessível |
-| snapshot-controller | 80 | apiserver inacessível |
-| csi-provisioner (longhorn) | 79 | apiserver inacessível |
-| kube-controller-manager | 36 | apiserver inacessível |
-| kube-scheduler | 29 | apiserver inacessível |
+| Componente                 | Restarts | Causa direta          |
+| -------------------------- | -------- | --------------------- |
+| cilium-operator            | 134      | apiserver inacessível |
+| snapshot-controller        | 80       | apiserver inacessível |
+| csi-provisioner (longhorn) | 79       | apiserver inacessível |
+| kube-controller-manager    | 36       | apiserver inacessível |
+| kube-scheduler             | 29       | apiserver inacessível |
 
 **Root causes confirmadas via diagnóstico 13/Mai:**
 
@@ -50,16 +50,16 @@ Cascade failure: 12 componentes crasharam em 11 minutos.
 > **Todos os itens abaixo são gaps ativos: o cluster tem configurações que não
 > existem no repositório. Um rebuild do zero reproduziria as mesmas falhas.**
 
-| Config Necessária | Onde deveria estar | Estado atual |
-|---|---|---|
-| `livenessProbe` no kube-apiserver | `components/kube-system/commands.sh` | ❌ AUSENTE |
-| `--max-requests-inflight=150` | `components/kube-system/commands.sh` | ❌ AUSENTE |
-| `--max-mutating-requests-inflight=50` | `components/kube-system/commands.sh` | ❌ AUSENTE |
-| `operator.numWorkers: 2` no Cilium | `components/cilium/cilium-values.yaml` | ❌ AUSENTE |
-| `--auto-compaction-retention=8h` no etcd | `components/kube-system/commands.sh` | ❌ AUSENTE |
-| `--quota-backend-bytes=1610612736` no etcd | `components/kube-system/commands.sh` | ❌ AUSENTE |
-| `nodeAffinity` nos deployments de node-2 | manifests dos componentes | ❌ AUSENTE |
-| Alerta apiserver liveness no Coroot | `components/coroot/` | ❌ AUSENTE |
+| Config Necessária                          | Onde deveria estar                     | Estado atual |
+| ------------------------------------------ | -------------------------------------- | ------------ |
+| `livenessProbe` no kube-apiserver          | `components/kube-system/commands.sh`   | ❌ AUSENTE   |
+| `--max-requests-inflight=150`              | `components/kube-system/commands.sh`   | ❌ AUSENTE   |
+| `--max-mutating-requests-inflight=50`      | `components/kube-system/commands.sh`   | ❌ AUSENTE   |
+| `operator.numWorkers: 2` no Cilium         | `components/cilium/cilium-values.yaml` | ❌ AUSENTE   |
+| `--auto-compaction-retention=8h` no etcd   | `components/kube-system/commands.sh`   | ❌ AUSENTE   |
+| `--quota-backend-bytes=1610612736` no etcd | `components/kube-system/commands.sh`   | ❌ AUSENTE   |
+| `nodeAffinity` nos deployments de node-2   | manifests dos componentes              | ❌ AUSENTE   |
+| Alerta apiserver liveness no Coroot        | `components/coroot/`                   | ❌ AUSENTE   |
 
 ## Tasks
 
@@ -87,8 +87,8 @@ Cascade failure: 12 componentes crasharam em 11 minutos.
   - `- --max-requests-inflight=150`
   - `- --max-mutating-requests-inflight=50`
 - [ ] **[IaC]** Codificar `livenessProbe` e ambos os flags em
-  `components/kube-system/commands.sh` (função `patch_manifest` ou patch dedicado),
-  para que `tune_control_plane_resources` os aplique em rebuilds futuros.
+      `components/kube-system/commands.sh` (função `patch_manifest` ou patch dedicado),
+      para que `tune_control_plane_resources` os aplique em rebuilds futuros.
 - [ ] Validar restart automático do static pod pelo kubelet (< 60s).
 - [ ] Validar `kubectl get nodes` responde normalmente após restart.
 - [ ] Validar `curl -k https://10.0.1.100:6443/livez` retorna `ok` do master.
@@ -101,7 +101,7 @@ Cascade failure: 12 componentes crasharam em 11 minutos.
 - [ ] **[IaC]** Adicionar em `components/cilium/cilium-values.yaml`:
   ```yaml
   operator:
-    numWorkers: 2        # default implícito ~10 — muito alto para 1 vCPU
+    numWorkers: 2 # default implícito ~10 — muito alto para 1 vCPU
   ```
 - [ ] **[LIVE]** Aplicar via:
   ```bash
@@ -123,9 +123,9 @@ Cascade failure: 12 componentes crasharam em 11 minutos.
 
 - [ ] **[LIVE]** Adicionar no static pod `/etc/kubernetes/manifests/etcd.yaml`:
   - `- --auto-compaction-retention=8h`
-  - `- --quota-backend-bytes=1610612736`   (1.5 GiB — seguro para este cluster)
+  - `- --quota-backend-bytes=1610612736` (1.5 GiB — seguro para este cluster)
 - [ ] **[IaC]** Codificar ambos os flags em `components/kube-system/commands.sh`
-  via `patch_manifest` ou snippet `sudo sed -i` após o bloco de resources do etcd.
+      via `patch_manifest` ou snippet `sudo sed -i` após o bloco de resources do etcd.
 - [ ] Validar restart do static pod do etcd (kubelet, < 60s).
 - [ ] Validar etcd saudável:
   ```bash
@@ -144,7 +144,7 @@ Cascade failure: 12 componentes crasharam em 11 minutos.
     defrag'
   ```
 - [ ] Verificar DB size antes/depois:
-  `etcdctl endpoint status -w table` → coluna `DB SIZE`.
+      `etcdctl endpoint status -w table` → coluna `DB SIZE`.
 
 ### Fase 4 — Node Rebalancing (node-2 → node-3)
 
@@ -156,9 +156,9 @@ Cascade failure: 12 componentes crasharam em 11 minutos.
   - `hubble-relay` / `hubble-ui` — baixo impacto, mobile
   - Um dos dois `coredns` — atualmente ambos em node-2
 - [ ] Para cada candidato: adicionar `podAntiAffinity` ou `preferredDuringScheduling nodeAffinity`
-  no manifest do deployment em `components/kube-system/`.
+      no manifest do deployment em `components/kube-system/`.
 - [ ] Validar após redistribuição: node-2 CPU requests < 70%.
-  `kubectl describe node k8s-node-2 | grep -A10 "Allocated"`
+      `kubectl describe node k8s-node-2 | grep -A10 "Allocated"`
 
 ### Fase 5 — Observability & Alerting
 
@@ -178,7 +178,7 @@ Cascade failure: 12 componentes crasharam em 11 minutos.
 > deve incluir uma opção de "Verificar Control Plane" para checagem rápida dos itens desta task.
 
 - [ ] Adicionar opção `"4" "Verify Control Plane Config"` em `show_hardening_menu`
-  (`oci-k8s-cluster/k8s_ops_menu.sh` linha ~4110) que execute:
+      (`oci-k8s-cluster/k8s_ops_menu.sh` linha ~4110) que execute:
   - `grep livenessProbe /etc/kubernetes/manifests/kube-apiserver.yaml` (deve existir)
   - `grep max-requests-inflight /etc/kubernetes/manifests/kube-apiserver.yaml` (deve existir)
   - `grep auto-compaction /etc/kubernetes/manifests/etcd.yaml` (deve existir)
