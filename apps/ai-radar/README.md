@@ -311,7 +311,16 @@ Smoke ad-hoc (exemplos):
 
 **IMPORTANTE.** O recurso **`k8s/base/secret-database-url.placeholder.yaml`** continua apenas como template de referência; **não** entra mais no render Kustomize, para **`deploy.sh`/apply não pisarem uma `DATABASE_URL` real**.
 
-**Docker build.** Se aparecer **`context deadline exceeded`** no primeiro passo `#1 waiting for connection` no buildx **`oci-builder`**, o daemon **buildkitd** no **`oci-k8s-master`** ou o forwarding do socket ficou stale — volta a rodar **`setup-dev-deploy.sh`**; se persistir, use **`oci-k8s-cluster/k8s_ops_menu.sh`** para maintenance / comandos remotos até o worker remoto voltar a responder (ex. `buildctl debug workers`, ou revise `systemctl --user` do buildkit no master).
+**Docker build (T-200).** Imagens saem de **`docker/Dockerfile`** com **`cargo-chef`** + cache BuildKit compartilhado (`ai-radar-cargo-registry`, `ai-radar-cargo-target`). Baseline empírico no master: **~45–55 min** (API+CLI); com cache quente e só API, meta **&lt; 20 min**.
+
+| Variável | Efeito |
+| -------- | ------ |
+| `AI_RADAR_DEPLOY_CLI=auto` (padrão) | Pula build CLI se o diff vs `origin/main` não tocar `crates/ai-radar-cli`, `crates/ai-radar-core`, `docker/` ou `Cargo.lock` |
+| `AI_RADAR_DEPLOY_CLI=0` | Sempre pula CLI (reusa imagem do CronJob `ai-radar-extract`) |
+| `AI_RADAR_DEPLOY_CLI=1` | Sempre builda API + CLI |
+| `AI_RADAR_DIFF_BASE=origin/main` | Base do `git diff` para o modo `auto` |
+
+Se aparecer **`context deadline exceeded`** no primeiro passo `#1 waiting for connection` no buildx **`oci-builder`**, o daemon **buildkitd** no **`oci-k8s-master`** ou o forwarding do socket ficou stale — volta a rodar **`setup-dev-deploy.sh`**; se persistir, use **`oci-k8s-cluster/k8s_ops_menu.sh`** para maintenance / comandos remotos até o worker remoto voltar a responder (ex. `buildctl debug workers`, ou revise `systemctl --user` do buildkit no master).
 
 **Postgres só leitura / sem primário.** Writes devem ir ao **primário** (`postgres-0`). Se `DATABASE_URL` apontar para um Service que balanceia `postgres-1` (standby), jobs falham com `cannot execute UPDATE in a read-only transaction` e `raw_items` ficam presos em `extracting`. Use o host do primário (acima) ou `postgres-service` após o selector restringir só `postgres-0`. Se `pg_is_in_recovery()=true` no pod alvo, trate infra (**T-190**) antes de migrações (`deploy.sh` avisa).
 
