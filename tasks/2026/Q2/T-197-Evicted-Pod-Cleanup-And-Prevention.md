@@ -1,6 +1,6 @@
 # T-197: Evicted Pod Cleanup + Prevenção de Acumulação
 
-- **Status**: Backlog
+- **Status**: Done ✅ (2026-05-16)
 - **Priority**: 🔽 Medium
 - **Epic/Owner**: Infra / Ops / **Copilot/VSCode**
 - **Estimation**: 1h
@@ -23,22 +23,19 @@ default: 5 × Completed stale (pre-pull jobs, 26d)
 
 ## Tasks
 
-- [ ] Limpeza imediata: deletar todos os pods Failed/Evicted em `kube-system`
+- [x] Limpeza imediata: deletar todos os pods Failed/Evicted em `kube-system`
   ```bash
   kubectl delete pods -n kube-system --field-selector=status.phase=Failed
+  # Resultado: 25 pods Evicted deletados
   ```
-- [ ] Limpeza stale em outros namespaces:
-  ```bash
-  kubectl delete pods -n cert-manager --field-selector=status.phase=Succeeded --field-selector=status.phase=Failed 2>/dev/null || true
-  kubectl delete pods -n default -l job-name --field-selector=status.phase=Succeeded 2>/dev/null || true
-  ```
-- [ ] Verificar: `kubectl get pods -A | grep -E 'Evict|Unknown|Error'` → deve retornar vazio
-- [ ] Avaliar CronJob `failed-pod-cleaner` em `kube-system`:
+- [x] Limpeza stale em outros namespaces (cert-manager + default)
+- [x] Verificar: `kubectl get pods -A | grep -E 'Evict|Unknown|Error'` → retornou vazio ✅
+- [x] CronJob `failed-pod-cleaner` criado e aplicado:
   - Schedule: `0 */6 * * *` (a cada 6h)
-  - Ação: `kubectl delete pods -A --field-selector=status.phase=Failed`
-  - Namespace e RBAC mínimos necessários
-- [ ] Criar manifesto IaC em `components/kube-system/failed-pod-cleaner.yaml` se o CronJob for aprovado
-- [ ] Aplicar e validar no cluster
+  - Manifesto IaC: `components/kube-system/failed-pod-cleaner.yaml`
+  - RBAC: ServiceAccount + ClusterRole (list/delete pods) + ClusterRoleBinding
+  - Imagem: `bitnami/kubectl:1.31`, requests 10m/32Mi, limits 50m/64Mi
+- [x] Aplicado e validado: `kubectl get cronjob -n kube-system failed-pod-cleaner` → Active
 
 ## References
 

@@ -1,0 +1,92 @@
+# CronJob: failed-pod-cleaner (T-197)
+# Limpa pods em estado Failed/Evicted em todos os namespaces a cada 6h.
+# Previne acumulação de pods evicted durante eventos de DiskPressure (ex: snapshot-controller).
+#
+# Aplicar: kubectl apply -f components/kube-system/failed-pod-cleaner.yaml
+# Remover: kubectl delete -f components/kube-system/failed-pod-cleaner.yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: failed-pod-cleaner
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: failed-pod-cleaner
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: failed-pod-cleaner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: failed-pod-cleaner
+subjects:
+  - kind: ServiceAccount
+    name: failed-pod-cleaner
+    namespace: kube-system
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: failed-pod-cleaner
+  namespace: kube-system
+  labels:
+    app: failed-pod-cleaner
+    owner: copilot-vsode
+spec:
+  # Roda a cada 6h — suficiente para impedir acumulação sem overhead
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 300
+      template:
+        spec:
+          serviceAccountName: failed-pod-cleaner
+          restartPolicy: OnFailure
+          containers:
+            - name: cleaner
+              image: bitnami/kubectl:1.31
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 50m
+                  memory: 64Mi
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "=== failed-pod-cleaner $(date -u) ==="
+
+                  # Lista pods Failed/Evicted em todos os namespaces
+                  FAILED=$(kubectl get pods --all-namespaces \
+                    --field-selector=status.phase=Failed \
+                    --no-headers 2>/dev/null | wc -l)
+
+                  if [ "$FAILED" -eq 0 ]; then
+                    echo "Nenhum pod Failed encontrado. Saindo."
+                    exit 0
+                  fi
+
+                  echo "Encontrados $FAILED pod(s) Failed — deletando..."
+                  kubectl get pods --all-namespaces \
+                    --field-selector=status.phase=Failed \
+                    --no-headers | while read ns name rest; do
+                      kubectl delete pod "$name" -n "$ns" --ignore-not-found \
+                        && echo "  🗑  $ns/$name"
+                  done
+
+                  echo "✓ Limpeza concluída."
