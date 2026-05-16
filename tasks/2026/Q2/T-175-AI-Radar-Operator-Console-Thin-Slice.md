@@ -21,8 +21,8 @@ Esta task entrega a **Fase 16B** do [`docs/AI-RADAR-ROADMAP.md`](../../../docs/A
 - [x] Remover redirect `GET /` → `/health` (manter `/health` para probes)
 - [x] Testes Axum: `/` retorna `text/html`; `/health` inalterado
 - [x] README: console no browser
-- [ ] Runbook T-191: passo demo browser
-- [ ] Deploy cluster + smoke visual em `https://ai-radar.dnor.io/`
+- [x] Deploy cluster tag `1778959644` + smoke visual em `https://ai-radar.dnor.io/`
+- [ ] Runbook T-191: passo demo browser (atualizar após merge PR)
 
 ## DoD
 
