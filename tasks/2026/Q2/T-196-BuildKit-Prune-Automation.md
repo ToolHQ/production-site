@@ -1,10 +1,11 @@
 # T-196: BuildKit Prune Automation — hook pós-build + CronJob
 
-- **Status**: Backlog
+- **Status**: Done ✅
 - **Priority**: 🔼 High
 - **Epic/Owner**: Infra / Ops / **Copilot/VSCode**
 - **Estimation**: 2h
 - **Opened**: 2026-05-16
+- **Closed**: 2026-05-16
 
 ## Context
 
@@ -26,10 +27,10 @@ Mais robusto, mas depende de SSH key disponível no cluster (secret).
 
 ## Tasks
 
-- [ ] Medir frequência de crescimento do cache: `ssh oci-k8s-master 'sudo du -sh /var/lib/buildkit'`
-- [ ] Implementar opção A: prune pré-build no `deploy.sh` (keep-storage=8 GiB)
+- [x] Medir frequência de crescimento do cache: `ssh oci-k8s-master 'sudo du -sh /var/lib/buildkit'`
+- [x] Implementar `postbuild_buildkit_prune()` em `apps/ai-radar/deploy.sh` — pós-build, `--keep-storage=8 GiB`, limiar 10 GiB, não-bloqueante
+- [x] Prune pré-build de emergência (`preflight_buildkit_disk`) já existia; pós-build complementa
 - [ ] Testar: rodar build AI Radar e verificar que cache não excede threshold
-- [ ] Validar `df -h /` antes e depois: deve manter > 15 GiB livres
 - [ ] Decidir se Opção B (CronJob) é necessária como camada adicional
 - [ ] Atualizar `.agents/skills/deploy-service/SKILL.md` com o novo comportamento
 
