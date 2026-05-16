@@ -10,9 +10,10 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+| [T-194](2026/Q2/T-194-Cursor-agent-isolation-worktree-CURSOR-QUEUE-AI-Radar-owners.md) | **Cursor agent isolation — worktree, CURSOR-QUEUE, AI Radar owners** | 🔼 High | DevExp / Ops | 2h |
 | [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | **Master rootfs cleanup — BuildKit cache + legado MinIO** | 🔼 High | Infra / Ops | 2h |
-| [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)**                                      | 🔼 High  |         AI Radar / DevExp         |  4h  |
-|               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |         AI Radar / DevExp         |  1d  |
+| [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)**                                      | 🔼 High  |       **Cursor / AI Radar**       |  4h  |
+|               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -23,11 +24,11 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
-|               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | AI Radar / DevExp         |  4h  |
-|        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | AI Radar / DevExp         |  4h  |
-|            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | AI Radar / DevExp         |  4h  |
-|            [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md)            | **AI Radar — GitHub Collector**                                                                                                                                                  |   🔽 Low    | AI Radar / DevExp         |  1d  |
-|             [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md)              | **AI Radar — Feedback Loop**                                                                                                                                                     |   🔽 Low    | AI Radar / DevExp         |  4h  |
+|               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
+|        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
+|            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
+|            [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md)            | **AI Radar — GitHub Collector**                                                                                                                                                  |   🔽 Low    | **Cursor / AI Radar**     |  1d  |
+|             [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md)              | **AI Radar — Feedback Loop**                                                                                                                                                     |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 
 ## ✅ Done
 
