@@ -16,7 +16,7 @@ mantendo compatibilidade do runtime atual e validando cada onda com gates locais
 
 Escopo inicial:
 
-- Levantar inventário atual de alertas em https://github.com/dnorio/production-site/security/dependabot
+- Levantar inventário atual de alertas em https://github.com/ToolHQ/production-site/security/dependabot
 - Classificar por severidade, ecossistema e exposição real no runtime
 - Executar remediação por ondas (Actions, Node, Rust e demais stacks)
 - Garantir validação por stack usando o harness raiz e checks do PR
@@ -62,7 +62,7 @@ Guardrails:
 
 Comando utilizado:
 
-- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
+- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/ToolHQ/production-site/dependabot/alerts?state=open&per_page=100"`
 
 ### Estratégia por ondas (2026-04-26)
 
@@ -128,7 +128,7 @@ Resultado:
 
 Comando utilizado:
 
-- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
+- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/ToolHQ/production-site/dependabot/alerts?state=open&per_page=100"`
 
 ### Onda 2 — Lote 1 concluído (apps/static)
 
@@ -189,7 +189,7 @@ Resultado:
 
 Comando utilizado:
 
-- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
+- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/ToolHQ/production-site/dependabot/alerts?state=open&per_page=100"`
 
 ### Onda 2 — Lote 3 parcial (apps/react-static, fase 2)
 
@@ -253,7 +253,7 @@ Onda 3 finalizada com sucesso. PR mesclado em `main`.
 
 Comando utilizado:
 
-- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/dnorio/production-site/dependabot/alerts?state=open&per_page=100"`
+- `gh api --paginate -H "Accept: application/vnd.github+json" "/repos/ToolHQ/production-site/dependabot/alerts?state=open&per_page=100"`
 
 ### Exceções Justificadas
 

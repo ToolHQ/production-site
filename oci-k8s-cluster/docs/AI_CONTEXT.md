@@ -26,7 +26,7 @@
 - **Ingress**: NGINX Ingress Controller.
 
 ## Key Locations
-- **Root**: `/home/dnorio/production-site/oci-k8s-cluster`
+- **Root**: `/home/ToolHQ/production-site/oci-k8s-cluster`
 - **TUI**: `k8s_ops_menu.sh` (Main entry point for operations).
 - **Components**: `../components/` (Helm charts/Manifests for apps).
 - **Docs**: `./docs/` (This folder).

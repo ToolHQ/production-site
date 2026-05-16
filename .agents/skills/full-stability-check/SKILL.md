@@ -15,7 +15,7 @@ description: |
 
 ```bash
 ssh -L 6445:localhost:6443 oci-k8s-master -N -f 2>/dev/null || true
-export KUBECONFIG=/home/dnorio/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+export KUBECONFIG=/home/ToolHQ/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
 kubectl get nodes --no-headers   # espera: 4 Ready
 ```
 
@@ -243,15 +243,15 @@ kubectl get pods -A --no-headers | grep -vE '(Running|Completed|Succeeded)' || e
 #### Comandos Block 8
 
 ```bash
-git -C /home/dnorio/production-site status --short
+git -C /home/ToolHQ/production-site status --short
 
 # CronJobs no cluster vs repo
 kubectl get cronjob -A --no-headers | awk '{print $1"/"$2}'
-find /home/dnorio/production-site/components /home/dnorio/production-site/apps -name "*.yaml" | xargs grep -l "kind: CronJob" 2>/dev/null
+find /home/ToolHQ/production-site/components /home/ToolHQ/production-site/apps -name "*.yaml" | xargs grep -l "kind: CronJob" 2>/dev/null
 
 # Dry-run drift check
-export KUBECONFIG=/home/dnorio/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
-kubectl apply -f /home/dnorio/production-site/components/backup/ --dry-run=client 2>&1 | grep -v "unchanged\|dry-run"
+export KUBECONFIG=/home/ToolHQ/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+kubectl apply -f /home/ToolHQ/production-site/components/backup/ --dry-run=client 2>&1 | grep -v "unchanged\|dry-run"
 
 # Hardening nos nós
 for n in oci-k8s-master oci-k8s-node-1 oci-k8s-node-2 oci-k8s-node-3; do

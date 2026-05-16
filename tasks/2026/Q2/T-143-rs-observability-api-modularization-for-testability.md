@@ -7,7 +7,7 @@
 
 ## Context
 O `rs-observability-api` cresceu rápido e hoje concentra montagem do router, handlers HTTP, leitura de
-artefatos de relatório e lógica de summary diretamente em [apps/rs-observability-api/src/main.rs](/home/dnorio/production-site/apps/rs-observability-api/src/main.rs).
+artefatos de relatório e lógica de summary diretamente em [apps/rs-observability-api/src/main.rs](/home/ToolHQ/production-site/apps/rs-observability-api/src/main.rs).
 Isso dificulta testes direcionados porque qualquer validação acaba encostando no arquivo monolítico e na
 função `main`, mesmo quando o comportamento a verificar é puramente HTTP/reporting.
 
@@ -24,9 +24,9 @@ fica possível testar contrato HTTP em memória com `cargo test`, sem alterar o 
 
 ### Arquivos centrais
 
-- [apps/rs-observability-api/src/main.rs](/home/dnorio/production-site/apps/rs-observability-api/src/main.rs)
-- [apps/rs-observability-api/Cargo.toml](/home/dnorio/production-site/apps/rs-observability-api/Cargo.toml)
-- [tools/harness/verify.sh](/home/dnorio/production-site/tools/harness/verify.sh)
+- [apps/rs-observability-api/src/main.rs](/home/ToolHQ/production-site/apps/rs-observability-api/src/main.rs)
+- [apps/rs-observability-api/Cargo.toml](/home/ToolHQ/production-site/apps/rs-observability-api/Cargo.toml)
+- [tools/harness/verify.sh](/home/ToolHQ/production-site/tools/harness/verify.sh)
 
 ## Tasks
 

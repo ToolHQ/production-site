@@ -65,7 +65,7 @@ Quando o usuário clica em um app `deployable`, o accordion de detalhes mostra:
     <button onclick="copyCmd(this, 'cd apps/back-end && bash deploy.sh')">
       📋 Copy
     </button>
-    <a href="vscode://file/home/dnorio/production-site/apps/back-end/deploy.sh"
+    <a href="vscode://file/home/ToolHQ/production-site/apps/back-end/deploy.sh"
       >🔗 Open Script</a
     >
   </dd>

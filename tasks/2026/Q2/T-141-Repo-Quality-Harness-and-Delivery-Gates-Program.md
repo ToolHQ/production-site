@@ -26,14 +26,14 @@ Como o cluster e a operação seguem a filosofia `Stability First`, o programa p
 
 ### Arquivos centrais já confirmados
 
-- [apps/rs-observability-api/Cargo.toml](/home/dnorio/production-site/apps/rs-observability-api/Cargo.toml)
-- [apps/rs-observability-api/src/main.rs](/home/dnorio/production-site/apps/rs-observability-api/src/main.rs)
-- [apps/back-end/package.json](/home/dnorio/production-site/apps/back-end/package.json)
-- [apps/react-static/package.json](/home/dnorio/production-site/apps/react-static/package.json)
-- [apps/static/package.json](/home/dnorio/production-site/apps/static/package.json)
-- [oci-k8s-cluster/testing/k8s_ops_menu.bats](/home/dnorio/production-site/oci-k8s-cluster/testing/k8s_ops_menu.bats)
-- [oci-k8s-cluster/run_tests.sh](/home/dnorio/production-site/oci-k8s-cluster/run_tests.sh)
-- [tasks/KANBAN.md](/home/dnorio/production-site/tasks/KANBAN.md)
+- [apps/rs-observability-api/Cargo.toml](/home/ToolHQ/production-site/apps/rs-observability-api/Cargo.toml)
+- [apps/rs-observability-api/src/main.rs](/home/ToolHQ/production-site/apps/rs-observability-api/src/main.rs)
+- [apps/back-end/package.json](/home/ToolHQ/production-site/apps/back-end/package.json)
+- [apps/react-static/package.json](/home/ToolHQ/production-site/apps/react-static/package.json)
+- [apps/static/package.json](/home/ToolHQ/production-site/apps/static/package.json)
+- [oci-k8s-cluster/testing/k8s_ops_menu.bats](/home/ToolHQ/production-site/oci-k8s-cluster/testing/k8s_ops_menu.bats)
+- [oci-k8s-cluster/run_tests.sh](/home/ToolHQ/production-site/oci-k8s-cluster/run_tests.sh)
+- [tasks/KANBAN.md](/home/ToolHQ/production-site/tasks/KANBAN.md)
 
 ## Objetivos do programa
 
