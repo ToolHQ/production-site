@@ -5,7 +5,7 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::db::{Database, RepoError, RepoResult};
-use crate::domain::{Decision, NewScore, Score};
+use crate::domain::{Decision, NewScore, Score, ScoredItemSummary};
 
 /// Operations on `scores`.
 #[async_trait]
@@ -21,6 +21,51 @@ pub trait ScoreRepository: Send + Sync {
     /// Top-N scores ordered by `score DESC, created_at DESC`. Useful
     /// for the digest and the dashboard.
     async fn list_top(&self, limit: i64) -> RepoResult<Vec<Score>>;
+
+    /// Explorer list: each extracted item with its **latest** score (T-177).
+    async fn list_scored_items(
+        &self,
+        limit: i64,
+        offset: i64,
+        decision: Option<&str>,
+        category: Option<&str>,
+        sort: ScoredItemSort,
+    ) -> RepoResult<Vec<ScoredItemSummary>>;
+
+    /// Count rows matching [`list_scored_items`] filters (for pagination).
+    async fn count_scored_items(
+        &self,
+        decision: Option<&str>,
+        category: Option<&str>,
+    ) -> RepoResult<i64>;
+
+    /// Full score history for one extracted item, newest first.
+    async fn list_for_extracted_item(&self, extracted_item_id: Uuid) -> RepoResult<Vec<Score>>;
+}
+
+/// Sort order for [`ScoreRepository::list_scored_items`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ScoredItemSort {
+    #[default]
+    ScoreDesc,
+    ScoreAsc,
+    ScoredAtDesc,
+}
+
+impl ScoredItemSort {
+    /// Parse query param (`score_desc`, `score_asc`, `scored_at_desc`).
+    ///
+    /// # Errors
+    ///
+    /// Returns the offending token when unknown.
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "score_desc" | "" => Ok(Self::ScoreDesc),
+            "score_asc" => Ok(Self::ScoreAsc),
+            "scored_at_desc" => Ok(Self::ScoredAtDesc),
+            other => Err(format!("unknown sort '{other}'")),
+        }
+    }
 }
 
 const SELECT_COLS: &str = "id, extracted_item_id, score, decision, next_step, reasons_json, \
@@ -119,6 +164,114 @@ impl ScoreRepository for PgScoreRepository {
             .await
             .map_err(RepoError::from_sqlx)?;
         rows.iter().map(row_to_score).collect()
+    }
+
+    async fn list_for_extracted_item(&self, extracted_item_id: Uuid) -> RepoResult<Vec<Score>> {
+        let sql = format!(
+            "SELECT {SELECT_COLS} FROM ai_radar.scores \
+             WHERE extracted_item_id = $1 ORDER BY created_at DESC"
+        );
+        let rows = sqlx::query(&sql)
+            .bind(extracted_item_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RepoError::from_sqlx)?;
+        rows.iter().map(row_to_score).collect()
+    }
+
+    async fn count_scored_items(
+        &self,
+        decision: Option<&str>,
+        category: Option<&str>,
+    ) -> RepoResult<i64> {
+        let count: i64 = sqlx::query_scalar(
+            "WITH latest_score AS ( \
+                 SELECT DISTINCT ON (extracted_item_id) extracted_item_id, decision \
+                 FROM ai_radar.scores \
+                 ORDER BY extracted_item_id, created_at DESC \
+             ) \
+             SELECT COUNT(*)::bigint \
+             FROM latest_score ls \
+             JOIN ai_radar.extracted_items ei ON ei.id = ls.extracted_item_id \
+             WHERE ($1::text IS NULL OR ls.decision = $1) \
+               AND ($2::text IS NULL OR ei.category = $2)",
+        )
+        .bind(decision)
+        .bind(category)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(RepoError::from_sqlx)?;
+        Ok(count)
+    }
+
+    async fn list_scored_items(
+        &self,
+        limit: i64,
+        offset: i64,
+        decision: Option<&str>,
+        category: Option<&str>,
+        sort: ScoredItemSort,
+    ) -> RepoResult<Vec<ScoredItemSummary>> {
+        let order = match sort {
+            ScoredItemSort::ScoreDesc => "ls.score DESC, ls.created_at DESC",
+            ScoredItemSort::ScoreAsc => "ls.score ASC, ls.created_at DESC",
+            ScoredItemSort::ScoredAtDesc => "ls.created_at DESC",
+        };
+        let sql = format!(
+            "WITH latest_score AS ( \
+                 SELECT DISTINCT ON (extracted_item_id) \
+                     extracted_item_id, score, decision, created_at \
+                 FROM ai_radar.scores \
+                 ORDER BY extracted_item_id, created_at DESC \
+             ) \
+             SELECT \
+                 ei.id AS extracted_item_id, \
+                 ei.tool_name, \
+                 ei.category, \
+                 ei.summary, \
+                 ls.score, \
+                 ls.decision, \
+                 ls.created_at AS scored_at, \
+                 ei.created_at AS extracted_at \
+             FROM latest_score ls \
+             JOIN ai_radar.extracted_items ei ON ei.id = ls.extracted_item_id \
+             WHERE ($1::text IS NULL OR ls.decision = $1) \
+               AND ($2::text IS NULL OR ei.category = $2) \
+             ORDER BY {order} \
+             LIMIT $3 OFFSET $4"
+        );
+        let rows = sqlx::query(&sql)
+            .bind(decision)
+            .bind(category)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RepoError::from_sqlx)?;
+
+        rows.iter()
+            .map(|row| {
+                let raw_decision: String =
+                    row.try_get("decision").map_err(RepoError::from_sqlx)?;
+                let decision = Decision::parse(&raw_decision).map_err(|v| {
+                    RepoError::Validation(format!("unknown scores.decision '{v}'"))
+                })?;
+                Ok(ScoredItemSummary {
+                    extracted_item_id: row
+                        .try_get("extracted_item_id")
+                        .map_err(RepoError::from_sqlx)?,
+                    tool_name: row.try_get("tool_name").map_err(RepoError::from_sqlx)?,
+                    category: row.try_get("category").map_err(RepoError::from_sqlx)?,
+                    summary: row.try_get("summary").map_err(RepoError::from_sqlx)?,
+                    score: row.try_get("score").map_err(RepoError::from_sqlx)?,
+                    decision,
+                    scored_at: row.try_get("scored_at").map_err(RepoError::from_sqlx)?,
+                    extracted_at: row
+                        .try_get("extracted_at")
+                        .map_err(RepoError::from_sqlx)?,
+                })
+            })
+            .collect()
     }
 }
 

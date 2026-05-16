@@ -202,6 +202,72 @@ tr:hover td {
   color: var(--accent);
 }
 
+.badge-decision {
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.badge-adopt {
+  background: rgba(62, 207, 142, 0.2);
+  color: var(--ok);
+}
+
+.badge-test {
+  background: rgba(61, 156, 245, 0.2);
+  color: var(--accent);
+}
+
+.badge-monitor {
+  background: rgba(240, 180, 41, 0.2);
+  color: var(--warn);
+}
+
+.badge-ignore {
+  background: rgba(139, 156, 179, 0.15);
+  color: var(--muted);
+}
+
+.filter-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.filter-row select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.5rem;
+}
+
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.actions {
+  margin: 1rem 0;
+}
+
+.score-history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.score-history li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
 .badge-weekly {
   background: rgba(62, 207, 142, 0.15);
   color: var(--ok);
