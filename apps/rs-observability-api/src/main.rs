@@ -974,7 +974,8 @@ impl PrometheusMonitor {
     /// Nodes without node_exporter (e.g. k8s-master) are simply absent from the map.
     pub(crate) async fn fetch_node_metrics(&self) -> HashMap<String, NodeMetrics> {
         // Run 5 instant queries concurrently.
-        let cpu_q = r#"100 - (avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)"#;
+        let cpu_q =
+            r#"100 - (avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)"#;
         let mem_avail_q = "node_memory_MemAvailable_bytes";
         let mem_total_q = "node_memory_MemTotal_bytes";
         let disk_avail_q = r#"node_filesystem_avail_bytes{mountpoint="/"}"#;
@@ -996,7 +997,13 @@ impl PrometheusMonitor {
 
         // Collect all node names seen across any metric.
         let mut node_names: BTreeSet<String> = BTreeSet::new();
-        for map in [&cpu_map, &mem_avail_map, &mem_total_map, &disk_avail_map, &disk_total_map] {
+        for map in [
+            &cpu_map,
+            &mem_avail_map,
+            &mem_total_map,
+            &disk_avail_map,
+            &disk_total_map,
+        ] {
             node_names.extend(map.keys().cloned());
         }
 
