@@ -1,4 +1,5 @@
 import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
+import { MetricSparkline } from './MetricSparkline';
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -50,9 +51,14 @@ function MiniBar({ percent, label, sub }: MiniBarProps) {
 interface NodeRowProps {
   node: NodeStat;
   metrics?: NodeMetrics;
+  history?: {
+    cpu: { timestamp: number; value: number }[];
+    mem: { timestamp: number; value: number }[];
+    disk: { timestamp: number; value: number }[];
+  };
 }
 
-function NodeRow({ node, metrics }: NodeRowProps) {
+function NodeRow({ node, metrics, history }: NodeRowProps) {
   const readyDot = node.ready ? '🟢' : '🔴';
   const diskIcon = node.disk_pressure ? (
     <span class="node-alert node-alert--disk" title="DiskPressure ativo">💾 DiskPressure</span>
@@ -68,34 +74,136 @@ function NodeRow({ node, metrics }: NodeRowProps) {
       <span class="node-role node-role--worker">worker</span>
     );
 
+  // 1. CPU cell with interactive tooltip card & sparkline
   const cpuCell = metrics ? (
-    <MiniBar
-      percent={metrics.cpu_percent}
-      label={`${metrics.cpu_percent.toFixed(0)}%`}
-      sub={`${(metrics.cpu_percent / 100).toFixed(2)} vCPU used`}
-    />
+    <div class="node-cell-tooltip-container">
+      <MiniBar
+        percent={metrics.cpu_percent}
+        label={`${metrics.cpu_percent.toFixed(0)}%`}
+        sub={`${(metrics.cpu_percent / 100).toFixed(2)} vCPU used`}
+      />
+      <div class="node-cell-tooltip-card">
+        <div class="tooltip-title">{node.name} · CPU</div>
+        <div class="tooltip-stat">
+          <span class="tooltip-val">{metrics.cpu_percent.toFixed(1)}%</span>
+          <span class="tooltip-label">utilization</span>
+        </div>
+        <div class="tooltip-detail">
+          <strong>Absolute Value:</strong>
+          <span>{fmtCpu((metrics.cpu_percent / 100) * node.cpu_millicores)} used of {fmtCpu(node.cpu_millicores)} allocated</span>
+        </div>
+        {history && history.cpu.length > 1 && (
+          <div class="tooltip-history">
+            <div class="tooltip-history-title">Recent History (5m window)</div>
+            <div class="tooltip-history-chart">
+              <MetricSparkline points={history.cpu} color="#4c9be8" width={180} height={40} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   ) : (
-    <span class="node-metric-alloc" title="Kubernetes allocatable (no real data)">{fmtCpu(node.cpu_millicores)}</span>
+    <div class="node-cell-tooltip-container">
+      <span class="node-metric-alloc">{fmtCpu(node.cpu_millicores)}</span>
+      <div class="node-cell-tooltip-card">
+        <div class="tooltip-title">{node.name} · CPU (Allocated)</div>
+        <div class="tooltip-detail">
+          <strong>Capacity:</strong>
+          <span>{fmtCpu(node.cpu_millicores)} allocated</span>
+        </div>
+        <div class="tooltip-note">
+          Excluded from host-level Prometheus metrics to prioritize resource conservation.
+        </div>
+      </div>
+    </div>
   );
 
+  // 2. Memory cell with interactive tooltip card & sparkline
   const memCell = metrics ? (
-    <MiniBar
-      percent={metrics.mem_percent}
-      label={`${metrics.mem_percent.toFixed(0)}%`}
-      sub={`${fmtGiB(metrics.mem_used_bytes)} / ${fmtGiB(metrics.mem_total_bytes)}`}
-    />
+    <div class="node-cell-tooltip-container">
+      <MiniBar
+        percent={metrics.mem_percent}
+        label={`${metrics.mem_percent.toFixed(0)}%`}
+        sub={`${fmtGiB(metrics.mem_used_bytes)} / ${fmtGiB(metrics.mem_total_bytes)}`}
+      />
+      <div class="node-cell-tooltip-card">
+        <div class="tooltip-title">{node.name} · Memory</div>
+        <div class="tooltip-stat">
+          <span class="tooltip-val">{metrics.mem_percent.toFixed(1)}%</span>
+          <span class="tooltip-label">utilization</span>
+        </div>
+        <div class="tooltip-detail">
+          <strong>Absolute Value:</strong>
+          <span>{fmtGiB(metrics.mem_used_bytes)} used of {fmtGiB(metrics.mem_total_bytes)} total</span>
+        </div>
+        {history && history.mem.length > 1 && (
+          <div class="tooltip-history">
+            <div class="tooltip-history-title">Recent History (5m window)</div>
+            <div class="tooltip-history-chart">
+              <MetricSparkline points={history.mem} color="#2ecc71" width={180} height={40} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   ) : (
-    <span class="node-metric-alloc" title="Kubernetes allocatable (no real data)">{fmtGiB(node.memory_bytes)}</span>
+    <div class="node-cell-tooltip-container">
+      <span class="node-metric-alloc">{fmtGiB(node.memory_bytes)}</span>
+      <div class="node-cell-tooltip-card">
+        <div class="tooltip-title">{node.name} · Memory (Allocated)</div>
+        <div class="tooltip-detail">
+          <strong>Capacity:</strong>
+          <span>{fmtGiB(node.memory_bytes)} allocated</span>
+        </div>
+        <div class="tooltip-note">
+          Excluded from host-level Prometheus metrics to prioritize resource conservation.
+        </div>
+      </div>
+    </div>
   );
 
+  // 3. Disk cell with interactive tooltip card & sparkline
   const diskCell = metrics ? (
-    <MiniBar
-      percent={metrics.disk_percent}
-      label={`${metrics.disk_percent.toFixed(0)}%`}
-      sub={`${fmtGiB(metrics.disk_used_bytes)} / ${fmtGiB(metrics.disk_total_bytes)}`}
-    />
+    <div class="node-cell-tooltip-container">
+      <MiniBar
+        percent={metrics.disk_percent}
+        label={`${metrics.disk_percent.toFixed(0)}%`}
+        sub={`${fmtGiB(metrics.disk_used_bytes)} / ${fmtGiB(metrics.disk_total_bytes)}`}
+      />
+      <div class="node-cell-tooltip-card">
+        <div class="tooltip-title">{node.name} · Disk</div>
+        <div class="tooltip-stat">
+          <span class="tooltip-val">{metrics.disk_percent.toFixed(1)}%</span>
+          <span class="tooltip-label">utilization</span>
+        </div>
+        <div class="tooltip-detail">
+          <strong>Absolute Value:</strong>
+          <span>{fmtGiB(metrics.disk_used_bytes)} used of {fmtGiB(metrics.disk_total_bytes)} total</span>
+        </div>
+        {history && history.disk.length > 1 && (
+          <div class="tooltip-history">
+            <div class="tooltip-history-title">Recent History (5m window)</div>
+            <div class="tooltip-history-chart">
+              <MetricSparkline points={history.disk} color="#e67e22" width={180} height={40} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   ) : (
-    <span class="node-metric-alloc" title="Kubernetes allocatable (no real data)">{fmtGiB(node.ephemeral_storage_bytes)}</span>
+    <div class="node-cell-tooltip-container">
+      <span class="node-metric-alloc">{fmtGiB(node.ephemeral_storage_bytes)}</span>
+      <div class="node-cell-tooltip-card">
+        <div class="tooltip-title">{node.name} · Disk (Allocated)</div>
+        <div class="tooltip-detail">
+          <strong>Capacity:</strong>
+          <span>{fmtGiB(node.ephemeral_storage_bytes)} allocated</span>
+        </div>
+        <div class="tooltip-note">
+          Excluded from host-level Prometheus metrics to prioritize resource conservation.
+        </div>
+      </div>
+    </div>
   );
 
   return (
@@ -123,9 +231,17 @@ function NodeRow({ node, metrics }: NodeRowProps) {
 
 interface NodesPanelProps {
   live: LiveOverview | null;
+  history?: Record<
+    string,
+    {
+      cpu: { timestamp: number; value: number }[];
+      mem: { timestamp: number; value: number }[];
+      disk: { timestamp: number; value: number }[];
+    }
+  >;
 }
 
-export function NodesPanel({ live }: NodesPanelProps) {
+export function NodesPanel({ live, history }: NodesPanelProps) {
   const nodes = live?.nodes ?? [];
   const nodeMetrics = live?.node_metrics ?? {};
   const hasRealMetrics = Object.keys(nodeMetrics).length > 0;
@@ -179,13 +295,18 @@ export function NodesPanel({ live }: NodesPanelProps) {
         </thead>
         <tbody>
           {nodes.map((node) => (
-            <NodeRow key={node.name} node={node} metrics={nodeMetrics[node.name]} />
+            <NodeRow
+              key={node.name}
+              node={node}
+              metrics={nodeMetrics[node.name]}
+              history={history?.[node.name]}
+            />
           ))}
         </tbody>
       </table>
       <p class="nodes-table-footnote">
         {hasRealMetrics
-          ? 'Real host utilization via Prometheus node_exporter'
+          ? 'Real host utilization via Prometheus node_exporter · Hover metrics to see details and sparkline.'
           : 'Allocatable capacity · not current host utilization'}
       </p>
     </div>
