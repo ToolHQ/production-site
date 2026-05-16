@@ -10,6 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+| [T-175](2026/Q2/T-175-AI-Radar-Operator-Console-Thin-Slice.md) | **AI Radar — Operator Console** _(UI estática: stats, digests, sources em ai-radar.dnor.io)_ | 🔼 High | **Cursor / AI Radar** | 6h |
 | [T-195](2026/Q2/T-194-Cluster-Pulse-UI-Componentization-Vite-Preact.md) | **Cluster Pulse UI Componentization (Vite+Preact)** | 🔼 High | DevExp / Observability | 4h |
 |               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
 
@@ -22,6 +23,8 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+| [T-176](2026/Q2/T-176-AI-Radar-Dashboard-Pack-Coroot-Grafana.md) | **AI Radar — Dashboard pack** _(Coroot/Grafana `ai_radar_*`)_ | 🔼 High | **Cursor / AI Radar** | 2h |
+| [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + drill-down)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 |               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | **Cursor / AI Radar**     |  4h  |

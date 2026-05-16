@@ -21,7 +21,7 @@ use crate::state::AppState;
 #[cfg(test)]
 pub fn build_router_no_state() -> Router {
     Router::new()
-        .merge(routes::root::router())
+        .merge(routes::ui::router())
         .merge(routes::health::router())
         .layer(axum_middleware::from_fn(request_id_middleware))
 }
@@ -31,8 +31,7 @@ pub fn build_router_no_state() -> Router {
 /// Middleware order matters: `request_id` is the outermost layer so
 /// every downstream span and response carries the correlation id.
 pub fn build_router(state: AppState) -> Router {
-    Router::new()
-        .merge(routes::root::router())
+    let api = Router::new()
         .merge(routes::health::router())
         .merge(routes::metrics::router())
         .merge(routes::stats::router())
@@ -42,7 +41,11 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::score::router())
         .merge(routes::digest::router())
         .merge(routes::digests::router())
-        .with_state(state)
+        .with_state(state);
+
+    Router::new()
+        .merge(routes::ui::router())
+        .merge(api)
         .layer(axum_middleware::from_fn(request_id_middleware))
 }
 
