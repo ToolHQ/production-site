@@ -1,8 +1,6 @@
 //! Deterministic scorer fixtures and invariants (**T-166**).
 
-use ai_radar_core::domain::{
-    Decision, ExtractedItem, Maturity, RiskLevel,
-};
+use ai_radar_core::domain::{Decision, ExtractedItem, Maturity, RiskLevel};
 use ai_radar_core::scorer::Scorer;
 use chrono::Utc;
 use uuid::Uuid;

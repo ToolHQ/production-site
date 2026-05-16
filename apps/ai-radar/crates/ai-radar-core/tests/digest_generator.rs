@@ -39,4 +39,3 @@ fn digest_markdown_includes_all_sections_and_items() {
     assert!(md.contains("## 👀 Monitorar"));
     assert!(md.contains("## ❌ Ignorar"));
 }
-

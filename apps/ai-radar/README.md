@@ -325,6 +325,9 @@ curl -fsS http://127.0.0.1:18080/stats
 curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
 # digest (requer imagem com T-169 aplicada no cluster)
 curl -fsS -X POST http://127.0.0.1:18080/digest/run -H 'Content-Type: application/json' -d '{"period":"daily"}'
+# reprocess (T-173) — nova versão extract e/ou score
+curl -fsS -X POST http://127.0.0.1:18080/items/<extracted_item_id>/reprocess \
+  -H 'Content-Type: application/json' -d '{"stage":"all"}'
 ```
 
 **HTTPS público (Ingress).** Com o manifesto `k8s/base/ingress.yaml` aplicado, a API responde em **`https://ai-radar.dnor.io`** (TLS via cert-manager). **`GET /` redireciona para `/health`** (evita 404 no browser na raiz). Garanta um registo **`A`** para `ai-radar.dnor.io` apontando para o **mesmo IP** do balanceador usado pelos outros hosts `*.dnor.io` (mesma família que `reports.dnor.io`). Smoke:

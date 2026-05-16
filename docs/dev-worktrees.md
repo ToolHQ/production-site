@@ -7,9 +7,12 @@ Este repo costuma ter **várias frentes ao mesmo tempo** (AI Radar empilhado, ho
 | Pasta                      | Branch típica              | Uso                                      |
 | -------------------------- | -------------------------- | ---------------------------------------- |
 | `production-site-ops`      | `main`                     | Sync, merge, inspecionar histórico limpo |
-| `production-site`          | feature longa (ex. T-197)  | Desenvolvimento principal                |
-| `production-site-ai-radar` | `feat/T-174-…` ou stack    | Só AI Radar                              |
+| `production-site-cursor`   | `feat/cursor-*`, `feat/T-19*` | **Cursor** — AI Radar + deploy cluster |
+| `production-site-copilot`  | `feat/copilot-*`           | **Copilot/VSCode** — fila `COPILOT-QUEUE.md` |
+| `production-site-antigravity` | `feat/agent-loop`       | **Antigravity** — loop headless          |
 | `production-site-infra`    | `fix/postgres-…`, ops      | Manifests/cluster sem misturar app       |
+
+> Ver [agent-orchestration.md](agent-orchestration.md) para KANBAN vs filas por agente.
 
 Ajusta os nomes ao teu disco; o importante é **uma linha de trabalho por árvore**.
 

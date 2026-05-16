@@ -43,16 +43,25 @@ fn k8s_fit(item: &ExtractedItem) -> bool {
 }
 
 fn structured_identity(item: &ExtractedItem) -> bool {
-    item.tool_name.as_deref().is_some_and(|t| !t.trim().is_empty())
-        && item.category.as_deref().is_some_and(|c| !c.trim().is_empty())
+    item.tool_name
+        .as_deref()
+        .is_some_and(|t| !t.trim().is_empty())
+        && item
+            .category
+            .as_deref()
+            .is_some_and(|c| !c.trim().is_empty())
 }
 
 fn rich_summary(item: &ExtractedItem) -> bool {
-    item.summary.as_deref().is_some_and(|s| s.trim().len() >= 80)
+    item.summary
+        .as_deref()
+        .is_some_and(|s| s.trim().len() >= 80)
 }
 
 fn category_present(item: &ExtractedItem) -> bool {
-    item.category.as_deref().is_some_and(|c| !c.trim().is_empty())
+    item.category
+        .as_deref()
+        .is_some_and(|c| !c.trim().is_empty())
 }
 
 fn cost_or_productivity_signal(item: &ExtractedItem) -> bool {
@@ -95,7 +104,9 @@ fn low_risk(item: &ExtractedItem) -> bool {
 }
 
 fn deep_stack_notes(item: &ExtractedItem) -> bool {
-    item.stack_fit.as_deref().is_some_and(|s| s.trim().len() >= 40)
+    item.stack_fit
+        .as_deref()
+        .is_some_and(|s| s.trim().len() >= 40)
 }
 
 fn saas_only_lockin(item: &ExtractedItem) -> bool {

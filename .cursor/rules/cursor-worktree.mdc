@@ -1,0 +1,12 @@
+---
+description: Cursor deve usar a worktree dedicada production-site-cursor e a fila CURSOR-QUEUE.
+alwaysApply: true
+---
+
+# Cursor — worktree e fila
+
+- Operar em **`~/production-site-cursor`**, não em `production-site-copilot` nem `production-site-antigravity`.
+- **AI Radar**: owner no KANBAN = `Cursor / AI Radar`; sprint em `tasks/CURSOR-QUEUE.md`.
+- **KANBAN.md** é a única fonte de T-IDs — não duplicar cards; usar `manage_tasks.sh` para mover colunas.
+- Loop: `.agents/workflows/cursor_loop.md`; ralph opcional: `AGENT_OWNER=Cursor WORKSPACE_DIR=$PWD ./.agents/scripts/auto_loop.sh --dry-run`
+- Orquestração: [docs/agent-orchestration.md](../docs/agent-orchestration.md)
