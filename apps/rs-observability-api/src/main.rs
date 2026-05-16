@@ -1253,9 +1253,7 @@ fn build_node_stats(nodes: &[NodeResource]) -> Vec<NodeStat> {
                     (
                         parse_cpu_to_millicores(a.cpu.as_deref().unwrap_or("0")),
                         parse_memory_to_bytes(a.memory.as_deref().unwrap_or("0")),
-                        parse_memory_to_bytes(
-                            a.ephemeral_storage.as_deref().unwrap_or("0"),
-                        ),
+                        parse_memory_to_bytes(a.ephemeral_storage.as_deref().unwrap_or("0")),
                     )
                 })
                 .unwrap_or((0, 0, 0));
@@ -1306,10 +1304,7 @@ fn parse_memory_to_bytes(s: &str) -> u64 {
         return val.parse::<u64>().unwrap_or(0).saturating_mul(1024);
     }
     if let Some(val) = s.strip_suffix("Mi") {
-        return val
-            .parse::<u64>()
-            .unwrap_or(0)
-            .saturating_mul(1024 * 1024);
+        return val.parse::<u64>().unwrap_or(0).saturating_mul(1024 * 1024);
     }
     if let Some(val) = s.strip_suffix("Gi") {
         return val
