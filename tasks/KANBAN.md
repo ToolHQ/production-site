@@ -12,7 +12,6 @@
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
 | [T-194](2026/Q2/T-194-Cursor-agent-isolation-worktree-CURSOR-QUEUE-AI-Radar-owners.md) | **Cursor agent isolation — worktree, CURSOR-QUEUE, AI Radar owners** | 🔼 High | DevExp / Ops | 2h |
 | [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | **Master rootfs cleanup — BuildKit cache + legado MinIO** | 🔼 High | Infra / Ops | 2h |
-| [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)**                                      | 🔼 High  |       **Cursor / AI Radar**       |  4h  |
 |               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -34,6 +33,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)**                                      | 🔼 High  |       **Cursor / AI Radar**       |  4h  |
 |            [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md)            | **AI Radar — Observabilidade** _(/metrics, job_id/request_id, OTEL/Langfuse hooks, LLM cost)_ |  🔽 Low  | AI Radar / DevExp / Observability |  4h  |
 |         [T-166](2026/Q2/T-166-AI-Radar-Scorer-Deterministico.md)          | **AI Radar — Scorer Determinístico**                                                                                                                                             |   🔽 Low    | AI Radar / DevExp         |  1d  |
 |           [T-165](2026/Q2/T-165-AI-Radar-Extractor-Pipeline.md)           | **AI Radar — Extractor Pipeline**                                                                                                                                                |   🔽 Low    | AI Radar / DevExp         |  1d  |
