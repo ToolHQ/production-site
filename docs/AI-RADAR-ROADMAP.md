@@ -63,7 +63,7 @@ O MVP deve focar em:
 - API HTTP simples em Rust
 - Jobs agendados
 - Scoring inicial determinístico + LLM opcional
-- Sem UI complexa no começo
+- **UI mínima no MVP** (Fase 16): console estático leve servido pela própria API — não SPA pesada no início
 
 ## Stack preferencial
 
@@ -751,6 +751,103 @@ Definition of Done:
 - Sistema não consome memória sem limite.
 - Sistema tolera falhas parciais.
 
+## Fase 16 — Superfície visual do MVP (Operator Console)
+
+> **Por quê agora:** o pipeline backend (coleta → extract → score → digest) já roda no cluster; sem uma camada visual o produto parece “invisível” (só JSON em `/health`). Esta fase fecha o MVP para **operador e stakeholder** sem abandonar as restrições do cluster (ARM64, 256Mi, zero SaaS).
+
+### Princípios de desenho
+
+| Princípio | Escolha |
+| --------- | ------- |
+| Fonte de verdade | **APIs e Postgres existentes** — a UI só consome HTTP; não duplica regras de score/digest |
+| Runtime | **Mesmo binário `ai-radar-api`** serve assets estáticos em `/` (padrão validado em `rs-observability-api` / **T-133**) |
+| Stack front | **HTML + CSS + JS vanilla** (ou **htmx** se precisar de poucos POSTs sem SPA) — sem React/Vite no V1 |
+| Assets | **`include_dir` / `rust_embed`** no crate `api` — sem sidecar nginx, sem segundo Deployment |
+| Ops vs produto | **Duas camadas:** dashboards Prometheus/Coroot (SRE) + console `ai-radar.dnor.io` (digest e fila) |
+| Custo | **+0 pods**, footprint alvo **&lt; 128 KiB** de assets gzip + mesmos limits do Deployment |
+
+### Camada A — Dashboards de operação (sem código novo no `ai-radar`)
+
+Reutiliza **`GET /metrics`** (já exposto) e o stack de observabilidade do cluster:
+
+- **Coroot / Prometheus:** painel com `ai_radar_pending_raw_items`, `ai_radar_scored_total`, `ai_radar_stage_duration_seconds`, falhas de job (via logs estruturados `job_id`).
+- **Grafana (opcional):** JSON de dashboard versionado em `apps/ai-radar/observability/grafana/` (import manual ou ConfigMap).
+- **Alertas mínimos:** fila `pending` alta por N horas; `score_failed_total` subindo.
+
+**Task sugerida:** `T-176` — AI Radar — Dashboard pack (Coroot/Grafana) _(~2h, Owner Infra/Observability ou Cursor)_.
+
+**DoD:** operador vê saúde do pipeline sem `curl`; link documentado no README.
+
+### Camada B — Console produto “thin slice” (MVP visual)
+
+Substituir o redirect `GET /` → `/health` por uma **home operacional** em `https://ai-radar.dnor.io/`.
+
+#### Páginas V1 (somente leitura + 1 ação segura)
+
+| Rota UI | Consome API | Valor para quem abre o browser |
+| ------- | ----------- | ------------------------------ |
+| `/` | `GET /stats`, link para último digest | Cards: fontes ativas, `raw_items`, pendentes de extract |
+| `/digests` | `GET /digests` | Lista de digests (daily/weekly) com data |
+| `/digests/:id` | `GET /digests/:id` + `Accept: text/markdown` | **Relatório renderizado** (Adotar / Testar / Monitorar / Ignorar) |
+| `/sources` | `GET /sources` | Tabela de fontes RSS/GitHub (enabled, poll interval) |
+| _(opcional V1.1)_ | `POST /digest/run` via botão + confirmação | Gerar digest sob demanda sem `curl` |
+
+**Não entra no V1:** CRUD completo de sources, lista de itens scored, feedback — depende de `GET /items` (**T-177**) e **T-170**.
+
+#### Contratos API a completar antes do explorer rico
+
+O roadmap original previa endpoints ainda não implementados; para UI de itens:
+
+- `GET /items` — lista paginada (`extracted_item` + último score + decisão)
+- `GET /items/:id` — detalhe + histórico de versões + scores
+- `POST /items/:id/feedback` — **T-170**
+
+Até lá, o **digest Markdown** é o principal artefato “human-readable” do MVP.
+
+#### Task sugerida: `T-175` — AI Radar — Operator Console (thin slice)
+
+**Estimativa:** 4–6h | **Owner:** Cursor / AI Radar | **Depende de:** T-169, T-172, T-174 (baseline Ingress).
+
+**Escopo:**
+
+- [ ] Módulo `routes/ui.rs` + assets em `crates/ai-radar-api/assets/` (ou `static/`)
+- [ ] `GET /` serve `index.html`; `GET /assets/*` para CSS/JS
+- [ ] Viewer Markdown client-side (ex.: **marked** via CDN interno ou asset vendored — preferir **vendored** para air-gap)
+- [ ] Páginas `/digests`, `/digests/:id`, `/sources` como HTML estático com `fetch()` à mesma origem
+- [ ] Manter `GET /health` e `/metrics` **sem** autenticação (igual hoje); documentar que console é **read-only** no V1
+- [ ] Smoke: abrir `https://ai-radar.dnor.io/` no browser e ver último digest renderizado
+- [ ] README + runbook **T-191** atualizados com screenshots ou passos de demo
+
+**DoD:**
+
+- Stakeholder não técnico entende o estado do radar em **&lt; 30 s** na home.
+- Último digest legível sem `curl` nem editor Markdown externo.
+- `cargo test` + gate `rust-ai-radar` verdes; imagem ARM64 dentro do budget atual.
+
+**Riscos mitigados:**
+
+- XSS em Markdown → sanitizar HTML gerado (alinhar com **T-173** sanitize) ou renderizar subset seguro.
+- Memória → não cachear digests grandes no servidor; streaming/paginação na lista.
+
+### Camada C — Explorer de itens (pós–thin slice)
+
+**Task sugerida:** `T-177` — AI Radar — Items API + UI explorer _(1d)_.
+
+- API `GET /items`, `GET /items/:id` conforme modelo §APIs desejadas.
+- UI: tabela filtrável por `decision`, `category`, score; drill-down com versões e botão **reprocess** (já existe API).
+- Integração futura: feedback (**T-170**), comparator (**T-168**).
+
+### Ordem recomendada no programa
+
+```
+Fase 15 (T-173 hardening) ──► Fase 16B (T-175 console) ──► Fase 16A (T-176 dashboards)
+                                      │
+                                      └──► encher pipeline (fontes + CronJobs + LLM)
+                                      └──► Fase 16C (T-177 explorer) após GET /items
+```
+
+> **Nota:** a regra “não criar UI antes do pipeline” aplica-se às Fases 1–14. A partir da Fase 16 o pipeline já é demonstrável; a UI é **consumidor**, não substituto do backend.
+
 ## Entregável esperado deste prompt
 
 Gere um roadmap de implementação com tasks pequenas e executáveis.
@@ -779,7 +876,7 @@ Para cada task, inclua:
 - Cada task deve ser implementável isoladamente.
 - Priorizar MVP funcional antes de sofisticação.
 - Não introduzir dependências pesadas sem justificar.
-- Não criar UI antes do pipeline funcionar.
+- Não criar UI **antes** do pipeline funcionar (Fases 1–14); Fase 16 assume pipeline smoke OK (**T-191**).
 - Não usar multi-agent framework no MVP.
 - Não assumir SaaS obrigatório.
 - Gerar primeiro a fundação Rust.
@@ -789,6 +886,7 @@ Para cada task, inclua:
 - Depois digest.
 - Depois Kubernetes.
 - Depois observabilidade e hardening.
+- Depois superfície visual MVP (Fase 16: console + dashboards).
 
 ## Preferência de estrutura de código
 
@@ -820,7 +918,8 @@ Ao final do MVP, deve ser possível:
 7. Consultar itens e digests pela API.
 8. Rodar os jobs por CLI ou Kubernetes CronJob.
 9. Operar em cluster pequeno com baixo consumo.
-10. Evoluir depois para comparação avançada, embeddings e dashboard.
+10. Abrir **`https://ai-radar.dnor.io/`** e ver estado do pipeline + último digest renderizado (Fase 16 / **T-175**).
+11. Evoluir depois para explorer de itens (**T-177**), comparator (**T-168**), embeddings e dashboards Coroot (**T-176**).
 
 ## Instrução final
 

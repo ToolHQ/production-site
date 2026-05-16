@@ -2,12 +2,12 @@
 
 > Documento de decisões técnicas e arquitetura do programa **AI Radar** (Decision Engine de curadoria contínua de ferramentas de IA).
 >
-> Este arquivo é a **spec consultada pelas tasks** `T-159..T-174`. Os passos de execução vivem em cada task individual (`tasks/2026/Q2/T-XXX-AI-Radar-*.md`). Aqui ficam só decisões transversais, schema, contratos e riscos.
+> Este arquivo é a **spec consultada pelas tasks** `T-159..T-177` (épico AI Radar). Os passos de execução vivem em cada task individual (`tasks/2026/Q2/T-XXX-AI-Radar-*.md`). Aqui ficam só decisões transversais, schema, contratos e riscos.
 
 ## Origem
 
 - **Prompt-pai**: `docs/AI-RADAR-ROADMAP.md` (super prompt do usuário descrevendo a visão completa).
-- **Status**: Backlog (16 épicos programáticos AI Radar: T-159..T-174 — **T-174** é infra baseline no cluster antes do fechamento MVP agendado em **T-171**).
+- **Status**: MVP backend em cluster; **Fase 16 (visual)** planejada — T-175 console thin slice, T-176 dashboards ops, T-177 explorer de itens (ver `docs/AI-RADAR-ROADMAP.md` §Fase 16).
 - **Owner**: AI Radar / DevExp.
 
 ## Visão de produto
@@ -32,6 +32,20 @@ Sistema self-hosted que **monitora → coleta → deduplica → estrutura → po
 | Exposição HTTP (cluster) | **Ingress nginx + TLS** em **`https://ai-radar.dnor.io`** (`cert-manager` / `dnor-ca-issuer`, secret `ai-radar-ingress-tls`) | Mesmo padrão de `reports.dnor.io` / `coroot.dnor.io`; DNS `A` para o load balancer OCI |
 | Métricas | **Prometheus** via `/metrics` | Padrão do cluster |
 | OpenTelemetry/Langfuse | Hooks prontos, **desligados por feature flag** | Liga só quando coletor estiver disponível |
+| **Superfície visual MVP** | **Console estático** servido pelo `ai-radar-api` (`include_dir`) + dashboards Coroot/Grafana | Mesmo padrão **T-133** (`reports.dnor.io`); sem segundo pod; digest Markdown como “relatório principal” até `GET /items` |
+
+## Superfície visual (Fase 16 — decisões)
+
+| Decisão | Escolha | Motivo |
+| --- | --- | --- |
+| Onde vive a UI | **`ai-radar-api`** em `/`, `/digests`, `/sources` | Zero custo extra de réplica; CORS simples (same-origin) |
+| Stack front V1 | HTML + CSS + JS vanilla (`fetch` → JSON/Markdown) | Sem toolchain Node no deploy ARM64; alinhado a cluster pobre |
+| Render de digest | Client-side Markdown → HTML **sanitizado** (coordenar com T-173) | `GET /digests/:id` já suporta `Accept: text/markdown` |
+| Dashboards SRE | **Coroot/Grafana** sobre `/metrics` | Não misturar métricas de infra com UX de produto |
+| Autenticação V1 | **Nenhuma** (read-only público como hoje) | Ingress já é TLS interno; write (POST sources) fica para V2 ou Basic Auth no Ingress |
+| Explorer de itens | **T-177** após `GET /items` + **T-170** feedback | Roadmap API ainda parcial vs implementação |
+
+**Referência de implementação no monorepo:** `apps/rs-observability-api` (static + API no mesmo binário, ingress dedicado).
 
 ## Estrutura de código alvo
 
@@ -51,6 +65,9 @@ apps/ai-radar/
 ├── k8s/
 │   ├── base/                  # Kustomize base
 │   └── overlays/production/   # overlay produção (cluster OCI)
+├── observability/             # (T-176) dashboards Grafana/Coroot export JSON
+├── crates/ai-radar-api/
+│   └── assets/                # (T-175) HTML/CSS/JS estáticos embutidos
 ├── .env.example
 └── README.md
 ```
