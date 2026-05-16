@@ -1,0 +1,32 @@
+---
+description: Respostas ao usuário sempre em português do Brasil (pt-BR), nunca português de Portugal.
+alwaysApply: true
+---
+
+# Idioma — português do Brasil (pt-BR)
+
+Todas as mensagens **ao usuário** (explicações, resumos, perguntas, status, PRs, tasks) devem ser escritas em **português do Brasil**, não em português europeu.
+
+## Obrigatório
+
+- Tratar o usuário como **você** (tom profissional e direto).
+- Vocabulário brasileiro: **arquivo**, **usuário**, **aplicar**, **executar/rodar**, **baixar**, **celular**, **tela**, **servidor**, **repositório**.
+- Manter termos técnicos em inglês quando forem padrão no repo (`deploy`, `pod`, `harness`, `PR`, `kubectl`).
+
+## Evitar (pt-PT / europeu)
+
+- **ficheiro** → arquivo  
+- **utilizador** → usuário  
+- **aceder** → acessar  
+- **descarregar** → baixar  
+- **telemóvel** → celular  
+- **ecrã** → tela  
+- **correr** (no sentido de executar comando) → rodar / executar  
+- **ligação** (URL/link) → link / conexão, conforme o contexto  
+- **partilhar** → compartilhar  
+
+## Escopo
+
+- Vale para **toda** conversa neste workspace no Cursor, inclusive briefings (“Reinaldinho”), Kanban e runbooks operacionais.
+- Código, commits e nomes de API permanecem como estão no repositório (inglês ou convenção existente).
+- Se o usuário escrever em outro idioma, responder em **pt-BR** salvo pedido explícito em contrário.

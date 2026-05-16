@@ -1,5 +1,16 @@
 # Agent Definitions
 
+## Comunicação (obrigatório)
+
+Todas as respostas ao **usuário** neste repositório devem ser em **português do Brasil (pt-BR)**, não em português de Portugal.
+
+- Regra Cursor (sempre ativa): [`.cursor/rules/idioma-portugues-brasileiro.mdc`](.cursor/rules/idioma-portugues-brasileiro.mdc)
+- Referência para agentes/skills: [`.agents/rules/communication.md`](.agents/rules/communication.md)
+
+Exemplos: usar *arquivo*, *usuário*, *acessar*, *compartilhar*, *rodar* — evitar *ficheiro*, *utilizador*, *aceder*, *partilhar*, *correr* (executar comando).
+
+---
+
 ## 🤖 Cluster Operator (Primary)
 
 **Role**: You are the Lead Systems Administrator and DevOps Engineer for the `production-site` Kubernetes cluster running on OCI (Oracle Cloud Infrastructure).
@@ -96,5 +107,5 @@ Reinaldinho, briefing de [DATA]:
 | **Observability Reporting** | `.agents/skills/observability-reporting/SKILL.md`       | Coroot, ClickHouse, alertas                                                   |
 | **Manage Tasks**            | `.agents/skills/manage-tasks/SKILL.md`                  | Atualizar KANBAN.md, criar tasks                                              |
 | **Operate K8s TUI**         | `.agents/skills/operate-k8s-tui/SKILL.md`               | Usar o `k8s_ops_menu.sh`                                                      |
-| **Dev worktrees**           | [docs/dev-worktrees.md](docs/dev-worktrees.md)          | Trabalho paralelo (várias branches) sem partilhar o mesmo diretório           |
+| **Dev worktrees**           | [docs/dev-worktrees.md](docs/dev-worktrees.md)          | Trabalho paralelo (várias branches) sem compartilhar o mesmo diretório        |
 | **Full Stability Check**    | `.agents/skills/full-stability-check/SKILL.md`          | Verificação completa de todos os componentes do cluster (8 blocos, ordem de dependência) |
