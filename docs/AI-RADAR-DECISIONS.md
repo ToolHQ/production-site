@@ -93,7 +93,7 @@ GET    /health
 GET    /metrics                        # Prometheus
 GET    /sources           POST /sources           PATCH /sources/:id
 POST   /collect/run       POST /extract/run       POST /score/run    POST /digest/run
-GET    /items             GET  /items/:id
+GET    /items?limit&offset&decision&category&sort   GET  /items/:id  # latest + score history (**T-177**)
 POST   /items/:id/feedback
 POST   /items/:id/reprocess { stage }
 GET    /digests           GET  /digests/:id       # text/markdown via Accept
