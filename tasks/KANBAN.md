@@ -11,7 +11,6 @@
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
 | [T-195](2026/Q2/T-194-Cluster-Pulse-UI-Componentization-Vite-Preact.md) | **Cluster Pulse UI Componentization (Vite+Preact)** | 🔼 High | DevExp / Observability | 4h |
-| [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | **Master rootfs cleanup — BuildKit cache + legado MinIO** _(validação df + hook prune pós-build)_ | 🔼 High | **Copilot/VSCode** | 2h |
 |               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -23,8 +22,7 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
-| [T-197](2026/Q2/T-197-Evicted-Pod-Cleanup-And-Prevention.md) | **Evicted Pod Cleanup + Prevenção** _(CronJob failed-pod-cleaner pendente; 25 pods evicted já limpos)_ | 🔽 Medium | **Copilot/VSCode** | 30m |
-| [T-198](2026/Q2/T-198-cert-manager-cainjector-stability.md) | **cert-manager-cainjector Stability** _(investigar 77 restarts exit-code-1; correlacionar com DiskPressure)_ | 🔽 Low | **Copilot/VSCode** | 1h |
+| [T-199](2026/Q2/T-199-Cluster-Pulse-Node-Metrics-Panel.md) | **Cluster Pulse — Node Metrics Panel** _(CPU/mem/disk por nó via Prometheus + NodesPanel.tsx)_ | 🔽 Medium | **Copilot/VSCode** | 3h |
 |               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
@@ -35,6 +33,9 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-198](2026/Q2/T-198-cert-manager-cainjector-stability.md) | **cert-manager-cainjector Stability** _(causa raiz: apiserver unreachable durante DiskPressure; fixed by T-196)_ | 🔽 Low | **Copilot/VSCode** | 1h |
+| [T-197](2026/Q2/T-197-Evicted-Pod-Cleanup-And-Prevention.md) | **Evicted Pod Cleanup + Prevenção** _(25 pods deletados; CronJob failed-pod-cleaner @ 6h aplicado em kube-system)_ | 🔽 Medium | **Copilot/VSCode** | 1h |
+| [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | **Master rootfs cleanup** _(buildkit prune: 25 GiB→2.7 GiB; disco 75%→29%; T-196 previne reincidência)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | [T-196](2026/Q2/T-196-BuildKit-Prune-Automation.md) | **BuildKit Prune Automation** _(`postbuild_buildkit_prune()` em deploy.sh; prune --keep-storage=8 GiB pós-build quando cache > 10 GiB)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | [T-194](2026/Q2/T-194-Cursor-agent-isolation-worktree-CURSOR-QUEUE-AI-Radar-owners.md) | **Cursor agent isolation — worktree, CURSOR-QUEUE, AI Radar owners** | 🔼 High | DevExp / Ops | 2h |
 | [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)** _(smoke OK, deploy tag `1778940768`)_ | 🔼 High | **Cursor / AI Radar** | 4h |

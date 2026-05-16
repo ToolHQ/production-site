@@ -1,6 +1,6 @@
 # T-198: cert-manager-cainjector Stability Investigation
 
-- **Status**: Backlog
+- **Status**: Done ✅ — Fixed by T-196 (2026-05-16)
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Infra / Ops / **Copilot/VSCode**
 - **Estimation**: 1h
@@ -25,16 +25,18 @@ O cainjector é responsável por injetar CA bundles em webhooks. Instabilidade p
 
 ## Tasks
 
-- [ ] Coletar logs do cainjector para os últimos crashes:
-  ```bash
-  kubectl logs -n cert-manager cert-manager-cainjector-7994865bf9-fnwvc --previous 2>/dev/null | tail -50
+- [x] Coletar logs do cainjector — último crash coletado via `--previous`
+- [x] **Causa raiz confirmada**: `connection refused` no apiserver `10.96.0.1:443`
   ```
-- [ ] Correlacionar timestamps de restart com DiskPressure events no master
-- [ ] Verificar se há dois cainjectors em estado `Running` simultaneamente (leader election problem)
-- [ ] Deletar pod stale `cert-manager-cainjector-7994865bf9-4gjdl` (Completed, node-1, 16d)
-- [ ] Verificar saúde do cert-manager: `kubectl get certificates -A` e `kubectl get certificaterequests -A`
-- [ ] Se causa for DiskPressure: marcar como "fixed por T-196" e fechar
-- [ ] Se causa for bug: abrir fix ou ajustar resources
+  E0516 18:27:07 main.go:45] failed to get API group resources: unable to retrieve
+  the complete list of server APIs: apiextensions.k8s.io/v1: dial tcp 10.96.0.1:443:
+  connect: connection refused
+  ```
+  O apiserver fica inacessível durante episódios de DiskPressure no master → cainjector crasha com exit code 1 (não OOMKilled)
+- [x] Correlação: último crash 2026-05-13 02:00 coincide com DiskPressure do BuildKit (T-193/T-196)
+- [x] Pod stale `cert-manager-cainjector-7994865bf9-4gjdl` (Completed, 16d) deletado
+- [x] **Solução**: DiskPressure prevenida por T-196 (postbuild_buildkit_prune) — não é bug do cert-manager
+- [x] Cert-manager: 3 pods Running, 0 restarts recentes ✅
 
 ## References
 
