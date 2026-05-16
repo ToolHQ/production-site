@@ -149,6 +149,7 @@ struct LiveOverview {
     refreshed_at_epoch: u64,
     refresh_interval_seconds: u64,
     summary: LiveSummary,
+    nodes: Vec<NodeStat>,
     services: Vec<LiveService>,
     incidents: Vec<LiveIncident>,
     metrics: MetricsOverview,
@@ -402,6 +403,15 @@ struct NodeResource {
 struct NodeStatus {
     #[serde(default)]
     conditions: Vec<NodeCondition>,
+    allocatable: Option<NodeAllocatable>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct NodeAllocatable {
+    cpu: Option<String>,
+    memory: Option<String>,
+    #[serde(rename = "ephemeral-storage")]
+    ephemeral_storage: Option<String>,
 }
 
 #[derive(Deserialize, Clone, Default)]
@@ -409,6 +419,18 @@ struct NodeCondition {
     #[serde(rename = "type")]
     type_name: Option<String>,
     status: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+struct NodeStat {
+    name: String,
+    role: String,
+    ready: bool,
+    disk_pressure: bool,
+    memory_pressure: bool,
+    cpu_millicores: u64,
+    memory_bytes: u64,
+    ephemeral_storage_bytes: u64,
 }
 
 #[derive(Default)]
@@ -622,6 +644,7 @@ impl LiveMonitor {
         );
         let incidents = build_live_incidents(&pods.items, &nodes.items);
         let summary = build_live_summary(&services, &pods.items, &nodes.items);
+        let node_stats = build_node_stats(&nodes.items);
 
         Ok(LiveOverview {
             available: true,
@@ -630,6 +653,7 @@ impl LiveMonitor {
             refreshed_at_epoch: unix_epoch_seconds(),
             refresh_interval_seconds: LIVE_REFRESH_INTERVAL_SECONDS,
             summary,
+            nodes: node_stats,
             services,
             incidents,
             metrics: unavailable_metrics_overview("metrics not fetched yet"),
@@ -1202,6 +1226,112 @@ fn build_live_summary(
     }
 }
 
+fn build_node_stats(nodes: &[NodeResource]) -> Vec<NodeStat> {
+    let mut stats: Vec<NodeStat> = nodes
+        .iter()
+        .map(|node| {
+            let name = node_name(node).to_string();
+            let labels = &node.metadata.labels;
+            let role = if labels
+                .get("node-role.kubernetes.io/control-plane")
+                .is_some()
+            {
+                "control-plane".to_string()
+            } else {
+                "worker".to_string()
+            };
+
+            let ready = is_node_ready(node);
+            let disk_pressure = node_condition_true(node, "DiskPressure");
+            let memory_pressure = node_condition_true(node, "MemoryPressure");
+
+            let (cpu_millicores, memory_bytes, ephemeral_storage_bytes) = node
+                .status
+                .as_ref()
+                .and_then(|s| s.allocatable.as_ref())
+                .map(|a| {
+                    (
+                        parse_cpu_to_millicores(a.cpu.as_deref().unwrap_or("0")),
+                        parse_memory_to_bytes(a.memory.as_deref().unwrap_or("0")),
+                        parse_memory_to_bytes(
+                            a.ephemeral_storage.as_deref().unwrap_or("0"),
+                        ),
+                    )
+                })
+                .unwrap_or((0, 0, 0));
+
+            NodeStat {
+                name,
+                role,
+                ready,
+                disk_pressure,
+                memory_pressure,
+                cpu_millicores,
+                memory_bytes,
+                ephemeral_storage_bytes,
+            }
+        })
+        .collect();
+
+    stats.sort_by(|a, b| a.name.cmp(&b.name));
+    stats
+}
+
+fn node_condition_true(node: &NodeResource, condition_type: &str) -> bool {
+    node.status
+        .as_ref()
+        .and_then(|s| {
+            s.conditions
+                .iter()
+                .find(|c| c.type_name.as_deref() == Some(condition_type))
+        })
+        .and_then(|c| c.status.as_deref())
+        == Some("True")
+}
+
+/// Parseia strings de CPU do Kubernetes para millicores.
+/// Exemplos: "940m" → 940, "2" → 2000, "1500m" → 1500
+fn parse_cpu_to_millicores(s: &str) -> u64 {
+    if let Some(val) = s.strip_suffix('m') {
+        val.parse::<u64>().unwrap_or(0)
+    } else {
+        s.parse::<u64>().unwrap_or(0).saturating_mul(1000)
+    }
+}
+
+/// Parseia strings de memória/storage do Kubernetes para bytes.
+/// Exemplos: "5593Mi" → bytes, "6Gi" → bytes, "1024Ki" → bytes, "1000000" → bytes
+fn parse_memory_to_bytes(s: &str) -> u64 {
+    if let Some(val) = s.strip_suffix("Ki") {
+        return val.parse::<u64>().unwrap_or(0).saturating_mul(1024);
+    }
+    if let Some(val) = s.strip_suffix("Mi") {
+        return val
+            .parse::<u64>()
+            .unwrap_or(0)
+            .saturating_mul(1024 * 1024);
+    }
+    if let Some(val) = s.strip_suffix("Gi") {
+        return val
+            .parse::<u64>()
+            .unwrap_or(0)
+            .saturating_mul(1024 * 1024 * 1024);
+    }
+    if let Some(val) = s.strip_suffix('k') {
+        return val.parse::<u64>().unwrap_or(0).saturating_mul(1000);
+    }
+    if let Some(val) = s.strip_suffix('M') {
+        return val.parse::<u64>().unwrap_or(0).saturating_mul(1_000_000);
+    }
+    if let Some(val) = s.strip_suffix('G') {
+        return val
+            .parse::<u64>()
+            .unwrap_or(0)
+            .saturating_mul(1_000_000_000);
+    }
+    s.parse::<u64>().unwrap_or(0)
+}
+
 fn tracked_namespaces() -> BTreeSet<&'static str> {
     service_targets()
         .into_iter()
@@ -1642,6 +1772,7 @@ fn unavailable_live_overview(reason: impl Into<String>) -> LiveOverview {
             affected_namespaces: tracked_namespaces().len(),
             ..LiveSummary::default()
         },
+        nodes: Vec::new(),
         services: Vec::new(),
         incidents: Vec::new(),
         metrics: unavailable_metrics_overview("prometheus metrics unavailable"),

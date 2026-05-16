@@ -79,6 +79,20 @@ export interface LiveSummary {
   affected_namespaces: number;
 }
 
+export interface NodeStat {
+  name: string;
+  role: 'control-plane' | 'worker';
+  ready: boolean;
+  disk_pressure: boolean;
+  memory_pressure: boolean;
+  /** Allocatable CPU em millicores (ex: 940 = 0.94 vCPU) */
+  cpu_millicores: number;
+  /** Allocatable memory em bytes */
+  memory_bytes: number;
+  /** Allocatable ephemeral-storage em bytes */
+  ephemeral_storage_bytes: number;
+}
+
 export interface LiveOverview {
   available: boolean;
   stale: boolean;
@@ -86,6 +100,7 @@ export interface LiveOverview {
   refresh_interval_seconds: number;
   refreshed_at_epoch: number;
   summary: LiveSummary;
+  nodes: NodeStat[];
   services: ServiceStatus[];
   incidents: Incident[];
   metrics: MetricsData;
