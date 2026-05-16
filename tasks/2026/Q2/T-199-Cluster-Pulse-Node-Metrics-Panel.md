@@ -1,6 +1,6 @@
 # T-199: Cluster Pulse — Node Metrics Panel (CPU/mem/disk por nó)
 
-- **Status**: Backlog
+- **Status**: Done ✅ (2026-05-16)
 - **Priority**: 🔽 Medium
 - **Epic/Owner**: Observability / DevExp / **Copilot/VSCode**
 - **Estimation**: 3h
