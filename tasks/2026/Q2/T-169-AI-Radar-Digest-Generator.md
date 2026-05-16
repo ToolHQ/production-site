@@ -1,10 +1,11 @@
 # T-169: AI Radar — Digest Generator
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 1d
 - **Opened**: 2026-05-01
+- **Closed**: 2026-05-15
 
 ## Context
 
@@ -16,19 +17,20 @@ Limites configuráveis: top 5 adopt, 10 test, 5 monitor, 5 ignore. Reasons/risks
 
 ## Tasks
 
-- [ ] `digest/select.rs::select(window: DigestWindow) -> DigestData` (função pura)
-- [ ] Janelas: `Daily` (24h), `Weekly` (7d)
-- [ ] Seleção: scores criados na janela, agrupados por decisão, ordenados por score desc
-- [ ] `digest/render.rs::render_markdown(data: &DigestData) -> String`
-- [ ] Header com data, sections com emoji, item com nome/score/categoria/motivo/riscos/próximo passo/link
-- [ ] Truncar reasons/risks longos (3 itens cada)
-- [ ] `pipeline/digest.rs::run(kind: DigestKind)` orquestra select → render → persist
-- [ ] Persistir em `digests` com `digest_type`, `markdown_content`, `generated_at`
-- [ ] CLI `ai-radar digest --daily | --weekly`
-- [ ] Endpoint `POST /digest/run`
-- [ ] Endpoints `GET /digests` (lista) e `GET /digests/:id` (Content-Type via Accept: `application/json` ou `text/markdown`)
-- [ ] Snapshot test com `DigestData` fixo
-- [ ] E2E: collect → extract → score → digest, validar conteúdo
+- [x] `pipeline/digest.rs` — seleção por janela (`DigestKind` daily/weekly), `select` + `render_markdown` + `run_digest` (consolidado no módulo; não há `digest/select.rs` separado)
+- [x] Janelas: `Daily` (24h), `Weekly` (7d)
+- [x] Seleção: scores na janela, agrupados por decisão, ordenados por score desc
+- [x] Render Markdown com seções por decisão, truncagem de motivos/riscos conforme `DigestLimits`
+- [x] Persistir em `ai_radar.digests` com `digest_type`, `markdown_content`, `generated_at`
+- [x] CLI `ai-radar digest --daily | --weekly`
+- [x] Endpoint `POST /digest/run` (`routes/digest.rs`)
+- [x] Endpoints `GET /digests` e `GET /digests/:id` com `Accept` JSON vs `text/markdown`
+- [x] Teste `crates/ai-radar-core/tests/digest_generator.rs`
+- [ ] E2E cluster completo (cron + dados reais) — validação manual / T-191 quando imagem no cluster incluir estes endpoints
+
+## Nota operacional (2026-05-15)
+
+A pilha digest está no **código** e testes passam localmente (`cargo test -p ai-radar-core --test digest_generator`). O Deployment em cluster pode ainda apontar para imagem **anterior** até um `deploy.sh` bem-sucedido; nesse cenário `POST /digest/run` pode responder **404** até redeploy.
 
 ## DoD
 
