@@ -37,6 +37,16 @@ Esta task é propositalmente **operacional/documental**, para virar um “manual
 
 **Ação de infra recomendada antes do próximo deploy:** libertar espaço no nó que aloja `buildkitd` (prune controlado de cache BuildKit / snapshots; não aplicar `docker system prune -a` cegamente em produção sem checklist).
 
+## Execução no cluster (2026-05-16)
+
+| Check | Resultado |
+| ----- | --------- |
+| Disco `oci-k8s-master` antes do prune | `/` **79%** (~11 GiB livres); falha no passo `#24` cargo (aws-lc-sys): `copy_file_range: no space left on device` em `/var/lib/buildkit/runc-native/snapshots/...` |
+| Prune BuildKit (root, socket `/run/buildkit/buildkitd.sock`) | `buildctl prune --all` — **~4.9 GiB** reclaimable; após prune: **59%** uso, **~20 GiB** livres |
+| Redeploy `deploy.sh` | **Repetir** após prune (build Rust completo ~20 min no `oci-builder`) |
+
+**Nota:** o build chegou a compilar o stub (`#20` ~11 min) e falhou na compilação real após `COPY crates/` — típico de pico de snapshots durante link do `aws-lc-sys`.
+
 ## Tasks
 - [x] Conectar no cluster via tunnel (`connect-to-cluster`) e validar `kubectl get nodes`
 - [x] Preparar ambiente de deploy (`deploy-service`): `source oci-k8s-cluster/scripts/setup-dev-deploy.sh` — **corrigido** bug de sintaxe em `setup-dev-deploy.sh` (printf linha buildkit) que impedia o script terminar
