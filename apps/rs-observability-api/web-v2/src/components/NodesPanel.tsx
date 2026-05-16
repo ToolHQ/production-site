@@ -100,13 +100,21 @@ export function NodesPanel({ live }: NodesPanelProps) {
       )}
 
       <table class="nodes-table">
+        <colgroup>
+          <col class="col-node" />
+          <col class="col-role" />
+          <col class="col-cpu" />
+          <col class="col-mem" />
+          <col class="col-disk" />
+          <col class="col-alerts" />
+        </colgroup>
         <thead>
           <tr>
             <th>Node</th>
             <th>Role</th>
-            <th>CPU (alloc.)</th>
-            <th>Memory (alloc.)</th>
-            <th>Ephemeral</th>
+            <th title="Kubernetes allocatable CPU capacity (fixed per node)">CPU</th>
+            <th title="Kubernetes allocatable memory capacity (fixed per node)">Memory</th>
+            <th title="Kubernetes allocatable ephemeral-storage (fixed per node)">Disk</th>
             <th>Alerts</th>
           </tr>
         </thead>
@@ -116,6 +124,7 @@ export function NodesPanel({ live }: NodesPanelProps) {
           ))}
         </tbody>
       </table>
+      <p class="nodes-table-footnote">Allocatable capacity · not current host utilization</p>
     </div>
   );
 }
