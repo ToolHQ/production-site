@@ -1,2 +1,4 @@
 target
 .git
+web-v2/node_modules
+web-v2/dist
