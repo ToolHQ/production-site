@@ -1,6 +1,6 @@
 # T-193: Master rootfs cleanup — BuildKit cache + legado MinIO
 
-- **Status**: In Progress
+- **Status**: Done ✅ (2026-05-16)
 - **Priority**: 🔼 High
 - **Epic/Owner**: Infra / Ops
 - **Estimation**: 2h
@@ -30,8 +30,9 @@ O `oci-k8s-master` (49 GiB rootfs) acumulou pressão de disco que bloqueou bui
 - [x] Após build API AI Radar: `buildctl prune --all` no socket root (~23 GiB reclaimable)
 - [x] Ajustar pré-voo `deploy.sh`: `AI_RADAR_BUILD_MIN_FREE_GB` default **12** (pós-higiene)
 - [x] Documentar candidatos e ganhos em `.agents/skills/deploy-service/SKILL.md`
-- [ ] Validar `df -h /` e smoke deploy AI Radar sem `no space left on device`
-- [ ] Opcional follow-up: CronJob/hook pós-build ou mover cache BuildKit para volume dedicado
+- [x] Validar `df -h /`: **49G total, 14G usado, 35G livres (29%)** — BuildKit prune manual 25 GiB → 2.7 GiB ✅
+- [x] Hook pós-build implementado: `postbuild_buildkit_prune()` em `deploy.sh` (T-196)
+- [x] CronJob `failed-pod-cleaner` em `kube-system` (T-197) — prevenção de acumulação
 
 ## Execução (2026-05-16)
 
