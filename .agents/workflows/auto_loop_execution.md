@@ -4,39 +4,40 @@ description: Auto-Loop Execution (Headless Autonomous Loop)
 
 # Auto-Loop Execution Workflow
 
-**Goal**: Execute a single priority task assigned by the `auto_loop.sh` orchestrator.
-**Context**: You have been invoked headlessly to process one specific task from the backlog.
+**Goal**: Execute a single priority task autonomously while completely isolating execution from other agents (Cursor/Copilot).
+**Context**: You have been invoked headlessly or manually by the user to process specific tasks assigned to `Antigravity`.
 
-## Phase 1: Context Loading & PRD Gathering
+## Phase 1: Context Loading & Task Discovery
 
-1. Identify the task ID you have been assigned (e.g., `T-040`).
-2. Read the corresponding task definition file (this will be located recursively under `tasks/`, for example `tasks/2026/Q1/{TASK_ID}-*.md`).
-   - If the task requires a PRD (Product Requirements Document) to be broken down, break the task into small execution steps within the T-XXX file first.
-   - Keep tasks _small_. If the task is too large for one context window, split the task file into sub-tasks (e.g., `T-040.1`, `T-040.2`) and update `KANBAN.md` accordingly. Focus only on the first small chunk.
-3. Read `tasks/KANBAN.md` to see where this task sits.
-4. Read `AGENTS.md` to remind yourself of the environment, cluster constraints, and your fundamental rules.
-5. Review `AGENTS.md` or `.agents/progress.txt` for any learned context from the previous loop iteration.
+1. **Worktree Isolation**: You MUST operate exclusively within the designated git worktree (e.g., `../production-site-antigravity`) to prevent file conflicts with Cursor/Copilot. Do not modify files in the main `production-site` directory.
+2. Read `tasks/KANBAN.md` to discover tasks. Look specifically for tasks in `## 🏎️ In Progress` or `## 📅 Backlog (To Do)` where the **Owner** column contains **`Antigravity`**. DO NOT pick up tasks owned by others.
+3. Identify the highest priority task assigned to you (e.g., `T-040`).
+4. Read the corresponding task definition file recursively under `tasks/` (e.g., `tasks/2026/Q1/{TASK_ID}-*.md`).
+   - Break the task into small execution steps within the T-XXX file.
+   - If the task is too large, split the task file into sub-tasks and update `KANBAN.md` accordingly, maintaining `Antigravity` as the Owner. Focus only on the first small chunk.
+5. Read `AGENTS.md` to remind yourself of the environment, cluster constraints, and fundamental rules.
 
 ## Phase 2: Action & Verification
 
-1. Perform the necessary system or codebase changes.
-2. Restrict your changes strictly to the scope of this single task/sub-task.
+1. **GitFlow Strict**: Before making any code changes, create a new branch from `main` inside your worktree (e.g., `git checkout -b feat/{TASK_ID}-description`).
+2. Perform the necessary system or codebase changes. Restrict changes strictly to the scope of this single task.
 3. **Verify** your changes immediately without waiting for human feedback:
    - Run syntax tests (`bash -n`, `python -m py_compile`).
    - Run deployment dry-runs (`kubectl apply --dry-run=client -f <file>`).
    - Check infrastructure state (e.g., read logs, check service status if modifying systemd/k8s).
-   - If UI changes, ask the browser tool to confirm visual elements if possible, or build the static assets.
-4. If the verification fails, you must attempt to fix it within this same execution context.
-5. You must leave the codebase/cluster in a **Green / Stable** state before exiting.
+4. If verification fails, fix it within this same execution context. You must leave the codebase/cluster in a **Green / Stable** state.
 
-## Phase 3: State Management (Critical)
+## Phase 3: State Management & Delivery (Critical)
 
-1. Once fully verified, update the task file marking it `✅ Done`.
-2. Move the task in `tasks/KANBAN.md` to the `## ✅ Done` section.
+1. Once fully verified, commit your changes: `git add . && git commit -m "feat: complete {TASK_ID}"`.
+2. Push your branch and **open a Pull Request** via the GitHub CLI: `gh pr create --title "feat: {TASK_ID}" --body "Automated delivery by Antigravity."`.
+3. Update the task file marking it `✅ Done`.
+4. Move the task in `tasks/KANBAN.md` to the `## ✅ Done` section (ensuring you keep `Antigravity` as the Owner for tracking).
+5. Commit the KANBAN/Task status changes to your branch.
 
 ## Phase 4: Knowledge Handoff
 
-1. Because the next loop starts with a clean context, append your learnings (gotchas, newly established patterns, file locations) to `.agents/progress.txt` or `AGENTS.md`.
-2. Say exactly what the _next_ agent needs to know.
+1. Append your learnings (gotchas, newly established patterns, file locations) to `.agents/progress.txt` or `AGENTS.md`.
+2. Say exactly what the _next_ loop iteration needs to know.
 
-**Exit Strategy**: Finish up quickly and exit with a code `0`. The bash loop script `auto_loop.sh` will then pick up the next task based on the updated `KANBAN.md`.
+**Exit Strategy**: Finish up quickly and exit with a code `0`. Wait for the user or the auto_loop orchestrator to trigger the next execution.
