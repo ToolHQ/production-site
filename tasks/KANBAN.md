@@ -10,6 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+| [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | **Master rootfs cleanup — BuildKit cache + legado MinIO** | 🔼 High | Infra / Ops | 2h |
 | [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)**                                      | 🔼 High  |         AI Radar / DevExp         |  4h  |
 |               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |         AI Radar / DevExp         |  1d  |
 

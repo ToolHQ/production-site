@@ -16,6 +16,26 @@ source oci-k8s-cluster/scripts/setup-dev-deploy.sh
 export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
 ```
 
+## Pré-voo (antes de build/push — evitar falha após 20+ min)
+
+Sempre **medir e estimar** no nó do `buildkitd` (`oci-k8s-master`) **antes** de `docker buildx build`, principalmente Rust/C++ ou duas imagens seguidas.
+
+| Serviço / tipo | Pico típico (BuildKit + link) | Mínimo livre em `/` recomendado |
+| -------------- | ----------------------------- | ------------------------------- |
+| Node/static leve | ~2–4 GiB | ≥ 8 GiB |
+| **AI Radar** (Rust api + cli, ARM64) | ~8–12 GiB cache + ~6–10 GiB no link (`aws-lc-sys`) | **≥ 12 GiB** (com rootfs higienizado; **≥ 18 GiB** se cache BuildKit > 8 GiB sem prune) |
+| Após falha `no space left on device` | — | `buildctl prune --all` no master; revalidar `df -h /` |
+
+Checagem rápida manual:
+
+```bash
+ssh oci-k8s-master 'df -h /; sudo du -sh /var/lib/buildkit; sudo buildctl --addr unix:///run/buildkit/buildkitd.sock du | tail -3'
+```
+
+`apps/ai-radar/deploy.sh` roda pré-voo automático (`preflight_buildkit_disk`). Default **12 GiB** livres; com `AI_RADAR_BUILDKIT_PRUNE=1` tenta `buildctl prune --all` se cache BuildKit ≥ 3 GiB.
+
+**Higiene master (T-193):** remover legado `/data/minio_legacy_backup.tar` (~11 GiB), cache rootless órfão em `~/.local/share/buildkit`, `/tmp/build-swap` se existir; `clean_node.sh --deep` no `oci-k8s-master` após migrações ou antes de builds Rust pesados.
+
 ## Arquitetura de Build/Push
 
 ```

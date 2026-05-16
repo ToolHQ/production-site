@@ -90,6 +90,49 @@ if kubectl get pod postgres-0 -n postgres >/dev/null 2>&1; then
 	warn_postgres_standby_loop || true
 fi
 
+# Pré-voo: disco no nó do buildkitd (build Rust ARM64 usa pico alto de snapshots).
+# Estimativa empírica (oci-k8s-master): ~8–12 GiB cache BuildKit + pico ~6–10 GiB no link
+# (aws-lc-sys); duas imagens (api + cli) em sequência. Mínimo recomendado: 12 GiB livres em / (pós T-193).
+preflight_buildkit_disk() {
+	local host="${OCI_BUILDKIT_HOST:-oci-k8s-master}"
+	local min_gb="${AI_RADAR_BUILD_MIN_FREE_GB:-12}"
+	local out avail_kb avail_gb buildkit_du buildkit_gb
+
+	out="$(ssh -o BatchMode=yes "${host}" bash -s <<'REMOTE'
+set -e
+avail_kb=$(df -k / | tail -1 | awk '{print $4}')
+buildkit_du=$(sudo du -sk /var/lib/buildkit 2>/dev/null | awk '{print $1}' || echo 0)
+echo "$avail_kb $buildkit_du"
+REMOTE
+)" || die "❌ pré-voo: não foi possível checar disco/buildkit em $host (SSH?)"
+
+	avail_kb="$(echo "$out" | awk '{print $1}')"
+	buildkit_du="$(echo "$out" | awk '{print $2}')"
+	avail_gb=$((avail_kb / 1024 / 1024))
+	buildkit_gb=$((buildkit_du / 1024 / 1024))
+
+	printf '%s\n' "📏 pré-voo buildkit ($host): / livre ≈ ${avail_gb} GiB | cache buildkit ≈ ${buildkit_gb} GiB (mín. livre ${min_gb} GiB; pico Rust ~14–22 GiB)"
+
+	if [[ "$avail_gb" -lt "$min_gb" ]]; then
+		if [[ "$buildkit_gb" -ge 3 ]] && [[ "${AI_RADAR_BUILDKIT_PRUNE:-0}" =~ ^(1|true|yes)$ ]]; then
+			printf '%s\n' "⚠️  livre < ${min_gb} GiB — prune automático (AI_RADAR_BUILDKIT_PRUNE=1)…" >&2
+			ssh -o BatchMode=yes "$host" \
+				'sudo buildctl --addr unix:///run/buildkit/buildkitd.sock prune --all' >/dev/null \
+				|| die "❌ prune buildkit falhou"
+			out="$(ssh -o BatchMode=yes "$host" 'df -k / | tail -1 | awk "{print \$4}"')"
+			avail_gb=$((out / 1024 / 1024))
+			printf '%s\n' "   após prune: / livre ≈ ${avail_gb} GiB"
+		fi
+		if [[ "$avail_gb" -lt "$min_gb" ]]; then
+			die "❌ disco insuficiente no $host (~${avail_gb} GiB livres; precisa ≥ ${min_gb} GiB).
+   Rode no master: sudo buildctl --addr unix:///run/buildkit/buildkitd.sock prune --all
+   Ou: AI_RADAR_BUILDKIT_PRUNE=1 ./deploy.sh"
+		fi
+	fi
+}
+
+preflight_buildkit_disk
+
 docker buildx build \
 	--builder oci-builder \
 	--platform linux/arm64 \
