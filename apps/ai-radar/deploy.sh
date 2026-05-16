@@ -162,3 +162,29 @@ sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-api:[^[:s
 sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-cli:[^[:space:]]*|${IMAGE_CLI_TAG}|g" "$MANIFEST"
 
 kubectl apply -f "$MANIFEST"
+
+# Pós-build: prune profilático do cache BuildKit para prevenir DiskPressure acumulado (T-196).
+# Mantém ≤ 8 GiB de cache (--keep-storage) — sem --all para preservar layers reutilizáveis.
+# Executa apenas quando o cache ultrapassar o limiar AI_RADAR_BUILDKIT_MAX_CACHE_GB (padrão: 10 GiB).
+postbuild_buildkit_prune() {
+	local host="${OCI_BUILDKIT_HOST:-oci-k8s-master}"
+	local max_gb="${AI_RADAR_BUILDKIT_MAX_CACHE_GB:-10}"
+	local keep_bytes=8589934592 # 8 GiB
+
+	local buildkit_du buildkit_gb
+	buildkit_du="$(ssh -o BatchMode=yes "$host" \
+		'sudo du -sk /var/lib/buildkit 2>/dev/null | awk "{print \$1}"' 2>/dev/null || echo 0)"
+	buildkit_gb=$((buildkit_du / 1024 / 1024))
+
+	printf '%s\n' "🧹 pós-build buildkit ($host): cache ≈ ${buildkit_gb} GiB (limiar ${max_gb} GiB)"
+	if [[ "$buildkit_gb" -gt "$max_gb" ]]; then
+		printf '%s\n' "   cache > ${max_gb} GiB — pruning para ≤ 8 GiB…"
+		ssh -o BatchMode=yes "$host" \
+			"sudo buildctl --addr unix:///run/buildkit/buildkitd.sock prune --keep-storage=${keep_bytes}" \
+			>/dev/null 2>&1 \
+			&& printf '%s\n' "   ✓ prune concluído" \
+			|| printf '%s\n' "   ⚠️  prune pós-build falhou (não-bloqueante)" >&2
+	fi
+}
+
+postbuild_buildkit_prune || true
