@@ -43,7 +43,9 @@ impl ScoreResult {
             score: self.normalized_score(),
             decision: self.decision,
             next_step: Some(self.next_step.clone()),
-            reasons_json: Some(serde_json::to_value(&self.reasons).unwrap_or(serde_json::json!([]))),
+            reasons_json: Some(
+                serde_json::to_value(&self.reasons).unwrap_or(serde_json::json!([])),
+            ),
             risks_json: Some(serde_json::to_value(&self.risks).unwrap_or(serde_json::json!([]))),
             scoring_version: SCORING_VERSION_DETERMINISTIC_V1.to_string(),
             metadata_json: Some(serde_json::json!({
@@ -125,11 +127,14 @@ fn next_step_for(d: Decision) -> String {
         Decision::Adopt => {
             "Promote to team standard; track adoption metrics and owner.".to_string()
         }
-        Decision::Test => "Run a time-boxed spike in a sandbox cluster before wide rollout.".to_string(),
+        Decision::Test => {
+            "Run a time-boxed spike in a sandbox cluster before wide rollout.".to_string()
+        }
         Decision::Monitor => {
             "No immediate action — revisit next digest cycle unless signals change.".to_string()
         }
-        Decision::Ignore => "Archive; do not spend further review time unless new evidence appears."
-            .to_string(),
+        Decision::Ignore => {
+            "Archive; do not spend further review time unless new evidence appears.".to_string()
+        }
     }
 }
