@@ -1,0 +1,1337 @@
+:root {
+        --ink: #16202b;
+        --muted: #5c6a78;
+        --panel: rgba(255, 255, 255, 0.82);
+        --line: rgba(22, 32, 43, 0.1);
+        --accent: #0d7c72;
+        --accent-soft: rgba(13, 124, 114, 0.12);
+        --warm: #c96633;
+        --warm-soft: rgba(201, 102, 51, 0.14);
+        --critical: #c03b2b;
+        --critical-soft: rgba(192, 59, 43, 0.13);
+        --healthy: #0d7c72;
+        --healthy-soft: rgba(13, 124, 114, 0.14);
+        --shadow: 0 24px 70px rgba(22, 32, 43, 0.12);
+        --shadow-soft: 0 14px 36px rgba(22, 32, 43, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 14% 8%, rgba(13, 124, 114, 0.18), transparent 26%),
+          radial-gradient(circle at 88% 12%, rgba(201, 102, 51, 0.18), transparent 24%),
+          linear-gradient(180deg, #f5eee1 0%, #ecf3f4 46%, #edf2ef 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(22, 32, 43, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(22, 32, 43, 0.025) 1px, transparent 1px);
+        background-size: 24px 24px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 86%);
+        pointer-events: none;
+      }
+
+      main {
+        width: min(1480px, calc(100vw - 28px));
+        margin: 20px auto 48px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .shell {
+        border: 1px solid var(--line);
+        border-radius: 32px;
+        background: rgba(255, 251, 246, 0.84);
+        backdrop-filter: blur(18px);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .masthead,
+      .priority-grid,
+      .content-grid,
+      .catalog-zone {
+        animation: rise 0.45s ease both;
+      }
+
+      .priority-grid {
+        animation-delay: 0.05s;
+      }
+
+      .content-grid {
+        animation-delay: 0.08s;
+      }
+
+      .catalog-zone {
+        animation-delay: 0.12s;
+      }
+
+      .masthead {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.85fr);
+        gap: 24px;
+        padding: 28px 30px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+
+      .eyebrow,
+      .section-title,
+      .section-kicker {
+        font-size: 0.78rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      h1,
+      .catalog-head h2 {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", serif;
+        letter-spacing: -0.05em;
+      }
+
+      h1 {
+        font-size: clamp(2.2rem, 4vw, 4rem);
+        line-height: 0.94;
+        max-width: 12ch;
+      }
+
+      .catalog-head h2 {
+        font-size: clamp(1.6rem, 2vw, 2.4rem);
+        line-height: 0.98;
+      }
+
+      .subhead,
+      .catalog-head p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .subhead {
+        max-width: 60ch;
+        font-size: 1.06rem;
+      }
+
+      .meta-row,
+      .section-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .pill,
+      .panel-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 100%;
+        min-width: 0;
+        padding: 10px 13px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+
+      .pill {
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      }
+
+      .panel-tag {
+        padding: 7px 11px;
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: rgba(22, 32, 43, 0.06);
+      }
+
+      .command-card,
+      .panel,
+      .metric-card,
+      .service-card,
+      .telemetry-card,
+      .artifact,
+      .summary-card,
+      .incident-item,
+      .hotspot-item,
+      .table-shell,
+      .catalog-shell {
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: var(--panel);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .command-card {
+        padding: 22px;
+        display: grid;
+        gap: 16px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 252, 250, 0.82));
+      }
+
+      .command-card[data-tone="warning"] {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 244, 236, 0.88));
+      }
+
+      .command-card[data-tone="critical"] {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 239, 236, 0.9));
+      }
+
+      .command-top,
+      .metric-top,
+      .service-head,
+      .telemetry-header,
+      .section-head,
+      .artifact-meta,
+      .summary-card,
+      .incident-item,
+      .hotspot-item,
+      .table-meta {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .section-head > div {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .command-top {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .signal-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+      }
+
+      .live-dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 999px;
+        background: var(--healthy);
+        box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.34);
+        animation: pulse 1.8s infinite;
+      }
+
+      .command-card[data-tone="warning"] .live-dot {
+        background: var(--warm);
+        box-shadow: 0 0 0 0 rgba(201, 102, 51, 0.3);
+      }
+
+      .command-card[data-tone="critical"] .live-dot {
+        background: var(--critical);
+        box-shadow: 0 0 0 0 rgba(192, 59, 43, 0.3);
+      }
+
+      .command-score {
+        font-size: clamp(2.4rem, 3.6vw, 4.4rem);
+        font-weight: 700;
+        line-height: 0.92;
+        letter-spacing: -0.07em;
+      }
+
+      .command-copy,
+      .service-message,
+      .table-meta p,
+      .section-head p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.58;
+      }
+
+      .next-step {
+        display: grid;
+        gap: 6px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid var(--line);
+      }
+
+      .next-step strong {
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .operator-grid,
+      .metric-grid,
+      .priority-grid,
+      .service-grid,
+      .telemetry-grid,
+      .summary-grid,
+      .catalog-summary-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .operator-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .signal-mini,
+      .summary-card {
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid var(--line);
+      }
+
+      .signal-mini strong,
+      .summary-card strong,
+      .metric-value,
+      .telemetry-value,
+      .hotspot-value {
+        display: block;
+        font-size: 1.32rem;
+      }
+
+      .signal-mini span,
+      .summary-card span,
+      .metric-meta,
+      .metric-note,
+      .service-subtitle,
+      .telemetry-support,
+      .telemetry-meta,
+      .artifact small,
+      .artifact p,
+      .incident-body span,
+      .hotspot-body span,
+      td small {
+        color: var(--muted);
+      }
+
+      .metric-band {
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .metric-card {
+        padding: 18px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .metric-card[data-tone="healthy"],
+      .telemetry-card[data-tone="healthy"] {
+        border-color: rgba(13, 124, 114, 0.22);
+      }
+
+      .metric-card[data-tone="warning"],
+      .telemetry-card[data-tone="degraded"] {
+        border-color: rgba(201, 102, 51, 0.28);
+      }
+
+      .metric-card[data-tone="critical"],
+      .telemetry-card[data-tone="down"] {
+        border-color: rgba(192, 59, 43, 0.28);
+      }
+
+      .metric-label,
+      .service-name,
+      .telemetry-name,
+      .artifact a,
+      td strong {
+        font-weight: 700;
+      }
+
+      .metric-meta,
+      .telemetry-support,
+      .service-subtitle {
+        font-size: 0.9rem;
+      }
+
+      .metric-note {
+        font-size: 0.87rem;
+      }
+
+      .trend-chip,
+      .status-pill,
+      .severity,
+      .table-status {
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+
+      .trend-chip.healthy,
+      .status-pill.healthy,
+      .table-status.deployable {
+        background: var(--healthy-soft);
+        color: var(--healthy);
+      }
+
+      .trend-chip.warning,
+      .status-pill.degraded,
+      .severity.warning,
+      .table-status.partial {
+        background: var(--warm-soft);
+        color: var(--warm);
+      }
+
+      .trend-chip.critical,
+      .status-pill.down,
+      .severity.critical {
+        background: var(--critical-soft);
+        color: var(--critical);
+      }
+
+      .status-pill.telemetry,
+      .severity.clear,
+      .table-status.wip {
+        background: rgba(22, 32, 43, 0.08);
+        color: var(--muted);
+      }
+
+      .sparkline {
+        width: 100%;
+        height: 72px;
+        display: block;
+      }
+
+      .priority-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .priority-panel,
+      .panel {
+        padding: 20px;
+      }
+
+      .priority-panel,
+      .panel,
+      .catalog-main section,
+      .catalog-side section {
+        display: grid;
+        gap: 16px;
+      }
+
+      .priority-panel {
+        align-self: start;
+        height: fit-content;
+      }
+
+      .content-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.82fr);
+        align-items: start;
+      }
+
+      .main-stack,
+      .rail-stack,
+      .catalog-main,
+      .catalog-side {
+        display: grid;
+        gap: 18px;
+      }
+
+      .main-stack,
+      .rail-stack {
+        padding: 24px 30px 30px;
+      }
+
+      .rail-stack {
+        border-left: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.12));
+        align-content: start;
+      }
+
+      .service-grid,
+      .telemetry-grid,
+      .summary-grid,
+      .catalog-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .service-card,
+      .telemetry-card,
+      .artifact,
+      .incident-item,
+      .hotspot-item {
+        padding: 16px 18px;
+      }
+
+      .service-card {
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .service-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 6px;
+        background: rgba(22, 32, 43, 0.16);
+      }
+
+      .service-card[data-status="healthy"]::before {
+        background: var(--healthy);
+      }
+
+      .service-card[data-status="degraded"]::before {
+        background: var(--warm);
+      }
+
+      .service-card[data-status="down"]::before {
+        background: var(--critical);
+      }
+
+      .service-name,
+      .telemetry-name {
+        font-size: 1.06rem;
+      }
+
+      .service-head > div,
+      .service-message,
+      .service-subtitle,
+      .stat-stack,
+      .stat-stack strong {
+        min-width: 0;
+      }
+
+      .service-message,
+      .service-subtitle,
+      .stat-stack strong {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .stat-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px 14px;
+        align-items: start;
+        padding-top: 6px;
+        border-top: 1px dashed var(--line);
+      }
+
+      .stat-stack {
+        display: grid;
+        gap: 4px;
+      }
+
+      .stat-stack.route-stack {
+        grid-column: 1 / -1;
+        padding-top: 8px;
+        border-top: 1px dashed rgba(22, 32, 43, 0.1);
+      }
+
+      .stat-stack.route-stack strong {
+        font-size: 0.98rem;
+        line-height: 1.2;
+      }
+
+      .stat-stack span {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .telemetry-card {
+        display: grid;
+        gap: 12px;
+      }
+
+      .telemetry-grid-mini {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .telemetry-mini {
+        padding: 10px 12px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid var(--line);
+      }
+
+      .summary-card {
+        min-height: 92px;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .incident-list,
+      .hotspot-list,
+      .language-bars,
+      .artifact-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .incident-body,
+      .hotspot-body {
+        display: grid;
+        gap: 4px;
+      }
+
+      .hotspot-value {
+        color: var(--warm);
+      }
+
+      .language-row {
+        display: grid;
+        gap: 6px;
+      }
+
+      .language-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .language-track {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(22, 32, 43, 0.08);
+        overflow: hidden;
+      }
+
+      .language-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--accent), #70c0ae);
+      }
+
+      .catalog-zone {
+        padding: 0 30px 30px;
+      }
+
+      .catalog-shell {
+        overflow: hidden;
+        background: rgba(245, 247, 245, 0.78);
+      }
+
+      .catalog-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+        align-items: flex-start;
+        gap: 20px;
+        padding: 22px 22px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .catalog-head > div {
+        display: grid;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .catalog-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
+      }
+
+      .catalog-main,
+      .catalog-side {
+        padding: 22px;
+      }
+
+      .catalog-side {
+        border-left: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.46);
+      }
+
+      .table-shell {
+        overflow: hidden;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        font-size: 0.95rem;
+        vertical-align: top;
+      }
+
+      td strong,
+      td small {
+        display: block;
+      }
+
+      td small {
+        margin-top: 4px;
+        line-height: 1.35;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .artifact-kind {
+        color: var(--warm);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .artifact a {
+        color: var(--ink);
+        text-decoration: none;
+      }
+
+      .error {
+        margin: 0 30px 30px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(192, 59, 43, 0.2);
+        background: var(--critical-soft);
+        color: var(--critical);
+      }
+
+      .empty {
+        color: var(--muted);
+        padding: 14px 0;
+      }
+
+      @media (min-width: 1680px) {
+        main {
+          width: min(1820px, calc(100vw - 32px));
+          margin: 24px auto 56px;
+        }
+
+        .masthead {
+          grid-template-columns: minmax(0, 1.04fr) minmax(560px, 0.96fr);
+          gap: 30px;
+          padding: 32px 36px;
+        }
+
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 36px;
+          padding-right: 36px;
+        }
+
+        .priority-grid {
+          grid-template-columns: minmax(0, 1.18fr) minmax(380px, 0.82fr);
+        }
+
+        .content-grid {
+          grid-template-columns: minmax(0, 1.62fr) minmax(380px, 0.9fr);
+        }
+
+        .service-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .catalog-layout {
+          grid-template-columns: minmax(0, 1.52fr) minmax(380px, 0.82fr);
+        }
+      }
+
+      @media (min-width: 1880px) {
+        main {
+          width: min(2060px, calc(100vw - 32px));
+        }
+
+        .masthead {
+          grid-template-columns: minmax(0, 1.08fr) minmax(720px, 0.92fr);
+          gap: 36px;
+          padding-left: 40px;
+          padding-right: 40px;
+        }
+
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 40px;
+          padding-right: 40px;
+        }
+
+        .content-grid {
+          grid-template-columns: minmax(0, 1.9fr) minmax(400px, 0.7fr);
+        }
+
+        .service-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .telemetry-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .catalog-layout {
+          grid-template-columns: minmax(0, 1.66fr) minmax(380px, 0.66fr);
+        }
+      }
+
+      @media (min-width: 2200px) {
+        main {
+          width: min(2320px, calc(100vw - 24px));
+        }
+
+        .masthead {
+          grid-template-columns: minmax(0, 1.04fr) minmax(840px, 0.96fr);
+          gap: 40px;
+          padding-left: 46px;
+          padding-right: 46px;
+        }
+
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 46px;
+          padding-right: 46px;
+        }
+
+        .priority-grid {
+          grid-template-columns: minmax(0, 1.42fr) minmax(440px, 0.66fr);
+        }
+
+        .content-grid {
+          grid-template-columns: minmax(0, 2.15fr) minmax(440px, 0.58fr);
+        }
+
+        .service-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .telemetry-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .catalog-layout {
+          grid-template-columns: minmax(0, 1.82fr) minmax(420px, 0.54fr);
+        }
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(13, 124, 114, 0.3);
+        }
+        70% {
+          box-shadow: 0 0 0 14px rgba(13, 124, 114, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(13, 124, 114, 0);
+        }
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 1160px) {
+        .masthead,
+        .content-grid,
+        .catalog-layout,
+        .metric-grid,
+        .catalog-head {
+          grid-template-columns: 1fr;
+        }
+
+        .rail-stack,
+        .catalog-side {
+          border-left: 0;
+          border-top: 1px solid var(--line);
+        }
+      }
+
+      @media (max-width: 840px) {
+        main {
+          width: calc(100vw - 12px);
+          margin: 12px auto 26px;
+        }
+
+        .shell {
+          border-radius: 24px;
+        }
+
+        .masthead {
+          gap: 18px;
+          padding-top: 20px;
+          padding-bottom: 18px;
+        }
+
+        .brand {
+          gap: 12px;
+        }
+
+        .eyebrow,
+        .section-title,
+        .section-kicker {
+          font-size: 0.73rem;
+          letter-spacing: 0.18em;
+        }
+
+        h1 {
+          font-size: clamp(2.3rem, 11vw, 3.35rem);
+        }
+
+        .subhead,
+        .catalog-head p,
+        .section-head p,
+        .table-meta p,
+        .command-copy,
+        .service-message {
+          line-height: 1.48;
+        }
+
+        .meta-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        #generated-at {
+          flex: 1 1 100%;
+        }
+
+        #live-refresh,
+        #metrics-refresh {
+          flex: 1 1 calc(50% - 4px);
+        }
+
+        .pill {
+          width: auto;
+          min-width: 0;
+          padding: 9px 12px;
+          justify-content: flex-start;
+          font-size: 0.84rem;
+        }
+
+        .command-card {
+          gap: 12px;
+          padding: 18px;
+          border-radius: 22px;
+        }
+
+        .command-top,
+        .metric-top,
+        .service-head,
+        .telemetry-header,
+        .artifact-meta,
+        .stat-row {
+          flex-wrap: wrap;
+        }
+
+        .command-top {
+          font-size: 0.84rem;
+        }
+
+        .command-score {
+          font-size: clamp(2.45rem, 11vw, 3.25rem);
+        }
+
+        .next-step {
+          padding: 12px 14px;
+        }
+
+        .masthead,
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 22px;
+          padding-right: 22px;
+        }
+
+        .operator-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          padding-top: 18px;
+          padding-bottom: 18px;
+        }
+
+        .priority-grid,
+        .telemetry-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .metric-grid,
+        .service-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        #cluster-metrics .metric-card:last-child {
+          grid-column: 1 / -1;
+        }
+
+        .summary-grid,
+        .catalog-summary-grid,
+        .telemetry-grid-mini {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .signal-mini,
+        .summary-card,
+        .metric-card {
+          padding: 12px 13px;
+        }
+
+        .signal-mini {
+          min-width: 0;
+        }
+
+        .signal-mini strong {
+          font-size: 1.16rem;
+          line-height: 1;
+        }
+
+        .signal-mini span {
+          display: block;
+          font-size: 0.92rem;
+          line-height: 1.25;
+        }
+
+        .panel,
+        .priority-panel {
+          padding: 16px;
+        }
+
+        .service-card,
+        .telemetry-card,
+        .artifact,
+        .incident-item,
+        .hotspot-item {
+          padding: 14px 15px;
+        }
+
+        .sparkline {
+          height: 60px;
+        }
+
+        .section-head {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .section-tags {
+          gap: 8px;
+        }
+
+        .panel-tag,
+        .trend-chip,
+        .status-pill,
+        .severity,
+        .table-status {
+          padding: 6px 10px;
+          font-size: 0.74rem;
+        }
+
+        .catalog-head {
+          display: grid;
+          padding: 20px;
+        }
+
+        .catalog-main,
+        .catalog-side {
+          padding: 20px;
+        }
+
+        h1 {
+          max-width: none;
+        }
+
+        .table-shell {
+          overflow-x: auto;
+        }
+
+        table {
+          min-width: 620px;
+        }
+
+        th,
+        td {
+          padding: 12px 13px;
+        }
+
+        .error {
+          margin: 0 22px 22px;
+        }
+      }
+
+      @media (max-width: 680px) {
+        main {
+          width: calc(100vw - 8px);
+          margin: 8px auto 18px;
+        }
+
+        .shell {
+          border-radius: 20px;
+        }
+
+        .masthead {
+          gap: 14px;
+          padding: 16px 18px 14px;
+        }
+
+        .command-card {
+          gap: 10px;
+          padding: 16px;
+          border-radius: 20px;
+        }
+
+        .brand {
+          gap: 10px;
+        }
+
+        h1 {
+          font-size: clamp(1.95rem, 9.8vw, 2.8rem);
+          max-width: 9ch;
+        }
+
+        .subhead {
+          font-size: 0.97rem;
+          line-height: 1.38;
+        }
+
+        .meta-row {
+          gap: 6px;
+        }
+
+        .pill {
+          padding: 8px 10px;
+          font-size: 0.78rem;
+        }
+
+        .command-top {
+          font-size: 0.78rem;
+        }
+
+        .command-score {
+          font-size: clamp(2.15rem, 12vw, 3rem);
+        }
+
+        .command-copy {
+          font-size: 0.98rem;
+          line-height: 1.35;
+        }
+
+        .next-step {
+          gap: 4px;
+          padding: 10px 12px;
+          border-radius: 16px;
+        }
+
+        .next-step strong {
+          font-size: 0.74rem;
+        }
+
+        .masthead,
+        .operator-grid,
+        .metric-band,
+        .priority-grid,
+        .main-stack,
+        .rail-stack,
+        .catalog-zone {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+
+        .operator-grid {
+          gap: 8px;
+          padding-top: 14px;
+          padding-bottom: 14px;
+        }
+
+        .metric-grid,
+        .service-grid,
+        .telemetry-grid,
+        .priority-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .stat-row {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .stat-stack.route-stack {
+          grid-column: 1 / -1;
+        }
+
+        .signal-mini,
+        .summary-card,
+        .metric-card {
+          padding: 10px 11px;
+        }
+
+        .metric-card {
+          gap: 8px;
+        }
+
+        .panel,
+        .priority-panel {
+          padding: 14px;
+        }
+
+        .service-card,
+        .telemetry-card,
+        .artifact,
+        .incident-item,
+        .hotspot-item {
+          padding: 12px 13px;
+        }
+
+        .sparkline {
+          height: 48px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .summary-grid,
+        .catalog-summary-grid,
+        .telemetry-grid-mini {
+          grid-template-columns: 1fr;
+        }
+
+        .metric-value,
+        .telemetry-value,
+        .hotspot-value,
+        .signal-mini strong,
+        .summary-card strong {
+          font-size: 1.08rem;
+        }
+
+        .stat-row {
+          gap: 10px;
+          grid-template-columns: 1fr;
+        }
+
+        .signal-mini span,
+        .summary-card span,
+        .metric-meta,
+        .metric-note,
+        .service-subtitle,
+        .telemetry-support,
+        .telemetry-meta,
+        .command-copy,
+        .subhead {
+          font-size: 0.9rem;
+        }
+      }
+
+      @media (max-width: 980px) {
+        .table-shell {
+          overflow: visible;
+        }
+
+        table {
+          min-width: 0;
+        }
+
+        thead {
+          display: none;
+        }
+
+        table,
+        tbody {
+          display: block;
+        }
+
+        tbody {
+          display: grid;
+          gap: 12px;
+        }
+
+        tbody tr {
+          display: grid;
+          gap: 10px;
+          padding: 14px;
+          border: 1px solid var(--line);
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.78);
+        }
+
+        tbody td {
+          display: grid;
+          gap: 4px;
+          padding: 0;
+          border-bottom: 0;
+        }
+
+        tbody td::before {
+          content: attr(data-label);
+          font-size: 0.72rem;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--accent);
+        }
+
+        tbody td[colspan]::before {
+          content: none;
+        }
+
+        .table-status {
+          justify-self: start;
+        }
+
+        .route-tag {
+          width: 100%;
+        }
+      }
