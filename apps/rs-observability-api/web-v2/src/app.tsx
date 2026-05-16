@@ -5,6 +5,7 @@ import { useSnapshot } from './hooks/useSnapshot';
 
 import { DashboardHeader } from './components/DashboardHeader';
 import { SignalCard, SignalGrid } from './components/SignalCard';
+import { NodesPanel } from './components/NodesPanel';
 import { ClusterMetrics } from './components/ClusterMetrics';
 import { IncidentList, RestartHotspots } from './components/IncidentList';
 import { ServiceGrid } from './components/ServiceCard';
@@ -94,6 +95,21 @@ export function App() {
 
         {/* ── Signal mini counters ── */}
         <SignalGrid live={live} />
+
+        {/* ── Node Fleet Status ── */}
+        <section class="panel nodes-section">
+          <div class="section-head">
+            <div>
+              <div class="section-kicker">Infrastructure</div>
+              <div class="section-title">Node Fleet</div>
+              <p>Allocatable resources and pressure conditions por nó. DiskPressure aqui causa falhas em cascata nos serviços.</p>
+            </div>
+            <div class="section-tags">
+              <span class="panel-tag">{live?.available ? `Live · ${(live.nodes ?? []).length} nós` : 'Waiting for live data'}</span>
+            </div>
+          </div>
+          <NodesPanel live={live} />
+        </section>
 
         {/* ── Cluster Pressure (Prometheus metrics) ── */}
         <section class="metric-band">
