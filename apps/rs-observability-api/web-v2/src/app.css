@@ -275,24 +275,43 @@
 
 .mini-bar {
   display: flex;
-  align-items: center;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
   cursor: default;
 }
 
+.mini-bar__info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.mini-bar__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #e0e0e0);
+}
+
+.mini-bar__sub {
+  font-size: 0.65rem;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+}
+
 .mini-bar__track {
-  flex: 1;
-  height: 5px;
-  border-radius: 3px;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
   background: color-mix(in srgb, var(--border, #2a2a2a) 80%, transparent);
   overflow: hidden;
-  min-width: 40px;
-  max-width: 64px;
+  max-width: 110px;
 }
 
 .mini-bar__fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 2px;
   background: var(--accent, #4c9be8);
   transition: width 0.4s ease;
 
@@ -303,13 +322,6 @@
   .mini-bar--critical & {
     background: var(--red, #e74c3c);
   }
-}
-
-.mini-bar__label {
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--text, #e0e0e0);
-  min-width: 2.8rem;
 }
 
 .node-metric-alloc {
