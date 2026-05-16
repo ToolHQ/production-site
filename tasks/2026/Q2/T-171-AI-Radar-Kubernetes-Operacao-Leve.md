@@ -26,7 +26,8 @@ Este épico **fecha o MVP demo-ready no cluster** no sentido pipeline agendado (
 - [x] Reutilizar mesmo `Namespace`/`ServiceAccount`/padrão `imagePullSecrets` já aplicados na **T-174**; `kustomization.yaml` + overlay `images` para CLI
 - [x] `deploy.sh`: build/push **API + CLI** com o mesmo `TAG_VERSION`; `sed` em ambas as referências de imagem antes do `kubectl apply`
 - [x] `Dockerfile.cli` alinhado ao cross-build do `Dockerfile.api` (sem `exec format error` ARM64)
-- [x] CronJobs **`ai-radar-extract`** / **`ai-radar-score`** (manifests + schedules DECISIONS); **`digest-*`** ainda **T-169**
+- [x] CronJobs **`ai-radar-extract`** / **`ai-radar-score`** (manifests + schedules DECISIONS)
+- [ ] CronJob **`ai-radar-digest`** (daily/weekly) — código **T-169** pronto; manifest K8s opcional pós-**T-191**
 - [ ] Opcional: atalho **TUI** (`oci-k8s-cluster/k8s_ops_menu.sh`) — entrada mínima (logs/status namespace `ai-radar`)
 - [x] Lint manifests (kubeconform) incluindo cron manifests — CI `yaml-quality` + `just k8s-validate` (kubeconform opcional no PATH)
 - [x] Smoke em cluster: `kubectl create job --from=cronjob/ai-radar-collect …` + logs (job manual OK)

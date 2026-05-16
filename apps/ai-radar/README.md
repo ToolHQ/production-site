@@ -15,14 +15,11 @@ and the architecture decisions consulted by every epic in
 
 ## Status
 
-Bootstrap ([`T-159`](../../tasks/2026/Q2/T-159-AI-Radar-Bootstrap-Rust-Workspace.md))
-plus **database layer and HTTP `/sources`** ([`T-160`](../../tasks/2026/Q2/T-160-AI-Radar-Banco-e-Modelo-de-Dados.md))
-are implemented today. **`T-174`** manifests live under **`k8s/`** (`kubectl
-kustomize`, overlay `production`, `deploy.sh` arm64+Nexus).
-**CronJobs** and the full scheduled demo continue in
-[`T-171`](../../tasks/2026/Q2/T-171-AI-Radar-Kubernetes-Operacao-Leve.md). The
-remaining product pipeline (RSS/GitHub/web, LLM, extract, score, digest)
-spans **T-161..T-173** alongside that infra track.
+**Em cluster (baseline):** workspace (**T-159**), Postgres/schema (**T-160**), RSS collect (**T-161**), LLM abstraction (**T-164**), extract/score pipelines (**T-165**/**T-166**), digest API/CLI (**T-169**), observability (**T-172**), manifests + CronJobs collect/extract/score (**T-171**/**T-174**). API em `ai-radar.dnor.io`; imagem em produção pode estar atrás do `main` — ver runbook **T-191**.
+
+**Ainda no backlog (Kanban):** GitHub collector (**T-162**), webpage fetcher (**T-163**), scorer LLM opcional (**T-167**), comparator (**T-168**), feedback HTTP (**T-170**).
+
+**Em andamento:** hardening (**T-173**), smoke/demo cluster (**T-191**). Detalhes: [`tasks/KANBAN.md`](../../tasks/KANBAN.md) (T-159..T-174, T-191).
 
 ## Architecture in one diagram
 
@@ -317,7 +314,7 @@ Smoke ad-hoc (exemplos):
 
 **Migrações.** Rodar **`just migrate`** (ou Job tooling) quando houver endpoint **gravável** e com a mesma `DATABASE_URL` que o Deployment usa (ver [Migrations](#migrations)). Para aplicar do laptop contra o Postgres do cluster: túnel SSH + `KUBECONFIG` (ver `.agents/skills/connect-to-cluster`), `kubectl -n postgres port-forward svc/postgres-service 36432:5432`, depois `export DATABASE_URL="$(AI_RADAR_PG_HOST=127.0.0.1 AI_RADAR_PG_PORT=36432 python3 scripts/render-ai-radar-database-url.py)"` e `sqlx migrate run --source migrations` em `apps/ai-radar`.
 
-**Smoke no cluster.**
+**Smoke no cluster.** Checklist operacional completo (digest, métricas `ai_radar_*`, jobs manuais): [`T-191`](../../tasks/2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md).
 
 ```bash
 kubectl -n ai-radar get pods,svc deploy/ai-radar-api
@@ -326,6 +323,8 @@ curl -fsS http://127.0.0.1:18080/health
 curl -fsS http://127.0.0.1:18080/metrics | head -30
 curl -fsS http://127.0.0.1:18080/stats
 curl -fsS -H 'X-Request-Id: smoke-001' http://127.0.0.1:18080/sources
+# digest (requer imagem com T-169 aplicada no cluster)
+curl -fsS -X POST http://127.0.0.1:18080/digest/run -H 'Content-Type: application/json' -d '{"period":"daily"}'
 ```
 
 **HTTPS público (Ingress).** Com o manifesto `k8s/base/ingress.yaml` aplicado, a API responde em **`https://ai-radar.dnor.io`** (TLS via cert-manager). **`GET /` redireciona para `/health`** (evita 404 no browser na raiz). Garanta um registo **`A`** para `ai-radar.dnor.io` apontando para o **mesmo IP** do balanceador usado pelos outros hosts `*.dnor.io` (mesma família que `reports.dnor.io`). Smoke:
