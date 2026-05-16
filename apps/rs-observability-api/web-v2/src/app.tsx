@@ -1,21 +1,262 @@
-import './index.css'
-import { useEffect } from 'preact/hooks'
-import originalJs from './original_script.js?raw'
-import { OriginalMain } from './OriginalMain'
+import './index.css';
+import { useEffect, useState } from 'preact/hooks';
+import { useLiveOverview } from './hooks/useLiveOverview';
+import { useSnapshot } from './hooks/useSnapshot';
+
+import { DashboardHeader } from './components/DashboardHeader';
+import { SignalCard, SignalGrid } from './components/SignalCard';
+import { ClusterMetrics } from './components/ClusterMetrics';
+import { IncidentList, RestartHotspots } from './components/IncidentList';
+import { ServiceGrid } from './components/ServiceCard';
+import { TelemetryGrid } from './components/TelemetryCard';
+import { RuntimeSummary, CatalogSummary } from './components/SummaryGrid';
+import { LanguageBars } from './components/LanguageBars';
+import { CatalogTable, ArtifactList } from './components/CatalogTable';
+
+import {
+  formatEpoch,
+  formatCompactRelativeTime,
+  formatRelativeTime,
+  isCondensedViewport,
+} from './utils/format';
+
+// ────────────────────────────────────────────────────────────
+// Helpers de tag das seções
+// ────────────────────────────────────────────────────────────
+
+function useWindowWidth() {
+  const [width, setWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const handler = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setWidth(window.innerWidth), 120);
+    };
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return width;
+}
+
+// ────────────────────────────────────────────────────────────
+// Root App
+// ────────────────────────────────────────────────────────────
 
 export function App() {
-  useEffect(() => {
-    // Executar o script antigo no contexto global para manter funcionando provisoriamente
-    const script = document.createElement('script');
-    script.innerHTML = originalJs;
-    document.body.appendChild(script);
+  // Hook de resize para rerender das pills/tags responsivos
+  useWindowWidth();
 
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
+  const { data: live, error: liveError } = useLiveOverview();
+  const { summary, catalog, reports, error: snapshotError } = useSnapshot();
+
+  const metrics = live?.metrics ?? null;
+  const condensed = isCondensedViewport();
+
+  // Tags de seção — derivadas diretamente do estado
+  const metricsSectionTag = metrics?.available
+    ? `Prometheus ${metrics.window_minutes}m${metrics.stale ? ' · stale' : ''}`
+    : 'Waiting for metrics';
+
+  const opsSectionTag = live?.available
+    ? `Live kube incidents${live.stale ? ' · stale' : ''}`
+    : 'Waiting for live data';
+
+  const restartSectionTag = metrics?.available
+    ? `Prometheus ${metrics.window_minutes}m${metrics.stale ? ' · stale' : ''}`
+    : 'Waiting for Prometheus';
+
+  const servicesSectionTag = live?.available
+    ? `Live kube ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? ' · stale' : ''}`
+    : 'Waiting for live data';
+
+  const telemetrySectionTag = metrics?.available
+    ? `Prometheus ${formatEpoch(metrics.refreshed_at_epoch)}${metrics.stale ? ' · stale' : ''}`
+    : 'Waiting for metrics';
+
+  const summarySectionTag = live?.available
+    ? `Live kube ${formatEpoch(live.refreshed_at_epoch)}${live.stale ? ' · stale' : ''}`
+    : 'Waiting for live data';
+
+  const snapshotText = summary?.generated_at
+    ? `Snapshot ${condensed ? formatCompactRelativeTime(summary.generated_at) : formatRelativeTime(summary.generated_at)}`
+    : 'Waiting for snapshot';
+
+  const errorMessage = [liveError, snapshotError].filter(Boolean).join(' | ');
 
   return (
-    <OriginalMain />
-  )
+    <main>
+      <section class="shell">
+        {/* ── Masthead ── */}
+        <header class="masthead">
+          <DashboardHeader snapshot={summary} live={live} metrics={metrics} />
+          <SignalCard live={live} />
+        </header>
+
+        {/* ── Signal mini counters ── */}
+        <SignalGrid live={live} />
+
+        {/* ── Cluster Pressure (Prometheus metrics) ── */}
+        <section class="metric-band">
+          <div class="section-head">
+            <div>
+              <div class="section-kicker">Core load</div>
+              <div class="section-title">Cluster Pressure</div>
+              <p>Prometheus-backed CPU, memory and restart pressure over the current dashboard window.</p>
+            </div>
+            <div class="section-tags">
+              <span class="panel-tag" id="metrics-section-tag">{metricsSectionTag}</span>
+            </div>
+          </div>
+          <ClusterMetrics metrics={metrics} />
+        </section>
+
+        {/* ── Priority grid: Incidents + Restart Debt ── */}
+        <section class="priority-grid">
+          <section class="panel priority-panel">
+            <div class="section-head">
+              <div>
+                <div class="section-title">Immediate Action</div>
+                <p>Live kube incidents first. This block should explain why an operator needs to care now.</p>
+              </div>
+              <div class="section-tags">
+                <span class="panel-tag" id="ops-section-tag">{opsSectionTag}</span>
+              </div>
+            </div>
+            <IncidentList live={live} />
+          </section>
+
+          <section class="panel priority-panel">
+            <div class="section-head">
+              <div>
+                <div class="section-title">Restart Debt</div>
+                <p>Prometheus-ranked restart hotspots over the last hour, rounded to discrete events.</p>
+              </div>
+              <div class="section-tags">
+                <span class="panel-tag" id="restart-section-tag">{restartSectionTag}</span>
+              </div>
+            </div>
+            <RestartHotspots metrics={metrics} />
+          </section>
+        </section>
+
+        {/* ── Content grid: Services + Telemetry / Rail ── */}
+        <div class="content-grid">
+          <section class="main-stack">
+            {/* Critical Services */}
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">Critical Services</div>
+                  <p>Live kube health, readiness, restart count and serving routes for the tracked surface.</p>
+                </div>
+                <div class="section-tags">
+                  <span class="panel-tag" id="services-section-tag">{servicesSectionTag}</span>
+                </div>
+              </div>
+              <ServiceGrid live={live} />
+            </section>
+
+            {/* Service Telemetry */}
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">Service Telemetry</div>
+                  <p>Prometheus time-series stay close to service health so the board reads like an action surface.</p>
+                </div>
+                <div class="section-tags">
+                  <span class="panel-tag" id="telemetry-section-tag">{telemetrySectionTag}</span>
+                </div>
+              </div>
+              <TelemetryGrid metrics={metrics} live={live} />
+            </section>
+          </section>
+
+          {/* Rail */}
+          <aside class="rail-stack">
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">Runtime Summary</div>
+                  <p>Operational rollup only. This panel should not depend on snapshot interpretation.</p>
+                </div>
+                <div class="section-tags">
+                  <span class="panel-tag" id="summary-section-tag">{summarySectionTag}</span>
+                </div>
+              </div>
+              <RuntimeSummary live={live} />
+            </section>
+
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">Catalog Snapshot</div>
+                  <p>Snapshot-derived counts stay visible, but secondary to live operations.</p>
+                </div>
+                <div class="section-tags">
+                  <span class="panel-tag" id="catalog-summary-tag">{snapshotText}</span>
+                </div>
+              </div>
+              <CatalogSummary summary={summary} />
+            </section>
+
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <div class="section-title">Language Mix</div>
+                  <p>Repo composition is still useful context when deciding where to intervene.</p>
+                </div>
+              </div>
+              <LanguageBars summary={summary} />
+            </section>
+          </aside>
+        </div>
+
+        {/* ── Catalog zone (secondary surface) ── */}
+        <section class="catalog-zone">
+          <div class="catalog-shell">
+            <div class="catalog-head">
+              <div>
+                <div class="section-kicker">Secondary surface</div>
+                <h2>Catalog and deploy context</h2>
+              </div>
+              <div>
+                <p>
+                  Deploy paths, artifact bundle and snapshot inventory remain available without stealing
+                  first-fold attention from operations.
+                </p>
+                <div class="section-tags">
+                  <span class="panel-tag" id="catalog-zone-tag">{snapshotText}</span>
+                  <span class="panel-tag route-tag">Routes: /api/live/overview, /api/catalog, /api/reports</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="catalog-layout">
+              <div class="catalog-main">
+                <CatalogTable catalog={catalog} summary={summary} />
+              </div>
+              <aside class="catalog-side">
+                <section>
+                  <div class="section-head">
+                    <div>
+                      <div class="section-title">Artifact Library</div>
+                      <p>Static report bundle served from the image snapshot.</p>
+                    </div>
+                  </div>
+                  <ArtifactList reports={reports} />
+                </section>
+              </aside>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      {/* Error banner */}
+      {errorMessage && (
+        <div id="error-box">
+          <div class="error">{errorMessage}</div>
+        </div>
+      )}
+    </main>
+  );
 }
