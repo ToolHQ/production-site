@@ -33,6 +33,9 @@ pub trait RawItemRepository: Send + Sync {
     /// (`FOR UPDATE SKIP LOCKED`), oldest `collected_at` first.
     async fn claim_pending_batch(&self, limit: i64) -> RepoResult<Vec<RawItem>>;
 
+    /// Repair rows left in `extracting` after crashed jobs or failed status updates.
+    async fn reconcile_extracting_status(&self) -> RepoResult<u64>;
+
     /// Append a JSON object to `metadata_json.extract_attempts` (creates the array if missing).
     async fn append_extract_attempt(&self, id: Uuid, entry: serde_json::Value) -> RepoResult<()>;
 }
@@ -184,6 +187,38 @@ impl RawItemRepository for PgRawItemRepository {
             .await
             .map_err(RepoError::from_sqlx)?;
         rows.iter().map(row_to_raw_item).collect()
+    }
+
+    async fn reconcile_extracting_status(&self) -> RepoResult<u64> {
+        let synced: i64 = sqlx::query_scalar(
+            "WITH synced AS ( \
+                 UPDATE ai_radar.raw_items AS r \
+                 SET status = 'extracted' \
+                 WHERE r.status = 'extracting' \
+                   AND EXISTS ( \
+                     SELECT 1 FROM ai_radar.extracted_items ei \
+                     WHERE ei.raw_item_id = r.id \
+                   ) \
+                 RETURNING 1 \
+             ) SELECT COUNT(*)::bigint FROM synced",
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(RepoError::from_sqlx)?;
+
+        let released: i64 = sqlx::query_scalar(
+            "WITH released AS ( \
+                 UPDATE ai_radar.raw_items \
+                 SET status = 'pending' \
+                 WHERE status = 'extracting' \
+                 RETURNING 1 \
+             ) SELECT COUNT(*)::bigint FROM released",
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(RepoError::from_sqlx)?;
+
+        Ok((synced + released).max(0) as u64)
     }
 
     async fn append_extract_attempt(&self, id: Uuid, entry: serde_json::Value) -> RepoResult<()> {

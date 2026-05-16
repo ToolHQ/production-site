@@ -43,6 +43,14 @@ pub async fn run_extract(
     let raw_repo = PgRawItemRepository::new(db);
     let extracted_repo = PgExtractedItemRepository::new(db);
 
+    let reconciled = raw_repo.reconcile_extracting_status().await?;
+    if reconciled > 0 {
+        tracing::info!(
+            reconciled,
+            "reconciled raw_items stuck in extracting before claim"
+        );
+    }
+
     let batch = raw_repo.claim_pending_batch(limit).await?;
     let mut stats = ExtractStats::default();
 
