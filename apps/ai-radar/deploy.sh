@@ -137,7 +137,7 @@ DOCKERFILE="$ROOT_DIR/docker/Dockerfile"
 
 build_rust_image() {
 	local target="$1" bin_name="$2" image_tag="$3" image_latest="$4"
-	printf '%s\n' "🔨 buildx $target ($bin_name)…"
+	printf '%s\n' "🔨 buildx $target ($bin_name)…" >&2
 	docker buildx build \
 		--builder oci-builder \
 		--platform linux/arm64 \
