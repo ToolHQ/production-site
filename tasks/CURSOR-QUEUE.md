@@ -31,6 +31,7 @@
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
+| **T-200** | **Compile-time / BuildKit** (~50 min/deploy → cargo-chef, deploy parcial) | Backlog 🔼 |
 | T-177 | Items API + Explorer UI | Backlog |
 | T-162 | GitHub collector | Backlog |
 | T-163 | Webpage fetcher | Backlog |
@@ -44,8 +45,10 @@
 
 - [x] T-175 deploy + console em https://ai-radar.dnor.io/
 - [x] T-176 observability pack (Grafana JSON + README + smoke Prometheus Coroot)
-- [ ] Montar `ai-radar-llm` no Deployment da API (reprocess/extract HTTP)
-- [ ] Demo pipeline: RSS + collect + extract + score + digest visível no console
+- [x] Montar `ai-radar-llm` no Deployment da API — PR [#122](https://github.com/ToolHQ/production-site/pull/122)
+- [x] Demo pipeline: digest semanal com itens **Testar** no console
+- [x] Causa raiz `read-only transaction`: `postgres-service` → réplica; fix primário + reconcile `extracting`
+- [ ] Deploy PR reconcile + re-run extract (após merge ou patch cluster)
 
 ## Concluídas (histórico recente)
 

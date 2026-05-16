@@ -27,8 +27,11 @@ def main() -> None:
     raw_user = base64.b64decode(data["POSTGRES_USER"]).decode()
     raw_pass = base64.b64decode(data["POSTGRES_PASSWORD"]).decode()
 
+    # Default to the StatefulSet primary pod (postgres-0), not the ClusterIP service that
+    # may include hot-standby endpoints until postgres-service is narrowed (T-029).
     host = os.environ.get(
-        "AI_RADAR_PG_HOST", "postgres-service.postgres.svc.cluster.local"
+        "AI_RADAR_PG_HOST",
+        "postgres-0.postgres-internal.postgres.svc.cluster.local",
     )
     port = os.environ.get("AI_RADAR_PG_PORT", "5432")
     db = os.environ.get("AI_RADAR_PG_DATABASE", "postgres")
