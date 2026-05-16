@@ -88,6 +88,8 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         .cached_or_refresh(&payload.services)
         .await;
 
+    payload.node_metrics = state.prometheus_monitor.fetch_node_metrics().await;
+
     Json(payload).into_response()
 }
 

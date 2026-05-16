@@ -1,4 +1,4 @@
-import type { LiveOverview, NodeStat } from '../types/api';
+import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -18,14 +18,38 @@ function fmtCpu(millicores: number): string {
 }
 
 // ────────────────────────────────────────────────────────────
+// MiniBar — CSS progress bar
+// ────────────────────────────────────────────────────────────
+
+interface MiniBarProps {
+  percent: number;
+  label: string;
+  sub: string;
+}
+
+function MiniBar({ percent, label, sub }: MiniBarProps) {
+  const pct = Math.min(100, Math.max(0, percent));
+  const cls = pct >= 85 ? 'mini-bar--critical' : pct >= 65 ? 'mini-bar--warn' : '';
+  return (
+    <div class={`mini-bar ${cls}`} title={`${pct.toFixed(1)}% · ${sub}`}>
+      <div class="mini-bar__track">
+        <div class="mini-bar__fill" style={`width:${pct}%`} />
+      </div>
+      <span class="mini-bar__label">{label}</span>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
 // NodeRow (átomo)
 // ────────────────────────────────────────────────────────────
 
 interface NodeRowProps {
   node: NodeStat;
+  metrics?: NodeMetrics;
 }
 
-function NodeRow({ node }: NodeRowProps) {
+function NodeRow({ node, metrics }: NodeRowProps) {
   const readyDot = node.ready ? '🟢' : '🔴';
   const diskIcon = node.disk_pressure ? (
     <span class="node-alert node-alert--disk" title="DiskPressure ativo">💾 DiskPressure</span>
@@ -41,6 +65,36 @@ function NodeRow({ node }: NodeRowProps) {
       <span class="node-role node-role--worker">worker</span>
     );
 
+  const cpuCell = metrics ? (
+    <MiniBar
+      percent={metrics.cpu_percent}
+      label={`${metrics.cpu_percent.toFixed(0)}%`}
+      sub={`${(metrics.cpu_percent / 100).toFixed(2)} vCPU used`}
+    />
+  ) : (
+    <span class="node-metric-alloc" title="Kubernetes allocatable (no real data)">{fmtCpu(node.cpu_millicores)}</span>
+  );
+
+  const memCell = metrics ? (
+    <MiniBar
+      percent={metrics.mem_percent}
+      label={`${metrics.mem_percent.toFixed(0)}%`}
+      sub={`${fmtGiB(metrics.mem_used_bytes)} / ${fmtGiB(metrics.mem_total_bytes)}`}
+    />
+  ) : (
+    <span class="node-metric-alloc" title="Kubernetes allocatable (no real data)">{fmtGiB(node.memory_bytes)}</span>
+  );
+
+  const diskCell = metrics ? (
+    <MiniBar
+      percent={metrics.disk_percent}
+      label={`${metrics.disk_percent.toFixed(0)}%`}
+      sub={`${fmtGiB(metrics.disk_used_bytes)} / ${fmtGiB(metrics.disk_total_bytes)}`}
+    />
+  ) : (
+    <span class="node-metric-alloc" title="Kubernetes allocatable (no real data)">{fmtGiB(node.ephemeral_storage_bytes)}</span>
+  );
+
   return (
     <tr class={`node-row${!node.ready ? ' node-row--notready' : ''}${node.disk_pressure ? ' node-row--disk' : ''}`}>
       <td class="node-name">
@@ -48,9 +102,9 @@ function NodeRow({ node }: NodeRowProps) {
         <span class="node-hostname">{node.name}</span>
       </td>
       <td class="node-role-cell">{roleBadge}</td>
-      <td class="node-cpu">{fmtCpu(node.cpu_millicores)}</td>
-      <td class="node-mem">{fmtGiB(node.memory_bytes)}</td>
-      <td class="node-disk">{fmtGiB(node.ephemeral_storage_bytes)}</td>
+      <td class="node-cpu">{cpuCell}</td>
+      <td class="node-mem">{memCell}</td>
+      <td class="node-disk">{diskCell}</td>
       <td class="node-alerts">
         {diskIcon}
         {memIcon}
@@ -70,6 +124,8 @@ interface NodesPanelProps {
 
 export function NodesPanel({ live }: NodesPanelProps) {
   const nodes = live?.nodes ?? [];
+  const nodeMetrics = live?.node_metrics ?? {};
+  const hasRealMetrics = Object.keys(nodeMetrics).length > 0;
 
   if (!live?.available || nodes.length === 0) {
     return (
@@ -112,19 +168,23 @@ export function NodesPanel({ live }: NodesPanelProps) {
           <tr>
             <th>Node</th>
             <th>Role</th>
-            <th title="Kubernetes allocatable CPU capacity (fixed per node)">CPU</th>
-            <th title="Kubernetes allocatable memory capacity (fixed per node)">Memory</th>
-            <th title="Kubernetes allocatable ephemeral-storage (fixed per node)">Disk</th>
+            <th title={hasRealMetrics ? 'Real CPU utilization (5m avg)' : 'Kubernetes allocatable CPU (fixed per node)'}>CPU</th>
+            <th title={hasRealMetrics ? 'Real memory utilization' : 'Kubernetes allocatable memory (fixed per node)'}>Memory</th>
+            <th title={hasRealMetrics ? 'Real disk utilization on / filesystem' : 'Kubernetes allocatable ephemeral-storage (fixed per node)'}>Disk</th>
             <th>Alerts</th>
           </tr>
         </thead>
         <tbody>
           {nodes.map((node) => (
-            <NodeRow key={node.name} node={node} />
+            <NodeRow key={node.name} node={node} metrics={nodeMetrics[node.name]} />
           ))}
         </tbody>
       </table>
-      <p class="nodes-table-footnote">Allocatable capacity · not current host utilization</p>
+      <p class="nodes-table-footnote">
+        {hasRealMetrics
+          ? 'Real host utilization via Prometheus node_exporter · hover bars for absolute values'
+          : 'Allocatable capacity · not current host utilization'}
+      </p>
     </div>
   );
 }
