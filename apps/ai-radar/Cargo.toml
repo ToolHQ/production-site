@@ -12,7 +12,7 @@ edition = "2021"
 rust-version = "1.88"
 license = "MIT"
 authors = ["dnorio <dnorio@dnor.io>"]
-repository = "https://github.com/dnorio/production-site"
+repository = "https://github.com/ToolHQ/production-site"
 
 [workspace.dependencies]
 # Internal crates

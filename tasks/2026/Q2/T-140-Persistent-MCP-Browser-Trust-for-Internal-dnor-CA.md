@@ -11,7 +11,7 @@ browser do Chrome DevTools MCP continuou abrindo `https://reports.dnor.io` com
 `ERR_CERT_AUTHORITY_INVALID`. Na prática, isso obrigou a usar o bypass manual do interstitial
 (`thisisunsafe`) sempre que a auditoria MCP precisava inspecionar o endpoint real.
 
-O ponto de controle local desse comportamento é [/.vscode/mcp.json](/home/dnorio/production-site/.vscode/mcp.json),
+O ponto de controle local desse comportamento é [/.vscode/mcp.json](/home/ToolHQ/production-site/.vscode/mcp.json),
 que lançava o `chrome-devtools-mcp@0.21.0` com `--executablePath /usr/bin/google-chrome`, isto é, o
 Chrome Linux do WSL. A investigação desta task comparou três rotas:
 
@@ -28,8 +28,8 @@ fluxo operacional do MCP sem mexer na trust chain global, que já está correta 
 
 ### Arquivos centrais
 
-- [/.vscode/mcp.json](/home/dnorio/production-site/.vscode/mcp.json)
-- [oci-k8s-cluster/scripts/setup-dev-deploy.sh](/home/dnorio/production-site/oci-k8s-cluster/scripts/setup-dev-deploy.sh)
+- [/.vscode/mcp.json](/home/ToolHQ/production-site/.vscode/mcp.json)
+- [oci-k8s-cluster/scripts/setup-dev-deploy.sh](/home/ToolHQ/production-site/oci-k8s-cluster/scripts/setup-dev-deploy.sh)
 
 ## Tasks
 - [x] Confirmar que o MCP ainda estava preso ao `google-chrome` do WSL em `/.vscode/mcp.json`

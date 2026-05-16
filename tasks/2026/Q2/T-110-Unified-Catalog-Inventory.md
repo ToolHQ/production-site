@@ -321,7 +321,7 @@ detect_version() {
 ```json
 {
   "generated_at": "2026-04-12T14:00:00Z",
-  "repo_root": "/home/dnorio/production-site",
+  "repo_root": "/home/ToolHQ/production-site",
   "apps": [
     {
       "name": "back-end",

@@ -86,5 +86,5 @@ frontend estático e sem depender de novos endpoints para a primeira iteração.
 - `https://reports.dnor.io/` respondeu `HTTP 200` após o deploy
 - `https://reports.dnor.io/api/live/overview` continuou respondendo JSON coerente com `available: true`
 - screenshots pós-rollout capturados em:
-	- `/home/dnorio/production-site/tmp/ui-audit/reports-desktop-postrefactor-loaded.png`
-	- `/home/dnorio/production-site/tmp/ui-audit/reports-mobile-postrefactor-loaded.png`
+	- `/home/ToolHQ/production-site/tmp/ui-audit/reports-desktop-postrefactor-loaded.png`
+	- `/home/ToolHQ/production-site/tmp/ui-audit/reports-mobile-postrefactor-loaded.png`

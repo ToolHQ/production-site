@@ -27,7 +27,7 @@ description: Métodos oficiais e validados de conexão ao cluster OCI K8s (SSH, 
 ssh -L 6445:localhost:6443 oci-k8s-master -N -f
 
 # Passo 2: apontar kubectl para o kubeconfig do tunnel
-export KUBECONFIG=/home/dnorio/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+export KUBECONFIG=/home/ToolHQ/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
 ```
 
 **Verificação:**
@@ -62,7 +62,7 @@ ssh oci-k8s-node-3   # Worker 3
 ## Método 3 — Via TUI
 
 ```bash
-cd /home/dnorio/production-site/oci-k8s-cluster
+cd /home/ToolHQ/production-site/oci-k8s-cluster
 ./k8s_ops_menu.sh
 ```
 
@@ -74,7 +74,7 @@ Ela também expõe o fluxo de resgate de conectividade OCI quando a porta 22 est
 Use este fluxo quando as instâncias continuarem `RUNNING`, mas `ssh oci-k8s-master` e afins falharem por timeout ou bloqueio na porta 22.
 
 ```bash
-cd /home/dnorio/production-site/oci-k8s-cluster
+cd /home/ToolHQ/production-site/oci-k8s-cluster
 ./k8s_ops_menu.sh
 ```
 
