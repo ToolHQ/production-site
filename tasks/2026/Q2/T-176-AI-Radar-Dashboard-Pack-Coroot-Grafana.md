@@ -1,6 +1,6 @@
 # T-176: AI Radar — Dashboard pack (Coroot / Grafana)
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 2h
@@ -13,11 +13,11 @@ Reutiliza `GET /metrics` já exposto no Ingress; zero código Rust novo no hot p
 
 ## Tasks
 
-- [ ] Inventariar métricas `ai_radar_*` expostas hoje
-- [ ] Criar `apps/ai-radar/observability/grafana/ai-radar-pipeline.json` (dashboard importável)
-- [ ] Documentar painéis Coroot equivalentes (ou screenshot + queries PromQL)
-- [ ] README: link “Ops dashboard” + alertas sugeridos (fila pending alta, `score_failed_total`)
-- [ ] Smoke: métricas visíveis após scrape do Service `ai-radar-api`
+- [x] Inventariar métricas `ai_radar_*` expostas hoje
+- [x] Criar `apps/ai-radar/observability/grafana/ai-radar-pipeline.json` (dashboard importável)
+- [x] Documentar painéis Coroot equivalentes + queries PromQL em `observability/README.md`
+- [x] README: link “Ops dashboard” + alertas sugeridos (`alerting-rules.example.yaml`)
+- [x] Smoke: métricas no Prometheus Coroot (`ai_radar_pending_raw_items` com labels `namespace=ai-radar`)
 
 ## DoD
 

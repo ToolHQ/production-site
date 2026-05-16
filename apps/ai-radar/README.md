@@ -343,6 +343,8 @@ curl -fsS https://ai-radar.dnor.io/metrics | grep ai_radar_pending_raw_items
 curl -fsS -H 'X-Request-Id: edge-001' https://ai-radar.dnor.io/sources
 ```
 
+**Dashboards ops (Prometheus / Grafana / Coroot).** Métricas `ai_radar_*` são scrapeadas pelo Prometheus do namespace `coroot` (anotações no Service). Importe o dashboard Grafana e queries em [`observability/README.md`](observability/README.md) (**T-176**).
+
 Se `kubeconform` estiver instalado, você pode usar o comando da task
 [**T-174**](../../tasks/2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md)
 (`kubectl kustomize … | kubeconform …`) além do `just k8s-validate`.
