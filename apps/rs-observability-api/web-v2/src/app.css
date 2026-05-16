@@ -271,6 +271,53 @@
   letter-spacing: 0.02em;
 }
 
+/* ── MiniBar ─────────────────────────────────────────────── */
+
+.mini-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: default;
+}
+
+.mini-bar__track {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--border, #2a2a2a) 80%, transparent);
+  overflow: hidden;
+  min-width: 40px;
+  max-width: 64px;
+}
+
+.mini-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent, #4c9be8);
+  transition: width 0.4s ease;
+
+  .mini-bar--warn & {
+    background: var(--yellow, #f39c12);
+  }
+
+  .mini-bar--critical & {
+    background: var(--red, #e74c3c);
+  }
+}
+
+.mini-bar__label {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #e0e0e0);
+  min-width: 2.8rem;
+}
+
+.node-metric-alloc {
+  color: var(--text-muted, #888);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .node-row {
   transition: background 0.12s;
 

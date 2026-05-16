@@ -93,6 +93,17 @@ export interface NodeStat {
   ephemeral_storage_bytes: number;
 }
 
+/** Real host utilization from Prometheus node_exporter (workers only). */
+export interface NodeMetrics {
+  cpu_percent: number;
+  mem_used_bytes: number;
+  mem_total_bytes: number;
+  mem_percent: number;
+  disk_used_bytes: number;
+  disk_total_bytes: number;
+  disk_percent: number;
+}
+
 export interface LiveOverview {
   available: boolean;
   stale: boolean;
@@ -101,6 +112,8 @@ export interface LiveOverview {
   refreshed_at_epoch: number;
   summary: LiveSummary;
   nodes: NodeStat[];
+  /** Real host utilization per node. Only present for nodes with node_exporter. */
+  node_metrics: Record<string, NodeMetrics>;
   services: ServiceStatus[];
   incidents: Incident[];
   metrics: MetricsData;
