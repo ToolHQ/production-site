@@ -24,9 +24,8 @@
 
 | ID / Ref | Tarefa | Prioridade |
 | :------- | :----- | :--------- |
-| [T-196](2026/Q2/T-196-BuildKit-Prune-Automation.md) | BuildKit Prune Automation (hook + CronJob) | 🔼 High |
-| [T-197](2026/Q2/T-197-Evicted-Pod-Cleanup-And-Prevention.md) | Evicted Pod Cleanup + Prevenção | 🔽 Medium |
-| [T-198](2026/Q2/T-198-cert-manager-cainjector-stability.md) | cert-manager-cainjector Stability | 🔽 Low |
+| [T-200](2026/Q2/T-200-Node-Fleet-Panel-Layout-Polish.md) | Node Fleet Panel Layout Polish (headers, col widths, tooltip alloc) | 🔽 Medium |
+| [T-201](2026/Q2/T-201-Node-Fleet-Real-Machine-Metrics-Prometheus.md) | Node Fleet Real Machine Metrics via Prometheus node_exporter | 🔼 High |
 
 ## 🔬 Micro-Tasks (sem T-ID, sem PR)
 
