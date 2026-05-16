@@ -14,24 +14,23 @@
 
 ## Ordem aprovada (Fase 16 + hardening)
 
-1. **T-173** — fechar fatia restante (MAX_CONCURRENT_LLM, chaos Postgres, HTML sanitize) _em paralelo se não bloquear UI_
-2. **T-175** — Operator Console (**em andamento**)
-3. **T-176** — Dashboard pack Coroot/Grafana
-4. Demo pipeline no cluster (fontes + CronJobs + digest com conteúdo)
+1. **T-173** — hardening restante (paralelo)
+2. ~~**T-175**~~ — Console ✅
+3. ~~**T-176**~~ — Dashboards ops ✅
+4. **Demo pipeline** — fontes + extract LLM + digest com conteúdo no console
 5. **T-177** — Items API + Explorer UI
 
 ## Em andamento (sessão atual)
 
 | ID / Ref | Tarefa | Tipo |
 | :------- | :----- | :--- |
-| [T-175](2026/Q2/T-175-AI-Radar-Operator-Console-Thin-Slice.md) | Operator Console — UI em `ai-radar.dnor.io` | T-ID |
-| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | Hardening — PR [#109](https://github.com/dnorio/production-site/pull/109) mergeado; backlog restante | T-ID |
+| Demo pipeline | Encher digest no console (fontes + CronJobs + LLM) | micro |
+| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | Hardening backlog | T-ID |
 
 ## Próximas (prioridade Cursor — AI Radar)
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
-| T-176 | Dashboard pack Coroot/Grafana | Backlog |
 | T-177 | Items API + Explorer UI | Backlog |
 | T-162 | GitHub collector | Backlog |
 | T-163 | Webpage fetcher | Backlog |
@@ -43,20 +42,16 @@
 
 ## Micro-tasks (sem T-ID)
 
-- [x] Após deploy: checar disco master + prune BuildKit se necessário (T-193)
-- [x] Validar `POST /digest/run` e `/metrics` com `ai_radar_*` (T-191)
-- [x] Redeploy T-173 — tag `1778953197` (API+CLI), rollout OK
-- [x] Smoke `POST /items/:id/reprocess` stage `score` → 200 + `scored: true`
-- [x] Roadmap Fase 16 + tasks T-175/T-176/T-177 no KANBAN
-- [ ] API Deployment: montar `ai-radar-llm` (CronJobs já têm; API para extract/reprocess `all`)
-- [ ] Demo pipeline: fonte RSS + collect + extract + digest com conteúdo visível no console
+- [x] T-175 deploy + console em https://ai-radar.dnor.io/
+- [x] T-176 observability pack (Grafana JSON + README + smoke Prometheus Coroot)
+- [ ] Montar `ai-radar-llm` no Deployment da API (reprocess/extract HTTP)
+- [ ] Demo pipeline: RSS + collect + extract + score + digest visível no console
 
 ## Concluídas (histórico recente)
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
-| T-173 deploy | Cluster tag `1778953197` + smoke reprocess/digest/metrics | 2026-05-16 |
-| T-191 | Smoke cluster + runbook + deploy tag `1778940768` | 2026-05-16 |
-| T-193 | Master rootfs cleanup (executado no cluster) | 2026-05-16 |
-| #106 | Isolamento Cursor (worktree + CURSOR-QUEUE) | 2026-05-16 |
-| #102, #103 | Docs + pré-voo deploy | 2026-05-16 |
+| T-176 | Dashboard pack Coroot/Grafana | 2026-05-16 |
+| T-175 | Operator Console — PR [#116](https://github.com/ToolHQ/production-site/pull/116) | 2026-05-16 |
+| T-173 deploy | Cluster tag `1778959644` | 2026-05-16 |
+| T-191 | Smoke cluster + runbook | 2026-05-16 |

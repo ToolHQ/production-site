@@ -1,0 +1,46 @@
+# AI Radar — exemplo de alertas Prometheus (T-176).
+# NÃO aplicado automaticamente no cluster; copiar/adaptar para PrometheusRule ou Coroot.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ai-radar-pipeline
+  namespace: ai-radar
+  labels:
+    app.kubernetes.io/part-of: ai-radar
+spec:
+  groups:
+    - name: ai-radar-pipeline
+      rules:
+        - alert: AiRadarPendingRawItemsHigh
+          expr: ai_radar_pending_raw_items{namespace="ai-radar"} > 50
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: AI Radar fila de extract alta
+            description: >
+              Mais de 50 raw_items em status pending há 2h — verificar CronJob extract e LLM.
+
+        - alert: AiRadarScoreFailures
+          expr: increase(ai_radar_score_failed_total{namespace="ai-radar"}[1h]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: AI Radar falhas no score pass
+
+        - alert: AiRadarCollectErrors
+          expr: increase(ai_radar_errors_total{namespace="ai-radar", stage="collect"}[30m]) > 3
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: AI Radar erros repetidos no collect
+
+        - alert: AiRadarExtractFailures
+          expr: increase(ai_radar_extract_failed_total{namespace="ai-radar"}[1h]) > 5
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: AI Radar muitas falhas de extract
