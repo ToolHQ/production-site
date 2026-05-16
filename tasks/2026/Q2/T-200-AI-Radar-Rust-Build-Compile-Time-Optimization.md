@@ -1,6 +1,6 @@
 # T-200: AI Radar — otimização de tempo de compilação (Rust / BuildKit)
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Owner**: **Cursor / AI Radar**
 - **Epic**: AI Radar / DevExp
@@ -20,11 +20,11 @@ Ganho esperado: cada PR/deploy AI Radar **10–25 min mais rápido** após cache
 ## Tasks
 
 - [ ] Medir baseline: `time deploy.sh` (api only vs api+cli), tamanho cache `/var/lib/buildkit`, layers reutilizados
-- [ ] Introduzir **`cargo-chef`** em `docker/Dockerfile.api` e `docker/Dockerfile.cli` (recipe + cook; compartilhar `chef prepare` entre imagens)
-- [ ] Flag `AI_RADAR_DEPLOY_CLI=0` (ou detectar diff só em api) para pular build CLI quando CronJob image inalterada
+- [x] Introduzir **`cargo-chef`** em `docker/Dockerfile` unificado (targets `runtime-api` / `runtime-cli`; cache mounts compartilhados)
+- [x] Flag `AI_RADAR_DEPLOY_CLI=auto|0|1` em `deploy.sh` para pular build CLI quando só API/console mudou
 - [ ] Avaliar **`sccache`** no builder remoto (bucket MinIO/NFS free-tier) vs só BuildKit layer cache
 - [ ] Revisar `CARGO_INCREMENTAL=0` + `lto` no workspace — manter binário pequeno, cortar LTO se ativo
-- [ ] Documentar no README o “fast path” e requisitos de cache (alinhado T-196)
+- [x] Documentar no README o “fast path” e requisitos de cache (alinhado T-196)
 - [ ] Validar: segundo deploy seguido sem mudança de deps **&lt; 15 min**; smoke imagem ARM64 no cluster
 
 ## Referências

@@ -133,23 +133,68 @@ REMOTE
 
 preflight_buildkit_disk
 
-docker buildx build \
-	--builder oci-builder \
-	--platform linux/arm64 \
-	--push \
-	-f docker/Dockerfile.api \
-	-t "$IMAGE_API_TAG" \
-	-t "$IMAGE_API_LATEST" \
-	"$ROOT_DIR"
+DOCKERFILE="$ROOT_DIR/docker/Dockerfile"
 
-docker buildx build \
-	--builder oci-builder \
-	--platform linux/arm64 \
-	--push \
-	-f docker/Dockerfile.cli \
-	-t "$IMAGE_CLI_TAG" \
-	-t "$IMAGE_CLI_LATEST" \
-	"$ROOT_DIR"
+build_rust_image() {
+	local target="$1" bin_name="$2" image_tag="$3" image_latest="$4"
+	printf '%s\n' "🔨 buildx $target ($bin_name)…"
+	docker buildx build \
+		--builder oci-builder \
+		--platform linux/arm64 \
+		--push \
+		-f "$DOCKERFILE" \
+		--target "$target" \
+		--build-arg "BIN_NAME=$bin_name" \
+		-t "$image_tag" \
+		-t "$image_latest" \
+		"$ROOT_DIR"
+}
+
+# T-200: skip CLI image when only API/console changed (saves ~20–30 min on oci-builder).
+should_deploy_cli() {
+	case "${AI_RADAR_DEPLOY_CLI:-auto}" in
+	0 | false | no | skip) return 1 ;;
+	1 | true | yes) return 0 ;;
+	auto)
+		local base="${AI_RADAR_DIFF_BASE:-origin/main}"
+		if ! git -C "$REPO_ROOT" rev-parse --verify "${base}^{commit}" >/dev/null 2>&1; then
+			return 0
+		fi
+		if git -C "$REPO_ROOT" diff --name-only "${base}"...HEAD -- apps/ai-radar \
+			| grep -qE 'apps/ai-radar/(crates/ai-radar-cli/|crates/ai-radar-core/|docker/|Cargo\.(toml|lock))'; then
+			return 0
+		fi
+		return 1
+		;;
+	*)
+		die "AI_RADAR_DEPLOY_CLI inválido: ${AI_RADAR_DEPLOY_CLI:-} (use auto|0|1)"
+		;;
+	esac
+}
+
+resolve_cli_image_for_manifest() {
+	if should_deploy_cli; then
+		build_rust_image runtime-cli ai-radar "$IMAGE_CLI_TAG" "$IMAGE_CLI_LATEST"
+		printf '%s' "$IMAGE_CLI_TAG"
+		return
+	fi
+	local current
+	current="$(
+		kubectl get cronjob ai-radar-extract -n ai-radar \
+			-o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}' 2>/dev/null || true
+	)"
+	if [[ -n "$current" ]]; then
+		printf '%s\n' "⏭️  CLI inalterado (AI_RADAR_DEPLOY_CLI=auto) — reutilizando $current" >&2
+		printf '%s' "$current"
+		return
+	fi
+	printf '%s\n' '⚠️  CronJob extract sem imagem — build CLI mesmo com auto' >&2
+	build_rust_image runtime-cli ai-radar "$IMAGE_CLI_TAG" "$IMAGE_CLI_LATEST"
+	printf '%s' "$IMAGE_CLI_TAG"
+}
+
+build_rust_image runtime-api ai-radar-api "$IMAGE_API_TAG" "$IMAGE_API_LATEST"
+IMAGE_CLI_FOR_MANIFEST="$(resolve_cli_image_for_manifest)"
 
 MANIFEST="$(mktemp)"
 cleanup() {
@@ -159,7 +204,7 @@ trap cleanup EXIT
 
 kubectl kustomize "$ROOT_DIR/k8s/overlays/production" >"$MANIFEST"
 sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-api:[^[:space:]]*|${IMAGE_API_TAG}|g" "$MANIFEST"
-sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-cli:[^[:space:]]*|${IMAGE_CLI_TAG}|g" "$MANIFEST"
+sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-cli:[^[:space:]]*|${IMAGE_CLI_FOR_MANIFEST}|g" "$MANIFEST"
 
 kubectl apply -f "$MANIFEST"
 

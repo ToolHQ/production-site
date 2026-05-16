@@ -43,7 +43,7 @@ spec:
             - name: extract
               image: registry.local:31444/repository/docker-repo/my-site-ai-radar-cli:latest
               imagePullPolicy: Always
-              args: ["extract", "--limit", "50"]
+              args: ["extract", "--limit", "15"]
               envFrom:
                 - secretRef:
                     name: ai-radar-llm
