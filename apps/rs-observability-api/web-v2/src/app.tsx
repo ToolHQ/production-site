@@ -102,7 +102,7 @@ export function App() {
             <div>
               <div class="section-kicker">Infrastructure</div>
               <div class="section-title">Node Fleet</div>
-              <p>Allocatable resources and pressure conditions por nó. DiskPressure aqui causa falhas em cascata nos serviços.</p>
+              <p>Node health, pressure conditions and capacity per node. DiskPressure causes cascading failures across services.</p>
             </div>
             <div class="section-tags">
               <span class="panel-tag">{live?.available ? `Live · ${(live.nodes ?? []).length} nós` : 'Waiting for live data'}</span>
