@@ -7,6 +7,7 @@
 ## Regras de Uso
 
 - **Copilot** só trabalha em tarefas onde `Owner` contém `Copilot/VSCode` no `KANBAN.md`, ou em micro-tasks listadas aqui.
+- **Cursor** usa `tasks/CURSOR-QUEUE.md` e worktree `~/production-site-cursor` (owner **AI Radar** no KANBAN).
 - **Cursor / Antigravity** não devem pegar tarefas com `Owner: Copilot/VSCode`.
 - Micro-tasks (< 30 min, sem branch) ficam apenas aqui. Ao completar, marcam como `[x]` — sem mover para KANBAN.
 - Tarefas T-ID exigem branch em `production-site-copilot` → PR → merge.

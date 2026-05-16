@@ -14,7 +14,13 @@ MAX_ITERATIONS="${MAX_ITERATIONS:-10}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="$(cd "$DIR/../.." && pwd)"
 KANBAN_FILE="${WORKSPACE_DIR}/tasks/KANBAN.md"
-WORKFLOW_FILE="${WORKSPACE_DIR}/.agents/workflows/auto_loop_execution.md"
+AGENT_OWNER="${AGENT_OWNER:-}"
+WORKFLOW_FILE="${WORKFLOW_FILE:-${WORKSPACE_DIR}/.agents/workflows/auto_loop_execution.md}"
+if [[ "$AGENT_OWNER" == "Cursor" ]]; then
+	WORKFLOW_FILE="${WORKSPACE_DIR}/.agents/workflows/cursor_loop.md"
+elif [[ "$AGENT_OWNER" == "Copilot/VSCode" ]] || [[ "$AGENT_OWNER" == "Copilot" ]]; then
+	WORKFLOW_FILE="${WORKSPACE_DIR}/.agents/workflows/copilot_loop.md"
+fi
 
 # CLI arguments
 DRY_RUN=false
@@ -26,14 +32,21 @@ fi
 # --- Helper Functions ---
 
 get_next_task() {
-    # Extracts the first pending task ID from KANBAN.md (In Progress or Backlog)
-    # Using awk to parse markdown table formats safely
-    awk '
+	# Extracts the first pending task ID from KANBAN.md (In Progress or Backlog).
+	# Optional AGENT_OWNER filters rows where the Owner column contains that string.
+	awk -v owner_filter="${AGENT_OWNER}" '
+        function owner_matches(line, filter) {
+            if (filter == "") return 1
+            if (filter == "Cursor") return (line ~ /\*\*Cursor \/ AI Radar\*\*/ || line ~ /\| Cursor \/ AI Radar \|/)
+            if (filter == "Antigravity") return (line ~ /Antigravity/)
+            if (filter ~ /^Copilot/) return (line ~ /Copilot\/VSCode/)
+            return (line ~ filter)
+        }
         /## 🏎️ In Progress/ { state="in_prog"; next }
         /## 📅 Backlog/ { state="backlog"; next }
         /## ✅ Done/ { exit }
         (state=="in_prog" || state=="backlog") && /\[T-[0-9]+/ {
-            # Extract task ID formatted as [T-123] or [T-123.4]
+            if (!owner_matches($0, owner_filter)) next
             match($0, /\[(T-[0-9]+(\.[0-9]+)?)\]/, arr);
             if(arr[1] != "") {
                 print arr[1];
@@ -46,6 +59,9 @@ get_next_task() {
 # --- Main Loop ---
 
 echo "🚀 Starting Auto-Loop Execution (Max Iterations: ${MAX_ITERATIONS})"
+if [[ -n "$AGENT_OWNER" ]]; then
+	echo "🔒 Owner filter: ${AGENT_OWNER}"
+fi
 
 for ((i=1; i<=MAX_ITERATIONS; i++)); do
     echo "------------------------------------------------"
