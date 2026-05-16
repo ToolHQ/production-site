@@ -16,15 +16,12 @@
 
 | ID / Ref | Tarefa | Tipo |
 | :------- | :----- | :--- |
-| `feat/cursor-agent-isolation` | Worktree Cursor + CURSOR-QUEUE + owners AI Radar + loop | Meta/Ops |
-| [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | Smoke cluster pós-deploy | T-ID |
 | [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | Hardening | T-ID |
 
 ## Próximas (prioridade Cursor — AI Radar)
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
-| T-191 | Fechar smoke/deploy runbook | In Progress |
 | T-173 | Hardening (retry, chaos, versioning) | In Progress |
 | T-162 | GitHub collector | Backlog |
 | T-163 | Webpage fetcher | Backlog |
@@ -36,12 +33,14 @@
 
 ## Micro-tasks (sem T-ID)
 
-- [ ] Após cada `apps/ai-radar/deploy.sh`: checar `df -h /` no master + prune BuildKit se cache > 10 GiB
-- [ ] Validar `POST /digest/run` e `/metrics` com `ai_radar_*` após rollout
+- [x] Após deploy: checar disco master + prune BuildKit se necessário (T-193)
+- [x] Validar `POST /digest/run` e `/metrics` com `ai_radar_*` (T-191)
 
 ## Concluídas (histórico recente)
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
+| T-191 | Smoke cluster + runbook + deploy tag `1778940768` | 2026-05-16 |
 | T-193 | Master rootfs cleanup (executado no cluster) | 2026-05-16 |
-| #102, #103 | Docs smoke + pré-voo deploy | 2026-05-16 |
+| #106 | Isolamento Cursor (worktree + CURSOR-QUEUE) | 2026-05-16 |
+| #102, #103 | Docs + pré-voo deploy | 2026-05-16 |
