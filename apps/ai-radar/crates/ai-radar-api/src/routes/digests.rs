@@ -26,7 +26,9 @@ pub fn router() -> Router<AppState> {
         .route("/digests/:id", get(get_one))
 }
 
-async fn list_recent(State(state): State<AppState>) -> Result<(StatusCode, Json<DigestListResponse>), ApiError> {
+async fn list_recent(
+    State(state): State<AppState>,
+) -> Result<(StatusCode, Json<DigestListResponse>), ApiError> {
     let items = state
         .digests
         .list_recent(50)
@@ -47,10 +49,7 @@ async fn get_one(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let digest = state
-        .digests
-        .get(id)
-        .await?;
+    let digest = state.digests.get(id).await?;
 
     let wants_markdown = headers
         .get(axum::http::header::ACCEPT)
@@ -60,7 +59,10 @@ async fn get_one(
     if wants_markdown {
         Ok((
             StatusCode::OK,
-            [(axum::http::header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "text/markdown; charset=utf-8",
+            )],
             digest.markdown_content,
         )
             .into_response())
@@ -68,4 +70,3 @@ async fn get_one(
         Ok((StatusCode::OK, Json(digest)).into_response())
     }
 }
-

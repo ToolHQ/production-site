@@ -60,6 +60,33 @@ pub async fn run_extract(
     Ok(stats)
 }
 
+/// Extract a single raw item by id (used by reprocess; does not use batch claim).
+///
+/// # Errors
+///
+/// Same as [`process_one`] — LLM/DB failures propagate.
+pub async fn extract_single_raw_item(
+    db: &Database,
+    config: &AppConfig,
+    llm: Arc<dyn LlmProvider>,
+    raw_item_id: uuid::Uuid,
+) -> anyhow::Result<()> {
+    if !config.llm_enabled {
+        anyhow::bail!("LLM_ENABLED must be true for extract (configure LLM_API_KEY and LLM_MODEL)");
+    }
+    let raw_repo = PgRawItemRepository::new(db);
+    let extracted_repo = PgExtractedItemRepository::new(db);
+    raw_repo
+        .mark_status(raw_item_id, crate::domain::RawItemStatus::Pending)
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let raw = raw_repo
+        .get(raw_item_id)
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    process_one(&raw_repo, &extracted_repo, &llm, &raw).await
+}
+
 async fn process_one(
     raw_repo: &PgRawItemRepository,
     extracted_repo: &PgExtractedItemRepository,

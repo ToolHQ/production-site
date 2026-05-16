@@ -3,4 +3,5 @@
 pub mod collect;
 pub mod digest;
 pub mod extract;
+pub mod reprocess;
 pub mod score;
