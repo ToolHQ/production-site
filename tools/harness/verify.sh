@@ -38,14 +38,19 @@ fail() {
 usage() {
 	cat <<'EOF'
 Usage:
-  ./tools/harness/verify.sh verify-changed [--allow-unmapped] [--paths <path> ...]
+  ./tools/harness/verify.sh verify-changed [--allow-unmapped] [--paths <path> ...] [--no-untracked]
   ./tools/harness/verify.sh verify-all
   ./tools/harness/verify.sh smoke
 
 Notes:
   - verify-changed uses unstaged, staged and untracked paths by default.
+  - Pass --no-untracked for git-diff-only semantics (omit untracked files).
   - verify-changed fails on unmapped code paths unless --allow-unmapped is provided.
   - smoke is reserved for later rollout and intentionally not implemented in T-142.
+  - One-line skip summary is printed unless HARNESS_VERBOSE=1 is set (per-gate skip messages).
+
+Environment:
+  HARNESS_VERBOSE=1 — print each suppressed “gate skipped” diagnostic.
 EOF
 }
 
@@ -79,8 +84,7 @@ timed_gate() {
 
 print_summary() {
 	local elapsed=$((SECONDS - HARNESS_START))
-	local pass_count=0 fail_count=0 skip_count=0 overall="PASS"
-	local entry label status dur
+	local pass_count=0 fail_count=0 skip_count=0 overall="SKIP"
 
 	if [[ ${#HARNESS_RESULTS[@]} -eq 0 ]]; then
 		printf '\n── HARNESS SUMMARY ── 0 gates ran in %ds ──\n' "$elapsed"
@@ -105,6 +109,13 @@ print_summary() {
 		esac
 	done
 	printf ' %-32s %-6s %s\n' "────────────────────────────────" "──────" "──────"
+	if [[ $fail_count -gt 0 ]]; then
+		overall="FAIL"
+	elif [[ $pass_count -gt 0 ]]; then
+		overall="PASS"
+	else
+		overall="SKIP"
+	fi
 	printf ' %-20s %ds   pass=%d fail=%d skip=%d\n' \
 		"$overall" "$elapsed" "$pass_count" "$fail_count" "$skip_count"
 	printf '%.0s─' {1..54}
@@ -207,9 +218,7 @@ collect_verify_scope() {
 		elif path_is_yaml_manifest "$path"; then
 			VERIFY_SCOPE_YAML_NEEDED=1
 		else
-			if path_requires_shell_syntax "$path"; then
-				shell_ref+=("$path")
-			else
+			if ! path_requires_shell_syntax "$path"; then
 				unmapped_ref+=("$path")
 			fi
 		fi
@@ -357,7 +366,7 @@ verify_changed() {
 	local -a changed_paths=()
 	local -a shell_paths=()
 	local -a unmapped_paths=()
-	local rust_needed bats_needed js_backend_needed js_react_needed js_static_needed yaml_needed
+	local rust_needed rust_ai_radar_needed bats_needed js_backend_needed js_react_needed js_static_needed yaml_needed
 
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -384,12 +393,29 @@ verify_changed() {
 
 	collect_verify_scope shell_paths unmapped_paths "${changed_paths[@]}"
 	rust_needed=$VERIFY_SCOPE_RUST_NEEDED
-	local rust_ai_radar_needed=$VERIFY_SCOPE_RUST_AI_RADAR_NEEDED
+	rust_ai_radar_needed=$VERIFY_SCOPE_RUST_AI_RADAR_NEEDED
 	bats_needed=$VERIFY_SCOPE_BATS_NEEDED
 	js_backend_needed=$VERIFY_SCOPE_JS_BACKEND_NEEDED
 	js_react_needed=$VERIFY_SCOPE_JS_REACT_NEEDED
 	js_static_needed=$VERIFY_SCOPE_JS_STATIC_NEEDED
 	yaml_needed=$VERIFY_SCOPE_YAML_NEEDED
+
+	local path only_blocking_paths=0
+	for path in "${changed_paths[@]}"; do
+		path_is_non_blocking_meta "$path" || only_blocking_paths=1
+	done
+
+	local -a skipped_stack_gates=()
+	[[ $rust_needed -eq 0 ]] && skipped_stack_gates+=("rust")
+	[[ $rust_ai_radar_needed -eq 0 ]] && skipped_stack_gates+=("rust-ai-radar")
+	[[ $bats_needed -eq 0 ]] && skipped_stack_gates+=("bats")
+	[[ $js_backend_needed -eq 0 ]] && skipped_stack_gates+=("js-back-end")
+	[[ $js_react_needed -eq 0 ]] && skipped_stack_gates+=("js-react-static")
+	[[ $js_static_needed -eq 0 ]] && skipped_stack_gates+=("js-static")
+	[[ $yaml_needed -eq 0 ]] && skipped_stack_gates+=("yaml")
+	if [[ $only_blocking_paths -eq 1 && ${#skipped_stack_gates[@]} -gt 0 ]]; then
+		info "Stack gates skipped (paths did not touch those trees): ${skipped_stack_gates[*]}"
+	fi
 
 	if [[ ${#unmapped_paths[@]} -gt 0 ]]; then
 		section "unmapped paths"
@@ -401,62 +427,82 @@ verify_changed() {
 		warn "Proceeding with unmapped paths because --allow-unmapped was provided"
 	fi
 
-	timed_gate "shell-syntax" run_shell_syntax_checks "${shell_paths[@]}"
-	timed_gate "shell-shellcheck" run_shellcheck_checks "${shell_paths[@]}"
-	timed_gate "shell-shfmt" run_shfmt_checks "${shell_paths[@]}"
+	if [[ ${#shell_paths[@]} -eq 0 ]]; then
+		HARNESS_RESULTS+=(
+			"shell-syntax|SKIP|-"
+			"shell-shellcheck|SKIP|-"
+			"shell-shfmt|SKIP|-"
+		)
+		if [[ $only_blocking_paths -eq 1 ]]; then
+			info "No shell files in changed scope; skipping shell-syntax / shellcheck / shfmt"
+		fi
+	else
+		timed_gate "shell-syntax" run_shell_syntax_checks "${shell_paths[@]}"
+		timed_gate "shell-shellcheck" run_shellcheck_checks "${shell_paths[@]}"
+		timed_gate "shell-shfmt" run_shfmt_checks "${shell_paths[@]}"
+	fi
 
 	if [[ $rust_needed -eq 1 ]]; then
 		timed_gate "rust" run_rust_observability_gate
 	else
 		HARNESS_RESULTS+=("rust|SKIP|-")
-		warn "Rust gate not selected"
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "Rust gate not selected"
+		fi
 	fi
 
 	if [[ $rust_ai_radar_needed -eq 1 ]]; then
 		timed_gate "rust-ai-radar" run_rust_ai_radar_gate
 	else
 		HARNESS_RESULTS+=("rust-ai-radar|SKIP|-")
-		warn "Rust ai-radar gate not selected"
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "Rust ai-radar gate not selected"
+		fi
 	fi
 
 	if [[ $bats_needed -eq 1 ]]; then
 		timed_gate "bats" run_cluster_bats_gate
 	else
 		HARNESS_RESULTS+=("bats|SKIP|-")
-		warn "BATS gate not selected"
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "BATS gate not selected"
+		fi
 	fi
-
-	local js_backend_needed js_react_needed js_static_needed
-	js_backend_needed=$VERIFY_SCOPE_JS_BACKEND_NEEDED
-	js_react_needed=$VERIFY_SCOPE_JS_REACT_NEEDED
-	js_static_needed=$VERIFY_SCOPE_JS_STATIC_NEEDED
 
 	if [[ $js_backend_needed -eq 1 ]]; then
 		timed_gate "js-back-end" run_js_back_end_gate
 	else
 		HARNESS_RESULTS+=("js-back-end|SKIP|-")
-		warn "JS back-end gate not selected"
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "JS back-end gate not selected"
+		fi
 	fi
 
 	if [[ $js_react_needed -eq 1 ]]; then
 		timed_gate "js-react-static" run_js_react_static_gate
 	else
 		HARNESS_RESULTS+=("js-react-static|SKIP|-")
-		warn "JS react-static gate not selected"
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "JS react-static gate not selected"
+		fi
 	fi
 
 	if [[ $js_static_needed -eq 1 ]]; then
 		timed_gate "js-static" run_js_static_gate
 	else
 		HARNESS_RESULTS+=("js-static|SKIP|-")
-		warn "JS static gate not selected"
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "JS static gate not selected"
+		fi
 	fi
 
 	if [[ $yaml_needed -eq 1 ]]; then
 		timed_gate "yaml" run_yamllint_gate
 	else
 		HARNESS_RESULTS+=("yaml|SKIP|-")
-		warn "YAML gate not selected"
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "YAML gate not selected"
+		fi
 	fi
 }
 

@@ -126,6 +126,7 @@ if ! ssh -o StrictHostKeyChecking=no "$MASTER_HOST" \
     ssh -o StrictHostKeyChecking=no "$MASTER_HOST" \
         "sudo kill \$(pgrep -x buildkitd) 2>/dev/null; sleep 1; \
          sudo nohup buildkitd \
+           --config /home/ubuntu/.config/buildkit/buildkitd.toml \
            --addr unix://$BUILDKITD_SOCK_REMOTE \
            --addr tcp://127.0.0.1:$BUILDKITD_TCP_PORT \
            > /tmp/buildkitd.log 2>&1 & sleep 3 && \
@@ -229,7 +230,7 @@ printf "║  %-20s  %-25s ║\n" "buildx builder" "$BUILDER_NAME ($BUILDER_STATU
 KUBECTL_STATUS="$(ss -tlnp 2>/dev/null | grep -c ':6445' | tr -d ' ')"
 BUILDKITD_TUNNEL_STATUS="$(ss -tlnp 2>/dev/null | grep -c ":$BUILDKITD_TCP_PORT" | tr -d ' ')"
 printf "║  %-20s  %-25s ║\n" "kubectl tunnel" "$([ "$KUBECTL_STATUS" -gt 0 ] && echo ':6445 ATIVO' || echo ':6445 INATIVO')"
-printf "║  %-20s  %-25s ║\n" "buildkitd TCP" "$([ "$BUILDKITD_TUNNEL_STATUS" -gt 0 ] && echo ":$BUILDKITD_TCP_PORT ATIVO" || echo ":$BUILDKITD_TCP_PORT INATIVO')"
+printf "║  %-20s  %-25s ║\n" "buildkitd TCP" "$([ "$BUILDKITD_TUNNEL_STATUS" -gt 0 ] && echo ":$BUILDKITD_TCP_PORT ATIVO" || echo ":$BUILDKITD_TCP_PORT INATIVO")"
 
 # Auth
 AUTH_STATUS="$(jq -e ".auths[\"$REGISTRY\"]" ~/.docker/config.json >/dev/null 2>&1 && echo 'OK' || echo 'MISSING')"
