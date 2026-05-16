@@ -31,11 +31,14 @@ function MiniBar({ percent, label, sub }: MiniBarProps) {
   const pct = Math.min(100, Math.max(0, percent));
   const cls = pct >= 85 ? 'mini-bar--critical' : pct >= 65 ? 'mini-bar--warn' : '';
   return (
-    <div class={`mini-bar ${cls}`} title={`${pct.toFixed(1)}% · ${sub}`}>
+    <div class={`mini-bar ${cls}`}>
+      <div class="mini-bar__info">
+        <span class="mini-bar__label">{label}</span>
+        <span class="mini-bar__sub">{sub}</span>
+      </div>
       <div class="mini-bar__track">
         <div class="mini-bar__fill" style={`width:${pct}%`} />
       </div>
-      <span class="mini-bar__label">{label}</span>
     </div>
   );
 }
@@ -182,7 +185,7 @@ export function NodesPanel({ live }: NodesPanelProps) {
       </table>
       <p class="nodes-table-footnote">
         {hasRealMetrics
-          ? 'Real host utilization via Prometheus node_exporter · hover bars for absolute values'
+          ? 'Real host utilization via Prometheus node_exporter'
           : 'Allocatable capacity · not current host utilization'}
       </p>
     </div>
