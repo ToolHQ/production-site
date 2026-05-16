@@ -16,11 +16,54 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/live/overview", get(live_overview))
         .route("/api/reports", get(report_index))
         .route("/artifacts/*path", get(artifact))
+        // Assets estáticos do Vite — embutidos no binário via include_bytes!
+        .route("/assets/app.js", get(asset_js))
+        .route("/assets/app.css", get(asset_css))
+        .route("/favicon.svg", get(favicon))
         .with_state(state)
 }
 
 async fn index() -> Html<&'static str> {
     Html(INDEX_HTML)
+}
+
+async fn asset_js() -> Response {
+    let mut response = Response::new(ASSET_JS.into());
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/javascript; charset=utf-8"),
+    );
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    response
+}
+
+async fn asset_css() -> Response {
+    let mut response = Response::new(ASSET_CSS.into());
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/css; charset=utf-8"),
+    );
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    response
+}
+
+async fn favicon() -> Response {
+    let mut response = Response::new(FAVICON_SVG.into());
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("image/svg+xml"),
+    );
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=86400"),
+    );
+    response
 }
 
 async fn health(State(state): State<AppState>) -> Json<HealthResponse> {

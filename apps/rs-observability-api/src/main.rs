@@ -22,7 +22,11 @@ use tokio::sync::RwLock;
 
 mod app;
 
-const INDEX_HTML: &str = include_str!("../web/index.html");
+const INDEX_HTML: &str = include_str!("../web-v2/dist/index.html");
+const ASSET_JS: &[u8] = include_bytes!("../web-v2/dist/assets/app.js");
+const ASSET_CSS: &[u8] = include_bytes!("../web-v2/dist/assets/app.css");
+const FAVICON_SVG: &[u8] = include_bytes!("../web-v2/dist/favicon.svg");
+
 const LIVE_CACHE_TTL: Duration = Duration::from_secs(10);
 const LIVE_REFRESH_INTERVAL_SECONDS: u64 = 15;
 const PROMETHEUS_CACHE_TTL: Duration = Duration::from_secs(45);
