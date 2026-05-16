@@ -89,7 +89,11 @@ impl Default for DigestLimits {
 /// # Errors
 ///
 /// Returns errors from Postgres, validation or rendering.
-pub async fn run_digest(db: &Database, kind: DigestKind, limits: DigestLimits) -> anyhow::Result<Uuid> {
+pub async fn run_digest(
+    db: &Database,
+    kind: DigestKind,
+    limits: DigestLimits,
+) -> anyhow::Result<Uuid> {
     let now = Utc::now();
     let (period_start, period_end) = kind.window(now);
     let data = select(db, kind.as_digest_type(), period_start, period_end, limits).await?;
@@ -156,7 +160,8 @@ pub async fn select(
 
     for row in rows {
         let decision_raw: String = row.try_get("decision")?;
-        let decision = Decision::parse(&decision_raw).map_err(|v| anyhow::anyhow!("unknown decision {v}"))?;
+        let decision =
+            Decision::parse(&decision_raw).map_err(|v| anyhow::anyhow!("unknown decision {v}"))?;
 
         let reasons_json: serde_json::Value = row.try_get("reasons_json")?;
         let risks_json: serde_json::Value = row.try_get("risks_json")?;
@@ -312,4 +317,3 @@ mod tests {
         assert_eq!(truncate_lines(items, 3), vec!["a", "b", "c"]);
     }
 }
-

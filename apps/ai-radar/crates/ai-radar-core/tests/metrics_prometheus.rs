@@ -1,5 +1,7 @@
 use ai_radar_core::domain::SourceType;
-use ai_radar_core::metrics::{describe_metrics, record_collect_pass, record_extract_pass, record_score_pass};
+use ai_radar_core::metrics::{
+    describe_metrics, record_collect_pass, record_extract_pass, record_score_pass,
+};
 use metrics_exporter_prometheus::PrometheusBuilder;
 
 #[test]
@@ -13,10 +15,10 @@ fn prometheus_metrics_increment_for_pipeline_helpers() {
 
     record_collect_pass(
         SourceType::Rss,
-        3,  // collected
-        2,  // skipped
-        1,  // source_errors
-        4,  // skipped_poll
+        3, // collected
+        2, // skipped
+        1, // source_errors
+        4, // skipped_poll
         std::time::Duration::from_millis(1200),
     );
     record_extract_pass(5, 1, std::time::Duration::from_millis(900));
@@ -55,4 +57,3 @@ fn prometheus_metrics_increment_for_pipeline_helpers() {
         "expected scored counter: {rendered}"
     );
 }
-

@@ -75,3 +75,21 @@ pub async fn run_score(
     metrics::record_score_pass(stats.scored, stats.failed, started.elapsed());
     Ok(stats)
 }
+
+/// Score one extracted row by id (reprocess / ops).
+///
+/// # Errors
+///
+/// Propagates repository or validation errors.
+pub async fn score_single_extracted_item(
+    db: &Database,
+    extracted_item_id: uuid::Uuid,
+) -> anyhow::Result<()> {
+    let extracted = PgExtractedItemRepository::new(db);
+    let scores = PgScoreRepository::new(db);
+    let row = extracted.get(extracted_item_id).await?;
+    let out = Scorer::v1().score(&row);
+    let new_score = out.to_new_score(row.id);
+    scores.insert(&new_score).await?;
+    Ok(())
+}

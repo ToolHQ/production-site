@@ -13,6 +13,7 @@ use ai_radar_core::llm::{build_llm_provider, CompletionRequest};
 use ai_radar_core::pipeline::collect::run_collect;
 use ai_radar_core::pipeline::digest::{run_digest, DigestKind, DigestLimits};
 use ai_radar_core::pipeline::extract::run_extract;
+use ai_radar_core::pipeline::reprocess::{run_reprocess, ReprocessStage};
 use ai_radar_core::pipeline::score::{run_score, DEFAULT_SCORE_STALE_HOURS};
 use ai_radar_core::telemetry;
 use anyhow::Context;
@@ -69,6 +70,15 @@ enum Command {
         /// Filter sources by discriminator (`rss` today; GitHub arrives in T-162).
         #[arg(long, default_value = "rss")]
         source_type: String,
+    },
+    /// Re-run extract and/or score for one extracted item (new version on extract).
+    Reprocess {
+        /// `extracted_items.id` to anchor the raw item.
+        #[arg(long)]
+        item: Uuid,
+        /// `extract`, `score`, or `all`.
+        #[arg(long, default_value = "all")]
+        stage: String,
     },
     /// Generate a Markdown digest and persist it in `ai_radar.digests`.
     Digest {
@@ -271,6 +281,30 @@ async fn run_digest_command(job_id: Uuid, kind: DigestKind) -> anyhow::Result<()
     Ok(())
 }
 
+async fn run_reprocess_command(item: Uuid, stage: String) -> anyhow::Result<()> {
+    let config = AppConfig::from_env().context("configuration")?;
+    telemetry::init_tracing(&config.log_level).context("tracing")?;
+
+    let database_url = config
+        .database_url
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required for reprocess"))?;
+
+    let db = Database::connect(&database_url)
+        .await
+        .map_err(|e| anyhow::anyhow!("database: {e}"))?;
+
+    let stage = ReprocessStage::parse(&stage)?;
+    let llm = build_llm_provider(&config);
+    let out = run_reprocess(&db, &config, llm, item, stage).await?;
+
+    println!(
+        "raw_item_id={} latest_extracted_item_id={:?} latest_version={:?} scored={}",
+        out.raw_item_id, out.latest_extracted_item_id, out.latest_version, out.scored
+    );
+    Ok(())
+}
+
 async fn run_llm_ping(prompt: String) -> anyhow::Result<()> {
     let config = AppConfig::from_env().context("configuration")?;
     telemetry::init_tracing(&config.log_level).context("tracing")?;
@@ -332,6 +366,9 @@ async fn main() -> anyhow::Result<()> {
             run_collect_command(job_id, source_id, source_type)
                 .instrument(span)
                 .await?;
+        }
+        Command::Reprocess { item, stage } => {
+            run_reprocess_command(item, stage).await?;
         }
         Command::Digest { daily, weekly } => {
             let kind = match (daily, weekly) {

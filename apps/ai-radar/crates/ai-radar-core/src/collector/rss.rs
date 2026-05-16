@@ -117,58 +117,81 @@ impl RssCollector {
     }
 
     async fn fetch_feed_xml(&self, feed_url: &str) -> Result<Vec<u8>, CollectError> {
-        /// Initial attempt plus retries for transient HTTP / transport failures.
-        const MAX_ATTEMPTS: u32 = 4;
-        let mut retry_after_hint: Option<std::time::Duration> = None;
-
-        for attempt in 0..MAX_ATTEMPTS {
-            if attempt > 0 {
-                retry::sleep_before_http_retry(attempt - 1, retry_after_hint.take()).await;
-            }
-
-            let response = match self.client.get(feed_url).send().await {
-                Ok(r) => r,
-                Err(e) => {
-                    if attempt + 1 < MAX_ATTEMPTS && retry::reqwest_send_error_is_retryable(&e) {
-                        continue;
-                    }
-                    return Err(CollectError::from_reqwest(&e));
-                }
-            };
-
-            let status = response.status();
-            if retry::status_is_retryable(status) {
-                retry_after_hint = if status == StatusCode::TOO_MANY_REQUESTS {
-                    retry::parse_retry_after(response.headers())
-                } else {
-                    None
-                };
-                let _ = response.bytes().await;
-                if attempt + 1 < MAX_ATTEMPTS {
-                    continue;
-                }
-                return Err(CollectError::Fetch(format!(
-                    "unexpected status {status} for {feed_url} (after retries)"
-                )));
-            }
-
-            if !status.is_success() {
-                let _ = response.bytes().await;
-                return Err(CollectError::Fetch(format!(
-                    "unexpected status {status} for {feed_url}"
-                )));
-            }
-
-            return response
-                .bytes()
-                .await
-                .map_err(|e| CollectError::from_reqwest(&e))
-                .map(|b| b.to_vec());
+        #[derive(Debug)]
+        enum FetchAttemptError {
+            Transport(reqwest::Error),
+            RetryableStatus {
+                status: StatusCode,
+                retry_after: Option<std::time::Duration>,
+            },
+            PermanentStatus(StatusCode),
         }
 
-        Err(CollectError::Fetch(format!(
-            "exhausted retries fetching {feed_url}"
-        )))
+        let client = self.client.clone();
+        let url = feed_url.to_string();
+        let policy = retry::RetryPolicy::http_default();
+
+        retry::with_retry(
+            policy,
+            || {
+                let client = client.clone();
+                let url = url.clone();
+                async move {
+                    let response = client
+                        .get(&url)
+                        .send()
+                        .await
+                        .map_err(FetchAttemptError::Transport)?;
+
+                    let status = response.status();
+                    if retry::status_is_retryable(status) {
+                        let retry_after = if status == StatusCode::TOO_MANY_REQUESTS {
+                            retry::parse_retry_after(response.headers())
+                        } else {
+                            None
+                        };
+                        let _ = response.bytes().await;
+                        return Err(FetchAttemptError::RetryableStatus {
+                            status,
+                            retry_after,
+                        });
+                    }
+
+                    if !status.is_success() {
+                        let _ = response.bytes().await;
+                        return Err(FetchAttemptError::PermanentStatus(status));
+                    }
+
+                    response
+                        .bytes()
+                        .await
+                        .map(|b| b.to_vec())
+                        .map_err(FetchAttemptError::Transport)
+                }
+            },
+            |_attempt, err| match err {
+                FetchAttemptError::Transport(e) if retry::reqwest_send_error_is_retryable(&e) => {
+                    retry::RetryDirective::Again { retry_after: None }
+                }
+                FetchAttemptError::Transport(_) => retry::RetryDirective::Abort,
+                FetchAttemptError::RetryableStatus { retry_after, .. } => {
+                    retry::RetryDirective::Again {
+                        retry_after: *retry_after,
+                    }
+                }
+                FetchAttemptError::PermanentStatus(_) => retry::RetryDirective::Abort,
+            },
+        )
+        .await
+        .map_err(|e| match e {
+            FetchAttemptError::Transport(e) => CollectError::from_reqwest(&e),
+            FetchAttemptError::RetryableStatus { status, .. } => CollectError::Fetch(format!(
+                "unexpected status {status} for {feed_url} (after retries)"
+            )),
+            FetchAttemptError::PermanentStatus(status) => {
+                CollectError::Fetch(format!("unexpected status {status} for {feed_url}"))
+            }
+        })
     }
 }
 

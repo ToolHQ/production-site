@@ -52,4 +52,3 @@ async fn run(
 
     Ok((StatusCode::OK, Json(DigestRunResponse { digest_id })))
 }
-
