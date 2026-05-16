@@ -44,8 +44,10 @@ warn()    { echo -e "${YELLOW}[ warn]${NC} $*"; }
 fail()    { echo -e "${RED}[ fail]${NC} $*"; exit 1; }
 
 MASTER_HOST="oci-k8s-master"
-BUILDKITD_SOCK_REMOTE="/home/ubuntu/.local/share/buildkit/buildkitd.sock"
-BUILDKITD_SOCK_LOCAL="/tmp/oci-buildkitd.sock"
+# buildkitd roda como root em /run/buildkit/buildkitd.sock (exposto via TCP 12345)
+BUILDKITD_SOCK_REMOTE="/run/buildkit/buildkitd.sock"
+BUILDKITD_TCP_PORT="12345"
+BUILDKITD_ENDPOINT="tcp://localhost:${BUILDKITD_TCP_PORT}"
 BUILDER_NAME="oci-builder"
 REGISTRY="registry.local:31444"
 KUBECONFIG_PATH="$REPO_ROOT/oci-k8s-cluster/kubeconfig_tunnel.yaml"
@@ -112,48 +114,48 @@ else
     ok "buildkitd já configurado"
 fi
 
-# ─── 3. SSH socket forwarding para buildkitd ──────────────────────────────────
-info "Verificando socket forwarding buildkitd ($BUILDKITD_SOCK_LOCAL)..."
-if [ -S "$BUILDKITD_SOCK_LOCAL" ]; then
-    # Verificar se o socket ainda está ativo
-    if timeout 2 buildctl --addr "unix://$BUILDKITD_SOCK_LOCAL" debug workers >/dev/null 2>&1; then
-        ok "Socket buildkitd já ativo"
-    else
-        warn "Socket encontrado mas inativo — recriando..."
-        rm -f "$BUILDKITD_SOCK_LOCAL"
-        ssh -o StrictHostKeyChecking=no \
-            -L "$BUILDKITD_SOCK_LOCAL:$BUILDKITD_SOCK_REMOTE" \
-            "$MASTER_HOST" -N -f
-        sleep 1
-        ok "Socket buildkitd recriado"
-    fi
+# ─── 3. buildkitd TCP tunnel (porta $BUILDKITD_TCP_PORT) ─────────────────────
+# buildkitd roda como root no master; expõe via --addr tcp://127.0.0.1:12345.
+# Tunnel TCP é mais confiável que SSH Unix-socket forward em sistemas rootless.
+info "Verificando buildkitd + tunnel TCP ($BUILDKITD_TCP_PORT)..."
+
+# 3a. Garante que buildkitd está rodando com listener TCP no master
+if ! ssh -o StrictHostKeyChecking=no "$MASTER_HOST" \
+        "ss -tlnp 2>/dev/null | grep -q ':$BUILDKITD_TCP_PORT'"; then
+    warn "buildkitd TCP não ativo — iniciando no master..."
+    ssh -o StrictHostKeyChecking=no "$MASTER_HOST" \
+        "sudo kill \$(pgrep -x buildkitd) 2>/dev/null; sleep 1; \
+         sudo nohup buildkitd \
+           --addr unix://$BUILDKITD_SOCK_REMOTE \
+           --addr tcp://127.0.0.1:$BUILDKITD_TCP_PORT \
+           > /tmp/buildkitd.log 2>&1 & sleep 3 && \
+         sudo chmod 666 $BUILDKITD_SOCK_REMOTE"
+    ok "buildkitd iniciado (socket + TCP $BUILDKITD_TCP_PORT)"
 else
+    ok "buildkitd TCP já ativo (porta $BUILDKITD_TCP_PORT)"
+fi
+
+# 3b. Tunnel SSH TCP local → master:12345
+if ! ss -tlnp 2>/dev/null | grep -q ":$BUILDKITD_TCP_PORT"; then
     ssh -o StrictHostKeyChecking=no \
-        -L "$BUILDKITD_SOCK_LOCAL:$BUILDKITD_SOCK_REMOTE" \
+        -L "${BUILDKITD_TCP_PORT}:127.0.0.1:${BUILDKITD_TCP_PORT}" \
         "$MASTER_HOST" -N -f
     sleep 1
-    ok "Socket buildkitd forwarded para $BUILDKITD_SOCK_LOCAL"
+    ok "Tunnel TCP buildkitd aberto (local:$BUILDKITD_TCP_PORT → master:$BUILDKITD_TCP_PORT)"
+else
+    ok "Tunnel TCP buildkitd já ativo"
 fi
 
 # ─── 4. Criar/atualizar buildx builder oci-builder ────────────────────────────
 info "Configurando buildx builder '$BUILDER_NAME'..."
-CURRENT_BUILDER="$(docker buildx ls 2>/dev/null | grep "^$BUILDER_NAME" | awk '{print $2}')"
-if [ "$CURRENT_BUILDER" = "remote" ]; then
-    # Verificar se está healthy
-    if docker buildx inspect "$BUILDER_NAME" 2>/dev/null | grep -q "linux/arm64"; then
-        ok "Builder '$BUILDER_NAME' (remote, ARM64) já ativo"
-    else
-        warn "Builder existe mas sem ARM64 — recriando..."
-        docker buildx rm "$BUILDER_NAME" 2>/dev/null || true
-        docker buildx create --name "$BUILDER_NAME" --driver remote --use \
-            "unix://$BUILDKITD_SOCK_LOCAL"
-        ok "Builder '$BUILDER_NAME' recriado"
-    fi
+if docker buildx inspect "$BUILDER_NAME" 2>/dev/null | grep -q 'Status:.*running'; then
+    ok "Builder '$BUILDER_NAME' (remote, ARM64) já ativo"
 else
+    warn "Builder inativo ou ausente — recriando..."
     docker buildx rm "$BUILDER_NAME" 2>/dev/null || true
     docker buildx create --name "$BUILDER_NAME" --driver remote --use \
-        "unix://$BUILDKITD_SOCK_LOCAL"
-    ok "Builder '$BUILDER_NAME' (remote, ARM64) criado"
+        "$BUILDKITD_ENDPOINT"
+    ok "Builder '$BUILDER_NAME' criado → $BUILDKITD_ENDPOINT"
 fi
 
 # ─── 5. Tunnel kubectl (porta 6445) ───────────────────────────────────────────
@@ -220,11 +222,14 @@ echo "╠═══════════════════════�
 
 # Builder
 PLATFORMS="$(docker buildx inspect "$BUILDER_NAME" 2>/dev/null | grep -o 'linux/arm64' || echo '?')"
-printf "║  %-20s  %-25s ║\n" "buildx builder" "$BUILDER_NAME ($PLATFORMS)"
+BUILDER_STATUS="$(docker buildx inspect "$BUILDER_NAME" 2>/dev/null | grep -o 'Status:.*' | head -1 | awk '{print $2}' || echo '?')"
+printf "║  %-20s  %-25s ║\n" "buildx builder" "$BUILDER_NAME ($BUILDER_STATUS)"
 
 # Túneis
 KUBECTL_STATUS="$(ss -tlnp 2>/dev/null | grep -c ':6445' | tr -d ' ')"
+BUILDKITD_TUNNEL_STATUS="$(ss -tlnp 2>/dev/null | grep -c ":$BUILDKITD_TCP_PORT" | tr -d ' ')"
 printf "║  %-20s  %-25s ║\n" "kubectl tunnel" "$([ "$KUBECTL_STATUS" -gt 0 ] && echo ':6445 ATIVO' || echo ':6445 INATIVO')"
+printf "║  %-20s  %-25s ║\n" "buildkitd TCP" "$([ "$BUILDKITD_TUNNEL_STATUS" -gt 0 ] && echo ":$BUILDKITD_TCP_PORT ATIVO" || echo ":$BUILDKITD_TCP_PORT INATIVO')"
 
 # Auth
 AUTH_STATUS="$(jq -e ".auths[\"$REGISTRY\"]" ~/.docker/config.json >/dev/null 2>&1 && echo 'OK' || echo 'MISSING')"
