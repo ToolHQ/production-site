@@ -19,7 +19,9 @@ and the architecture decisions consulted by every epic in
 
 **Ainda no backlog (Kanban):** GitHub collector (**T-162**), webpage fetcher (**T-163**), scorer LLM opcional (**T-167**), comparator (**T-168**), feedback HTTP (**T-170**).
 
-**Em andamento:** hardening (**T-173**), smoke/demo cluster (**T-191**). Detalhes: [`tasks/KANBAN.md`](../../tasks/KANBAN.md) (T-159..T-174, T-191).
+**Planejado (roadmap Fase 16):** console visual thin slice (**T-175**), dashboards Coroot/Grafana (**T-176**), explorer de itens + UI (**T-177**) — ver [`docs/AI-RADAR-ROADMAP.md`](../../docs/AI-RADAR-ROADMAP.md#fase-16--superfície-visual-do-mvp-operator-console).
+
+**Em andamento:** hardening (**T-173**). Smoke cluster (**T-191**) Done. Detalhes: [`tasks/KANBAN.md`](../../tasks/KANBAN.md).
 
 ## Architecture in one diagram
 
@@ -330,7 +332,7 @@ curl -fsS -X POST http://127.0.0.1:18080/items/<extracted_item_id>/reprocess \
   -H 'Content-Type: application/json' -d '{"stage":"all"}'
 ```
 
-**HTTPS público (Ingress).** Com o manifesto `k8s/base/ingress.yaml` aplicado, a API responde em **`https://ai-radar.dnor.io`** (TLS via cert-manager). **`GET /` redireciona para `/health`** (evita 404 no browser na raiz). Garanta um registo **`A`** para `ai-radar.dnor.io` apontando para o **mesmo IP** do balanceador usado pelos outros hosts `*.dnor.io` (mesma família que `reports.dnor.io`). Smoke:
+**HTTPS público (Ingress).** Com o manifesto `k8s/base/ingress.yaml` aplicado, a API responde em **`https://ai-radar.dnor.io`** (TLS via cert-manager). **`GET /` serve o Operator Console** (**T-175**): painel, digests renderizados e fontes; `/health` e `/metrics` permanecem para probes e Prometheus. Garanta um registo **`A`** para `ai-radar.dnor.io` apontando para o **mesmo IP** do balanceador usado pelos outros hosts `*.dnor.io` (mesma família que `reports.dnor.io`). Smoke:
 
 ```bash
 curl -fsS https://ai-radar.dnor.io/health
