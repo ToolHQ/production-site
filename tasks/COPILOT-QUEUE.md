@@ -14,27 +14,30 @@
 
 ## 🏎️ Em Andamento (sessão atual)
 
-| ID / Ref                        | Tarefa                                          | Tipo     |
-| :------------------------------ | :---------------------------------------------- | :------- |
-| `feat/copilot-task-structure`   | Setup isolamento Copilot + queue + loop workflow | Meta/Ops |
+| ID / Ref                        | Tarefa                                                                | Tipo |
+| :------------------------------ | :-------------------------------------------------------------------- | :--- |
+| [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | Completar validação df + hook prune pós-build | T-ID |
 
 ## 📋 Próximas (Copilot/VSCode)
 
-> Populado manualmente pelo usuário ou pelo Copilot ao planejar a sessão.
 > Referenciar T-IDs do KANBAN.md (com `Owner: Copilot/VSCode`) ou micro-tasks.
 
 | ID / Ref | Tarefa | Prioridade |
 | :------- | :----- | :--------- |
-| —        | —      | —          |
+| [T-196](2026/Q2/T-196-BuildKit-Prune-Automation.md) | BuildKit Prune Automation (hook + CronJob) | 🔼 High |
+| [T-197](2026/Q2/T-197-Evicted-Pod-Cleanup-And-Prevention.md) | Evicted Pod Cleanup + Prevenção | 🔽 Medium |
+| [T-198](2026/Q2/T-198-cert-manager-cainjector-stability.md) | cert-manager-cainjector Stability | 🔽 Low |
 
 ## 🔬 Micro-Tasks (sem T-ID, sem PR)
 
 > Itens rápidos de uma sessão. Ao concluir, marcar `[x]` aqui e commitá-los na branch corrente (se houver).
 
-- [ ] —
+- [ ] `kubectl delete pods -n kube-system --field-selector=status.phase=Failed` — limpar 24 evicted
+- [ ] Deletar pod stale `cert-manager-cainjector-7994865bf9-4gjdl` (Completed, node-1, 16d)
 
 ## ✅ Concluídas (histórico recente)
 
 | ID / Ref                      | Tarefa                                               | Data       |
 | :---------------------------- | :--------------------------------------------------- | :--------- |
+| `feat/copilot-infra-backlog`  | Triage infra/estabilidade: T-196/197/198 + KANBAN    | 2026-05-16 |
 | `feat/copilot-task-structure` | Setup inicial: worktree + queue + loop workflow + PR | 2026-05-16 |
