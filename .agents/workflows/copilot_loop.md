@@ -14,7 +14,7 @@ description: Copilot/VSCode Loop — Sessão interativa no VSCode, isolada de Cu
 1. **Verificar worktree**: Confirmar que o Copilot está operando em `~/production-site-copilot`.
    ```bash
    git worktree list
-   # Esperado: /home/dnorio/production-site-copilot [feat/...]
+   # Esperado: /home/ToolHQ/production-site-copilot [feat/...]
    ```
 2. **Sincronizar main**: Antes de qualquer branch nova, atualizar `production-site-ops` (worktree de main) e garantir que `production-site-copilot` está baseado no `main` mais recente.
    ```bash

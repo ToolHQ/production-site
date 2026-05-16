@@ -23,11 +23,11 @@ bloquear a operação por dívida histórica ainda não ratchetada.
 
 ### Arquivos centrais
 
-- [tools/harness/verify.sh](/home/dnorio/production-site/tools/harness/verify.sh)
-- [tools/manage_tasks.sh](/home/dnorio/production-site/tools/manage_tasks.sh)
-- [tools/helm_compat.sh](/home/dnorio/production-site/tools/helm_compat.sh)
-- [oci-k8s-cluster/run_tests.sh](/home/dnorio/production-site/oci-k8s-cluster/run_tests.sh)
-- [oci-k8s-cluster/testing/k8s_ops_menu.bats](/home/dnorio/production-site/oci-k8s-cluster/testing/k8s_ops_menu.bats)
+- [tools/harness/verify.sh](/home/ToolHQ/production-site/tools/harness/verify.sh)
+- [tools/manage_tasks.sh](/home/ToolHQ/production-site/tools/manage_tasks.sh)
+- [tools/helm_compat.sh](/home/ToolHQ/production-site/tools/helm_compat.sh)
+- [oci-k8s-cluster/run_tests.sh](/home/ToolHQ/production-site/oci-k8s-cluster/run_tests.sh)
+- [oci-k8s-cluster/testing/k8s_ops_menu.bats](/home/ToolHQ/production-site/oci-k8s-cluster/testing/k8s_ops_menu.bats)
 
 ## Tasks
 

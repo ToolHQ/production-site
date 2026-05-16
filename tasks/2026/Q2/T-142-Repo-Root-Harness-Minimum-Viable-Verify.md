@@ -6,7 +6,7 @@
 - **Estimation**: 4h
 
 ## Context
-O programa definido na [T-141](/home/dnorio/production-site/tasks/2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md)
+O programa definido na [T-141](/home/ToolHQ/production-site/tasks/2026/Q2/T-141-Repo-Quality-Harness-and-Delivery-Gates-Program.md)
 precisa começar pelo menor slice que já entregue valor real sem virar framework interno pesado. O repositório
 não possui `Makefile`, root runner ou workflow único de validação. Na prática, os checks continuam
 espalhados por stack e dependem de memória tácita do operador.
@@ -37,10 +37,10 @@ Decisão de segurança desta fase:
 
 ### Arquivos centrais
 
-- [tools/manage_tasks.sh](/home/dnorio/production-site/tools/manage_tasks.sh)
-- [apps/rs-observability-api/Cargo.toml](/home/dnorio/production-site/apps/rs-observability-api/Cargo.toml)
-- [oci-k8s-cluster/run_tests.sh](/home/dnorio/production-site/oci-k8s-cluster/run_tests.sh)
-- [tasks/KANBAN.md](/home/dnorio/production-site/tasks/KANBAN.md)
+- [tools/manage_tasks.sh](/home/ToolHQ/production-site/tools/manage_tasks.sh)
+- [apps/rs-observability-api/Cargo.toml](/home/ToolHQ/production-site/apps/rs-observability-api/Cargo.toml)
+- [oci-k8s-cluster/run_tests.sh](/home/ToolHQ/production-site/oci-k8s-cluster/run_tests.sh)
+- [tasks/KANBAN.md](/home/ToolHQ/production-site/tasks/KANBAN.md)
 
 ## Tasks
 

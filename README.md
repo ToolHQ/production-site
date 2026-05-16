@@ -4,7 +4,7 @@ Trial of pre production and production tools like (minikube, jenkins, sonar, min
 
 ## Quality Harness
 
-O repositório usa um harness raiz leve e path-aware em [tools/harness/verify.sh](/home/dnorio/production-site/tools/harness/verify.sh).
+O repositório usa um harness raiz leve e path-aware em [tools/harness/verify.sh](/home/ToolHQ/production-site/tools/harness/verify.sh).
 
 Comandos principais:
 

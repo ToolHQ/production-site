@@ -17,7 +17,7 @@ do `apps/nginx/publish.sh`: o build da imagem quebra logo no início do Dockerfi
 antes do deploy prosseguir.
 
 Falha registrada em
-`/home/dnorio/production-site/logs/tui-app-deploy/20260413_160142_nginx_publish.log`:
+`/home/ToolHQ/production-site/logs/tui-app-deploy/20260413_160142_nginx_publish.log`:
 
 ```text
 go install github.com/maxmind/geoipupdate/v7/cmd/geoipupdate@latest

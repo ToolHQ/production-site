@@ -109,7 +109,7 @@ Também foi adicionada cobertura em `oci-k8s-cluster/testing/k8s_ops_menu.bats`
 para validar geração do path e persistência do output com exit code.
 
 Validação real concluída com `apps/nginx`: a execução gerou o arquivo
-`/home/dnorio/production-site/logs/tui-app-deploy/20260413_160142_nginx_publish.log`,
+`/home/ToolHQ/production-site/logs/tui-app-deploy/20260413_160142_nginx_publish.log`,
 confirmando persistência local no host e leitura posterior a partir deste workspace.
 O erro capturado no log foi de build da imagem: `geoipupdate@v7.1.1` agora exige
 Go `>= 1.23.0`, mas o Dockerfile ainda usa `golang:1.22.3-alpine3.19`.
