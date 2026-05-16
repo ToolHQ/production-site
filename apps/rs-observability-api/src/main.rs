@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     env,
     net::SocketAddr,
     path::{Component, Path, PathBuf},
@@ -150,6 +150,10 @@ struct LiveOverview {
     refresh_interval_seconds: u64,
     summary: LiveSummary,
     nodes: Vec<NodeStat>,
+    /// Real host utilization per node (keyed by node name, e.g. "k8s-node-1").
+    /// Only populated for nodes that have node_exporter running (workers via kubecost).
+    #[serde(default)]
+    node_metrics: HashMap<String, NodeMetrics>,
     services: Vec<LiveService>,
     incidents: Vec<LiveIncident>,
     metrics: MetricsOverview,
@@ -433,6 +437,19 @@ struct NodeStat {
     ephemeral_storage_bytes: u64,
 }
 
+/// Real host utilization from Prometheus node_exporter (via kubecost DaemonSet).
+/// Available on worker nodes only; master has no node_exporter.
+#[derive(Serialize, Clone, Default)]
+struct NodeMetrics {
+    cpu_percent: f64,
+    mem_used_bytes: u64,
+    mem_total_bytes: u64,
+    mem_percent: f64,
+    disk_used_bytes: u64,
+    disk_total_bytes: u64,
+    disk_percent: f64,
+}
+
 #[derive(Default)]
 struct PodRollup {
     total: usize,
@@ -654,6 +671,7 @@ impl LiveMonitor {
             refresh_interval_seconds: LIVE_REFRESH_INTERVAL_SECONDS,
             summary,
             nodes: node_stats,
+            node_metrics: HashMap::new(),
             services,
             incidents,
             metrics: unavailable_metrics_overview("metrics not fetched yet"),
@@ -950,6 +968,91 @@ impl PrometheusMonitor {
         hotspots.truncate(8);
         Ok(hotspots)
     }
+
+    /// Fetch real host utilization from Prometheus node_exporter (via kubecost DaemonSet).
+    /// Returns a map keyed by K8s node name (e.g. "k8s-node-1").
+    /// Nodes without node_exporter (e.g. k8s-master) are simply absent from the map.
+    pub(crate) async fn fetch_node_metrics(&self) -> HashMap<String, NodeMetrics> {
+        // Run 5 instant queries concurrently.
+        let cpu_q = r#"100 - (avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)"#;
+        let mem_avail_q = "node_memory_MemAvailable_bytes";
+        let mem_total_q = "node_memory_MemTotal_bytes";
+        let disk_avail_q = r#"node_filesystem_avail_bytes{mountpoint="/"}"#;
+        let disk_total_q = r#"node_filesystem_size_bytes{mountpoint="/"}"#;
+
+        let (cpu_res, mem_avail_res, mem_total_res, disk_avail_res, disk_total_res) = tokio::join!(
+            self.query_instant_series(cpu_q),
+            self.query_instant_series(mem_avail_q),
+            self.query_instant_series(mem_total_q),
+            self.query_instant_series(disk_avail_q),
+            self.query_instant_series(disk_total_q),
+        );
+
+        let cpu_map = series_to_node_map(cpu_res.unwrap_or_default());
+        let mem_avail_map = series_to_node_map(mem_avail_res.unwrap_or_default());
+        let mem_total_map = series_to_node_map(mem_total_res.unwrap_or_default());
+        let disk_avail_map = series_to_node_map(disk_avail_res.unwrap_or_default());
+        let disk_total_map = series_to_node_map(disk_total_res.unwrap_or_default());
+
+        // Collect all node names seen across any metric.
+        let mut node_names: BTreeSet<String> = BTreeSet::new();
+        for map in [&cpu_map, &mem_avail_map, &mem_total_map, &disk_avail_map, &disk_total_map] {
+            node_names.extend(map.keys().cloned());
+        }
+
+        node_names
+            .into_iter()
+            .filter_map(|node| {
+                let cpu_percent = *cpu_map.get(&node).unwrap_or(&0.0);
+                let mem_avail = *mem_avail_map.get(&node).unwrap_or(&0.0) as u64;
+                let mem_total = *mem_total_map.get(&node).unwrap_or(&0.0) as u64;
+                let disk_avail = *disk_avail_map.get(&node).unwrap_or(&0.0) as u64;
+                let disk_total = *disk_total_map.get(&node).unwrap_or(&0.0) as u64;
+
+                if mem_total == 0 && disk_total == 0 {
+                    return None; // skip empty entries
+                }
+
+                let mem_used = mem_total.saturating_sub(mem_avail);
+                let mem_percent = if mem_total > 0 {
+                    (mem_used as f64 / mem_total as f64) * 100.0
+                } else {
+                    0.0
+                };
+                let disk_used = disk_total.saturating_sub(disk_avail);
+                let disk_percent = if disk_total > 0 {
+                    (disk_used as f64 / disk_total as f64) * 100.0
+                } else {
+                    0.0
+                };
+
+                Some((
+                    node,
+                    NodeMetrics {
+                        cpu_percent,
+                        mem_used_bytes: mem_used,
+                        mem_total_bytes: mem_total,
+                        mem_percent,
+                        disk_used_bytes: disk_used,
+                        disk_total_bytes: disk_total,
+                        disk_percent,
+                    },
+                ))
+            })
+            .collect()
+    }
+}
+
+/// Convert a list of PrometheusSeries to a map: node_label → f64 value.
+fn series_to_node_map(series: Vec<PrometheusSeries>) -> HashMap<String, f64> {
+    series
+        .into_iter()
+        .filter_map(|s| {
+            let node = s.metric.get("node")?.clone();
+            let (_, val_str) = s.value?;
+            Some((node, parse_prometheus_value(&val_str)))
+        })
+        .collect()
 }
 
 fn content_type_for_path(path: &Path) -> &'static str {
@@ -1768,6 +1871,7 @@ fn unavailable_live_overview(reason: impl Into<String>) -> LiveOverview {
             ..LiveSummary::default()
         },
         nodes: Vec::new(),
+        node_metrics: HashMap::new(),
         services: Vec::new(),
         incidents: Vec::new(),
         metrics: unavailable_metrics_overview("prometheus metrics unavailable"),
