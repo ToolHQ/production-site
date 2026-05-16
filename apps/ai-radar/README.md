@@ -304,15 +304,16 @@ Smoke ad-hoc (exemplos):
 1. Reutiliza Secret já aplicado pelo operador (**SealedSecret / SOPS / manual** — preferido quando existir política forte).
 2. Ou `AI_RADAR_DATABASE_URL='postgres://…' ./deploy.sh`.
 3. Ou `AI_RADAR_FROM_CLUSTER_PG_SECRET=1` → monta URL com `postgres-secret`
-   no namespace **`postgres`** (host default `postgres-service.postgres.svc.cluster.local`,
-   base default `postgres` — suficiente para o schema **`ai_radar`** nas migrações).
+   no namespace **`postgres`** (host default **`postgres-0.postgres-internal.postgres.svc.cluster.local`**
+   — primário gravável; evita réplica hot-standby via `postgres-service` quando o Service ainda
+   expõe ambos os pods).
    Overrides: `AI_RADAR_PG_HOST`, `AI_RADAR_PG_PORT` (ex. `36432` com `kubectl port-forward` local), `AI_RADAR_PG_DATABASE`.
 
 **IMPORTANTE.** O recurso **`k8s/base/secret-database-url.placeholder.yaml`** continua apenas como template de referência; **não** entra mais no render Kustomize, para **`deploy.sh`/apply não pisarem uma `DATABASE_URL` real**.
 
 **Docker build.** Se aparecer **`context deadline exceeded`** no primeiro passo `#1 waiting for connection` no buildx **`oci-builder`**, o daemon **buildkitd** no **`oci-k8s-master`** ou o forwarding do socket ficou stale — volta a rodar **`setup-dev-deploy.sh`**; se persistir, use **`oci-k8s-cluster/k8s_ops_menu.sh`** para maintenance / comandos remotos até o worker remoto voltar a responder (ex. `buildctl debug workers`, ou revise `systemctl --user` do buildkit no master).
 
-**Postgres só leitura / sem primário.** Se o Postgres relatou `pg_is_in_recovery()=true` e DDL falha (**T-190**), trate o Postgres antes das migrações e do rollout definitivo (`deploy.sh` imprime apenas um warning).
+**Postgres só leitura / sem primário.** Writes devem ir ao **primário** (`postgres-0`). Se `DATABASE_URL` apontar para um Service que balanceia `postgres-1` (standby), jobs falham com `cannot execute UPDATE in a read-only transaction` e `raw_items` ficam presos em `extracting`. Use o host do primário (acima) ou `postgres-service` após o selector restringir só `postgres-0`. Se `pg_is_in_recovery()=true` no pod alvo, trate infra (**T-190**) antes de migrações (`deploy.sh` avisa).
 
 **Migrações.** Rodar **`just migrate`** (ou Job tooling) quando houver endpoint **gravável** e com a mesma `DATABASE_URL` que o Deployment usa (ver [Migrations](#migrations)). Para aplicar do laptop contra o Postgres do cluster: túnel SSH + `KUBECONFIG` (ver `.agents/skills/connect-to-cluster`), `kubectl -n postgres port-forward svc/postgres-service 36432:5432`, depois `export DATABASE_URL="$(AI_RADAR_PG_HOST=127.0.0.1 AI_RADAR_PG_PORT=36432 python3 scripts/render-ai-radar-database-url.py)"` e `sqlx migrate run --source migrations` em `apps/ai-radar`.
 

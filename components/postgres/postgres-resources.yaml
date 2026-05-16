@@ -170,8 +170,12 @@ metadata:
     app: postgres
 spec:
   type: ClusterIP
+  # Writes must hit the primary only (postgres-0). Including postgres-1 (hot standby)
+  # caused intermittent "cannot execute UPDATE in a read-only transaction" for clients
+  # that resolve postgres-service to the replica endpoint.
   selector:
     app: postgres
+    statefulset.kubernetes.io/pod-name: postgres-0
   ports:
     - name: tcp-port
       port: 5432
