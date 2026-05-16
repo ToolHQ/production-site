@@ -11,8 +11,7 @@
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
 | [T-195](2026/Q2/T-194-Cluster-Pulse-UI-Componentization-Vite-Preact.md) | **Cluster Pulse UI Componentization (Vite+Preact)** | 🔼 High | DevExp / Observability | 4h |
-| [T-194](2026/Q2/T-194-Cursor-agent-isolation-worktree-CURSOR-QUEUE-AI-Radar-owners.md) | **Cursor agent isolation — worktree, CURSOR-QUEUE, AI Radar owners** | 🔼 High | DevExp / Ops | 2h |
-| [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | **Master rootfs cleanup — BuildKit cache + legado MinIO** | 🔼 High | Infra / Ops | 2h |
+| [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | **Master rootfs cleanup — BuildKit cache + legado MinIO** _(validação df + hook prune pós-build)_ | 🔼 High | **Copilot/VSCode** | 2h |
 |               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -24,6 +23,9 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+| [T-196](2026/Q2/T-196-BuildKit-Prune-Automation.md) | **BuildKit Prune Automation** _(hook pós-build + CronJob para manter cache < 10 GiB; previne DiskPressure recorrente no master)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| [T-197](2026/Q2/T-197-Evicted-Pod-Cleanup-And-Prevention.md) | **Evicted Pod Cleanup + Prevenção** _(limpeza 24 pods evicted kube-system + CronJob failed-pod-cleaner)_ | 🔽 Medium | **Copilot/VSCode** | 1h |
+| [T-198](2026/Q2/T-198-cert-manager-cainjector-stability.md) | **cert-manager-cainjector Stability** _(investigar 77 restarts exit-code-1; correlacionar com DiskPressure)_ | 🔽 Low | **Copilot/VSCode** | 1h |
 |               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
@@ -34,7 +36,8 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
-| [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)**                                      | 🔼 High  |       **Cursor / AI Radar**       |  4h  |
+| [T-194](2026/Q2/T-194-Cursor-agent-isolation-worktree-CURSOR-QUEUE-AI-Radar-owners.md) | **Cursor agent isolation — worktree, CURSOR-QUEUE, AI Radar owners** | 🔼 High | DevExp / Ops | 2h |
+| [T-191](2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md) | **AI Radar — Cluster Smoke + Demo Runbook (post T-169)** _(smoke OK, deploy tag `1778940768`)_ | 🔼 High | **Cursor / AI Radar** | 4h |
 |            [T-172](2026/Q2/T-172-AI-Radar-Observabilidade.md)            | **AI Radar — Observabilidade** _(/metrics, job_id/request_id, OTEL/Langfuse hooks, LLM cost)_ |  🔽 Low  | AI Radar / DevExp / Observability |  4h  |
 |         [T-166](2026/Q2/T-166-AI-Radar-Scorer-Deterministico.md)          | **AI Radar — Scorer Determinístico**                                                                                                                                             |   🔽 Low    | AI Radar / DevExp         |  1d  |
 |           [T-165](2026/Q2/T-165-AI-Radar-Extractor-Pipeline.md)           | **AI Radar — Extractor Pipeline**                                                                                                                                                |   🔽 Low    | AI Radar / DevExp         |  1d  |
