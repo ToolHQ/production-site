@@ -25,6 +25,14 @@ Quando o usuário disser **"Como estamos aqui meu caro?"**:
 - Manter `tasks/KANBAN.md` atualizado após ações relevantes.
 - Priorizar estabilidade sobre performance em decisões de recursos.
 
+## Worktree e Isolamento
+
+- **Worktree Copilot**: `~/production-site-copilot` — operar **sempre** aqui, nunca em `production-site` (Cursor) ou `production-site-antigravity`.
+- **Fila de tasks**: `tasks/COPILOT-QUEUE.md` + tasks com `Owner: Copilot/VSCode` no `KANBAN.md`.
+- **Loop de execução**: `.agents/workflows/copilot_loop.md` — seguir ao iniciar qualquer sessão de trabalho.
+- **Shared files** (`KANBAN.md`, `AGENTS.md`): sempre `git pull --rebase` antes de push para evitar conflito com Antigravity/Cursor.
+- Ver mapa completo de agentes: `AGENTS.md` → seção "Coordenação Multi-Agente".
+
 ## Contexto do Cluster
 
 - **Nós**: `k8s-master`, `k8s-node-1`, `k8s-node-2` (ARM64)
