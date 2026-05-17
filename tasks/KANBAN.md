@@ -24,7 +24,6 @@
 | [T-238](2026/Q2/T-238-AI-Radar-Source-Health-Noise-Scoring.md) | **AI Radar — Source Health & Noise Scoring** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-237](2026/Q2/T-237-AI-Radar-Comparator-Console-UI.md) | **AI Radar — Comparator Console UI** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-236](2026/Q2/T-236-AI-Radar-Feedback-Calibrated-Scoring-v2.md) | **AI Radar — Feedback-Calibrated Scoring v2** | 🔽 Low | Cursor / AI Radar | 4h |
-| [T-234](2026/Q2/T-234-AI-Radar-Popularity-Velocity-Trend-Snapshots.md) | **AI Radar — Popularity Velocity & Trend Snapshots** | 🔼 High | Cursor / AI Radar | 6h |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 
 
@@ -33,6 +32,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-234](2026/Q2/T-234-AI-Radar-Popularity-Velocity-Trend-Snapshots.md) | **AI Radar — Popularity Velocity & Trend Snapshots** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-233](2026/Q2/T-233-Postgres-TCP-Ingress-and-Watchdog-Webhook-Alerting.md) | **Postgres TCP Ingress & Watchdog Webhook Alerting** _(exposição TCP na porta livre 5433 para evitar colisão hostNetwork do PostgreSQL; alertas ativos markdown via webhook no cluster_health_check.sh; PR #197)_ | 🔼 High | **Antigravity** | 2h |
 | [T-235](2026/Q2/T-235-AI-Radar-Explorer-Ranking-Signals-UX.md) | **AI Radar — Explorer Ranking & Signals UX** _(badges adoption, sort, filtros)_ | 🔼 High | **Cursor / AI Radar** | 6h |
 | [T-233-AI-Radar](2026/Q2/T-233-AI-Radar-Adoption-Signals-GitHub-metadata.md) | **AI Radar — Adoption Signals (GitHub metadata)** | 🔼 High | Cursor / AI Radar | 4h |
