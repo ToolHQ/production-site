@@ -126,7 +126,7 @@ metadata:
   namespace: default
 spec:
   hard:
-    requests.cpu: "200m"
-    requests.memory: "512Mi"
-    limits.cpu: "600m"
-    limits.memory: "1Gi"
+    requests.cpu: "400m" # T-103-Ph3: bumped from 200m to allow concurrent rolling upgrades
+    requests.memory: "1Gi" # bumped from 512Mi
+    limits.cpu: "1200m" # bumped from 600m to prevent FailedCreate quota violations
+    limits.memory: "2Gi" # bumped from 1Gi to allow multiple apps under rolling updates
