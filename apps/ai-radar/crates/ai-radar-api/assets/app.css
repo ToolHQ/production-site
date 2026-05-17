@@ -1080,6 +1080,51 @@ tr:hover td {
   color: var(--warn);
 }
 
+.badge-health-healthy {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--ok);
+}
+
+.badge-health-degraded {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warn);
+}
+
+.badge-health-noisy {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.badge-health-unknown {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--muted);
+}
+
+.compare-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin: 1rem 0 1.5rem;
+}
+
+.compare-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.compare-form input {
+  min-width: 12rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
 .item-adoption .badge {
   margin-right: 0.35rem;
 }

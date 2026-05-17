@@ -1,6 +1,6 @@
 # T-167: AI Radar — Scorer com LLM Opcional
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 4h
@@ -25,7 +25,7 @@ Não permitir `LlmOnly` no MVP — sem ground truth, é arriscado.
 - [x] Decision recalculada com score final mesclado
 - [x] Unit tests cobrindo ambas políticas
 - [x] Mock LLM scorer para testes determinísticos
-- [ ] Smoke test E2E com OpenRouter real (manual, atrás de feature flag)
+- [x] Smoke test E2E com OpenRouter real (manual, atrás de feature flag) — validado em produção via `LLM_SCORING_ENABLED`; opcional em CI
 
 ## DoD
 
@@ -54,3 +54,4 @@ cargo test -p ai-radar-core --test scorer_llm
 - `docs/AI-RADAR-ROADMAP.md` — Fase 9
 - Depende de: **T-166** + **T-164**
 - Branch sugerida: `feat/T-167-ai-radar-scorer-llm-optional`
+- Entregue: PR [#159](https://github.com/ToolHQ/production-site/pull/159) (merge em `main`)

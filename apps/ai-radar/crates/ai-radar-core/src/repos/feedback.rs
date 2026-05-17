@@ -5,6 +5,7 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::db::{Database, RepoError, RepoResult};
+use crate::curation::feedback_calibration::CategoryFeedbackStats;
 use crate::domain::{Decision, Feedback, FeedbackType, NewFeedback};
 
 /// Operations on `feedback`.
@@ -18,6 +19,9 @@ pub trait FeedbackRepository: Send + Sync {
 
     /// Feedback rows where the label disagrees with the latest score decision.
     async fn list_divergences(&self, limit: i64, offset: i64) -> RepoResult<Vec<FeedbackDivergence>>;
+
+    /// Per-category feedback counts for score calibration (**T-236**).
+    async fn list_category_stats(&self) -> RepoResult<Vec<CategoryFeedbackStats>>;
 }
 
 /// Human vs scorer mismatch for reporting.
@@ -138,6 +142,39 @@ impl FeedbackRepository for PgFeedbackRepository {
                     decision,
                     score: row.try_get("score").map_err(RepoError::from_sqlx)?,
                     feedback,
+                })
+            })
+            .collect()
+    }
+
+    async fn list_category_stats(&self) -> RepoResult<Vec<CategoryFeedbackStats>> {
+        let rows = sqlx::query(
+            "SELECT \
+                COALESCE(NULLIF(TRIM(e.category), ''), '(uncategorized)') AS category, \
+                COUNT(*)::bigint AS total, \
+                COUNT(*) FILTER ( \
+                    WHERE f.feedback_type IN ('rejected', 'low_quality', 'irrelevant', 'wrong_category') \
+                )::bigint AS negative, \
+                COUNT(*) FILTER ( \
+                    WHERE f.feedback_type IN ('useful', 'adopted', 'tested') \
+                )::bigint AS positive \
+             FROM ai_radar.feedback f \
+             JOIN ai_radar.extracted_items e ON e.id = f.extracted_item_id \
+             GROUP BY 1 \
+             HAVING COUNT(*) > 0 \
+             ORDER BY total DESC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RepoError::from_sqlx)?;
+
+        rows.iter()
+            .map(|row| {
+                Ok(CategoryFeedbackStats {
+                    category: row.try_get("category").map_err(RepoError::from_sqlx)?,
+                    total: row.try_get("total").map_err(RepoError::from_sqlx)?,
+                    negative: row.try_get("negative").map_err(RepoError::from_sqlx)?,
+                    positive: row.try_get("positive").map_err(RepoError::from_sqlx)?,
                 })
             })
             .collect()

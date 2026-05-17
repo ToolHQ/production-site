@@ -7,7 +7,8 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
 use ai_radar_core::domain::{NewSource, Source, SourceType};
-use ai_radar_core::repos::SourceRepository;
+use ai_radar_core::curation::SourceHealthSnapshot;
+use ai_radar_core::repos::{PgSourceHealthRepository, SourceHealthRepository, SourceRepository};
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -46,10 +47,27 @@ pub struct ListSourcesResponse {
 }
 
 /// Build the `/sources` sub-router.
+/// JSON envelope for `GET /sources/health`.
+#[derive(Debug, Serialize)]
+pub struct ListSourceHealthResponse {
+    pub items: Vec<SourceHealthSnapshot>,
+    pub count: usize,
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/sources", get(list).post(create))
         .route("/sources/enabled", get(list_enabled))
+        .route("/sources/health", get(list_health))
+}
+
+async fn list_health(
+    State(state): State<AppState>,
+) -> Result<Json<ListSourceHealthResponse>, ApiError> {
+    let repo = PgSourceHealthRepository::new(&state.db);
+    let items = repo.list_all().await?;
+    let count = items.len();
+    Ok(Json(ListSourceHealthResponse { items, count }))
 }
 
 async fn list(State(state): State<AppState>) -> Result<Json<ListSourcesResponse>, ApiError> {
