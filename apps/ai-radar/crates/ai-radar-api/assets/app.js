@@ -7,6 +7,7 @@ const $nav = document.getElementById("nav");
 
 const NAV = [
   { hash: "#/", label: "Painel" },
+  { hash: "#/items", label: "Itens" },
   { hash: "#/digests", label: "Digests" },
   { hash: "#/sources", label: "Fontes" },
 ];
@@ -84,6 +85,22 @@ async function apiJson(path) {
   return res.json();
 }
 
+async function apiPost(path, body) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${path}: ${text.slice(0, 200)}`);
+  }
+  return res.json();
+}
+
 async function apiMarkdown(path) {
   const res = await fetch(path, {
     headers: { Accept: "text/markdown" },
@@ -101,12 +118,27 @@ function setNav(activeHash) {
   ).join("");
 }
 
+function decisionBadge(decision) {
+  const d = String(decision || "").toLowerCase();
+  return `<span class="badge badge-decision badge-${escapeHtml(d)}">${escapeHtml(d)}</span>`;
+}
+
+function scorePct(score) {
+  if (score == null || Number.isNaN(Number(score))) return "—";
+  return `${Math.round(Number(score) * 100)}%`;
+}
+
 function parseRoute() {
   const hash = location.hash || "#/";
+  const itemMatch = hash.match(/^#\/items\/([0-9a-f-]{36})$/i);
+  if (itemMatch) {
+    return { page: "item", id: itemMatch[1] };
+  }
   const digestMatch = hash.match(/^#\/digests\/([0-9a-f-]{36})$/i);
   if (digestMatch) {
     return { page: "digest", id: digestMatch[1] };
   }
+  if (hash === "#/items") return { page: "items" };
   if (hash === "#/digests") return { page: "digests" };
   if (hash === "#/sources") return { page: "sources" };
   return { page: "home" };
@@ -171,6 +203,107 @@ async function renderDigest(id) {
   $app.innerHTML = `<p><a href="#/digests">← Voltar</a></p><article class="digest-article">${renderMarkdown(md)}</article>`;
 }
 
+async function renderItems() {
+  setNav("#/items");
+  const params = new URLSearchParams(location.search);
+  const decision = params.get("decision") || "";
+  const qs = new URLSearchParams({ limit: "50", sort: "score_desc" });
+  if (decision) qs.set("decision", decision);
+
+  const data = await apiJson(`/items?${qs}`);
+  const filterOpts = ["", "adopt", "test", "monitor", "ignore"]
+    .map(
+      (d) =>
+        `<option value="${d}" ${d === decision ? "selected" : ""}>${d || "todas"}</option>`,
+    )
+    .join("");
+
+  if (!data.items || data.items.length === 0) {
+    $app.innerHTML = `<h1 class="section-title">Itens scored</h1>
+      <label class="filter-row">Decisão <select id="decision-filter">${filterOpts}</select></label>
+      <p class="muted">Nenhum item com score ainda. Rode collect → extract → score.</p>`;
+    document.getElementById("decision-filter")?.addEventListener("change", (e) => {
+      const v = e.target.value;
+      location.search = v ? `?decision=${encodeURIComponent(v)}` : "";
+      render();
+    });
+    return;
+  }
+
+  const rows = data.items
+    .map((it) => {
+      const name = it.tool_name || it.summary?.slice(0, 48) || it.extracted_item_id;
+      return `<tr>
+        <td>${decisionBadge(it.decision)}</td>
+        <td>${scorePct(it.score)}</td>
+        <td>${escapeHtml(it.category || "—")}</td>
+        <td><a href="#/items/${it.extracted_item_id}">${escapeHtml(name)}</a></td>
+        <td class="muted">${new Date(it.scored_at).toLocaleString("pt-BR")}</td>
+      </tr>`;
+    })
+    .join("");
+
+  $app.innerHTML = `<h1 class="section-title">Itens scored</h1>
+    <p class="muted">${data.count} de ${data.total} itens</p>
+    <label class="filter-row">Decisão <select id="decision-filter">${filterOpts}</select></label>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Decisão</th><th>Score</th><th>Categoria</th><th>Ferramenta</th><th>Scored em</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+
+  document.getElementById("decision-filter")?.addEventListener("change", (e) => {
+    const v = e.target.value;
+    location.search = v ? `?decision=${encodeURIComponent(v)}` : "";
+    render();
+  });
+}
+
+async function renderItem(id) {
+  setNav("#/items");
+  const data = await apiJson(`/items/${id}`);
+  const ex = data.extracted;
+  const sc = data.latest_score;
+  const title = ex.tool_name || ex.summary?.slice(0, 80) || id;
+
+  const history =
+    data.scores?.length > 1
+      ? `<h2>Histórico de scores</h2><ul class="score-history">${data.scores
+          .map(
+            (s) =>
+              `<li>${decisionBadge(s.decision)} ${scorePct(s.score)} — ${escapeHtml(s.scoring_version)} <span class="muted">${new Date(s.created_at).toLocaleString("pt-BR")}</span></li>`,
+          )
+          .join("")}</ul>`
+      : "";
+
+  $app.innerHTML = `<p><a href="#/items">← Voltar</a></p>
+    <h1 class="section-title">${escapeHtml(title)}</h1>
+    <div class="item-meta">
+      ${decisionBadge(sc.decision)} <strong>${scorePct(sc.score)}</strong>
+      <span class="muted">v${ex.version} · ${escapeHtml(ex.category || "sem categoria")}</span>
+    </div>
+    <p>${escapeHtml(ex.summary || "")}</p>
+    ${sc.next_step ? `<p><strong>Próximo passo:</strong> ${escapeHtml(sc.next_step)}</p>` : ""}
+    <div class="actions">
+      <button type="button" class="btn" id="reprocess-score">Re-score</button>
+    </div>
+    ${history}
+    <p id="reprocess-status" class="muted" aria-live="polite"></p>`;
+
+  document.getElementById("reprocess-score")?.addEventListener("click", async () => {
+    const status = document.getElementById("reprocess-status");
+    if (!confirm("Re-executar scoring determinístico para este item?")) return;
+    status.textContent = "Executando…";
+    try {
+      await apiPost(`/items/${id}/reprocess`, { stage: "score" });
+      status.textContent = "Concluído. Recarregando…";
+      await renderItem(id);
+    } catch (err) {
+      status.textContent = err.message;
+      status.className = "error";
+    }
+  });
+}
+
 async function renderSources() {
   setNav("#/sources");
   const data = await apiJson("/sources");
@@ -203,6 +336,8 @@ async function render() {
     if (route.page === "home") await renderHome();
     else if (route.page === "digests") await renderDigests();
     else if (route.page === "digest") await renderDigest(route.id);
+    else if (route.page === "items") await renderItems();
+    else if (route.page === "item") await renderItem(route.id);
     else if (route.page === "sources") await renderSources();
   } catch (err) {
     $app.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
