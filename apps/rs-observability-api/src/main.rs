@@ -195,6 +195,63 @@ pub(crate) struct CorootIncidentsResponse {
     error: Option<String>,
 }
 
+// --- Longhorn storage ---
+
+#[derive(Serialize, Clone)]
+pub(crate) struct LonghornVolume {
+    name: String,
+    pvc_name: String,
+    namespace: String,
+    state: String,
+    robustness: String,
+    replicas_desired: u32,
+    size_bytes: u64,
+    actual_size_bytes: u64,
+    node: String,
+}
+
+#[derive(Serialize)]
+pub(crate) struct LonghornResponse {
+    available: bool,
+    volumes: Vec<LonghornVolume>,
+    total: usize,
+    healthy: usize,
+    degraded: usize,
+    faulted: usize,
+    queried_at_epoch: u64,
+    error: Option<String>,
+}
+
+// K8s CRD deserialization helpers for Longhorn
+
+#[derive(Deserialize, Clone, Default)]
+struct LonghornVolumeResource {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    spec: Option<LonghornVolumeSpec>,
+    status: Option<LonghornVolumeStatus>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct LonghornVolumeSpec {
+    #[serde(default, rename = "numberOfReplicas")]
+    number_of_replicas: u32,
+    #[serde(default)]
+    size: String,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct LonghornVolumeStatus {
+    #[serde(default)]
+    state: String,
+    #[serde(default)]
+    robustness: String,
+    #[serde(default, rename = "currentNodeID")]
+    current_node_id: String,
+    #[serde(default, rename = "actualSize")]
+    actual_size: u64,
+}
+
 // --- Coroot HTTP API client (internal) ---
 
 #[derive(Deserialize)]
@@ -1056,6 +1113,70 @@ impl LiveMonitor {
             .json::<T>()
             .await
             .map_err(|error| format!("decode cluster API payload: {}", error))
+    }
+
+    pub(crate) async fn fetch_longhorn(&self) -> LonghornResponse {
+        let now = unix_epoch_seconds();
+        match self
+            .fetch_json::<KubeList<LonghornVolumeResource>>(
+                "/apis/longhorn.io/v1beta2/namespaces/longhorn-system/volumes",
+            )
+            .await
+        {
+            Ok(list) => {
+                let volumes: Vec<LonghornVolume> = list
+                    .items
+                    .into_iter()
+                    .map(|v| {
+                        let status = v.status.unwrap_or_default();
+                        let spec = v.spec.unwrap_or_default();
+                        let size_bytes = spec.size.parse::<u64>().unwrap_or(0);
+                        let name = v.metadata.name.clone().unwrap_or_default();
+                        LonghornVolume {
+                            pvc_name: name.clone(),
+                            name,
+                            namespace: v
+                                .metadata
+                                .namespace
+                                .unwrap_or_else(|| "longhorn-system".to_string()),
+                            state: status.state,
+                            robustness: status.robustness,
+                            replicas_desired: spec.number_of_replicas,
+                            size_bytes,
+                            actual_size_bytes: status.actual_size,
+                            node: status.current_node_id,
+                        }
+                    })
+                    .collect();
+                let total = volumes.len();
+                let healthy = volumes.iter().filter(|v| v.robustness == "healthy").count();
+                let degraded = volumes
+                    .iter()
+                    .filter(|v| v.robustness == "degraded")
+                    .count();
+                let faulted = volumes.iter().filter(|v| v.robustness == "faulted").count();
+                LonghornResponse {
+                    available: true,
+                    volumes,
+                    total,
+                    healthy,
+                    degraded,
+                    faulted,
+                    queried_at_epoch: now,
+                    error: None,
+                }
+            }
+            Err(e) => LonghornResponse {
+                available: false,
+                volumes: vec![],
+                total: 0,
+                healthy: 0,
+                degraded: 0,
+                faulted: 0,
+                queried_at_epoch: now,
+                error: Some(e),
+            },
+        }
     }
 }
 
