@@ -17,14 +17,14 @@
 1. ~~**T-173**~~ — Hardening ✅
 2. ~~**T-175**~~ — Console ✅
 3. ~~**T-176**~~ — Dashboards ops ✅
-4. **Demo pipeline** — fontes + extract LLM + digest com conteúdo no console
+4. ~~**Demo pipeline**~~ — fontes + extract LLM + digest no console ✅
 5. ~~**T-177**~~ — Items API + Explorer UI ✅
 
 ## Em andamento (sessão atual)
 
 | ID / Ref | Tarefa | Tipo |
 | :------- | :----- | :--- |
-| Demo pipeline | Encher digest no console (fontes + CronJobs + LLM) | micro |
+| — | _(vazio — ver backlog)_ | — |
 
 ## Próximas (prioridade Cursor — AI Radar)
 
@@ -41,6 +41,7 @@
 - [x] T-176 observability pack (Grafana JSON + README + smoke Prometheus Coroot)
 - [x] Montar `ai-radar-llm` no Deployment da API — PR [#122](https://github.com/ToolHQ/production-site/pull/122)
 - [x] Demo pipeline: digest semanal com itens **Testar** no console
+- [x] Demo pipeline: `scripts/run-demo-pipeline.sh` + fontes Lobsters/Pragmatic; `smoke-direct` desabilitada
 - [x] Causa raiz `read-only transaction`: `postgres-service` → réplica; fix primário + reconcile `extracting`
 - [x] Deploy T-177 API `1778974766` + explorer https://ai-radar.dnor.io/#/items
 - [x] CLI CronJobs `1778965790` (reconcile extract)
