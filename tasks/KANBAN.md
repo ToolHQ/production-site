@@ -10,7 +10,6 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-|        [T-231](2026/Q2/T-231-AI-Radar-Entity-Resolution-Cross-Source-Dedup.md)        | **AI Radar — Entity Resolution & Cross-Source Dedup** | 🔼 High | **Cursor / AI Radar** | 1d |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -29,6 +28,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+|        [T-231](2026/Q2/T-231-AI-Radar-Entity-Resolution-Cross-Source-Dedup.md)        | **AI Radar — Entity Resolution & Cross-Source Dedup** | 🔼 High | **Cursor / AI Radar** | 1d |
 |        [T-232](2026/Q2/T-232-AI-Radar-Extract-Quality-Gate.md)        | **AI Radar — Extract Quality Gate** _(score 0–100; reject &lt;40, warn 40–69)_ | 🔼 High | **Cursor / AI Radar** | 4h |
 |               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 | [T-223-Stabilization](2026/Q2/T-223-Coroot-Alerts-Remediation-and-Volume-Space-Stabilization.md) | **Coroot Alerts Remediation & Volume Space Stabilization** _(auditoria de 100+ alertas; filtro inteligente de ruído e warnings na API rs-observability; snapshot de volume MinIO prunado e estabilizado em 66%)_ | 🔼 High | **Antigravity** | 2h |
