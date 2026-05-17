@@ -1,4 +1,4 @@
-FROM rust:1.86-slim-bookworm AS builder
+FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
 COPY apps/agent-meter/Cargo.toml apps/agent-meter/Cargo.lock ./
 RUN mkdir -p crates/collector/src crates/cli/src crates/mcp-wrapper/src && \
