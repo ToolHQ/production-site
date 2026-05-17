@@ -85,6 +85,10 @@ pub fn describe_metrics() {
         "ai_radar_source_health_tier_total",
         "extracted_items scored with upstream source health metadata (T-238)"
     );
+    describe_counter!(
+        "ai_radar_feedback_calibration_total",
+        "scores adjusted by category feedback calibration (T-236)"
+    );
 }
 
 /// Refresh gauge from DB count (call from `/metrics` before render).
@@ -193,6 +197,15 @@ pub fn record_adoption_tier(decision: &str, stars_tier: &str) {
         "ai_radar_adoption_tier_total",
         "decision" => decision.to_string(),
         "stars_tier" => stars_tier.to_string()
+    )
+    .increment(1);
+}
+
+/// One score adjusted by category feedback calibration (**T-236**).
+pub fn record_feedback_calibration(decision: &str) {
+    counter!(
+        "ai_radar_feedback_calibration_total",
+        "decision" => decision.to_string()
     )
     .increment(1);
 }
