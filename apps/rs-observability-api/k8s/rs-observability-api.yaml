@@ -88,6 +88,23 @@ spec:
               value: /opt/reports
             - name: PROMETHEUS_BASE_URL
               value: http://coroot-prometheus-server.coroot.svc.cluster.local
+            # Coroot API authentication (Secret: kubectl create secret generic coroot-api-creds ...)
+            - name: COROOT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: coroot-api-creds
+                  key: COROOT_EMAIL
+                  optional: true
+            - name: COROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coroot-api-creds
+                  key: COROOT_PASSWORD
+                  optional: true
+            - name: COROOT_BASE_URL
+              value: http://coroot.coroot.svc.cluster.local:8080
+            - name: COROOT_PROJECT_ID
+              value: p3m78dle
           resources:
             requests:
               cpu: 10m
