@@ -98,6 +98,7 @@ pub async fn run_digest(
     let (period_start, period_end) = kind.window(now);
     let data = select(db, kind.as_digest_type(), period_start, period_end, limits).await?;
     let markdown = render_markdown(&data);
+    let metadata = build_metadata(&data, limits);
 
     let digests = PgDigestRepository::new(db);
     let row = digests
@@ -106,10 +107,7 @@ pub async fn run_digest(
             period_start: data.period_start,
             period_end: data.period_end,
             markdown_content: markdown,
-            metadata_json: Some(serde_json::json!({
-                "limits": { "adopt": limits.adopt, "test": limits.test, "monitor": limits.monitor, "ignore": limits.ignore },
-                "generator": "digest-v1"
-            })),
+            metadata_json: Some(metadata),
         })
         .await?;
 
@@ -176,9 +174,15 @@ pub async fn select(
             category: row.try_get("category")?,
             url: row.try_get("url")?,
             title: row.try_get("title")?,
-            reasons: truncate_lines(json_string_list(reasons_json), 3),
+            reasons: truncate_lines(
+                json_string_list(reasons_json)
+                    .into_iter()
+                    .map(|r| humanize_reason(&r))
+                    .collect(),
+                5,
+            ),
             risks: truncate_lines(json_string_list(risks_json), 3),
-            next_step: row.try_get("next_step")?,
+            next_step: display_next_step(row.try_get("next_step")?),
         };
 
         match decision {
@@ -206,7 +210,35 @@ pub async fn select(
     })
 }
 
-/// Render a digest as Markdown.
+/// JSON metadata persisted with each digest (console reads `buckets`).
+#[must_use]
+pub fn build_metadata(data: &DigestData, limits: DigestLimits) -> serde_json::Value {
+    let total = data.adopt.len() + data.test.len() + data.monitor.len() + data.ignore.len();
+    serde_json::json!({
+        "generator": "digest-v2",
+        "limits": {
+            "adopt": limits.adopt,
+            "test": limits.test,
+            "monitor": limits.monitor,
+            "ignore": limits.ignore,
+        },
+        "summary": {
+            "total": total,
+            "adopt": data.adopt.len(),
+            "test": data.test.len(),
+            "monitor": data.monitor.len(),
+            "ignore": data.ignore.len(),
+        },
+        "buckets": {
+            "adopt": data.adopt,
+            "test": data.test,
+            "monitor": data.monitor,
+            "ignore": data.ignore,
+        },
+    })
+}
+
+/// Render a digest as Markdown (export, e-mail, fallback UI).
 #[must_use]
 pub fn render_markdown(data: &DigestData) -> String {
     let mut out = String::new();
@@ -215,11 +247,12 @@ pub fn render_markdown(data: &DigestData) -> String {
         data.period_end.format("%Y-%m-%d")
     ));
     out.push_str(&format!(
-        "_Period: {} → {} | Type: {}_\n\n",
+        "**Período:** {} → {} · **Tipo:** {}\n\n",
         data.period_start.format("%Y-%m-%d %H:%M UTC"),
         data.period_end.format("%Y-%m-%d %H:%M UTC"),
-        data.digest_type.as_str()
+        digest_type_label_pt(data.digest_type)
     ));
+    render_executive_summary(&mut out, data);
 
     render_section(&mut out, "✅ Adotar", &data.adopt);
     render_section(&mut out, "🔥 Testar", &data.test);
@@ -227,6 +260,32 @@ pub fn render_markdown(data: &DigestData) -> String {
     render_section(&mut out, "❌ Ignorar", &data.ignore);
 
     out
+}
+
+fn digest_type_label_pt(t: DigestType) -> &'static str {
+    match t {
+        DigestType::Daily => "diário",
+        DigestType::Weekly => "semanal",
+        DigestType::Monthly => "mensal",
+        DigestType::Custom => "personalizado",
+    }
+}
+
+fn render_executive_summary(out: &mut String, data: &DigestData) {
+    let total = data.adopt.len() + data.test.len() + data.monitor.len() + data.ignore.len();
+    out.push_str("## Resumo executivo\n\n");
+    if total == 0 {
+        out.push_str("Nenhum item scored nesta janela.\n\n");
+        return;
+    }
+    out.push_str(&format!(
+        "- **{total}** itens no relatório\n\
+         - **{}** adotar · **{}** testar · **{}** monitorar · **{}** ignorar\n\n",
+        data.adopt.len(),
+        data.test.len(),
+        data.monitor.len(),
+        data.ignore.len()
+    ));
 }
 
 fn render_section(out: &mut String, title: &str, items: &[DigestItem]) {
@@ -237,39 +296,165 @@ fn render_section(out: &mut String, title: &str, items: &[DigestItem]) {
     }
 
     for (idx, it) in items.iter().enumerate() {
-        let name = it
-            .tool_name
-            .clone()
-            .or_else(|| it.title.clone())
-            .unwrap_or_else(|| "Untitled".into());
-        out.push_str(&format!("### {}. {name}\n\n", idx + 1));
-        if let Some(category) = &it.category {
-            out.push_str(&format!("- Categoria: {category}\n"));
-        }
-        out.push_str(&format!("- Score: {:.0}\n", it.score * 100.0));
-        out.push_str(&format!("- Link: {}\n", it.url));
-
-        if !it.reasons.is_empty() {
-            out.push_str("- Motivos:\n");
-            for r in &it.reasons {
-                out.push_str(&format!("  - {r}\n"));
-            }
-        }
-
-        if !it.risks.is_empty() {
-            out.push_str("- Riscos:\n");
-            for r in &it.risks {
-                out.push_str(&format!("  - {r}\n"));
-            }
-        }
-
-        if let Some(next) = &it.next_step {
-            out.push_str(&format!("- Próximo passo: {next}\n"));
-        }
-
-        out.push('\n');
+        render_item(out, idx + 1, it);
     }
 }
+
+fn render_item(out: &mut String, index: usize, it: &DigestItem) {
+    let name = item_display_name(it);
+    out.push_str(&format!("### {index}. {name}\n\n"));
+    if let Some(category) = &it.category {
+        out.push_str(&format!("- **Categoria:** {category}\n"));
+    }
+    out.push_str(&format!(
+        "- **Score:** {:.0}/100 · **Decisão:** {}\n",
+        it.score * 100.0,
+        decision_label_pt(it.decision)
+    ));
+    out.push_str(&format!("- **Fonte:** {}\n", it.url));
+
+    if !it.reasons.is_empty() {
+        out.push_str("- **Motivos:**\n");
+        for r in &it.reasons {
+            out.push_str(&format!("  - {r}\n"));
+        }
+    }
+
+    if !it.risks.is_empty() {
+        out.push_str("- **Riscos:**\n");
+        for r in &it.risks {
+            out.push_str(&format!("  - {r}\n"));
+        }
+    }
+
+    if let Some(next) = &it.next_step {
+        out.push_str(&format!("- **Próximo passo:** {next}\n"));
+    }
+
+    out.push('\n');
+}
+
+fn item_display_name(it: &DigestItem) -> String {
+    it.tool_name
+        .clone()
+        .or_else(|| it.title.clone())
+        .unwrap_or_else(|| "Sem título".into())
+}
+
+fn decision_label_pt(d: Decision) -> &'static str {
+    match d {
+        Decision::Adopt => "adotar",
+        Decision::Test => "testar",
+        Decision::Monitor => "monitorar",
+        Decision::Ignore => "ignorar",
+    }
+}
+
+/// Scorer default follow-ups — omitted in digest when unchanged.
+const GENERIC_NEXT_STEPS: &[&str] = &[
+    "Promote to team standard; track adoption metrics and owner.",
+    "Run a time-boxed spike in a sandbox cluster before wide rollout.",
+    "No immediate action — revisit next digest cycle unless signals change.",
+    "Archive; do not spend further review time unless new evidence appears.",
+];
+
+fn is_generic_next_step(s: &str) -> bool {
+    GENERIC_NEXT_STEPS.contains(&s.trim())
+}
+
+fn display_next_step(s: Option<String>) -> Option<String> {
+    s.filter(|x| !is_generic_next_step(x))
+}
+
+/// Turn `+2 [self_hosted] Self-hostable…` into a short pt-BR line for operators.
+#[must_use]
+pub fn humanize_reason(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let (weight, rest) = parse_reason_weight(trimmed);
+    let (rule_id, tail) = parse_reason_bracket(rest);
+
+    let label = rule_id
+        .map(rule_label_pt)
+        .unwrap_or_else(|| tail.clone().unwrap_or_default());
+
+    if let Some(w) = weight {
+        if label.is_empty() {
+            return format!("{w:+}");
+        }
+        return format!("{w:+} {label}");
+    }
+    if label.is_empty() {
+        return trimmed.to_string();
+    }
+    label
+}
+
+fn parse_reason_weight(s: &str) -> (Option<i32>, &str) {
+    let bytes = s.as_bytes();
+    if bytes.is_empty() || (bytes[0] != b'+' && bytes[0] != b'-') {
+        return (None, s);
+    }
+    let sign = if bytes[0] == b'-' { -1 } else { 1 };
+    let mut i = 1;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 1 {
+        return (None, s);
+    }
+    let n: i32 = s[1..i].parse().unwrap_or(0);
+    (Some(sign * n), s[i..].trim_start())
+}
+
+fn parse_reason_bracket(s: &str) -> (Option<&str>, Option<String>) {
+    let s = s.trim_start();
+    if !s.starts_with('[') {
+        return (None, Some(s.to_string()));
+    }
+    let Some(end) = s.find(']') else {
+        return (None, Some(s.to_string()));
+    };
+    let id = &s[1..end];
+    let tail = s[end + 1..].trim();
+    let tail = tail
+        .strip_prefix('—')
+        .or_else(|| tail.strip_prefix('-'))
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(str::to_string);
+    (Some(id), tail)
+}
+
+fn rule_label_pt(id: &str) -> String {
+    RULE_LABELS_PT
+        .iter()
+        .find(|(k, _)| *k == id)
+        .map(|(_, v)| (*v).to_string())
+        .unwrap_or_else(|| id.replace('_', " "))
+}
+
+static RULE_LABELS_PT: &[(&str, &str)] = &[
+    ("problem_filled", "Problema e caso de uso claros"),
+    ("self_hosted", "Compatível com self-host no cluster"),
+    ("k8s_fit", "Encaixa em Kubernetes / plataforma"),
+    ("structured_identity", "Nome e categoria estruturados"),
+    ("rich_summary", "Resumo rico (sinal forte)"),
+    ("category_present", "Categoria identificada"),
+    ("cost_productivity", "Ângulo de custo / produtividade"),
+    ("permissive_license", "Licença permissiva conhecida"),
+    ("mature", "Maturidade estável"),
+    ("low_risk", "Risco operacional baixo"),
+    ("deep_stack_notes", "Notas de stack / ops detalhadas"),
+    ("saas_lockin", "Apenas SaaS (sem self-host)"),
+    ("high_risk", "Risco operacional alto"),
+    ("deprecated", "Projeto obsoleto / deprecated"),
+    ("superficial", "Identidade fraca / resumo curto"),
+    ("proprietary_license", "Licença proprietária / fechada"),
+    ("weak_signals", "Metadados fracos (stack/categoria)"),
+    ("experimental", "Maturidade experimental"),
+    ("hype", "Texto promocional sem profundidade"),
+    ("missing_license", "Licença não informada"),
+];
 
 fn json_string_list(v: serde_json::Value) -> Vec<String> {
     match v {
@@ -315,5 +500,23 @@ mod tests {
     fn truncate_lines_caps_at_three() {
         let items = vec!["a".into(), "b".into(), "c".into(), "d".into()];
         assert_eq!(truncate_lines(items, 3), vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn humanize_reason_strips_rule_tag() {
+        let h = humanize_reason(
+            "+2 [self_hosted] Self-hostable (fits constrained cluster policy)",
+        );
+        assert!(h.contains("self-host"));
+        assert!(!h.contains("[self_hosted]"));
+    }
+
+    #[test]
+    fn generic_next_step_hidden() {
+        assert!(display_next_step(Some(
+            "Run a time-boxed spike in a sandbox cluster before wide rollout.".into()
+        ))
+        .is_none());
+        assert!(display_next_step(Some("Spike em staging esta semana".into())).is_some());
     }
 }

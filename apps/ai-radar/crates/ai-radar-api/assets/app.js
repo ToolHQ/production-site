@@ -44,12 +44,13 @@ function renderMarkdown(md) {
     } else if (line.startsWith("### ")) {
       closeList();
       out.push(`<h3>${inlineFormat(line.slice(4))}</h3>`);
-    } else if (line.startsWith("- ")) {
+    } else if (line.startsWith("- ") || line.startsWith("  - ")) {
       if (!inList) {
         out.push("<ul>");
         inList = true;
       }
-      out.push(`<li>${inlineFormat(line.slice(2))}</li>`);
+      const bullet = line.startsWith("  - ") ? line.slice(4) : line.slice(2);
+      out.push(`<li>${inlineFormat(bullet)}</li>`);
     } else if (line === "") {
       closeList();
     } else if (line === "---" || line === "***") {
@@ -99,16 +100,6 @@ async function apiPost(path, body) {
     throw new Error(`${res.status} ${path}: ${text.slice(0, 200)}`);
   }
   return res.json();
-}
-
-async function apiMarkdown(path) {
-  const res = await fetch(path, {
-    headers: { Accept: "text/markdown" },
-  });
-  if (!res.ok) {
-    throw new Error(`${res.status} ${path}`);
-  }
-  return res.text();
 }
 
 function setNav(activeHash) {
@@ -197,10 +188,131 @@ async function renderDigests() {
   $app.innerHTML = `<h1 class="section-title">Digests</h1><div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Gerado em</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+const DIGEST_SECTIONS = [
+  { key: "adopt", title: "Adotar", emoji: "✅", empty: "Nada para adotar nesta janela." },
+  { key: "test", title: "Testar", emoji: "🔥", empty: "Nada em teste nesta janela." },
+  { key: "monitor", title: "Monitorar", emoji: "👀", empty: "Nada em monitoramento." },
+  { key: "ignore", title: "Ignorar", emoji: "❌", empty: "Nada para ignorar." },
+];
+
+function digestTypeLabel(t) {
+  const map = {
+    daily: "Diário",
+    weekly: "Semanal",
+    monthly: "Mensal",
+    custom: "Personalizado",
+  };
+  return map[String(t || "").toLowerCase()] || t || "—";
+}
+
+function digestItemName(it) {
+  return it.tool_name || it.title || "Sem título";
+}
+
+function renderReasonChips(reasons) {
+  if (!reasons || reasons.length === 0) return "";
+  return `<ul class="digest-reasons">${reasons
+    .map((r) => `<li>${escapeHtml(r)}</li>`)
+    .join("")}</ul>`;
+}
+
+function renderDigestItemCard(it) {
+  const name = digestItemName(it);
+  const score = scorePct(it.score);
+  const category = it.category
+    ? `<span class="digest-item-category">${escapeHtml(it.category)}</span>`
+    : "";
+  const risksBlock =
+    it.risks && it.risks.length
+      ? `<div class="digest-risks"><span class="digest-label">Riscos</span><ul>${it.risks
+          .map((r) => `<li>${escapeHtml(r)}</li>`)
+          .join("")}</ul></div>`
+      : "";
+  const nextBlock = it.next_step
+    ? `<p class="digest-next"><span class="digest-label">Próximo passo</span> ${escapeHtml(it.next_step)}</p>`
+    : "";
+  const itemLink = it.extracted_item_id
+    ? `<a class="digest-item-link" href="#/items/${it.extracted_item_id}">Ver item no radar</a>`
+    : "";
+  const extLink = it.url
+    ? `<a class="digest-ext-link" href="${escapeHtml(it.url)}" target="_blank" rel="noopener">Fonte original</a>`
+    : "";
+
+  return `<article class="digest-item-card">
+    <header class="digest-item-head">
+      <div class="digest-item-badges">
+        ${decisionBadge(it.decision)}
+        <span class="digest-score-pill">${score}</span>
+      </div>
+      <h3 class="digest-item-title">${escapeHtml(name)}</h3>
+      ${category}
+    </header>
+    <div class="digest-item-links">${itemLink}${extLink ? ` · ${extLink}` : ""}</div>
+    ${renderReasonChips(it.reasons)}
+    ${risksBlock}
+    ${nextBlock}
+  </article>`;
+}
+
+function renderDigestSection(section, items) {
+  const list =
+    items && items.length
+      ? items.map((it) => renderDigestItemCard(it)).join("")
+      : `<p class="muted digest-empty">${section.empty}</p>`;
+  return `<section class="digest-section">
+    <h2 class="digest-section-title">${section.emoji} ${section.title} <span class="digest-section-count">${items?.length || 0}</span></h2>
+    <div class="digest-item-grid">${list}</div>
+  </section>`;
+}
+
+function renderDigestStructured(digest) {
+  const meta = digest.metadata_json || {};
+  const buckets = meta.buckets || {};
+  const summary = meta.summary || {};
+  const periodStart = new Date(digest.period_start).toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+  const periodEnd = new Date(digest.period_end).toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+  const titleDate = new Date(digest.period_end).toLocaleDateString("pt-BR");
+  const total = summary.total ?? 0;
+
+  const summaryCards = [
+    card("No relatório", total),
+    card("Adotar", summary.adopt ?? buckets.adopt?.length ?? 0),
+    card("Testar", summary.test ?? buckets.test?.length ?? 0),
+    card("Monitorar", summary.monitor ?? buckets.monitor?.length ?? 0),
+    card("Ignorar", summary.ignore ?? buckets.ignore?.length ?? 0),
+  ].join("");
+
+  const sections = DIGEST_SECTIONS.map((s) =>
+    renderDigestSection(s, buckets[s.key] || []),
+  ).join("");
+
+  return `<div class="digest-report">
+    <header class="digest-header">
+      <p class="digest-back"><a href="#/digests">← Voltar</a></p>
+      <h1 class="digest-title">AI Radar Digest — ${escapeHtml(titleDate)}</h1>
+      <p class="digest-meta">${digestTypeLabel(digest.digest_type)} · ${escapeHtml(periodStart)} → ${escapeHtml(periodEnd)}</p>
+    </header>
+    <div class="cards digest-summary-cards">${summaryCards}</div>
+    ${sections}
+  </div>`;
+}
+
 async function renderDigest(id) {
   setNav("#/digests");
-  const md = await apiMarkdown(`/digests/${id}`);
-  $app.innerHTML = `<p><a href="#/digests">← Voltar</a></p><article class="digest-article">${renderMarkdown(md)}</article>`;
+  const digest = await apiJson(`/digests/${id}`);
+  const buckets = digest.metadata_json?.buckets;
+  if (buckets) {
+    $app.innerHTML = renderDigestStructured(digest);
+    return;
+  }
+  const md = digest.markdown_content || "";
+  $app.innerHTML = `<p><a href="#/digests">← Voltar</a></p><article class="digest-article digest-article--legacy">${renderMarkdown(md)}</article>`;
 }
 
 async function renderItems() {
