@@ -74,6 +74,7 @@ struct AppState {
     reports_root: Arc<PathBuf>,
     live_monitor: Option<Arc<LiveMonitor>>,
     prometheus_monitor: Arc<PrometheusMonitor>,
+    coroot_client: Option<Arc<CorootClient>>,
 }
 
 #[derive(Clone)]
@@ -141,23 +142,192 @@ struct LanguageCount {
     count: usize,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Deserialize)]
 struct CorootAlert {
-    name: String,
+    id: String,
+    rule_id: String,
+    rule_name: String,
+    application_id: String,
     severity: String,
-    instance: String,
-    namespace: Option<String>,
-    node: Option<String>,
-    job: Option<String>,
-    timestamp: u64,
+    summary: String,
+    opened_at: u64,
+    duration: u64,
+    report: String,
 }
 
 #[derive(Serialize)]
-struct CorootAlertsResponse {
+pub(crate) struct CorootAlertsResponse {
     available: bool,
     alerts: Vec<CorootAlert>,
+    total: u64,
     queried_at_epoch: u64,
     error: Option<String>,
+}
+
+// --- Coroot HTTP API client (internal) ---
+
+#[derive(Deserialize)]
+struct CorootApiResponse {
+    data: CorootApiData,
+}
+
+#[derive(Deserialize)]
+struct CorootApiData {
+    alerts: Vec<CorootAlert>,
+    #[serde(default)]
+    firing: u64,
+}
+
+#[derive(Clone)]
+struct CorootClient {
+    http: Client,
+    base_url: String,
+    email: String,
+    password: String,
+    project_id: String,
+    session_cookie: Arc<RwLock<Option<String>>>,
+}
+
+impl CorootClient {
+    fn new(base_url: String, email: String, password: String, project_id: String) -> Self {
+        let http = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("coroot http client");
+        CorootClient {
+            http,
+            base_url,
+            email,
+            password,
+            project_id,
+            session_cookie: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    async fn login(&self) -> Result<String, String> {
+        let url = format!("{}/api/login", self.base_url);
+        let resp = self
+            .http
+            .post(&url)
+            .json(&json!({"email": &self.email, "password": &self.password}))
+            .send()
+            .await
+            .map_err(|e| format!("coroot login request failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("coroot login failed: HTTP {}", resp.status()));
+        }
+
+        // Extract the session cookie value from Set-Cookie header
+        let cookie = resp
+            .headers()
+            .get("set-cookie")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| {
+                // Format: "coroot_session=<value>; Path=..."
+                s.split(';').next().map(|s| s.trim().to_string())
+            })
+            .ok_or_else(|| "coroot login: no session cookie in response".to_string())?;
+
+        *self.session_cookie.write().await = Some(cookie.clone());
+        Ok(cookie)
+    }
+
+    async fn do_fetch_alerts(&self, cookie: &str) -> Result<CorootApiData, String> {
+        let url = format!("{}/api/project/{}/alerts", self.base_url, self.project_id);
+        let resp = self
+            .http
+            .get(&url)
+            .header("Cookie", cookie)
+            .send()
+            .await
+            .map_err(|e| format!("coroot alerts request failed: {}", e))?;
+
+        if resp.status().as_u16() == 401 {
+            return Err("401".to_string());
+        }
+        if !resp.status().is_success() {
+            return Err(format!("coroot alerts HTTP {}", resp.status()));
+        }
+
+        let api_resp: CorootApiResponse = resp
+            .json()
+            .await
+            .map_err(|e| format!("coroot alerts parse error: {}", e))?;
+
+        Ok(api_resp.data)
+    }
+
+    async fn fetch_alerts(&self) -> CorootAlertsResponse {
+        let now = unix_epoch_seconds();
+
+        let cookie = {
+            let lock = self.session_cookie.read().await;
+            lock.clone()
+        };
+
+        let cookie = match cookie {
+            Some(c) => c,
+            None => match self.login().await {
+                Ok(c) => c,
+                Err(e) => {
+                    return CorootAlertsResponse {
+                        available: false,
+                        alerts: vec![],
+                        total: 0,
+                        queried_at_epoch: now,
+                        error: Some(e),
+                    }
+                }
+            },
+        };
+
+        match self.do_fetch_alerts(&cookie).await {
+            Ok(data) => CorootAlertsResponse {
+                available: true,
+                total: data.firing,
+                alerts: data.alerts,
+                queried_at_epoch: now,
+                error: None,
+            },
+            Err(e) if e == "401" => {
+                // Session expired — clear cookie and re-login
+                *self.session_cookie.write().await = None;
+                match self.login().await {
+                    Ok(new_cookie) => match self.do_fetch_alerts(&new_cookie).await {
+                        Ok(data) => CorootAlertsResponse {
+                            available: true,
+                            total: data.firing,
+                            alerts: data.alerts,
+                            queried_at_epoch: now,
+                            error: None,
+                        },
+                        Err(e2) => CorootAlertsResponse {
+                            available: false,
+                            alerts: vec![],
+                            total: 0,
+                            queried_at_epoch: now,
+                            error: Some(e2),
+                        },
+                    },
+                    Err(e2) => CorootAlertsResponse {
+                        available: false,
+                        alerts: vec![],
+                        total: 0,
+                        queried_at_epoch: now,
+                        error: Some(format!("re-login failed: {}", e2)),
+                    },
+                }
+            }
+            Err(e) => CorootAlertsResponse {
+                available: false,
+                alerts: vec![],
+                total: 0,
+                queried_at_epoch: now,
+                error: Some(e),
+            },
+        }
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -526,10 +696,26 @@ async fn main() {
     };
     let prometheus_monitor = Arc::new(PrometheusMonitor::new());
 
+    let coroot_client = {
+        let base_url = env::var("COROOT_BASE_URL")
+            .unwrap_or_else(|_| "http://coroot.coroot.svc.cluster.local:8080".to_string());
+        let project_id = env::var("COROOT_PROJECT_ID").unwrap_or_else(|_| "p3m78dle".to_string());
+        match (env::var("COROOT_EMAIL"), env::var("COROOT_PASSWORD")) {
+            (Ok(email), Ok(password)) => Some(Arc::new(CorootClient::new(
+                base_url, email, password, project_id,
+            ))),
+            _ => {
+                eprintln!("[warn] COROOT_EMAIL/COROOT_PASSWORD not set — coroot alerts disabled");
+                None
+            }
+        }
+    };
+
     let state = AppState {
         reports_root: Arc::new(reports_root),
         live_monitor,
         prometheus_monitor,
+        coroot_client,
     };
 
     let app = app::build_app(state);
@@ -1095,53 +1281,6 @@ impl PrometheusMonitor {
                 ))
             })
             .collect()
-    }
-
-    async fn fetch_coroot_alerts(&self) -> CorootAlertsResponse {
-        let now = unix_epoch_seconds();
-        match self
-            .query_instant_series("ALERTS{alertstate=\"firing\"}")
-            .await
-        {
-            Ok(series) => {
-                let alerts = series
-                    .into_iter()
-                    .map(|s| CorootAlert {
-                        name: s
-                            .metric
-                            .get("alertname")
-                            .cloned()
-                            .unwrap_or_else(|| "unknown".to_string()),
-                        severity: s
-                            .metric
-                            .get("severity")
-                            .cloned()
-                            .unwrap_or_else(|| "info".to_string()),
-                        instance: s
-                            .metric
-                            .get("instance")
-                            .cloned()
-                            .unwrap_or_else(|| "unknown".to_string()),
-                        namespace: s.metric.get("namespace").cloned(),
-                        node: s.metric.get("node").cloned(),
-                        job: s.metric.get("job").cloned(),
-                        timestamp: now,
-                    })
-                    .collect();
-                CorootAlertsResponse {
-                    available: true,
-                    alerts,
-                    queried_at_epoch: now,
-                    error: None,
-                }
-            }
-            Err(error) => CorootAlertsResponse {
-                available: false,
-                alerts: vec![],
-                queried_at_epoch: now,
-                error: Some(format!("Prometheus query failed: {}", error)),
-            },
-        }
     }
 }
 
@@ -2028,7 +2167,7 @@ fn build_node_history(
     map
 }
 
-fn unix_epoch_seconds() -> u64 {
+pub(crate) fn unix_epoch_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())

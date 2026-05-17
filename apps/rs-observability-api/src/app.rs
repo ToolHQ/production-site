@@ -95,8 +95,19 @@ async fn live_overview(State(state): State<AppState>) -> Response {
 }
 
 async fn coroot_alerts(State(state): State<AppState>) -> Response {
-    let response = state.prometheus_monitor.fetch_coroot_alerts().await;
-    Json(response).into_response()
+    match &state.coroot_client {
+        Some(client) => Json(client.fetch_alerts().await).into_response(),
+        None => Json(crate::CorootAlertsResponse {
+            available: false,
+            alerts: vec![],
+            total: 0,
+            queried_at_epoch: crate::unix_epoch_seconds(),
+            error: Some(
+                "Coroot client not configured (missing COROOT_EMAIL/COROOT_PASSWORD)".to_string(),
+            ),
+        })
+        .into_response(),
+    }
 }
 
 async fn catalog(State(state): State<AppState>) -> Response {
@@ -315,6 +326,7 @@ mod tests {
             reports_root: Arc::new(reports_root),
             live_monitor: None,
             prometheus_monitor: Arc::new(PrometheusMonitor::new()),
+            coroot_client: None,
         }
     }
 

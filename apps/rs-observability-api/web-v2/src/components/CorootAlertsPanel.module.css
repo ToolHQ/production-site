@@ -54,8 +54,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+.totalCount {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
 .corootLink {
-  font-size: 14px;
   color: var(--text-muted, #94a3b8);
   text-decoration: none;
   opacity: 0.6;
