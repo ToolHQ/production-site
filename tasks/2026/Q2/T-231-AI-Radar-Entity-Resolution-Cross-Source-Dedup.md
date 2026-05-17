@@ -1,6 +1,6 @@
 # T-231: AI Radar — Entity Resolution & Cross-Source Dedup
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d
