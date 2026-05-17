@@ -33,6 +33,10 @@ pub struct ListItemsQuery {
     pub stars_tier: Option<String>,
     /// When `true`, only rows with `quality_warn` in extract metadata.
     pub quality_warn: Option<bool>,
+    /// Filter `metadata_json.adoption.velocity_tier` (`spike`, `growing`, …).
+    pub velocity_tier: Option<String>,
+    /// Filter `metadata_json.source_health.tier` (`healthy`, `noisy`, …).
+    pub source_health_tier: Option<String>,
     #[serde(default)]
     pub sort: String,
 }
@@ -102,11 +106,28 @@ async fn list(
     let category = q.category.as_deref().map(str::trim).filter(|s| !s.is_empty());
     let stars_tier = q.stars_tier.as_deref().map(str::trim).filter(|s| !s.is_empty());
     let quality_warn = q.quality_warn;
+    let velocity_tier = q
+        .velocity_tier
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let source_health_tier = q
+        .source_health_tier
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     let sort = ScoredItemSort::parse(&q.sort).map_err(ApiError::BadRequest)?;
 
     let total = state
         .scores
-        .count_scored_items(decision, category, stars_tier, quality_warn)
+        .count_scored_items(
+            decision,
+            category,
+            stars_tier,
+            quality_warn,
+            velocity_tier,
+            source_health_tier,
+        )
         .await
         .map_err(ApiError::from)?;
 
@@ -119,6 +140,8 @@ async fn list(
             category,
             stars_tier,
             quality_warn,
+            velocity_tier,
+            source_health_tier,
             sort,
         )
         .await

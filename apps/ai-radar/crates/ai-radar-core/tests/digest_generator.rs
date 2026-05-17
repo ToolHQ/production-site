@@ -1,5 +1,5 @@
 use ai_radar_core::domain::{Decision, DigestType};
-use ai_radar_core::pipeline::digest::{render_markdown, DigestData, DigestItem};
+use ai_radar_core::pipeline::digest::{render_markdown, DigestData, DigestItem, DigestSignals};
 use chrono::TimeZone;
 use uuid::Uuid;
 
@@ -28,7 +28,7 @@ fn digest_markdown_includes_all_sections_and_items() {
         ignore: vec![],
     };
 
-    let md = render_markdown(&data);
+    let md = render_markdown(&data, &DigestSignals::default());
     assert!(md.contains("# AI Radar Digest — 2026-05-08"));
     assert!(md.contains("## ✅ Adotar"));
     assert!(md.contains("### 1. ToolA"));

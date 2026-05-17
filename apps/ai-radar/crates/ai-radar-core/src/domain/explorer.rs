@@ -13,6 +13,10 @@ pub struct AdoptionSummary {
     pub activity_tier: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stars: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stars_delta_7d: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_tier: Option<String>,
 }
 
 /// One row for `GET /items` (latest score per extracted item).

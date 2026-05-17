@@ -11,6 +11,8 @@ const NAV = [
   { hash: "#/compare", label: "Comparator" },
   { hash: "#/digests", label: "Digests" },
   { hash: "#/sources", label: "Fontes" },
+  { hash: "#/reports/duplicates", label: "Duplicatas" },
+  { hash: "#/reports/divergence", label: "Divergência" },
 ];
 
 function escapeHtml(s) {
@@ -129,12 +131,26 @@ const ACTIVITY_TIER_PT = {
   dormant: "Dormant",
 };
 
+const VELOCITY_TIER_PT = {
+  spike: "Pico 7d",
+  growing: "Subindo",
+  flat: "Estável",
+  declining: "Queda",
+  unknown: "?",
+};
+
 function signalBadges(adoption, qualityWarn) {
   const parts = [];
   if (adoption?.stars_tier) {
     const t = adoption.stars_tier;
     parts.push(
       `<span class="badge badge-tier badge-tier-${escapeHtml(t)}" title="GitHub stars">${escapeHtml(STARS_TIER_PT[t] || t)}${adoption.stars != null ? ` · ${fmtNum(adoption.stars)}` : ""}</span>`,
+    );
+  }
+  if (adoption?.velocity_tier) {
+    const v = adoption.velocity_tier;
+    parts.push(
+      `<span class="badge badge-velocity badge-velocity-${escapeHtml(v)}">${escapeHtml(VELOCITY_TIER_PT[v] || v)}</span>`,
     );
   }
   if (adoption?.activity_tier) {
@@ -147,6 +163,54 @@ function signalBadges(adoption, qualityWarn) {
     parts.push(`<span class="badge badge-quality-warn">low conf.</span>`);
   }
   return parts.length ? parts.join(" ") : `<span class="muted">—</span>`;
+}
+
+function renderItemSignalsPanel(ex, latestScore) {
+  const adoption = ex.metadata_json?.adoption;
+  const sourceHealth = ex.metadata_json?.source_health;
+  const calibrated = latestScore?.metadata_json?.feedback_calibration === true;
+  const qualityWarn = ex.metadata_json?.quality_warn === true;
+  const rows = [];
+  if (adoption) {
+    if (adoption.stars != null) {
+      let line = `⭐ ${fmtNum(adoption.stars)} stars`;
+      if (adoption.stars_delta_7d != null) {
+        line += ` · Δ7d ${adoption.stars_delta_7d >= 0 ? "+" : ""}${fmtNum(adoption.stars_delta_7d)}`;
+      }
+      rows.push(["Popularidade", line]);
+    }
+    if (adoption.stars_tier) {
+      rows.push(["Faixa stars", STARS_TIER_PT[adoption.stars_tier] || adoption.stars_tier]);
+    }
+    if (adoption.velocity_tier) {
+      rows.push([
+        "Tendência 7d",
+        VELOCITY_TIER_PT[adoption.velocity_tier] || adoption.velocity_tier,
+      ]);
+    }
+    if (adoption.activity_tier) {
+      rows.push([
+        "Atividade repo",
+        ACTIVITY_TIER_PT[adoption.activity_tier] || adoption.activity_tier,
+      ]);
+    }
+  }
+  if (sourceHealth?.tier) {
+    rows.push(["Saúde da fonte", sourceHealthBadge(sourceHealth.tier)]);
+  }
+  if (qualityWarn) {
+    rows.push(["Extract", '<span class="badge badge-quality-warn">quality warn</span>']);
+  }
+  if (calibrated) {
+    rows.push(["Score", '<span class="badge badge-calibrated">calibrado por feedback</span>']);
+  }
+  if (!rows.length) {
+    return "";
+  }
+  return itemSection(
+    "Sinais (Fase 17)",
+    `<div class="item-signals-grid">${itemDl(rows)}</div>`,
+  );
 }
 
 function scorePct(score) {
@@ -280,7 +344,13 @@ function parseRoute() {
   if (hash === "#/items") return { page: "items" };
   if (hash === "#/digests") return { page: "digests" };
   if (hash === "#/sources") return { page: "sources" };
-  if (hash === "#/compare") return { page: "compare" };
+  if (hash === "#/reports/duplicates") return { page: "reports-duplicates" };
+  if (hash === "#/reports/divergence") return { page: "reports-divergence" };
+  if (hash.startsWith("#/compare")) {
+    const q = hash.includes("?") ? hash.slice(hash.indexOf("?") + 1) : "";
+    const category = new URLSearchParams(q).get("category") || "";
+    return { page: "compare", category };
+  }
   return { page: "home" };
 }
 
@@ -513,6 +583,47 @@ function renderDigestStructured(digest) {
     renderDigestSection(s, buckets[s.key] || []),
   ).join("");
 
+  const rising = meta.rising_stars || [];
+  const trending = meta.trending_adoption || [];
+  const alerts = meta.sources_alert || [];
+  const signalsSummary = meta.signals_summary || {};
+  const highlights =
+    rising.length || trending.length
+      ? `<section class="digest-section digest-highlights">
+    <h2 class="digest-section-title">✨ Destaques</h2>
+    ${
+      rising.length
+        ? `<h3 class="digest-subtitle">Em ascensão</h3><ul class="digest-highlight-list">${rising
+            .map(
+              (h) =>
+                `<li><strong>${escapeHtml(h.tool_name)}</strong> — ${scorePct(h.score)}${h.stars_delta_7d != null ? ` · Δ7d ${h.stars_delta_7d >= 0 ? "+" : ""}${fmtNum(h.stars_delta_7d)}` : ""}</li>`,
+            )
+            .join("")}</ul>`
+        : ""
+    }
+    ${
+      trending.length
+        ? `<h3 class="digest-subtitle">Adoção</h3><ul class="digest-highlight-list">${trending
+            .map(
+              (h) =>
+                `<li><strong>${escapeHtml(h.tool_name)}</strong> — ${escapeHtml(h.stars_tier || "")}${h.stars != null ? ` · ${fmtNum(h.stars)} ⭐` : ""}</li>`,
+            )
+            .join("")}</ul>`
+        : ""
+    }
+    ${
+      alerts.length
+        ? `<p class="muted">Fontes em alerta: ${alerts.map((a) => escapeHtml(a.source_name)).join(", ")}</p>`
+        : ""
+    }
+    ${
+      signalsSummary.feedback_calibration_count
+        ? `<p class="muted">${signalsSummary.feedback_calibration_count} score(s) calibrado(s) por feedback.</p>`
+        : ""
+    }
+  </section>`
+      : "";
+
   return `<div class="digest-report">
     <header class="digest-header">
       <p class="digest-back"><a href="#/digests">← Voltar</a></p>
@@ -520,6 +631,7 @@ function renderDigestStructured(digest) {
       <p class="digest-meta">${digestTypeLabel(digest.digest_type)} · ${escapeHtml(periodStart)} → ${escapeHtml(periodEnd)}</p>
     </header>
     <div class="cards digest-summary-cards">${summaryCards}</div>
+    ${highlights}
     ${sections}
   </div>`;
 }
@@ -539,11 +651,16 @@ async function renderDigest(id) {
 function explorerSearchFromForm() {
   const decision = document.getElementById("decision-filter")?.value || "";
   const starsTier = document.getElementById("stars-tier-filter")?.value || "";
+  const velocityTier = document.getElementById("velocity-tier-filter")?.value || "";
+  const sourceHealthTier =
+    document.getElementById("source-health-filter")?.value || "";
   const sort = document.getElementById("sort-filter")?.value || "score_desc";
   const qualityWarn = document.getElementById("quality-warn-filter")?.checked;
   const qs = new URLSearchParams();
   if (decision) qs.set("decision", decision);
   if (starsTier) qs.set("stars_tier", starsTier);
+  if (velocityTier) qs.set("velocity_tier", velocityTier);
+  if (sourceHealthTier) qs.set("source_health_tier", sourceHealthTier);
   if (sort && sort !== "score_desc") qs.set("sort", sort);
   if (qualityWarn) qs.set("quality_warn", "1");
   location.search = qs.toString() ? `?${qs}` : "";
@@ -554,6 +671,8 @@ function bindExplorerFilters() {
   for (const id of [
     "decision-filter",
     "stars-tier-filter",
+    "velocity-tier-filter",
+    "source-health-filter",
     "sort-filter",
     "quality-warn-filter",
   ]) {
@@ -566,11 +685,15 @@ async function renderItems() {
   const params = new URLSearchParams(location.search);
   const decision = params.get("decision") || "";
   const starsTier = params.get("stars_tier") || "";
+  const velocityTier = params.get("velocity_tier") || "";
+  const sourceHealthTier = params.get("source_health_tier") || "";
   const sort = params.get("sort") || "score_desc";
   const qualityWarn = params.get("quality_warn") === "1";
   const qs = new URLSearchParams({ limit: "50", sort });
   if (decision) qs.set("decision", decision);
   if (starsTier) qs.set("stars_tier", starsTier);
+  if (velocityTier) qs.set("velocity_tier", velocityTier);
+  if (sourceHealthTier) qs.set("source_health_tier", sourceHealthTier);
   if (qualityWarn) qs.set("quality_warn", "true");
 
   const data = await apiJson(`/items?${qs}`);
@@ -586,6 +709,18 @@ async function renderItems() {
         `<option value="${t}" ${t === starsTier ? "selected" : ""}>${t || "qualquer adoção"}</option>`,
     )
     .join("");
+  const velocityOpts = ["", "spike", "growing", "flat", "declining"]
+    .map(
+      (t) =>
+        `<option value="${t}" ${t === velocityTier ? "selected" : ""}>${t ? VELOCITY_TIER_PT[t] || t : "qualquer tendência"}</option>`,
+    )
+    .join("");
+  const healthOpts = ["", "healthy", "degraded", "noisy"]
+    .map(
+      (t) =>
+        `<option value="${t}" ${t === sourceHealthTier ? "selected" : ""}>${t || "saúde fonte"}</option>`,
+    )
+    .join("");
   const sortOpts = [
     ["score_desc", "Score ↓"],
     ["adoption_desc", "Adoção ↓"],
@@ -599,6 +734,8 @@ async function renderItems() {
   const filters = `<div class="explorer-filters">
     <label class="filter-row">Decisão <select id="decision-filter">${decisionOpts}</select></label>
     <label class="filter-row">Stars tier <select id="stars-tier-filter">${tierOpts}</select></label>
+    <label class="filter-row">Tendência <select id="velocity-tier-filter">${velocityOpts}</select></label>
+    <label class="filter-row">Saúde fonte <select id="source-health-filter">${healthOpts}</select></label>
     <label class="filter-row">Ordenar <select id="sort-filter">${sortOpts}</select></label>
     <label class="filter-row filter-row--check"><input type="checkbox" id="quality-warn-filter" ${qualityWarn ? "checked" : ""} /> Só quality warn</label>
   </div>`;
@@ -672,16 +809,9 @@ async function renderItem(id) {
     ["Scored em", escapeHtml(fmtDate(sc.created_at))],
   ]);
 
-  const adoption = ex.metadata_json?.adoption;
-  const adoptionBlock = adoption
-    ? `<div class="item-adoption panel">${signalBadges(
-        {
-          stars_tier: adoption.stars_tier,
-          activity_tier: adoption.activity_tier,
-          stars: adoption.stars,
-        },
-        ex.metadata_json?.quality_warn,
-      )}<p class="muted">Fonte: ${escapeHtml(adoption.source || "metadata")}</p></div>`
+  const signalsPanel = renderItemSignalsPanel(ex, sc);
+  const compareLink = ex.category
+    ? `<a class="btn btn-ghost" href="#/compare?category=${encodeURIComponent(ex.category)}">Comparar categoria</a>`
     : "";
 
   const reasonsBlock =
@@ -769,10 +899,11 @@ async function renderItem(id) {
         ${points != null ? `<span class="item-points muted">${points}/100 pts</span>` : ""}
       </div>
       ${sourceLink}
+      ${compareLink ? `<div class="item-hero-actions">${compareLink}</div>` : ""}
     </header>
     ${itemTextBlock("Resumo", ex.summary)}
+    ${signalsPanel}
     ${itemSection("Atributos", attrs)}
-    ${adoptionBlock ? itemSection("Adoção GitHub", adoptionBlock) : ""}
     ${itemTextBlock("Problema / caso de uso", ex.problem_solved)}
     ${itemTextBlock("Encaixe de stack", ex.stack_fit)}
     ${itemSection("Por que este score?", reasonsBlock)}
@@ -835,7 +966,48 @@ function sourceHealthBadge(tier) {
   return `<span class="badge badge-health badge-health-${escapeHtml(tier)}">${escapeHtml(label)}</span>`;
 }
 
-async function renderCompare() {
+async function renderReportsDuplicates() {
+  setNav("#/reports/duplicates");
+  const data = await apiJson("/reports/duplicates?limit=50");
+  const rows = (data.clusters || [])
+    .map(
+      (c) => `<tr>
+        <td><code>${escapeHtml(c.tool_key || "—")}</code></td>
+        <td>${c.active_count} ativos · ${c.duplicate_count} dup</td>
+        <td class="muted">${escapeHtml((c.sources || []).join(", "))}</td>
+      </tr>`,
+    )
+    .join("");
+  $app.innerHTML = `<header class="explorer-header">
+    <h1 class="section-title">Duplicatas cross-fonte</h1>
+    <p class="muted">${data.count} clusters · <a href="#/reports/divergence">Divergência</a></p>
+  </header>
+  <div class="table-wrap"><table><thead><tr><th>tool_key</th><th>Contagem</th><th>Fontes</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="3" class="muted">Nenhum cluster</td></tr>'}</tbody></table></div>`;
+}
+
+async function renderReportsDivergence() {
+  setNav("#/reports/divergence");
+  const data = await apiJson("/reports/divergence?limit=50");
+  const rows = (data.items || [])
+    .map(
+      (d) => `<tr>
+        <td><a href="#/items/${d.extracted_item_id}">${escapeHtml(d.tool_name || d.extracted_item_id)}</a></td>
+        <td>${escapeHtml(d.feedback?.feedback_type || "—")}</td>
+        <td>${decisionBadge(d.decision)}</td>
+        <td>${scorePct(d.score)}</td>
+      </tr>`,
+    )
+    .join("");
+  $app.innerHTML = `<header class="explorer-header">
+    <h1 class="section-title">Divergência feedback × scorer</h1>
+    <p class="muted">${data.count} linhas · <a href="#/reports/duplicates">Duplicatas</a></p>
+  </header>
+  <div class="table-wrap"><table><thead><tr><th>Item</th><th>Feedback</th><th>Decisão</th><th>Score</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="4" class="muted">Nenhuma divergência</td></tr>'}</tbody></table></div>`;
+}
+
+async function renderCompare(prefillCategory = "") {
   setNav("#/compare");
   const recent = await apiJson("/comparisons?limit=8").catch(() => ({ items: [] }));
   const recentRows = (recent.items || [])
@@ -849,7 +1021,7 @@ async function renderCompare() {
     <p class="muted">Matriz Markdown por categoria (T-168 / T-237).</p>
   </header>
   <form id="compare-form" class="compare-form">
-    <label>Categoria <input name="category" type="text" placeholder="ex: LLM observability" required /></label>
+    <label>Categoria <input name="category" type="text" placeholder="ex: LLM observability" required value="${escapeHtml(prefillCategory)}" /></label>
     <label>Top N <input name="top_n" type="number" min="1" max="50" value="5" /></label>
     <button type="submit" class="btn-primary">Gerar matriz</button>
   </form>
@@ -930,7 +1102,9 @@ async function render() {
     else if (route.page === "items") await renderItems();
     else if (route.page === "item") await renderItem(route.id);
     else if (route.page === "sources") await renderSources();
-    else if (route.page === "compare") await renderCompare();
+    else if (route.page === "reports-duplicates") await renderReportsDuplicates();
+    else if (route.page === "reports-divergence") await renderReportsDivergence();
+    else if (route.page === "compare") await renderCompare(route.category || "");
   } catch (err) {
     $app.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
   }

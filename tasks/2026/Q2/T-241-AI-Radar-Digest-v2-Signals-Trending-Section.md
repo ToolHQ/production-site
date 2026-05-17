@@ -1,6 +1,6 @@
 # T-241: AI Radar — Digest v2 Signals & Trending Section
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h
