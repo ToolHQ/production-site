@@ -21,10 +21,12 @@ fi
 OK="${GREEN}🟢${NC}"; WARN="${YELLOW}🟡${NC}"; CRIT="${RED}🔴${NC}"
 
 ISSUES=0; WARNINGS=0
+CRIT_MESSAGES=()
+WARN_MESSAGES=()
 
 report_ok()   { echo -e "  ${OK} ${GREEN}${*}${NC}"; }
-report_warn() { echo -e "  ${WARN} ${YELLOW}${*}${NC}"; (( WARNINGS++ )) || true; }
-report_crit() { echo -e "  ${CRIT} ${RED}${*}${NC}";   (( ISSUES++   )) || true; }
+report_warn() { echo -e "  ${WARN} ${YELLOW}${*}${NC}"; WARN_MESSAGES+=("${*}"); (( WARNINGS++ )) || true; }
+report_crit() { echo -e "  ${CRIT} ${RED}${*}${NC}";   CRIT_MESSAGES+=("${*}"); (( ISSUES++   )) || true; }
 section()     { echo -e "\n${BOLD}── ${*} ${NC}"; }
 
 resolve_kubeconfig() {
@@ -457,6 +459,57 @@ else
 fi
 echo -e "${BOLD}═══════════════════════════════════════════════════${NC}"
 echo ""
+
+send_notifications() {
+    local url="${WATCHDOG_WEBHOOK_URL:-}"
+    if [[ -z "$url" ]]; then
+        return 0
+    fi
+
+    if (( ISSUES == 0 && WARNINGS == 0 )); then
+        return 0
+    fi
+
+    echo "Sending health notification to webhook..."
+
+    local status_text
+    if (( ISSUES > 0 )); then
+        status_text="🔴 CRITICAL"
+    else
+        status_text="🟡 WARNING"
+    fi
+
+    local content
+    content="### 🏥 **Cluster Health Watchdog Alert!**\n"
+    content+="**Cluster**: \`oci-k8s-cluster\`\n"
+    content+="**Status**: ${status_text}\n"
+    content+="Detected **${ISSUES} critical issue(s)** and **${WARNINGS} warning(s)**.\n\n"
+
+    if (( ${#CRIT_MESSAGES[@]} > 0 )); then
+        content+="**🔴 Critical Issues:**\n"
+        for msg in "${CRIT_MESSAGES[@]}"; do
+            content+="- ${msg}\n"
+        done
+        content+="\n"
+    fi
+
+    if (( ${#WARN_MESSAGES[@]} > 0 )); then
+        content+="**🟡 Warnings:**\n"
+        for msg in "${WARN_MESSAGES[@]}"; do
+            content+="- ${msg}\n"
+        done
+        content+="\n"
+    fi
+
+    # Format JSON payload safely using jq
+    local payload
+    payload=$(jq -n --arg msg "$(echo -e "$content")" '{"content": $msg}')
+
+    curl -s -X POST -H "Content-Type: application/json" -d "$payload" "$url" >/dev/null || true
+}
+
+# Send any pending webhook notifications before exiting
+send_notifications
 
 # Exit 2=critical, 1=warnings, 0=healthy
 (( ISSUES   > 0 )) && exit 2
