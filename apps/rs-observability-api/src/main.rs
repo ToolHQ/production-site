@@ -145,11 +145,17 @@ struct LanguageCount {
 #[derive(Serialize, Clone, Deserialize)]
 struct CorootAlert {
     id: String,
+    #[serde(default)]
     rule_id: String,
+    #[serde(default)]
     rule_name: String,
+    #[serde(default)]
     application_id: String,
+    #[serde(default)]
     severity: String,
+    #[serde(default)]
     summary: String,
+    #[serde(default)]
     opened_at: u64,
     #[serde(default)]
     duration: u64,
