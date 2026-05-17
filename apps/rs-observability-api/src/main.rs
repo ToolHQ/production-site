@@ -300,7 +300,7 @@ fn filter_alerts(alerts: Vec<CorootAlert>) -> Vec<CorootAlert> {
                     || alert.application_id.contains("e2scrub")
                     || alert.application_id.contains("esm-cache")
                     || alert.application_id.contains("update-notifier"));
-            
+
             if is_host_transient {
                 return false;
             }
@@ -321,7 +321,7 @@ fn filter_alerts(alerts: Vec<CorootAlert>) -> Vec<CorootAlert> {
                     || alert.application_id.is_empty()
                     || alert.application_id == ":::"
                     || alert.application_id.starts_with(":::");
-                
+
                 if is_transient_k8s_event {
                     return false;
                 }
@@ -333,10 +333,12 @@ fn filter_alerts(alerts: Vec<CorootAlert>) -> Vec<CorootAlert> {
             }
 
             // 5. Filter out host storage warnings for transient system directories if they are on /dev/sda1 and under 80% (which we cleared)
-            if alert.rule_id == "storage-space" && alert.severity == "warning" {
-                if alert.application_id.contains(":Unknown:") || alert.summary.contains("containerd") {
-                    return false;
-                }
+            if alert.rule_id == "storage-space"
+                && alert.severity == "warning"
+                && (alert.application_id.contains(":Unknown:")
+                    || alert.summary.contains("containerd"))
+            {
+                return false;
             }
 
             true
