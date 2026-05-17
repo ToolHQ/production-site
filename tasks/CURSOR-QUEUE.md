@@ -24,40 +24,51 @@
 
 | ID / Ref | Tarefa | Tipo |
 | :------- | :----- | :--- |
-| — | _(vazio — ver backlog)_ | — |
+| **T-235** | Explorer ranking & badges (adoption no Explorer) | feat |
 
-## Próximas (prioridade Cursor — AI Radar)
+## Fase 17 — Curadoria, sinais e ranking
+
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-232** | Extract quality gate | ✅ PR #193 |
+| 2 | **T-231** | Entity resolution / dedup | ✅ PR #198 |
+| 3 | **T-233** | Adoption signals (GitHub → score) | ✅ PR #200 |
+| 4 | **T-234** | Popularity velocity & snapshots | backlog |
+| 5 | **T-235** | Explorer ranking & badges | 🏎️ agora |
+| 6 | **T-238** | Source health / noise | backlog |
+| 7 | **T-237** | Comparator no console | backlog |
+| 8 | **T-236** | Feedback-calibrated scoring v2 | backlog |
+
+> **Nota IDs:** `T-233` no repo = adoption (antes planejado como velocity no stash). Velocity = **T-234**. UI premium console = PR #203.
+
+## Próximas (backlog legado)
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
-| T-167 | Scorer LLM opcional | Backlog |
-| T-168 | Comparator | Backlog |
+| T-167 | Scorer LLM opcional | Backlog (código em `main` via PR #159; fechar task) |
 
-> Infra compartilhada (ex. T-193) permanece `Owner: Infra / Ops` — Cursor pode executar se pedido, mas não é fila padrão.
+> **T-168** Comparator ✅ Done. Infra compartilhada = `Owner: Infra / Ops`.
 
 ## Micro-tasks (sem T-ID)
 
 - [x] T-175 deploy + console em https://ai-radar.dnor.io/
 - [x] T-176 observability pack (Grafana JSON + README + smoke Prometheus Coroot)
+- [x] Console UI premium restaurada — PR #203, deploy `1779049513`
 - [x] Montar `ai-radar-llm` no Deployment da API — PR [#122](https://github.com/ToolHQ/production-site/pull/122)
 - [x] Demo pipeline: digest semanal com itens **Testar** no console
-- [x] Demo pipeline: `scripts/run-demo-pipeline.sh` + fontes Lobsters/Pragmatic; `smoke-direct` desabilitada
-- [x] Causa raiz `read-only transaction`: `postgres-service` → réplica; fix primário + reconcile `extracting`
-- [x] Deploy T-177 API `1778974766` + explorer https://ai-radar.dnor.io/#/items
-- [x] CLI CronJobs `1778965790` (reconcile extract)
+- [x] Deploy T-177 API + explorer https://ai-radar.dnor.io/#/items
 - [x] Postgres entrypoint ConfigMap (hostNetwork + POD_NAME)
 
 ## Concluídas (histórico recente)
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
-| T-162 | GitHub collector (releases + repo meta) | 2026-05-17 |
-| T-163 | Webpage fetcher (scraper, 1MB/50KB caps) | 2026-05-17 |
-| T-170 | Feedback loop — testes + README — PR fechamento | 2026-05-16 |
-| T-173 | Hardening — chaos Postgres + Done | 2026-05-16 |
-| T-200 | BuildKit/cargo-chef validado | 2026-05-16 |
-| T-177 | Items API + Explorer — PR [#127](https://github.com/ToolHQ/production-site/pull/127) | 2026-05-16 |
-| T-176 | Dashboard pack Coroot/Grafana | 2026-05-16 |
-| T-175 | Operator Console — PR [#116](https://github.com/ToolHQ/production-site/pull/116) | 2026-05-16 |
-| T-173 deploy | Cluster tag `1778959644` | 2026-05-16 |
-| T-191 | Smoke cluster + runbook | 2026-05-16 |
+| T-203 | Console UI premium (merge + deploy) | 2026-05-17 |
+| T-233 | Adoption signals | 2026-05-17 |
+| T-231 | Entity resolution | 2026-05-17 |
+| T-232 | Extract quality gate | 2026-05-17 |
+| T-168 | Comparator — PR #162 | 2026-05-17 |
+| T-162 | GitHub collector | 2026-05-17 |
+| T-163 | Webpage fetcher | 2026-05-17 |
+| T-177 | Items API + Explorer — PR #127 | 2026-05-16 |
+| T-175 | Operator Console — PR #116 | 2026-05-16 |
