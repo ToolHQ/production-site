@@ -35,12 +35,17 @@ spec:
           image: registry.local:31444/repository/docker-repo/agent-meter:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
+            - name: otlp
+              containerPort: 4318
           env:
             - name: AGENT_METER_HOST
               value: "0.0.0.0"
             - name: AGENT_METER_PORT
               value: "3000"
+            - name: AGENT_METER_OTLP_PORT
+              value: "4318"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -79,8 +84,12 @@ spec:
   selector:
     app: agent-meter
   ports:
-    - port: 3000
+    - name: http
+      port: 3000
       targetPort: 3000
+    - name: otlp
+      port: 4318
+      targetPort: 4318
   type: ClusterIP
 ---
 apiVersion: networking.k8s.io/v1

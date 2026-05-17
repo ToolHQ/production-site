@@ -5,7 +5,7 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::db::{Database, RepoError, RepoResult};
-use crate::domain::{Decision, NewScore, Score, ScoredItemSummary};
+use crate::domain::{AdoptionSummary, Decision, NewScore, Score, ScoredItemSummary};
 
 /// Operations on `scores`.
 #[async_trait]
@@ -29,6 +29,8 @@ pub trait ScoreRepository: Send + Sync {
         offset: i64,
         decision: Option<&str>,
         category: Option<&str>,
+        stars_tier: Option<&str>,
+        quality_warn: Option<bool>,
         sort: ScoredItemSort,
     ) -> RepoResult<Vec<ScoredItemSummary>>;
 
@@ -37,6 +39,8 @@ pub trait ScoreRepository: Send + Sync {
         &self,
         decision: Option<&str>,
         category: Option<&str>,
+        stars_tier: Option<&str>,
+        quality_warn: Option<bool>,
     ) -> RepoResult<i64>;
 
     /// Full score history for one extracted item, newest first.
@@ -50,6 +54,8 @@ pub enum ScoredItemSort {
     ScoreDesc,
     ScoreAsc,
     ScoredAtDesc,
+    /// Stars tier (viral → niche), then score.
+    AdoptionDesc,
 }
 
 impl ScoredItemSort {
@@ -63,6 +69,7 @@ impl ScoredItemSort {
             "score_desc" | "" => Ok(Self::ScoreDesc),
             "score_asc" => Ok(Self::ScoreAsc),
             "scored_at_desc" => Ok(Self::ScoredAtDesc),
+            "adoption_desc" => Ok(Self::AdoptionDesc),
             other => Err(format!("unknown sort '{other}'")),
         }
     }
@@ -183,6 +190,8 @@ impl ScoreRepository for PgScoreRepository {
         &self,
         decision: Option<&str>,
         category: Option<&str>,
+        stars_tier: Option<&str>,
+        quality_warn: Option<bool>,
     ) -> RepoResult<i64> {
         let count: i64 = sqlx::query_scalar(
             "WITH latest_score AS ( \
@@ -194,10 +203,14 @@ impl ScoreRepository for PgScoreRepository {
              FROM latest_score ls \
              JOIN ai_radar.extracted_items ei ON ei.id = ls.extracted_item_id \
              WHERE ($1::text IS NULL OR ls.decision = $1) \
-               AND ($2::text IS NULL OR ei.category = $2)",
+               AND ($2::text IS NULL OR ei.category = $2) \
+               AND ($3::text IS NULL OR ei.metadata_json->'adoption'->>'stars_tier' = $3) \
+               AND ($4::bool IS NULL OR COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) = $4)",
         )
         .bind(decision)
         .bind(category)
+        .bind(stars_tier)
+        .bind(quality_warn)
         .fetch_one(&self.pool)
         .await
         .map_err(RepoError::from_sqlx)?;
@@ -210,12 +223,19 @@ impl ScoreRepository for PgScoreRepository {
         offset: i64,
         decision: Option<&str>,
         category: Option<&str>,
+        stars_tier: Option<&str>,
+        quality_warn: Option<bool>,
         sort: ScoredItemSort,
     ) -> RepoResult<Vec<ScoredItemSummary>> {
         let order = match sort {
             ScoredItemSort::ScoreDesc => "ls.score DESC, ls.created_at DESC",
             ScoredItemSort::ScoreAsc => "ls.score ASC, ls.created_at DESC",
             ScoredItemSort::ScoredAtDesc => "ls.created_at DESC",
+            ScoredItemSort::AdoptionDesc => {
+                "CASE ei.metadata_json->'adoption'->>'stars_tier' \
+                 WHEN 'viral' THEN 4 WHEN 'popular' THEN 3 WHEN 'growing' THEN 2 WHEN 'niche' THEN 1 ELSE 0 END DESC, \
+                 ls.score DESC, ls.created_at DESC"
+            }
         };
         let sql = format!(
             "WITH latest_score AS ( \
@@ -232,17 +252,25 @@ impl ScoreRepository for PgScoreRepository {
                  ls.score, \
                  ls.decision, \
                  ls.created_at AS scored_at, \
-                 ei.created_at AS extracted_at \
+                 ei.created_at AS extracted_at, \
+                 ei.metadata_json->'adoption'->>'stars_tier' AS stars_tier, \
+                 ei.metadata_json->'adoption'->>'activity_tier' AS activity_tier, \
+                 (ei.metadata_json->'adoption'->>'stars')::bigint AS stars, \
+                 COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) AS quality_warn \
              FROM latest_score ls \
              JOIN ai_radar.extracted_items ei ON ei.id = ls.extracted_item_id \
              WHERE ($1::text IS NULL OR ls.decision = $1) \
                AND ($2::text IS NULL OR ei.category = $2) \
+               AND ($3::text IS NULL OR ei.metadata_json->'adoption'->>'stars_tier' = $3) \
+               AND ($4::bool IS NULL OR COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) = $4) \
              ORDER BY {order} \
-             LIMIT $3 OFFSET $4"
+             LIMIT $5 OFFSET $6"
         );
         let rows = sqlx::query(&sql)
             .bind(decision)
             .bind(category)
+            .bind(stars_tier)
+            .bind(quality_warn)
             .bind(limit)
             .bind(offset)
             .fetch_all(&self.pool)
@@ -256,6 +284,20 @@ impl ScoreRepository for PgScoreRepository {
                 let decision = Decision::parse(&raw_decision).map_err(|v| {
                     RepoError::Validation(format!("unknown scores.decision '{v}'"))
                 })?;
+                let stars_tier: Option<String> = row.try_get("stars_tier").ok();
+                let activity_tier: Option<String> = row.try_get("activity_tier").ok();
+                let stars: Option<i64> = row.try_get("stars").ok();
+                let adoption = if stars_tier.is_some() || activity_tier.is_some() || stars.is_some()
+                {
+                    Some(AdoptionSummary {
+                        stars_tier,
+                        activity_tier,
+                        stars,
+                    })
+                } else {
+                    None
+                };
+                let quality_warn: bool = row.try_get("quality_warn").unwrap_or(false);
                 Ok(ScoredItemSummary {
                     extracted_item_id: row
                         .try_get("extracted_item_id")
@@ -269,6 +311,8 @@ impl ScoreRepository for PgScoreRepository {
                     extracted_at: row
                         .try_get("extracted_at")
                         .map_err(RepoError::from_sqlx)?,
+                    adoption,
+                    quality_warn: quality_warn.then_some(true),
                 })
             })
             .collect()
