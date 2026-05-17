@@ -36,6 +36,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-202](2026/Q2/T-202-Codex-worktree-isolation-and-autopilot-coordination.md) | **Codex worktree isolation and autopilot coordination** | 🔼 High | Codex / Rust Rover | 1h |
 | [T-176](2026/Q2/T-176-AI-Radar-Dashboard-Pack-Coroot-Grafana.md) | **AI Radar — Dashboard pack** _(Coroot/Grafana `ai_radar_*`)_ | 🔼 High | **Cursor / AI Radar** | 2h |
 | [T-175](2026/Q2/T-175-AI-Radar-Operator-Console-Thin-Slice.md) | **AI Radar — Operator Console** _(UI estática: stats, digests, sources em ai-radar.dnor.io)_ | 🔼 High | **Cursor / AI Radar** | 6h |
 | [T-199](2026/Q2/T-199-Cluster-Pulse-Node-Metrics-Panel.md) | **Cluster Pulse — Node Fleet Panel** _(NodeStat por nó: CPU/mem/ephemeral + NodesPanel.tsx; PR #117)_ | 🔽 Medium | **Copilot/VSCode** | 3h |
