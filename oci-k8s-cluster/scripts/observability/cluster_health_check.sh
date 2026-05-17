@@ -10,6 +10,12 @@
 
 set -uo pipefail
 
+# ── Load environment configuration if exists ───────────────────────────────
+if [[ -f "/opt/k8s-ops/watchdog.env" ]]; then
+    # shellcheck disable=SC1090
+    source "/opt/k8s-ops/watchdog.env"
+fi
+
 # ── Color setup ────────────────────────────────────────────────────────────
 if [[ "${1:-}" == "--no-color" ]] || [[ ! -t 1 ]]; then
     RED=''; YELLOW=''; GREEN=''; CYAN=''; BOLD=''; NC=''
