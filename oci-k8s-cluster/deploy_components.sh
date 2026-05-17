@@ -374,6 +374,12 @@ deploy_component() {
   local ingress_backends=""
   local nodeports=""
 
+  log_node "$MASTER_NODE" "🚀 Syncing tools to master node"
+  run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
+mkdir -p '/home/ubuntu/tools'
+RMT
+  scp_to_remote "$MASTER_NODE" "./../tools" "/home/ubuntu/"
+
   log_node "$MASTER_NODE" "🚀 Deploying component '$component'"
   run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
 mkdir -p '/home/ubuntu/deployments/$component' && rm -rf '/home/ubuntu/deployments/$component'/*
