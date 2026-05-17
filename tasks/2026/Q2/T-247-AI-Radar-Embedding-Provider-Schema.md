@@ -1,6 +1,6 @@
 # T-247: AI Radar — Embedding Provider & Schema
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h
