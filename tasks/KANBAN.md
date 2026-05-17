@@ -10,6 +10,13 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+## 🏎️ In Progress
+
+|                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
+| :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+|        [T-232](2026/Q2/T-232-AI-Radar-Extract-Quality-Gate.md)        | **AI Radar — Extract Quality Gate** _(score 0–100; reject &lt;40, warn 40–69)_ | 🔼 High | **Cursor / AI Radar** | 4h |
+| T-231 | **agent-meter — OTLP HTTP receiver (VSCode Copilot native)** _(prost decode, POST /v1/traces, port 4318, k8s deploy)_ | 🔼 High | **OpenCode** | 2h |
+| T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High | **OpenCode** | 1h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
