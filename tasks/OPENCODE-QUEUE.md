@@ -36,7 +36,8 @@
 - [x] Otimização: migrar deploy.sh para Hetzner remote builder (build 4min vs 10min no master)
 - [x] Atualizar Dockerfile para Rust 1.88 (despina home crate)
 - [x] Rebase no main com melhorias do builder Hetzner
-- [ ] Fase 2: CLI `agent-meter` com comandos `task start/end`, `event tool-call`, `report`.
+- [x] Fase 2: CLI `agent-meter` com comandos `task start/end/list`, `event tool-call`, `report top-tools/tasks/servers`.
+- [x] Fase 2b: Task management routes no collector (POST /tasks/start, POST /tasks/end, GET /tasks).
 - [ ] Fase 3: OTEL spans para cada tool call (quando endpoint configurado).
 - [ ] Fase 4: MCP wrapper crate (proxy medidor entre IDE/agent e MCP real).
 - [ ] Fase 5: Testes de integração automatizados.
