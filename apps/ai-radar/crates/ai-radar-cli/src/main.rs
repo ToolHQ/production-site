@@ -11,6 +11,7 @@ use ai_radar_core::db::Database;
 use ai_radar_core::domain::SourceType;
 use ai_radar_core::llm::{build_llm_provider, CompletionRequest};
 use ai_radar_core::pipeline::collect::run_collect;
+use ai_radar_core::pipeline::compare::run_compare;
 use ai_radar_core::pipeline::digest::{run_digest, DigestKind, DigestLimits};
 use ai_radar_core::pipeline::extract::run_extract;
 use ai_radar_core::pipeline::reprocess::{run_reprocess, ReprocessStage};
@@ -79,6 +80,15 @@ enum Command {
         /// `extract`, `score`, or `all`.
         #[arg(long, default_value = "all")]
         stage: String,
+    },
+    /// Compare tools within one category and print Markdown (**T-168**).
+    Compare {
+        /// Category label (must match `extracted_items.category`).
+        #[arg(long)]
+        category: String,
+        /// Number of top-scored tools to include.
+        #[arg(long, default_value_t = 5)]
+        top: usize,
     },
     /// Generate a Markdown digest and persist it in `ai_radar.digests`.
     Digest {
@@ -242,6 +252,28 @@ async fn run_extract_command(job_id: Uuid, limit: i64) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn run_compare_command(category: String, top: usize) -> anyhow::Result<()> {
+    let config = AppConfig::from_env().context("configuration")?;
+    telemetry::init_tracing(&config.log_level).context("tracing")?;
+
+    let database_url = config
+        .database_url
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required for compare"))?;
+
+    let db = Database::connect(&database_url)
+        .await
+        .map_err(|e| anyhow::anyhow!("database: {e}"))?;
+
+    let result = run_compare(&db, &category, top)
+        .await
+        .context("compare pipeline")?;
+
+    println!("comparison_id={}", result.comparison.id);
+    println!("{}", result.markdown);
+    Ok(())
+}
+
 async fn run_digest_command(job_id: Uuid, kind: DigestKind) -> anyhow::Result<()> {
     let started = std::time::Instant::now();
     let config = AppConfig::from_env().context("configuration")?;
@@ -369,6 +401,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Reprocess { item, stage } => {
             run_reprocess_command(item, stage).await?;
+        }
+        Command::Compare { category, top } => {
+            run_compare_command(category, top).await?;
         }
         Command::Digest { daily, weekly } => {
             let kind = match (daily, weekly) {
