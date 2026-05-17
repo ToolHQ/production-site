@@ -1,0 +1,104 @@
+.wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.trigger {
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted, #5c6a78);
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: all 150ms;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent, #0d7c72);
+    color: var(--accent);
+    background: var(--bg-accent-soft, rgba(13, 124, 114, 0.08));
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.triggerFlash {
+  border-color: var(--accent, #0d7c72);
+  color: var(--accent);
+  background: var(--bg-accent-soft, rgba(13, 124, 114, 0.12));
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-secondary, #f8fafc);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  z-index: 4000;
+  min-width: 200px;
+  animation: menuIn 120ms ease-out;
+  overflow: hidden;
+}
+
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  grid-template-rows: auto auto;
+  grid-template-areas: "icon label" "icon meta";
+  align-items: start;
+  gap: 0 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+  }
+
+  &:hover {
+    background: var(--bg-accent-soft, rgba(13, 124, 114, 0.08));
+  }
+}
+
+.itemIcon {
+  grid-area: icon;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--accent, #0d7c72);
+}
+
+.itemLabel {
+  grid-area: label;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main, #16202b);
+}
+
+.itemMeta {
+  grid-area: meta;
+  font-size: 11px;
+  color: var(--text-muted, #5c6a78);
+}
