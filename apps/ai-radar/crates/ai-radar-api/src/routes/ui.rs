@@ -22,6 +22,10 @@ pub fn router() -> Router {
             "/assets/app.js",
             get(|| serve_file("app.js", "application/javascript; charset=utf-8")),
         )
+        .route(
+            "/assets/favicon.svg",
+            get(|| serve_file("favicon.svg", "image/svg+xml")),
+        )
 }
 
 async fn serve_file(path: &str, content_type: &'static str) -> Response {
@@ -42,6 +46,29 @@ mod tests {
     use axum::body::Body;
     use axum::http::Request;
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn favicon_is_svg() {
+        let app = router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/assets/favicon.svg")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let ct = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_eq!(ct, "image/svg+xml");
+    }
 
     #[tokio::test]
     async fn index_is_html() {

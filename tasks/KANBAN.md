@@ -10,7 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-|        [T-231](2026/Q2/T-231-AI-Radar-Entity-Resolution-Cross-Source-Dedup.md)        | **AI Radar — Entity Resolution & Cross-Source Dedup** | 🔼 High | **Cursor / AI Radar** | 1d |
+| T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High | **OpenCode** | 1h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -21,6 +21,10 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+| [T-238](2026/Q2/T-238-AI-Radar-Source-Health-Noise-Scoring.md) | **AI Radar — Source Health & Noise Scoring** | 🔽 Low | Cursor / AI Radar | 4h |
+| [T-237](2026/Q2/T-237-AI-Radar-Comparator-Console-UI.md) | **AI Radar — Comparator Console UI** | 🔽 Low | Cursor / AI Radar | 4h |
+| [T-236](2026/Q2/T-236-AI-Radar-Feedback-Calibrated-Scoring-v2.md) | **AI Radar — Feedback-Calibrated Scoring v2** | 🔽 Low | Cursor / AI Radar | 4h |
+| [T-234](2026/Q2/T-234-AI-Radar-Popularity-Velocity-Trend-Snapshots.md) | **AI Radar — Popularity Velocity & Trend Snapshots** | 🔼 High | Cursor / AI Radar | 6h |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 
 
@@ -30,6 +34,9 @@
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
 | [T-233](2026/Q2/T-233-Postgres-TCP-Ingress-and-Watchdog-Webhook-Alerting.md) | **Postgres TCP Ingress & Watchdog Webhook Alerting** _(exposição TCP na porta livre 5433 para evitar colisão hostNetwork do PostgreSQL; alertas ativos markdown via webhook no cluster_health_check.sh; PR #197)_ | 🔼 High | **Antigravity** | 2h |
+| [T-235](2026/Q2/T-235-AI-Radar-Explorer-Ranking-Signals-UX.md) | **AI Radar — Explorer Ranking & Signals UX** _(badges adoption, sort, filtros)_ | 🔼 High | **Cursor / AI Radar** | 6h |
+| [T-233-AI-Radar](2026/Q2/T-233-AI-Radar-Adoption-Signals-GitHub-metadata.md) | **AI Radar — Adoption Signals (GitHub metadata)** | 🔼 High | Cursor / AI Radar | 4h |
+|        [T-231](2026/Q2/T-231-AI-Radar-Entity-Resolution-Cross-Source-Dedup.md)        | **AI Radar — Entity Resolution & Cross-Source Dedup** | 🔼 High | **Cursor / AI Radar** | 1d |
 |        [T-232](2026/Q2/T-232-AI-Radar-Extract-Quality-Gate.md)        | **AI Radar — Extract Quality Gate** _(score 0–100; reject &lt;40, warn 40–69)_ | 🔼 High | **Cursor / AI Radar** | 4h |
 |               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 | [T-223-Stabilization](2026/Q2/T-223-Coroot-Alerts-Remediation-and-Volume-Space-Stabilization.md) | **Coroot Alerts Remediation & Volume Space Stabilization** _(auditoria de 100+ alertas; filtro inteligente de ruído e warnings na API rs-observability; snapshot de volume MinIO prunado e estabilizado em 66%)_ | 🔼 High | **Antigravity** | 2h |
@@ -43,6 +50,8 @@
 | T-227 | **agent-meter — Copilot/VSCode integration** _(universal setup-agent.sh, MCP wrapper, skill, env vars)_ | 🔼 High | **OpenCode** | 1h |
 | T-228 | **agent-meter — Cursor integration** _(universal setup-agent.sh, MCP wrapper, skill, env vars)_ | 🔼 High | **OpenCode** | 1h |
 | T-229 | **agent-meter — Dashboard UI** _(filtros, sparklines, CSV export, KPI cards, auto-refresh, tema escuro — embedded HTML+vanilla JS)_ | 🔼 High | **OpenCode** | 3h |
+| T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup, PR #202)_ | 🔼 High | **OpenCode** | 1h |
+| T-231 | **agent-meter — OTLP HTTP receiver (VSCode Copilot native)** _(prost decode, POST /v1/traces, port 4318, k8s deploy, PR #202)_ | 🔼 High | **OpenCode** | 2h |
 | T-230 | **agent-meter — WSL+VSCode OTEL setup guide** _(docs/agent-meter-wsl-vscode.md, setup-agent.sh WSL detection + tunnel helper + VSCode hooks, SKILL.md update, PR #194)_ | 🔼 High | **OpenCode** | 1h |
 | T-225 | **agent-meter — OTEL integration + multi-agent docs** _(docs/agent-meter-otel.md, scripts/smoke-otel.sh, ConfigMap agent-meter-otel)_ | 🔼 High | **OpenCode** | 2h |
 | T-222 | **agent-meter — Collector MVP + CLI + Hetzner builder + MCP proxy** _(apps/agent-meter/ Rust/Axum, dashboard UI, task routes, deploy ARM64 via Hetzner, Rust 1.88, CLI com task/event/report, MCP wrapper proxy com ferramentas de medição, build 4min vs 10min no master)_ | 🔼 High | **OpenCode** | 6h |

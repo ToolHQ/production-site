@@ -7,7 +7,7 @@ const $nav = document.getElementById("nav");
 
 const NAV = [
   { hash: "#/", label: "Painel" },
-  { hash: "#/items", label: "Itens" },
+  { hash: "#/items", label: "Explorer" },
   { hash: "#/digests", label: "Digests" },
   { hash: "#/sources", label: "Fontes" },
 ];
@@ -112,6 +112,40 @@ function setNav(activeHash) {
 function decisionBadge(decision) {
   const d = String(decision || "").toLowerCase();
   return `<span class="badge badge-decision badge-${escapeHtml(d)}">${escapeHtml(d)}</span>`;
+}
+
+const STARS_TIER_PT = {
+  niche: "Niche",
+  growing: "Growing",
+  popular: "Popular",
+  viral: "Viral",
+};
+
+const ACTIVITY_TIER_PT = {
+  active: "Ativo",
+  moderate: "Moderado",
+  stale: "Stale",
+  dormant: "Dormant",
+};
+
+function signalBadges(adoption, qualityWarn) {
+  const parts = [];
+  if (adoption?.stars_tier) {
+    const t = adoption.stars_tier;
+    parts.push(
+      `<span class="badge badge-tier badge-tier-${escapeHtml(t)}" title="GitHub stars">${escapeHtml(STARS_TIER_PT[t] || t)}${adoption.stars != null ? ` · ${fmtNum(adoption.stars)}` : ""}</span>`,
+    );
+  }
+  if (adoption?.activity_tier) {
+    const a = adoption.activity_tier;
+    parts.push(
+      `<span class="badge badge-activity badge-activity-${escapeHtml(a)}">${escapeHtml(ACTIVITY_TIER_PT[a] || a)}</span>`,
+    );
+  }
+  if (qualityWarn) {
+    parts.push(`<span class="badge badge-quality-warn">low conf.</span>`);
+  }
+  return parts.length ? parts.join(" ") : `<span class="muted">—</span>`;
 }
 
 function scorePct(score) {
@@ -252,32 +286,104 @@ function card(label, value) {
   return `<div class="card"><div class="card-label">${label}</div><div class="card-value">${value}</div></div>`;
 }
 
+function fmtNum(n) {
+  return new Intl.NumberFormat("pt-BR").format(Number(n) || 0);
+}
+
+function kpiCard(icon, label, value, hint, extraClass = "") {
+  return `<article class="kpi-card ${extraClass}">
+    <div class="kpi-icon" aria-hidden="true">${icon}</div>
+    <div class="kpi-label">${escapeHtml(label)}</div>
+    <div class="kpi-value">${fmtNum(value)}</div>
+    ${hint ? `<p class="kpi-hint">${escapeHtml(hint)}</p>` : ""}
+  </article>`;
+}
+
 async function renderHome() {
   setNav("#/");
-  const stats = await apiJson("/stats");
-  let latest = null;
-  try {
-    const list = await apiJson("/digests");
-    latest = list.items && list.items[0] ? list.items[0] : null;
-  } catch {
-    /* optional */
-  }
+  const [stats, itemsRes, digestsRes] = await Promise.all([
+    apiJson("/stats"),
+    apiJson("/items?limit=1").catch(() => ({ total: 0 })),
+    apiJson("/digests").catch(() => ({ items: [] })),
+  ]);
 
-  const latestBlock = latest
-    ? `<p class="muted">Último digest: <a href="#/digests/${latest.id}">${escapeHtml(
-        latest.digest_type,
-      )}</a> — ${new Date(latest.generated_at).toLocaleString("pt-BR")}</p>
-       <a class="btn" href="#/digests/${latest.id}">Abrir relatório</a>`
-    : `<p class="muted">Nenhum digest gerado ainda. Use <code>POST /digest/run</code> ou o CronJob.</p>`;
+  const latest =
+    digestsRes.items && digestsRes.items[0] ? digestsRes.items[0] : null;
+  const scoredTotal = itemsRes.total ?? 0;
+  const pending = stats.raw_items_pending ?? 0;
+  const rawTotal = stats.raw_items_total ?? 0;
+  const processed = Math.max(0, rawTotal - pending);
+  const donePct = rawTotal > 0 ? Math.round((processed / rawTotal) * 100) : 0;
+  const queuePct = rawTotal > 0 ? 100 - donePct : 0;
+  const pendingHigh = pending > 100;
 
-  const cards = [
-    card("Fontes", stats.sources_total),
-    card("Fontes ativas", stats.sources_enabled),
-    card("Itens brutos", stats.raw_items_total),
-    card("Pendentes extract", stats.raw_items_pending),
-  ].join("");
+  const digestPanel = latest
+    ? `<div class="digest-feature">
+        <span class="digest-feature-type">📡 Último relatório · ${escapeHtml(
+          digestTypeLabel(latest.digest_type),
+        )}</span>
+        <p class="digest-feature-date">${fmtDate(latest.generated_at)}</p>
+        <div class="digest-feature-actions">
+          <a class="btn" href="#/digests/${latest.id}">Abrir digest</a>
+          <a class="btn btn-ghost" href="#/digests">Ver todos</a>
+        </div>
+      </div>`
+    : `<p class="muted">Nenhum digest ainda. O CronJob semanal ou <code>POST /digest/run</code> gera o primeiro relatório.</p>`;
 
-  $app.innerHTML = `<h1 class="section-title">Painel</h1><div class="cards">${cards}</div>${latestBlock}`;
+  $app.innerHTML = `
+    <header class="home-hero">
+      <h1>Curadoria de IA com <span>radar operacional</span></h1>
+      <p class="home-lead">
+        Coleta RSS e GitHub, extrai sinais com LLM, pontua e publica digests para decisão de adoção no cluster.
+      </p>
+      <div class="home-status-row">
+        <span class="status-pill ${pendingHigh ? "status-pill--warn" : ""}">
+          ${pendingHigh ? "Fila de extract ativa" : "Pipeline saudável"}
+        </span>
+        <span class="muted">${fmtNum(scoredTotal)} ferramentas scored</span>
+      </div>
+    </header>
+
+    <div class="kpi-grid">
+      ${kpiCard("📡", "Fontes monitoradas", stats.sources_total, `${fmtNum(stats.sources_enabled)} ativas`)}
+      ${kpiCard("📥", "Itens coletados", rawTotal, "raw_items no Postgres")}
+      ${kpiCard("⚡", "Scored no explorer", scoredTotal, "prontos para revisão")}
+      ${kpiCard("⏳", "Pendentes extract", pending, "aguardando LLM", "kpi-card--pending")}
+    </div>
+
+    <div class="home-panels">
+      <section class="panel">
+        <h2 class="panel-title">Pipeline de ingestão</h2>
+        <div class="pipeline-bar" role="img" aria-label="Progresso extract ${donePct}% processado">
+          <div class="pipeline-seg pipeline-seg--done" style="width:${donePct}%"></div>
+          <div class="pipeline-seg pipeline-seg--queue" style="width:${queuePct}%"></div>
+        </div>
+        <div class="pipeline-legend">
+          <span><span class="dot dot--done"></span> Processados (${fmtNum(processed)})</span>
+          <span><span class="dot dot--queue"></span> Na fila (${fmtNum(pending)})</span>
+        </div>
+      </section>
+      <section class="panel">
+        <h2 class="panel-title">Digest em destaque</h2>
+        ${digestPanel}
+      </section>
+    </div>
+
+    <nav class="quick-links" aria-label="Atalhos">
+      <a class="quick-link" href="#/items">
+        <strong>Explorer</strong>
+        <span>Scores, decisões e feedback</span>
+      </a>
+      <a class="quick-link" href="#/digests">
+        <strong>Digests</strong>
+        <span>Relatórios semanais e diários</span>
+      </a>
+      <a class="quick-link" href="#/sources">
+        <strong>Fontes</strong>
+        <span>RSS, GitHub e páginas web</span>
+      </a>
+    </nav>
+  `;
 }
 
 async function renderDigests() {
@@ -428,30 +534,81 @@ async function renderDigest(id) {
   $app.innerHTML = `<p><a href="#/digests">← Voltar</a></p><article class="digest-article digest-article--legacy">${renderMarkdown(md)}</article>`;
 }
 
+function explorerSearchFromForm() {
+  const decision = document.getElementById("decision-filter")?.value || "";
+  const starsTier = document.getElementById("stars-tier-filter")?.value || "";
+  const sort = document.getElementById("sort-filter")?.value || "score_desc";
+  const qualityWarn = document.getElementById("quality-warn-filter")?.checked;
+  const qs = new URLSearchParams();
+  if (decision) qs.set("decision", decision);
+  if (starsTier) qs.set("stars_tier", starsTier);
+  if (sort && sort !== "score_desc") qs.set("sort", sort);
+  if (qualityWarn) qs.set("quality_warn", "1");
+  location.search = qs.toString() ? `?${qs}` : "";
+  render();
+}
+
+function bindExplorerFilters() {
+  for (const id of [
+    "decision-filter",
+    "stars-tier-filter",
+    "sort-filter",
+    "quality-warn-filter",
+  ]) {
+    document.getElementById(id)?.addEventListener("change", explorerSearchFromForm);
+  }
+}
+
 async function renderItems() {
   setNav("#/items");
   const params = new URLSearchParams(location.search);
   const decision = params.get("decision") || "";
-  const qs = new URLSearchParams({ limit: "50", sort: "score_desc" });
+  const starsTier = params.get("stars_tier") || "";
+  const sort = params.get("sort") || "score_desc";
+  const qualityWarn = params.get("quality_warn") === "1";
+  const qs = new URLSearchParams({ limit: "50", sort });
   if (decision) qs.set("decision", decision);
+  if (starsTier) qs.set("stars_tier", starsTier);
+  if (qualityWarn) qs.set("quality_warn", "true");
 
   const data = await apiJson(`/items?${qs}`);
-  const filterOpts = ["", "adopt", "test", "monitor", "ignore"]
+  const decisionOpts = ["", "adopt", "test", "monitor", "ignore"]
     .map(
       (d) =>
-        `<option value="${d}" ${d === decision ? "selected" : ""}>${d || "todas"}</option>`,
+        `<option value="${d}" ${d === decision ? "selected" : ""}>${d || "todas decisões"}</option>`,
     )
     .join("");
+  const tierOpts = ["", "viral", "popular", "growing", "niche"]
+    .map(
+      (t) =>
+        `<option value="${t}" ${t === starsTier ? "selected" : ""}>${t || "qualquer adoção"}</option>`,
+    )
+    .join("");
+  const sortOpts = [
+    ["score_desc", "Score ↓"],
+    ["adoption_desc", "Adoção ↓"],
+    ["scored_at_desc", "Mais recentes"],
+  ]
+    .map(
+      ([v, label]) =>
+        `<option value="${v}" ${v === sort ? "selected" : ""}>${label}</option>`,
+    )
+    .join("");
+  const filters = `<div class="explorer-filters">
+    <label class="filter-row">Decisão <select id="decision-filter">${decisionOpts}</select></label>
+    <label class="filter-row">Stars tier <select id="stars-tier-filter">${tierOpts}</select></label>
+    <label class="filter-row">Ordenar <select id="sort-filter">${sortOpts}</select></label>
+    <label class="filter-row filter-row--check"><input type="checkbox" id="quality-warn-filter" ${qualityWarn ? "checked" : ""} /> Só quality warn</label>
+  </div>`;
 
   if (!data.items || data.items.length === 0) {
-    $app.innerHTML = `<h1 class="section-title">Itens scored</h1>
-      <label class="filter-row">Decisão <select id="decision-filter">${filterOpts}</select></label>
-      <p class="muted">Nenhum item com score ainda. Rode collect → extract → score.</p>`;
-    document.getElementById("decision-filter")?.addEventListener("change", (e) => {
-      const v = e.target.value;
-      location.search = v ? `?decision=${encodeURIComponent(v)}` : "";
-      render();
-    });
+    $app.innerHTML = `<header class="explorer-header">
+      <h1 class="section-title">Explorer</h1>
+      <p class="muted">Ferramentas scored com sinais de adoção e decisão.</p>
+    </header>
+    ${filters}
+    <p class="muted">Nenhum item com esses filtros.</p>`;
+    bindExplorerFilters();
     return;
   }
 
@@ -461,6 +618,7 @@ async function renderItems() {
       return `<tr>
         <td>${decisionBadge(it.decision)}</td>
         <td>${scorePct(it.score)}</td>
+        <td class="signal-cell">${signalBadges(it.adoption, it.quality_warn)}</td>
         <td>${escapeHtml(it.category || "—")}</td>
         <td><a href="#/items/${it.extracted_item_id}">${escapeHtml(name)}</a></td>
         <td class="muted">${new Date(it.scored_at).toLocaleString("pt-BR")}</td>
@@ -468,19 +626,17 @@ async function renderItems() {
     })
     .join("");
 
-  $app.innerHTML = `<h1 class="section-title">Itens scored</h1>
-    <p class="muted">${data.count} de ${data.total} itens</p>
-    <label class="filter-row">Decisão <select id="decision-filter">${filterOpts}</select></label>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Decisão</th><th>Score</th><th>Categoria</th><th>Ferramenta</th><th>Scored em</th></tr></thead>
+  $app.innerHTML = `<header class="explorer-header">
+      <h1 class="section-title">Explorer</h1>
+      <p class="muted">${data.count} de ${data.total} itens scored</p>
+    </header>
+    ${filters}
+    <div class="table-wrap"><table class="explorer-table">
+      <thead><tr><th>Decisão</th><th>Score</th><th>Sinais</th><th>Categoria</th><th>Ferramenta</th><th>Scored em</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
 
-  document.getElementById("decision-filter")?.addEventListener("change", (e) => {
-    const v = e.target.value;
-    location.search = v ? `?decision=${encodeURIComponent(v)}` : "";
-    render();
-  });
+  bindExplorerFilters();
 }
 
 async function renderItem(id) {
@@ -513,6 +669,18 @@ async function renderItem(id) {
     ["Extract em", escapeHtml(fmtDate(ex.created_at))],
     ["Scored em", escapeHtml(fmtDate(sc.created_at))],
   ]);
+
+  const adoption = ex.metadata_json?.adoption;
+  const adoptionBlock = adoption
+    ? `<div class="item-adoption panel">${signalBadges(
+        {
+          stars_tier: adoption.stars_tier,
+          activity_tier: adoption.activity_tier,
+          stars: adoption.stars,
+        },
+        ex.metadata_json?.quality_warn,
+      )}<p class="muted">Fonte: ${escapeHtml(adoption.source || "metadata")}</p></div>`
+    : "";
 
   const reasonsBlock =
     reasons.length > 0
@@ -602,6 +770,7 @@ async function renderItem(id) {
     </header>
     ${itemTextBlock("Resumo", ex.summary)}
     ${itemSection("Atributos", attrs)}
+    ${adoptionBlock ? itemSection("Adoção GitHub", adoptionBlock) : ""}
     ${itemTextBlock("Problema / caso de uso", ex.problem_solved)}
     ${itemTextBlock("Encaixe de stack", ex.stack_fit)}
     ${itemSection("Por que este score?", reasonsBlock)}

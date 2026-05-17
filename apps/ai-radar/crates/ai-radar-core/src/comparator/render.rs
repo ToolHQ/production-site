@@ -19,13 +19,13 @@ pub fn render_markdown(matrix: &ComparisonMatrix) -> String {
         return out;
     }
 
-    out.push_str("| Tool | Overall | Decision | Self-hosted | K8s | License | Maturity | Activity | Docs |\n");
-    out.push_str("|------|---------|----------|-------------|-----|---------|----------|----------|------|\n");
+    out.push_str("| Tool | Overall | Decision | Self-hosted | K8s | License | Maturity | Activity | Community | Docs |\n");
+    out.push_str("|------|---------|----------|-------------|-----|---------|----------|----------|-----------|------|\n");
 
     for row in &matrix.rows {
         let c = &row.criteria;
         out.push_str(&format!(
-            "| {} | {:.0}% | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {:.0}% | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             escape_cell(&row.tool_name),
             row.overall_score * 100.0,
             row.decision.as_str(),
@@ -34,6 +34,7 @@ pub fn render_markdown(matrix: &ComparisonMatrix) -> String {
             c.license_clarity,
             c.maturity,
             c.last_activity,
+            c.community,
             c.doc_quality,
         ));
     }
@@ -68,6 +69,7 @@ mod tests {
                         license_clarity: 3,
                         maturity: 2,
                         last_activity: 3,
+                        community: 3,
                         doc_quality: 2,
                     },
                 },
@@ -82,6 +84,7 @@ mod tests {
                         license_clarity: 2,
                         maturity: 1,
                         last_activity: 2,
+                        community: 1,
                         doc_quality: 1,
                     },
                 },

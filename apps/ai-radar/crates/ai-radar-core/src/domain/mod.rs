@@ -16,7 +16,7 @@ pub mod source;
 
 pub use comparison::{Comparison, NewComparison};
 pub use digest::{Digest, DigestType, NewDigest};
-pub use explorer::ScoredItemSummary;
+pub use explorer::{AdoptionSummary, ScoredItemSummary};
 pub use extracted_item::{ExtractedItem, Maturity, NewExtractedItem, RiskLevel};
 pub use feedback::{Feedback, FeedbackType, NewFeedback};
 pub use raw_item::{NewRawItem, RawItem, RawItemStatus};
