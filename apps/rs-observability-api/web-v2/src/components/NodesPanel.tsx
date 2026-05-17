@@ -104,6 +104,25 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
   const memIcon = node.memory_pressure ? (
     <span class="node-alert node-alert--mem" title="MemoryPressure ativo">🧠 MemPressure</span>
   ) : null;
+  // Pre-warnings: alert before K8s formally fires DiskPressure / MemPressure
+  const diskHighWarn =
+    !node.disk_pressure && metrics && metrics.disk_percent >= 80 ? (
+      <span
+        class="node-alert node-alert--pre-warn"
+        title={`Disk at ${metrics.disk_percent.toFixed(0)}% — approaching DiskPressure threshold`}
+      >
+        ⚠️ Disk {metrics.disk_percent.toFixed(0)}%
+      </span>
+    ) : null;
+  const memHighWarn =
+    !node.memory_pressure && metrics && metrics.mem_percent >= 85 ? (
+      <span
+        class="node-alert node-alert--pre-warn"
+        title={`Memory at ${metrics.mem_percent.toFixed(0)}% — approaching MemoryPressure threshold`}
+      >
+        ⚠️ Mem {metrics.mem_percent.toFixed(0)}%
+      </span>
+    ) : null;
 
   const roleBadge =
     node.role === 'control-plane' ? (
@@ -275,7 +294,9 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
       <td class="node-alerts">
         {diskIcon}
         {memIcon}
-        {!diskIcon && !memIcon && <span class="node-ok">—</span>}
+        {diskHighWarn}
+        {memHighWarn}
+        {!diskIcon && !memIcon && !diskHighWarn && !memHighWarn && <span class="node-ok">—</span>}
       </td>
     </tr>
   );

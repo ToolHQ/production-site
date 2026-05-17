@@ -60,6 +60,23 @@ export function App() {
     }
   >>({});
 
+  // Seed sparklines once from Prometheus historical data (last 60m at 5m steps).
+  // After seeding, the accumulation effect below appends real-time points on top.
+  const [nodeHistorySeeded, setNodeHistorySeeded] = useState(false);
+  useEffect(() => {
+    if (nodeHistorySeeded || !live?.metrics?.node_history) return;
+    const seeded: Record<string, { cpu: { timestamp: number; value: number }[]; mem: { timestamp: number; value: number }[]; disk: { timestamp: number; value: number }[] }> = {};
+    for (const [name, h] of Object.entries(live.metrics.node_history)) {
+      seeded[name] = {
+        cpu: h.cpu_percent_series.map((p) => ({ timestamp: p.timestamp, value: p.value })),
+        mem: h.mem_percent_series.map((p) => ({ timestamp: p.timestamp, value: p.value })),
+        disk: h.disk_percent_series.map((p) => ({ timestamp: p.timestamp, value: p.value })),
+      };
+    }
+    setNodeHistory(seeded);
+    setNodeHistorySeeded(true);
+  }, [live?.metrics?.available, nodeHistorySeeded]);
+
   useEffect(() => {
     if (live?.node_metrics) {
       const ts = live.refreshed_at_epoch;

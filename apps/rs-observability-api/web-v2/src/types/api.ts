@@ -31,6 +31,13 @@ export interface RestartHotspot {
   restarts_last_hour: number;
 }
 
+/** Per-node historical sparkline data from Prometheus (last 60m, 5m resolution). */
+export interface NodeHistory {
+  cpu_percent_series: TimeSeriesPoint[];
+  mem_percent_series: TimeSeriesPoint[];
+  disk_percent_series: TimeSeriesPoint[];
+}
+
 export interface MetricsData {
   available: boolean;
   stale: boolean;
@@ -41,6 +48,8 @@ export interface MetricsData {
   cluster: ClusterMetrics;
   services: ServiceMetrics[];
   top_restarts: RestartHotspot[];
+  /** Per-node sparkline history. Keyed by node name. Populated when Prometheus is available. */
+  node_history?: Record<string, NodeHistory>;
 }
 
 export interface Incident {
