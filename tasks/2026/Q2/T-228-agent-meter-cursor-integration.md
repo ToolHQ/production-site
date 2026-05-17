@@ -3,7 +3,7 @@
 **Owner**: Cursor / AI Radar
 **Priority**: 🔼 High
 **Estimate**: 1h
-**Status**: Backlog
+**Status**: ✅ Done
 
 ## Goal
 
@@ -11,12 +11,19 @@ Integrate Cursor agent sessions with agent-meter: install CLI, send tool-call ev
 
 ## Tasks
 
-- [ ] Adicionar `agent-meter` CLI ao PATH na worktree `~/production-site-cursor`
-- [ ] Configurar env vars: `AGENT_METER_COLLECTOR_URL=http://agent-meter:3000`, `AGENT_METER_IDE=cursor`
-- [ ] Configurar MCP wrapper proxy para medir chamadas de ferramentas Cursor
-- [ ] Opcional: configurar OTEL exporter (`OTEL_EXPORTER_OTLP_ENDPOINT`)
-- [ ] Documentar no AGENTS.md ou CURSOR-QUEUE.md
+- [x] `apps/agent-meter/scripts/setup-agent.sh` criado — script universal que compila CLI + MCP wrapper, configura env vars
+- [x] `.agents/skills/agent-meter-integration/SKILL.md` criado — skill reutilizável por qualquer agente
+- [x] Env vars: `setup-agent.sh --agent cursor` define `AGENT_METER_IDE=cursor`
+- [x] `--mcp-wrapper` flag compila `agent-meter-mcp-wrapper` e configura `MCP_UPSTREAM_URL` + `MCP_WRAPPER_LISTEN`
+- [x] CLI, wrapper e OTEL documentados na skill
+
+## Como usar
+
+```bash
+cd ~/production-site-opencode   # qualquer worktree
+apps/agent-meter/scripts/setup-agent.sh --agent cursor --mcp-wrapper
+```
 
 ## Dependencies
 
-- T-225 (OTEL docs) para referência de env vars
+- T-225 (OTEL docs) — Done
