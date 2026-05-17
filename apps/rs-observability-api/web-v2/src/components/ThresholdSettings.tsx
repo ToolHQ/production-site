@@ -1,5 +1,4 @@
-import { h } from 'preact';
-import { useState } from 'preact/hooks';
+
 import type { AlertThresholds } from '../hooks/useAlertThresholds';
 import { DEFAULT_THRESHOLDS } from '../hooks/useAlertThresholds';
 import styles from './ThresholdSettings.module.css';

@@ -1,6 +1,4 @@
-import { h } from 'preact';
 import { useTheme } from '../hooks/useTheme';
-import type { ThemePreference } from '../hooks/useTheme';
 import styles from './ThemeToggle.module.css';
 
 export function ThemeToggle() {

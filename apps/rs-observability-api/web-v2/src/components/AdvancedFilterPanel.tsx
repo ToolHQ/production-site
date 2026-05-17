@@ -1,4 +1,3 @@
-import { h } from 'preact';
 import { useState } from 'preact/hooks';
 import { useAdvancedFilters, useFilterAutocomplete } from '../hooks/useAdvancedFilters';
 import type { FilterValue } from '../hooks/useAdvancedFilters';

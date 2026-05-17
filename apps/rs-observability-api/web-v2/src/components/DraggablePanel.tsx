@@ -1,4 +1,3 @@
-import { h, Fragment } from 'preact';
 import { useRef, useEffect, useState } from 'preact/hooks';
 import styles from './DraggablePanel.module.css';
 
@@ -17,7 +16,7 @@ interface DraggablePanelProps {
 }
 
 export function DraggablePanel({
-  id,
+  id: _id,
   title,
   children,
   onMove,
