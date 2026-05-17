@@ -59,6 +59,7 @@
       }
 
       .masthead,
+      .nodes-section-band,
       .priority-grid,
       .content-grid,
       .catalog-zone {
@@ -330,6 +331,11 @@
       .hotspot-body span,
       td small {
         color: var(--muted);
+      }
+
+      .nodes-section-band {
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
       }
 
       .metric-band {
@@ -752,6 +758,7 @@
         }
 
         .operator-grid,
+        .nodes-section-band,
         .metric-band,
         .priority-grid,
         .main-stack,
@@ -791,6 +798,7 @@
         }
 
         .operator-grid,
+        .nodes-section-band,
         .metric-band,
         .priority-grid,
         .main-stack,
