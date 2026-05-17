@@ -36,6 +36,7 @@ figment = { workspace = true }
 feed-rs = { workspace = true }
 fastrand = { workspace = true }
 metrics = { workspace = true }
+scraper = { workspace = true }
 
 [dev-dependencies]
 figment = { workspace = true, features = ["test"] }

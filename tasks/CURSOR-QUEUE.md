@@ -30,8 +30,6 @@
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
-| T-162 | GitHub collector | Backlog |
-| T-163 | Webpage fetcher | Backlog |
 | T-167 | Scorer LLM opcional | Backlog |
 | T-168 | Comparator | Backlog |
 
@@ -52,6 +50,8 @@
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
+| T-162 | GitHub collector (releases + repo meta) | 2026-05-17 |
+| T-163 | Webpage fetcher (scraper, 1MB/50KB caps) | 2026-05-17 |
 | T-170 | Feedback loop — testes + README — PR fechamento | 2026-05-16 |
 | T-173 | Hardening — chaos Postgres + Done | 2026-05-16 |
 | T-200 | BuildKit/cargo-chef validado | 2026-05-16 |

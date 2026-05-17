@@ -67,7 +67,7 @@ enum Command {
         /// Process only this source id (must be enabled and match `--source-type`).
         #[arg(long)]
         source_id: Option<Uuid>,
-        /// Filter sources by discriminator (`rss` today; GitHub arrives in T-162).
+        /// Filter sources: `rss`, `github_releases`, `github_repo`, `webpage`.
         #[arg(long, default_value = "rss")]
         source_type: String,
     },
