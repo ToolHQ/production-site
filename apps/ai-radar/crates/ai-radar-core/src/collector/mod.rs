@@ -3,7 +3,9 @@
 //! Each collector maps remote content into [`crate::domain::NewRawItem`] rows.
 
 pub mod error;
+pub mod github;
 pub mod rss;
+pub mod web;
 
 pub use error::CollectError;
 

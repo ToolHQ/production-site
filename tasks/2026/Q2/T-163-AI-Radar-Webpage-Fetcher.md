@@ -1,8 +1,8 @@
 # T-163: AI Radar — Webpage Fetcher
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
-- **Epic/Owner**: AI Radar / DevExp
+- **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
 - **Opened**: 2026-05-01
 
@@ -14,16 +14,16 @@ Sem JS rendering (limitação documentada). Crate inicial: `scraper` (simples). 
 
 ## Tasks
 
-- [ ] Struct `WebFetcher` em `ai-radar-core::collector::web::fetcher` com config (timeout 20s, max-size 1MB, redirect cap 5)
-- [ ] `fetch(url) -> Result<RawHtml>` com cut-off de Content-Length e streaming guard
-- [ ] Função `extract(html) -> CleanContent { title, text }` em `cleaner.rs` usando `scraper`
-- [ ] Limite de saída: 50KB de texto pós-clean (truncar com indicação)
-- [ ] Normalizar whitespace; preservar quebras de parágrafo
-- [ ] Despacho no pipeline collect para `source_type='webpage'`
-- [ ] Fixtures HTML em `tests/fixtures/web/*.html` (página com script, iframe, inline css, página gigante)
-- [ ] Teste: payload >1MB → erro claro
-- [ ] Teste: HTML com script/style → texto limpo conforme expected
-- [ ] Documentar limitação "sem JS rendering" no README
+- [x] Struct `WebFetcher` em `ai-radar-core::collector::web::fetcher` com config (timeout 20s, max-size 1MB, redirect cap 5)
+- [x] `fetch(url) -> Result<RawHtml>` com cut-off de Content-Length e streaming guard
+- [x] Função `extract(html) -> CleanContent { title, text }` em `cleaner.rs` usando `scraper`
+- [x] Limite de saída: 50KB de texto pós-clean (truncar com indicação)
+- [x] Normalizar whitespace; preservar quebras de parágrafo
+- [x] Despacho no pipeline collect para `source_type='webpage'`
+- [x] Fixtures HTML em `tests/fixtures/web/*.html` (página com script, iframe, inline css, página gigante)
+- [x] Teste: payload >1MB → erro claro
+- [x] Teste: HTML com script/style → texto limpo conforme expected
+- [x] Documentar limitação "sem JS rendering" no README
 
 ## DoD
 
