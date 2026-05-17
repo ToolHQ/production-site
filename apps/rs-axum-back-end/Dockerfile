@@ -19,7 +19,7 @@
 # CMD ["app"]
 
 
-FROM rust:1.86-slim-bullseye as builder
+FROM rust:1.88-slim-bullseye as builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs
