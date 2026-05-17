@@ -39,5 +39,5 @@
 - [x] Fase 2: CLI `agent-meter` com comandos `task start/end/list`, `event tool-call`, `report top-tools/tasks/servers`.
 - [x] Fase 2b: Task management routes no collector (POST /tasks/start, POST /tasks/end, GET /tasks).
 - [x] Fase 3: OTEL spans para cada tool call — `tracing::info_span!("agent.tool_call", ...)` com todos os atributos do spec; `tracing_opentelemetry::layer()` integrado ao subscriber; upgrade opentelemetry 0.25 → 0.26; zero-crash se endpoint não configurado.
-- [ ] Fase 4: MCP wrapper crate (proxy medidor entre IDE/agent e MCP real).
+- [x] Fase 4: MCP wrapper crate — HTTP proxy que mede tools/list e tools/call, envia métricas (bytes, duração, SHA256, erro) ao collector, passa-through de outros métodos.
 - [ ] Fase 5: Testes de integração automatizados.
