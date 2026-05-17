@@ -21,6 +21,8 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+| [T-239](2026/Q2/T-239-agent-meter-schema-collector-enrichment.md) | **agent-meter — Schema & Collector Enrichment** _(model, cached_tokens, conversation_id, client_ip, user_agent; new GET /reports/events feed paginado)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| [T-240](2026/Q2/T-240-agent-meter-dashboard-events-ui.md) | **agent-meter — Dashboard UI: events feed + model + tokens breakdown** _(tab Events paginada, stats cards in/out/cached, coluna TOP MODEL, filtro por modelo; depende T-239)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | [T-238](2026/Q2/T-238-AI-Radar-Source-Health-Noise-Scoring.md) | **AI Radar — Source Health & Noise Scoring** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-237](2026/Q2/T-237-AI-Radar-Comparator-Console-UI.md) | **AI Radar — Comparator Console UI** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-236](2026/Q2/T-236-AI-Radar-Feedback-Calibrated-Scoring-v2.md) | **AI Radar — Feedback-Calibrated Scoring v2** | 🔽 Low | Cursor / AI Radar | 4h |
