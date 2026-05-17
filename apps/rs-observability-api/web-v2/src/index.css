@@ -646,6 +646,72 @@
         background: var(--critical);
       }
 
+      .service-head-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .coroot-alert-badges {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+
+      .coroot-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 7px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+
+      .coroot-badge--critical {
+        background: var(--critical-soft);
+        color: var(--critical);
+      }
+
+      .coroot-badge--warning {
+        background: var(--warm-soft);
+        color: var(--warm);
+      }
+
+      .coroot-incident-dot {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 0.6rem;
+        color: var(--critical);
+        vertical-align: middle;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+
+      .service-coroot-link {
+        padding-top: 6px;
+        border-top: 1px dashed var(--line);
+      }
+
+      .service-coroot-link a {
+        font-size: 0.78rem;
+        color: var(--accent-text, #0d7c72);
+        text-decoration: none;
+        opacity: 0.75;
+        transition: opacity 120ms;
+      }
+
+      .service-coroot-link a:hover {
+        opacity: 1;
+        text-decoration: underline;
+      }
+
       .service-name,
       .telemetry-name {
         font-size: 1.06rem;
