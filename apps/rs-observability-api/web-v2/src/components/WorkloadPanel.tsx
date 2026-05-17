@@ -26,12 +26,9 @@ function statusLabel(w: WorkloadInfo): string {
   return `0/${w.replicas_desired} ✗`;
 }
 
-// Extract short image label: last path segment + tag (e.g. "rs-api:1779041647")
 function shortImage(image: string): string {
   if (!image) return '—';
-  // strip registry prefix (host:port/)
   const withoutRegistry = image.replace(/^[^/]+\.[^/]+(?::\d+)?\//, '');
-  // take last path component
   const lastSlash = withoutRegistry.lastIndexOf('/');
   return lastSlash >= 0 ? withoutRegistry.slice(lastSlash + 1) : withoutRegistry;
 }
@@ -99,32 +96,38 @@ export function WorkloadPanel({ data, error }: WorkloadPanelProps) {
 
       {error && <p class="panel-inline-warn">⚠ {error}</p>}
 
-      <div class="panel-table-wrap">
-        <table class="panel-table">
+      <div class="wl-table-wrap">
+        <table class="wl-table">
           <thead>
             <tr>
-              <th>Tipo</th>
-              <th>Nome / Namespace</th>
-              <th>Réplicas</th>
-              <th>Imagem</th>
+              <th class="wl-th">Tipo</th>
+              <th class="wl-th">Nome / Namespace</th>
+              <th class="wl-th">Réplicas</th>
+              <th class="wl-th">Imagem</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((w: WorkloadInfo) => (
-              <tr key={`${w.namespace}/${w.kind}/${w.name}`}
-                  class={w.status === 'down' ? 'wl-row--down' : w.status === 'degraded' ? 'wl-row--degraded' : ''}>
-                <td class="wl-kind">
-                  <span title={w.kind}>{KIND_ICON[w.kind] ?? '📦'}</span>
-                  <span class="wl-kind-label">{w.kind}</span>
+              <tr
+                key={`${w.namespace}/${w.kind}/${w.name}`}
+                class={w.status === 'down' ? 'wl-row--down' : w.status === 'degraded' ? 'wl-row--degraded' : ''}
+              >
+                <td class="wl-td">
+                  <div class="wl-kind">
+                    <span title={w.kind}>{KIND_ICON[w.kind] ?? '📦'}</span>
+                    <span class="wl-kind-label">{w.kind}</span>
+                  </div>
                 </td>
-                <td class="wl-name-cell">
-                  <span class="wl-name">{w.name}</span>
-                  <span class="wl-ns-badge">{w.namespace}</span>
+                <td class="wl-td">
+                  <div class="wl-name-cell">
+                    <span class="wl-name">{w.name}</span>
+                    <span class="wl-ns-badge">{w.namespace}</span>
+                  </div>
                 </td>
-                <td>
+                <td class="wl-td">
                   <span class={statusClass(w.status)}>{statusLabel(w)}</span>
                 </td>
-                <td class="wl-image" title={w.image}>{shortImage(w.image)}</td>
+                <td class="wl-td wl-image-cell" title={w.image}>{shortImage(w.image)}</td>
               </tr>
             ))}
           </tbody>
