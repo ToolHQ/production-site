@@ -861,9 +861,9 @@ Fase 15 (T-173 hardening) ──► Fase 16B (T-175 console) ──► Fase 16A 
 | T-237 | Comparator no console |
 | T-236 | Feedback-calibrated scoring v2 |
 
-## Fase 18 — Inteligência operacional no console (aberta)
+## Fase 18 — Inteligência operacional no console (concluída)
 
-**Tema:** expor no digest e no Operator Console os sinais já calculados na Fase 17 — sem nova coleta pesada nem embeddings.
+**Tema:** expor no digest e no Operator Console os sinais já calculados na Fase 17.
 
 | ID | Entrega | Est. |
 | --- | --- | --- |
@@ -874,9 +874,22 @@ Fase 15 (T-173 hardening) ──► Fase 16B (T-175 console) ──► Fase 16A 
 | T-245 | Compare deep-link por categoria | 2h |
 | T-246 | Digest `metadata_json` + stats strip (`GET /stats`) | 4h |
 
-Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 18.
+## Fase 19 — Semântica leve (embeddings & busca) (aberta)
 
-**Fora de escopo (fase futura):** embeddings semânticos, dedup por vetor, SPA dedicada.
+**Tema:** embeddings via gateway OpenRouter-compatible já provisionado; cosine em Rust; busca e related items no console; dedup semântico só como relatório (não auto-skip).
+
+| ID | Entrega | Est. |
+| --- | --- | --- |
+| T-247 | Embedding provider + schema Postgres | 6h |
+| T-248 | Pipeline/CronJob embed pós-extract | 4h |
+| T-249 | `GET /search` semântico | 4h |
+| T-250 | Explorer — barra de busca semântica | 4h |
+| T-251 | Related items no detalhe do item | 4h |
+| T-252 | Relatório clusters duplicatas semânticos | 6h |
+
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 19.
+
+**Fora de escopo:** pgvector managed, SPA React dedicada, auto-merge de duplicatas semânticas.
 
 ## Entregável esperado deste prompt
 
