@@ -196,14 +196,19 @@
 }
 
 /* ── NodesPanel ─────────────────────────────────────────── */
+.nodes-panel {
+  font-family: inherit;
+  margin-bottom: 2rem;
+}
+
 .nodes-section-band {
-  margin-block: 0;
+  margin-block: 0 2.5rem;
 }
 
 .nodes-alert-banner {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   flex-wrap: wrap;
 }
 
@@ -245,16 +250,16 @@
   th {
     cursor: default;
     user-select: none;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: var(--muted);
-    padding: 14px 16px;
+    padding: 18px 20px;
     border-bottom: 1px solid var(--line);
   }
 
   td {
-    padding: 14px 16px;
+    padding: 18px 20px;
     border-bottom: 1px solid var(--line);
     vertical-align: middle;
   }
@@ -263,8 +268,8 @@
 .nodes-table-footnote {
   margin: 12px 16px 0;
   font-size: 0.72rem;
-  color: var(--muted);
-  opacity: 0.75;
+  color: #475569;
+  opacity: 0.95;
   letter-spacing: 0.02em;
 }
 
@@ -293,7 +298,7 @@
 
 .mini-bar__sub {
   font-size: 0.75rem;
-  color: var(--muted); /* Perfect medium-contrast muted text color! */
+  color: #475569; /* Dark slate gray for excellent, high-contrast readability! */
   white-space: nowrap;
 }
 
@@ -322,7 +327,7 @@
 }
 
 .node-metric-alloc {
-  color: var(--muted);
+  color: #475569;
   font-size: 0.88rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -371,8 +376,8 @@
   }
 
   &--worker {
-    background: rgba(22, 32, 43, 0.06);
-    color: var(--muted);
+    background: rgba(22, 32, 43, 0.09);
+    color: #334155; /* Higher contrast dark slate gray! */
     border: 1px solid var(--line);
   }
 }
@@ -418,6 +423,7 @@
   position: relative;
   display: inline-block;
   width: 100%;
+  z-index: 1;
 }
 
 .node-cell-tooltip-card {
@@ -448,6 +454,10 @@
   border-width: 6px;
   border-style: solid;
   border-color: #ffffff transparent transparent transparent; /* Matches solid white card */
+}
+
+.node-cell-tooltip-container:hover {
+  z-index: 99999;
 }
 
 .node-cell-tooltip-container:hover .node-cell-tooltip-card {
