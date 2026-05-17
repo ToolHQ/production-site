@@ -1,7 +1,9 @@
 //! `raw_items` → `extracted_items` via LLM (**T-165**).
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
+use uuid::Uuid;
 
 use serde_json::json;
 
@@ -10,6 +12,7 @@ use crate::db::Database;
 use crate::domain::RawItemStatus;
 use crate::curation::{
     adoption_from_raw, enrich_adoption, reconcile_pending_entities, velocity_for_raw,
+    SourceHealthSnapshot,
 };
 use crate::extractor::{
     assess_extract_quality, audit_entry, extractor_id, llm_extract_with_retry, QualityTier,
@@ -19,7 +22,8 @@ use crate::llm::LlmProvider;
 use crate::metrics;
 use crate::repos::{
     ExtractedItemRepository, PgExtractedItemRepository, PgRawItemRepository,
-    PgToolMetricsSnapshotRepository, RawItemRepository,
+    PgSourceHealthRepository, PgToolMetricsSnapshotRepository, RawItemRepository,
+    SourceHealthRepository,
 };
 
 /// Counters printed by the CLI / API.
@@ -54,6 +58,13 @@ pub async fn run_extract(
     let raw_repo = PgRawItemRepository::new(db);
     let extracted_repo = PgExtractedItemRepository::new(db);
     let snapshots = PgToolMetricsSnapshotRepository::new(db);
+    let source_health_repo = PgSourceHealthRepository::new(db);
+    let health_by_source: HashMap<Uuid, _> = source_health_repo
+        .list_all()
+        .await?
+        .into_iter()
+        .map(|h| (h.source_id, h))
+        .collect();
 
     let reconciled = raw_repo.reconcile_extracting_status().await?;
     if reconciled > 0 {
@@ -76,7 +87,16 @@ pub async fn run_extract(
     let mut stats = ExtractStats::default();
 
     for raw in batch {
-        match process_one(&raw_repo, &extracted_repo, &snapshots, &llm, &raw).await {
+        match process_one(
+            &raw_repo,
+            &extracted_repo,
+            &snapshots,
+            &health_by_source,
+            &llm,
+            &raw,
+        )
+        .await
+        {
             Ok(outcome) => {
                 stats.extracted += 1;
                 if outcome == ExtractOutcome::QualityWarn {
@@ -120,6 +140,13 @@ pub async fn extract_single_raw_item(
     let raw_repo = PgRawItemRepository::new(db);
     let extracted_repo = PgExtractedItemRepository::new(db);
     let snapshots = PgToolMetricsSnapshotRepository::new(db);
+    let source_health_repo = PgSourceHealthRepository::new(db);
+    let health_by_source: HashMap<Uuid, SourceHealthSnapshot> = source_health_repo
+        .list_all()
+        .await?
+        .into_iter()
+        .map(|h| (h.source_id, h))
+        .collect();
     raw_repo
         .mark_status(raw_item_id, crate::domain::RawItemStatus::Pending)
         .await
@@ -128,9 +155,16 @@ pub async fn extract_single_raw_item(
         .get(raw_item_id)
         .await
         .map_err(|e| anyhow::anyhow!("{e}"))?;
-    process_one(&raw_repo, &extracted_repo, &snapshots, &llm, &raw)
-        .await
-        .map(|_| ())
+    process_one(
+        &raw_repo,
+        &extracted_repo,
+        &snapshots,
+        &health_by_source,
+        &llm,
+        &raw,
+    )
+    .await
+    .map(|_| ())
 }
 
 /// Per-item result after a successful DB write.
@@ -146,6 +180,7 @@ async fn process_one(
     raw_repo: &PgRawItemRepository,
     extracted_repo: &PgExtractedItemRepository,
     snapshots: &PgToolMetricsSnapshotRepository,
+    health_by_source: &HashMap<Uuid, SourceHealthSnapshot>,
     llm: &Arc<dyn LlmProvider>,
     raw: &crate::domain::RawItem,
 ) -> anyhow::Result<ExtractOutcome> {
@@ -209,6 +244,9 @@ async fn process_one(
                         map.insert("days_since_activity".to_string(), json!(days));
                     }
                     map.insert("adoption".to_string(), adoption.to_json());
+                }
+                if let Some(health) = health_by_source.get(&raw.source_id) {
+                    map.insert("source_health".to_string(), health.to_json());
                 }
             }
 

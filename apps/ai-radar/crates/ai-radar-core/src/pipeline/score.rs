@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use crate::config::AppConfig;
 use crate::curation::adoption::adoption_from_extracted;
+use crate::curation::source_health::source_health_from_extracted;
 use crate::db::Database;
 use crate::llm::build_llm_provider;
 use crate::llm::LlmProvider;
@@ -135,6 +136,12 @@ pub async fn run_score_with_llm(
                         adoption.velocity_tier.as_str(),
                     );
                 }
+                if let Some(health) = source_health_from_extracted(&row.metadata_json) {
+                    metrics::record_source_health_tier(
+                        merged.decision.as_str(),
+                        health.tier.as_str(),
+                    );
+                }
                 stats.scored += 1;
             }
             Err(e) => {
@@ -198,6 +205,9 @@ pub async fn score_single_extracted_item(
             merged.decision.as_str(),
             adoption.velocity_tier.as_str(),
         );
+    }
+    if let Some(health) = source_health_from_extracted(&row.metadata_json) {
+        metrics::record_source_health_tier(merged.decision.as_str(), health.tier.as_str());
     }
     Ok(())
 }
