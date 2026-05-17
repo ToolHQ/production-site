@@ -5,6 +5,7 @@ import { useSnapshot } from './hooks/useSnapshot';
 import { useTheme } from './hooks/useTheme';
 import { useCorootAlerts } from './hooks/useCorootAlerts';
 import { useCorootIncidents } from './hooks/useCorootIncidents';
+import { useStorageHealth } from './hooks/useStorageHealth';
 
 import { DashboardHeader } from './components/DashboardHeader';
 import { SignalCard, SignalGrid } from './components/SignalCard';
@@ -18,6 +19,7 @@ import { LanguageBars } from './components/LanguageBars';
 import { CatalogTable, ArtifactList } from './components/CatalogTable';
 import { CorootAlertsPanel } from './components/CorootAlertsPanel';
 import { CorootIncidentsPanel } from './components/CorootIncidentsPanel';
+import { StoragePanel } from './components/StoragePanel';
 
 import {
   formatEpoch,
@@ -59,6 +61,7 @@ export function App() {
   const { summary, catalog, reports, error: snapshotError } = useSnapshot();
   const { data: corootAlerts, error: corootError, lastFetchAt: corootFetchAt } = useCorootAlerts();
   const { data: corootIncidents, error: corootIncidentsError, lastFetchAt: corootIncidentsFetchAt } = useCorootIncidents();
+  const { data: longhornData, error: longhornError } = useStorageHealth();
 
   // Histórico acumulado de métricas de nós (para os sparklines do hover card)
   const [nodeHistory, setNodeHistory] = useState<Record<
@@ -199,6 +202,9 @@ export function App() {
           </div>
           <ClusterMetrics metrics={metrics} />
         </section>
+
+        {/* ── Longhorn Storage Health ── */}
+        <StoragePanel data={longhornData} error={longhornError} />
 
         {/* ── Priority grid: Incidents + Restart Debt ── */}
         <section class="priority-grid">
