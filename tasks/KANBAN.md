@@ -20,6 +20,7 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+|               T-222               | **agent-meter — Collector MVP** _(apps/agent-meter/: Rust/Axum collector, POST /events/tool-call, GET /health, GET /reports/*, PostgreSQL, Docker Compose, ARM64 deploy)_ |   🔼 High    | **OpenCode**     |  2h  |
 |               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 

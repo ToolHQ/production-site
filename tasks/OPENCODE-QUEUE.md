@@ -24,3 +24,16 @@
 ## Micro-Tasks
 
 - [x] Isolar `~/production-site-opencode` em worktree própria partindo de `origin/main`.
+- [x] Criar estrutura inicial `apps/agent-meter/` conforme spec (`docs/agent-meter-spec.md`).
+- [x] Workspace Cargo (collector, cli, mcp-wrapper).
+- [x] Collector MVP: config, db, telemetry, routes, models, services.
+- [x] Docker Compose, Dockerfile ARM64, deploy.sh, migrations, README.
+- [x] Dashboard UI embarcada (HTML dark-theme com reports + form de teste).
+- [x] Testar build local (`cargo check` 0 erros, release build OK).
+- [x] Teste end-to-end local: Docker PostgreSQL → migrations → POST /events → GET /reports → GET /dashboard.
+- [x] Deploy OCI: criar DB `agent_meter` no cluster PostgreSQL, criar secret, build/push imagem, aplicar manifest.
+- [x] Validar deploy no cluster: health, evento, reports confirmados via nginx pod.
+- [ ] Fase 2: CLI `agent-meter` com comandos `task start/end`, `event tool-call`, `report`.
+- [ ] Fase 3: OTEL spans para cada tool call (quando endpoint configurado).
+- [ ] Fase 4: MCP wrapper crate (proxy medidor entre IDE/agent e MCP real).
+- [ ] Fase 5: Testes de integração automatizados.
