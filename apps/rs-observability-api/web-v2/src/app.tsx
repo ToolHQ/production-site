@@ -6,6 +6,9 @@ import { useTheme } from './hooks/useTheme';
 import { useCorootAlerts } from './hooks/useCorootAlerts';
 import { useCorootIncidents } from './hooks/useCorootIncidents';
 import { useStorageHealth } from './hooks/useStorageHealth';
+import { useCronJobs } from './hooks/useCronJobs';
+import { useIngresses } from './hooks/useIngresses';
+import { useCertificates } from './hooks/useCertificates';
 
 import { DashboardHeader } from './components/DashboardHeader';
 import { SignalCard, SignalGrid } from './components/SignalCard';
@@ -20,6 +23,9 @@ import { CatalogTable, ArtifactList } from './components/CatalogTable';
 import { CorootAlertsPanel } from './components/CorootAlertsPanel';
 import { CorootIncidentsPanel } from './components/CorootIncidentsPanel';
 import { StoragePanel } from './components/StoragePanel';
+import { CronJobPanel } from './components/CronJobPanel';
+import { IngressPanel } from './components/IngressPanel';
+import { CertExpiryPanel } from './components/CertExpiryPanel';
 
 import {
   formatEpoch,
@@ -62,6 +68,9 @@ export function App() {
   const { data: corootAlerts, error: corootError, lastFetchAt: corootFetchAt } = useCorootAlerts();
   const { data: corootIncidents, error: corootIncidentsError, lastFetchAt: corootIncidentsFetchAt } = useCorootIncidents();
   const { data: longhornData, error: longhornError } = useStorageHealth();
+  const { data: cronJobsData, error: cronJobsError } = useCronJobs();
+  const { data: ingressesData, error: ingressesError } = useIngresses();
+  const { data: certsData, error: certsError } = useCertificates();
 
   // Histórico acumulado de métricas de nós (para os sparklines do hover card)
   const [nodeHistory, setNodeHistory] = useState<Record<
@@ -205,6 +214,15 @@ export function App() {
 
         {/* ── Longhorn Storage Health ── */}
         <StoragePanel data={longhornData} error={longhornError} />
+
+        {/* ── CronJobs Health ── */}
+        <CronJobPanel data={cronJobsData} error={cronJobsError} />
+
+        {/* ── Certificados TLS ── */}
+        <CertExpiryPanel data={certsData} error={certsError} />
+
+        {/* ── Ingresses ── */}
+        <IngressPanel data={ingressesData} error={ingressesError} />
 
         {/* ── Priority grid: Incidents + Restart Debt ── */}
         <section class="priority-grid">

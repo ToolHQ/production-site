@@ -17,6 +17,9 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/coroot-alerts", get(coroot_alerts))
         .route("/api/coroot-incidents", get(coroot_incidents))
         .route("/api/longhorn", get(longhorn_volumes))
+        .route("/api/cronjobs", get(cronjobs))
+        .route("/api/ingresses", get(ingresses))
+        .route("/api/certificates", get(certificates))
         .route("/api/reports", get(report_index))
         .route("/artifacts/*path", get(artifact))
         // Assets estáticos do Vite — embutidos no binário via include_bytes!
@@ -138,6 +141,61 @@ async fn longhorn_volumes(State(state): State<AppState>) -> Response {
             healthy: 0,
             degraded: 0,
             faulted: 0,
+            queried_at_epoch: crate::unix_epoch_seconds(),
+            error: Some(
+                "In-cluster Kubernetes API credentials are not available in this runtime"
+                    .to_string(),
+            ),
+        })
+        .into_response(),
+    }
+}
+
+async fn cronjobs(State(state): State<AppState>) -> Response {
+    match &state.live_monitor {
+        Some(monitor) => Json(monitor.fetch_cronjobs().await).into_response(),
+        None => Json(crate::CronJobsResponse {
+            available: false,
+            cronjobs: vec![],
+            total: 0,
+            healthy: 0,
+            failed: 0,
+            queried_at_epoch: crate::unix_epoch_seconds(),
+            error: Some(
+                "In-cluster Kubernetes API credentials are not available in this runtime"
+                    .to_string(),
+            ),
+        })
+        .into_response(),
+    }
+}
+
+async fn ingresses(State(state): State<AppState>) -> Response {
+    match &state.live_monitor {
+        Some(monitor) => Json(monitor.fetch_ingresses().await).into_response(),
+        None => Json(crate::IngressesResponse {
+            available: false,
+            ingresses: vec![],
+            total: 0,
+            queried_at_epoch: crate::unix_epoch_seconds(),
+            error: Some(
+                "In-cluster Kubernetes API credentials are not available in this runtime"
+                    .to_string(),
+            ),
+        })
+        .into_response(),
+    }
+}
+
+async fn certificates(State(state): State<AppState>) -> Response {
+    match &state.live_monitor {
+        Some(monitor) => Json(monitor.fetch_certificates().await).into_response(),
+        None => Json(crate::CertificatesResponse {
+            available: false,
+            certificates: vec![],
+            total: 0,
+            expiring_soon: 0,
+            critical: 0,
             queried_at_epoch: crate::unix_epoch_seconds(),
             error: Some(
                 "In-cluster Kubernetes API credentials are not available in this runtime"
