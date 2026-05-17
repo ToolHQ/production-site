@@ -130,6 +130,10 @@ pub async fn run_score_with_llm(
                         merged.decision.as_str(),
                         adoption.stars_tier.as_str(),
                     );
+                    metrics::record_velocity_tier(
+                        merged.decision.as_str(),
+                        adoption.velocity_tier.as_str(),
+                    );
                 }
                 stats.scored += 1;
             }
@@ -190,6 +194,10 @@ pub async fn score_single_extracted_item(
     scores.insert(&new_score).await?;
     if let Some(adoption) = adoption_from_extracted(&row.metadata_json) {
         metrics::record_adoption_tier(merged.decision.as_str(), adoption.stars_tier.as_str());
+        metrics::record_velocity_tier(
+            merged.decision.as_str(),
+            adoption.velocity_tier.as_str(),
+        );
     }
     Ok(())
 }

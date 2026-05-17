@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::curation::velocity::VelocityTier;
 use crate::domain::RawItem;
 
 /// Popularity band derived from GitHub stars.
@@ -67,7 +68,17 @@ pub struct AdoptionSnapshot {
     pub days_since_push: Option<i64>,
     pub stars_tier: StarsTier,
     pub activity_tier: ActivityTier,
+    /// Δ stars vs baseline in lookback window (**T-234**).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stars_delta_7d: Option<i64>,
+    /// Trend band from snapshots (**T-234**).
+    #[serde(default = "default_velocity_tier")]
+    pub velocity_tier: VelocityTier,
     pub source: String,
+}
+
+fn default_velocity_tier() -> VelocityTier {
+    VelocityTier::Unknown
 }
 
 impl AdoptionSnapshot {
@@ -80,6 +91,8 @@ impl AdoptionSnapshot {
             "days_since_push": self.days_since_push,
             "stars_tier": self.stars_tier.as_str(),
             "activity_tier": self.activity_tier.as_str(),
+            "stars_delta_7d": self.stars_delta_7d,
+            "velocity_tier": self.velocity_tier.as_str(),
             "source": self.source,
         })
     }
@@ -130,6 +143,8 @@ pub fn adoption_from_raw(raw: &RawItem) -> Option<AdoptionSnapshot> {
         days_since_push,
         stars_tier: stars_tier(stars_val),
         activity_tier: activity_tier(days_since_push),
+        stars_delta_7d: None,
+        velocity_tier: VelocityTier::Unknown,
         source: "github_metadata".into(),
     })
 }
@@ -163,6 +178,11 @@ pub fn adoption_from_extracted(metadata: &Value) -> Option<AdoptionSnapshot> {
         "stale" => ActivityTier::Stale,
         _ => ActivityTier::Dormant,
     };
+    let velocity_tier = obj
+        .get("velocity_tier")
+        .and_then(|v| v.as_str())
+        .map(parse_velocity_tier)
+        .unwrap_or(VelocityTier::Unknown);
     Some(AdoptionSnapshot {
         stars: obj.get("stars").and_then(json_i64),
         forks: obj.get("forks").and_then(json_i64),
@@ -170,8 +190,20 @@ pub fn adoption_from_extracted(metadata: &Value) -> Option<AdoptionSnapshot> {
         days_since_push: obj.get("days_since_push").and_then(json_i64),
         stars_tier,
         activity_tier,
+        stars_delta_7d: obj.get("stars_delta_7d").and_then(json_i64),
+        velocity_tier,
         source: "extracted_metadata".into(),
     })
+}
+
+fn parse_velocity_tier(s: &str) -> VelocityTier {
+    match s {
+        "spike" => VelocityTier::Spike,
+        "growing" => VelocityTier::Growing,
+        "flat" => VelocityTier::Flat,
+        "declining" => VelocityTier::Declining,
+        _ => VelocityTier::Unknown,
+    }
 }
 
 #[cfg(test)]

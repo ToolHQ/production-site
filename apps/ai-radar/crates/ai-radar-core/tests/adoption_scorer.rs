@@ -1,17 +1,22 @@
 //! Adoption signals in scorer rules and comparator (**T-230**).
 
 use ai_radar_core::comparator::score_criteria;
-use ai_radar_core::curation::adoption::{adoption_from_raw, StarsTier};
+use ai_radar_core::curation::adoption::{adoption_from_extracted, adoption_from_raw, StarsTier};
+use ai_radar_core::curation::velocity::VelocityTier;
 use ai_radar_core::domain::{
     Decision, ExtractedItem, Maturity, RawItem, RawItemStatus, RiskLevel, Score,
 };
-use ai_radar_core::metrics::record_adoption_tier;
+use ai_radar_core::metrics::{record_adoption_tier, record_velocity_tier};
 use ai_radar_core::scorer::Scorer;
 use chrono::Utc;
 use serde_json::json;
 use uuid::Uuid;
 
-fn extracted_with_adoption(stars: i64, days_since_push: i64) -> ExtractedItem {
+fn extracted_with_adoption(
+    stars: i64,
+    days_since_push: i64,
+    velocity_tier: VelocityTier,
+) -> ExtractedItem {
     let raw = RawItem {
         id: Uuid::new_v4(),
         source_id: Uuid::new_v4(),
@@ -27,7 +32,8 @@ fn extracted_with_adoption(stars: i64, days_since_push: i64) -> ExtractedItem {
         published_at: Some(Utc::now() - chrono::Duration::days(days_since_push)),
         collected_at: Utc::now(),
     };
-    let adoption = adoption_from_raw(&raw).unwrap();
+    let mut adoption = adoption_from_raw(&raw).unwrap();
+    adoption.velocity_tier = velocity_tier;
     ExtractedItem {
         id: Uuid::nil(),
         raw_item_id: raw.id,
@@ -53,7 +59,7 @@ fn extracted_with_adoption(stars: i64, days_since_push: i64) -> ExtractedItem {
 
 #[test]
 fn popular_repo_gets_adoption_rule_points() {
-    let item = extracted_with_adoption(5_000, 5);
+    let item = extracted_with_adoption(5_000, 5, VelocityTier::Unknown);
     let out = Scorer::v1().score(&item);
     assert!(
         out.reasons.iter().any(|r| r.contains("adoption_popular")),
@@ -65,7 +71,7 @@ fn popular_repo_gets_adoption_rule_points() {
 
 #[test]
 fn dormant_repo_penalized() {
-    let item = extracted_with_adoption(50, 200);
+    let item = extracted_with_adoption(50, 200, VelocityTier::Unknown);
     let out = Scorer::v1().score(&item);
     assert!(
         out.risks.contains(&"stale_upstream".to_string()),
@@ -76,7 +82,7 @@ fn dormant_repo_penalized() {
 
 #[test]
 fn comparator_community_uses_stars_tier() {
-    let item = extracted_with_adoption(12_000, 3);
+    let item = extracted_with_adoption(12_000, 3, VelocityTier::Unknown);
     let score = Score {
         id: Uuid::new_v4(),
         extracted_item_id: item.id,
@@ -114,15 +120,68 @@ fn comparator_community_uses_stars_tier() {
 }
 
 #[test]
-fn adoption_tier_metric_emits() {
+fn velocity_spike_rule_fires() {
+    let item = extracted_with_adoption(5_000, 5, VelocityTier::Spike);
+    let out = Scorer::v1().score(&item);
+    assert!(
+        out.reasons.iter().any(|r| r.contains("velocity_spike")),
+        "expected velocity_spike: {:?}",
+        out.reasons
+    );
+}
+
+#[test]
+fn velocity_stale_rule_fires() {
+    let item = extracted_with_adoption(50, 200, VelocityTier::Declining);
+    let out = Scorer::v1().score(&item);
+    assert!(
+        out.risks.contains(&"stagnant_momentum".to_string()),
+        "expected stagnant_momentum: {:?}",
+        out.risks
+    );
+}
+
+#[test]
+fn adoption_json_roundtrips_velocity() {
+    let raw = RawItem {
+        id: Uuid::new_v4(),
+        source_id: Uuid::new_v4(),
+        external_id: None,
+        url: "https://github.com/o/r".into(),
+        title: None,
+        raw_content: "{}".into(),
+        content_hash: "h".into(),
+        status: RawItemStatus::Pending,
+        metadata_json: json!({ "stargazers_count": 1000 }),
+        tool_key: None,
+        canonical_url: None,
+        published_at: Some(Utc::now()),
+        collected_at: Utc::now(),
+    };
+    let mut adoption = adoption_from_raw(&raw).unwrap();
+    adoption.velocity_tier = VelocityTier::Growing;
+    adoption.stars_delta_7d = Some(150);
+    let meta = json!({ "adoption": adoption.to_json() });
+    let parsed = adoption_from_extracted(&meta).unwrap();
+    assert_eq!(parsed.velocity_tier, VelocityTier::Growing);
+    assert_eq!(parsed.stars_delta_7d, Some(150));
+}
+
+#[test]
+fn adoption_and_velocity_tier_metrics_emit() {
     let handle = metrics_exporter_prometheus::PrometheusBuilder::new()
         .install_recorder()
         .expect("recorder");
     ai_radar_core::metrics::describe_metrics();
     record_adoption_tier("adopt", "popular");
+    record_velocity_tier("adopt", "spike");
     let rendered = handle.render();
     assert!(
         rendered.contains("ai_radar_adoption_tier_total"),
-        "metric missing: {rendered}"
+        "adoption metric missing: {rendered}"
+    );
+    assert!(
+        rendered.contains("ai_radar_velocity_tier_total"),
+        "velocity metric missing: {rendered}"
     );
 }
