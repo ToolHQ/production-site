@@ -19,7 +19,7 @@ and the architecture decisions consulted by every epic in
 
 **Collectors:** RSS (**T-161**), GitHub releases/repo (**T-162**), webpage manual (**T-163**).
 
-**Ainda no backlog (Kanban):** scorer LLM opcional (**T-167**), comparator (**T-168**).
+**Ainda no backlog (Kanban):** comparator (**T-168**). Scorer LLM opcional (**T-167**) via `LLM_SCORING_ENABLED`.
 
 **Entregue (MVP+):** console (**T-175**), dashboards (**T-176**), items explorer (**T-177**), feedback (**T-170**), hardening (**T-173**). Detalhes: [`tasks/KANBAN.md`](../../tasks/KANBAN.md).
 
@@ -203,7 +203,7 @@ Further subcommands (`score`, `digest`, …) land in later epics. The CLI image
 (`docker/Dockerfile.cli`) is the CronJob entrypoint.
 
 **API:** `POST /extract/run` with JSON `{"limit": 50}` (defaults apply) triggers extract (needs `LLM_*`).
-`POST /score/run` with `{"limit": 50, "stale_hours": 24, "rescore_all": false}` runs deterministic scoring (DB only).
+`POST /score/run` with `{"limit": 50, "stale_hours": 24, "rescore_all": false}` runs scoring (deterministic; optional LLM merge when `LLM_SCORING_ENABLED=true`).
 
 Rule weights and predicates live in `crates/ai-radar-core/src/scorer/rules.rs` (roadmap-aligned; adjust there until config-driven scoring exists).
 
@@ -225,6 +225,9 @@ the deterministic-only path keeps working when only a subset is supplied.
 | `LLM_MODEL` | _unset_ | e.g. `meta-llama/llama-3.3-70b-instruct:free` |
 | `LLM_TIMEOUT_SECONDS` | `60` | Per-request timeout |
 | `GITHUB_TOKEN` | _unset_ | Optional — **60 req/h** without token, **5000 req/h** with token; client waits up to **90s** on `x-ratelimit-reset` |
+| `LLM_SCORING_ENABLED` | `false` | LLM second opinion on score (requires `LLM_ENABLED=true`) |
+| `LLM_SCORING_DETERMINISTIC_WEIGHT` | `0.7` | Weight for rule-based score when merging |
+| `LLM_SCORING_LLM_WEIGHT` | `0.3` | Weight for LLM score when merging |
 | `AI_RADAR_COLLECT_CONCURRENCY` | `2` | Parallel RSS fetches (`collect`) |
 | `AI_RADAR_MAX_ITEMS_PER_RUN` | `50` | Cap entries ingested per source per run |
 | _(código)_ | `util/limits.rs` | `MAX_RAW_CONTENT_BYTES` (200 KiB), futuros caps extract/LLM |

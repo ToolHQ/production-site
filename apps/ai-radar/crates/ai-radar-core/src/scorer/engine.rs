@@ -113,7 +113,9 @@ impl Scorer {
     }
 }
 
-fn decision_from_points(p: i32) -> Decision {
+/// Map integer points to a [`Decision`] (shared with merged scoring).
+#[must_use]
+pub fn decision_from_points(p: i32) -> Decision {
     match p {
         x if x >= 80 => Decision::Adopt,
         x if x >= 60 => Decision::Test,
@@ -122,7 +124,9 @@ fn decision_from_points(p: i32) -> Decision {
     }
 }
 
-fn next_step_for(d: Decision) -> String {
+/// Operator next step for a [`Decision`].
+#[must_use]
+pub fn next_step_for(d: Decision) -> String {
     match d {
         Decision::Adopt => {
             "Promote to team standard; track adoption metrics and owner.".to_string()

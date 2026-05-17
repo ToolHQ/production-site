@@ -1,6 +1,6 @@
 # T-167: AI Radar — Scorer com LLM Opcional
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 4h
@@ -16,15 +16,15 @@ Não permitir `LlmOnly` no MVP — sem ground truth, é arriscado.
 
 ## Tasks
 
-- [ ] `LlmScorer::evaluate(item) -> LlmScoreOpinion { score, reasons, risks }` em `scorer/llm.rs`
-- [ ] Prompt template `LLM_SCORER_PROMPT_V1` instruindo escala 0-100 + justificativas baseadas APENAS no conteúdo
-- [ ] `MergePolicy` enum: `DeterministicOnly`, `Weighted { deterministic: f32, llm: f32 }`
-- [ ] Default `Weighted { 0.7, 0.3 }` quando `LLM_SCORING_ENABLED=true`
-- [ ] Pipeline score atualizado para chamar LLM quando flag ativa
-- [ ] Persistir em `scores.metadata_json`: `{ deterministic_score, llm_score, merge_policy, llm_model }`
-- [ ] Decision recalculada com score final mesclado
-- [ ] Unit tests cobrindo ambas políticas
-- [ ] Mock LLM scorer para testes determinísticos
+- [x] `LlmScorer::evaluate(item) -> LlmScoreOpinion { score, reasons, risks }` em `scorer/llm.rs`
+- [x] Prompt template `LLM_SCORER_PROMPT_V1` instruindo escala 0-100 + justificativas baseadas APENAS no conteúdo
+- [x] `MergePolicy` enum: `DeterministicOnly`, `Weighted { deterministic: f32, llm: f32 }`
+- [x] Default `Weighted { 0.7, 0.3 }` quando `LLM_SCORING_ENABLED=true`
+- [x] Pipeline score atualizado para chamar LLM quando flag ativa
+- [x] Persistir em `scores.metadata_json`: `{ deterministic_score, llm_score, merge_policy, llm_model }`
+- [x] Decision recalculada com score final mesclado
+- [x] Unit tests cobrindo ambas políticas
+- [x] Mock LLM scorer para testes determinísticos
 - [ ] Smoke test E2E com OpenRouter real (manual, atrás de feature flag)
 
 ## DoD
