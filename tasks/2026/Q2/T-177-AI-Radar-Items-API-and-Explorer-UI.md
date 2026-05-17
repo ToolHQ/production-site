@@ -1,6 +1,6 @@
 # T-177: AI Radar — Items API + Explorer UI
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d
@@ -18,7 +18,7 @@ Esta task fecha a **Fase 16C**: API de listagem/detalhe + páginas UI (tabela po
 - [x] Repos/query SQLx em `ai-radar-core`
 - [x] UI `#/items` e `#/items/:id` no console (estender assets T-175)
 - [x] Botão reprocess (chama API existente) com confirmação
-- [ ] Testes integração API + smoke browser
+- [x] Testes integração API + smoke browser (API `1778974766`; `/items`, `/items/:id`, reprocess score)
 - [x] Atualizar `docs/AI-RADAR-DECISIONS.md` (contratos API)
 
 ## DoD
