@@ -4,6 +4,20 @@
 
 ## Setup rápido
 
+### VSCode Copilot (OTLP nativo — recomendado)
+
+```json
+// VSCode settings.json (WSL)
+{
+  "github.copilot.chat.otel.enabled": true,
+  "github.copilot.chat.otel.otlpEndpoint": "http://localhost:4318"
+}
+```
+
+Port-forward no WSL: `kubectl port-forward svc/agent-meter 8081:3000 4318:4318`
+
+### Outros agentes (CLI)
+
 ```bash
 # OpenCode (worktree ~/production-site-opencode)
 apps/agent-meter/scripts/setup-agent.sh --agent opencode
@@ -11,7 +25,7 @@ apps/agent-meter/scripts/setup-agent.sh --agent opencode
 # Cursor (worktree ~/production-site-cursor)
 apps/agent-meter/scripts/setup-agent.sh --agent cursor --mcp-wrapper
 
-# Copilot/VSCode (worktree ~/production-site-copilot)
+# Copilot/VSCode (CLI method, worktree ~/production-site-copilot)
 apps/agent-meter/scripts/setup-agent.sh --agent copilot --mcp-wrapper
 
 # Antigravity (worktree ~/production-site-antigravity)
@@ -113,8 +127,8 @@ Ver `docs/agent-meter-otel.md` para detalhes.
 
 - `apps/agent-meter/scripts/setup-agent.sh` — setup automatizado (com detecção WSL)
 - `apps/agent-meter/crates/cli/` — código do CLI
-- `apps/agent-meter/crates/collector/` — collector HTTP
+- `apps/agent-meter/crates/collector/` — collector HTTP + **OTLP receiver (port 4318)**
 - `apps/agent-meter/crates/mcp-wrapper/` — proxy MCP
-- `apps/agent-meter/docs/agent-meter-otel.md` — guia OTEL
-- `apps/agent-meter/docs/agent-meter-wsl-vscode.md` — guia WSL + VSCode
+- `apps/agent-meter/docs/agent-meter-otel.md` — guia OTEL completo
+- `apps/agent-meter/docs/agent-meter-wsl-vscode.md` — guia WSL + VSCode (OTLP nativo + CLI)
 - `apps/agent-meter/scripts/smoke-otel.sh` — smoke test
