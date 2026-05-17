@@ -131,15 +131,20 @@ REMOTE
 	fi
 }
 
-# Builder remoto Hetzner (T-222 / PR #148–#153): compila na VM Helsinki; master só recebe push.
+# Builder remoto Hetzner (T-222): padrão obrigatório — master só recebe `docker push` (porta 31444).
+# Fallback oci-builder no master só com AI_RADAR_ALLOW_MASTER_BUILD=1 (emergência).
 USE_HETZNER=false
 HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
 if [[ -f "$HETZNER_SETUP" ]] && "$HETZNER_SETUP" --silent; then
 	USE_HETZNER=true
-	printf '%s\n' "✓ hetzner-builder ativo — build ARM64 na Hetzner (sem BuildKit no master)" >&2
-else
-	printf '%s\n' "⚠️  hetzner-builder indisponível — fallback oci-builder no master (exige ≥12 GiB livres em /)" >&2
+	printf '%s\n' "✓ hetzner-builder ativo — build ARM64 na Hetzner (master preservado)" >&2
+elif [[ "${AI_RADAR_ALLOW_MASTER_BUILD:-0}" =~ ^(1|true|yes)$ ]]; then
+	printf '%s\n' "⚠️  AI_RADAR_ALLOW_MASTER_BUILD=1 — build no oci-builder do master (disco + prune)" >&2
 	preflight_buildkit_disk
+else
+	die "❌ hetzner-builder indisponível e build no master está desabilitado por padrão.
+   Rode: $HETZNER_SETUP
+   Ou emergência: AI_RADAR_ALLOW_MASTER_BUILD=1 ./deploy.sh"
 fi
 
 DOCKERFILE="$ROOT_DIR/docker/Dockerfile"
