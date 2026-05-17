@@ -3,7 +3,7 @@
 **Owner**: OpenCode
 **Priority**: 🔼 High
 **Estimate**: 2h
-**Status**: Em andamento
+**Status**: ✅ Done
 
 ## Goal
 
@@ -12,13 +12,10 @@ Document and implement how all agents (OpenCode, Cursor, Copilot/VSCode, Antigra
 ## Tasks
 
 - [x] Implementar suporte OTEL no collector (Fase 3) — `tracing_opentelemetry::layer()`, upgrade 0.25→0.26, zero-crash sem endpoint
-- [ ] Criar `docs/agent-meter-otel.md` com:
-  - Como configurar `OTEL_EXPORTER_OTLP_ENDPOINT` apontando pro collector
-  - `OTEL_SERVICE_NAME` recomendado por agente (opencode, cursor, copilot-vscode, antigravity, codex)
-  - Mapeamento de spans: `agent.tool_call` → atributos do spec
-  - Exemplo de deploy: variáveis de ambiente no container/ConfigMap
-- [ ] Criar script de smoke OTEL para validar pipeline: `scripts/smoke-otel.sh`
-- [ ] Deploy da configuração no cluster (ConfigMap, env vars nos deployments)
+- [x] `docs/agent-meter-otel.md` criado — arquitetura, env vars por agente, CLI/curl exemplos, OTEL config
+- [x] `scripts/smoke-otel.sh` criado — valida pipeline end-to-end (health → task start → event POST → reports → task end)
+- [x] ConfigMap `agent-meter-otel` adicionado ao `k8s/agent-meter.yaml` com `otel_exporter_otlp_endpoint` e `otel_service_name`
+- [x] Env vars no Deployment usam `configMapKeyRef` com `optional: true` — zero-crash se ConfigMap não existir
 
 ## Dependencies
 

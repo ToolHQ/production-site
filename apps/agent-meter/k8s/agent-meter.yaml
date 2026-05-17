@@ -1,3 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-meter-otel
+  namespace: default
+data:
+  # Set OTEL_EXPORTER_OTLP_ENDPOINT to enable OpenTelemetry export
+  # Example: http://tempo.monitoring.svc.cluster.local:4317
+  otel_exporter_otlp_endpoint: ""
+  otel_service_name: "agent-meter"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -33,6 +44,20 @@ spec:
                 secretKeyRef:
                   name: agent-meter-db
                   key: url
+            - name: RUST_LOG
+              value: "info"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-meter-otel
+                  key: otel_exporter_otlp_endpoint
+                  optional: true
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: agent-meter-otel
+                  key: otel_service_name
+                  optional: true
             - name: RUST_LOG
               value: "info"
           resources:
