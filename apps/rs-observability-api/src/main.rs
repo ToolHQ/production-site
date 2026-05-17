@@ -262,6 +262,7 @@ struct CorootApiResponse {
 #[derive(Deserialize)]
 struct CorootApiData {
     alerts: Vec<CorootAlert>,
+    #[allow(dead_code)]
     #[serde(default)]
     firing: u64,
 }
