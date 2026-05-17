@@ -1,6 +1,7 @@
 //! Deterministic scoring rules (`deterministic-v1`) derived from `docs/AI-RADAR-ROADMAP.md`.
 
 use crate::curation::adoption::{adoption_from_extracted, ActivityTier, StarsTier};
+use crate::curation::velocity::VelocityTier;
 use crate::domain::{ExtractedItem, Maturity, RiskLevel};
 
 /// Predicate evaluated against an [`ExtractedItem`].
@@ -164,6 +165,19 @@ fn adoption_dormant(item: &ExtractedItem) -> bool {
         .is_some_and(|a| a.activity_tier == ActivityTier::Dormant)
 }
 
+fn velocity_spike(item: &ExtractedItem) -> bool {
+    adoption_from_extracted(&item.metadata_json)
+        .is_some_and(|a| a.velocity_tier == VelocityTier::Spike)
+}
+
+fn velocity_stale(item: &ExtractedItem) -> bool {
+    adoption_from_extracted(&item.metadata_json).is_some_and(|a| {
+        a.velocity_tier == VelocityTier::Declining
+            || (a.velocity_tier == VelocityTier::Flat
+                && matches!(a.activity_tier, ActivityTier::Stale | ActivityTier::Dormant))
+    })
+}
+
 fn hype_without_substance(item: &ExtractedItem) -> bool {
     item.summary.as_deref().is_some_and(|s| {
         let t = lc(s);
@@ -274,6 +288,20 @@ pub static RULES_V1: &[Rule] = &[
         predicate: adoption_active,
         reason: "Recent upstream activity (push within 30d)",
         risk: None,
+    },
+    Rule {
+        id: "velocity_spike",
+        weight: 2,
+        predicate: velocity_spike,
+        reason: "Rapid GitHub star growth (7d velocity spike)",
+        risk: None,
+    },
+    Rule {
+        id: "velocity_stale",
+        weight: -2,
+        predicate: velocity_stale,
+        reason: "Declining or flat star velocity with stale upstream",
+        risk: Some("stagnant_momentum"),
     },
     Rule {
         id: "adoption_dormant",

@@ -8,7 +8,9 @@ use serde_json::json;
 use crate::config::AppConfig;
 use crate::db::Database;
 use crate::domain::RawItemStatus;
-use crate::curation::{adoption_from_raw, reconcile_pending_entities};
+use crate::curation::{
+    adoption_from_raw, enrich_adoption, reconcile_pending_entities, velocity_for_raw,
+};
 use crate::extractor::{
     assess_extract_quality, audit_entry, extractor_id, llm_extract_with_retry, QualityTier,
     EXTRACTOR_VERSION,
@@ -16,7 +18,8 @@ use crate::extractor::{
 use crate::llm::LlmProvider;
 use crate::metrics;
 use crate::repos::{
-    ExtractedItemRepository, PgExtractedItemRepository, PgRawItemRepository, RawItemRepository,
+    ExtractedItemRepository, PgExtractedItemRepository, PgRawItemRepository,
+    PgToolMetricsSnapshotRepository, RawItemRepository,
 };
 
 /// Counters printed by the CLI / API.
@@ -50,6 +53,7 @@ pub async fn run_extract(
     let started = Instant::now();
     let raw_repo = PgRawItemRepository::new(db);
     let extracted_repo = PgExtractedItemRepository::new(db);
+    let snapshots = PgToolMetricsSnapshotRepository::new(db);
 
     let reconciled = raw_repo.reconcile_extracting_status().await?;
     if reconciled > 0 {
@@ -72,7 +76,7 @@ pub async fn run_extract(
     let mut stats = ExtractStats::default();
 
     for raw in batch {
-        match process_one(&raw_repo, &extracted_repo, &llm, &raw).await {
+        match process_one(&raw_repo, &extracted_repo, &snapshots, &llm, &raw).await {
             Ok(outcome) => {
                 stats.extracted += 1;
                 if outcome == ExtractOutcome::QualityWarn {
@@ -115,6 +119,7 @@ pub async fn extract_single_raw_item(
     }
     let raw_repo = PgRawItemRepository::new(db);
     let extracted_repo = PgExtractedItemRepository::new(db);
+    let snapshots = PgToolMetricsSnapshotRepository::new(db);
     raw_repo
         .mark_status(raw_item_id, crate::domain::RawItemStatus::Pending)
         .await
@@ -123,7 +128,7 @@ pub async fn extract_single_raw_item(
         .get(raw_item_id)
         .await
         .map_err(|e| anyhow::anyhow!("{e}"))?;
-    process_one(&raw_repo, &extracted_repo, &llm, &raw)
+    process_one(&raw_repo, &extracted_repo, &snapshots, &llm, &raw)
         .await
         .map(|_| ())
 }
@@ -140,6 +145,7 @@ enum ExtractOutcome {
 async fn process_one(
     raw_repo: &PgRawItemRepository,
     extracted_repo: &PgExtractedItemRepository,
+    snapshots: &PgToolMetricsSnapshotRepository,
     llm: &Arc<dyn LlmProvider>,
     raw: &crate::domain::RawItem,
 ) -> anyhow::Result<ExtractOutcome> {
@@ -188,6 +194,17 @@ async fn process_one(
                     map.insert("low_confidence".to_string(), json!(true));
                 }
                 if let Some(adoption) = adoption_from_raw(raw) {
+                    let adoption = match velocity_for_raw(snapshots, raw).await {
+                        Ok(velocity) => enrich_adoption(adoption, &velocity),
+                        Err(e) => {
+                            tracing::warn!(
+                                raw_item_id = %raw.id,
+                                error = %e,
+                                "velocity enrichment failed"
+                            );
+                            adoption
+                        }
+                    };
                     if let Some(days) = adoption.days_since_push {
                         map.insert("days_since_activity".to_string(), json!(days));
                     }
