@@ -42,6 +42,6 @@ pub use digest::{DigestRepository, PgDigestRepository};
 pub use extracted_item::{ExtractedItemRepository, PgExtractedItemRepository};
 pub use feedback::{FeedbackRepository, PgFeedbackRepository};
 pub use raw_item::{PgRawItemRepository, RawItemRepository};
-pub use score::{PgScoreRepository, ScoreRepository};
+pub use score::{PgScoreRepository, ScoreRepository, ScoredItemSort};
 pub use source::{PgSourceRepository, SourceRepository};
 pub use stats::{load_pipeline_stats, PipelineStats};

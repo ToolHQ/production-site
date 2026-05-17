@@ -12,6 +12,7 @@
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
 | [T-195](2026/Q2/T-194-Cluster-Pulse-UI-Componentization-Vite-Preact.md) | **Cluster Pulse UI Componentization (Vite+Preact)** | 🔼 High | DevExp / Observability | 4h |
 |               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
+| [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + explorer console)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-200](2026/Q2/T-200-AI-Radar-Rust-Build-Compile-Time-Optimization.md) | **AI Radar — compile-time / BuildKit** _(cargo-chef, deploy parcial)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -23,7 +24,6 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
-| [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + drill-down)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 |               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
@@ -36,6 +36,7 @@
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
 | [T-201](2026/Q2/T-201-Node-Fleet-Real-Machine-Metrics-Prometheus.md) | **Node Fleet — Real Machine Metrics** _(substituir allocatable por CPU%/mem%/disk% reais via Prometheus node_exporter + sparklines de tendência)_ | 🔼 High | Antigravity | 4h |
 | [T-200](2026/Q2/T-200-Node-Fleet-Panel-Layout-Polish.md) | **Node Fleet Panel — Layout Polish** _(headers redundantes, colunas idênticas, tooltip alloc vs uso real)_ | 🔽 Medium | Antigravity | 1h |
+| [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + drill-down)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-176](2026/Q2/T-176-AI-Radar-Dashboard-Pack-Coroot-Grafana.md) | **AI Radar — Dashboard pack** _(Coroot/Grafana `ai_radar_*`)_ | 🔼 High | **Cursor / AI Radar** | 2h |
 | [T-175](2026/Q2/T-175-AI-Radar-Operator-Console-Thin-Slice.md) | **AI Radar — Operator Console** _(UI estática: stats, digests, sources em ai-radar.dnor.io)_ | 🔼 High | **Cursor / AI Radar** | 6h |
 | [T-199](2026/Q2/T-199-Cluster-Pulse-Node-Metrics-Panel.md) | **Cluster Pulse — Node Fleet Panel** _(NodeStat por nó: CPU/mem/ephemeral + NodesPanel.tsx; PR #117)_ | 🔽 Medium | **Copilot/VSCode** | 3h |
