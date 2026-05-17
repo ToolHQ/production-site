@@ -7,10 +7,12 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use ai_radar_core::domain::{ExtractedItem, Score, ScoredItemSummary};
+use ai_radar_core::domain::{ExtractedItem, RawItem, Score, ScoredItemSummary};
 use ai_radar_core::llm::build_llm_provider;
 use ai_radar_core::pipeline::reprocess::{run_reprocess, ReprocessStage};
-use ai_radar_core::repos::{ExtractedItemRepository, ScoreRepository, ScoredItemSort};
+use ai_radar_core::repos::{
+    ExtractedItemRepository, RawItemRepository, ScoreRepository, ScoredItemSort,
+};
 
 use ai_radar_core::db::RepoError;
 use crate::error::ApiError;
@@ -44,6 +46,7 @@ pub struct ItemListResponse {
 #[derive(Debug, Serialize)]
 pub struct ItemDetailResponse {
     pub extracted: ExtractedItem,
+    pub raw: RawItem,
     pub latest_score: Score,
     pub scores: Vec<Score>,
 }
@@ -108,6 +111,7 @@ async fn get_one(
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<ItemDetailResponse>), ApiError> {
     let extracted = state.extracted_items.get(id).await?;
+    let raw = state.raw_items.get(extracted.raw_item_id).await?;
     let scores = state.scores.list_for_extracted_item(id).await?;
     let latest_score = scores
         .first()
@@ -118,6 +122,7 @@ async fn get_one(
         StatusCode::OK,
         Json(ItemDetailResponse {
             extracted,
+            raw,
             latest_score,
             scores,
         }),
