@@ -7,7 +7,7 @@ const $nav = document.getElementById("nav");
 
 const NAV = [
   { hash: "#/", label: "Painel" },
-  { hash: "#/items", label: "Itens" },
+  { hash: "#/items", label: "Explorer" },
   { hash: "#/digests", label: "Digests" },
   { hash: "#/sources", label: "Fontes" },
 ];
@@ -252,32 +252,104 @@ function card(label, value) {
   return `<div class="card"><div class="card-label">${label}</div><div class="card-value">${value}</div></div>`;
 }
 
+function fmtNum(n) {
+  return new Intl.NumberFormat("pt-BR").format(Number(n) || 0);
+}
+
+function kpiCard(icon, label, value, hint, extraClass = "") {
+  return `<article class="kpi-card ${extraClass}">
+    <div class="kpi-icon" aria-hidden="true">${icon}</div>
+    <div class="kpi-label">${escapeHtml(label)}</div>
+    <div class="kpi-value">${fmtNum(value)}</div>
+    ${hint ? `<p class="kpi-hint">${escapeHtml(hint)}</p>` : ""}
+  </article>`;
+}
+
 async function renderHome() {
   setNav("#/");
-  const stats = await apiJson("/stats");
-  let latest = null;
-  try {
-    const list = await apiJson("/digests");
-    latest = list.items && list.items[0] ? list.items[0] : null;
-  } catch {
-    /* optional */
-  }
+  const [stats, itemsRes, digestsRes] = await Promise.all([
+    apiJson("/stats"),
+    apiJson("/items?limit=1").catch(() => ({ total: 0 })),
+    apiJson("/digests").catch(() => ({ items: [] })),
+  ]);
 
-  const latestBlock = latest
-    ? `<p class="muted">Último digest: <a href="#/digests/${latest.id}">${escapeHtml(
-        latest.digest_type,
-      )}</a> — ${new Date(latest.generated_at).toLocaleString("pt-BR")}</p>
-       <a class="btn" href="#/digests/${latest.id}">Abrir relatório</a>`
-    : `<p class="muted">Nenhum digest gerado ainda. Use <code>POST /digest/run</code> ou o CronJob.</p>`;
+  const latest =
+    digestsRes.items && digestsRes.items[0] ? digestsRes.items[0] : null;
+  const scoredTotal = itemsRes.total ?? 0;
+  const pending = stats.raw_items_pending ?? 0;
+  const rawTotal = stats.raw_items_total ?? 0;
+  const processed = Math.max(0, rawTotal - pending);
+  const donePct = rawTotal > 0 ? Math.round((processed / rawTotal) * 100) : 0;
+  const queuePct = rawTotal > 0 ? 100 - donePct : 0;
+  const pendingHigh = pending > 100;
 
-  const cards = [
-    card("Fontes", stats.sources_total),
-    card("Fontes ativas", stats.sources_enabled),
-    card("Itens brutos", stats.raw_items_total),
-    card("Pendentes extract", stats.raw_items_pending),
-  ].join("");
+  const digestPanel = latest
+    ? `<div class="digest-feature">
+        <span class="digest-feature-type">📡 Último relatório · ${escapeHtml(
+          digestTypeLabel(latest.digest_type),
+        )}</span>
+        <p class="digest-feature-date">${fmtDate(latest.generated_at)}</p>
+        <div class="digest-feature-actions">
+          <a class="btn" href="#/digests/${latest.id}">Abrir digest</a>
+          <a class="btn btn-ghost" href="#/digests">Ver todos</a>
+        </div>
+      </div>`
+    : `<p class="muted">Nenhum digest ainda. O CronJob semanal ou <code>POST /digest/run</code> gera o primeiro relatório.</p>`;
 
-  $app.innerHTML = `<h1 class="section-title">Painel</h1><div class="cards">${cards}</div>${latestBlock}`;
+  $app.innerHTML = `
+    <header class="home-hero">
+      <h1>Curadoria de IA com <span>radar operacional</span></h1>
+      <p class="home-lead">
+        Coleta RSS e GitHub, extrai sinais com LLM, pontua e publica digests para decisão de adoção no cluster.
+      </p>
+      <div class="home-status-row">
+        <span class="status-pill ${pendingHigh ? "status-pill--warn" : ""}">
+          ${pendingHigh ? "Fila de extract ativa" : "Pipeline saudável"}
+        </span>
+        <span class="muted">${fmtNum(scoredTotal)} ferramentas scored</span>
+      </div>
+    </header>
+
+    <div class="kpi-grid">
+      ${kpiCard("📡", "Fontes monitoradas", stats.sources_total, `${fmtNum(stats.sources_enabled)} ativas`)}
+      ${kpiCard("📥", "Itens coletados", rawTotal, "raw_items no Postgres")}
+      ${kpiCard("⚡", "Scored no explorer", scoredTotal, "prontos para revisão")}
+      ${kpiCard("⏳", "Pendentes extract", pending, "aguardando LLM", "kpi-card--pending")}
+    </div>
+
+    <div class="home-panels">
+      <section class="panel">
+        <h2 class="panel-title">Pipeline de ingestão</h2>
+        <div class="pipeline-bar" role="img" aria-label="Progresso extract ${donePct}% processado">
+          <div class="pipeline-seg pipeline-seg--done" style="width:${donePct}%"></div>
+          <div class="pipeline-seg pipeline-seg--queue" style="width:${queuePct}%"></div>
+        </div>
+        <div class="pipeline-legend">
+          <span><span class="dot dot--done"></span> Processados (${fmtNum(processed)})</span>
+          <span><span class="dot dot--queue"></span> Na fila (${fmtNum(pending)})</span>
+        </div>
+      </section>
+      <section class="panel">
+        <h2 class="panel-title">Digest em destaque</h2>
+        ${digestPanel}
+      </section>
+    </div>
+
+    <nav class="quick-links" aria-label="Atalhos">
+      <a class="quick-link" href="#/items">
+        <strong>Explorer</strong>
+        <span>Scores, decisões e feedback</span>
+      </a>
+      <a class="quick-link" href="#/digests">
+        <strong>Digests</strong>
+        <span>Relatórios semanais e diários</span>
+      </a>
+      <a class="quick-link" href="#/sources">
+        <strong>Fontes</strong>
+        <span>RSS, GitHub e páginas web</span>
+      </a>
+    </nav>
+  `;
 }
 
 async function renderDigests() {
