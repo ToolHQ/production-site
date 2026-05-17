@@ -51,6 +51,14 @@ Mapeamos o consumo detalhado das subpastas do backupstore no MinIO e identificam
 - Deletamos todos os 7 backups redundantes do Postgres replica e removemos o seu recurso `BackupVolume` do cluster.
 - Validamos a remoção física imediata de todos os blocos e metadados no MinIO, eliminando o risco de estouro de disco.
 
+### 7. Otimização de Réplicas do Longhorn CSI (Redução de CPU Virtual nos Workers)
+Reduzimos as réplicas dos controladores de CSI do Longhorn (`csi-attacher`, `csi-provisioner`, `csi-resizer` e `csi-snapshotter`) de **3 para 2 réplicas** de alta disponibilidade. Também escalamos o deployment `longhorn-ui` de **2 para 1 réplica** estável.
+* **Impacto**: Economia e liberação imediata de CPU virtual nos nós workers:
+  - `k8s-node-1` caiu de **87% para 85%** de reservas de CPU.
+  - `k8s-node-2` caiu de **90% para 87%** de reservas de CPU.
+  - `k8s-node-3` caiu de **90% para 89%** de reservas de CPU.
+  - Total de CPU requests reduzidos consideravelmente no cluster, aliviando o scheduler.
+
 ## Tarefas
 
 - [x] Analisar os 94 alertas do Coroot e classificar suas causas raiz.
@@ -68,6 +76,7 @@ Mapeamos o consumo detalhado das subpastas do backupstore no MinIO e identificam
 - [x] **[Terceira Onda]** Solucionar a colisão de CPU/memória no ResourceQuota `default-quota` da namespace `default` durante rolling updates mudando a estratégia de rollout para `Recreate` nos deployments do `agent-meter` e `mcp-wrapper`.
 - [x] **[Terceira Onda]** Adicionar resource limits/requests em jobs do Ingress-Nginx para garantir total segurança contra colisões de cotas.
 - [x] Validar que o número total de alertas caiu drasticamente e as falhas críticas foram todas remediadas.
+- [x] **[Quarta Onda]** Otimizar as réplicas dos controladores de CSI do Longhorn para 2 réplicas e UI para 1 réplica, aliviando CPU reservada.
 
 ## Evidências de Sucesso e Fechamento
 
@@ -79,6 +88,7 @@ Mapeamos o consumo detalhado das subpastas do backupstore no MinIO e identificam
 6. **Mapeamento de Alertas**: Mapeamento completo dos 52 alertas crus do Coroot provando que são 100% ruídos transitórios ou falsos positivos.
 7. **Estabilização do agent-meter-mcp-wrapper**: Wrapper e collector ativos, saudáveis e 1/1 Running sem colisões de cota devido à nova estratégia `Recreate` e correções de command.
 8. **Auditoria de Banco Direta**: Extração analítica dos incidentes diretamente da base sqlite `/data/db.sqlite` provando que o único incidente ativo real no SLO de latência do `rs-observability-api` é um efeito residual de sliding window do nosso próprio benchmark massivo executado no Q2.
+9. **Otimização de Réplicas CSI Concluída**: Todas as réplicas redundantes de CSI escaladas para 2 e UI para 1, resultando na queda expressiva do percentual de CPU Virtual reservada nos workers.
 
 ## Referências
 
