@@ -324,6 +324,19 @@ Smoke ad-hoc (exemplos):
 
 **Docker build (T-200).** Imagens saem de **`docker/Dockerfile`** com **`cargo-chef`** + cache BuildKit compartilhado (`ai-radar-cargo-registry`, `ai-radar-cargo-target`). Baseline empírico no master: **~45–55 min** (API+CLI); com cache quente e só API, meta **&lt; 20 min**.
 
+**Builder Hetzner (T-222, padrão desde PR #153).** O `deploy.sh` tenta **`hetzner-builder`** antes do **`oci-builder`** no master:
+
+1. **Uma vez por máquina** (WSL): `~/production-site/oci-k8s-cluster/scripts/setup-hetzner-builder.sh` — exige SSH `hetzner-cax21-helsinki-4vcpu-8gb-ipv4` em `~/.ssh/config`.
+2. **Cada deploy:** compilação ARM64 na VM Helsinki (`--load` na sua máquina); só abre túnel **`31444→master`** para `docker push` da imagem final (sem cache BuildKit no master).
+3. **Fallback:** se SSH Hetzner falhar, volta ao `oci-builder` remoto no master (pré-voo de disco ≥12 GiB + prune pós-build).
+
+```bash
+# Verificar builder (deve mostrar Status: running, Platforms: linux/arm64)
+docker buildx inspect hetzner-builder
+
+AI_RADAR_FROM_CLUSTER_PG_SECRET=1 AI_RADAR_DEPLOY_CLI=0 ./deploy.sh
+```
+
 | Variável | Efeito |
 | -------- | ------ |
 | `AI_RADAR_DEPLOY_CLI=auto` (padrão) | Pula build CLI se o diff vs `origin/main` não tocar `crates/ai-radar-cli`, `crates/ai-radar-core`, `docker/` ou `Cargo.lock` |
