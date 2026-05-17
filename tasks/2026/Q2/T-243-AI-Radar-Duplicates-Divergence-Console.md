@@ -1,6 +1,6 @@
 # T-243: AI Radar — Duplicates & Divergence Console
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h

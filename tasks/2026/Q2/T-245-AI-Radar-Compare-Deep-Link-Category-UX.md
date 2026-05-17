@@ -1,6 +1,6 @@
 # T-245: AI Radar — Compare Deep-Link & Category UX
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 2h
