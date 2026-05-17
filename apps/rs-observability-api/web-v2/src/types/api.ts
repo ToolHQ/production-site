@@ -243,3 +243,66 @@ export interface LonghornData {
   queried_at_epoch: number;
   error?: string;
 }
+
+// Tipos para /api/cronjobs
+
+export interface CronJobInfo {
+  name: string;
+  namespace: string;
+  schedule: string;
+  active: number;
+  last_run_at: string | null;
+  last_run_succeeded: boolean | null;
+  last_schedule_time: string | null;
+  suspended: boolean;
+}
+
+export interface CronJobsData {
+  available: boolean;
+  cronjobs: CronJobInfo[];
+  total: number;
+  healthy: number;
+  failed: number;
+  queried_at_epoch: number;
+  error?: string;
+}
+
+// Tipos para /api/ingresses
+
+export interface IngressInfo {
+  name: string;
+  namespace: string;
+  hosts: string[];
+  tls: boolean;
+  tls_secret: string | null;
+  class: string | null;
+}
+
+export interface IngressesData {
+  available: boolean;
+  ingresses: IngressInfo[];
+  total: number;
+  queried_at_epoch: number;
+  error?: string;
+}
+
+// Tipos para /api/certificates
+
+export interface CertInfo {
+  name: string;
+  namespace: string;
+  dns_names: string[];
+  not_after: string | null;
+  ready: boolean;
+  days_remaining: number | null;
+}
+
+export interface CertificatesData {
+  available: boolean;
+  certificates: CertInfo[];
+  total: number;
+  expiring_soon: number;
+  critical: number;
+  queried_at_epoch: number;
+  error?: string;
+}
