@@ -20,6 +20,8 @@ if [[ "$AGENT_OWNER" == "Cursor" ]]; then
 	WORKFLOW_FILE="${WORKSPACE_DIR}/.agents/workflows/cursor_loop.md"
 elif [[ "$AGENT_OWNER" == "Copilot/VSCode" ]] || [[ "$AGENT_OWNER" == "Copilot" ]]; then
 	WORKFLOW_FILE="${WORKSPACE_DIR}/.agents/workflows/copilot_loop.md"
+elif [[ "$AGENT_OWNER" == "Codex" ]] || [[ "$AGENT_OWNER" == "Rust Rover" ]]; then
+	WORKFLOW_FILE="${WORKSPACE_DIR}/.agents/workflows/codex_loop.md"
 fi
 
 # CLI arguments
@@ -40,6 +42,7 @@ get_next_task() {
             if (filter == "Cursor") return (line ~ /\*\*Cursor \/ AI Radar\*\*/ || line ~ /\| Cursor \/ AI Radar \|/)
             if (filter == "Antigravity") return (line ~ /Antigravity/)
             if (filter ~ /^Copilot/) return (line ~ /Copilot\/VSCode/)
+            if (filter == "Codex" || filter == "Rust Rover") return (line ~ /Codex/)
             return (line ~ filter)
         }
         /## 🏎️ In Progress/ { state="in_prog"; next }
@@ -92,6 +95,8 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     
     if [[ "$DRY_RUN" == "true" ]]; then
         echo "⏭️ [DRY RUN] Skipping actual execution. Assuming success."
+        echo "✅ Dry-run selection validated. Stopping after one iteration."
+        exit 0
     else
         # Actually invoke the CLI tool here
         # E.g., claude --prompt "$PROMPT"
