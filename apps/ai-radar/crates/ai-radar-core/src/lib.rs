@@ -13,6 +13,7 @@
 pub mod collector;
 pub mod comparator;
 pub mod curation;
+pub mod embedding;
 pub mod config;
 pub mod db;
 pub mod domain;

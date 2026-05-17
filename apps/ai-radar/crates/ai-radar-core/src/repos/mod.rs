@@ -34,6 +34,7 @@ pub mod comparison;
 pub mod digest;
 pub mod extracted_item;
 pub mod feedback;
+pub mod item_embedding;
 pub mod raw_item;
 pub mod score;
 pub mod source;
@@ -45,6 +46,9 @@ pub use comparison::{ComparisonRepository, PgComparisonRepository};
 pub use digest::{DigestRepository, PgDigestRepository};
 pub use extracted_item::{ExtractedItemRepository, PgExtractedItemRepository};
 pub use feedback::{FeedbackDivergence, FeedbackRepository, PgFeedbackRepository};
+pub use item_embedding::{
+    ItemEmbedding, ItemEmbeddingRepository, NewItemEmbedding, PgItemEmbeddingRepository,
+};
 pub use raw_item::{DuplicateCluster, PgRawItemRepository, RawItemRepository};
 pub use score::{PgScoreRepository, ScoreRepository, ScoredItemSort};
 pub use source::{PgSourceRepository, SourceRepository};
