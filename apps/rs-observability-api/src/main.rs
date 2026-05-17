@@ -1705,9 +1705,9 @@ impl LiveMonitor {
                 let mut ns_map: HashMap<String, ResourceQuotaStatus> = HashMap::new();
                 for rq in list.items {
                     let ns = rq.metadata.namespace.unwrap_or_default();
-                    if !ns_map.contains_key(&ns) {
+                    if let std::collections::hash_map::Entry::Vacant(e) = ns_map.entry(ns) {
                         if let Some(s) = rq.status {
-                            ns_map.insert(ns, s);
+                            e.insert(s);
                         }
                     }
                 }
