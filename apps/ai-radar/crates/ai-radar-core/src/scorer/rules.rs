@@ -1,5 +1,6 @@
 //! Deterministic scoring rules (`deterministic-v1`) derived from `docs/AI-RADAR-ROADMAP.md`.
 
+use crate::curation::adoption::{adoption_from_extracted, ActivityTier, StarsTier};
 use crate::domain::{ExtractedItem, Maturity, RiskLevel};
 
 /// Predicate evaluated against an [`ExtractedItem`].
@@ -142,6 +143,27 @@ fn experimental(item: &ExtractedItem) -> bool {
     item.maturity == Some(Maturity::Experimental)
 }
 
+fn adoption_popular(item: &ExtractedItem) -> bool {
+    adoption_from_extracted(&item.metadata_json).is_some_and(|a| {
+        matches!(a.stars_tier, StarsTier::Popular | StarsTier::Viral)
+    })
+}
+
+fn adoption_growing(item: &ExtractedItem) -> bool {
+    adoption_from_extracted(&item.metadata_json)
+        .is_some_and(|a| a.stars_tier == StarsTier::Growing)
+}
+
+fn adoption_active(item: &ExtractedItem) -> bool {
+    adoption_from_extracted(&item.metadata_json)
+        .is_some_and(|a| a.activity_tier == ActivityTier::Active)
+}
+
+fn adoption_dormant(item: &ExtractedItem) -> bool {
+    adoption_from_extracted(&item.metadata_json)
+        .is_some_and(|a| a.activity_tier == ActivityTier::Dormant)
+}
+
 fn hype_without_substance(item: &ExtractedItem) -> bool {
     item.summary.as_deref().is_some_and(|s| {
         let t = lc(s);
@@ -231,6 +253,34 @@ pub static RULES_V1: &[Rule] = &[
         predicate: deep_stack_notes,
         reason: "Detailed stack / ops notes",
         risk: None,
+    },
+    Rule {
+        id: "adoption_popular",
+        weight: 3,
+        predicate: adoption_popular,
+        reason: "Strong GitHub adoption (1k+ stars)",
+        risk: None,
+    },
+    Rule {
+        id: "adoption_growing",
+        weight: 1,
+        predicate: adoption_growing,
+        reason: "Growing GitHub traction (100+ stars)",
+        risk: None,
+    },
+    Rule {
+        id: "adoption_active",
+        weight: 2,
+        predicate: adoption_active,
+        reason: "Recent upstream activity (push within 30d)",
+        risk: None,
+    },
+    Rule {
+        id: "adoption_dormant",
+        weight: -3,
+        predicate: adoption_dormant,
+        reason: "Stale upstream activity (>180d since push)",
+        risk: Some("stale_upstream"),
     },
     Rule {
         id: "saas_lockin",

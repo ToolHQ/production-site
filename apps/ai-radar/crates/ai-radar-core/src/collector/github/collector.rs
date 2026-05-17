@@ -130,6 +130,9 @@ impl GithubCollector {
                 "repo_id": repo_id,
                 "stargazers_count": data.get("stargazers_count"),
                 "forks_count": data.get("forks_count"),
+                "open_issues_count": data.get("open_issues_count"),
+                "license_spdx": data.get("license").and_then(|l| l.get("spdx_id")),
+                "pushed_at": data.get("pushed_at"),
             })),
             published_at: pushed_at,
         })
