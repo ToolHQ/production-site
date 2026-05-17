@@ -61,9 +61,9 @@ fi
 # ─── 4. Criar/Atualizar Buildx Builder 'hetzner-builder' ───────────────────────
 info "Configurando buildx builder '$BUILDER_NAME'..."
 if ! docker buildx inspect "$BUILDER_NAME" >/dev/null 2>&1; then
-    info "Criando builder '$BUILDER_NAME' com driver docker-container..."
-    docker buildx create --name "$BUILDER_NAME" --driver docker-container "$CONTEXT_NAME" >/dev/null
-    ok "Builder '$BUILDER_NAME' criado"
+    info "Criando builder '$BUILDER_NAME' com driver docker-container e rede host..."
+    docker buildx create --name "$BUILDER_NAME" --driver docker-container --driver-opt network=host "$CONTEXT_NAME" >/dev/null
+    ok "Builder '$BUILDER_NAME' criado com sucesso"
 else
     ok "Builder '$BUILDER_NAME' já registrado"
 fi
