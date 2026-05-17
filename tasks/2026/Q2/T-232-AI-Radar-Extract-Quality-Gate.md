@@ -1,6 +1,6 @@
 # T-232: AI Radar — Extract Quality Gate
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h

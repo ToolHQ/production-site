@@ -10,7 +10,6 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-|        [T-232](2026/Q2/T-232-AI-Radar-Extract-Quality-Gate.md)        | **AI Radar — Extract Quality Gate** _(score 0–100; reject &lt;40, warn 40–69)_ | 🔼 High | **Cursor / AI Radar** | 4h |
 
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -30,6 +29,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+|        [T-232](2026/Q2/T-232-AI-Radar-Extract-Quality-Gate.md)        | **AI Radar — Extract Quality Gate** _(score 0–100; reject &lt;40, warn 40–69)_ | 🔼 High | **Cursor / AI Radar** | 4h |
 |               [T-168](2026/Q2/T-168-AI-Radar-Comparator.md)               | **AI Radar — Comparator** _(comparação por categoria + Markdown)_                                                                                                                |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 | [T-223-Stabilization](2026/Q2/T-223-Coroot-Alerts-Remediation-and-Volume-Space-Stabilization.md) | **Coroot Alerts Remediation & Volume Space Stabilization** _(auditoria de 100+ alertas; filtro inteligente de ruído e warnings na API rs-observability; snapshot de volume MinIO prunado e estabilizado em 66%)_ | 🔼 High | **Antigravity** | 2h |
 | T-227 | **rs-observability-api — Longhorn volume health panel** _(endpoint /api/longhorn (Rust/Axum, CRD longhorn.io/v1beta2), StoragePanel Preact com tabela de volumes (state/robustness/capacidade/réplicas/nó), hook useStorageHealth (60s), RBAC estendido, dark-mode; PR #172)_ | 🔼 High | **Copilot/VSCode** | 2h |
