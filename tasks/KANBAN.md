@@ -22,9 +22,7 @@
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
-|        [T-226](2026/Q2/T-226-agent-meter-antigravity-integration.md)         | **agent-meter — Antigravity integration** _(CLI, env vars, hooks)_ | 🔼 High | **Antigravity** | 1h |
-|        [T-227](2026/Q2/T-227-agent-meter-copilot-integration.md)         | **agent-meter — Copilot/VSCode integration** _(CLI, env vars, MCP wrapper)_ | 🔼 High | **Copilot/VSCode** | 1h |
-|        [T-228](2026/Q2/T-228-agent-meter-cursor-integration.md)         | **agent-meter — Cursor integration** _(CLI, env vars, MCP wrapper)_ | 🔼 High | **Cursor / AI Radar** | 1h |
+
 |        [T-229](2026/Q2/T-229-agent-meter-dashboard-ui.md)         | **agent-meter — Dashboard UI** _(Vite+Preact, filtros, sparklines, OTEL viz)_ | 🔼 High | **OpenCode** | 3h |
 
 ## ✅ Done
@@ -39,6 +37,9 @@
 | T-224 | **rs-observability-api — Coroot no health score** _(boardLabel() e nextActionText() consideram incidentes SLO Coroot; SignalCard com corootAlerts/corootIncidents; PR #167)_ | 🔼 High | **Copilot/VSCode** | 1h |
 | T-223 | **ServiceCard Coroot alert badges + SignalGrid expandido** _(badge 🔴/🟡 por serviço, dot SLO animado, link Coroot, SignalGrid 6 mini-cards; PR #165)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | T-217 | **Coroot Incidents Panel + Alert grouping** _(CorootIncidentsPanel, alerts grouped by rule_name, ?limit=200; PR #161)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| T-226 | **agent-meter — Antigravity integration** _(universal setup-agent.sh, skill reutilizável, env vars, hooks CLI)_ | 🔼 High | **OpenCode** | 1h |
+| T-227 | **agent-meter — Copilot/VSCode integration** _(universal setup-agent.sh, MCP wrapper, skill, env vars)_ | 🔼 High | **OpenCode** | 1h |
+| T-228 | **agent-meter — Cursor integration** _(universal setup-agent.sh, MCP wrapper, skill, env vars)_ | 🔼 High | **OpenCode** | 1h |
 | T-222 | **agent-meter — Collector MVP + CLI + Hetzner builder + MCP proxy** _(apps/agent-meter/ Rust/Axum, dashboard UI, task routes, deploy ARM64 via Hetzner, Rust 1.88, CLI com task/event/report, MCP wrapper proxy com ferramentas de medição, build 4min vs 10min no master)_ | 🔼 High | **OpenCode** | 6h |
 |            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |            [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md)            | **AI Radar — GitHub Collector**                                                                                                                                                  |   🔽 Low    | **Cursor / AI Radar**     |  1d  |

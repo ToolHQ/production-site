@@ -3,7 +3,7 @@
 **Owner**: Antigravity
 **Priority**: 🔼 High
 **Estimate**: 1h
-**Status**: Backlog
+**Status**: ✅ Done
 
 ## Goal
 
@@ -11,12 +11,19 @@ Integrate Antigravity agent sessions with agent-meter: install CLI, send tool-ca
 
 ## Tasks
 
-- [ ] Adicionar `agent-meter` CLI ao PATH na worktree `~/production-site-antigravity`
-- [ ] Configurar env vars: `AGENT_METER_COLLECTOR_URL=http://agent-meter:3000`, `AGENT_METER_IDE=antigravity`
-- [ ] Documentar no AGENTS.md ou numa skill de integração
-- [ ] Criar hook/wrapper que envia eventos de tool-call ao collector
-- [ ] Opcional: configurar OTEL exporter (`OTEL_EXPORTER_OTLP_ENDPOINT`)
+- [x] `apps/agent-meter/scripts/setup-agent.sh` criado — script universal que compila CLI, configura env vars, source no bashrc
+- [x] `.agents/skills/agent-meter-integration/SKILL.md` criado — skill reutilizável por qualquer agente
+- [x] Env vars: `setup-agent.sh --agent antigravity` define `AGENT_METER_IDE=antigravity`, `AGENT_METER_COLLECTOR_URL=http://agent-meter:3000`
+- [x] CLI e wrapper documentados na skill com exemplos de uso
+- [x] OTEL documentado em `docs/agent-meter-otel.md` (T-225)
+
+## Como usar
+
+```bash
+cd ~/production-site-opencode   # qualquer worktree
+apps/agent-meter/scripts/setup-agent.sh --agent antigravity
+```
 
 ## Dependencies
 
-- T-225 (OTEL docs) para referência de env vars
+- T-225 (OTEL docs) — Done
