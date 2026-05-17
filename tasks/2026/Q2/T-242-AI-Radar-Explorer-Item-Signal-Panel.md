@@ -1,6 +1,6 @@
 # T-242: AI Radar — Explorer Item Signal Panel
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h

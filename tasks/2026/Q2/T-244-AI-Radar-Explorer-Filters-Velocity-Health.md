@@ -1,6 +1,6 @@
 # T-244: AI Radar — Explorer Filters Velocity & Health
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
