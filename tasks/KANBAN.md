@@ -36,6 +36,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-253](2026/Q2/T-253-Kubecost-Reuse-Coroot-Prometheus-to-reclaim-cluster-resources.md) | **Kubecost — Reuse Coroot Prometheus to reclaim cluster resources** | 🔼 High | Antigravity | 2h |
 | [T-246](2026/Q2/T-246-AI-Radar-Digest-Rising-Stars-API-Metadata.md) | **AI Radar — Digest Rising Stars API Metadata** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-245](2026/Q2/T-245-AI-Radar-Compare-Deep-Link-Category-UX.md) | **AI Radar — Compare Deep-Link & Category UX** | 🔽 Low | Cursor / AI Radar | 2h |
 | [T-244](2026/Q2/T-244-AI-Radar-Explorer-Filters-Velocity-Health.md) | **AI Radar — Explorer Filters Velocity & Health** | 🔼 High | Cursor / AI Radar | 4h |
