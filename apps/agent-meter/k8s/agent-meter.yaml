@@ -55,3 +55,28 @@ spec:
     - port: 3000
       targetPort: 3000
   type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agent-meter-ingress
+  namespace: default
+  annotations:
+    cert-manager.io/cluster-issuer: dnor-ca-issuer
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - agent-meter.dnor.io
+      secretName: agent-meter-tls
+  rules:
+    - host: agent-meter.dnor.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agent-meter
+                port:
+                  number: 3000
