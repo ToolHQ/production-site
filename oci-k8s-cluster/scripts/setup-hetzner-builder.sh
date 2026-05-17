@@ -18,16 +18,23 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+SILENT=false
+for arg in "$@"; do
+    if [ "$arg" = "--silent" ] || [ "$arg" = "-q" ]; then
+        SILENT=true
+    fi
+done
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-info()    { echo -e "${CYAN}[setup-hetzner]${NC} $*"; }
-ok()      { echo -e "${GREEN}[     ok      ]${NC} $*"; }
-warn()    { echo -e "${YELLOW}[    warn     ]${NC} $*"; }
-fail()    { echo -e "${RED}[    fail     ]${NC} $*"; exit 1; }
+info()    { [ "$SILENT" = "true" ] || echo -e "${CYAN}[setup-hetzner]${NC} $*"; }
+ok()      { [ "$SILENT" = "true" ] || echo -e "${GREEN}[     ok      ]${NC} $*"; }
+warn()    { [ "$SILENT" = "true" ] || echo -e "${YELLOW}[    warn     ]${NC} $*"; }
+fail()    { echo -e "${RED}[    fail     ]${NC} $*" >&2; exit 1; }
 
 HETZNER_HOST="hetzner-cax21-helsinki-4vcpu-8gb-ipv4"
 CONTEXT_NAME="hetzner"
@@ -47,6 +54,15 @@ if [ "$DOCKER_ACTIVE" != "active" ]; then
     fail "O serviço Docker está inativo ou ausente na VM Hetzner. Ative-o antes de prosseguir."
 fi
 ok "Docker daemon ativo na VM"
+
+# ─── Lock de Exclusão Mútua para Segurança de Concorrência ───────────────────
+# T-222: Evita condições de corrida quando múltiplos agentes ou aplicações
+# rodam o setup simultaneamente.
+LOCK_FILE="/tmp/setup-hetzner-builder.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -w 30 -x 9; then
+    fail "Não foi possível obter exclusão mútua no setup (timeout de 30s)."
+fi
 
 # ─── 3. Criar Docker Context se não existir ────────────────────────────────────
 info "Verificando Docker Context local..."
@@ -78,31 +94,36 @@ else
     ok "BuildKit já está rodando ativamente na VM Hetzner"
 fi
 
+# Libera o lock de exclusão mútua
+exec 9>&-
+
 # ─── 6. Status final ──────────────────────────────────────────────────────────
-echo ""
-echo "╔══════════════════════════════════════════════════╗"
-echo "║      Hetzner High-Performance Remote Builder     ║"
-echo "╠══════════════════════════════════════════════════╣"
+if [ "$SILENT" = "false" ]; then
+    echo ""
+    echo "╔══════════════════════════════════════════════════╗"
+    echo "║      Hetzner High-Performance Remote Builder     ║"
+    echo "╠══════════════════════════════════════════════════╣"
 
-# Context
-printf "║  %-20s  %-25s ║\n" "Docker Context" "$CONTEXT_NAME (ssh://$HETZNER_HOST)"
+    # Context
+    printf "║  %-20s  %-25s ║\n" "Docker Context" "$CONTEXT_NAME (ssh://$HETZNER_HOST)"
 
-# Builder Status
-BUILDER_STATUS="$(docker buildx inspect "$BUILDER_NAME" 2>/dev/null | grep -o 'Status:.*' | head -1 | awk '{print $2}' || echo 'Inativo')"
-printf "║  %-20s  %-25s ║\n" "Buildx Builder" "$BUILDER_NAME ($BUILDER_STATUS)"
+    # Builder Status
+    BUILDER_STATUS="$(docker buildx inspect "$BUILDER_NAME" 2>/dev/null | grep -o 'Status:.*' | head -1 | awk '{print $2}' || echo 'Inativo')"
+    printf "║  %-20s  %-25s ║\n" "Buildx Builder" "$BUILDER_NAME ($BUILDER_STATUS)"
 
-# HW Specs da Hetzner
-CORES=$(ssh "$HETZNER_HOST" "nproc" 2>/dev/null || echo "?")
-RAM=$(ssh "$HETZNER_HOST" "free -h | grep Mem: | awk '{print \$2}'" 2>/dev/null || echo "?")
-printf "║  %-20s  %-25s ║\n" "Hardware Hetzner" "$CORES Cores / $RAM RAM"
+    # HW Specs da Hetzner
+    CORES=$(ssh "$HETZNER_HOST" "nproc" 2>/dev/null || echo "?")
+    RAM=$(ssh "$HETZNER_HOST" "free -h | grep Mem: | awk '{print \$2}'" 2>/dev/null || echo "?")
+    printf "║  %-20s  %-25s ║\n" "Hardware Hetzner" "$CORES Cores / $RAM RAM"
 
-echo "╠══════════════════════════════════════════════════╣"
-echo "║  Como construir imagens de forma super-leve:    ║"
-echo "║                                                  ║"
-echo "║  1. Use o --builder hetzner-builder e --load    ║"
-echo "║     para trazer apenas o binário final ao WSL    ║"
-echo "║                                                  ║"
-echo "║  2. Em seguida, envie para o registro local      ║"
-echo "║     sem tráfego pesado de cache.                 ║"
-echo "╚══════════════════════════════════════════════════╝"
-echo ""
+    echo "╠══════════════════════════════════════════════════╣"
+    echo "║  Como construir imagens de forma super-leve:    ║"
+    echo "║                                                  ║"
+    echo "║  1. Use o --builder hetzner-builder e --load    ║"
+    echo "║     para trazer apenas o binário final ao WSL    ║"
+    echo "║                                                  ║"
+    echo "║  2. Em seguida, envie para o registro local      ║"
+    echo "║     sem tráfego pesado de cache.                 ║"
+    echo "╚══════════════════════════════════════════════════╝"
+    echo ""
+fi
