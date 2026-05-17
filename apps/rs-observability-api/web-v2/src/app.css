@@ -445,41 +445,32 @@
 
 .node-cell-tooltip-card {
   display: none;
-  position: absolute;
-  bottom: calc(100% + 12px);
-  left: 50%;
-  transform: translateX(-50%);
   width: 260px;
   padding: 1rem;
-  background: #ffffff; /* Gorgeous solid white for perfect readability */
-  border: 1px solid rgba(22, 32, 43, 0.3); /* Even higher-contrast border */
+  background: #ffffff;
+  border: 1px solid rgba(22, 32, 43, 0.3);
   border-radius: 12px;
-  box-shadow: 0 12px 36px rgba(22, 32, 43, 0.25); /* Defined, elegant shadow */
-  z-index: 100000 !important;
+  box-shadow: 0 12px 36px rgba(22, 32, 43, 0.25);
+  z-index: 100000;
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  font-family: "Inter", "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif !important;
+  animation: tooltipFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: "Inter", "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
 }
 
-/* Pequena setinha apontando para baixo */
+/* Setinha apontando para CIMA (card abaixo da célula) */
 .node-cell-tooltip-card::after {
   content: '';
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   border-width: 6px;
   border-style: solid;
-  border-color: #ffffff transparent transparent transparent; /* Matches solid white card */
+  border-color: transparent transparent #ffffff transparent;
 }
 
 .node-cell-tooltip-container:hover {
   z-index: 99999;
-}
-
-.node-cell-tooltip-container:hover .node-cell-tooltip-card {
-  display: block;
-  animation: tooltipFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes tooltipFadeIn {

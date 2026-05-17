@@ -1,3 +1,5 @@
+import type { ComponentChildren } from 'preact';
+import { useState, useRef, useCallback } from 'preact/hooks';
 import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
 
@@ -16,6 +18,42 @@ function fmtCpu(millicores: number): string {
   return millicores >= 1000
     ? `${(millicores / 1000).toFixed(2)} vCPU`
     : `${millicores}m`;
+}
+
+// ────────────────────────────────────────────────────────────
+// TooltipWrapper — fixed-position hover card (immune to overflow clipping)
+// ────────────────────────────────────────────────────────────
+
+interface TooltipWrapperProps {
+  trigger: ComponentChildren;
+  card: ComponentChildren;
+}
+
+function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const show = useCallback(() => {
+    if (!ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    setPos({ top: r.bottom + 8, left: r.left + r.width / 2 });
+  }, []);
+
+  const hide = useCallback(() => setPos(null), []);
+
+  return (
+    <div ref={ref} class="node-cell-tooltip-container" onMouseEnter={show} onMouseLeave={hide}>
+      {trigger}
+      {pos !== null && (
+        <div
+          class="node-cell-tooltip-card"
+          style={`position:fixed;top:${pos.top}px;left:${pos.left}px;transform:translateX(-50%);display:block;`}
+        >
+          {card}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ────────────────────────────────────────────────────────────
@@ -76,134 +114,152 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
 
   // 1. CPU cell with interactive tooltip card & sparkline
   const cpuCell = metrics ? (
-    <div class="node-cell-tooltip-container">
-      <MiniBar
-        percent={metrics.cpu_percent}
-        label={`${metrics.cpu_percent.toFixed(0)}%`}
-        sub={`${(metrics.cpu_percent / 100).toFixed(2)} vCPU used`}
-      />
-      <div class="node-cell-tooltip-card">
-        <div class="tooltip-title">{node.name} · CPU</div>
-        <div class="tooltip-stat">
-          <span class="tooltip-val">{metrics.cpu_percent.toFixed(1)}%</span>
-          <span class="tooltip-label">utilization</span>
-        </div>
-        <div class="tooltip-detail">
-          <strong>Absolute Value:</strong>
-          <span>{fmtCpu((metrics.cpu_percent / 100) * node.cpu_millicores)} used of {fmtCpu(node.cpu_millicores)} allocated</span>
-        </div>
-        {history && history.cpu.length >= 1 && (
-          <div class="tooltip-history">
-            <div class="tooltip-history-title">Recent History (5m window)</div>
-            <div class="tooltip-history-chart">
-              <MetricSparkline points={history.cpu} color="#4c9be8" width={180} height={40} />
-            </div>
+    <TooltipWrapper
+      trigger={
+        <MiniBar
+          percent={metrics.cpu_percent}
+          label={`${metrics.cpu_percent.toFixed(0)}%`}
+          sub={`${(metrics.cpu_percent / 100).toFixed(2)} vCPU used`}
+        />
+      }
+      card={
+        <>
+          <div class="tooltip-title">{node.name} · CPU</div>
+          <div class="tooltip-stat">
+            <span class="tooltip-val">{metrics.cpu_percent.toFixed(1)}%</span>
+            <span class="tooltip-label">utilization</span>
           </div>
-        )}
-      </div>
-    </div>
+          <div class="tooltip-detail">
+            <strong>Absolute Value:</strong>
+            <span>{fmtCpu((metrics.cpu_percent / 100) * node.cpu_millicores)} used of {fmtCpu(node.cpu_millicores)} allocated</span>
+          </div>
+          {history && history.cpu.length >= 1 && (
+            <div class="tooltip-history">
+              <div class="tooltip-history-title">Recent History (5m window)</div>
+              <div class="tooltip-history-chart">
+                <MetricSparkline points={history.cpu} color="#4c9be8" width={180} height={40} />
+              </div>
+            </div>
+          )}
+        </>
+      }
+    />
   ) : (
-    <div class="node-cell-tooltip-container">
-      <span class="node-metric-alloc">{fmtCpu(node.cpu_millicores)}</span>
-      <div class="node-cell-tooltip-card">
-        <div class="tooltip-title">{node.name} · CPU (Allocated)</div>
-        <div class="tooltip-detail">
-          <strong>Capacity:</strong>
-          <span>{fmtCpu(node.cpu_millicores)} allocated</span>
-        </div>
-        <div class="tooltip-note">
-          Excluded from host-level Prometheus metrics to prioritize resource conservation.
-        </div>
-      </div>
-    </div>
+    <TooltipWrapper
+      trigger={<span class="node-metric-alloc">{fmtCpu(node.cpu_millicores)}</span>}
+      card={
+        <>
+          <div class="tooltip-title">{node.name} · CPU (Allocated)</div>
+          <div class="tooltip-detail">
+            <strong>Capacity:</strong>
+            <span>{fmtCpu(node.cpu_millicores)} allocated</span>
+          </div>
+          <div class="tooltip-note">
+            Excluded from host-level Prometheus metrics to prioritize resource conservation.
+          </div>
+        </>
+      }
+    />
   );
 
   // 2. Memory cell with interactive tooltip card & sparkline
   const memCell = metrics ? (
-    <div class="node-cell-tooltip-container">
-      <MiniBar
-        percent={metrics.mem_percent}
-        label={`${metrics.mem_percent.toFixed(0)}%`}
-        sub={`${fmtGiB(metrics.mem_used_bytes)} / ${fmtGiB(metrics.mem_total_bytes)}`}
-      />
-      <div class="node-cell-tooltip-card">
-        <div class="tooltip-title">{node.name} · Memory</div>
-        <div class="tooltip-stat">
-          <span class="tooltip-val">{metrics.mem_percent.toFixed(1)}%</span>
-          <span class="tooltip-label">utilization</span>
-        </div>
-        <div class="tooltip-detail">
-          <strong>Absolute Value:</strong>
-          <span>{fmtGiB(metrics.mem_used_bytes)} used of {fmtGiB(metrics.mem_total_bytes)} total</span>
-        </div>
-        {history && history.mem.length >= 1 && (
-          <div class="tooltip-history">
-            <div class="tooltip-history-title">Recent History (5m window)</div>
-            <div class="tooltip-history-chart">
-              <MetricSparkline points={history.mem} color="#2ecc71" width={180} height={40} />
-            </div>
+    <TooltipWrapper
+      trigger={
+        <MiniBar
+          percent={metrics.mem_percent}
+          label={`${metrics.mem_percent.toFixed(0)}%`}
+          sub={`${fmtGiB(metrics.mem_used_bytes)} / ${fmtGiB(metrics.mem_total_bytes)}`}
+        />
+      }
+      card={
+        <>
+          <div class="tooltip-title">{node.name} · Memory</div>
+          <div class="tooltip-stat">
+            <span class="tooltip-val">{metrics.mem_percent.toFixed(1)}%</span>
+            <span class="tooltip-label">utilization</span>
           </div>
-        )}
-      </div>
-    </div>
+          <div class="tooltip-detail">
+            <strong>Absolute Value:</strong>
+            <span>{fmtGiB(metrics.mem_used_bytes)} used of {fmtGiB(metrics.mem_total_bytes)} total</span>
+          </div>
+          {history && history.mem.length >= 1 && (
+            <div class="tooltip-history">
+              <div class="tooltip-history-title">Recent History (5m window)</div>
+              <div class="tooltip-history-chart">
+                <MetricSparkline points={history.mem} color="#2ecc71" width={180} height={40} />
+              </div>
+            </div>
+          )}
+        </>
+      }
+    />
   ) : (
-    <div class="node-cell-tooltip-container">
-      <span class="node-metric-alloc">{fmtGiB(node.memory_bytes)}</span>
-      <div class="node-cell-tooltip-card">
-        <div class="tooltip-title">{node.name} · Memory (Allocated)</div>
-        <div class="tooltip-detail">
-          <strong>Capacity:</strong>
-          <span>{fmtGiB(node.memory_bytes)} allocated</span>
-        </div>
-        <div class="tooltip-note">
-          Excluded from host-level Prometheus metrics to prioritize resource conservation.
-        </div>
-      </div>
-    </div>
+    <TooltipWrapper
+      trigger={<span class="node-metric-alloc">{fmtGiB(node.memory_bytes)}</span>}
+      card={
+        <>
+          <div class="tooltip-title">{node.name} · Memory (Allocated)</div>
+          <div class="tooltip-detail">
+            <strong>Capacity:</strong>
+            <span>{fmtGiB(node.memory_bytes)} allocated</span>
+          </div>
+          <div class="tooltip-note">
+            Excluded from host-level Prometheus metrics to prioritize resource conservation.
+          </div>
+        </>
+      }
+    />
   );
 
   // 3. Disk cell with interactive tooltip card & sparkline
   const diskCell = metrics ? (
-    <div class="node-cell-tooltip-container">
-      <MiniBar
-        percent={metrics.disk_percent}
-        label={`${metrics.disk_percent.toFixed(0)}%`}
-        sub={`${fmtGiB(metrics.disk_used_bytes)} / ${fmtGiB(metrics.disk_total_bytes)}`}
-      />
-      <div class="node-cell-tooltip-card">
-        <div class="tooltip-title">{node.name} · Disk</div>
-        <div class="tooltip-stat">
-          <span class="tooltip-val">{metrics.disk_percent.toFixed(1)}%</span>
-          <span class="tooltip-label">utilization</span>
-        </div>
-        <div class="tooltip-detail">
-          <strong>Absolute Value:</strong>
-          <span>{fmtGiB(metrics.disk_used_bytes)} used of {fmtGiB(metrics.disk_total_bytes)} total</span>
-        </div>
-        {history && history.disk.length >= 1 && (
-          <div class="tooltip-history">
-            <div class="tooltip-history-title">Recent History (5m window)</div>
-            <div class="tooltip-history-chart">
-              <MetricSparkline points={history.disk} color="#e67e22" width={180} height={40} />
-            </div>
+    <TooltipWrapper
+      trigger={
+        <MiniBar
+          percent={metrics.disk_percent}
+          label={`${metrics.disk_percent.toFixed(0)}%`}
+          sub={`${fmtGiB(metrics.disk_used_bytes)} / ${fmtGiB(metrics.disk_total_bytes)}`}
+        />
+      }
+      card={
+        <>
+          <div class="tooltip-title">{node.name} · Disk</div>
+          <div class="tooltip-stat">
+            <span class="tooltip-val">{metrics.disk_percent.toFixed(1)}%</span>
+            <span class="tooltip-label">utilization</span>
           </div>
-        )}
-      </div>
-    </div>
+          <div class="tooltip-detail">
+            <strong>Absolute Value:</strong>
+            <span>{fmtGiB(metrics.disk_used_bytes)} used of {fmtGiB(metrics.disk_total_bytes)} total</span>
+          </div>
+          {history && history.disk.length >= 1 && (
+            <div class="tooltip-history">
+              <div class="tooltip-history-title">Recent History (5m window)</div>
+              <div class="tooltip-history-chart">
+                <MetricSparkline points={history.disk} color="#e67e22" width={180} height={40} />
+              </div>
+            </div>
+          )}
+        </>
+      }
+    />
   ) : (
-    <div class="node-cell-tooltip-container">
-      <span class="node-metric-alloc">{fmtGiB(node.ephemeral_storage_bytes)}</span>
-      <div class="node-cell-tooltip-card">
-        <div class="tooltip-title">{node.name} · Disk (Allocated)</div>
-        <div class="tooltip-detail">
-          <strong>Capacity:</strong>
-          <span>{fmtGiB(node.ephemeral_storage_bytes)} allocated</span>
-        </div>
-        <div class="tooltip-note">
-          Excluded from host-level Prometheus metrics to prioritize resource conservation.
-        </div>
-      </div>
-    </div>
+    <TooltipWrapper
+      trigger={<span class="node-metric-alloc">{fmtGiB(node.ephemeral_storage_bytes)}</span>}
+      card={
+        <>
+          <div class="tooltip-title">{node.name} · Disk (Allocated)</div>
+          <div class="tooltip-detail">
+            <strong>Capacity:</strong>
+            <span>{fmtGiB(node.ephemeral_storage_bytes)} allocated</span>
+          </div>
+          <div class="tooltip-note">
+            Excluded from host-level Prometheus metrics to prioritize resource conservation.
+          </div>
+        </>
+      }
+    />
   );
 
   return (
