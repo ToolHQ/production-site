@@ -172,3 +172,22 @@ export interface Artifact {
 export interface ReportsData {
   artifacts: Artifact[];
 }
+
+// Tipos para /api/coroot-alerts
+
+export interface CorootAlert {
+  name: string;
+  severity: string;
+  instance: string;
+  namespace?: string;
+  node?: string;
+  job?: string;
+  timestamp: number;
+}
+
+export interface CorootAlertsData {
+  available: boolean;
+  alerts: CorootAlert[];
+  queried_at_epoch: number;
+  error?: string;
+}

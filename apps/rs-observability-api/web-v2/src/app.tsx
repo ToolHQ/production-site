@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { useLiveOverview } from './hooks/useLiveOverview';
 import { useSnapshot } from './hooks/useSnapshot';
 import { useTheme } from './hooks/useTheme';
+import { useCorootAlerts } from './hooks/useCorootAlerts';
 
 import { DashboardHeader } from './components/DashboardHeader';
 import { SignalCard, SignalGrid } from './components/SignalCard';
@@ -14,6 +15,7 @@ import { TelemetryGrid } from './components/TelemetryCard';
 import { RuntimeSummary, CatalogSummary } from './components/SummaryGrid';
 import { LanguageBars } from './components/LanguageBars';
 import { CatalogTable, ArtifactList } from './components/CatalogTable';
+import { CorootAlertsPanel } from './components/CorootAlertsPanel';
 
 import {
   formatEpoch,
@@ -53,6 +55,7 @@ export function App() {
 
   const { data: live, error: liveError } = useLiveOverview();
   const { summary, catalog, reports, error: snapshotError } = useSnapshot();
+  const { data: corootAlerts, error: corootError, lastFetchAt: corootFetchAt } = useCorootAlerts();
 
   // Histórico acumulado de métricas de nós (para os sparklines do hover card)
   const [nodeHistory, setNodeHistory] = useState<Record<
@@ -257,6 +260,12 @@ export function App() {
 
           {/* Rail */}
           <aside class="rail-stack">
+            <CorootAlertsPanel
+              data={corootAlerts}
+              error={corootError}
+              lastFetchAt={corootFetchAt}
+            />
+
             <section class="panel">
               <div class="section-head">
                 <div>
