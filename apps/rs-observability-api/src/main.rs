@@ -252,6 +252,76 @@ struct LonghornVolumeStatus {
     actual_size: u64,
 }
 
+// --- Inventory: Workloads (Deployments, StatefulSets, DaemonSets) ---
+
+#[derive(Serialize, Clone)]
+pub(crate) struct WorkloadInfo {
+    name: String,
+    namespace: String,
+    kind: String,
+    replicas_desired: i32,
+    replicas_ready: i32,
+    replicas_available: i32,
+    image: String,
+    status: String, // "healthy" | "degraded" | "down"
+}
+
+#[derive(Serialize, Clone)]
+pub(crate) struct WorkloadsResponse {
+    available: bool,
+    workloads: Vec<WorkloadInfo>,
+    total: usize,
+    healthy: usize,
+    degraded: usize,
+    down: usize,
+    queried_at_epoch: u64,
+    error: Option<String>,
+}
+
+// --- Inventory: Namespace Quotas ---
+
+#[derive(Serialize, Clone)]
+pub(crate) struct NamespaceQuota {
+    name: String,
+    cpu_request_used: String,
+    cpu_request_limit: String,
+    cpu_limit_used: String,
+    cpu_limit_limit: String,
+    mem_request_used: String,
+    mem_request_limit: String,
+    mem_limit_used: String,
+    mem_limit_limit: String,
+    pods_used: u32,
+    pods_limit: u32,
+    cpu_pressure_pct: f64,
+    mem_pressure_pct: f64,
+}
+
+#[derive(Serialize, Clone)]
+pub(crate) struct NamespacesResponse {
+    available: bool,
+    namespaces: Vec<NamespaceQuota>,
+    total: usize,
+    over_pressure: usize,
+    queried_at_epoch: u64,
+    error: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct ResourceQuotaResource {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    status: Option<ResourceQuotaStatus>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct ResourceQuotaStatus {
+    #[serde(default)]
+    hard: BTreeMap<String, String>,
+    #[serde(default)]
+    used: BTreeMap<String, String>,
+}
+
 // --- Inventory: CronJobs ---
 
 #[derive(Serialize, Clone)]
@@ -954,6 +1024,24 @@ struct LabelSelector {
 struct WorkloadSpec {
     selector: Option<LabelSelector>,
     replicas: Option<i32>,
+    template: Option<PodTemplateSpec>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct PodTemplateSpec {
+    spec: Option<PodTemplateContainerSpec>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct PodTemplateContainerSpec {
+    #[serde(default)]
+    containers: Vec<ContainerSpec>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct ContainerSpec {
+    #[serde(default)]
+    image: String,
 }
 
 #[derive(Deserialize, Clone, Default)]
@@ -1001,6 +1089,7 @@ struct DaemonSetResource {
 #[derive(Deserialize, Clone, Default)]
 struct DaemonSetSpec {
     selector: Option<LabelSelector>,
+    template: Option<PodTemplateSpec>,
 }
 
 #[derive(Deserialize, Clone, Default)]
@@ -1466,6 +1555,273 @@ impl LiveMonitor {
             faulted,
             queried_at_epoch: now,
             error: None,
+        }
+    }
+
+    pub(crate) async fn fetch_workloads(&self) -> WorkloadsResponse {
+        let now = unix_epoch_seconds();
+        let (dep_result, sts_result, ds_result) = tokio::join!(
+            self.fetch_json::<KubeList<DeploymentResource>>("/apis/apps/v1/deployments"),
+            self.fetch_json::<KubeList<StatefulSetResource>>("/apis/apps/v1/statefulsets"),
+            self.fetch_json::<KubeList<DaemonSetResource>>("/apis/apps/v1/daemonsets")
+        );
+
+        let mut workloads: Vec<WorkloadInfo> = vec![];
+
+        fn first_image(tmpl: Option<&PodTemplateSpec>) -> String {
+            tmpl.and_then(|t| t.spec.as_ref())
+                .and_then(|s| s.containers.first())
+                .map(|c| {
+                    let img = c.image.as_str();
+                    if let Some(pos) = img.rfind('/') {
+                        img[pos + 1..].to_string()
+                    } else {
+                        img.to_string()
+                    }
+                })
+                .unwrap_or_default()
+        }
+
+        fn workload_status(desired: i32, ready: i32) -> &'static str {
+            if desired == 0 {
+                "down"
+            } else if ready >= desired {
+                "healthy"
+            } else if ready > 0 {
+                "degraded"
+            } else {
+                "down"
+            }
+        }
+
+        if let Ok(list) = dep_result {
+            for d in list.items {
+                let spec = d.spec.unwrap_or_default();
+                let status = d.status.unwrap_or_default();
+                let desired = spec.replicas.unwrap_or(0);
+                let ready = status.ready_replicas.unwrap_or(0);
+                let available = status.available_replicas.unwrap_or(0);
+                let st = workload_status(desired, ready);
+                workloads.push(WorkloadInfo {
+                    name: d.metadata.name.unwrap_or_default(),
+                    namespace: d.metadata.namespace.unwrap_or_default(),
+                    kind: "Deployment".to_string(),
+                    replicas_desired: desired,
+                    replicas_ready: ready,
+                    replicas_available: available,
+                    image: first_image(spec.template.as_ref()),
+                    status: st.to_string(),
+                });
+            }
+        }
+
+        if let Ok(list) = sts_result {
+            for s in list.items {
+                let spec = s.spec.unwrap_or_default();
+                let status = s.status.unwrap_or_default();
+                let desired = spec.replicas.unwrap_or(0);
+                let ready = status.ready_replicas.unwrap_or(0);
+                let available = status.current_replicas.unwrap_or(0);
+                let st = workload_status(desired, ready);
+                workloads.push(WorkloadInfo {
+                    name: s.metadata.name.unwrap_or_default(),
+                    namespace: s.metadata.namespace.unwrap_or_default(),
+                    kind: "StatefulSet".to_string(),
+                    replicas_desired: desired,
+                    replicas_ready: ready,
+                    replicas_available: available,
+                    image: first_image(spec.template.as_ref()),
+                    status: st.to_string(),
+                });
+            }
+        }
+
+        if let Ok(list) = ds_result {
+            for d in list.items {
+                let spec = d.spec.unwrap_or_default();
+                let status = d.status.unwrap_or_default();
+                let desired = status.desired_number_scheduled.unwrap_or(0);
+                let ready = status.number_ready.unwrap_or(0);
+                let available = status.number_available.unwrap_or(0);
+                let st = workload_status(desired, ready);
+                workloads.push(WorkloadInfo {
+                    name: d.metadata.name.unwrap_or_default(),
+                    namespace: d.metadata.namespace.unwrap_or_default(),
+                    kind: "DaemonSet".to_string(),
+                    replicas_desired: desired,
+                    replicas_ready: ready,
+                    replicas_available: available,
+                    image: first_image(spec.template.as_ref()),
+                    status: st.to_string(),
+                });
+            }
+        }
+
+        workloads.sort_by(|a, b| {
+            let rank = |s: &str| match s {
+                "down" => 0,
+                "degraded" => 1,
+                _ => 2,
+            };
+            rank(&a.status)
+                .cmp(&rank(&b.status))
+                .then(a.namespace.cmp(&b.namespace))
+                .then(a.name.cmp(&b.name))
+        });
+
+        let total = workloads.len();
+        let healthy = workloads.iter().filter(|w| w.status == "healthy").count();
+        let degraded = workloads.iter().filter(|w| w.status == "degraded").count();
+        let down = workloads.iter().filter(|w| w.status == "down").count();
+
+        WorkloadsResponse {
+            available: true,
+            workloads,
+            total,
+            healthy,
+            degraded,
+            down,
+            queried_at_epoch: now,
+            error: None,
+        }
+    }
+
+    pub(crate) async fn fetch_namespaces(&self) -> NamespacesResponse {
+        let now = unix_epoch_seconds();
+        match self
+            .fetch_json::<KubeList<ResourceQuotaResource>>("/api/v1/resourcequotas")
+            .await
+        {
+            Err(e) => NamespacesResponse {
+                available: false,
+                namespaces: vec![],
+                total: 0,
+                over_pressure: 0,
+                queried_at_epoch: now,
+                error: Some(e),
+            },
+            Ok(list) => {
+                // Group by namespace (take first quota per namespace)
+                let mut ns_map: HashMap<String, ResourceQuotaStatus> = HashMap::new();
+                for rq in list.items {
+                    let ns = rq.metadata.namespace.unwrap_or_default();
+                    if !ns_map.contains_key(&ns) {
+                        if let Some(s) = rq.status {
+                            ns_map.insert(ns, s);
+                        }
+                    }
+                }
+
+                fn get_q(map: &std::collections::BTreeMap<String, String>, key: &str) -> String {
+                    map.get(key).cloned().unwrap_or_else(|| "—".to_string())
+                }
+
+                // Convert resource strings like "500m", "2", "512Mi", "1Gi" to f64 base units
+                fn parse_cpu(s: &str) -> f64 {
+                    if s == "—" || s.is_empty() {
+                        return 0.0;
+                    }
+                    if let Some(m) = s.strip_suffix('m') {
+                        m.parse::<f64>().unwrap_or(0.0) / 1000.0
+                    } else {
+                        s.parse::<f64>().unwrap_or(0.0)
+                    }
+                }
+
+                fn parse_mem_bytes(s: &str) -> f64 {
+                    if s == "—" || s.is_empty() {
+                        return 0.0;
+                    }
+                    if let Some(v) = s.strip_suffix("Ki") {
+                        return v.parse::<f64>().unwrap_or(0.0) * 1024.0;
+                    }
+                    if let Some(v) = s.strip_suffix("Mi") {
+                        return v.parse::<f64>().unwrap_or(0.0) * 1024.0 * 1024.0;
+                    }
+                    if let Some(v) = s.strip_suffix("Gi") {
+                        return v.parse::<f64>().unwrap_or(0.0) * 1024.0 * 1024.0 * 1024.0;
+                    }
+                    s.parse::<f64>().unwrap_or(0.0)
+                }
+
+                let mut namespaces: Vec<NamespaceQuota> = ns_map
+                    .into_iter()
+                    .map(|(ns, status)| {
+                        let h = &status.hard;
+                        let u = &status.used;
+
+                        let cpu_lim_hard = get_q(h, "limits.cpu");
+                        let cpu_lim_used = get_q(u, "limits.cpu");
+                        let mem_lim_hard = get_q(h, "limits.memory");
+                        let mem_lim_used = get_q(u, "limits.memory");
+
+                        let cpu_pct = if cpu_lim_hard != "—" {
+                            let hard = parse_cpu(&cpu_lim_hard);
+                            let used = parse_cpu(&cpu_lim_used);
+                            if hard > 0.0 {
+                                (used / hard * 100.0).min(100.0)
+                            } else {
+                                0.0
+                            }
+                        } else {
+                            0.0
+                        };
+
+                        let mem_pct = if mem_lim_hard != "—" {
+                            let hard = parse_mem_bytes(&mem_lim_hard);
+                            let used = parse_mem_bytes(&mem_lim_used);
+                            if hard > 0.0 {
+                                (used / hard * 100.0).min(100.0)
+                            } else {
+                                0.0
+                            }
+                        } else {
+                            0.0
+                        };
+
+                        let pods_limit = h.get("pods").and_then(|s| s.parse().ok()).unwrap_or(0u32);
+                        let pods_used = u.get("pods").and_then(|s| s.parse().ok()).unwrap_or(0u32);
+
+                        NamespaceQuota {
+                            name: ns,
+                            cpu_request_used: get_q(u, "requests.cpu"),
+                            cpu_request_limit: get_q(h, "requests.cpu"),
+                            cpu_limit_used: cpu_lim_used,
+                            cpu_limit_limit: cpu_lim_hard,
+                            mem_request_used: get_q(u, "requests.memory"),
+                            mem_request_limit: get_q(h, "requests.memory"),
+                            mem_limit_used: mem_lim_used,
+                            mem_limit_limit: mem_lim_hard,
+                            pods_used,
+                            pods_limit,
+                            cpu_pressure_pct: (cpu_pct * 10.0).round() / 10.0,
+                            mem_pressure_pct: (mem_pct * 10.0).round() / 10.0,
+                        }
+                    })
+                    .collect();
+
+                namespaces.sort_by(|a, b| {
+                    b.cpu_pressure_pct
+                        .partial_cmp(&a.cpu_pressure_pct)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then(a.name.cmp(&b.name))
+                });
+
+                let total = namespaces.len();
+                let over_pressure = namespaces
+                    .iter()
+                    .filter(|n| n.cpu_pressure_pct > 80.0 || n.mem_pressure_pct > 80.0)
+                    .count();
+
+                NamespacesResponse {
+                    available: true,
+                    namespaces,
+                    total,
+                    over_pressure,
+                    queried_at_epoch: now,
+                    error: None,
+                }
+            }
         }
     }
 

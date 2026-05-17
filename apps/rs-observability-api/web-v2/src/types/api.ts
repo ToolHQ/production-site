@@ -306,3 +306,54 @@ export interface CertificatesData {
   queried_at_epoch: number;
   error?: string;
 }
+
+// Tipos para /api/workloads
+
+export interface WorkloadInfo {
+  name: string;
+  namespace: string;
+  kind: 'Deployment' | 'StatefulSet' | 'DaemonSet';
+  replicas_desired: number;
+  replicas_ready: number;
+  replicas_available: number;
+  image: string;
+  status: 'healthy' | 'degraded' | 'down';
+}
+
+export interface WorkloadsData {
+  available: boolean;
+  workloads: WorkloadInfo[];
+  total: number;
+  healthy: number;
+  degraded: number;
+  down: number;
+  queried_at_epoch: number;
+  error?: string;
+}
+
+// Tipos para /api/namespaces
+
+export interface NamespaceQuota {
+  name: string;
+  cpu_request_used: string;
+  cpu_request_limit: string;
+  cpu_limit_used: string;
+  cpu_limit_limit: string;
+  mem_request_used: string;
+  mem_request_limit: string;
+  mem_limit_used: string;
+  mem_limit_limit: string;
+  pods_used: number;
+  pods_limit: number;
+  cpu_pressure_pct: number;
+  mem_pressure_pct: number;
+}
+
+export interface NamespacesData {
+  available: boolean;
+  namespaces: NamespaceQuota[];
+  total: number;
+  over_pressure: number;
+  queried_at_epoch: number;
+  error?: string;
+}
