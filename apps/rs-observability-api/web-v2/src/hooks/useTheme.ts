@@ -5,7 +5,7 @@ export type ThemePreference = 'auto' | 'light' | 'dark';
 export function useTheme() {
   const [theme, setTheme] = useState<ThemePreference>(() => {
     const saved = localStorage.getItem('theme-preference') as ThemePreference | null;
-    return saved || 'auto';
+    return saved || 'light';
   });
 
   const [isDark, setIsDark] = useState(false);
