@@ -8,6 +8,7 @@ const $nav = document.getElementById("nav");
 const NAV = [
   { hash: "#/", label: "Painel" },
   { hash: "#/items", label: "Explorer" },
+  { hash: "#/compare", label: "Comparator" },
   { hash: "#/digests", label: "Digests" },
   { hash: "#/sources", label: "Fontes" },
 ];
@@ -279,6 +280,7 @@ function parseRoute() {
   if (hash === "#/items") return { page: "items" };
   if (hash === "#/digests") return { page: "digests" };
   if (hash === "#/sources") return { page: "sources" };
+  if (hash === "#/compare") return { page: "compare" };
   return { page: "home" };
 }
 
@@ -833,6 +835,52 @@ function sourceHealthBadge(tier) {
   return `<span class="badge badge-health badge-health-${escapeHtml(tier)}">${escapeHtml(label)}</span>`;
 }
 
+async function renderCompare() {
+  setNav("#/compare");
+  const recent = await apiJson("/comparisons?limit=8").catch(() => ({ items: [] }));
+  const recentRows = (recent.items || [])
+    .map(
+      (c) =>
+        `<tr><td>${escapeHtml(c.category)}</td><td>${c.top_n}</td><td>${fmtDate(c.generated_at)}</td></tr>`,
+    )
+    .join("");
+  $app.innerHTML = `<header class="explorer-header">
+    <h1 class="section-title">Comparator</h1>
+    <p class="muted">Matriz Markdown por categoria (T-168 / T-237).</p>
+  </header>
+  <form id="compare-form" class="compare-form">
+    <label>Categoria <input name="category" type="text" placeholder="ex: LLM observability" required /></label>
+    <label>Top N <input name="top_n" type="number" min="1" max="50" value="5" /></label>
+    <button type="submit" class="btn-primary">Gerar matriz</button>
+  </form>
+  <div id="compare-status" class="muted"></div>
+  <article id="compare-output" class="digest-report" style="display:none"></article>
+  <h2 class="section-title">Comparações recentes</h2>
+  <div class="table-wrap"><table><thead><tr><th>Categoria</th><th>Top</th><th>Gerado</th></tr></thead>
+  <tbody>${recentRows || '<tr><td colspan="3" class="muted">Nenhuma ainda</td></tr>'}</tbody></table></div>`;
+
+  const form = document.getElementById("compare-form");
+  const status = document.getElementById("compare-status");
+  const output = document.getElementById("compare-output");
+  form?.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const category = String(fd.get("category") || "").trim();
+    const top_n = Number(fd.get("top_n") || 5);
+    status.textContent = "Gerando…";
+    output.style.display = "none";
+    try {
+      const res = await apiPost("/compare", { category, top_n });
+      output.innerHTML = renderMarkdown(res.markdown || "");
+      output.style.display = "block";
+      status.textContent = `Salvo (${res.id}) — ${escapeHtml(res.category)}`;
+    } catch (err) {
+      status.textContent = err.message;
+      status.className = "error";
+    }
+  });
+}
+
 async function renderSources() {
   setNav("#/sources");
   const [data, healthData] = await Promise.all([
@@ -882,6 +930,7 @@ async function render() {
     else if (route.page === "items") await renderItems();
     else if (route.page === "item") await renderItem(route.id);
     else if (route.page === "sources") await renderSources();
+    else if (route.page === "compare") await renderCompare();
   } catch (err) {
     $app.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
   }
