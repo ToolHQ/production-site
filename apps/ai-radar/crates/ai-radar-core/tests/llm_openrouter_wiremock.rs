@@ -27,6 +27,8 @@ fn llm_test_cfg(server: &MockServer) -> AppConfig {
         llm_scoring_enabled: false,
         llm_scoring_deterministic_weight: 0.7,
         llm_scoring_llm_weight: 0.3,
+        embeddings_enabled: false,
+        embedding_model: None,
     }
 }
 

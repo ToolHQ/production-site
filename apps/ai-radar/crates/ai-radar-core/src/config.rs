@@ -105,6 +105,13 @@ pub struct AppConfig {
     /// `LLM_SCORING_LLM_WEIGHT`. Default `0.3`.
     #[serde(default = "default_llm_scoring_llm_weight")]
     pub llm_scoring_llm_weight: f32,
+
+    /// Toggle semantic embeddings (**T-247**). Env: `EMBEDDINGS_ENABLED`. Default `false`.
+    #[serde(default)]
+    pub embeddings_enabled: bool,
+
+    /// Embedding model id (OpenAI-compatible `/embeddings`). Env: `EMBEDDING_MODEL`.
+    pub embedding_model: Option<String>,
 }
 
 fn default_api_bind() -> String {
@@ -159,6 +166,8 @@ impl AppConfig {
                 "LLM_SCORING_ENABLED",
                 "LLM_SCORING_DETERMINISTIC_WEIGHT",
                 "LLM_SCORING_LLM_WEIGHT",
+                "EMBEDDINGS_ENABLED",
+                "EMBEDDING_MODEL",
                 "GITHUB_TOKEN",
             ]));
 
