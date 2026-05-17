@@ -1,6 +1,6 @@
 # T-247: AI Radar — Embedding Provider & Schema
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h
@@ -13,11 +13,11 @@ Fases 17–18 cobriram curadoria determinística e console operacional. A **Fase
 
 ## Tasks
 
-- [ ] Migration `0007_item_embeddings`: `extracted_item_id`, `model`, `dimensions`, `vector` (pg array ou jsonb), `created_at`
-- [ ] Trait `EmbeddingProvider` + impl OpenRouter (`/embeddings`) alinhada a `LlmProvider`
-- [ ] Config: `EMBEDDING_MODEL`, `EMBEDDING_ENABLED`, dimensão fixa documentada
-- [ ] Repo `PgItemEmbeddingRepository` — upsert idempotente por `(extracted_item_id, model)`
-- [ ] Testes unitários com vetor fixture + cosine helper
+- [x] Migration `0007_item_embeddings`: `extracted_item_id`, `model`, `dimensions`, `vector` (JSONB), `created_at`
+- [x] Trait `EmbeddingProvider` + impl OpenRouter (`/embeddings`) alinhada a `LlmProvider`
+- [x] Config: `EMBEDDING_MODEL`, `EMBEDDINGS_ENABLED`, `.env.example`
+- [x] Repo `PgItemEmbeddingRepository` — upsert idempotente por `(extracted_item_id, model)`
+- [x] Testes unitários com mock + cosine helper
 
 ## Dependências
 
