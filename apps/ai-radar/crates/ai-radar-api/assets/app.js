@@ -825,9 +825,23 @@ async function renderItem(id) {
 }
 
 
+function sourceHealthBadge(tier) {
+  if (!tier) return '<span class="muted">—</span>';
+  const label = { healthy: "Saudável", degraded: "Degradada", noisy: "Ruidosa", unknown: "?" }[
+    tier
+  ] || tier;
+  return `<span class="badge badge-health badge-health-${escapeHtml(tier)}">${escapeHtml(label)}</span>`;
+}
+
 async function renderSources() {
   setNav("#/sources");
-  const data = await apiJson("/sources");
+  const [data, healthData] = await Promise.all([
+    apiJson("/sources"),
+    apiJson("/sources/health").catch(() => ({ items: [] })),
+  ]);
+  const healthById = new Map(
+    (healthData.items || []).map((h) => [h.source_id, h]),
+  );
   if (!data.items || data.items.length === 0) {
     $app.innerHTML =
       '<h1 class="section-title">Fontes</h1><p class="muted">Nenhuma fonte cadastrada. Use <code>POST /sources</code>.</p>';
@@ -838,16 +852,24 @@ async function renderSources() {
       const enabled = s.enabled
         ? '<span style="color:var(--ok)">sim</span>'
         : '<span style="color:var(--muted)">não</span>';
+      const h = healthById.get(s.id);
+      const health = sourceHealthBadge(h?.tier);
+      const failPct =
+        h && h.raw_total > 0
+          ? `${Math.round((100 * h.raw_failed) / h.raw_total)}%`
+          : "—";
       return `<tr>
         <td>${escapeHtml(s.name)}</td>
         <td><code>${escapeHtml(s.source_type)}</code></td>
+        <td>${health}</td>
+        <td>${failPct}</td>
         <td>${enabled}</td>
         <td>${s.poll_interval_minutes} min</td>
         <td><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">link</a></td>
       </tr>`;
     })
     .join("");
-  $app.innerHTML = `<h1 class="section-title">Fontes</h1><div class="table-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Ativa</th><th>Poll</th><th>URL</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  $app.innerHTML = `<h1 class="section-title">Fontes</h1><p class="muted">Saúde agregada por taxa de falha e duplicatas (T-238).</p><div class="table-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Saúde</th><th>Falhas</th><th>Ativa</th><th>Poll</th><th>URL</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 async function render() {

@@ -81,6 +81,10 @@ pub fn describe_metrics() {
         "ai_radar_velocity_tier_total",
         "extracted_items scored with GitHub velocity metadata (T-234)"
     );
+    describe_counter!(
+        "ai_radar_source_health_tier_total",
+        "extracted_items scored with upstream source health metadata (T-238)"
+    );
 }
 
 /// Refresh gauge from DB count (call from `/metrics` before render).
@@ -189,6 +193,16 @@ pub fn record_adoption_tier(decision: &str, stars_tier: &str) {
         "ai_radar_adoption_tier_total",
         "decision" => decision.to_string(),
         "stars_tier" => stars_tier.to_string()
+    )
+    .increment(1);
+}
+
+/// One scored item that carried source health metadata (**T-238**).
+pub fn record_source_health_tier(decision: &str, health_tier: &str) {
+    counter!(
+        "ai_radar_source_health_tier_total",
+        "decision" => decision.to_string(),
+        "health_tier" => health_tier.to_string()
     )
     .increment(1);
 }
