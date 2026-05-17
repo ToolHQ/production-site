@@ -5,7 +5,7 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::db::{Database, RepoError, RepoResult};
-use crate::domain::{Feedback, FeedbackType, NewFeedback};
+use crate::domain::{Decision, Feedback, FeedbackType, NewFeedback};
 
 /// Operations on `feedback`.
 #[async_trait]
@@ -15,6 +15,20 @@ pub trait FeedbackRepository: Send + Sync {
 
     /// Return every feedback for an extracted item, newest first.
     async fn list_for_item(&self, extracted_item_id: Uuid) -> RepoResult<Vec<Feedback>>;
+
+    /// Feedback rows where the label disagrees with the latest score decision.
+    async fn list_divergences(&self, limit: i64, offset: i64) -> RepoResult<Vec<FeedbackDivergence>>;
+}
+
+/// Human vs scorer mismatch for reporting.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct FeedbackDivergence {
+    pub feedback: Feedback,
+    pub extracted_item_id: Uuid,
+    pub tool_name: Option<String>,
+    pub category: Option<String>,
+    pub decision: Decision,
+    pub score: f32,
 }
 
 const SELECT_COLS: &str = "id, extracted_item_id, feedback_type, notes, created_at";
@@ -79,5 +93,53 @@ impl FeedbackRepository for PgFeedbackRepository {
             .await
             .map_err(RepoError::from_sqlx)?;
         rows.iter().map(row_to_feedback).collect()
+    }
+
+    async fn list_divergences(&self, limit: i64, offset: i64) -> RepoResult<Vec<FeedbackDivergence>> {
+        let sql = "\
+            SELECT \
+                f.id, f.extracted_item_id, f.feedback_type, f.notes, f.created_at, \
+                e.tool_name, e.category, \
+                s.decision, s.score \
+            FROM ai_radar.feedback f \
+            JOIN ai_radar.extracted_items e ON e.id = f.extracted_item_id \
+            JOIN LATERAL ( \
+                SELECT decision, score \
+                FROM ai_radar.scores \
+                WHERE extracted_item_id = e.id \
+                ORDER BY created_at DESC \
+                LIMIT 1 \
+            ) s ON true \
+            WHERE ( \
+                (f.feedback_type IN ('rejected', 'low_quality', 'irrelevant', 'wrong_category') \
+                 AND s.decision IN ('adopt', 'test')) \
+                OR (f.feedback_type = 'adopted' AND s.decision IN ('ignore', 'monitor')) \
+            ) \
+            ORDER BY f.created_at DESC \
+            LIMIT $1 OFFSET $2";
+
+        let rows = sqlx::query(sql)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RepoError::from_sqlx)?;
+
+        rows.iter()
+            .map(|row| {
+                let feedback = row_to_feedback(row)?;
+                let decision_raw: String = row.try_get("decision").map_err(RepoError::from_sqlx)?;
+                let decision = Decision::parse(&decision_raw)
+                    .map_err(|v| RepoError::Validation(format!("unknown decision '{v}'")))?;
+                Ok(FeedbackDivergence {
+                    extracted_item_id: feedback.extracted_item_id,
+                    tool_name: row.try_get("tool_name").map_err(RepoError::from_sqlx)?,
+                    category: row.try_get("category").map_err(RepoError::from_sqlx)?,
+                    decision,
+                    score: row.try_get("score").map_err(RepoError::from_sqlx)?,
+                    feedback,
+                })
+            })
+            .collect()
     }
 }

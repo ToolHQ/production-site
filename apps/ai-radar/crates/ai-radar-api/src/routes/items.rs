@@ -7,11 +7,14 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use ai_radar_core::domain::{ExtractedItem, RawItem, Score, ScoredItemSummary};
+use ai_radar_core::domain::{
+    ExtractedItem, Feedback, FeedbackType, NewFeedback, RawItem, Score, ScoredItemSummary,
+};
 use ai_radar_core::llm::build_llm_provider;
 use ai_radar_core::pipeline::reprocess::{run_reprocess, ReprocessStage};
 use ai_radar_core::repos::{
-    ExtractedItemRepository, RawItemRepository, ScoreRepository, ScoredItemSort,
+    ExtractedItemRepository, FeedbackRepository, RawItemRepository, ScoreRepository,
+    ScoredItemSort,
 };
 
 use ai_radar_core::db::RepoError;
@@ -49,6 +52,18 @@ pub struct ItemDetailResponse {
     pub raw: RawItem,
     pub latest_score: Score,
     pub scores: Vec<Score>,
+    pub feedbacks: Vec<Feedback>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateFeedbackRequest {
+    pub feedback_type: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CreateFeedbackResponse {
+    pub feedback: Feedback,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +84,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/items", get(list))
         .route("/items/:id", get(get_one))
+        .route("/items/:id/feedback", post(create_feedback))
         .route("/items/:id/reprocess", post(reprocess))
 }
 
@@ -117,6 +133,7 @@ async fn get_one(
         .first()
         .cloned()
         .ok_or(ApiError::Repo(RepoError::NotFound))?;
+    let feedbacks = state.feedback.list_for_item(id).await?;
 
     Ok((
         StatusCode::OK,
@@ -125,7 +142,46 @@ async fn get_one(
             raw,
             latest_score,
             scores,
+            feedbacks,
         }),
+    ))
+}
+
+async fn create_feedback(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<CreateFeedbackRequest>,
+) -> Result<(StatusCode, Json<CreateFeedbackResponse>), ApiError> {
+    state.extracted_items.get(id).await?;
+
+    let feedback_type = FeedbackType::parse(body.feedback_type.trim())
+        .map_err(|v| ApiError::BadRequest(format!("invalid feedback_type: {v}")))?;
+
+    let notes = body
+        .notes
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    let feedback = state
+        .feedback
+        .insert(&NewFeedback {
+            extracted_item_id: id,
+            feedback_type,
+            notes,
+        })
+        .await?;
+
+    tracing::info!(
+        extracted_item_id = %id,
+        feedback_type = %feedback.feedback_type.as_str(),
+        "operator feedback recorded"
+    );
+
+    Ok((
+        StatusCode::CREATED,
+        Json(CreateFeedbackResponse { feedback }),
     ))
 }
 

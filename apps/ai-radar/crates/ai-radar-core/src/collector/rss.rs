@@ -240,7 +240,8 @@ fn extract_body_html(entry: &Entry) -> String {
         .and_then(|c| c.body.as_deref())
         .map(str::to_string);
     let from_summary = entry.summary.as_ref().map(|s| s.content.clone());
-    from_content.or(from_summary).unwrap_or_default()
+    let raw = from_content.or(from_summary).unwrap_or_default();
+    crate::util::sanitize::sanitize_html_fragment(&raw)
 }
 
 fn truncate_bytes(s: &str, max: usize) -> String {

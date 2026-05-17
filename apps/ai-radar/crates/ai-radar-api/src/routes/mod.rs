@@ -6,6 +6,7 @@ pub mod extract;
 pub mod health;
 pub mod items;
 pub mod metrics;
+pub mod reports;
 pub mod score;
 pub mod ui;
 pub mod sources;

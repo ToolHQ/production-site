@@ -1,6 +1,6 @@
 # T-200: AI Radar — otimização de tempo de compilação (Rust / BuildKit)
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: **Cursor / AI Radar**
 - **Epic**: AI Radar / DevExp
@@ -26,7 +26,7 @@ Ganho esperado: cada PR/deploy AI Radar **10–25 min mais rápido** após cache
 - [ ] Revisar `CARGO_INCREMENTAL=0` + `lto` no workspace — manter binário pequeno, cortar LTO se ativo
 - [x] Documentar no README o “fast path” e requisitos de cache (alinhado T-196)
 - [x] Validar 1º deploy cargo-chef (API ~15 min cook+build com cache; CLI skip com `AI_RADAR_DEPLOY_CLI=0`)
-- [ ] Validar: segundo deploy seguido sem mudança de deps **&lt; 15 min**; smoke imagem ARM64 no cluster
+- [x] Validar: segundo deploy seguido sem mudança de deps **&lt; 15 min** (~69s cache quente); smoke ARM64 `1779017664`
 
 ## Referências
 

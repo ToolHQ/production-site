@@ -4,6 +4,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::Decision;
+
 /// One of the nine documented feedback labels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -81,6 +83,20 @@ pub struct Feedback {
     pub created_at: DateTime<Utc>,
 }
 
+/// Whether human feedback disagrees with the latest automated decision.
+#[must_use]
+pub fn feedback_diverges_from_decision(feedback: FeedbackType, decision: Decision) -> bool {
+    match feedback {
+        FeedbackType::Rejected | FeedbackType::LowQuality | FeedbackType::Irrelevant
+        | FeedbackType::WrongCategory => {
+            matches!(decision, Decision::Adopt | Decision::Test)
+        }
+        FeedbackType::Adopted => matches!(decision, Decision::Ignore | Decision::Monitor),
+        FeedbackType::Useful | FeedbackType::Duplicate | FeedbackType::Tested
+        | FeedbackType::Monitoring => false,
+    }
+}
+
 /// Insert payload.
 #[derive(Debug, Clone)]
 pub struct NewFeedback {
@@ -95,6 +111,18 @@ pub struct NewFeedback {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn divergence_detects_reject_on_adopt() {
+        assert!(feedback_diverges_from_decision(
+            FeedbackType::Rejected,
+            Decision::Adopt
+        ));
+        assert!(!feedback_diverges_from_decision(
+            FeedbackType::Useful,
+            Decision::Adopt
+        ));
+    }
 
     #[test]
     fn feedback_type_roundtrip_all_nine() {
