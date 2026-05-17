@@ -144,7 +144,7 @@ export function App() {
         <SignalGrid live={live} />
 
         {/* ── Node Fleet Status ── */}
-        <section class="panel nodes-section">
+        <section class="nodes-section-band">
           <div class="section-head">
             <div>
               <div class="section-kicker">Infrastructure</div>

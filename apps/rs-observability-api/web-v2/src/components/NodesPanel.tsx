@@ -92,7 +92,7 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
           <strong>Absolute Value:</strong>
           <span>{fmtCpu((metrics.cpu_percent / 100) * node.cpu_millicores)} used of {fmtCpu(node.cpu_millicores)} allocated</span>
         </div>
-        {history && history.cpu.length > 1 && (
+        {history && history.cpu.length >= 1 && (
           <div class="tooltip-history">
             <div class="tooltip-history-title">Recent History (5m window)</div>
             <div class="tooltip-history-chart">
@@ -136,7 +136,7 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
           <strong>Absolute Value:</strong>
           <span>{fmtGiB(metrics.mem_used_bytes)} used of {fmtGiB(metrics.mem_total_bytes)} total</span>
         </div>
-        {history && history.mem.length > 1 && (
+        {history && history.mem.length >= 1 && (
           <div class="tooltip-history">
             <div class="tooltip-history-title">Recent History (5m window)</div>
             <div class="tooltip-history-chart">
@@ -180,7 +180,7 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
           <strong>Absolute Value:</strong>
           <span>{fmtGiB(metrics.disk_used_bytes)} used of {fmtGiB(metrics.disk_total_bytes)} total</span>
         </div>
-        {history && history.disk.length > 1 && (
+        {history && history.disk.length >= 1 && (
           <div class="tooltip-history">
             <div class="tooltip-history-title">Recent History (5m window)</div>
             <div class="tooltip-history-chart">
@@ -274,36 +274,38 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
         </div>
       )}
 
-      <table class="nodes-table">
-        <colgroup>
-          <col class="col-node" />
-          <col class="col-role" />
-          <col class="col-cpu" />
-          <col class="col-mem" />
-          <col class="col-disk" />
-          <col class="col-alerts" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Node</th>
-            <th>Role</th>
-            <th title={hasRealMetrics ? 'Real CPU utilization (5m avg)' : 'Kubernetes allocatable CPU (fixed per node)'}>CPU</th>
-            <th title={hasRealMetrics ? 'Real memory utilization' : 'Kubernetes allocatable memory (fixed per node)'}>Memory</th>
-            <th title={hasRealMetrics ? 'Real disk utilization on / filesystem' : 'Kubernetes allocatable ephemeral-storage (fixed per node)'}>Disk</th>
-            <th>Alerts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {nodes.map((node) => (
-            <NodeRow
-              key={node.name}
-              node={node}
-              metrics={nodeMetrics[node.name]}
-              history={history?.[node.name]}
-            />
-          ))}
-        </tbody>
-      </table>
+      <div class="table-shell">
+        <table class="nodes-table">
+          <colgroup>
+            <col class="col-node" />
+            <col class="col-role" />
+            <col class="col-cpu" />
+            <col class="col-mem" />
+            <col class="col-disk" />
+            <col class="col-alerts" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Node</th>
+              <th>Role</th>
+              <th title={hasRealMetrics ? 'Real CPU utilization (5m avg)' : 'Kubernetes allocatable CPU (fixed per node)'}>CPU</th>
+              <th title={hasRealMetrics ? 'Real memory utilization' : 'Kubernetes allocatable memory (fixed per node)'}>Memory</th>
+              <th title={hasRealMetrics ? 'Real disk utilization on / filesystem' : 'Kubernetes allocatable ephemeral-storage (fixed per node)'}>Disk</th>
+              <th>Alerts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {nodes.map((node) => (
+              <NodeRow
+                key={node.name}
+                node={node}
+                metrics={nodeMetrics[node.name]}
+                history={history?.[node.name]}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
       <p class="nodes-table-footnote">
         {hasRealMetrics
           ? 'Real host utilization via Prometheus node_exporter · Hover metrics to see details and sparkline.'
