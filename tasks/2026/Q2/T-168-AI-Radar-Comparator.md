@@ -1,6 +1,6 @@
 # T-168: AI Radar — Comparator
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 4h
