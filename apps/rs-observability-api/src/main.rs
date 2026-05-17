@@ -270,7 +270,10 @@ impl CorootClient {
     }
 
     async fn do_fetch_alerts(&self, cookie: &str) -> Result<CorootApiData, String> {
-        let url = format!("{}/api/project/{}/alerts?limit=200", self.base_url, self.project_id);
+        let url = format!(
+            "{}/api/project/{}/alerts?limit=200",
+            self.base_url, self.project_id
+        );
         let resp = self
             .http
             .get(&url)
@@ -295,7 +298,10 @@ impl CorootClient {
     }
 
     async fn do_fetch_incidents(&self, cookie: &str) -> Result<Vec<CorootIncident>, String> {
-        let url = format!("{}/api/project/{}/incidents?limit=20", self.base_url, self.project_id);
+        let url = format!(
+            "{}/api/project/{}/incidents?limit=20",
+            self.base_url, self.project_id
+        );
         let resp = self
             .http
             .get(&url)
