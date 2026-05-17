@@ -111,9 +111,10 @@ Ver `docs/agent-meter-otel.md` para detalhes.
 
 ## Materiais
 
-- `apps/agent-meter/scripts/setup-agent.sh` — setup automatizado
+- `apps/agent-meter/scripts/setup-agent.sh` — setup automatizado (com detecção WSL)
 - `apps/agent-meter/crates/cli/` — código do CLI
 - `apps/agent-meter/crates/collector/` — collector HTTP
 - `apps/agent-meter/crates/mcp-wrapper/` — proxy MCP
 - `apps/agent-meter/docs/agent-meter-otel.md` — guia OTEL
+- `apps/agent-meter/docs/agent-meter-wsl-vscode.md` — guia WSL + VSCode
 - `apps/agent-meter/scripts/smoke-otel.sh` — smoke test
