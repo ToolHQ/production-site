@@ -16,13 +16,14 @@ MVP sem auth — assumindo deploy interno; auth/RBAC fica para fase futura.
 
 ## Tasks
 
-- [ ] Endpoint `POST /items/:id/feedback` aceitando body `{ feedback_type, notes }`
-- [ ] Validação: `feedback_type` deve estar no enum permitido (400 com mensagem clara se inválido)
-- [ ] Persistir em `feedback` com timestamp
-- [ ] Endpoint `GET /items/:id` enriquecido para retornar item + lista de feedbacks
-- [ ] Endpoint `GET /reports/divergence` retornando JSON com items onde feedback discordou da decisão
-- [ ] Paginação básica em `/reports/divergence` (`?limit=50&offset=0`)
-- [ ] Logs estruturados em cada feedback recebido
+- [x] Endpoint `POST /items/:id/feedback` aceitando body `{ feedback_type, notes }`
+- [x] Validação: `feedback_type` deve estar no enum permitido (400 com mensagem clara se inválido)
+- [x] Persistir em `feedback` com timestamp
+- [x] Endpoint `GET /items/:id` enriquecido para retornar item + lista de feedbacks
+- [x] Endpoint `GET /reports/divergence` retornando JSON com items onde feedback discordou da decisão
+- [x] Paginação básica em `/reports/divergence` (`?limit=50&offset=0`)
+- [x] Logs estruturados em cada feedback recebido
+- [x] Formulário de feedback na página do item no console
 - [ ] Testes integração: create item → post 2 feedbacks → get item mostra ambos; report divergence retorna casos esperados
 - [ ] Documentar uso no README com exemplos curl
 

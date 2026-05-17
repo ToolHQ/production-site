@@ -26,6 +26,15 @@ fn max_raw_content_bytes_constant_is_two_hundred_kib() {
     assert_eq!(ai_radar_core::util::limits::MAX_RAW_CONTENT_BYTES, 200_000);
 }
 
+/// HTML from feeds must not retain obvious script/event vectors (**T-173**).
+#[test]
+fn sanitize_removes_inline_script_vectors() {
+    let clean = ai_radar_core::util::sanitize::sanitize_html_fragment(
+        r#"<img src=x onerror="alert(1)">"#,
+    );
+    assert!(!clean.contains("onerror"));
+}
+
 #[derive(Debug)]
 struct TimeoutLlmProvider;
 

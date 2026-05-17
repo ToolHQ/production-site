@@ -590,6 +590,29 @@ tr:hover td {
   color: var(--accent);
 }
 
+.item-feedback-history {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.item-feedback-history li {
+  font-size: 0.85rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.item-feedback-form textarea {
+  width: 100%;
+  max-width: 28rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  font-family: inherit;
+}
+
 .item-raw-pre {
   margin: 0.75rem 0 0;
   padding: 0.75rem;
