@@ -237,7 +237,7 @@ done < <(kubectl get pods -A \
 (( err_pods == 0 )) && report_ok "No pods in Error/terminated state (>30m)"
 
 # CrashLoop proxy: restartCount > 20 plus active recent restart activity
-while IFS=$'\t' read -r ns pod phase ready restarts last_finished created; do
+while IFS=$'\t' read -r ns pod phase ready restarts last_finished started created; do
     [[ -z "$restarts" || "$restarts" == "0" ]] && continue
     (( restarts > THRESH_RESTART )) || continue
 
@@ -247,6 +247,14 @@ while IFS=$'\t' read -r ns pod phase ready restarts last_finished created; do
         continue
     fi
 
+    # If the pod has been running stably for more than 2 hours, do not flag as crashloop
+    if [[ -n "$started" ]]; then
+        run_age=$(age_seconds "$started" 2>/dev/null || echo 0)
+        if (( run_age > 7200 )); then
+            continue
+        fi
+    fi
+
     [[ -n "$last_finished" ]] || continue
     age=$(age_seconds "$last_finished" 2>/dev/null) || continue
     if (( age <= THRESH_RESTART_ACTIVE )); then
@@ -254,7 +262,7 @@ while IFS=$'\t' read -r ns pod phase ready restarts last_finished created; do
         (( crashloop++ )) || true
     fi
 done < <(kubectl get pods -A \
-    -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.status.containerStatuses[0].ready}{"\t"}{.status.containerStatuses[0].restartCount}{"\t"}{.status.containerStatuses[0].lastState.terminated.finishedAt}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' \
+    -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.status.phase}{"\t"}{.status.containerStatuses[0].ready}{"\t"}{.status.containerStatuses[0].restartCount}{"\t"}{.status.containerStatuses[0].lastState.terminated.finishedAt}{"\t"}{.status.containerStatuses[0].state.running.startedAt}{"\t"}{.metadata.creationTimestamp}{"\n"}{end}' \
     2>/dev/null || true)
 (( crashloop == 0 )) && report_ok "No pods with recent excessive restarts (>20)"
 
