@@ -164,7 +164,7 @@ export function App() {
         {/* ── Masthead ── */}
         <header class="masthead">
           <DashboardHeader snapshot={summary} live={live} metrics={metrics} />
-          <SignalCard live={live} />
+          <SignalCard live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
         </header>
 
         {/* ── Signal mini counters ── */}
