@@ -131,23 +131,27 @@ REMOTE
 	fi
 }
 
-preflight_buildkit_disk
+# Builder remoto Hetzner (T-222): padrão obrigatório — master só recebe `docker push` (porta 31444).
+# Fallback oci-builder no master só com AI_RADAR_ALLOW_MASTER_BUILD=1 (emergência).
+USE_HETZNER=false
+HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
+if [[ -f "$HETZNER_SETUP" ]] && "$HETZNER_SETUP" --silent; then
+	USE_HETZNER=true
+	printf '%s\n' "✓ hetzner-builder ativo — build ARM64 na Hetzner (master preservado)" >&2
+elif [[ "${AI_RADAR_ALLOW_MASTER_BUILD:-0}" =~ ^(1|true|yes)$ ]]; then
+	printf '%s\n' "⚠️  AI_RADAR_ALLOW_MASTER_BUILD=1 — build no oci-builder do master (disco + prune)" >&2
+	preflight_buildkit_disk
+else
+	die "❌ hetzner-builder indisponível e build no master está desabilitado por padrão.
+   Rode: $HETZNER_SETUP
+   Ou emergência: AI_RADAR_ALLOW_MASTER_BUILD=1 ./deploy.sh"
+fi
 
 DOCKERFILE="$ROOT_DIR/docker/Dockerfile"
 
 build_rust_image() {
 	local target="$1" bin_name="$2" image_tag="$3" image_latest="$4"
 	printf '%s\n' "🔨 buildx $target ($bin_name)…" >&2
-
-	# Inicializa ou verifica o builder remoto Hetzner automaticamente (padrão de alta performance)
-	local USE_HETZNER=false
-	local HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
-	if [ -f "$HETZNER_SETUP" ]; then
-		if "$HETZNER_SETUP" --silent; then
-			USE_HETZNER=true
-		fi
-	fi
-
 	if [ "$USE_HETZNER" = "true" ]; then
 		echo "🚀 Usando builder Hetzner remoto de alta performance..."
 		docker buildx build \
@@ -273,4 +277,6 @@ postbuild_buildkit_prune() {
 	fi
 }
 
-postbuild_buildkit_prune || true
+if [ "$USE_HETZNER" != "true" ]; then
+	postbuild_buildkit_prune || true
+fi

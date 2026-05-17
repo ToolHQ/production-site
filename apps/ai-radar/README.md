@@ -17,11 +17,11 @@ and the architecture decisions consulted by every epic in
 
 **Em cluster (baseline):** workspace (**T-159**), Postgres/schema (**T-160**), RSS collect (**T-161**), LLM abstraction (**T-164**), extract/score pipelines (**T-165**/**T-166**), digest API/CLI (**T-169**), observability (**T-172**), manifests + CronJobs collect/extract/score (**T-171**/**T-174**). API em `ai-radar.dnor.io`; imagem em produção pode estar atrás do `main` — ver runbook **T-191**.
 
-**Ainda no backlog (Kanban):** GitHub collector (**T-162**), webpage fetcher (**T-163**), scorer LLM opcional (**T-167**), comparator (**T-168**), feedback HTTP (**T-170**).
+**Collectors:** RSS (**T-161**), GitHub releases/repo (**T-162**), webpage manual (**T-163**).
 
-**Planejado (roadmap Fase 16):** console visual thin slice (**T-175**), dashboards Coroot/Grafana (**T-176**), explorer de itens + UI (**T-177**) — ver [`docs/AI-RADAR-ROADMAP.md`](../../docs/AI-RADAR-ROADMAP.md#fase-16--superfície-visual-do-mvp-operator-console).
+**Ainda no backlog (Kanban):** scorer LLM opcional (**T-167**), comparator (**T-168**).
 
-**Em andamento:** hardening (**T-173**). Smoke cluster (**T-191**) Done. Detalhes: [`tasks/KANBAN.md`](../../tasks/KANBAN.md).
+**Entregue (MVP+):** console (**T-175**), dashboards (**T-176**), items explorer (**T-177**), feedback (**T-170**), hardening (**T-173**). Detalhes: [`tasks/KANBAN.md`](../../tasks/KANBAN.md).
 
 ## Architecture in one diagram
 
@@ -175,8 +175,19 @@ force one feed). RSS HTTP uses **retries** with jittered backoff on transient
 ```sh
 export DATABASE_URL='postgres://…?options=-csearch_path%3Dpublic'
 cargo run -p ai-radar-cli -- collect
+cargo run -p ai-radar-cli -- collect --source-type github_releases
+cargo run -p ai-radar-cli -- collect --source-type github_repo
+cargo run -p ai-radar-cli -- collect --source-type webpage
 cargo run -p ai-radar-cli -- collect --source-id '<uuid>'
 ```
+
+**GitHub ([`T-162`](../../tasks/2026/Q2/T-162-AI-Radar-GitHub-Collector.md)).**
+`source_type` `github_releases` or `github_repo` with `url`
+`https://github.com/{owner}/{repo}`. Releases use `release.id` as `external_id`.
+
+**Webpage ([`T-163`](../../tasks/2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)).**
+`source_type=webpage` — max **1 MiB** download, **50 KiB** cleaned text. **No JS
+rendering** (static HTML only).
 
 **`llm-ping` ([`T-164`](../../tasks/2026/Q2/T-164-AI-Radar-LLM-Provider-Abstraction.md)).**
 Runs one completion via `build_llm_provider` (honours `LLM_*`, retries on 429/5xx).
@@ -213,7 +224,7 @@ the deterministic-only path keeps working when only a subset is supplied.
 | `LLM_API_KEY` | _unset_ | OpenRouter / Ollama / vLLM secret |
 | `LLM_MODEL` | _unset_ | e.g. `meta-llama/llama-3.3-70b-instruct:free` |
 | `LLM_TIMEOUT_SECONDS` | `60` | Per-request timeout |
-| `GITHUB_TOKEN` | _unset_ | Optional, raises GitHub rate-limit |
+| `GITHUB_TOKEN` | _unset_ | Optional — **60 req/h** without token, **5000 req/h** with token; client waits up to **90s** on `x-ratelimit-reset` |
 | `AI_RADAR_COLLECT_CONCURRENCY` | `2` | Parallel RSS fetches (`collect`) |
 | `AI_RADAR_MAX_ITEMS_PER_RUN` | `50` | Cap entries ingested per source per run |
 | _(código)_ | `util/limits.rs` | `MAX_RAW_CONTENT_BYTES` (200 KiB), futuros caps extract/LLM |
@@ -312,6 +323,19 @@ Smoke ad-hoc (exemplos):
 **IMPORTANTE.** O recurso **`k8s/base/secret-database-url.placeholder.yaml`** continua apenas como template de referência; **não** entra mais no render Kustomize, para **`deploy.sh`/apply não pisarem uma `DATABASE_URL` real**.
 
 **Docker build (T-200).** Imagens saem de **`docker/Dockerfile`** com **`cargo-chef`** + cache BuildKit compartilhado (`ai-radar-cargo-registry`, `ai-radar-cargo-target`). Baseline empírico no master: **~45–55 min** (API+CLI); com cache quente e só API, meta **&lt; 20 min**.
+
+**Builder Hetzner (T-222, padrão desde PR #153).** O `deploy.sh` tenta **`hetzner-builder`** antes do **`oci-builder`** no master:
+
+1. **Uma vez por máquina** (WSL): `~/production-site/oci-k8s-cluster/scripts/setup-hetzner-builder.sh` — exige SSH `hetzner-cax21-helsinki-4vcpu-8gb-ipv4` em `~/.ssh/config`.
+2. **Cada deploy:** compilação ARM64 na VM Helsinki (`--load` na sua máquina); só abre túnel **`31444→master`** para `docker push` da imagem final (sem cache BuildKit no master).
+3. **Emergência:** build no master só com `AI_RADAR_ALLOW_MASTER_BUILD=1` (pré-voo de disco ≥12 GiB). Por padrão o deploy **falha** se a Hetzner estiver indisponível — preserva o master.
+
+```bash
+# Verificar builder (deve mostrar Status: running, Platforms: linux/arm64)
+docker buildx inspect hetzner-builder
+
+AI_RADAR_FROM_CLUSTER_PG_SECRET=1 AI_RADAR_DEPLOY_CLI=0 ./deploy.sh
+```
 
 | Variável | Efeito |
 | -------- | ------ |

@@ -160,7 +160,7 @@ struct CorootAlert {
     #[serde(default)]
     duration: u64,
     #[serde(default)]
-    report: String,
+    report: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -258,10 +258,10 @@ impl CorootClient {
             return Err(format!("coroot alerts HTTP {}", resp.status()));
         }
 
-        let api_resp: CorootApiResponse = resp
-            .json()
-            .await
-            .map_err(|e| format!("coroot alerts parse error: {}", e))?;
+        let api_resp: CorootApiResponse = resp.json().await.map_err(|e| {
+            eprintln!("[coroot] alerts parse error: {}", e);
+            format!("coroot alerts parse error: {}", e)
+        })?;
 
         Ok(api_resp.data)
     }

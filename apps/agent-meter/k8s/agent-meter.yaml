@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-meter
+  namespace: default
+  labels:
+    app: agent-meter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-meter
+  template:
+    metadata:
+      labels:
+        app: agent-meter
+    spec:
+      imagePullSecrets:
+        - name: regsecret
+      containers:
+        - name: collector
+          image: registry.local:31444/repository/docker-repo/agent-meter:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: AGENT_METER_HOST
+              value: "0.0.0.0"
+            - name: AGENT_METER_PORT
+              value: "3000"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agent-meter-db
+                  key: url
+            - name: RUST_LOG
+              value: "info"
+          resources:
+            limits:
+              memory: 96Mi
+              cpu: 100m
+            requests:
+              memory: 24Mi
+              cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-meter
+  namespace: default
+spec:
+  selector:
+    app: agent-meter
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
