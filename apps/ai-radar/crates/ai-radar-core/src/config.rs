@@ -31,6 +31,8 @@ pub const DEFAULT_LOG_LEVEL: &str = "info";
 pub const DEFAULT_LLM_BASE_URL: &str = "https://openrouter.ai/api/v1";
 /// Default LLM request timeout in seconds.
 pub const DEFAULT_LLM_TIMEOUT_SECONDS: u64 = 60;
+/// Default cap on LLM HTTP calls per minute (OpenRouter `:free` ≈ 16–20 RPM).
+pub const DEFAULT_LLM_MAX_RPM: u32 = 15;
 
 /// Strongly-typed application configuration.
 ///
@@ -70,6 +72,11 @@ pub struct AppConfig {
     /// LLM HTTP timeout in seconds. Env: `LLM_TIMEOUT_SECONDS`.
     #[serde(default = "default_llm_timeout_seconds")]
     pub llm_timeout_seconds: u64,
+
+    /// Minimum spacing between LLM HTTP calls (extract/score). Env: `LLM_MAX_RPM`.
+    /// Default `15` (under OpenRouter free-tier ~16–20 RPM). Set `0` to disable pacing.
+    #[serde(default = "default_llm_max_rpm")]
+    pub llm_max_rpm: u32,
 
     /// GitHub token for higher rate limit. Env: `GITHUB_TOKEN`.
     pub github_token: Option<String>,
@@ -113,6 +120,10 @@ fn default_llm_timeout_seconds() -> u64 {
     DEFAULT_LLM_TIMEOUT_SECONDS
 }
 
+fn default_llm_max_rpm() -> u32 {
+    DEFAULT_LLM_MAX_RPM
+}
+
 fn default_collect_concurrency() -> usize {
     2
 }
@@ -144,6 +155,7 @@ impl AppConfig {
                 "LLM_API_KEY",
                 "LLM_MODEL",
                 "LLM_TIMEOUT_SECONDS",
+                "LLM_MAX_RPM",
                 "LLM_SCORING_ENABLED",
                 "LLM_SCORING_DETERMINISTIC_WEIGHT",
                 "LLM_SCORING_LLM_WEIGHT",

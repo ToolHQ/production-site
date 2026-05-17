@@ -60,6 +60,11 @@ spec:
                 configMapKeyRef:
                   name: ai-radar-config
                   key: AI_RADAR_LOG_LEVEL
+            - name: LLM_MAX_RPM
+              valueFrom:
+                configMapKeyRef:
+                  name: ai-radar-config
+                  key: LLM_MAX_RPM
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
