@@ -12,6 +12,7 @@ use crate::collector::rss::RssCollector;
 use crate::collector::web::{WebCollector, WebFetcher, WebFetcherConfig};
 use crate::collector::Collector;
 use crate::config::AppConfig;
+use crate::curation::resolve_entity_for_inserted;
 use crate::db::Database;
 use crate::domain::{Source, SourceType};
 use crate::metrics;
@@ -24,6 +25,8 @@ pub struct CollectStats {
     pub collected: u64,
     /// Rows skipped because `(source_id, content_hash)` already existed.
     pub skipped: u64,
+    /// Rows marked `skipped` as cross-source duplicates (**T-231**).
+    pub entity_duplicates: u64,
     /// Sources where fetch/parse failed before inserts.
     pub source_errors: u64,
     /// Sources matching the filter (size of the work batch).
@@ -95,9 +98,14 @@ pub async fn run_collect(
 
     while let Some(chunk) = stream.next().await {
         match chunk {
-            OneSource::Ok { collected, skipped } => {
+            OneSource::Ok {
+                collected,
+                skipped,
+                entity_duplicates,
+            } => {
                 stats.collected += collected;
                 stats.skipped += skipped;
+                stats.entity_duplicates += entity_duplicates;
             }
             OneSource::Failed => {
                 stats.source_errors += 1;
@@ -147,7 +155,11 @@ fn build_collector(
 }
 
 enum OneSource {
-    Ok { collected: u64, skipped: u64 },
+    Ok {
+        collected: u64,
+        skipped: u64,
+        entity_duplicates: u64,
+    },
     Failed,
 }
 
@@ -161,10 +173,24 @@ async fn process_one_source(
         Ok(items) => {
             let mut collected = 0u64;
             let mut skipped = 0u64;
+            let mut entity_duplicates = 0u64;
             for item in items {
                 match raw_repo.insert_idempotent(&item).await {
                     Ok(Some(row)) => {
                         collected += 1;
+                        match resolve_entity_for_inserted(raw_repo, row.id, &item).await {
+                            Ok(entity) => {
+                                if entity.duplicates_marked > 0 {
+                                    entity_duplicates += entity.duplicates_marked;
+                                    collected = collected.saturating_sub(entity.duplicates_marked);
+                                }
+                            }
+                            Err(e) => tracing::warn!(
+                                raw_item_id = %row.id,
+                                error = %e,
+                                "entity resolution failed after insert"
+                            ),
+                        }
                         tracing::trace!(
                             source_id = %source.id,
                             raw_item_id = %row.id,
@@ -192,7 +218,11 @@ async fn process_one_source(
                     "touch_polled failed after successful collect"
                 );
             }
-            OneSource::Ok { collected, skipped }
+            OneSource::Ok {
+                collected,
+                skipped,
+                entity_duplicates,
+            }
         }
         Err(e) => {
             tracing::warn!(

@@ -58,6 +58,8 @@ fn fake_raw(content: &str) -> RawItem {
         content_hash: NewRawItem::compute_hash(content),
         status: RawItemStatus::Pending,
         metadata_json: serde_json::json!({}),
+        tool_key: None,
+        canonical_url: None,
         published_at: None,
         collected_at: chrono::Utc::now(),
     }

@@ -62,6 +62,10 @@ pub fn describe_metrics() {
         "Completeness score 0-100 assigned at extract time"
     );
     describe_counter!(
+        "ai_radar_entity_duplicate_skipped_total",
+        "raw_items marked skipped as cross-source duplicates (T-231)"
+    );
+    describe_counter!(
         "ai_radar_scored_total",
         "extracted_items scored successfully in score pass"
     );
@@ -164,6 +168,11 @@ pub fn record_extract_quality_warn() {
 pub fn record_extract_quality_rejected(score: u8) {
     let _ = score;
     counter!("ai_radar_extract_quality_rejected_total").increment(1);
+}
+
+/// Cross-source duplicate marked during entity resolution.
+pub fn record_entity_duplicate_skipped() {
+    counter!("ai_radar_entity_duplicate_skipped_total").increment(1);
 }
 
 /// One feed entry rejected during collect (e.g. body larger than [`crate::util::limits::MAX_RAW_CONTENT_BYTES`]).

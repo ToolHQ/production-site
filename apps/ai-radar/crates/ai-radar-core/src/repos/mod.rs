@@ -43,7 +43,7 @@ pub use comparison::{ComparisonRepository, PgComparisonRepository};
 pub use digest::{DigestRepository, PgDigestRepository};
 pub use extracted_item::{ExtractedItemRepository, PgExtractedItemRepository};
 pub use feedback::{FeedbackDivergence, FeedbackRepository, PgFeedbackRepository};
-pub use raw_item::{PgRawItemRepository, RawItemRepository};
+pub use raw_item::{DuplicateCluster, PgRawItemRepository, RawItemRepository};
 pub use score::{PgScoreRepository, ScoreRepository, ScoredItemSort};
 pub use source::{PgSourceRepository, SourceRepository};
 pub use stats::{load_pipeline_stats, PipelineStats};

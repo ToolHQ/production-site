@@ -8,6 +8,7 @@ use serde_json::json;
 use crate::config::AppConfig;
 use crate::db::Database;
 use crate::domain::RawItemStatus;
+use crate::curation::reconcile_pending_entities;
 use crate::extractor::{
     assess_extract_quality, audit_entry, extractor_id, llm_extract_with_retry, QualityTier,
     EXTRACTOR_VERSION,
@@ -55,6 +56,15 @@ pub async fn run_extract(
         tracing::info!(
             reconciled,
             "reconciled raw_items stuck in extracting before claim"
+        );
+    }
+
+    let entity_stats = reconcile_pending_entities(&raw_repo, limit.max(1)).await?;
+    if entity_stats.leaders > 0 || entity_stats.duplicates_marked > 0 {
+        tracing::info!(
+            leaders = entity_stats.leaders,
+            duplicates_marked = entity_stats.duplicates_marked,
+            "entity resolution on pending backlog"
         );
     }
 
