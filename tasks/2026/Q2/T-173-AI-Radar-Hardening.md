@@ -1,6 +1,6 @@
 # T-173: AI Radar — Hardening
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d
@@ -17,7 +17,7 @@ Fecha o ciclo de qualidade do MVP. Posiciona o sistema para operar autônomo no 
 - [x] Wrapper `with_retry(op, policy)` em `util/retry.rs` com `RetryPolicy::http_default()` + `RetryDirective` — RSS refatorado para usar `with_retry`
 - [x] Jitter ±20% para evitar thundering herd
 - [x] Aplicar wrapper em call sites HTTP externos — _RSS via `with_retry`; LLM usa `RetryingLlmProvider` (T-164)_
-- [ ] GitHub/Web collectors (T-162/T-163) quando existirem
+- [ ] GitHub/Web collectors (T-162/T-163) quando existirem _(fora do escopo deste card; ver T-162/T-163)_
 - [x] `limits.rs` centralizando: `MAX_RAW_CONTENT_BYTES=200_000`, `MAX_EXTRACT_INPUT_TOKENS=8000`, `MAX_CONCURRENT_LLM_REQUESTS=2` _(RSS honra `MAX_RAW_CONTENT_BYTES`; extract/LLM ainda por T-164/T-165)_
 - [x] Honrar `sources.poll_interval_minutes`: skipar source com `last_polled_at` recente _(batch collect; `--source-id` força)_
 - [x] _Sem migration `0005`_ — `extracted_items.version` já existe em `0002`; scores usam histórico via `0003`
@@ -28,7 +28,7 @@ Fecha o ciclo de qualidade do MVP. Posiciona o sistema para operar autônomo no 
 - [x] Bateria de chaos tests em `crates/ai-radar-core/tests/chaos.rs` (slice):
   - [x] RSS source retorna 500 → outras OK _( `parallel_rss_collect.rs` )_
   - [x] LLM timeout → [`LlmError::Timeout`] sem panic _(unit em `chaos.rs`)_
-  - [ ] Postgres derruba conexão → erro claro, sem panic
+  - [x] Postgres derruba conexão → erro claro, sem panic _(teste `postgres_unreachable_returns_database_error`)_
   - [x] Conteúdo >200KB → rejected, métrica incrementada _(RSS + `ai_radar_entries_rejected_total`)_
   - [x] Múltiplos collects paralelos → zero duplicatas _(idempotência `ON CONFLICT` + teste Postgres `idempotent_insert`)_
 - [x] Documentar "Failure modes" no README (quais falhas são esperadas, como debugar) _(secção curta + métricas)_

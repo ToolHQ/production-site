@@ -359,12 +359,34 @@ Se `kubeconform` estiver instalado, você pode usar o comando da task
 [**T-174**](../../tasks/2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md)
 (`kubectl kustomize … | kubeconform …`) além do `just k8s-validate`.
 
+## Operator feedback (**T-170**)
+
+Registrar feedback humano sobre um item scored e consultar divergências (quando o operador discorda da decisão automática):
+
+```bash
+export API=https://ai-radar.dnor.io
+ITEM_ID=$(curl -fsS "$API/items?limit=1" -H 'Accept: application/json' \
+  | jq -r '.items[0].extracted_item_id')
+
+curl -fsS -X POST "$API/items/$ITEM_ID/feedback" \
+  -H 'Content-Type: application/json' \
+  -d '{"feedback_type":"rejected","notes":"não encaixa no cluster"}'
+
+curl -fsS "$API/items/$ITEM_ID" -H 'Accept: application/json' | jq '.feedbacks'
+curl -fsS "$API/reports/divergence?limit=20" -H 'Accept: application/json' | jq
+```
+
+Tipos válidos: `useful`, `irrelevant`, `duplicate`, `low_quality`, `wrong_category`, `adopted`, `tested`, `monitoring`, `rejected`.
+
+Testes de integração (Postgres): `cargo test -p ai-radar-core --test feedback_integration -- --ignored`
+
 ## Failure modes (collect / RSS)
 
 - **HTTP 5xx / 429 / timeouts**: o fetch do feed é **retentado** com backoff e jitter; ver logs do CronJob e Coroot para `source_id`.
 - **Corpo maior que `MAX_RAW_CONTENT_BYTES` (200 KiB)**: a entrada é **descartada** (não truncada); métrica `ai_radar_entries_rejected_total{reason="oversize_body"}` incrementa; ver `crates/ai-radar-core/src/util/limits.rs`.
 - **Batch dentro do `poll_interval`**: fonte não é consultada até passar o intervalo; use `--source-id` para forçar.
 - **Só erros**: o CLI sai com código **1** apenas quando **todas** as fontes efetivamente polled falham.
+- **Postgres indisponível**: conexão falha com `RepoError::Database` (sem panic); ver teste `postgres_unreachable_returns_database_error` em `tests/chaos.rs`.
 
 ## Troubleshooting
 

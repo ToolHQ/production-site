@@ -1,6 +1,6 @@
 # T-170: AI Radar — Feedback Loop
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: AI Radar / DevExp
 - **Estimation**: 4h
@@ -24,8 +24,8 @@ MVP sem auth — assumindo deploy interno; auth/RBAC fica para fase futura.
 - [x] Paginação básica em `/reports/divergence` (`?limit=50&offset=0`)
 - [x] Logs estruturados em cada feedback recebido
 - [x] Formulário de feedback na página do item no console
-- [ ] Testes integração: create item → post 2 feedbacks → get item mostra ambos; report divergence retorna casos esperados
-- [ ] Documentar uso no README com exemplos curl
+- [x] Testes integração: create item → post 2 feedbacks → get item mostra ambos; report divergence retorna casos esperados
+- [x] Documentar uso no README com exemplos curl
 
 ## DoD
 
@@ -48,7 +48,7 @@ curl -X POST localhost:8080/items/$ITEM_ID/feedback \
 curl localhost:8080/items/$ITEM_ID | jq '.feedbacks'
 curl 'localhost:8080/reports/divergence?limit=20' | jq
 
-cargo test -p ai-radar-api --test feedback
+cargo test -p ai-radar-core --test feedback_integration -- --ignored
 ```
 
 ## References
