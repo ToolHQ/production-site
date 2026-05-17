@@ -1,7 +1,9 @@
 import type { ComponentChildren } from 'preact';
-import { useState, useRef, useCallback } from 'preact/hooks';
+import { useState, useRef, useCallback, useMemo } from 'preact/hooks';
 import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
+import { useAlertThresholds } from '../hooks/useAlertThresholds';
+import { ThresholdSettings } from './ThresholdSettings';
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -94,9 +96,17 @@ interface NodeRowProps {
     mem: { timestamp: number; value: number }[];
     disk: { timestamp: number; value: number }[];
   };
+  diskWarn?: number;
+  diskCrit?: number;
+  memWarn?: number;
+  memCrit?: number;
+  cpuWarn?: number;
+  cpuCrit?: number;
+  _highlight?: (text: string, query: string) => ComponentChildren;
+  _query?: string;
 }
 
-function NodeRow({ node, metrics, history }: NodeRowProps) {
+function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn = 85, memCrit = 92, cpuWarn = 70, cpuCrit = 90, _highlight, _query = '' }: NodeRowProps) {
   const readyDot = node.ready ? '🟢' : '🔴';
   const diskIcon = node.disk_pressure ? (
     <span class="node-alert node-alert--disk" title="DiskPressure ativo">💾 DiskPressure</span>
@@ -106,21 +116,30 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
   ) : null;
   // Pre-warnings: alert before K8s formally fires DiskPressure / MemPressure
   const diskHighWarn =
-    !node.disk_pressure && metrics && metrics.disk_percent >= 80 ? (
+    !node.disk_pressure && metrics && metrics.disk_percent >= diskWarn ? (
       <span
-        class="node-alert node-alert--pre-warn"
-        title={`Disk at ${metrics.disk_percent.toFixed(0)}% — approaching DiskPressure threshold`}
+        class={`node-alert node-alert--pre-warn${metrics.disk_percent >= diskCrit ? ' node-alert--pre-crit' : ''}`}
+        title={`Disk at ${metrics.disk_percent.toFixed(0)}% — ${metrics.disk_percent >= diskCrit ? 'critical' : 'approaching DiskPressure threshold'} (warn ≥ ${diskWarn}%)`}
       >
-        ⚠️ Disk {metrics.disk_percent.toFixed(0)}%
+        {metrics.disk_percent >= diskCrit ? '🔴' : '⚠️'} Disk {metrics.disk_percent.toFixed(0)}%
       </span>
     ) : null;
   const memHighWarn =
-    !node.memory_pressure && metrics && metrics.mem_percent >= 85 ? (
+    !node.memory_pressure && metrics && metrics.mem_percent >= memWarn ? (
       <span
-        class="node-alert node-alert--pre-warn"
-        title={`Memory at ${metrics.mem_percent.toFixed(0)}% — approaching MemoryPressure threshold`}
+        class={`node-alert node-alert--pre-warn${metrics.mem_percent >= memCrit ? ' node-alert--pre-crit' : ''}`}
+        title={`Memory at ${metrics.mem_percent.toFixed(0)}% — ${metrics.mem_percent >= memCrit ? 'critical' : 'approaching MemoryPressure threshold'} (warn ≥ ${memWarn}%)`}
       >
-        ⚠️ Mem {metrics.mem_percent.toFixed(0)}%
+        {metrics.mem_percent >= memCrit ? '🔴' : '⚠️'} Mem {metrics.mem_percent.toFixed(0)}%
+      </span>
+    ) : null;
+  const cpuHighWarn =
+    metrics && metrics.cpu_percent >= cpuWarn ? (
+      <span
+        class={`node-alert node-alert--pre-warn${metrics.cpu_percent >= cpuCrit ? ' node-alert--pre-crit' : ''}`}
+        title={`CPU at ${metrics.cpu_percent.toFixed(0)}% — ${metrics.cpu_percent >= cpuCrit ? 'critical' : 'high utilization'} (warn ≥ ${cpuWarn}%)`}
+      >
+        {metrics.cpu_percent >= cpuCrit ? '🔴' : '⚠️'} CPU {metrics.cpu_percent.toFixed(0)}%
       </span>
     ) : null;
 
@@ -285,7 +304,7 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
     <tr class={`node-row${!node.ready ? ' node-row--notready' : ''}${node.disk_pressure ? ' node-row--disk' : ''}`}>
       <td class="node-name">
         <span class="node-ready-dot">{readyDot}</span>
-        <span class="node-hostname">{node.name}</span>
+        <span class="node-hostname">{_highlight ? _highlight(node.name, _query) : node.name}</span>
       </td>
       <td class="node-role-cell">{roleBadge}</td>
       <td class="node-cpu">{cpuCell}</td>
@@ -296,7 +315,8 @@ function NodeRow({ node, metrics, history }: NodeRowProps) {
         {memIcon}
         {diskHighWarn}
         {memHighWarn}
-        {!diskIcon && !memIcon && !diskHighWarn && !memHighWarn && <span class="node-ok">—</span>}
+        {cpuHighWarn}
+        {!diskIcon && !memIcon && !diskHighWarn && !memHighWarn && !cpuHighWarn && <span class="node-ok">—</span>}
       </td>
     </tr>
   );
@@ -323,6 +343,33 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
   const nodeMetrics = live?.node_metrics ?? {};
   const hasRealMetrics = Object.keys(nodeMetrics).length > 0;
 
+  const [search, setSearch] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const { thresholds, update: updateThreshold, reset: resetThresholds } = useAlertThresholds();
+
+  const filteredNodes = useMemo(() => {
+    if (!search.trim()) return nodes;
+    const q = search.toLowerCase();
+    return nodes.filter((n) =>
+      n.name.toLowerCase().includes(q) ||
+      n.role.toLowerCase().includes(q) ||
+      (n.ready ? 'ready' : 'notready').includes(q)
+    );
+  }, [nodes, search]);
+
+  const highlightText = useCallback((text: string, query: string): ComponentChildren => {
+    if (!query.trim()) return text;
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark class="search-highlight">{text.slice(idx, idx + query.length)}</mark>
+        {text.slice(idx + query.length)}
+      </>
+    );
+  }, []);
+
   if (!live?.available || nodes.length === 0) {
     return (
       <div class="nodes-empty">
@@ -336,6 +383,42 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
 
   return (
     <div class="nodes-panel" id="nodes-panel">
+      {/* ── Search + Settings bar ── */}
+      <div class="nodes-toolbar">
+        <div class="nodes-search-wrapper">
+          <span class="nodes-search-icon">⌕</span>
+          <input
+            type="search"
+            class="nodes-search"
+            placeholder="Filter nodes…"
+            value={search}
+            onInput={(e) => setSearch(e.currentTarget.value)}
+            aria-label="Filter nodes by name or role"
+          />
+          {search && (
+            <button class="nodes-search-clear" onClick={() => setSearch('')} aria-label="Clear search">✕</button>
+          )}
+        </div>
+        <button
+          class="nodes-settings-btn"
+          onClick={() => setShowSettings(true)}
+          title="Configure alert thresholds"
+          aria-label="Configure alert thresholds"
+        >
+          ⚙ Thresholds
+        </button>
+      </div>
+
+      {/* ── Threshold Settings Modal ── */}
+      {showSettings && (
+        <ThresholdSettings
+          thresholds={thresholds}
+          onUpdate={updateThreshold}
+          onReset={resetThresholds}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
       {(pressureCount > 0 || notReadyCount > 0) && (
         <div class="nodes-alert-banner">
           {notReadyCount > 0 && (
@@ -351,6 +434,10 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
         </div>
       )}
 
+      {filteredNodes.length === 0 && search && (
+        <div class="nodes-empty">No nodes match &quot;<strong>{search}</strong>&quot;</div>
+      )}
+
       <div class="table-shell">
         <table class="nodes-table">
           <colgroup>
@@ -363,7 +450,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
           </colgroup>
           <thead>
             <tr>
-              <th>Node</th>
+              <th>Node{search && filteredNodes.length < nodes.length && <span class="nodes-search-count"> {filteredNodes.length}/{nodes.length}</span>}</th>
               <th>Role</th>
               <th title={hasRealMetrics ? 'Real CPU utilization (5m avg)' : 'Kubernetes allocatable CPU (fixed per node)'}>CPU</th>
               <th title={hasRealMetrics ? 'Real memory utilization' : 'Kubernetes allocatable memory (fixed per node)'}>Memory</th>
@@ -372,12 +459,20 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
             </tr>
           </thead>
           <tbody>
-            {nodes.map((node) => (
+            {filteredNodes.map((node) => (
               <NodeRow
                 key={node.name}
-                node={node}
+                node={{ ...node, name: node.name }}
                 metrics={nodeMetrics[node.name]}
                 history={history?.[node.name]}
+                diskWarn={thresholds.disk_warn}
+                diskCrit={thresholds.disk_crit}
+                memWarn={thresholds.mem_warn}
+                memCrit={thresholds.mem_crit}
+                cpuWarn={thresholds.cpu_warn}
+                cpuCrit={thresholds.cpu_crit}
+                _highlight={highlightText}
+                _query={search}
               />
             ))}
           </tbody>

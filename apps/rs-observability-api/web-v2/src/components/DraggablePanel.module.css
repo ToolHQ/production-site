@@ -1,0 +1,90 @@
+.panel {
+  position: absolute;
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 200ms ease-out;
+
+  &:hover {
+    box-shadow: var(--shadow);
+  }
+
+  &:focus-within {
+    border-color: var(--accent);
+  }
+}
+
+.header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  user-select: none;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.draggingIndicator {
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  color: var(--text-main);
+}
+
+.resizeHandle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, transparent 50%, var(--accent-soft) 50%);
+  cursor: nwse-resize;
+  border-radius: 0 0 8px 0;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+
+  .panel:hover & {
+    opacity: 1;
+  }
+}
+
+/* Mobile: disable drag/resize */
+@media (max-width: 768px) {
+  .panel {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    margin-bottom: 16px;
+  }
+
+  .resizeHandle {
+    display: none;
+  }
+
+  .header {
+    cursor: default;
+  }
+}

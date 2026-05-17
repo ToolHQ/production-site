@@ -1,0 +1,206 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+.filterBuilder {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.select,
+.input {
+  padding: 6px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-main);
+  font-size: 12px;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--bg-accent-soft);
+  }
+}
+
+.input {
+  flex: 1;
+  min-width: 120px;
+}
+
+.inputWrapper {
+  flex: 1;
+  min-width: 120px;
+  position: relative;
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+
+  li {
+    padding: 6px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-muted);
+
+    &:hover {
+      background: var(--bg-accent-soft);
+      color: var(--accent);
+    }
+  }
+}
+
+.addButton,
+.clearButton,
+.deleteButton,
+.removeButton,
+.loadButton,
+.shareButton {
+  padding: 6px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease-out;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-accent-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.removeButton {
+  padding: 4px 6px;
+  min-width: auto;
+  color: var(--critical);
+  border-color: transparent;
+
+  &:hover {
+    border-color: var(--critical);
+    background: rgba(192, 59, 43, 0.1);
+  }
+}
+
+.filtersHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+
+  h3 {
+    margin: 0;
+  }
+}
+
+.filtersList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filterTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.filterText {
+  font-weight: 500;
+}
+
+.presetsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.presetItem {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.loadButton {
+  flex: 1;
+  text-align: left;
+}
+
+.savePreset {
+  display: flex;
+  gap: 8px;
+}
+
+.shareButton {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .filterBuilder {
+    flex-direction: column;
+  }
+
+  .select,
+  .input {
+    width: 100%;
+  }
+
+  .addButton {
+    width: 100%;
+  }
+}
