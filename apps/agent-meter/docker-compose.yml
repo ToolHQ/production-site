@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: agent-meter-pg
+    environment:
+      POSTGRES_USER: agent_meter
+      POSTGRES_PASSWORD: agent_meter
+      POSTGRES_DB: agent_meter
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_meter"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  collector:
+    build:
+      context: ../..
+      dockerfile: apps/agent-meter/Dockerfile
+    container_name: agent-meter-collector
+    ports:
+      - "8081:3000"
+    environment:
+      AGENT_METER_HOST: 0.0.0.0
+      AGENT_METER_PORT: 3000
+      DATABASE_URL: postgres://agent_meter:agent_meter@postgres:5432/agent_meter
+      RUST_LOG: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.3'
+        reservations:
+          memory: 32M
+          cpus: '0.1'
+
+volumes:
+  pgdata:
