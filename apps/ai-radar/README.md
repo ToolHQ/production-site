@@ -328,7 +328,7 @@ Smoke ad-hoc (exemplos):
 
 1. **Uma vez por máquina** (WSL): `~/production-site/oci-k8s-cluster/scripts/setup-hetzner-builder.sh` — exige SSH `hetzner-cax21-helsinki-4vcpu-8gb-ipv4` em `~/.ssh/config`.
 2. **Cada deploy:** compilação ARM64 na VM Helsinki (`--load` na sua máquina); só abre túnel **`31444→master`** para `docker push` da imagem final (sem cache BuildKit no master).
-3. **Fallback:** se SSH Hetzner falhar, volta ao `oci-builder` remoto no master (pré-voo de disco ≥12 GiB + prune pós-build).
+3. **Emergência:** build no master só com `AI_RADAR_ALLOW_MASTER_BUILD=1` (pré-voo de disco ≥12 GiB). Por padrão o deploy **falha** se a Hetzner estiver indisponível — preserva o master.
 
 ```bash
 # Verificar builder (deve mostrar Status: running, Platforms: linux/arm64)
