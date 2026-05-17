@@ -142,6 +142,25 @@ struct LanguageCount {
 }
 
 #[derive(Serialize, Clone)]
+struct CorootAlert {
+    name: String,
+    severity: String,
+    instance: String,
+    namespace: Option<String>,
+    node: Option<String>,
+    job: Option<String>,
+    timestamp: u64,
+}
+
+#[derive(Serialize)]
+struct CorootAlertsResponse {
+    available: bool,
+    alerts: Vec<CorootAlert>,
+    queried_at_epoch: u64,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
 struct LiveOverview {
     available: bool,
     stale: bool,
@@ -1076,6 +1095,53 @@ impl PrometheusMonitor {
                 ))
             })
             .collect()
+    }
+
+    async fn fetch_coroot_alerts(&self) -> CorootAlertsResponse {
+        let now = unix_epoch_seconds();
+        match self
+            .query_instant_series("ALERTS{alertstate=\"firing\"}")
+            .await
+        {
+            Ok(series) => {
+                let alerts = series
+                    .into_iter()
+                    .map(|s| CorootAlert {
+                        name: s
+                            .metric
+                            .get("alertname")
+                            .cloned()
+                            .unwrap_or_else(|| "unknown".to_string()),
+                        severity: s
+                            .metric
+                            .get("severity")
+                            .cloned()
+                            .unwrap_or_else(|| "info".to_string()),
+                        instance: s
+                            .metric
+                            .get("instance")
+                            .cloned()
+                            .unwrap_or_else(|| "unknown".to_string()),
+                        namespace: s.metric.get("namespace").cloned(),
+                        node: s.metric.get("node").cloned(),
+                        job: s.metric.get("job").cloned(),
+                        timestamp: now,
+                    })
+                    .collect();
+                CorootAlertsResponse {
+                    available: true,
+                    alerts,
+                    queried_at_epoch: now,
+                    error: None,
+                }
+            }
+            Err(error) => CorootAlertsResponse {
+                available: false,
+                alerts: vec![],
+                queried_at_epoch: now,
+                error: Some(format!("Prometheus query failed: {}", error)),
+            },
+        }
     }
 }
 

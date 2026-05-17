@@ -14,6 +14,7 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/catalog", get(catalog))
         .route("/api/catalog/summary", get(catalog_summary))
         .route("/api/live/overview", get(live_overview))
+        .route("/api/coroot-alerts", get(coroot_alerts))
         .route("/api/reports", get(report_index))
         .route("/artifacts/*path", get(artifact))
         // Assets estáticos do Vite — embutidos no binário via include_bytes!
@@ -91,6 +92,11 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     payload.node_metrics = state.prometheus_monitor.fetch_node_metrics().await;
 
     Json(payload).into_response()
+}
+
+async fn coroot_alerts(State(state): State<AppState>) -> Response {
+    let response = state.prometheus_monitor.fetch_coroot_alerts().await;
+    Json(response).into_response()
 }
 
 async fn catalog(State(state): State<AppState>) -> Response {
