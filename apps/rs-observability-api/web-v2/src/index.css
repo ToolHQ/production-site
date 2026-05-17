@@ -1986,3 +1986,64 @@
       :root.dark .ns-pct--ok       { color: #4ade80; }
       :root.dark .ns-pct--warning  { color: #fbbf24; }
       :root.dark .ns-pct--critical { color: #f87171; }
+
+      /* Namespace row highlight */
+      .ns-row--warning { background: rgba(234,179,8,0.06); }
+      .ns-row--critical { background: rgba(239,68,68,0.08); }
+      :root.dark .ns-row--warning  { background: rgba(234,179,8,0.08); }
+      :root.dark .ns-row--critical { background: rgba(239,68,68,0.12); }
+
+      /* ────────────────────────────────────────────────────────
+         Workload Panel — filtro namespace + badge NS + row states
+      ──────────────────────────────────────────────────────── */
+      .wl-header-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .wl-ns-filter {
+        font-size: 0.76rem;
+        padding: 3px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+        background: var(--surface1, rgba(22,32,43,0.06));
+        color: var(--text);
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .wl-ns-filter:focus { border-color: var(--accent); }
+
+      .wl-name-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .wl-ns-badge {
+        display: inline-block;
+        font-size: 0.70rem;
+        color: var(--muted);
+        background: var(--accent-soft, rgba(22,32,43,0.06));
+        padding: 1px 6px;
+        border-radius: 8px;
+        white-space: nowrap;
+        width: fit-content;
+      }
+
+      .wl-row--down     { background: rgba(239,68,68,0.06); }
+      .wl-row--degraded { background: rgba(234,179,8,0.05); }
+      :root.dark .wl-row--down     { background: rgba(239,68,68,0.10); }
+      :root.dark .wl-row--degraded { background: rgba(234,179,8,0.08); }
+
+      /* ────────────────────────────────────────────────────────
+         Auto-refresh countdown pill
+      ──────────────────────────────────────────────────────── */
+      .pill--countdown {
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+        opacity: 0.7;
+        min-width: 52px;
+        text-align: center;
+      }
