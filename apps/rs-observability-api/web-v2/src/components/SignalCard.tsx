@@ -1,4 +1,4 @@
-import type { LiveOverview, MetricsData, Incident, RestartHotspot } from '../types/api';
+import type { LiveOverview, MetricsData, Incident, RestartHotspot, CorootAlertsData, CorootIncidentsData } from '../types/api';
 import { formatDiscreteCount } from '../utils/format';
 
 // ────────────────────────────────────────────────────────────
@@ -124,14 +124,20 @@ export function SignalCard({ live }: SignalCardProps) {
 
 interface SignalGridProps {
   live: LiveOverview | null;
+  corootAlerts?: CorootAlertsData | null;
+  corootIncidents?: CorootIncidentsData | null;
 }
 
-export function SignalGrid({ live }: SignalGridProps) {
+export function SignalGrid({ live, corootAlerts, corootIncidents }: SignalGridProps) {
   const totalIncidents = incidentsBySeverity(live, 'critical') + incidentsBySeverity(live, 'warning');
   const servicesNeedingAction = (live?.summary.down_services || 0) + (live?.summary.degraded_services || 0);
+  const firingAlerts = corootAlerts?.available ? corootAlerts.total : null;
+  const activeIncidents = corootIncidents?.available
+    ? corootIncidents.incidents.filter((i) => i.resolved_at === null).length
+    : null;
 
   const items = [
-    { value: live ? String(totalIncidents) : '--', label: 'Active incidents' },
+    { value: live ? String(totalIncidents) : '--', label: 'K8s incidents' },
     { value: live ? String(servicesNeedingAction) : '--', label: 'Services needing action' },
     {
       value: live ? `${live.summary.nodes_ready ?? '--'}/${live.summary.nodes_total ?? '--'}` : '--/--',
@@ -140,6 +146,14 @@ export function SignalGrid({ live }: SignalGridProps) {
     {
       value: live ? formatDiscreteCount(live.summary.restarting_pods ?? 0) : '--',
       label: 'Restarting pods',
+    },
+    {
+      value: firingAlerts !== null ? String(firingAlerts) : '--',
+      label: 'Coroot alerts',
+    },
+    {
+      value: activeIncidents !== null ? String(activeIncidents) : '--',
+      label: 'SLO incidents',
     },
   ];
 

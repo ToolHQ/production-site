@@ -168,7 +168,7 @@ export function App() {
         </header>
 
         {/* ── Signal mini counters ── */}
-        <SignalGrid live={live} />
+        <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
 
         {/* ── Node Fleet Status ── */}
         <section class="nodes-section-band">
@@ -243,7 +243,7 @@ export function App() {
                   <span class="panel-tag" id="services-section-tag">{servicesSectionTag}</span>
                 </div>
               </div>
-              <ServiceGrid live={live} />
+              <ServiceGrid live={live} alerts={corootAlerts?.alerts ?? []} incidents={corootIncidents?.incidents ?? []} />
             </section>
 
             {/* Service Telemetry */}
