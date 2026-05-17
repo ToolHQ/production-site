@@ -83,7 +83,7 @@ pub async fn run_reprocess(
     let run_score = matches!(stage, ReprocessStage::Score | ReprocessStage::All);
 
     if run_extract {
-        extract_single_raw_item(db, config, llm, raw_item_id).await?;
+        extract_single_raw_item(db, config, llm.clone(), raw_item_id).await?;
         let latest = extracted_repo.get_latest_for_raw_item(raw_item_id).await?;
         result.latest_extracted_item_id = Some(latest.id);
         result.latest_version = Some(latest.version);
@@ -98,7 +98,7 @@ pub async fn run_reprocess(
                 .await?
                 .id
         };
-        score_single_extracted_item(db, target_id).await?;
+        score_single_extracted_item(db, config, llm.clone(), target_id).await?;
         result.scored = true;
         if result.latest_extracted_item_id.is_none() {
             let latest = extracted_repo.get(target_id).await?;

@@ -53,7 +53,7 @@ async fn run(
 ) -> Result<(StatusCode, Json<ScoreRunResponse>), ApiError> {
     let limit = body.limit.clamp(1, 500);
     let stale_hours = body.stale_hours.clamp(1, 24 * 30);
-    let score_stats = run_score(&state.db, limit, stale_hours, body.rescore_all)
+    let score_stats = run_score(&state.db, &state.config, limit, stale_hours, body.rescore_all)
         .await
         .map_err(|e| ApiError::BadRequest(e.to_string()))?;
     Ok((

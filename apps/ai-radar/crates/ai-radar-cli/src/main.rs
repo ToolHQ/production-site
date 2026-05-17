@@ -181,7 +181,7 @@ async fn run_score_command(
         .await
         .map_err(|e| anyhow::anyhow!("database: {e}"))?;
 
-    let stats = run_score(&db, limit.max(1), stale_hours.max(1), rescore_all)
+    let stats = run_score(&db, &config, limit.max(1), stale_hours.max(1), rescore_all)
         .await
         .context("score pipeline")?;
 
