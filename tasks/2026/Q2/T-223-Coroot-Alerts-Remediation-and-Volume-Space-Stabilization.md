@@ -63,6 +63,10 @@ Mapeamos o consumo detalhado das subpastas do backupstore no MinIO e identificam
 - [x] **[Segunda Onda]** Identificar e remover os backups 100% redundantes da réplica Postgres (`postgres-1`).
 - [x] **[Segunda Onda]** Desassociar a réplica Postgres do agendamento diário e deletar seus 7 backups obsoletos do S3/MinIO.
 - [x] **[Segunda Onda]** Investigar as causas de ruído nos 52 alertas do dashboard cru do Coroot (mapeado 19 de `instance-availability` de timers/systemd transient, 12 de `kubernetes-events` de CronJobs e 8 de log warnings).
+- [x] **[Terceira Onda]** Auditar a base SQLite interna do Coroot (`/data/db.sqlite`) via `python-sqlite3` para extrair alertas ativos em tempo real de forma programática.
+- [x] **[Terceira Onda]** Identificar a causa raiz do `CrashLoopBackOff` no `agent-meter-mcp-wrapper` (ausência da propriedade `command` no manifesto k8s após concorrência de deploys de outros agentes).
+- [x] **[Terceira Onda]** Solucionar a colisão de CPU/memória no ResourceQuota `default-quota` da namespace `default` durante rolling updates mudando a estratégia de rollout para `Recreate` nos deployments do `agent-meter` e `mcp-wrapper`.
+- [x] **[Terceira Onda]** Adicionar resource limits/requests em jobs do Ingress-Nginx para garantir total segurança contra colisões de cotas.
 - [x] Validar que o número total de alertas caiu drasticamente e as falhas críticas foram todas remediadas.
 
 ## Evidências de Sucesso e Fechamento
@@ -73,9 +77,13 @@ Mapeamos o consumo detalhado das subpastas do backupstore no MinIO e identificam
 4. **Resiliência de builds e eliminação de conflito**: Buildkit daemon consolidado na instância rootless saudável do usuário `ubuntu`.
 5. **Descompressão de Storage**: Espaço de backups redundantes limpo fisicamente da partição do MinIO, liberando storage valioso.
 6. **Mapeamento de Alertas**: Mapeamento completo dos 52 alertas crus do Coroot provando que são 100% ruídos transitórios ou falsos positivos.
+7. **Estabilização do agent-meter-mcp-wrapper**: Wrapper e collector ativos, saudáveis e 1/1 Running sem colisões de cota devido à nova estratégia `Recreate` e correções de command.
+8. **Auditoria de Banco Direta**: Extração analítica dos incidentes diretamente da base sqlite `/data/db.sqlite` provando que o único incidente ativo real no SLO de latência do `rs-observability-api` é um efeito residual de sliding window do nosso próprio benchmark massivo executado no Q2.
 
 ## Referências
 
 - [tasks/KANBAN.md](file:///home/dnorio/production-site-antigravity/tasks/KANBAN.md)
 - [components/minio/minio-longhorn-preflight.yaml](file:///home/dnorio/production-site-antigravity/components/minio/minio-longhorn-preflight.yaml)
 - [scratch/postgres_replica_resync.sh](file:///home/dnorio/.gemini/antigravity/brain/f951841b-aee7-47f4-95bc-959d0d0b4978/scratch/postgres_replica_resync.sh)
+- [apps/agent-meter/k8s/mcp-wrapper.yaml](file:///home/dnorio/production-site-antigravity/apps/agent-meter/k8s/mcp-wrapper.yaml)
+- [apps/agent-meter/k8s/agent-meter.yaml](file:///home/dnorio/production-site-antigravity/apps/agent-meter/k8s/agent-meter.yaml)
