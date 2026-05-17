@@ -1,8 +1,8 @@
 # T-162: AI Radar — GitHub Collector
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
-- **Epic/Owner**: AI Radar / DevExp
+- **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d
 - **Opened**: 2026-05-01
 
@@ -14,16 +14,16 @@ Token opcional via `GITHUB_TOKEN` (sem token = 60 req/h, com token = 5000 req/h)
 
 ## Tasks
 
-- [ ] Struct `GitHubClient` em `ai-radar-core::collector::github::client` com headers padrão (User-Agent, Accept, Authorization opcional)
-- [ ] Métodos: `get_repo(owner, repo)`, `list_releases(owner, repo, since)`, `get_readme(owner, repo)`
-- [ ] Tratamento de rate-limit: `x-ratelimit-remaining` + `x-ratelimit-reset` → retornar `Err(RateLimited)` ou esperar curto (cap 90s)
-- [ ] `GitHubReleasesCollector` mapeando `release.id` → `external_id`, `body` → `raw_content`
-- [ ] `GitHubRepoMetaCollector` persistindo metadados como JSON em `raw_items.raw_content`
-- [ ] Paginação por header `Link` (cap 3 páginas = 90 items por execução)
-- [ ] Wrapper `with_rate_limit_retry` para chamadas GitHub
-- [ ] Integração com pipeline collect: source_type `github_releases`/`github_repo` despacha pro client adequado
-- [ ] Mock HTTP com `wiremock-rs` cobrindo: 200, 401, 403 rate-limited, 500, paginação
-- [ ] Documentar no README: limites com/sem token
+- [x] Struct `GitHubClient` em `ai-radar-core::collector::github::client` com headers padrão (User-Agent, Accept, Authorization opcional)
+- [x] Métodos: `get_repo(owner, repo)`, `list_releases(owner, repo, since)`, `get_readme(owner, repo)`
+- [x] Tratamento de rate-limit: `x-ratelimit-remaining` + `x-ratelimit-reset` → retornar `Err(RateLimited)` ou esperar curto (cap 90s)
+- [x] `GitHubReleasesCollector` mapeando `release.id` → `external_id`, `body` → `raw_content`
+- [x] `GitHubRepoMetaCollector` persistindo metadados como JSON em `raw_items.raw_content`
+- [x] Paginação por header `Link` (cap 3 páginas = 90 items por execução)
+- [x] Wrapper `with_rate_limit_retry` para chamadas GitHub _(via `with_retry` + rate-limit wait)_
+- [x] Integração com pipeline collect: source_type `github_releases`/`github_repo` despacha pro client adequado
+- [x] Mock HTTP com `wiremock-rs` cobrindo: 200, 401, 403 rate-limited, 500, paginação
+- [x] Documentar no README: limites com/sem token
 
 ## DoD
 
