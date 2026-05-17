@@ -44,4 +44,7 @@
 - [x] T-225: docs/agent-meter-otel.md + scripts/smoke-otel.sh
 - [ ] T-225: ConfigMap OTEL no deploy do collector
 - [ ] T-229: Dashboard UI melhorada (Vite+Preact)
-- [ ] Criar skill OTEL integration para agentes
+- [x] T-226: Antigravity integration — universal script + skill
+- [x] T-227: Copilot/VSCode integration — universal script + skill + MCP wrapper
+- [x] T-228: Cursor integration — universal script + skill + MCP wrapper
+- [x] Criar skill OTEL/integration reutilizável para todos os agentes (`.agents/skills/agent-meter-integration/`)
