@@ -63,6 +63,13 @@ spec:
                     values:
                       - postgres
               topologyKey: "kubernetes.io/hostname"
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - ingress-nginx
+              topologyKey: "kubernetes.io/hostname"
       imagePullSecrets:
         - name: regsecret
       volumes:

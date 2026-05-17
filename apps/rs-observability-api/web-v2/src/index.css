@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 :root {
         --ink: #16202b;
         --muted: #5c6a78;
@@ -22,7 +24,7 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
+        font-family: "Inter", "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
         color: var(--ink);
         background:
           radial-gradient(circle at 14% 8%, rgba(13, 124, 114, 0.18), transparent 26%),
@@ -59,6 +61,7 @@
       }
 
       .masthead,
+      .nodes-section-band,
       .priority-grid,
       .content-grid,
       .catalog-zone {
@@ -330,6 +333,11 @@
       .hotspot-body span,
       td small {
         color: var(--muted);
+      }
+
+      .nodes-section-band {
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
       }
 
       .metric-band {
@@ -752,6 +760,7 @@
         }
 
         .operator-grid,
+        .nodes-section-band,
         .metric-band,
         .priority-grid,
         .main-stack,
@@ -791,6 +800,7 @@
         }
 
         .operator-grid,
+        .nodes-section-band,
         .metric-band,
         .priority-grid,
         .main-stack,
