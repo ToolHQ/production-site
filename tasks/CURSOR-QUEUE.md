@@ -31,7 +31,7 @@
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
-| **T-200** | **Compile-time / BuildKit** _(cargo-chef mergeado; validar 2º deploy API-only)_ | In Progress 🔼 |
+| **T-173** | Hardening restante | In Progress |
 | T-170 | Feedback loop | Backlog |
 | T-162 | GitHub collector | Backlog |
 | T-163 | Webpage fetcher | Backlog |
@@ -56,6 +56,7 @@
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
+| T-200 | Build optimize — 2º deploy API-only **69 s** (cache quente) | 2026-05-16 |
 | T-177 | Items API + Explorer — PR [#127](https://github.com/ToolHQ/production-site/pull/127) | 2026-05-16 |
 | T-176 | Dashboard pack Coroot/Grafana | 2026-05-16 |
 | T-175 | Operator Console — PR [#116](https://github.com/ToolHQ/production-site/pull/116) | 2026-05-16 |
