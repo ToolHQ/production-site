@@ -99,6 +99,7 @@ metadata:
   namespace: default
   annotations:
     cert-manager.io/cluster-issuer: dnor-ca-issuer
+    nginx.ingress.kubernetes.io/proxy-body-size: "4m"
 spec:
   ingressClassName: nginx
   tls:
@@ -109,6 +110,13 @@ spec:
     - host: agent-meter.dnor.io
       http:
         paths:
+          - path: /v1/traces
+            pathType: Prefix
+            backend:
+              service:
+                name: agent-meter
+                port:
+                  number: 4318
           - path: /
             pathType: Prefix
             backend:
