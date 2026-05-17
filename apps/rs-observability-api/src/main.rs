@@ -166,6 +166,29 @@ pub(crate) struct CorootAlertsResponse {
     error: Option<String>,
 }
 
+#[derive(Serialize, Clone, Deserialize)]
+struct CorootIncident {
+    application_id: String,
+    key: String,
+    opened_at: u64,
+    #[serde(default)]
+    resolved_at: Option<u64>,
+    severity: String,
+    #[serde(default)]
+    short_description: Option<String>,
+    #[serde(default)]
+    duration: u64,
+}
+
+#[derive(Serialize)]
+pub(crate) struct CorootIncidentsResponse {
+    available: bool,
+    incidents: Vec<CorootIncident>,
+    total: u64,
+    queried_at_epoch: u64,
+    error: Option<String>,
+}
+
 // --- Coroot HTTP API client (internal) ---
 
 #[derive(Deserialize)]
@@ -178,6 +201,11 @@ struct CorootApiData {
     alerts: Vec<CorootAlert>,
     #[serde(default)]
     firing: u64,
+}
+
+#[derive(Deserialize)]
+struct CorootIncidentsApiResponse {
+    data: Vec<CorootIncident>,
 }
 
 #[derive(Clone)]
@@ -236,7 +264,7 @@ impl CorootClient {
     }
 
     async fn do_fetch_alerts(&self, cookie: &str) -> Result<CorootApiData, String> {
-        let url = format!("{}/api/project/{}/alerts", self.base_url, self.project_id);
+        let url = format!("{}/api/project/{}/alerts?limit=200", self.base_url, self.project_id);
         let resp = self
             .http
             .get(&url)
@@ -258,6 +286,107 @@ impl CorootClient {
         })?;
 
         Ok(api_resp.data)
+    }
+
+    async fn do_fetch_incidents(&self, cookie: &str) -> Result<Vec<CorootIncident>, String> {
+        let url = format!("{}/api/project/{}/incidents?limit=20", self.base_url, self.project_id);
+        let resp = self
+            .http
+            .get(&url)
+            .header("Cookie", cookie)
+            .send()
+            .await
+            .map_err(|e| format!("coroot incidents request failed: {}", e))?;
+
+        if resp.status().as_u16() == 401 {
+            return Err("401".to_string());
+        }
+        if !resp.status().is_success() {
+            return Err(format!("coroot incidents HTTP {}", resp.status()));
+        }
+
+        let api_resp: CorootIncidentsApiResponse = resp.json().await.map_err(|e| {
+            eprintln!("[coroot] incidents parse error: {}", e);
+            format!("coroot incidents parse error: {}", e)
+        })?;
+
+        Ok(api_resp.data)
+    }
+
+    async fn fetch_incidents(&self) -> CorootIncidentsResponse {
+        let now = unix_epoch_seconds();
+
+        let cookie = {
+            let lock = self.session_cookie.read().await;
+            lock.clone()
+        };
+
+        let cookie = match cookie {
+            Some(c) => c,
+            None => match self.login().await {
+                Ok(c) => c,
+                Err(e) => {
+                    return CorootIncidentsResponse {
+                        available: false,
+                        incidents: vec![],
+                        total: 0,
+                        queried_at_epoch: now,
+                        error: Some(e),
+                    }
+                }
+            },
+        };
+
+        match self.do_fetch_incidents(&cookie).await {
+            Ok(incidents) => {
+                let total = incidents.len() as u64;
+                CorootIncidentsResponse {
+                    available: true,
+                    total,
+                    incidents,
+                    queried_at_epoch: now,
+                    error: None,
+                }
+            }
+            Err(e) if e == "401" => {
+                *self.session_cookie.write().await = None;
+                match self.login().await {
+                    Ok(new_cookie) => match self.do_fetch_incidents(&new_cookie).await {
+                        Ok(incidents) => {
+                            let total = incidents.len() as u64;
+                            CorootIncidentsResponse {
+                                available: true,
+                                total,
+                                incidents,
+                                queried_at_epoch: now,
+                                error: None,
+                            }
+                        }
+                        Err(e2) => CorootIncidentsResponse {
+                            available: false,
+                            incidents: vec![],
+                            total: 0,
+                            queried_at_epoch: now,
+                            error: Some(e2),
+                        },
+                    },
+                    Err(e2) => CorootIncidentsResponse {
+                        available: false,
+                        incidents: vec![],
+                        total: 0,
+                        queried_at_epoch: now,
+                        error: Some(format!("re-login failed: {}", e2)),
+                    },
+                }
+            }
+            Err(e) => CorootIncidentsResponse {
+                available: false,
+                incidents: vec![],
+                total: 0,
+                queried_at_epoch: now,
+                error: Some(e),
+            },
+        }
     }
 
     async fn fetch_alerts(&self) -> CorootAlertsResponse {
