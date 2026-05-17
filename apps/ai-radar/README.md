@@ -224,6 +224,7 @@ the deterministic-only path keeps working when only a subset is supplied.
 | `LLM_API_KEY` | _unset_ | OpenRouter / Ollama / vLLM secret |
 | `LLM_MODEL` | _unset_ | e.g. `meta-llama/llama-3.3-70b-instruct:free` |
 | `LLM_TIMEOUT_SECONDS` | `60` | Per-request timeout |
+| `LLM_MAX_RPM` | `15` | Min spacing between LLM HTTP calls (`0` = off). Keeps OpenRouter `:free` under ~16–20 RPM |
 | `GITHUB_TOKEN` | _unset_ | Optional — **60 req/h** without token, **5000 req/h** with token; client waits up to **90s** on `x-ratelimit-reset` |
 | `LLM_SCORING_ENABLED` | `false` | LLM second opinion on score (requires `LLM_ENABLED=true`) |
 | `LLM_SCORING_DETERMINISTIC_WEIGHT` | `0.7` | Weight for rule-based score when merging |

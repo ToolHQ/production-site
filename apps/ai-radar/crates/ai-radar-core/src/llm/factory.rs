@@ -8,6 +8,7 @@ use crate::config::AppConfig;
 
 use super::noop::{MisconfiguredLlmProvider, NoOpLlmProvider};
 use super::openrouter::OpenRouterLlmProvider;
+use super::pace::PacingLlmProvider;
 use super::retry::RetryingLlmProvider;
 use super::LlmProvider;
 
@@ -23,7 +24,15 @@ pub fn build_llm_provider(cfg: &AppConfig) -> Arc<dyn LlmProvider> {
     }
 
     match OpenRouterLlmProvider::try_new(cfg) {
-        Ok(p) => Arc::new(RetryingLlmProvider::new(Arc::new(p))),
+        Ok(p) => {
+            let http: Arc<dyn LlmProvider> = Arc::new(p);
+            let paced: Arc<dyn LlmProvider> = if cfg.llm_max_rpm > 0 {
+                Arc::new(PacingLlmProvider::new(http, cfg.llm_max_rpm))
+            } else {
+                http
+            };
+            Arc::new(RetryingLlmProvider::new(paced))
+        }
         Err(e) => {
             warn!(
                 error = %e,

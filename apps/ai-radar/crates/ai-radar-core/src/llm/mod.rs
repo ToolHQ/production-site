@@ -6,6 +6,7 @@ mod factory;
 mod mock;
 mod noop;
 mod openrouter;
+mod pace;
 mod retry;
 mod types;
 
@@ -15,6 +16,7 @@ pub use factory::build_llm_provider;
 pub use mock::{mock_arc, MockLlmProvider};
 pub use noop::{MisconfiguredLlmProvider, NoOpLlmProvider};
 pub use openrouter::{openrouter_arc, OpenRouterLlmProvider};
+pub use pace::PacingLlmProvider;
 pub use retry::RetryingLlmProvider;
 pub use types::{CompletionRequest, CompletionResponse};
 

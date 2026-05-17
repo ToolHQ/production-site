@@ -20,6 +20,7 @@ fn llm_test_cfg(server: &MockServer) -> AppConfig {
         llm_api_key: Some("sk-test".into()),
         llm_model: Some("fixture-model".into()),
         llm_timeout_seconds: 5,
+        llm_max_rpm: 0,
         github_token: None,
         collect_concurrency: 2,
         max_items_per_run: 50,
