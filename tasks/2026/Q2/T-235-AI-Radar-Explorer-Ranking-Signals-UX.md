@@ -1,6 +1,6 @@
 # T-235: AI Radar — Explorer Ranking & Signals UX
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h
