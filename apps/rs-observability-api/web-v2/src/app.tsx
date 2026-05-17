@@ -163,7 +163,7 @@ export function App() {
       <section class="shell">
         {/* ── Masthead ── */}
         <header class="masthead">
-          <DashboardHeader snapshot={summary} live={live} metrics={metrics} />
+          <DashboardHeader snapshot={summary} live={live} metrics={metrics} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
           <SignalCard live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
         </header>
 
