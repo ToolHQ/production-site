@@ -2,6 +2,7 @@ import './index.css';
 import { useEffect, useState } from 'preact/hooks';
 import { useLiveOverview } from './hooks/useLiveOverview';
 import { useSnapshot } from './hooks/useSnapshot';
+import { useTheme } from './hooks/useTheme';
 
 import { DashboardHeader } from './components/DashboardHeader';
 import { SignalCard, SignalGrid } from './components/SignalCard';
@@ -46,6 +47,9 @@ function useWindowWidth() {
 export function App() {
   // Hook de resize para rerender das pills/tags responsivos
   useWindowWidth();
+
+  // Initialize theme (dark mode support)
+  useTheme();
 
   const { data: live, error: liveError } = useLiveOverview();
   const { summary, catalog, reports, error: snapshotError } = useSnapshot();

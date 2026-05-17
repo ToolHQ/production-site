@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
+        /* Light theme (default) */
         --ink: #16202b;
         --muted: #5c6a78;
         --panel: rgba(255, 255, 255, 0.82);
@@ -15,6 +16,47 @@
         --healthy-soft: rgba(13, 124, 114, 0.14);
         --shadow: 0 24px 70px rgba(22, 32, 43, 0.12);
         --shadow-soft: 0 14px 36px rgba(22, 32, 43, 0.08);
+        
+        /* New normalized vars */
+        --bg-primary: #ffffff;
+        --bg-secondary: #f8fafc;
+        --text-main: #16202b;
+        --text-muted: #5c6a78;
+        --border-subtle: #e2e8f0;
+        --border-base: rgba(22, 32, 43, 0.1);
+        --bg-accent-soft: rgba(13, 124, 114, 0.12);
+      }
+
+      /* Dark theme */
+      :root.dark {
+        --ink: #f1f5f9;
+        --muted: #94a3b8;
+        --panel: rgba(30, 41, 59, 0.85);
+        --line: rgba(241, 245, 249, 0.1);
+        --accent: #20b2aa;
+        --accent-soft: rgba(32, 178, 170, 0.15);
+        --warm: #f97316;
+        --warm-soft: rgba(249, 115, 22, 0.15);
+        --critical: #ef4444;
+        --critical-soft: rgba(239, 68, 68, 0.15);
+        --healthy: #10b981;
+        --healthy-soft: rgba(16, 185, 129, 0.15);
+        --shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+        --shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.2);
+        
+        /* Dark normalized */
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+        --border-subtle: #334155;
+        --border-base: rgba(241, 245, 249, 0.1);
+        --bg-accent-soft: rgba(32, 178, 170, 0.15);
+      }
+
+      /* Smooth theme transition */
+      body, main, [role="dialog"] {
+        transition: background-color 200ms ease-out, color 200ms ease-out;
       }
 
       * {
@@ -30,6 +72,13 @@
           radial-gradient(circle at 14% 8%, rgba(13, 124, 114, 0.18), transparent 26%),
           radial-gradient(circle at 88% 12%, rgba(201, 102, 51, 0.18), transparent 24%),
           linear-gradient(180deg, #f5eee1 0%, #ecf3f4 46%, #edf2ef 100%);
+      }
+
+      :root.dark body {
+        background:
+          radial-gradient(circle at 14% 8%, rgba(32, 178, 170, 0.12), transparent 26%),
+          radial-gradient(circle at 88% 12%, rgba(249, 115, 22, 0.12), transparent 24%),
+          linear-gradient(180deg, #0f1419 0%, #1a2332 46%, #162129 100%);
       }
 
       body::before {
