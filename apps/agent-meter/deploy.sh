@@ -62,9 +62,16 @@ else
     .
 fi
 
-RENDERED_MANIFEST=$(mktemp)
-sed "s|image: .*|image: $IMAGE_TAG|" "$APP_DIR/k8s/agent-meter.yaml" > "$RENDERED_MANIFEST"
+render_and_apply() {
+  local manifest="$1"
+  local rendered
+  rendered=$(mktemp)
+  sed "s|image: IMAGE_PLACEHOLDER|image: $IMAGE_TAG|" "$manifest" > "$rendered"
+  echo "  applying $manifest -> $IMAGE_TAG"
+  kubectl apply -f "$rendered"
+  rm -f "$rendered"
+}
 
 export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
-kubectl apply -f "$RENDERED_MANIFEST"
-rm -f "$RENDERED_MANIFEST"
+render_and_apply "$APP_DIR/k8s/agent-meter.yaml"
+render_and_apply "$APP_DIR/k8s/mcp-wrapper.yaml"
