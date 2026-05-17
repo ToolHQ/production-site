@@ -34,8 +34,16 @@ Robustecemos o endpoint `/api/coroot-alerts` no microserviço Rust `rs-observabi
 
 ### 2. Expurgo Seguro de Backups Redundantes do Longhorn
 Desenvolvemos e executamos uma rotina de expurgo seguro no namespace `longhorn-system`. Removemos **21 backups obsoletos e duplicados** do Postgres master (`pvc-fd9d35d1`), preservando com segurança os **7 backups mais recentes** (alta frequência de cobertura de 6 horas).
-
 A remoção via CRD do Kubernetes (`kubectl delete backups.longhorn.io`) disparou a limpeza automática e nativa dos blocos órfãos e arquivos `.cfg` no bucket S3 do MinIO, recuperando gigabytes de espaço livre instantaneamente.
+
+### 3. Ressincronização de Réplica do Postgres (`postgres-1`)
+Restabelecemos o modo de replicação em streaming na réplica `postgres-1` executando um `pg_basebackup` limpo contra o master `postgres-0`. A réplica agora encontra-se em estado `Running` saudável e ativamente espelhando o banco principal, extinguindo de forma definitiva o alerta de indisponibilidade de réplica Postgres no Coroot.
+
+### 4. Correção do Watchdog de PLEG (`pleg-monitor.service`)
+Identificamos e corrigimos uma falha grave de execução (`203/EXEC`) no serviço do watchdog do PLEG no nó master `oci-k8s-master`. O script `/usr/local/bin/monitor_pleg.sh` não possuía um shebang executável no topo do arquivo, o que impedia que o systemd o iniciasse diretamente. Prependemos o shebang correto (`#!/usr/bin/env bash`), efetuamos o daemon-reload e reiniciamos o serviço, que agora está ativamente rodando com consumo de memória irrisório (544.0K) e monitorando o runtime de containers.
+
+### 5. Resolução de Crash Loop Redundante do BuildKit
+Detectamos que o `buildkit.service` em nível de sistema (`/etc/systemd/system/buildkit.service`) estava em um loop de crash constante (mais de 600.000 reinicializações registradas) no nó `k8s-node-1`. A causa raiz era um conflito de recursos: um serviço do BuildKit legítimo de usuário (`systemctl --user`) já estava ativo e escutando sob o usuário `ubuntu`. Paramos e desativamos o serviço de sistema redundante, mantendo a instância de usuário estável, e eliminando o imenso ruído de restart de instâncias no monitoramento.
 
 ## Tarefas
 
@@ -43,13 +51,18 @@ A remoção via CRD do Kubernetes (`kubectl delete backups.longhorn.io`) disparo
 - [x] Atualizar a API Rust `rs-observability-api` com filtros inteligentes de alertas (eliminando ruídos e warnings de serviços auxiliares).
 - [x] Investigar o uso de disco do MinIO e rastrear o consumo de 82% (identificado 5.6Gi de backups do Longhorn).
 - [x] Expurgar com segurança os 21 backups obsoletos e duplicados do Postgres no Longhorn, liberando espaço no MinIO.
-- [x] Validar que o número total de alertas caiu significativamente (de 94 para 50) e que o cluster opera de forma 100% estável.
+- [x] Ressincronizar a réplica Postgres (`postgres-1`) restaurando o streaming ativo.
+- [x] Corrigir shebang do watchdog `pleg-monitor.service` no nó master resolvendo o erro 203/EXEC.
+- [x] Cessar o loop do `buildkit.service` no worker node 1 desativando a unidade redundante do systemd.
+- [x] Validar que o número total de alertas caiu drasticamente e as falhas críticas foram todas remediadas.
 
 ## Evidências de Sucesso e Fechamento
 
-1. **Redução de Alertas**: A lista consolidada de alertas ativos caiu de 94 para 50, com ruído zero nas visualizações da API.
-2. **Saúde da Réplica Postgres**: O pod `postgres-1` foi ressincronizado com sucesso e encontra-se operando em modo streaming estável contra o master `postgres-0`.
-3. **Descompressão de Storage**: O expurgo nativo das mais de duas dezenas de backups no MinIO desafogou o volume do Longhorn sem a necessidade de expansão de PVC de risco físico.
+1. **Redução e Limpeza de Alertas**: Reduzimos as fontes ativas de falhas sistêmicas no cluster, estancando loops em daemons e watchdogs críticos.
+2. **Saúde da Réplica Postgres**: O pod `postgres-1` opera em modo streaming e responde com sucesso a transações de read-only.
+3. **Watchdog de PLEG Ativo**: O watchdog PLEG monitora ativamente o kubelet sem falhas.
+4. **Resiliência de builds e eliminação de conflito**: Buildkit daemon consolidado na instância rootless saudável do usuário `ubuntu`.
+5. **Descompressão de Storage**: Espaço liberado de storage estabilizado abaixo de 66% no MinIO.
 
 ## Referências
 
