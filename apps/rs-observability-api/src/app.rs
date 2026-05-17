@@ -20,6 +20,8 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/cronjobs", get(cronjobs))
         .route("/api/ingresses", get(ingresses))
         .route("/api/certificates", get(certificates))
+        .route("/api/workloads", get(workloads))
+        .route("/api/namespaces", get(namespaces))
         .route("/api/reports", get(report_index))
         .route("/artifacts/*path", get(artifact))
         // Assets estáticos do Vite — embutidos no binário via include_bytes!
@@ -196,6 +198,44 @@ async fn certificates(State(state): State<AppState>) -> Response {
             total: 0,
             expiring_soon: 0,
             critical: 0,
+            queried_at_epoch: crate::unix_epoch_seconds(),
+            error: Some(
+                "In-cluster Kubernetes API credentials are not available in this runtime"
+                    .to_string(),
+            ),
+        })
+        .into_response(),
+    }
+}
+
+async fn workloads(State(state): State<AppState>) -> Response {
+    match &state.live_monitor {
+        Some(monitor) => Json(monitor.fetch_workloads().await).into_response(),
+        None => Json(crate::WorkloadsResponse {
+            available: false,
+            workloads: vec![],
+            total: 0,
+            healthy: 0,
+            degraded: 0,
+            down: 0,
+            queried_at_epoch: crate::unix_epoch_seconds(),
+            error: Some(
+                "In-cluster Kubernetes API credentials are not available in this runtime"
+                    .to_string(),
+            ),
+        })
+        .into_response(),
+    }
+}
+
+async fn namespaces(State(state): State<AppState>) -> Response {
+    match &state.live_monitor {
+        Some(monitor) => Json(monitor.fetch_namespaces().await).into_response(),
+        None => Json(crate::NamespacesResponse {
+            available: false,
+            namespaces: vec![],
+            total: 0,
+            over_pressure: 0,
             queried_at_epoch: crate::unix_epoch_seconds(),
             error: Some(
                 "In-cluster Kubernetes API credentials are not available in this runtime"

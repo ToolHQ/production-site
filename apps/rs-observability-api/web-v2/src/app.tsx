@@ -9,6 +9,8 @@ import { useStorageHealth } from './hooks/useStorageHealth';
 import { useCronJobs } from './hooks/useCronJobs';
 import { useIngresses } from './hooks/useIngresses';
 import { useCertificates } from './hooks/useCertificates';
+import { useWorkloads } from './hooks/useWorkloads';
+import { useNamespaces } from './hooks/useNamespaces';
 
 import { DashboardHeader } from './components/DashboardHeader';
 import { SignalCard, SignalGrid } from './components/SignalCard';
@@ -26,6 +28,8 @@ import { StoragePanel } from './components/StoragePanel';
 import { CronJobPanel } from './components/CronJobPanel';
 import { IngressPanel } from './components/IngressPanel';
 import { CertExpiryPanel } from './components/CertExpiryPanel';
+import { WorkloadPanel } from './components/WorkloadPanel';
+import { NamespacePanel } from './components/NamespacePanel';
 
 import {
   formatEpoch,
@@ -71,6 +75,8 @@ export function App() {
   const { data: cronJobsData, error: cronJobsError } = useCronJobs();
   const { data: ingressesData, error: ingressesError } = useIngresses();
   const { data: certsData, error: certsError } = useCertificates();
+  const { data: workloadsData, error: workloadsError } = useWorkloads();
+  const { data: namespacesData, error: namespacesError } = useNamespaces();
 
   // Histórico acumulado de métricas de nós (para os sparklines do hover card)
   const [nodeHistory, setNodeHistory] = useState<Record<
@@ -223,6 +229,12 @@ export function App() {
 
         {/* ── Ingresses ── */}
         <IngressPanel data={ingressesData} error={ingressesError} />
+
+        {/* ── Workloads ── */}
+        <WorkloadPanel data={workloadsData} error={workloadsError} />
+
+        {/* ── Namespace Quotas ── */}
+        <NamespacePanel data={namespacesData} error={namespacesError} />
 
         {/* ── Priority grid: Incidents + Restart Debt ── */}
         <section class="priority-grid">
