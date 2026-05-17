@@ -65,6 +65,11 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       imagePullSecrets:
         - name: regsecret
+      volumes:
+        - name: postgres-entrypoint
+          configMap:
+            name: postgres-entrypoint
+            defaultMode: 493
       containers:
         - name: postgres
           # Custom Image from Nexus (registry.local:31444)
@@ -113,6 +118,9 @@ spec:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           volumeMounts:
+            - name: postgres-entrypoint
+              mountPath: /usr/local/bin/entrypoint-wrapper.sh
+              subPath: entrypoint-wrapper.sh
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
           startupProbe:
