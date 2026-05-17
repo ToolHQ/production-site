@@ -34,13 +34,35 @@ IMAGE_LATEST=$REGISTRY/$REPO/$SERVICE:latest
 
 cd "$APP_DIR"
 
-docker buildx build \
-  --builder oci-builder \
-  --platform linux/arm64 \
-  --push \
-  -t $IMAGE_TAG \
-  -t $IMAGE_LATEST \
-  .
+USE_HETZNER=false
+if docker buildx inspect hetzner-builder >/dev/null 2>&1; then
+  if docker buildx inspect hetzner-builder 2>/dev/null | grep -q 'Status:.*running'; then
+    USE_HETZNER=true
+  fi
+fi
+
+if [ "$USE_HETZNER" = "true" ]; then
+  echo "🚀 Usando builder Hetzner remoto de alta performance..."
+  docker buildx build \
+    --builder hetzner-builder \
+    --platform linux/arm64 \
+    --load \
+    -t $IMAGE_TAG \
+    -t $IMAGE_LATEST \
+    .
+  echo "⬆️ Enviando imagem leve ao registro local..."
+  docker push $IMAGE_TAG
+  docker push $IMAGE_LATEST
+else
+  echo "⚠️ Builder Hetzner inativo. Usando o oci-builder padrão..."
+  docker buildx build \
+    --builder oci-builder \
+    --platform linux/arm64 \
+    --push \
+    -t $IMAGE_TAG \
+    -t $IMAGE_LATEST \
+    .
+fi
 
 RENDERED_MANIFEST=$(mktemp)
 sed "s|image: .*|image: $IMAGE_TAG|" "$MANIFEST_PATH" > "$RENDERED_MANIFEST"

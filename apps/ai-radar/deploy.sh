@@ -138,16 +138,42 @@ DOCKERFILE="$ROOT_DIR/docker/Dockerfile"
 build_rust_image() {
 	local target="$1" bin_name="$2" image_tag="$3" image_latest="$4"
 	printf '%s\n' "🔨 buildx $target ($bin_name)…" >&2
-	docker buildx build \
-		--builder oci-builder \
-		--platform linux/arm64 \
-		--push \
-		-f "$DOCKERFILE" \
-		--target "$target" \
-		--build-arg "BIN_NAME=$bin_name" \
-		-t "$image_tag" \
-		-t "$image_latest" \
-		"$ROOT_DIR"
+
+	local USE_HETZNER=false
+	if docker buildx inspect hetzner-builder >/dev/null 2>&1; then
+		if docker buildx inspect hetzner-builder 2>/dev/null | grep -q 'Status:.*running'; then
+			USE_HETZNER=true
+		fi
+	fi
+
+	if [ "$USE_HETZNER" = "true" ]; then
+		echo "🚀 Usando builder Hetzner remoto de alta performance..."
+		docker buildx build \
+			--builder hetzner-builder \
+			--platform linux/arm64 \
+			--load \
+			-f "$DOCKERFILE" \
+			--target "$target" \
+			--build-arg "BIN_NAME=$bin_name" \
+			-t "$image_tag" \
+			-t "$image_latest" \
+			"$ROOT_DIR"
+		echo "⬆️ Enviando imagem leve ao registro local..."
+		docker push "$image_tag"
+		docker push "$image_latest"
+	else
+		echo "⚠️ Builder Hetzner inativo. Usando o oci-builder padrão..."
+		docker buildx build \
+			--builder oci-builder \
+			--platform linux/arm64 \
+			--push \
+			-f "$DOCKERFILE" \
+			--target "$target" \
+			--build-arg "BIN_NAME=$bin_name" \
+			-t "$image_tag" \
+			-t "$image_latest" \
+			"$ROOT_DIR"
+	fi
 }
 
 # T-200: skip CLI image when only API/console changed (saves ~20–30 min on oci-builder).
