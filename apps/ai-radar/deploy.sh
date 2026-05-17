@@ -139,9 +139,11 @@ build_rust_image() {
 	local target="$1" bin_name="$2" image_tag="$3" image_latest="$4"
 	printf '%s\n' "🔨 buildx $target ($bin_name)…" >&2
 
+	# Inicializa ou verifica o builder remoto Hetzner automaticamente (padrão de alta performance)
 	local USE_HETZNER=false
-	if docker buildx inspect hetzner-builder >/dev/null 2>&1; then
-		if docker buildx inspect hetzner-builder 2>/dev/null | grep -q 'Status:.*running'; then
+	local HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
+	if [ -f "$HETZNER_SETUP" ]; then
+		if "$HETZNER_SETUP" --silent; then
 			USE_HETZNER=true
 		fi
 	fi
@@ -158,9 +160,22 @@ build_rust_image() {
 			-t "$image_tag" \
 			-t "$image_latest" \
 			"$ROOT_DIR"
+		
+		echo "🔌 Garantindo túnel SSH para o registro local (porta 31444)..."
+		if ! ss -tlnp 2>/dev/null | grep -q ':31444'; then
+			ssh -o StrictHostKeyChecking=no -L 31444:localhost:31444 oci-k8s-master -N -f
+			sleep 1
+		fi
+
+		local local_tag="${image_tag/registry.local:31444/localhost:31444}"
+		local local_latest="${image_latest/registry.local:31444/localhost:31444}"
+		docker tag "$image_tag" "$local_tag"
+		docker tag "$image_latest" "$local_latest"
+
 		echo "⬆️ Enviando imagem leve ao registro local..."
-		docker push "$image_tag"
-		docker push "$image_latest"
+		docker push "$local_tag"
+		docker push "$local_latest"
+		docker rmi "$local_tag" "$local_latest" >/dev/null 2>&1 || true
 	else
 		echo "⚠️ Builder Hetzner inativo. Usando o oci-builder padrão..."
 		docker buildx build \
