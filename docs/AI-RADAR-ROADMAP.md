@@ -848,6 +848,36 @@ Fase 15 (T-173 hardening) ──► Fase 16B (T-175 console) ──► Fase 16A 
 
 > **Nota:** a regra “não criar UI antes do pipeline” aplica-se às Fases 1–14. A partir da Fase 16 o pipeline já é demonstrável; a UI é **consumidor**, não substituto do backend.
 
+## Fase 17 — Curadoria, sinais e ranking (concluída)
+
+| ID | Entrega |
+| --- | --- |
+| T-232 | Extract quality gate |
+| T-231 | Entity resolution / dedup cross-fonte |
+| T-233 | Adoption signals (GitHub → score) |
+| T-234 | Popularity velocity & snapshots |
+| T-235 | Explorer ranking & badges |
+| T-238 | Source health / noise scoring |
+| T-237 | Comparator no console |
+| T-236 | Feedback-calibrated scoring v2 |
+
+## Fase 18 — Inteligência operacional no console (aberta)
+
+**Tema:** expor no digest e no Operator Console os sinais já calculados na Fase 17 — sem nova coleta pesada nem embeddings.
+
+| ID | Entrega | Est. |
+| --- | --- | --- |
+| T-241 | Digest v2 — seções trending, adoção, alertas de fonte | 6h |
+| T-242 | Explorer — painel de sinais no detalhe do item | 4h |
+| T-243 | Console — relatórios duplicatas & divergência | 4h |
+| T-244 | Explorer — filtros `velocity_tier` / health / quality | 4h |
+| T-245 | Compare deep-link por categoria | 2h |
+| T-246 | Digest `metadata_json` + stats strip (`GET /stats`) | 4h |
+
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 18.
+
+**Fora de escopo (fase futura):** embeddings semânticos, dedup por vetor, SPA dedicada.
+
 ## Entregável esperado deste prompt
 
 Gere um roadmap de implementação com tasks pequenas e executáveis.
