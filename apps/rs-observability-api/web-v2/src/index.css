@@ -617,6 +617,12 @@
         padding: 20px;
       }
 
+      /* Painéis full-width dentro do shell herdam padding consistente com os bands */
+      .shell > .panel {
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
+      }
+
       .priority-panel,
       .panel,
       .catalog-main section,
@@ -1583,14 +1589,46 @@
 
       } /* end @media (max-width: 980px) */
 
-      /* Override: manter wl-table como tabela em qualquer viewport */
+      /* Override: manter wl-table e panel-table como tabela em qualquer viewport */
       @media (max-width: 980px) {
         .wl-table           { display: table; min-width: 0; }
         .wl-table thead     { display: table-header-group; }
         .wl-table tbody     { display: table-row-group; }
         .wl-table tbody tr  { display: table-row; padding: 0; border: none; border-radius: 0; background: inherit; }
         .wl-table tbody .wl-td { display: table-cell; }
+
+        .panel-table           { display: table; min-width: 0; }
+        .panel-table thead     { display: table-header-group; }
+        .panel-table tbody     { display: table-row-group; }
+        .panel-table tbody tr  { display: table-row; padding: 0; border: none; border-radius: 0; background: inherit; }
+        .panel-table tbody td  { display: table-cell; padding: 7px 10px; border-bottom: 1px solid var(--line); }
       }
+
+      /* panel-table — tabela genérica dos painéis (CronJob, Ingress, Cert, Namespace) */
+      .panel-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .panel-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      .panel-table th {
+        text-align: left;
+        padding: 6px 10px;
+        color: var(--muted);
+        font-weight: 500;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      .panel-table td {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: middle;
+        font-size: 0.82rem;
+      }
+      .panel-table tr:last-child td { border-bottom: 0; }
 
 /* ═══════════════════════════════════════════════════════════
    StoragePanel — Longhorn volumes
