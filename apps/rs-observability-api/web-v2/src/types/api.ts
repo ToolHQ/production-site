@@ -176,18 +176,25 @@ export interface ReportsData {
 // Tipos para /api/coroot-alerts
 
 export interface CorootAlert {
-  name: string;
+  id: string;
+  rule_id: string;
+  rule_name: string;
+  /** Format: "{project_id}:{namespace}:{Kind}:{name}" */
+  application_id: string;
   severity: string;
-  instance: string;
-  namespace?: string;
-  node?: string;
-  job?: string;
-  timestamp: number;
+  summary: string;
+  /** Milliseconds epoch */
+  opened_at: number;
+  /** Duration in milliseconds */
+  duration: number;
+  /** Alert category e.g. "Net", "Instances", "Logs" */
+  report: string;
 }
 
 export interface CorootAlertsData {
   available: boolean;
   alerts: CorootAlert[];
+  total: number;
   queried_at_epoch: number;
   error?: string;
 }
