@@ -43,7 +43,7 @@
 - [x] Fase 5: Testes de integração automatizados (20 testes: 7 unit + 8 api + 5 proxy).
 - [x] T-225: docs/agent-meter-otel.md + scripts/smoke-otel.sh
 - [ ] T-225: ConfigMap OTEL no deploy do collector
-- [ ] T-229: Dashboard UI melhorada (Vite+Preact)
+- [x] T-229: Dashboard UI — sparklines, filtros, CSV export, KPI cards, auto-refresh (embedded HTML, Vite+Preact considerado overkill)
 - [x] T-226: Antigravity integration — universal script + skill
 - [x] T-227: Copilot/VSCode integration — universal script + skill + MCP wrapper
 - [x] T-228: Cursor integration — universal script + skill + MCP wrapper

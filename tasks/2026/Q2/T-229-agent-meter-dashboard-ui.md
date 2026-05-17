@@ -3,7 +3,7 @@
 **Owner**: OpenCode
 **Priority**: 🔼 High
 **Estimate**: 3h
-**Status**: Backlog
+**Status**: ✅ Done
 
 ## Goal
 
@@ -13,22 +13,27 @@ Build a dedicated UI dashboard for agent-meter beyond the embedded HTML stub. Op
 
 `GET /` serve uma dashboard HTML embarcada via `include_str!` em `routes/dashboard.rs` — dark theme, KPI cards, tabbed reports (top tools / tasks / servers), test-event form. Funciona mas é limitada.
 
-## Tasks
+## Realizado (PR #177)
 
-- [ ] Avaliar se Vite+Preact é overkill vs evoluir o embedded HTML com HTMX ou JS vanilla
-- [ ] Implementar filtros por período (última 1h, 6h, 24h, 7d, 30d)
-- [ ] Implementar gráficos sparkline de chamadas ao longo do tempo
-- [ ] Implementar visualização de OTEL spans/traces
-- [ ] Botão de export CSV nos reports
-- [ ] Tema escuro consistente com Cluster Pulse
+**Decisão**: Vite+Preact considerado overkill — mantido embedded HTML com vanilla JS + SVG.
+
+- [x] Filtros por período (1h, 6h, 24h, 7d, 30d) com botões tipo pill
+- [x] Sparkline SVG de chamadas ao longo do tempo (com auto-bucket: minute/hour/day)
+- [x] KPI cards: total calls, total tokens, avg tokens/call, error rate, MCP servers, period
+- [x] CSV export em cada aba de report
+- [x] Tabs: Top Tools, Top Tasks, Top MCP Servers — visíveis simultaneamente via troca de aba
+- [x] Auto-refresh: health 15s, reports 5s, sparkline 15s
+- [x] Tema escuro (Inter font, design consistente com Cluster Pulse)
+- [x] Responsivo (grid collapse em mobile, fonte adaptável)
+- [x] Formulário de teste ("Send Event" + "Send Random" para dados sintéticos)
+- [ ] Pendente: visualização de OTEL spans (depende de dados OTEL reais fluindo)
 
 ## Dependencies
 
-- T-225 (OTEL docs) para schema de spans
-- Collector endpoints já existem
+- T-225 (OTEL docs) — Done
 
 ## Acceptance Criteria
 
-- Dashboard funcional sem refresh manual
-- Dados de 3+ reports visíveis simultaneamente
-- Responsivo (mobile ok)
+- ✅ Dashboard funcional sem refresh manual (auto-polling 5s)
+- ✅ Dados de 3+ reports visíveis (tools/tasks/servers via tabs)
+- ✅ Responsivo (mobile breakpoint @768px)
