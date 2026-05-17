@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::config::AppConfig;
+use crate::curation::adoption::adoption_from_extracted;
 use crate::db::Database;
 use crate::llm::build_llm_provider;
 use crate::llm::LlmProvider;
@@ -124,6 +125,12 @@ pub async fn run_score_with_llm(
                     scoring_version = %new_score.scoring_version,
                     "score persisted"
                 );
+                if let Some(adoption) = adoption_from_extracted(&row.metadata_json) {
+                    metrics::record_adoption_tier(
+                        merged.decision.as_str(),
+                        adoption.stars_tier.as_str(),
+                    );
+                }
                 stats.scored += 1;
             }
             Err(e) => {
@@ -181,5 +188,8 @@ pub async fn score_single_extracted_item(
         None,
     );
     scores.insert(&new_score).await?;
+    if let Some(adoption) = adoption_from_extracted(&row.metadata_json) {
+        metrics::record_adoption_tier(merged.decision.as_str(), adoption.stars_tier.as_str());
+    }
     Ok(())
 }

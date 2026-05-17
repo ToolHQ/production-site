@@ -10,6 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+| [T-233](2026/Q2/T-233-AI-Radar-Adoption-Signals-GitHub-metadata.md) | **AI Radar — Adoption Signals (GitHub metadata)** | 🔼 High | Cursor / AI Radar | 4h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 

@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::config::AppConfig;
 use crate::db::Database;
 use crate::domain::RawItemStatus;
-use crate::curation::reconcile_pending_entities;
+use crate::curation::{adoption_from_raw, reconcile_pending_entities};
 use crate::extractor::{
     assess_extract_quality, audit_entry, extractor_id, llm_extract_with_retry, QualityTier,
     EXTRACTOR_VERSION,
@@ -186,6 +186,12 @@ async fn process_one(
                 if quality.tier == QualityTier::Warn {
                     map.insert("quality_warn".to_string(), json!(true));
                     map.insert("low_confidence".to_string(), json!(true));
+                }
+                if let Some(adoption) = adoption_from_raw(raw) {
+                    if let Some(days) = adoption.days_since_push {
+                        map.insert("days_since_activity".to_string(), json!(days));
+                    }
+                    map.insert("adoption".to_string(), adoption.to_json());
                 }
             }
 

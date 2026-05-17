@@ -43,5 +43,6 @@ impl ComparisonMatrix {
             + u16::from(c.maturity)
             + u16::from(c.last_activity)
             + u16::from(c.doc_quality)
+            + u16::from(c.community)
     }
 }

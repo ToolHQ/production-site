@@ -73,6 +73,10 @@ pub fn describe_metrics() {
         "ai_radar_score_failed_total",
         "score inserts that failed in score pass"
     );
+    describe_counter!(
+        "ai_radar_adoption_tier_total",
+        "extracted_items scored with GitHub adoption metadata (T-230)"
+    );
 }
 
 /// Refresh gauge from DB count (call from `/metrics` before render).
@@ -173,6 +177,16 @@ pub fn record_extract_quality_rejected(score: u8) {
 /// Cross-source duplicate marked during entity resolution.
 pub fn record_entity_duplicate_skipped() {
     counter!("ai_radar_entity_duplicate_skipped_total").increment(1);
+}
+
+/// One scored item that carried adoption metadata (stars tier label).
+pub fn record_adoption_tier(decision: &str, stars_tier: &str) {
+    counter!(
+        "ai_radar_adoption_tier_total",
+        "decision" => decision.to_string(),
+        "stars_tier" => stars_tier.to_string()
+    )
+    .increment(1);
 }
 
 /// One feed entry rejected during collect (e.g. body larger than [`crate::util::limits::MAX_RAW_CONTENT_BYTES`]).
