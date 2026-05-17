@@ -50,6 +50,53 @@ export function App() {
   const { data: live, error: liveError } = useLiveOverview();
   const { summary, catalog, reports, error: snapshotError } = useSnapshot();
 
+  // Histórico acumulado de métricas de nós (para os sparklines do hover card)
+  const [nodeHistory, setNodeHistory] = useState<Record<
+    string,
+    {
+      cpu: { timestamp: number; value: number }[];
+      mem: { timestamp: number; value: number }[];
+      disk: { timestamp: number; value: number }[];
+    }
+  >>({});
+
+  useEffect(() => {
+    if (live?.node_metrics) {
+      const ts = live.refreshed_at_epoch;
+      setNodeHistory((prev) => {
+        const next = { ...prev };
+        let modified = false;
+        for (const [nodeName, metrics] of Object.entries(live.node_metrics)) {
+          if (!next[nodeName]) {
+            next[nodeName] = { cpu: [], mem: [], disk: [] };
+          }
+          const cpuArr = [...next[nodeName].cpu];
+          const memArr = [...next[nodeName].mem];
+          const diskArr = [...next[nodeName].disk];
+
+          if (cpuArr.length === 0 || cpuArr[cpuArr.length - 1].timestamp !== ts) {
+            cpuArr.push({ timestamp: ts, value: metrics.cpu_percent });
+            memArr.push({ timestamp: ts, value: metrics.mem_percent });
+            diskArr.push({ timestamp: ts, value: metrics.disk_percent });
+            modified = true;
+          }
+
+          if (cpuArr.length > 20) {
+            cpuArr.shift();
+            memArr.shift();
+            diskArr.shift();
+            modified = true;
+          }
+
+          if (modified) {
+            next[nodeName] = { cpu: cpuArr, mem: memArr, disk: diskArr };
+          }
+        }
+        return next;
+      });
+    }
+  }, [live]);
+
   const metrics = live?.metrics ?? null;
   const condensed = isCondensedViewport();
 
@@ -97,7 +144,7 @@ export function App() {
         <SignalGrid live={live} />
 
         {/* ── Node Fleet Status ── */}
-        <section class="panel nodes-section">
+        <section class="nodes-section-band">
           <div class="section-head">
             <div>
               <div class="section-kicker">Infrastructure</div>
@@ -108,7 +155,7 @@ export function App() {
               <span class="panel-tag">{live?.available ? `Live · ${(live.nodes ?? []).length} nós` : 'Waiting for live data'}</span>
             </div>
           </div>
-          <NodesPanel live={live} />
+          <NodesPanel live={live} history={nodeHistory} />
         </section>
 
         {/* ── Cluster Pressure (Prometheus metrics) ── */}

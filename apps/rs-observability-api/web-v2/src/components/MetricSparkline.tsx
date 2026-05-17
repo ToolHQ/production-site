@@ -8,7 +8,7 @@ interface MetricSparklineProps {
 }
 
 export function MetricSparkline({ points, color, width = 220, height = 72 }: MetricSparklineProps) {
-  const values = Array.isArray(points) ? points.filter((p) => Number.isFinite(p.value)) : [];
+  let values = Array.isArray(points) ? points.filter((p) => Number.isFinite(p.value)) : [];
 
   if (!values.length) {
     return (
@@ -22,6 +22,10 @@ export function MetricSparkline({ points, color, width = 220, height = 72 }: Met
         />
       </svg>
     );
+  }
+
+  if (values.length === 1) {
+    values = [values[0], { ...values[0] }];
   }
 
   const min = Math.min(...values.map((p) => p.value));
