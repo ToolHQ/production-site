@@ -50,6 +50,18 @@ pub fn describe_metrics() {
         "raw_items marked failed after extract pass"
     );
     describe_counter!(
+        "ai_radar_extract_quality_warn_total",
+        "extracted_items persisted with quality_warn (score 40-69)"
+    );
+    describe_counter!(
+        "ai_radar_extract_quality_rejected_total",
+        "raw_items rejected by extract quality gate (score < 40)"
+    );
+    describe_histogram!(
+        "ai_radar_extract_quality_score",
+        "Completeness score 0-100 assigned at extract time"
+    );
+    describe_counter!(
         "ai_radar_scored_total",
         "extracted_items scored successfully in score pass"
     );
@@ -114,14 +126,44 @@ pub fn record_score_pass(scored: u64, failed: u64, elapsed: Duration) {
 }
 
 /// Emit counters after one `extract` pass completes.
-pub fn record_extract_pass(extracted: u64, failed: u64, elapsed: Duration) {
+pub fn record_extract_pass(
+    extracted: u64,
+    failed: u64,
+    quality_warn: u64,
+    quality_rejected: u64,
+    elapsed: Duration,
+) {
     counter!("ai_radar_extracted_total").increment(extracted);
     counter!("ai_radar_extract_failed_total").increment(failed);
+    if quality_warn > 0 {
+        counter!("ai_radar_extract_quality_warn_total").increment(quality_warn);
+    }
+    if quality_rejected > 0 {
+        counter!("ai_radar_extract_quality_rejected_total").increment(quality_rejected);
+    }
     if failed > 0 {
         counter!("ai_radar_errors_total", "stage" => "extract").increment(failed);
     }
     histogram!("ai_radar_stage_duration_seconds", "stage" => "extract")
         .record(elapsed.as_secs_f64());
+}
+
+/// Record one extract completeness score (histogram bucket).
+#[inline]
+#[allow(clippy::cast_precision_loss)]
+pub fn record_extract_quality_score(score: u8) {
+    histogram!("ai_radar_extract_quality_score").record(f64::from(score));
+}
+
+/// Increment warn-tier counter for a single item.
+pub fn record_extract_quality_warn() {
+    counter!("ai_radar_extract_quality_warn_total").increment(1);
+}
+
+/// Increment reject-tier counter for a single item.
+pub fn record_extract_quality_rejected(score: u8) {
+    let _ = score;
+    counter!("ai_radar_extract_quality_rejected_total").increment(1);
 }
 
 /// One feed entry rejected during collect (e.g. body larger than [`crate::util::limits::MAX_RAW_CONTENT_BYTES`]).

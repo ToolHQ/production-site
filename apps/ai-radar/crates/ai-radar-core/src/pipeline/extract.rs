@@ -8,7 +8,10 @@ use serde_json::json;
 use crate::config::AppConfig;
 use crate::db::Database;
 use crate::domain::RawItemStatus;
-use crate::extractor::{extractor_id, llm_extract_with_retry, EXTRACTOR_VERSION};
+use crate::extractor::{
+    assess_extract_quality, audit_entry, extractor_id, llm_extract_with_retry, QualityTier,
+    EXTRACTOR_VERSION,
+};
 use crate::llm::LlmProvider;
 use crate::metrics;
 use crate::repos::{
@@ -18,10 +21,14 @@ use crate::repos::{
 /// Counters printed by the CLI / API.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ExtractStats {
-    /// Rows successfully extracted.
+    /// Rows successfully extracted (pass + warn tiers).
     pub extracted: u64,
     /// Rows marked `failed` after LLM/parse errors.
     pub failed: u64,
+    /// Extracted rows with quality score 40–69 (`low_confidence`).
+    pub quality_warn: u64,
+    /// Rows rejected by quality gate (< 40) before insert.
+    pub quality_rejected: u64,
 }
 
 /// Run up to `limit` pending items through the extractor (sequential, concurrency = 1).
@@ -56,15 +63,29 @@ pub async fn run_extract(
 
     for raw in batch {
         match process_one(&raw_repo, &extracted_repo, &llm, &raw).await {
-            Ok(()) => stats.extracted += 1,
+            Ok(outcome) => {
+                stats.extracted += 1;
+                if outcome == ExtractOutcome::QualityWarn {
+                    stats.quality_warn += 1;
+                }
+            }
             Err(e) => {
                 tracing::warn!(raw_item_id = %raw.id, error = %e, "extract failed");
+                if e.to_string().contains("extract_quality_low") {
+                    stats.quality_rejected += 1;
+                }
                 stats.failed += 1;
             }
         }
     }
 
-    metrics::record_extract_pass(stats.extracted, stats.failed, started.elapsed());
+    metrics::record_extract_pass(
+        stats.extracted,
+        stats.failed,
+        stats.quality_warn,
+        stats.quality_rejected,
+        started.elapsed(),
+    );
     Ok(stats)
 }
 
@@ -92,7 +113,18 @@ pub async fn extract_single_raw_item(
         .get(raw_item_id)
         .await
         .map_err(|e| anyhow::anyhow!("{e}"))?;
-    process_one(&raw_repo, &extracted_repo, &llm, &raw).await
+    process_one(&raw_repo, &extracted_repo, &llm, &raw)
+        .await
+        .map(|_| ())
+}
+
+/// Per-item result after a successful DB write.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExtractOutcome {
+    /// Quality score ≥ 70.
+    Pass,
+    /// Quality score 40–69 — persisted with `low_confidence`.
+    QualityWarn,
 }
 
 async fn process_one(
@@ -100,24 +132,68 @@ async fn process_one(
     extracted_repo: &PgExtractedItemRepository,
     llm: &Arc<dyn LlmProvider>,
     raw: &crate::domain::RawItem,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<ExtractOutcome> {
     let mut audits = Vec::new();
 
     let outcome = llm_extract_with_retry(llm, raw, &mut audits).await;
 
     match outcome {
         Ok((fields, resp)) => {
+            let quality = assess_extract_quality(&fields);
+
+            if quality.tier == QualityTier::Reject {
+                tracing::info!(
+                    raw_item_id = %raw.id,
+                    quality_score = quality.score,
+                    missing = ?quality.missing,
+                    "extract rejected by quality gate"
+                );
+                audits.push(audit_entry(
+                    0,
+                    "quality_rejected",
+                    format!(
+                        "score={} missing={:?} warnings={:?}",
+                        quality.score, quality.missing, quality.warnings
+                    ),
+                    None,
+                ));
+                for a in &audits {
+                    raw_repo.append_extract_attempt(raw.id, a.clone()).await?;
+                }
+                raw_repo.mark_status(raw.id, RawItemStatus::Failed).await?;
+                metrics::record_extract_quality_rejected(quality.score);
+                return Err(anyhow::anyhow!(
+                    "extract_quality_low: score {} below threshold",
+                    quality.score
+                ));
+            }
+
             let mut new_item =
                 fields.into_new_extracted_item(raw.id, extractor_id(), EXTRACTOR_VERSION, &resp);
             if let Some(serde_json::Value::Object(map)) = &mut new_item.metadata_json {
                 map.insert("extract_attempts".to_string(), json!(audits));
+                map.insert("extract_quality".to_string(), quality.to_metadata());
+                if quality.tier == QualityTier::Warn {
+                    map.insert("quality_warn".to_string(), json!(true));
+                    map.insert("low_confidence".to_string(), json!(true));
+                }
             }
 
             extracted_repo.insert(&new_item).await?;
             raw_repo
                 .mark_status(raw.id, RawItemStatus::Extracted)
                 .await?;
-            Ok(())
+
+            metrics::record_extract_quality_score(quality.score);
+            if quality.tier == QualityTier::Warn {
+                metrics::record_extract_quality_warn();
+            }
+
+            Ok(if quality.tier == QualityTier::Warn {
+                ExtractOutcome::QualityWarn
+            } else {
+                ExtractOutcome::Pass
+            })
         }
         Err(e) => {
             for a in &audits {

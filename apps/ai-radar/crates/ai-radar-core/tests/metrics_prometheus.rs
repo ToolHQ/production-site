@@ -21,7 +21,7 @@ fn prometheus_metrics_increment_for_pipeline_helpers() {
         4, // skipped_poll
         std::time::Duration::from_millis(1200),
     );
-    record_extract_pass(5, 1, std::time::Duration::from_millis(900));
+    record_extract_pass(5, 1, 2, 1, std::time::Duration::from_millis(900));
     record_score_pass(7, 0, std::time::Duration::from_millis(450));
 
     let rendered = handle.render();
