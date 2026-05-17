@@ -83,6 +83,21 @@ pub struct AppConfig {
     /// `AI_RADAR_MAX_ITEMS_PER_RUN`. Default `50`.
     #[serde(default = "default_max_items_per_run")]
     pub max_items_per_run: usize,
+
+    /// Optional LLM second opinion during score (**T-167**). Env:
+    /// `LLM_SCORING_ENABLED`. Default `false` (requires `LLM_ENABLED=true` at runtime).
+    #[serde(default)]
+    pub llm_scoring_enabled: bool,
+
+    /// Weight for deterministic points when merging. Env:
+    /// `LLM_SCORING_DETERMINISTIC_WEIGHT`. Default `0.7`.
+    #[serde(default = "default_llm_scoring_deterministic_weight")]
+    pub llm_scoring_deterministic_weight: f32,
+
+    /// Weight for LLM points when merging. Env:
+    /// `LLM_SCORING_LLM_WEIGHT`. Default `0.3`.
+    #[serde(default = "default_llm_scoring_llm_weight")]
+    pub llm_scoring_llm_weight: f32,
 }
 
 fn default_api_bind() -> String {
@@ -105,6 +120,12 @@ fn default_collect_concurrency() -> usize {
 fn default_max_items_per_run() -> usize {
     50
 }
+fn default_llm_scoring_deterministic_weight() -> f32 {
+    0.7
+}
+fn default_llm_scoring_llm_weight() -> f32 {
+    0.3
+}
 
 impl AppConfig {
     /// Build configuration from process environment.
@@ -123,6 +144,9 @@ impl AppConfig {
                 "LLM_API_KEY",
                 "LLM_MODEL",
                 "LLM_TIMEOUT_SECONDS",
+                "LLM_SCORING_ENABLED",
+                "LLM_SCORING_DETERMINISTIC_WEIGHT",
+                "LLM_SCORING_LLM_WEIGHT",
                 "GITHUB_TOKEN",
             ]));
 
