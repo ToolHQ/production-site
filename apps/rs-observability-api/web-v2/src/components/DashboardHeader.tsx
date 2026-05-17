@@ -1,4 +1,5 @@
 import type { LiveOverview, MetricsData } from '../types/api';
+import { ThemeToggle } from './ThemeToggle';
 import {
   formatCompactRelativeTime,
   formatRelativeTime,
@@ -53,6 +54,7 @@ export function DashboardHeader({ snapshot, live, metrics }: HeaderProps) {
         <span class="pill" id="generated-at">{buildSnapshotPill(snapshot)}</span>
         <span class="pill" id="live-refresh">{buildLivePill(live)}</span>
         <span class="pill" id="metrics-refresh">{buildMetricsPill(metrics)}</span>
+        <ThemeToggle />
       </div>
     </div>
   );
