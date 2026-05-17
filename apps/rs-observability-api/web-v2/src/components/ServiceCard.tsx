@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import type { LiveOverview, CorootAlert, CorootIncident } from '../types/api';
 import { statusClass, formatDiscreteCount } from '../utils/format';
 
@@ -130,6 +131,8 @@ function ServiceCard({ service, alerts, incidents }: ServiceCardProps) {
 // ServiceGrid (container da seção)
 // ────────────────────────────────────────────────────────────
 
+const STATUS_ORDER: Record<string, number> = { down: 0, degraded: 1, unknown: 2, healthy: 3 };
+
 interface ServiceGridProps {
   live: LiveOverview | null;
   alerts?: CorootAlert[];
@@ -137,21 +140,63 @@ interface ServiceGridProps {
 }
 
 export function ServiceGrid({ live, alerts = [], incidents = [] }: ServiceGridProps) {
-  const services = live?.services ?? [];
+  const [query, setQuery] = useState('');
+
+  const allServices = live?.services ?? [];
+
+  const filtered = query.trim()
+    ? allServices.filter((svc) => {
+        const q = query.toLowerCase();
+        return (
+          svc.label.toLowerCase().includes(q) ||
+          svc.namespace.toLowerCase().includes(q) ||
+          svc.workload_name.toLowerCase().includes(q) ||
+          svc.status.toLowerCase().includes(q)
+        );
+      })
+    : allServices;
+
+  const sorted = [...filtered].sort((a, b) => {
+    const sa = STATUS_ORDER[a.status] ?? 99;
+    const sb = STATUS_ORDER[b.status] ?? 99;
+    if (sa !== sb) return sa - sb;
+    return a.label.localeCompare(b.label);
+  });
 
   return (
-    <div class="service-grid" id="service-grid">
-      {services.length > 0 ? (
-        services.map((svc) => (
-          <ServiceCard key={svc.id} service={svc} alerts={alerts} incidents={incidents} />
-        ))
-      ) : (
-        <article class="service-card">
-          <p class="empty">
-            {live === null ? 'Loading live service board...' : 'Live service board unavailable.'}
-          </p>
-        </article>
-      )}
+    <div class="service-section">
+      <div class="service-search-bar">
+        <input
+          type="search"
+          class="service-search-input"
+          placeholder={`Filter ${allServices.length} services…`}
+          value={query}
+          onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+          aria-label="Filter services"
+        />
+        {query && (
+          <span class="service-search-count">
+            {sorted.length} / {allServices.length}
+          </span>
+        )}
+      </div>
+      <div class="service-grid" id="service-grid">
+        {sorted.length > 0 ? (
+          sorted.map((svc) => (
+            <ServiceCard key={svc.id} service={svc} alerts={alerts} incidents={incidents} />
+          ))
+        ) : allServices.length === 0 ? (
+          <article class="service-card">
+            <p class="empty">
+              {live === null ? 'Loading live service board...' : 'Live service board unavailable.'}
+            </p>
+          </article>
+        ) : (
+          <article class="service-card">
+            <p class="empty">No services match "{query}".</p>
+          </article>
+        )}
+      </div>
     </div>
   );
 }
