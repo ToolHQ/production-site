@@ -1,6 +1,6 @@
 # T-233: AI Radar — Adoption Signals (GitHub metadata)
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
