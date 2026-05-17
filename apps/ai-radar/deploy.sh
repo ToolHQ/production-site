@@ -131,22 +131,22 @@ REMOTE
 	fi
 }
 
-preflight_buildkit_disk
+# Builder remoto Hetzner (T-222 / PR #148–#153): compila na VM Helsinki; master só recebe push.
+USE_HETZNER=false
+HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
+if [[ -f "$HETZNER_SETUP" ]] && "$HETZNER_SETUP" --silent; then
+	USE_HETZNER=true
+	printf '%s\n' "✓ hetzner-builder ativo — build ARM64 na Hetzner (sem BuildKit no master)" >&2
+else
+	printf '%s\n' "⚠️  hetzner-builder indisponível — fallback oci-builder no master (exige ≥12 GiB livres em /)" >&2
+	preflight_buildkit_disk
+fi
 
 DOCKERFILE="$ROOT_DIR/docker/Dockerfile"
 
 build_rust_image() {
 	local target="$1" bin_name="$2" image_tag="$3" image_latest="$4"
 	printf '%s\n' "🔨 buildx $target ($bin_name)…" >&2
-
-	# Inicializa ou verifica o builder remoto Hetzner automaticamente (padrão de alta performance)
-	local USE_HETZNER=false
-	local HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
-	if [ -f "$HETZNER_SETUP" ]; then
-		if "$HETZNER_SETUP" --silent; then
-			USE_HETZNER=true
-		fi
-	fi
 
 	if [ "$USE_HETZNER" = "true" ]; then
 		echo "🚀 Usando builder Hetzner remoto de alta performance..."
@@ -273,4 +273,6 @@ postbuild_buildkit_prune() {
 	fi
 }
 
-postbuild_buildkit_prune || true
+if [ "$USE_HETZNER" != "true" ]; then
+	postbuild_buildkit_prune || true
+fi
