@@ -112,13 +112,14 @@ Reinaldinho, briefing de [DATA]:
 | **Copilot Loop**            | `.agents/workflows/copilot_loop.md`                     | Loop de execução do Copilot/VSCode (sessões interativas, isolado de Cursor/Antigravity) |
 | **Cursor Loop**             | `.agents/workflows/cursor_loop.md`                      | Loop Cursor — owner AI Radar; worktree `production-site-cursor` |
 | **Codex Loop**              | `.agents/workflows/codex_loop.md`                       | Loop Codex/Rust Rover — coordenação, infra/tooling, autopilot assistido |
+| **OpenCode Loop**           | `.agents/workflows/opencode_loop.md`                    | Loop OpenCode — owner tasks OpenCode; worktree `production-site-opencode` |
 | **Orquestração multi-agente** | [docs/agent-orchestration.md](docs/agent-orchestration.md) | KANBAN + filas + ralph sem duplicar cards |
 
 ---
 
 ## 🤝 Coordenação Multi-Agente
 
-> Quatro agentes operam em paralelo neste repositório. Cada um tem worktree, fila e loop próprios.
+> Cinco agentes operam em paralelo neste repositório. Cada um tem worktree, fila e loop próprios.
 > **`tasks/KANBAN.md` é a única fonte de verdade** — não duplicar, não conflitar.
 
 ### Mapa de Worktrees
@@ -129,11 +130,12 @@ Reinaldinho, briefing de [DATA]:
 | `~/production-site-antigravity`   | `feat/agent-loop`    | **Antigravity**     | KANBAN.md (Owner: Antigravity)     |
 | `~/production-site-copilot`       | `feat/copilot-*`     | **Copilot/VSCode**  | `tasks/COPILOT-QUEUE.md` + KANBAN.md (Owner: Copilot/VSCode) |
 | `~/production-site-rust-rover-claude` | `feat/T-*`, `codex/*` | **Codex / Rust Rover** | `tasks/CODEX-QUEUE.md` + KANBAN.md (Owner: Codex) |
+| `~/production-site-opencode`      | `feat/opencode-*`    | **OpenCode**        | `tasks/OPENCODE-QUEUE.md` + KANBAN.md (Owner: OpenCode) |
 | `~/production-site-ops`           | `main`               | Todos (read-only)   | — (referência e merge)             |
 
 ### Regras de Convivência
 
-1. **Owner no KANBAN**: Cada task tem um campo `Owner`. Agentes só executam tasks onde são owner. **Cursor** = todas as tasks **AI Radar** (`Cursor / AI Radar`). **Codex** = tasks com `Owner` contendo `Codex`; infra/tooling compartilhado só com handoff explícito.
+1. **Owner no KANBAN**: Cada task tem um campo `Owner`. Agentes só executam tasks onde são owner. **Cursor** = todas as tasks **AI Radar** (`Cursor / AI Radar`). **Codex** = tasks com `Owner` contendo `Codex`; infra/tooling compartilhado só com handoff explícito. **OpenCode** = tasks com `Owner` contendo `OpenCode`.
 2. **Sem cross-worktree edits**: Nunca editar arquivos em worktree de outro agente.
 3. **Shared files** (`KANBAN.md`, `AGENTS.md`, `CHANGELOG.md`): Sempre `git pull --rebase` antes de push para evitar conflito.
 4. **Micro-tasks Copilot**: Tasks de < 30 min sem T-ID ficam apenas em `tasks/COPILOT-QUEUE.md` — não entram no KANBAN.
