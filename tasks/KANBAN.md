@@ -10,7 +10,6 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-| [T-235](2026/Q2/T-235-AI-Radar-Explorer-Ranking-Signals-UX.md) | **AI Radar — Explorer Ranking & Signals UX** _(badges adoption, sort, filtros)_ | 🔼 High | **Cursor / AI Radar** | 6h |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High | **OpenCode** | 1h |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -34,6 +33,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-235](2026/Q2/T-235-AI-Radar-Explorer-Ranking-Signals-UX.md) | **AI Radar — Explorer Ranking & Signals UX** _(badges adoption, sort, filtros)_ | 🔼 High | **Cursor / AI Radar** | 6h |
 | [T-233](2026/Q2/T-233-AI-Radar-Adoption-Signals-GitHub-metadata.md) | **AI Radar — Adoption Signals (GitHub metadata)** | 🔼 High | Cursor / AI Radar | 4h |
 |        [T-231](2026/Q2/T-231-AI-Radar-Entity-Resolution-Cross-Source-Dedup.md)        | **AI Radar — Entity Resolution & Cross-Source Dedup** | 🔼 High | **Cursor / AI Radar** | 1d |
 |        [T-232](2026/Q2/T-232-AI-Radar-Extract-Quality-Gate.md)        | **AI Radar — Extract Quality Gate** _(score 0–100; reject &lt;40, warn 40–69)_ | 🔼 High | **Cursor / AI Radar** | 4h |
