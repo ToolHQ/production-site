@@ -73,6 +73,10 @@ pub struct RawItem {
     pub status: RawItemStatus,
     /// Free-form metadata (e.g. RSS guid, `GitHub` `stargazers_count`).
     pub metadata_json: serde_json::Value,
+    /// Canonical entity key for cross-source dedup (**T-231**).
+    pub tool_key: Option<String>,
+    /// Normalized canonical URL when known (e.g. GitHub repo).
+    pub canonical_url: Option<String>,
     /// Upstream-provided publish date (best effort).
     pub published_at: Option<DateTime<Utc>>,
     /// When the collector ingested the item.
