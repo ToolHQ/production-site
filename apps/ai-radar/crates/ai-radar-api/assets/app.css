@@ -1016,3 +1016,70 @@ tr:hover td {
   word-break: break-word;
   font-family: var(--mono);
 }
+
+.explorer-header {
+  margin-bottom: 1rem;
+}
+
+.explorer-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.filter-row--check input {
+  margin-right: 0.35rem;
+}
+
+.signal-cell {
+  white-space: nowrap;
+}
+
+.signal-cell .badge {
+  margin-right: 0.25rem;
+  margin-bottom: 0.15rem;
+}
+
+.badge-tier-viral {
+  background: rgba(167, 139, 250, 0.2);
+  color: #c4b5fd;
+}
+
+.badge-tier-popular {
+  background: rgba(56, 189, 248, 0.18);
+  color: var(--accent);
+}
+
+.badge-tier-growing {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--ok);
+}
+
+.badge-tier-niche {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--muted);
+}
+
+.badge-activity-active {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--ok);
+}
+
+.badge-activity-dormant {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.badge-quality-warn {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warn);
+}
+
+.item-adoption .badge {
+  margin-right: 0.35rem;
+}
