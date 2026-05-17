@@ -29,6 +29,11 @@ function stateLabel(s: string): string {
 function VolumeRow({ vol }: { vol: LonghornVolume }) {
   const usePct =
     vol.size_bytes > 0 ? Math.round((vol.actual_size_bytes / vol.size_bytes) * 100) : 0;
+  const usePctCapped = Math.min(usePct, 100);
+  const useClass =
+    usePct > 90 ? 'storage-use storage-use--critical'
+    : usePct > 75 ? 'storage-use storage-use--warn'
+    : 'storage-use';
   return (
     <tr class="storage-row">
       <td class="storage-cell storage-cell--name" title={vol.name}>
@@ -45,7 +50,10 @@ function VolumeRow({ vol }: { vol: LonghornVolume }) {
       </td>
       <td class="storage-cell storage-cell--size">
         <span class="storage-size">{formatBytes(vol.size_bytes)}</span>
-        <span class="storage-use">{usePct}% usado</span>
+        <div class="storage-use-bar-wrap" title={`${usePct}% usado`}>
+          <div class="storage-use-bar" style={{ width: `${usePctCapped}%` }} />
+        </div>
+        <span class={useClass}>{usePct}% usado</span>
       </td>
       <td class="storage-cell storage-cell--replicas">{vol.replicas_desired}×</td>
       <td class="storage-cell storage-cell--node" title={vol.node}>
