@@ -21,6 +21,12 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+| [T-246](2026/Q2/T-246-AI-Radar-Digest-Rising-Stars-API-Metadata.md) | **AI Radar — Digest Rising Stars API Metadata** | 🔽 Low | Cursor / AI Radar | 4h |
+| [T-245](2026/Q2/T-245-AI-Radar-Compare-Deep-Link-Category-UX.md) | **AI Radar — Compare Deep-Link & Category UX** | 🔽 Low | Cursor / AI Radar | 2h |
+| [T-244](2026/Q2/T-244-AI-Radar-Explorer-Filters-Velocity-Health.md) | **AI Radar — Explorer Filters Velocity & Health** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-243](2026/Q2/T-243-AI-Radar-Duplicates-Divergence-Console.md) | **AI Radar — Duplicates & Divergence Console** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-242](2026/Q2/T-242-AI-Radar-Explorer-Item-Signal-Panel.md) | **AI Radar — Explorer Item Signal Panel** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-241](2026/Q2/T-241-AI-Radar-Digest-v2-Signals-Trending-Section.md) | **AI Radar — Digest v2 Signals & Trending Section** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-239](2026/Q2/T-239-agent-meter-schema-collector-enrichment.md) | **agent-meter — Schema & Collector Enrichment** _(model, cached_tokens, conversation_id, client_ip, user_agent; new GET /reports/events feed paginado)_ | 🔼 High | **Copilot/VSCode** | 3h |
 | [T-240](2026/Q2/T-240-agent-meter-dashboard-events-ui.md) | **agent-meter — Dashboard UI: events feed + model + tokens breakdown** _(tab Events paginada, stats cards in/out/cached, coluna TOP MODEL, filtro por modelo; depende T-239)_ | 🔼 High | **Copilot/VSCode** | 2h |
 
