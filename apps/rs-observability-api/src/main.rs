@@ -1536,7 +1536,10 @@ fn aggregate_series_for_service(
 
     points
         .into_iter()
-        .map(|(ts, value)| MetricPoint { timestamp: ts, value })
+        .map(|(ts, value)| MetricPoint {
+            timestamp: ts,
+            value,
+        })
         .collect()
 }
 
