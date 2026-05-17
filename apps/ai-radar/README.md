@@ -19,7 +19,7 @@ and the architecture decisions consulted by every epic in
 
 **Collectors:** RSS (**T-161**), GitHub releases/repo (**T-162**), webpage manual (**T-163**).
 
-**Ainda no backlog (Kanban):** comparator (**T-168**). Scorer LLM opcional (**T-167**) via `LLM_SCORING_ENABLED`.
+**Scorer LLM opcional (**T-167**):** `LLM_SCORING_ENABLED=true` + merge 70/30 com determinístico (PR #159).
 
 **Entregue (MVP+):** console (**T-175**), dashboards (**T-176**), items explorer (**T-177**), feedback (**T-170**), hardening (**T-173**). Detalhes: [`tasks/KANBAN.md`](../../tasks/KANBAN.md).
 
