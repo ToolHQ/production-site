@@ -214,7 +214,18 @@ struct MetricsOverview {
     cluster: ClusterTimeseries,
     services: Vec<ServiceTimeseries>,
     top_restarts: Vec<RestartHotspot>,
+    /// Per-node historical time series (last 60m at 5m resolution) from Prometheus node_exporter.
+    /// Keyed by K8s node name. Used to pre-seed sparklines in the frontend.
+    node_history: HashMap<String, NodeTimeseries>,
     error: Option<String>,
+}
+
+/// Historical sparkline data for a single node (CPU%, mem%, disk%).
+#[derive(Serialize, Clone, Default)]
+struct NodeTimeseries {
+    cpu_percent_series: Vec<MetricPoint>,
+    mem_percent_series: Vec<MetricPoint>,
+    disk_percent_series: Vec<MetricPoint>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -248,7 +259,7 @@ struct RestartHotspot {
 
 #[derive(Serialize, Clone)]
 struct MetricPoint {
-    ts: u64,
+    timestamp: u64,
     value: f64,
 }
 
@@ -834,6 +845,23 @@ impl PrometheusMonitor {
             .map(|service| build_service_timeseries(service, &pod_cpu_series, &pod_memory_series))
             .collect();
 
+        // Per-node historical data for sparkline pre-seeding (3 concurrent range queries)
+        let node_cpu_query =
+            r#"100 - (avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)"#;
+        let node_mem_query = r#"100 * (1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))"#;
+        let node_disk_query = r#"100 * (1 - avg by (node) (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}))"#;
+
+        let (node_cpu_res, node_mem_res, node_disk_res) = tokio::join!(
+            self.query_range_series(node_cpu_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_range_series(node_mem_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_range_series(node_disk_query, start, end, PROMETHEUS_STEP_SECONDS),
+        );
+        let node_history = build_node_history(
+            node_cpu_res.unwrap_or_default(),
+            node_mem_res.unwrap_or_default(),
+            node_disk_res.unwrap_or_default(),
+        );
+
         Ok(MetricsOverview {
             available: true,
             stale: false,
@@ -853,6 +881,7 @@ impl PrometheusMonitor {
             },
             services: service_metrics,
             top_restarts,
+            node_history,
             error: None,
         })
     }
@@ -1507,7 +1536,7 @@ fn aggregate_series_for_service(
 
     points
         .into_iter()
-        .map(|(ts, value)| MetricPoint { ts, value })
+        .map(|(ts, value)| MetricPoint { timestamp: ts, value })
         .collect()
 }
 
@@ -1554,7 +1583,7 @@ fn convert_values_to_points(values: &[(f64, String)]) -> Vec<MetricPoint> {
     values
         .iter()
         .map(|(timestamp, value)| MetricPoint {
-            ts: timestamp.round() as u64,
+            timestamp: timestamp.round() as u64,
             value: parse_prometheus_value(value),
         })
         .collect()
@@ -1897,8 +1926,37 @@ fn unavailable_metrics_overview(reason: impl Into<String>) -> MetricsOverview {
         cluster: ClusterTimeseries::default(),
         services: Vec::new(),
         top_restarts: Vec::new(),
+        node_history: HashMap::new(),
         error: Some(reason.into()),
     }
+}
+
+/// Build per-node NodeTimeseries from Prometheus range query results.
+fn build_node_history(
+    cpu_series: Vec<PrometheusSeries>,
+    mem_series: Vec<PrometheusSeries>,
+    disk_series: Vec<PrometheusSeries>,
+) -> HashMap<String, NodeTimeseries> {
+    let mut map: HashMap<String, NodeTimeseries> = HashMap::new();
+    for s in cpu_series {
+        if let Some(node) = s.metric.get("node") {
+            map.entry(node.clone()).or_default().cpu_percent_series =
+                convert_values_to_points(&s.values);
+        }
+    }
+    for s in mem_series {
+        if let Some(node) = s.metric.get("node") {
+            map.entry(node.clone()).or_default().mem_percent_series =
+                convert_values_to_points(&s.values);
+        }
+    }
+    for s in disk_series {
+        if let Some(node) = s.metric.get("node") {
+            map.entry(node.clone()).or_default().disk_percent_series =
+                convert_values_to_points(&s.values);
+        }
+    }
+    map
 }
 
 fn unix_epoch_seconds() -> u64 {
