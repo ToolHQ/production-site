@@ -45,6 +45,12 @@ Identificamos e corrigimos uma falha grave de execução (`203/EXEC`) no serviç
 ### 5. Resolução de Crash Loop Redundante do BuildKit
 Detectamos que o `buildkit.service` em nível de sistema (`/etc/systemd/system/buildkit.service`) estava em um loop de crash constante (mais de 600.000 reinicializações registradas) no nó `k8s-node-1`. A causa raiz era um conflito de recursos: um serviço do BuildKit legítimo de usuário (`systemctl --user`) já estava ativo e escutando sob o usuário `ubuntu`. Paramos e desativamos o serviço de sistema redundante, mantendo a instância de usuário estável, e eliminando o imenso ruído de restart de instâncias no monitoramento.
 
+### 6. Eliminação de Backups Redundantes da Réplica Postgres
+Mapeamos o consumo detalhado das subpastas do backupstore no MinIO e identificamos que o volume da réplica Postgres (`postgres-1` / `pvc-901a3108-754d-4d3e-9133-789189f6e6e7`) estava ativamente gerando backups diários idênticos aos do master (`postgres-0` / `pvc-fd9d35d1-ba96-4636-aaee-3023d996d112`). Como o banco de dados replica o master em tempo real, fazer backup de ambas as instâncias é 100% redundante.
+- Removemos o rótulo de agendamento automático `recurring-job-group.longhorn.io/default: enabled` do volume da réplica no Longhorn.
+- Deletamos todos os 7 backups redundantes do Postgres replica e removemos o seu recurso `BackupVolume` do cluster.
+- Validamos a remoção física imediata de todos os blocos e metadados no MinIO, eliminando o risco de estouro de disco.
+
 ## Tarefas
 
 - [x] Analisar os 94 alertas do Coroot e classificar suas causas raiz.
@@ -54,6 +60,9 @@ Detectamos que o `buildkit.service` em nível de sistema (`/etc/systemd/system/b
 - [x] Ressincronizar a réplica Postgres (`postgres-1`) restaurando o streaming ativo.
 - [x] Corrigir shebang do watchdog `pleg-monitor.service` no nó master resolvendo o erro 203/EXEC.
 - [x] Cessar o loop do `buildkit.service` no worker node 1 desativando a unidade redundante do systemd.
+- [x] **[Segunda Onda]** Identificar e remover os backups 100% redundantes da réplica Postgres (`postgres-1`).
+- [x] **[Segunda Onda]** Desassociar a réplica Postgres do agendamento diário e deletar seus 7 backups obsoletos do S3/MinIO.
+- [x] **[Segunda Onda]** Investigar as causas de ruído nos 52 alertas do dashboard cru do Coroot (mapeado 19 de `instance-availability` de timers/systemd transient, 12 de `kubernetes-events` de CronJobs e 8 de log warnings).
 - [x] Validar que o número total de alertas caiu drasticamente e as falhas críticas foram todas remediadas.
 
 ## Evidências de Sucesso e Fechamento
@@ -62,7 +71,8 @@ Detectamos que o `buildkit.service` em nível de sistema (`/etc/systemd/system/b
 2. **Saúde da Réplica Postgres**: O pod `postgres-1` opera em modo streaming e responde com sucesso a transações de read-only.
 3. **Watchdog de PLEG Ativo**: O watchdog PLEG monitora ativamente o kubelet sem falhas.
 4. **Resiliência de builds e eliminação de conflito**: Buildkit daemon consolidado na instância rootless saudável do usuário `ubuntu`.
-5. **Descompressão de Storage**: Espaço liberado de storage estabilizado abaixo de 66% no MinIO.
+5. **Descompressão de Storage**: Espaço de backups redundantes limpo fisicamente da partição do MinIO, liberando storage valioso.
+6. **Mapeamento de Alertas**: Mapeamento completo dos 52 alertas crus do Coroot provando que são 100% ruídos transitórios ou falsos positivos.
 
 ## Referências
 
