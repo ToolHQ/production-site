@@ -10,7 +10,6 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-| [T-195](2026/Q2/T-194-Cluster-Pulse-UI-Componentization-Vite-Preact.md) | **Cluster Pulse UI Componentization (Vite+Preact)** | 🔼 High | DevExp / Observability | 4h |
 |               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
 | [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + explorer console)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-200](2026/Q2/T-200-AI-Radar-Rust-Build-Compile-Time-Optimization.md) | **AI Radar — compile-time / BuildKit** _(cargo-chef, deploy parcial)_ | 🔼 High | **Cursor / AI Radar** | 1d |
@@ -34,6 +33,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-195](2026/Q2/T-194-Cluster-Pulse-UI-Componentization-Vite-Preact.md) | **Cluster Pulse UI Componentization (Vite+Preact)** _(modularized into atomic components, native polling, improved margins, Inter font, higher contrast slate-gray metrics & fix z-index tooltip hover)_ | 🔼 High | Antigravity | 4h |
 | [T-201](2026/Q2/T-201-Node-Fleet-Real-Machine-Metrics-Prometheus.md) | **Node Fleet — Real Machine Metrics** _(substituir allocatable por CPU%/mem%/disk% reais via Prometheus node_exporter + sparklines de tendência)_ | 🔼 High | Antigravity | 4h |
 | [T-200](2026/Q2/T-200-Node-Fleet-Panel-Layout-Polish.md) | **Node Fleet Panel — Layout Polish** _(headers redundantes, colunas idênticas, tooltip alloc vs uso real)_ | 🔽 Medium | Antigravity | 1h |
 | [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + drill-down)_ | 🔼 High | **Cursor / AI Radar** | 1d |
