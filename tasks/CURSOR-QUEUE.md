@@ -24,7 +24,7 @@
 
 | ID / Ref | Tarefa | Tipo |
 | :------- | :----- | :--- |
-| **T-241..246** | Fase 18 — em PR | feat |
+| — | Fase 18 concluída ✅ | — |
 
 ## Fase 17 — Curadoria, sinais e ranking ✅
 
@@ -49,12 +49,12 @@
 
 | # | ID | Tarefa | Prioridade | Status |
 | -: | :- | :----- | :--------- | :----- |
-| 1 | **T-241** | Digest v2 — trending, adoção, fontes ruidosas | 🔼 High | 🏎️ PR |
-| 2 | **T-242** | Explorer — painel de sinais no detalhe | 🔼 High | 🏎️ PR |
-| 3 | **T-243** | Console — duplicatas & divergência | 🔼 High | 🏎️ PR |
-| 4 | **T-244** | Explorer — filtros velocity / health / quality | 🔼 High | 🏎️ PR |
-| 5 | **T-245** | Compare deep-link & categoria | 🔽 Low | 🏎️ PR |
-| 6 | **T-246** | Digest metadata + stats strip (`GET /stats`) | 🔽 Low | 🏎️ PR |
+| 1 | **T-241** | Digest v2 — trending, adoção, fontes ruidosas | 🔼 High | ✅ PR #224 |
+| 2 | **T-242** | Explorer — painel de sinais no detalhe | 🔼 High | ✅ PR #224 |
+| 3 | **T-243** | Console — duplicatas & divergência | 🔼 High | ✅ PR #224 |
+| 4 | **T-244** | Explorer — filtros velocity / health / quality | 🔼 High | ✅ PR #224 |
+| 5 | **T-245** | Compare deep-link & categoria | 🔽 Low | ✅ PR #224 |
+| 6 | **T-246** | Digest metadata + stats strip (`GET /stats`) | 🔽 Low | ✅ PR #224 |
 
 **Ordem de execução recomendada:** T-241 → T-242 → T-243 → T-244 → T-245 → T-246.
 

@@ -1,6 +1,6 @@
 # T-246: AI Radar — Digest Rising Stars API Metadata
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
