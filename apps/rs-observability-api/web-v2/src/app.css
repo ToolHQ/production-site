@@ -197,7 +197,7 @@
 
 /* ── NodesPanel ─────────────────────────────────────────── */
 .nodes-panel {
-  font-family: inherit;
+  font-family: "Inter", "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif !important;
   margin-bottom: 2rem;
 }
 
@@ -250,9 +250,10 @@
   th {
     cursor: default;
     user-select: none;
-    font-size: 0.75rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
     color: var(--muted);
     padding: 18px 20px;
     border-bottom: 1px solid var(--line);
@@ -263,14 +264,21 @@
     border-bottom: 1px solid var(--line);
     vertical-align: middle;
   }
+
+  td.node-cpu,
+  td.node-mem,
+  td.node-disk {
+    padding: 0 !important;
+  }
 }
 
 .nodes-table-footnote {
-  margin: 12px 16px 0;
-  font-size: 0.72rem;
-  color: #475569;
-  opacity: 0.95;
-  letter-spacing: 0.02em;
+  margin: 12px 20px 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-family: "Inter", "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif !important;
+  opacity: 0.9;
+  letter-spacing: normal;
 }
 
 /* ── MiniBar ─────────────────────────────────────────────── */
@@ -298,7 +306,8 @@
 
 .mini-bar__sub {
   font-size: 0.75rem;
-  color: #475569; /* Dark slate gray for excellent, high-contrast readability! */
+  color: var(--muted);
+  opacity: 0.9;
   white-space: nowrap;
 }
 
@@ -376,8 +385,9 @@
   }
 
   &--worker {
-    background: rgba(22, 32, 43, 0.09);
-    color: #334155; /* Higher contrast dark slate gray! */
+    background: rgba(22, 32, 43, 0.08);
+    color: var(--ink);
+    opacity: 0.9;
     border: 1px solid var(--line);
   }
 }
@@ -421,8 +431,15 @@
 
 .node-cell-tooltip-container {
   position: relative;
-  display: inline-block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
   width: 100%;
+  height: 100%;
+  min-height: 58px;
+  padding: 18px 20px;
+  cursor: pointer;
   z-index: 1;
 }
 
@@ -432,16 +449,16 @@
   bottom: calc(100% + 12px);
   left: 50%;
   transform: translateX(-50%);
-  width: 250px;
-  padding: 0.9rem;
+  width: 260px;
+  padding: 1rem;
   background: #ffffff; /* Gorgeous solid white for perfect readability */
-  border: 1px solid rgba(22, 32, 43, 0.25); /* High-contrast border */
+  border: 1px solid rgba(22, 32, 43, 0.3); /* Even higher-contrast border */
   border-radius: 12px;
-  box-shadow: 0 12px 36px rgba(22, 32, 43, 0.2); /* Defined, elegant shadow */
-  z-index: 100;
+  box-shadow: 0 12px 36px rgba(22, 32, 43, 0.25); /* Defined, elegant shadow */
+  z-index: 100000 !important;
   pointer-events: none;
   transition: opacity 0.15s ease, transform 0.15s ease;
-  font-family: inherit; /* Consistent font with the rest of the report */
+  font-family: "Inter", "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif !important;
 }
 
 /* Pequena setinha apontando para baixo */
@@ -503,7 +520,8 @@
 
 .tooltip-label {
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--ink);
+  opacity: 0.8;
 }
 
 .tooltip-detail {
@@ -515,8 +533,10 @@
   text-align: left;
 
   strong {
-    color: var(--muted);
+    color: var(--ink);
+    opacity: 0.8;
     margin-right: 0.35rem;
+    font-weight: 600;
   }
 }
 
@@ -527,9 +547,10 @@
 }
 
 .tooltip-history-title {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--ink);
+  opacity: 0.8;
   margin-bottom: 0.4rem;
 }
 
@@ -566,5 +587,5 @@
 }
 
 .nodes-section-band {
-  margin-bottom: 0.5rem;
+  margin-bottom: 2.5rem !important; /* Uniform, comfortable vertical spacing below all section headers! */
 }
