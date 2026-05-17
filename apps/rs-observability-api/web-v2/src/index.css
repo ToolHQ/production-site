@@ -1738,4 +1738,118 @@
 
       .storage-panel--error .storage-error { color: #dc2626; }
       :root.dark .storage-panel--error .storage-error { color: #f87171; }
+
+      /* ────────────────────────────────────────────────────────
+         CronJob Panel
+      ──────────────────────────────────────────────────────── */
+
+      .cj-name    { font-weight: 500; font-size: 0.82rem; }
+      .cj-ns      { font-size: 0.78rem; color: var(--muted); }
+      .cj-last    { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+      .cj-schedule code {
+        font-size: 0.75rem;
+        background: var(--surface1);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-family: monospace;
+      }
+
+      .cj-status {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+      .cj-status--ok        { background: rgba(34,197,94,0.12); color: #16a34a; }
+      .cj-status--failed    { background: rgba(239,68,68,0.14); color: #dc2626; }
+      .cj-status--running   { background: rgba(59,130,246,0.14); color: #2563eb; }
+      .cj-status--suspended { background: rgba(107,114,128,0.14); color: var(--muted); }
+      .cj-status--unknown   { background: rgba(234,179,8,0.14); color: #ca8a04; }
+
+      :root.dark .cj-status--ok        { color: #4ade80; background: rgba(34,197,94,0.18); }
+      :root.dark .cj-status--failed    { color: #f87171; background: rgba(239,68,68,0.18); }
+      :root.dark .cj-status--running   { color: #60a5fa; background: rgba(59,130,246,0.18); }
+      :root.dark .cj-status--suspended { color: var(--muted); }
+      :root.dark .cj-status--unknown   { color: #fbbf24; background: rgba(234,179,8,0.18); }
+
+      /* ────────────────────────────────────────────────────────
+         Ingress Panel
+      ──────────────────────────────────────────────────────── */
+
+      .ing-name  { font-weight: 500; font-size: 0.82rem; }
+      .ing-ns    { font-size: 0.78rem; color: var(--muted); }
+      .ing-class { font-size: 0.78rem; color: var(--muted); }
+      .ing-hosts { display: flex; flex-direction: column; gap: 2px; }
+      .ing-host-link {
+        font-size: 0.78rem;
+        color: var(--accent, #2563eb);
+        text-decoration: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 260px;
+      }
+      .ing-host-link:hover { text-decoration: underline; }
+      .ing-no-host { color: var(--muted); }
+
+      .tls-badge {
+        display: inline-block;
+        padding: 2px 7px;
+        border-radius: 10px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .tls-badge--on  { background: rgba(34,197,94,0.12); color: #16a34a; }
+      .tls-badge--off { background: rgba(107,114,128,0.12); color: var(--muted); }
+      :root.dark .tls-badge--on  { color: #4ade80; background: rgba(34,197,94,0.18); }
+
+      /* ────────────────────────────────────────────────────────
+         Certificate Expiry Panel
+      ──────────────────────────────────────────────────────── */
+
+      .cert-name    { font-weight: 500; font-size: 0.82rem; }
+      .cert-ns      { font-size: 0.78rem; color: var(--muted); }
+      .cert-domains { font-size: 0.76rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+
+      .cert-days {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .cert-days--ok       { background: rgba(34,197,94,0.10); color: #16a34a; }
+      .cert-days--warning  { background: rgba(234,179,8,0.14); color: #ca8a04; }
+      .cert-days--critical { background: rgba(239,68,68,0.16); color: #dc2626; }
+      .cert-days--unknown  { background: rgba(107,114,128,0.12); color: var(--muted); }
+
+      :root.dark .cert-days--ok       { color: #4ade80; background: rgba(34,197,94,0.18); }
+      :root.dark .cert-days--warning  { color: #fbbf24; background: rgba(234,179,8,0.18); }
+      :root.dark .cert-days--critical { color: #f87171; background: rgba(239,68,68,0.20); }
+
+      .cert-ready { text-align: center; }
+      .cert-ready-badge      { font-size: 0.85rem; font-weight: 700; }
+      .cert-ready-badge--ok  { color: #16a34a; }
+      .cert-ready-badge--no  { color: #dc2626; }
+      :root.dark .cert-ready-badge--ok { color: #4ade80; }
+      :root.dark .cert-ready-badge--no { color: #f87171; }
+
+      /* ────────────────────────────────────────────────────────
+         Summary badges (shared by new panels)
+      ──────────────────────────────────────────────────────── */
+
+      .summary-badge--warn {
+        background: rgba(234,179,8,0.14);
+        color: #ca8a04;
+      }
+      :root.dark .summary-badge--warn {
+        color: #fbbf24;
+        background: rgba(234,179,8,0.18);
+      }
+
       }

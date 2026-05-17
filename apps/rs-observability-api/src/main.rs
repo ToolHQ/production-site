@@ -252,6 +252,183 @@ struct LonghornVolumeStatus {
     actual_size: u64,
 }
 
+// --- Inventory: CronJobs ---
+
+#[derive(Serialize, Clone)]
+pub(crate) struct CronJobInfo {
+    name: String,
+    namespace: String,
+    schedule: String,
+    active: u32,
+    last_run_at: Option<String>,
+    last_run_succeeded: Option<bool>,
+    last_schedule_time: Option<String>,
+    suspended: bool,
+}
+
+#[derive(Serialize)]
+pub(crate) struct CronJobsResponse {
+    available: bool,
+    cronjobs: Vec<CronJobInfo>,
+    total: usize,
+    healthy: usize,
+    failed: usize,
+    queried_at_epoch: u64,
+    error: Option<String>,
+}
+
+// K8s CronJob/Job deserialization
+
+#[derive(Deserialize, Clone, Default)]
+struct CronJobResource {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    spec: Option<CronJobSpec>,
+    status: Option<CronJobStatus>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct CronJobSpec {
+    #[serde(default)]
+    schedule: String,
+    #[serde(default)]
+    suspend: bool,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct CronJobStatus {
+    #[serde(default)]
+    active: Vec<Value>,
+    #[serde(default, rename = "lastScheduleTime")]
+    last_schedule_time: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct JobResource {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    status: Option<JobStatus>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+#[allow(dead_code)]
+struct JobOwnerRef {
+    name: String,
+    #[serde(default)]
+    kind: String,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct JobStatus {
+    #[serde(default)]
+    succeeded: u32,
+    #[serde(default)]
+    failed: u32,
+    #[serde(rename = "startTime")]
+    start_time: Option<String>,
+}
+
+// --- Inventory: Ingresses ---
+
+#[derive(Serialize, Clone)]
+pub(crate) struct IngressInfo {
+    name: String,
+    namespace: String,
+    hosts: Vec<String>,
+    tls: bool,
+    tls_secret: Option<String>,
+    class: Option<String>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct IngressesResponse {
+    available: bool,
+    ingresses: Vec<IngressInfo>,
+    total: usize,
+    queried_at_epoch: u64,
+    error: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct IngressResource {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    spec: Option<IngressSpec>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct IngressSpec {
+    #[serde(default, rename = "ingressClassName")]
+    ingress_class_name: Option<String>,
+    #[serde(default)]
+    rules: Vec<IngressRule>,
+    #[serde(default)]
+    tls: Vec<IngressTls>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct IngressRule {
+    host: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct IngressTls {
+    #[serde(default, rename = "secretName")]
+    secret_name: Option<String>,
+}
+
+// --- Inventory: Certificates (cert-manager) ---
+
+#[derive(Serialize, Clone)]
+pub(crate) struct CertInfo {
+    name: String,
+    namespace: String,
+    dns_names: Vec<String>,
+    not_after: Option<String>,
+    ready: bool,
+    days_remaining: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct CertificatesResponse {
+    available: bool,
+    certificates: Vec<CertInfo>,
+    total: usize,
+    expiring_soon: usize,
+    critical: usize,
+    queried_at_epoch: u64,
+    error: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct CertResource {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    spec: Option<CertSpec>,
+    status: Option<CertStatus>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct CertSpec {
+    #[serde(default, rename = "dnsNames")]
+    dns_names: Vec<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct CertStatus {
+    #[serde(default, rename = "notAfter")]
+    not_after: Option<String>,
+    #[serde(default)]
+    conditions: Vec<CertCondition>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct CertCondition {
+    #[serde(rename = "type")]
+    type_name: String,
+    status: String,
+}
+
 // --- Coroot HTTP API client (internal) ---
 
 #[derive(Deserialize)]
@@ -899,6 +1076,21 @@ struct NodeCondition {
     status: Option<String>,
 }
 
+// K8s PersistentVolumeClaim (for cross-mapping with Longhorn volumes)
+
+#[derive(Deserialize, Clone, Default)]
+struct PvcResource {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    spec: Option<PvcSpec>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct PvcSpec {
+    #[serde(default, rename = "volumeName")]
+    volume_name: String,
+}
+
 #[derive(Serialize, Clone)]
 struct NodeStat {
     name: String,
@@ -1191,65 +1383,315 @@ impl LiveMonitor {
 
     pub(crate) async fn fetch_longhorn(&self) -> LonghornResponse {
         let now = unix_epoch_seconds();
-        match self
-            .fetch_json::<KubeList<LonghornVolumeResource>>(
-                "/apis/longhorn.io/v1beta2/namespaces/longhorn-system/volumes",
-            )
-            .await
-        {
-            Ok(list) => {
-                let volumes: Vec<LonghornVolume> = list
+
+        // Fetch PVCs and Longhorn volumes in parallel for cross-mapping
+        let (vol_result, pvc_result) = tokio::join!(
+            self.fetch_json::<KubeList<LonghornVolumeResource>>(
+                "/apis/longhorn.io/v1beta2/namespaces/longhorn-system/volumes"
+            ),
+            self.fetch_json::<KubeList<PvcResource>>("/api/v1/persistentvolumeclaims")
+        );
+
+        let list = match vol_result {
+            Ok(l) => l,
+            Err(e) => {
+                return LonghornResponse {
+                    available: false,
+                    volumes: vec![],
+                    total: 0,
+                    healthy: 0,
+                    degraded: 0,
+                    faulted: 0,
+                    queried_at_epoch: now,
+                    error: Some(e),
+                }
+            }
+        };
+
+        // Build map: volume_name (pvc-{UUID}) → (pvc_user_name, pvc_namespace)
+        let pvc_map: HashMap<String, (String, String)> = pvc_result
+            .unwrap_or_else(|_| KubeList { items: vec![] })
+            .items
+            .into_iter()
+            .filter_map(|p| {
+                let vol_name = p.spec?.volume_name;
+                if vol_name.is_empty() {
+                    return None;
+                }
+                let pvc_name = p.metadata.name?;
+                let ns = p.metadata.namespace.unwrap_or_default();
+                Some((vol_name, (pvc_name, ns)))
+            })
+            .collect();
+
+        let volumes: Vec<LonghornVolume> = list
+            .items
+            .into_iter()
+            .map(|v| {
+                let status = v.status.unwrap_or_default();
+                let spec = v.spec.unwrap_or_default();
+                let size_bytes = spec.size.parse::<u64>().unwrap_or(0);
+                let name = v.metadata.name.clone().unwrap_or_default();
+                let (pvc_name, namespace) = pvc_map
+                    .get(&name)
+                    .cloned()
+                    .unwrap_or_else(|| (name.clone(), "longhorn-system".to_string()));
+                LonghornVolume {
+                    pvc_name,
+                    name,
+                    namespace,
+                    state: status.state,
+                    robustness: status.robustness,
+                    replicas_desired: spec.number_of_replicas,
+                    size_bytes,
+                    actual_size_bytes: status.actual_size,
+                    node: status.current_node_id,
+                }
+            })
+            .collect();
+
+        let total = volumes.len();
+        let healthy = volumes.iter().filter(|v| v.robustness == "healthy").count();
+        let degraded = volumes
+            .iter()
+            .filter(|v| v.robustness == "degraded")
+            .count();
+        let faulted = volumes.iter().filter(|v| v.robustness == "faulted").count();
+        LonghornResponse {
+            available: true,
+            volumes,
+            total,
+            healthy,
+            degraded,
+            faulted,
+            queried_at_epoch: now,
+            error: None,
+        }
+    }
+
+    pub(crate) async fn fetch_cronjobs(&self) -> CronJobsResponse {
+        let now = unix_epoch_seconds();
+        let (cj_result, job_result) = tokio::join!(
+            self.fetch_json::<KubeList<CronJobResource>>("/apis/batch/v1/cronjobs"),
+            self.fetch_json::<KubeList<JobResource>>("/apis/batch/v1/jobs")
+        );
+
+        match cj_result {
+            Err(e) => CronJobsResponse {
+                available: false,
+                cronjobs: vec![],
+                total: 0,
+                healthy: 0,
+                failed: 0,
+                queried_at_epoch: now,
+                error: Some(e),
+            },
+            Ok(cj_list) => {
+                // Build map: (cronjob_ns, cronjob_name) → most recent job status
+                let mut job_map: HashMap<(String, String), &JobResource> = HashMap::new();
+                let jobs = job_result.unwrap_or_else(|_| KubeList { items: vec![] });
+
+                for job in &jobs.items {
+                    if let Some(owners) = &job
+                        .metadata
+                        .labels
+                        .get("batch.kubernetes.io/cronjob-name")
+                        .cloned()
+                        .or_else(|| {
+                            // Fallback: derive from job name (last part after hyphen-timestamp)
+                            job.metadata.name.as_ref().map(|n| {
+                                let parts: Vec<&str> = n.rsplitn(2, '-').collect();
+                                if parts.len() == 2 {
+                                    parts[1].to_string()
+                                } else {
+                                    n.clone()
+                                }
+                            })
+                        })
+                    {
+                        let ns = job.metadata.namespace.clone().unwrap_or_default();
+                        let key = (ns, owners.clone());
+                        let entry = job_map.entry(key).or_insert(job);
+                        // Keep the most recent job (latest startTime)
+                        let existing_start = entry
+                            .status
+                            .as_ref()
+                            .and_then(|s| s.start_time.as_deref())
+                            .unwrap_or("");
+                        let new_start = job
+                            .status
+                            .as_ref()
+                            .and_then(|s| s.start_time.as_deref())
+                            .unwrap_or("");
+                        if new_start > existing_start {
+                            *entry = job;
+                        }
+                    }
+                }
+
+                let cronjobs: Vec<CronJobInfo> = cj_list
                     .items
                     .into_iter()
-                    .map(|v| {
-                        let status = v.status.unwrap_or_default();
-                        let spec = v.spec.unwrap_or_default();
-                        let size_bytes = spec.size.parse::<u64>().unwrap_or(0);
-                        let name = v.metadata.name.clone().unwrap_or_default();
-                        LonghornVolume {
-                            pvc_name: name.clone(),
-                            name,
-                            namespace: v
-                                .metadata
-                                .namespace
-                                .unwrap_or_else(|| "longhorn-system".to_string()),
-                            state: status.state,
-                            robustness: status.robustness,
-                            replicas_desired: spec.number_of_replicas,
-                            size_bytes,
-                            actual_size_bytes: status.actual_size,
-                            node: status.current_node_id,
+                    .map(|cj| {
+                        let ns = cj.metadata.namespace.clone().unwrap_or_default();
+                        let cj_name = cj.metadata.name.clone().unwrap_or_default();
+                        let spec = cj.spec.unwrap_or_default();
+                        let status = cj.status.unwrap_or_default();
+                        let active = status.active.len() as u32;
+
+                        let last_job = job_map.get(&(ns.clone(), cj_name.clone()));
+                        let (last_run_at, last_run_succeeded) = last_job
+                            .map(|j| {
+                                let s = j.status.as_ref();
+                                let start = s.and_then(|s| s.start_time.clone());
+                                let ok = s.map(|s| s.succeeded > 0 && s.failed == 0);
+                                (start, ok)
+                            })
+                            .unwrap_or((None, None));
+
+                        CronJobInfo {
+                            name: cj_name,
+                            namespace: ns,
+                            schedule: spec.schedule,
+                            active,
+                            last_run_at,
+                            last_run_succeeded,
+                            last_schedule_time: status.last_schedule_time,
+                            suspended: spec.suspend,
                         }
                     })
                     .collect();
-                let total = volumes.len();
-                let healthy = volumes.iter().filter(|v| v.robustness == "healthy").count();
-                let degraded = volumes
+
+                let total = cronjobs.len();
+                let healthy = cronjobs
                     .iter()
-                    .filter(|v| v.robustness == "degraded")
+                    .filter(|c| c.last_run_succeeded.unwrap_or(true) && !c.suspended)
                     .count();
-                let faulted = volumes.iter().filter(|v| v.robustness == "faulted").count();
-                LonghornResponse {
+                let failed = cronjobs
+                    .iter()
+                    .filter(|c| c.last_run_succeeded == Some(false))
+                    .count();
+
+                CronJobsResponse {
                     available: true,
-                    volumes,
+                    cronjobs,
                     total,
                     healthy,
-                    degraded,
-                    faulted,
+                    failed,
                     queried_at_epoch: now,
                     error: None,
                 }
             }
-            Err(e) => LonghornResponse {
+        }
+    }
+
+    pub(crate) async fn fetch_ingresses(&self) -> IngressesResponse {
+        let now = unix_epoch_seconds();
+        match self
+            .fetch_json::<KubeList<IngressResource>>("/apis/networking.k8s.io/v1/ingresses")
+            .await
+        {
+            Err(e) => IngressesResponse {
                 available: false,
-                volumes: vec![],
+                ingresses: vec![],
                 total: 0,
-                healthy: 0,
-                degraded: 0,
-                faulted: 0,
                 queried_at_epoch: now,
                 error: Some(e),
             },
+            Ok(list) => {
+                let ingresses: Vec<IngressInfo> = list
+                    .items
+                    .into_iter()
+                    .map(|ing| {
+                        let spec = ing.spec.unwrap_or_default();
+                        let hosts: Vec<String> =
+                            spec.rules.iter().filter_map(|r| r.host.clone()).collect();
+                        let tls = !spec.tls.is_empty();
+                        let tls_secret = spec.tls.into_iter().find_map(|t| t.secret_name);
+                        IngressInfo {
+                            name: ing.metadata.name.unwrap_or_default(),
+                            namespace: ing.metadata.namespace.unwrap_or_default(),
+                            hosts,
+                            tls,
+                            tls_secret,
+                            class: spec.ingress_class_name,
+                        }
+                    })
+                    .collect();
+                let total = ingresses.len();
+                IngressesResponse {
+                    available: true,
+                    ingresses,
+                    total,
+                    queried_at_epoch: now,
+                    error: None,
+                }
+            }
+        }
+    }
+
+    pub(crate) async fn fetch_certificates(&self) -> CertificatesResponse {
+        let now = unix_epoch_seconds();
+        match self
+            .fetch_json::<KubeList<CertResource>>("/apis/cert-manager.io/v1/certificates")
+            .await
+        {
+            Err(e) => CertificatesResponse {
+                available: false,
+                certificates: vec![],
+                total: 0,
+                expiring_soon: 0,
+                critical: 0,
+                queried_at_epoch: now,
+                error: Some(e),
+            },
+            Ok(list) => {
+                let certificates: Vec<CertInfo> = list
+                    .items
+                    .into_iter()
+                    .map(|c| {
+                        let spec = c.spec.unwrap_or_default();
+                        let status = c.status.unwrap_or_default();
+                        let not_after = status.not_after.clone();
+                        let days_remaining = not_after.as_deref().and_then(|s| {
+                            parse_rfc3339_epoch(s).map(|exp| {
+                                let diff = exp as i64 - now as i64;
+                                diff / 86400
+                            })
+                        });
+                        let ready = status
+                            .conditions
+                            .iter()
+                            .any(|cond| cond.type_name == "Ready" && cond.status == "True");
+                        CertInfo {
+                            name: c.metadata.name.unwrap_or_default(),
+                            namespace: c.metadata.namespace.unwrap_or_default(),
+                            dns_names: spec.dns_names,
+                            not_after,
+                            ready,
+                            days_remaining,
+                        }
+                    })
+                    .collect();
+                let total = certificates.len();
+                let expiring_soon = certificates
+                    .iter()
+                    .filter(|c| c.days_remaining.map(|d| d < 60).unwrap_or(false))
+                    .count();
+                let critical = certificates
+                    .iter()
+                    .filter(|c| c.days_remaining.map(|d| d < 14).unwrap_or(false))
+                    .count();
+                CertificatesResponse {
+                    available: true,
+                    certificates,
+                    total,
+                    expiring_soon,
+                    critical,
+                    queried_at_epoch: now,
+                    error: None,
+                }
+            }
         }
     }
 }
@@ -2510,6 +2952,36 @@ pub(crate) fn unix_epoch_seconds() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .unwrap_or(0)
+}
+
+/// Parse an RFC3339 UTC timestamp like "2026-07-31T13:18:55Z" to Unix epoch seconds.
+/// Handles only the `Z` / `+00:00` UTC suffix (sufficient for cert-manager notAfter).
+fn parse_rfc3339_epoch(s: &str) -> Option<u64> {
+    let s = s
+        .trim_end_matches('Z')
+        .trim_end_matches("+00:00")
+        .trim_end_matches("-00:00");
+    let (date_part, time_part) = s.split_once('T')?;
+    let mut d_iter = date_part.split('-');
+    let y: i64 = d_iter.next()?.parse().ok()?;
+    let mo: i64 = d_iter.next()?.parse().ok()?;
+    let d: i64 = d_iter.next()?.parse().ok()?;
+    let mut t_iter = time_part.split(':');
+    let h: i64 = t_iter.next()?.parse().ok()?;
+    let mi: i64 = t_iter.next()?.parse().ok()?;
+    let se: i64 = t_iter.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+    // Julian Day Number → Unix epoch
+    let a = (14 - mo) / 12;
+    let yy = y + 4800 - a;
+    let mm = mo + 12 * a - 3;
+    let jdn = d + (153 * mm + 2) / 5 + 365 * yy + yy / 4 - yy / 100 + yy / 400 - 32045;
+    let unix_day = jdn - 2_440_588; // Julian day of 1970-01-01
+    let epoch = unix_day * 86400 + h * 3600 + mi * 60 + se;
+    if epoch >= 0 {
+        Some(epoch as u64)
+    } else {
+        None
+    }
 }
 
 fn json_error(status: StatusCode, message: &str, detail: &str) -> Response {
