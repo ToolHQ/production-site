@@ -323,6 +323,86 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
 }
 
 // ────────────────────────────────────────────────────────────
+// NodeCard — mobile card view (< 768px, CSS shows this)
+// ────────────────────────────────────────────────────────────
+
+interface NodeCardProps {
+  node: NodeStat;
+  metrics?: NodeMetrics;
+  diskWarn: number;
+  diskCrit: number;
+  memWarn: number;
+  memCrit: number;
+  cpuWarn: number;
+  cpuCrit: number;
+  highlight?: (text: string, query: string) => ComponentChildren;
+  query?: string;
+}
+
+function NodeCard({ node, metrics, diskWarn, diskCrit, memWarn, memCrit, cpuWarn, cpuCrit, highlight, query = '' }: NodeCardProps) {
+  const pct = (v: number, warn: number, crit: number) =>
+    v >= crit ? 'crit' : v >= warn ? 'warn' : 'ok';
+  const bar = (v: number | undefined, warn: number, crit: number) => {
+    if (v === undefined) return null;
+    const level = pct(v, warn, crit);
+    return (
+      <div class="nc-bar-track">
+        <div
+          class={`nc-bar-fill nc-bar-fill--${level}`}
+          style={{ width: `${Math.min(v, 100)}%` }}
+        />
+        <span class="nc-bar-label">{v.toFixed(0)}%</span>
+      </div>
+    );
+  };
+
+  const alerts = [];
+  if (node.disk_pressure) alerts.push(<span class="node-alert node-alert--disk">💾 DiskPressure</span>);
+  if (node.memory_pressure) alerts.push(<span class="node-alert node-alert--mem">🧠 MemPressure</span>);
+  if (!node.disk_pressure && metrics && metrics.disk_percent >= diskWarn)
+    alerts.push(<span class={`node-alert node-alert--pre-warn${metrics.disk_percent >= diskCrit ? ' node-alert--pre-crit' : ''}`}>
+      {metrics.disk_percent >= diskCrit ? '🔴' : '⚠️'} Disk {metrics.disk_percent.toFixed(0)}%
+    </span>);
+  if (!node.memory_pressure && metrics && metrics.mem_percent >= memWarn)
+    alerts.push(<span class={`node-alert node-alert--pre-warn${metrics.mem_percent >= memCrit ? ' node-alert--pre-crit' : ''}`}>
+      {metrics.mem_percent >= memCrit ? '🔴' : '⚠️'} Mem {metrics.mem_percent.toFixed(0)}%
+    </span>);
+  if (metrics && metrics.cpu_percent >= cpuWarn)
+    alerts.push(<span class={`node-alert node-alert--pre-warn${metrics.cpu_percent >= cpuCrit ? ' node-alert--pre-crit' : ''}`}>
+      {metrics.cpu_percent >= cpuCrit ? '🔴' : '⚠️'} CPU {metrics.cpu_percent.toFixed(0)}%
+    </span>);
+
+  return (
+    <div class={`node-card${!node.ready ? ' node-card--notready' : ''}${node.disk_pressure ? ' node-card--disk' : ''}`}>
+      <div class="nc-header">
+        <span class="node-ready-dot">{node.ready ? '🟢' : '🔴'}</span>
+        <span class="nc-name">{highlight ? highlight(node.name, query) : node.name}</span>
+        <span class={`node-role node-role--${node.role === 'control-plane' ? 'cp' : 'worker'}`}>{node.role}</span>
+      </div>
+      {metrics ? (
+        <div class="nc-metrics">
+          <div class="nc-metric-row">
+            <span class="nc-metric-lbl">CPU</span>
+            {bar(metrics.cpu_percent, cpuWarn, cpuCrit)}
+          </div>
+          <div class="nc-metric-row">
+            <span class="nc-metric-lbl">Mem</span>
+            {bar(metrics.mem_percent, memWarn, memCrit)}
+          </div>
+          <div class="nc-metric-row">
+            <span class="nc-metric-lbl">Disk</span>
+            {bar(metrics.disk_percent, diskWarn, diskCrit)}
+          </div>
+        </div>
+      ) : (
+        <div class="nc-no-metrics">No Prometheus metrics</div>
+      )}
+      {alerts.length > 0 && <div class="nc-alerts">{alerts}</div>}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
 // NodesPanel (export)
 // ────────────────────────────────────────────────────────────
 
@@ -477,6 +557,25 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* ── Mobile card view (CSS shows/hides based on viewport) ── */}
+      <div class="node-cards-mobile">
+        {filteredNodes.map((node) => (
+          <NodeCard
+            key={node.name}
+            node={node}
+            metrics={nodeMetrics[node.name]}
+            diskWarn={thresholds.disk_warn}
+            diskCrit={thresholds.disk_crit}
+            memWarn={thresholds.mem_warn}
+            memCrit={thresholds.mem_crit}
+            cpuWarn={thresholds.cpu_warn}
+            cpuCrit={thresholds.cpu_crit}
+            highlight={highlightText}
+            query={search}
+          />
+        ))}
       </div>
       <p class="nodes-table-footnote">
         {hasRealMetrics
