@@ -1,12 +1,15 @@
-//! Run the RSS collect pipeline with bounded concurrency and per-source isolation.
+//! Run collect pipelines with bounded concurrency and per-source isolation.
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use futures::stream::{self, StreamExt};
 use uuid::Uuid;
 
+use crate::collector::github::{GitHubClient, GithubCollector};
 use crate::collector::rss::RssCollector;
+use crate::collector::web::{WebCollector, WebFetcher, WebFetcherConfig};
 use crate::collector::Collector;
 use crate::config::AppConfig;
 use crate::db::Database;
@@ -69,18 +72,17 @@ pub async fn run_collect(
         return Ok(stats);
     }
 
-    let client = RssCollector::default_http_client()?;
-    let collector = RssCollector::new(client, config.max_items_per_run);
+    let collector = build_collector(filter_type, config)?;
     let concurrency = config.collect_concurrency.max(1);
 
     let mut stream = stream::iter(sources)
         .map(|src| {
             let db = db.clone();
-            let collector = collector.clone();
+            let collector = Arc::clone(&collector);
             async move {
                 let raw_repo = PgRawItemRepository::new(&db);
                 let source_repo = PgSourceRepository::new(&db);
-                process_one_source(&collector, &raw_repo, &source_repo, &src).await
+                process_one_source(collector.as_ref(), &raw_repo, &source_repo, &src).await
             }
         })
         .buffer_unordered(concurrency);
@@ -115,13 +117,42 @@ pub async fn run_collect(
     Ok(stats)
 }
 
+fn build_collector(
+    filter_type: SourceType,
+    config: &AppConfig,
+) -> anyhow::Result<Arc<dyn Collector>> {
+    match filter_type {
+        SourceType::Rss => {
+            let client = RssCollector::default_http_client()?;
+            Ok(Arc::new(RssCollector::new(
+                client,
+                config.max_items_per_run,
+            )))
+        }
+        SourceType::GithubReleases | SourceType::GithubRepo => {
+            let client = RssCollector::default_http_client()?;
+            let gh = GitHubClient::new(client, config.github_token.clone());
+            Ok(Arc::new(GithubCollector::new(
+                gh,
+                config.max_items_per_run,
+            )))
+        }
+        SourceType::Webpage => {
+            let client = WebFetcher::default_http_client()?;
+            let fetcher = WebFetcher::new(client, WebFetcherConfig::default());
+            Ok(Arc::new(WebCollector::new(fetcher)))
+        }
+        other => anyhow::bail!("collect not implemented for source_type {other:?}"),
+    }
+}
+
 enum OneSource {
     Ok { collected: u64, skipped: u64 },
     Failed,
 }
 
 async fn process_one_source(
-    collector: &RssCollector,
+    collector: &dyn Collector,
     raw_repo: &PgRawItemRepository,
     source_repo: &PgSourceRepository,
     source: &Source,
@@ -167,7 +198,7 @@ async fn process_one_source(
             tracing::warn!(
                 source_id = %source.id,
                 error = %e,
-                "RSS collector failed for source"
+                "collector failed for source"
             );
             let msg = format!("{e}");
             if let Err(te) = source_repo.touch_polled(source.id, Some(&msg)).await {

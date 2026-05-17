@@ -314,7 +314,9 @@ mod tests {
         );
         match err {
             CollectError::Fetch(msg) => assert!(msg.contains("400"), "{msg}"),
-            e @ CollectError::Parse(_) => panic!("expected Fetch, got {e:?}"),
+            e @ (CollectError::Parse(_) | CollectError::RateLimited(_)) => {
+                panic!("expected Fetch, got {e:?}")
+            }
         }
     }
 
@@ -356,7 +358,9 @@ mod tests {
                 msg.contains("500") && msg.contains("after retries"),
                 "unexpected message: {msg}"
             ),
-            e @ CollectError::Parse(_) => panic!("expected Fetch, got {e:?}"),
+            e @ (CollectError::Parse(_) | CollectError::RateLimited(_)) => {
+                panic!("expected Fetch, got {e:?}")
+            }
         }
     }
 

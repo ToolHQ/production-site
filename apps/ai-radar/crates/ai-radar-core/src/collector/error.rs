@@ -11,6 +11,9 @@ pub enum CollectError {
     /// Feed bytes could not be interpreted as RSS/Atom/JSON Feed.
     #[error("parse failed: {0}")]
     Parse(String),
+    /// GitHub API rate limit exhausted (`x-ratelimit-*`).
+    #[error("rate limited: {0}")]
+    RateLimited(String),
 }
 
 impl CollectError {
