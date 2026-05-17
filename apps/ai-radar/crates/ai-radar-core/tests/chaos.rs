@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use ai_radar_core::db::{Database, RepoError};
 use ai_radar_core::domain::{NewRawItem, RawItem, RawItemStatus};
 use ai_radar_core::extractor::llm_extract_with_retry;
 use ai_radar_core::llm::{CompletionRequest, CompletionResponse, LlmError, LlmProvider};
@@ -24,6 +25,18 @@ async fn llm_timeout_returns_error_without_panic() {
 #[test]
 fn max_raw_content_bytes_constant_is_two_hundred_kib() {
     assert_eq!(ai_radar_core::util::limits::MAX_RAW_CONTENT_BYTES, 200_000);
+}
+
+/// Unreachable Postgres must surface [`RepoError::Database`], not panic (**T-173**).
+#[tokio::test]
+async fn postgres_unreachable_returns_database_error() {
+    let err = Database::connect("postgres://127.0.0.1:1/none?connect_timeout=2")
+        .await
+        .expect_err("connect must fail");
+    assert!(
+        matches!(err, RepoError::Database(_)),
+        "expected Database error, got {err:?}"
+    );
 }
 
 /// HTML from feeds must not retain obvious script/event vectors (**T-173**).

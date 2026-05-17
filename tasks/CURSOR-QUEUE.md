@@ -14,7 +14,7 @@
 
 ## Ordem aprovada (Fase 16 + hardening)
 
-1. **T-173** — hardening restante (paralelo)
+1. ~~**T-173**~~ — Hardening ✅
 2. ~~**T-175**~~ — Console ✅
 3. ~~**T-176**~~ — Dashboards ops ✅
 4. **Demo pipeline** — fontes + extract LLM + digest com conteúdo no console
@@ -25,19 +25,15 @@
 | ID / Ref | Tarefa | Tipo |
 | :------- | :----- | :--- |
 | Demo pipeline | Encher digest no console (fontes + CronJobs + LLM) | micro |
-| [T-173](2026/Q2/T-173-AI-Radar-Hardening.md) | Hardening backlog | T-ID |
 
 ## Próximas (prioridade Cursor — AI Radar)
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
-| **T-200** | **Compile-time / BuildKit** _(cargo-chef mergeado; validar 2º deploy API-only)_ | In Progress 🔼 |
-| T-170 | Feedback loop | Backlog |
 | T-162 | GitHub collector | Backlog |
 | T-163 | Webpage fetcher | Backlog |
 | T-167 | Scorer LLM opcional | Backlog |
 | T-168 | Comparator | Backlog |
-| T-170 | Feedback loop | Backlog |
 
 > Infra compartilhada (ex. T-193) permanece `Owner: Infra / Ops` — Cursor pode executar se pedido, mas não é fila padrão.
 
@@ -56,6 +52,9 @@
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
+| T-170 | Feedback loop — testes + README — PR fechamento | 2026-05-16 |
+| T-173 | Hardening — chaos Postgres + Done | 2026-05-16 |
+| T-200 | BuildKit/cargo-chef validado | 2026-05-16 |
 | T-177 | Items API + Explorer — PR [#127](https://github.com/ToolHQ/production-site/pull/127) | 2026-05-16 |
 | T-176 | Dashboard pack Coroot/Grafana | 2026-05-16 |
 | T-175 | Operator Console — PR [#116](https://github.com/ToolHQ/production-site/pull/116) | 2026-05-16 |

@@ -10,8 +10,6 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-|               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
-| [T-200](2026/Q2/T-200-AI-Radar-Rust-Build-Compile-Time-Optimization.md) | **AI Radar — compile-time / BuildKit** _(cargo-chef, deploy parcial)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -26,12 +24,14 @@
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |            [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md)            | **AI Radar — GitHub Collector**                                                                                                                                                  |   🔽 Low    | **Cursor / AI Radar**     |  1d  |
-|             [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md)              | **AI Radar — Feedback Loop**                                                                                                                                                     |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 
 ## ✅ Done
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-200](2026/Q2/T-200-AI-Radar-Rust-Build-Compile-Time-Optimization.md) | **AI Radar — compile-time / BuildKit** _(cargo-chef, deploy parcial)_ | 🔼 High | **Cursor / AI Radar** | 1d |
+|               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
+|             [T-170](2026/Q2/T-170-AI-Radar-Feedback-Loop.md)              | **AI Radar — Feedback Loop**                                                                                                                                                     |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 | [T-203](2026/Q2/T-203-Node-Fleet-Tooltip-Fixed-Positioning.md) | **Node Fleet — Tooltip Fixed Positioning** _(hover cards posicionados com `position:fixed` + `getBoundingClientRect()`; sem sobreposição no header)_ | 🔼 High | **Copilot/VSCode** | 1h |
 | T-204 | **Node Fleet — Sparkline Pre-Population + Pre-DiskPressure Alerts** _(backend: 3 range queries Prometheus (60m/5m) em `node_history`; MetricPoint `ts→timestamp`; frontend: seed único em `app.tsx`; alertas ⚠️ âmbar Disk≥80% / Mem≥85% em `NodesPanel.tsx`; PR #137)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + explorer console)_ | 🔼 High | **Cursor / AI Radar** | 1d |
