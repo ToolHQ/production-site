@@ -24,7 +24,7 @@ spec:
           resources:
             requests:
               memory: 128Mi
-              cpu: 60m
+              cpu: 30m
             limits:
               memory: 384Mi  # raised from 256Mi — OOMKilled 6x (Exit 137); actual steady-state ~64Mi but spikes on startup/load
               cpu: 160m
