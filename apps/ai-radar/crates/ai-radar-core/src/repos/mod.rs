@@ -37,6 +37,7 @@ pub mod feedback;
 pub mod raw_item;
 pub mod score;
 pub mod source;
+pub mod source_health;
 pub mod stats;
 pub mod tool_metrics_snapshot;
 
@@ -47,6 +48,7 @@ pub use feedback::{FeedbackDivergence, FeedbackRepository, PgFeedbackRepository}
 pub use raw_item::{DuplicateCluster, PgRawItemRepository, RawItemRepository};
 pub use score::{PgScoreRepository, ScoreRepository, ScoredItemSort};
 pub use source::{PgSourceRepository, SourceRepository};
+pub use source_health::{PgSourceHealthRepository, SourceHealthRepository};
 pub use stats::{load_pipeline_stats, PipelineStats};
 pub use tool_metrics_snapshot::{
     NewToolMetricsSnapshot, PgToolMetricsSnapshotRepository, ToolMetricsSnapshotRepository,
