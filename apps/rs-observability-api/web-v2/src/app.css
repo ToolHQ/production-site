@@ -704,3 +704,224 @@ mark.search-highlight {
 .nodes-section-band {
   margin-bottom: 2.5rem !important; /* Uniform, comfortable vertical spacing below all section headers! */
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (< 768px)
+   Approach: stack-vertical, card-nodes, touch targets ≥ 44px
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* ── Layout shell ── */
+  .shell {
+    padding: 0 12px;
+  }
+
+  /* ── Masthead ── */
+  .brand h1 {
+    font-size: clamp(20px, 6vw, 28px);
+  }
+
+  .brand .subhead {
+    font-size: 14px;
+  }
+
+  .meta-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pill {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  /* ── Signal grid ── */
+  .signal-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  /* ── Section heads ── */
+  .section-head {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .section-tags {
+    align-self: flex-start;
+  }
+
+  /* ── NodesPanel → card layout ── */
+  .nodes-toolbar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .nodes-search-wrapper {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .nodes-settings-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Hide table, show card stack */
+  .nodes-table {
+    display: none;
+  }
+
+  /* Node cards (visible on mobile only, hidden on desktop) */
+  .node-cards-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ── Priority grid ── */
+  .priority-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Metric band ── */
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Catalog table ── */
+  .catalog-table th:nth-child(3),
+  .catalog-table td:nth-child(3),
+  .catalog-table th:nth-child(4),
+  .catalog-table td:nth-child(4) {
+    display: none;
+  }
+
+  /* ── Touch targets ── */
+  button,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* ── Tooltip on mobile: below, full-width ── */
+  .node-cell-tooltip-card {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: 12px !important;
+    transform: none !important;
+    width: auto !important;
+  }
+
+  /* ── Export & ThemeToggle ── */
+  .theme-toggle-btn,
+  .export-trigger {
+    min-height: 44px;
+  }
+}
+
+/* Mobile node cards — hidden on desktop */
+.node-cards-mobile {
+  display: none;
+}
+
+/* ── Node Card styles (mobile) ── */
+.node-card {
+  background: var(--bg-secondary, #f8fafc);
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 10px;
+  padding: 14px;
+  transition: border-color 150ms;
+
+  &--notready {
+    border-color: var(--critical, #e74c3c);
+    background: var(--critical-soft);
+  }
+
+  &--disk {
+    border-color: var(--warm, #c96633);
+    background: var(--warm-soft);
+  }
+}
+
+.nc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.nc-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-main);
+  flex: 1;
+}
+
+.nc-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.nc-metric-row {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.nc-metric-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nc-bar-track {
+  position: relative;
+  height: 18px;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.nc-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 300ms ease-out;
+
+  &--ok { background: var(--accent, #0d7c72); }
+  &--warn { background: #f59e0b; }
+  &--crit { background: #ef4444; }
+}
+
+.nc-bar-label {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.nc-no-metrics {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.nc-alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
