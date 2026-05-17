@@ -218,3 +218,28 @@ export interface CorootIncidentsData {
   queried_at_epoch: number;
   error?: string;
 }
+
+// Tipos para /api/longhorn
+
+export interface LonghornVolume {
+  name: string;
+  pvc_name: string;
+  namespace: string;
+  state: string;
+  robustness: string;
+  replicas_desired: number;
+  size_bytes: number;
+  actual_size_bytes: number;
+  node: string;
+}
+
+export interface LonghornData {
+  available: boolean;
+  volumes: LonghornVolume[];
+  total: number;
+  healthy: number;
+  degraded: number;
+  faulted: number;
+  queried_at_epoch: number;
+  error?: string;
+}

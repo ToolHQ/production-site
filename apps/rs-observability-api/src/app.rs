@@ -16,6 +16,7 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/live/overview", get(live_overview))
         .route("/api/coroot-alerts", get(coroot_alerts))
         .route("/api/coroot-incidents", get(coroot_incidents))
+        .route("/api/longhorn", get(longhorn_volumes))
         .route("/api/reports", get(report_index))
         .route("/artifacts/*path", get(artifact))
         // Assets estáticos do Vite — embutidos no binário via include_bytes!
@@ -121,6 +122,26 @@ async fn coroot_alerts(State(state): State<AppState>) -> Response {
             queried_at_epoch: crate::unix_epoch_seconds(),
             error: Some(
                 "Coroot client not configured (missing COROOT_EMAIL/COROOT_PASSWORD)".to_string(),
+            ),
+        })
+        .into_response(),
+    }
+}
+
+async fn longhorn_volumes(State(state): State<AppState>) -> Response {
+    match &state.live_monitor {
+        Some(monitor) => Json(monitor.fetch_longhorn().await).into_response(),
+        None => Json(crate::LonghornResponse {
+            available: false,
+            volumes: vec![],
+            total: 0,
+            healthy: 0,
+            degraded: 0,
+            faulted: 0,
+            queried_at_epoch: crate::unix_epoch_seconds(),
+            error: Some(
+                "In-cluster Kubernetes API credentials are not available in this runtime"
+                    .to_string(),
             ),
         })
         .into_response(),
