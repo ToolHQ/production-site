@@ -198,3 +198,23 @@ export interface CorootAlertsData {
   queried_at_epoch: number;
   error?: string;
 }
+
+// Tipos para /api/coroot-incidents
+
+export interface CorootIncident {
+  application_id: string;
+  key: string;
+  opened_at: number;
+  resolved_at: number | null;
+  severity: string;
+  short_description: string | null;
+  duration: number;
+}
+
+export interface CorootIncidentsData {
+  available: boolean;
+  incidents: CorootIncident[];
+  total: number;
+  queried_at_epoch: number;
+  error?: string;
+}
