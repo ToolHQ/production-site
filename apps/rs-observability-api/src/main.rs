@@ -281,6 +281,69 @@ struct CorootClient {
     session_cookie: Arc<RwLock<Option<String>>>,
 }
 
+fn filter_alerts(alerts: Vec<CorootAlert>) -> Vec<CorootAlert> {
+    alerts
+        .into_iter()
+        .filter(|alert| {
+            // 1. Filter out systemd timer/mount/transient false positives from host (Unknown) services
+            let is_host_transient = alert.application_id.contains(":Unknown:")
+                && (alert.rule_id == "instance-availability"
+                    || alert.application_id.ends_with(".mount")
+                    || alert.application_id.contains("systemd-")
+                    || alert.application_id.contains("apt-")
+                    || alert.application_id.contains("tmpfiles")
+                    || alert.application_id.contains("gdrive")
+                    || alert.application_id.contains("motd")
+                    || alert.application_id.contains("man-db")
+                    || alert.application_id.contains("packagekit")
+                    || alert.application_id.contains("fstrim")
+                    || alert.application_id.contains("e2scrub")
+                    || alert.application_id.contains("esm-cache")
+                    || alert.application_id.contains("update-notifier"));
+            
+            if is_host_transient {
+                return false;
+            }
+
+            // 2. Filter out noisy Coroot-specific "new-log-patterns" warnings (which flag simple info/warning logs)
+            if alert.rule_id == "new-log-patterns" && alert.severity == "warning" {
+                return false;
+            }
+
+            // 3. Filter out noisy transient "kubernetes-events" warnings (like cronjobs, ImageGCFailed, transient scaling events)
+            if alert.rule_id == "kubernetes-events" && alert.severity == "warning" {
+                let is_transient_k8s_event = alert.summary.contains("UnexpectedJob")
+                    || alert.summary.contains("ImageGCFailed")
+                    || alert.summary.contains("FailedCreate")
+                    || alert.summary.contains("FreeDiskSpaceFailed")
+                    || alert.summary.contains("Update") // "Update" events are not failures
+                    || alert.application_id.contains("CronJob")
+                    || alert.application_id.is_empty()
+                    || alert.application_id == ":::"
+                    || alert.application_id.starts_with(":::");
+                
+                if is_transient_k8s_event {
+                    return false;
+                }
+            }
+
+            // 4. Filter out buggy Coroot "instance-restarts" warnings that indicate "restarted 0 times"
+            if alert.rule_id == "instance-restarts" && alert.summary.contains("restarted 0 times") {
+                return false;
+            }
+
+            // 5. Filter out host storage warnings for transient system directories if they are on /dev/sda1 and under 80% (which we cleared)
+            if alert.rule_id == "storage-space" && alert.severity == "warning" {
+                if alert.application_id.contains(":Unknown:") || alert.summary.contains("containerd") {
+                    return false;
+                }
+            }
+
+            true
+        })
+        .collect()
+}
+
 impl CorootClient {
     fn new(base_url: String, email: String, password: String, project_id: String) -> Self {
         let http = Client::builder()
@@ -483,25 +546,33 @@ impl CorootClient {
         };
 
         match self.do_fetch_alerts(&cookie).await {
-            Ok(data) => CorootAlertsResponse {
-                available: true,
-                total: data.firing,
-                alerts: data.alerts,
-                queried_at_epoch: now,
-                error: None,
-            },
+            Ok(data) => {
+                let filtered = filter_alerts(data.alerts);
+                let total = filtered.len() as u64;
+                CorootAlertsResponse {
+                    available: true,
+                    total,
+                    alerts: filtered,
+                    queried_at_epoch: now,
+                    error: None,
+                }
+            }
             Err(e) if e == "401" => {
                 // Session expired — clear cookie and re-login
                 *self.session_cookie.write().await = None;
                 match self.login().await {
                     Ok(new_cookie) => match self.do_fetch_alerts(&new_cookie).await {
-                        Ok(data) => CorootAlertsResponse {
-                            available: true,
-                            total: data.firing,
-                            alerts: data.alerts,
-                            queried_at_epoch: now,
-                            error: None,
-                        },
+                        Ok(data) => {
+                            let filtered = filter_alerts(data.alerts);
+                            let total = filtered.len() as u64;
+                            CorootAlertsResponse {
+                                available: true,
+                                total,
+                                alerts: filtered,
+                                queried_at_epoch: now,
+                                error: None,
+                            }
+                        }
                         Err(e2) => CorootAlertsResponse {
                             available: false,
                             alerts: vec![],
