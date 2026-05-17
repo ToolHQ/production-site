@@ -617,10 +617,14 @@
         padding: 20px;
       }
 
-      /* Painéis full-width dentro do shell herdam padding consistente com os bands */
+      /* Painéis full-width dentro do shell: flat (sem card), alinhados com nodes-band e storage-panel */
       .shell > .panel {
         padding: 22px 30px;
+        border: none;
         border-bottom: 1px solid var(--line);
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
       }
 
       .priority-panel,
@@ -1007,7 +1011,8 @@
         .priority-grid,
         .main-stack,
         .rail-stack,
-        .catalog-zone {
+        .catalog-zone,
+        .shell > .panel {
           padding-left: 36px;
           padding-right: 36px;
         }
@@ -1047,7 +1052,8 @@
         .priority-grid,
         .main-stack,
         .rail-stack,
-        .catalog-zone {
+        .catalog-zone,
+        .shell > .panel {
           padding-left: 40px;
           padding-right: 40px;
         }
@@ -1086,7 +1092,8 @@
         .priority-grid,
         .main-stack,
         .rail-stack,
-        .catalog-zone {
+        .catalog-zone,
+        .shell > .panel {
           padding-left: 46px;
           padding-right: 46px;
         }
