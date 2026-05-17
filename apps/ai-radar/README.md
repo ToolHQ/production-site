@@ -355,6 +355,15 @@ Se aparecer **`context deadline exceeded`** no primeiro passo `#1 waiting for co
 
 **Smoke no cluster.** Checklist operacional completo (digest, métricas `ai_radar_*`, jobs manuais): [`T-191`](../../tasks/2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md).
 
+**Demo pipeline (console com conteúdo).** Script repetível que cadastra fontes RSS, dispara jobs collect/extract/score/digest e imprime o link do digest no console:
+
+```bash
+export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+API_URL=https://ai-radar.dnor.io ./scripts/run-demo-pipeline.sh
+```
+
+Verifique em `https://ai-radar.dnor.io/#/digests` (seção **Testar**). O extract depende do LLM (`ai-radar-llm`); rate-limit do provedor free pode falhar lotes — o digest ainda usa scores já persistidos.
+
 ```bash
 kubectl -n ai-radar get pods,svc deploy/ai-radar-api
 kubectl -n ai-radar port-forward svc/ai-radar-api 18080:8080
