@@ -20,7 +20,12 @@ interface BoardLabel {
   copy: string;
 }
 
-export function boardLabel(live: LiveOverview | null, metrics: MetricsData | null): BoardLabel {
+export function boardLabel(
+  live: LiveOverview | null,
+  metrics: MetricsData | null,
+  corootAlerts?: CorootAlertsData | null,
+  corootIncidents?: CorootIncidentsData | null,
+): BoardLabel {
   if (!live?.available) {
     return {
       tone: 'critical',
@@ -36,47 +41,80 @@ export function boardLabel(live: LiveOverview | null, metrics: MetricsData | nul
   const degradedServices = live.summary.degraded_services || 0;
   const restartingPods = live.summary.restarting_pods || 0;
   const hotspots = restartHotspots(metrics);
-  const criticalWatch = criticalIncidents + downServices;
-  const warningWatch = warningIncidents + degradedServices + (restartingPods > 0 ? 1 : 0) + hotspots.length;
+
+  // Coroot SLO incidents ativos (não resolvidos)
+  const activeCorootIncidents = corootIncidents?.available
+    ? corootIncidents.incidents.filter((i) => i.resolved_at === null)
+    : [];
+  const corootCritical = activeCorootIncidents.filter((i) => i.severity === 'critical').length;
+  const corootWarning = activeCorootIncidents.filter((i) => i.severity === 'warning').length;
+  // Alertas Coroot de alta criticidade contribuem como watchpoint se não há incidentes SLO
+  const corootAlertCount = corootAlerts?.available ? corootAlerts.total : 0;
+
+  const criticalWatch = criticalIncidents + downServices + corootCritical;
+  const warningWatch =
+    warningIncidents +
+    degradedServices +
+    (restartingPods > 0 ? 1 : 0) +
+    hotspots.length +
+    corootWarning +
+    (corootAlertCount > 20 ? 1 : 0);
 
   if (criticalWatch > 0) {
+    const corootNote = corootCritical > 0 ? ` · ${corootCritical} Coroot SLO critical` : '';
     return {
       tone: 'critical',
       mode: live.stale || metrics?.stale ? 'Immediate attention · stale signal' : 'Immediate attention',
       score: `${criticalWatch} blocker${criticalWatch === 1 ? '' : 's'}`,
-      copy: `${criticalIncidents} critical incident${criticalIncidents === 1 ? '' : 's'} and ${downServices} service${downServices === 1 ? '' : 's'} down are active on the board.`,
+      copy: `${criticalIncidents} K8s critical incident${criticalIncidents === 1 ? '' : 's'}, ${downServices} service${downServices === 1 ? '' : 's'} down${corootNote}.`,
     };
   }
 
   if (warningWatch > 0 || live.stale || metrics?.stale) {
+    const corootNote = corootWarning > 0 ? ` · ${corootWarning} Coroot SLO warning` : (corootAlertCount > 20 ? ` · ${corootAlertCount} Coroot alerts` : '');
     return {
       tone: 'warning',
       mode: live.stale || metrics?.stale ? 'Guarded operation · stale cache' : 'Guarded operation',
       score: `${warningWatch || 1} watchpoint${warningWatch === 1 ? '' : 's'}`,
-      copy: 'No hard outage, but degraded services, warning incidents or restart debt still require follow-up.',
+      copy: `No hard outage, but degraded services, warning incidents or restart debt still require follow-up${corootNote}.`,
     };
   }
 
+  const allQuiet = corootAlertCount === 0 ? '' : ` ${corootAlertCount} Coroot alerts firing (below threshold).`;
   return {
     tone: 'healthy',
     mode: 'Live watch green',
     score: '0 blockers',
-    copy: 'No critical incident, no down service and no restart hotspot are dominating the board right now.',
+    copy: `No critical incident, no down service and no restart hotspot.${allQuiet}`,
   };
 }
 
-export function nextActionText(live: LiveOverview | null, metrics: MetricsData | null): string {
+export function nextActionText(
+  live: LiveOverview | null,
+  metrics: MetricsData | null,
+  corootAlerts?: CorootAlertsData | null,
+  corootIncidents?: CorootIncidentsData | null,
+): string {
   if (!live?.available) return 'Restore in-cluster Kubernetes API reachability before trusting the board.';
 
   const criticalIncident = live.incidents?.find((i: Incident) => i.severity === 'critical');
   const warningIncident = live.incidents?.find((i: Incident) => i.severity === 'warning');
   const hotspots = restartHotspots(metrics);
 
+  const activeCorootIncidents = corootIncidents?.available
+    ? corootIncidents.incidents.filter((i) => i.resolved_at === null)
+    : [];
+  const firstCorootCritical = activeCorootIncidents.find((i) => i.severity === 'critical');
+  const firstCorootWarning = activeCorootIncidents.find((i) => i.severity === 'warning');
+
   if (criticalIncident) return `Inspect ${criticalIncident.resource} in ${criticalIncident.namespace}; ${criticalIncident.message}`;
+  if (firstCorootCritical) return `Coroot SLO incident crítico: ${firstCorootCritical.application_id} — abrir coroot.dnor.io para detalhes.`;
   if ((live.summary.down_services || 0) > 0) return 'Open the critical service board and recover the first service marked down.';
   if (hotspots.length) return `Inspect ${hotspots[0].pod} in ${hotspots[0].namespace}; it carries the highest restart debt in the current window.`;
   if ((live.summary.degraded_services || 0) > 0) return 'Review degraded services before the board turns red.';
   if (warningIncident) return `Review ${warningIncident.resource} in ${warningIncident.namespace} before it escalates.`;
+  if (firstCorootWarning) return `Coroot SLO incident warning: ${firstCorootWarning.application_id} — monitorar tendência no Coroot.`;
+  if ((corootAlerts?.total ?? 0) > 20) return `${corootAlerts!.total} alertas Coroot ativos — revisar regras de maior frequência no Coroot.`;
   if (live.stale || metrics?.stale) return 'Fresh data is degraded; confirm the live data path before treating this as steady state.';
   return 'No immediate blocker. Stay on telemetry and watch for new restart hotspots.';
 }
@@ -87,12 +125,14 @@ export function nextActionText(live: LiveOverview | null, metrics: MetricsData |
 
 interface SignalCardProps {
   live: LiveOverview | null;
+  corootAlerts?: CorootAlertsData | null;
+  corootIncidents?: CorootIncidentsData | null;
 }
 
-export function SignalCard({ live }: SignalCardProps) {
+export function SignalCard({ live, corootAlerts, corootIncidents }: SignalCardProps) {
   const metrics = live?.metrics ?? null;
-  const board = boardLabel(live, metrics);
-  const nextAction = nextActionText(live, metrics);
+  const board = boardLabel(live, metrics, corootAlerts, corootIncidents);
+  const nextAction = nextActionText(live, metrics, corootAlerts, corootIncidents);
   const metricsInterval = live?.metrics?.refresh_interval_seconds ?? '--';
 
   return (
