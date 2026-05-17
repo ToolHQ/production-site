@@ -10,6 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+|        [T-232](2026/Q2/T-232-AI-Radar-Extract-Quality-Gate.md)        | **AI Radar — Extract Quality Gate** _(score 0–100; reject &lt;40, warn 40–69)_ | 🔼 High | **Cursor / AI Radar** | 4h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 

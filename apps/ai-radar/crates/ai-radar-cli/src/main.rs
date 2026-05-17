@@ -243,11 +243,16 @@ async fn run_extract_command(job_id: Uuid, limit: i64) -> anyhow::Result<()> {
         job_id = %job_id,
         extracted = stats.extracted,
         failed = stats.failed,
+        quality_warn = stats.quality_warn,
+        quality_rejected = stats.quality_rejected,
         duration_secs = started.elapsed().as_secs_f64(),
         "extract job finished"
     );
 
-    println!("extracted={} failed={}", stats.extracted, stats.failed);
+    println!(
+        "extracted={} failed={} quality_warn={} quality_rejected={}",
+        stats.extracted, stats.failed, stats.quality_warn, stats.quality_rejected
+    );
 
     Ok(())
 }
