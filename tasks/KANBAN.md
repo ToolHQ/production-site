@@ -10,7 +10,6 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-|        [T-225](2026/Q2/T-225-agent-meter-otel-integration.md)        | **agent-meter — OTEL integration + multi-agent docs** _(doc central, env vars, smoke script, deploy ConfigMap)_ | 🔼 High | **OpenCode** | 2h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -41,6 +40,7 @@
 | T-227 | **agent-meter — Copilot/VSCode integration** _(universal setup-agent.sh, MCP wrapper, skill, env vars)_ | 🔼 High | **OpenCode** | 1h |
 | T-228 | **agent-meter — Cursor integration** _(universal setup-agent.sh, MCP wrapper, skill, env vars)_ | 🔼 High | **OpenCode** | 1h |
 | T-229 | **agent-meter — Dashboard UI** _(filtros, sparklines, CSV export, KPI cards, auto-refresh, tema escuro — embedded HTML+vanilla JS)_ | 🔼 High | **OpenCode** | 3h |
+| T-225 | **agent-meter — OTEL integration + multi-agent docs** _(docs/agent-meter-otel.md, scripts/smoke-otel.sh, ConfigMap agent-meter-otel)_ | 🔼 High | **OpenCode** | 2h |
 | T-222 | **agent-meter — Collector MVP + CLI + Hetzner builder + MCP proxy** _(apps/agent-meter/ Rust/Axum, dashboard UI, task routes, deploy ARM64 via Hetzner, Rust 1.88, CLI com task/event/report, MCP wrapper proxy com ferramentas de medição, build 4min vs 10min no master)_ | 🔼 High | **OpenCode** | 6h |
 |            [T-163](2026/Q2/T-163-AI-Radar-Webpage-Fetcher.md)             | **AI Radar — Webpage Fetcher**                                                                                                                                                   |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
 |            [T-162](2026/Q2/T-162-AI-Radar-GitHub-Collector.md)            | **AI Radar — GitHub Collector**                                                                                                                                                  |   🔽 Low    | **Cursor / AI Radar**     |  1d  |
