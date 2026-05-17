@@ -1,5 +1,6 @@
 //! HTTP route handlers.
 
+pub mod compare;
 pub mod digest;
 pub mod digests;
 pub mod extract;

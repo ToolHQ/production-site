@@ -39,6 +39,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::extract::router())
         .merge(routes::items::router())
         .merge(routes::score::router())
+        .merge(routes::compare::router())
         .merge(routes::digest::router())
         .merge(routes::digests::router())
         .merge(routes::reports::router())

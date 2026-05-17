@@ -30,6 +30,7 @@
 //!   epic can migrate the hottest queries to `query_as!` and commit
 //!   the `.sqlx/` cache. The trait surface stays unchanged.
 
+pub mod comparison;
 pub mod digest;
 pub mod extracted_item;
 pub mod feedback;
@@ -38,6 +39,7 @@ pub mod score;
 pub mod source;
 pub mod stats;
 
+pub use comparison::{ComparisonRepository, PgComparisonRepository};
 pub use digest::{DigestRepository, PgDigestRepository};
 pub use extracted_item::{ExtractedItemRepository, PgExtractedItemRepository};
 pub use feedback::{FeedbackDivergence, FeedbackRepository, PgFeedbackRepository};
