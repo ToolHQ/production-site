@@ -3,6 +3,7 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
+use crate::curation::adoption::{adoption_from_extracted, StarsTier};
 use crate::domain::{ExtractedItem, Maturity, Score};
 
 /// Six criteria, each scored 0–3.
@@ -20,6 +21,8 @@ pub struct CriteriaScores {
     pub last_activity: u8,
     /// Documentation / summary quality proxy.
     pub doc_quality: u8,
+    /// Community adoption proxy (GitHub stars when present).
+    pub community: u8,
 }
 
 /// Score criteria from structured fields (pure, unit-testable).
@@ -33,6 +36,7 @@ pub fn score_criteria(item: &ExtractedItem, score: &Score) -> CriteriaScores {
         maturity: score_maturity(item),
         last_activity: score_last_activity(item),
         doc_quality: score_doc_quality(item),
+        community: score_community(item),
     }
 }
 
@@ -84,7 +88,24 @@ fn score_maturity(item: &ExtractedItem) -> u8 {
     }
 }
 
+fn score_community(item: &ExtractedItem) -> u8 {
+    let Some(adoption) = adoption_from_extracted(&item.metadata_json) else {
+        return 1;
+    };
+    match adoption.stars_tier {
+        StarsTier::Viral => 3,
+        StarsTier::Popular => 3,
+        StarsTier::Growing => 2,
+        StarsTier::Niche => 1,
+    }
+}
+
 fn score_last_activity(item: &ExtractedItem) -> u8 {
+    if let Some(adoption) = adoption_from_extracted(&item.metadata_json) {
+        if let Some(days) = adoption.days_since_push {
+            return bucket_days(days);
+        }
+    }
     if let Some(days) = item
         .metadata_json
         .get("days_since_activity")
