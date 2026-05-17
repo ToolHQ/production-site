@@ -32,9 +32,10 @@ fn digest_markdown_includes_all_sections_and_items() {
     assert!(md.contains("# AI Radar Digest — 2026-05-08"));
     assert!(md.contains("## ✅ Adotar"));
     assert!(md.contains("### 1. ToolA"));
-    assert!(md.contains("- Categoria: observability"));
-    assert!(md.contains("- Score: 91"));
-    assert!(md.contains("- Link: https://example.com/a"));
+    assert!(md.contains("**Categoria:** observability"));
+    assert!(md.contains("**Score:** 91/100"));
+    assert!(md.contains("**Fonte:** https://example.com/a"));
+    assert!(md.contains("## Resumo executivo"));
     assert!(md.contains("## 🔥 Testar"));
     assert!(md.contains("## 👀 Monitorar"));
     assert!(md.contains("## ❌ Ignorar"));
