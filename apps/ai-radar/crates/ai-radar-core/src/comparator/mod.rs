@@ -63,6 +63,8 @@ impl Comparator {
                 Some(category),
                 None,
                 None,
+                None,
+                None,
                 ScoredItemSort::ScoreDesc,
             )
             .await?;

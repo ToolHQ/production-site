@@ -31,6 +31,8 @@ pub trait ScoreRepository: Send + Sync {
         category: Option<&str>,
         stars_tier: Option<&str>,
         quality_warn: Option<bool>,
+        velocity_tier: Option<&str>,
+        source_health_tier: Option<&str>,
         sort: ScoredItemSort,
     ) -> RepoResult<Vec<ScoredItemSummary>>;
 
@@ -41,6 +43,8 @@ pub trait ScoreRepository: Send + Sync {
         category: Option<&str>,
         stars_tier: Option<&str>,
         quality_warn: Option<bool>,
+        velocity_tier: Option<&str>,
+        source_health_tier: Option<&str>,
     ) -> RepoResult<i64>;
 
     /// Full score history for one extracted item, newest first.
@@ -192,6 +196,8 @@ impl ScoreRepository for PgScoreRepository {
         category: Option<&str>,
         stars_tier: Option<&str>,
         quality_warn: Option<bool>,
+        velocity_tier: Option<&str>,
+        source_health_tier: Option<&str>,
     ) -> RepoResult<i64> {
         let count: i64 = sqlx::query_scalar(
             "WITH latest_score AS ( \
@@ -205,12 +211,16 @@ impl ScoreRepository for PgScoreRepository {
              WHERE ($1::text IS NULL OR ls.decision = $1) \
                AND ($2::text IS NULL OR ei.category = $2) \
                AND ($3::text IS NULL OR ei.metadata_json->'adoption'->>'stars_tier' = $3) \
-               AND ($4::bool IS NULL OR COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) = $4)",
+               AND ($4::bool IS NULL OR COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) = $4) \
+               AND ($5::text IS NULL OR ei.metadata_json->'adoption'->>'velocity_tier' = $5) \
+               AND ($6::text IS NULL OR ei.metadata_json->'source_health'->>'tier' = $6)",
         )
         .bind(decision)
         .bind(category)
         .bind(stars_tier)
         .bind(quality_warn)
+        .bind(velocity_tier)
+        .bind(source_health_tier)
         .fetch_one(&self.pool)
         .await
         .map_err(RepoError::from_sqlx)?;
@@ -225,6 +235,8 @@ impl ScoreRepository for PgScoreRepository {
         category: Option<&str>,
         stars_tier: Option<&str>,
         quality_warn: Option<bool>,
+        velocity_tier: Option<&str>,
+        source_health_tier: Option<&str>,
         sort: ScoredItemSort,
     ) -> RepoResult<Vec<ScoredItemSummary>> {
         let order = match sort {
@@ -256,6 +268,8 @@ impl ScoreRepository for PgScoreRepository {
                  ei.metadata_json->'adoption'->>'stars_tier' AS stars_tier, \
                  ei.metadata_json->'adoption'->>'activity_tier' AS activity_tier, \
                  (ei.metadata_json->'adoption'->>'stars')::bigint AS stars, \
+                 (ei.metadata_json->'adoption'->>'stars_delta_7d')::bigint AS stars_delta_7d, \
+                 ei.metadata_json->'adoption'->>'velocity_tier' AS velocity_tier, \
                  COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) AS quality_warn \
              FROM latest_score ls \
              JOIN ai_radar.extracted_items ei ON ei.id = ls.extracted_item_id \
@@ -263,14 +277,18 @@ impl ScoreRepository for PgScoreRepository {
                AND ($2::text IS NULL OR ei.category = $2) \
                AND ($3::text IS NULL OR ei.metadata_json->'adoption'->>'stars_tier' = $3) \
                AND ($4::bool IS NULL OR COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) = $4) \
+               AND ($5::text IS NULL OR ei.metadata_json->'adoption'->>'velocity_tier' = $5) \
+               AND ($6::text IS NULL OR ei.metadata_json->'source_health'->>'tier' = $6) \
              ORDER BY {order} \
-             LIMIT $5 OFFSET $6"
+             LIMIT $7 OFFSET $8"
         );
         let rows = sqlx::query(&sql)
             .bind(decision)
             .bind(category)
             .bind(stars_tier)
             .bind(quality_warn)
+            .bind(velocity_tier)
+            .bind(source_health_tier)
             .bind(limit)
             .bind(offset)
             .fetch_all(&self.pool)
@@ -287,12 +305,19 @@ impl ScoreRepository for PgScoreRepository {
                 let stars_tier: Option<String> = row.try_get("stars_tier").ok();
                 let activity_tier: Option<String> = row.try_get("activity_tier").ok();
                 let stars: Option<i64> = row.try_get("stars").ok();
-                let adoption = if stars_tier.is_some() || activity_tier.is_some() || stars.is_some()
+                let stars_delta_7d: Option<i64> = row.try_get("stars_delta_7d").ok();
+                let velocity_tier: Option<String> = row.try_get("velocity_tier").ok();
+                let adoption = if stars_tier.is_some()
+                    || activity_tier.is_some()
+                    || stars.is_some()
+                    || velocity_tier.is_some()
                 {
                     Some(AdoptionSummary {
                         stars_tier,
                         activity_tier,
                         stars,
+                        stars_delta_7d,
+                        velocity_tier,
                     })
                 } else {
                     None
