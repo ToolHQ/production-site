@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import type { WorkloadsData, WorkloadInfo } from '../types/api';
 
 interface WorkloadPanelProps {
@@ -11,6 +12,8 @@ const KIND_ICON: Record<string, string> = {
   DaemonSet: '🔷',
 };
 
+const STATUS_RANK: Record<string, number> = { down: 0, degraded: 1, healthy: 2 };
+
 function statusClass(status: string): string {
   if (status === 'healthy') return 'wl-status wl-status--healthy';
   if (status === 'degraded') return 'wl-status wl-status--degraded';
@@ -23,7 +26,19 @@ function statusLabel(w: WorkloadInfo): string {
   return `0/${w.replicas_desired} ✗`;
 }
 
+// Extract short image label: last path segment + tag (e.g. "rs-api:1779041647")
+function shortImage(image: string): string {
+  if (!image) return '—';
+  // strip registry prefix (host:port/)
+  const withoutRegistry = image.replace(/^[^/]+\.[^/]+(?::\d+)?\//, '');
+  // take last path component
+  const lastSlash = withoutRegistry.lastIndexOf('/');
+  return lastSlash >= 0 ? withoutRegistry.slice(lastSlash + 1) : withoutRegistry;
+}
+
 export function WorkloadPanel({ data, error }: WorkloadPanelProps) {
+  const [nsFilter, setNsFilter] = useState('');
+
   if (error && !data) {
     return (
       <div class="panel panel--error">
@@ -42,19 +57,43 @@ export function WorkloadPanel({ data, error }: WorkloadPanelProps) {
     );
   }
 
+  const namespaces = [...new Set(data.workloads.map((w) => w.namespace))].sort();
+
+  const sorted = [...data.workloads]
+    .filter((w) => !nsFilter || w.namespace === nsFilter)
+    .sort((a, b) => {
+      const ra = STATUS_RANK[a.status] ?? 99;
+      const rb = STATUS_RANK[b.status] ?? 99;
+      return ra !== rb ? ra - rb : a.name.localeCompare(b.name);
+    });
+
   return (
     <div class="panel">
       <div class="panel-header">
         <h2 class="panel-title">🚀 Workloads</h2>
-        <div class="panel-summary">
-          <span class="summary-badge summary-badge--ok">{data.healthy} saudáveis</span>
-          {data.degraded > 0 && (
-            <span class="summary-badge summary-badge--warn">{data.degraded} degradados</span>
+        <div class="wl-header-right">
+          {namespaces.length > 1 && (
+            <select
+              class="wl-ns-filter"
+              value={nsFilter}
+              onChange={(e) => setNsFilter((e.target as HTMLSelectElement).value)}
+            >
+              <option value="">Todos os namespaces</option>
+              {namespaces.map((ns) => (
+                <option key={ns} value={ns}>{ns}</option>
+              ))}
+            </select>
           )}
-          {data.down > 0 && (
-            <span class="summary-badge summary-badge--error">{data.down} down</span>
-          )}
-          <span class="summary-badge summary-badge--neutral">{data.total} total</span>
+          <div class="panel-summary">
+            {data.down > 0 && (
+              <span class="summary-badge summary-badge--error">{data.down} down</span>
+            )}
+            {data.degraded > 0 && (
+              <span class="summary-badge summary-badge--warn">{data.degraded} degradados</span>
+            )}
+            <span class="summary-badge summary-badge--ok">{data.healthy} saudáveis</span>
+            <span class="summary-badge summary-badge--neutral">{data.total} total</span>
+          </div>
         </div>
       </div>
 
@@ -65,25 +104,27 @@ export function WorkloadPanel({ data, error }: WorkloadPanelProps) {
           <thead>
             <tr>
               <th>Tipo</th>
-              <th>Nome</th>
-              <th>Namespace</th>
+              <th>Nome / Namespace</th>
               <th>Réplicas</th>
               <th>Imagem</th>
             </tr>
           </thead>
           <tbody>
-            {data.workloads.map((w: WorkloadInfo) => (
-              <tr key={`${w.namespace}/${w.kind}/${w.name}`}>
+            {sorted.map((w: WorkloadInfo) => (
+              <tr key={`${w.namespace}/${w.kind}/${w.name}`}
+                  class={w.status === 'down' ? 'wl-row--down' : w.status === 'degraded' ? 'wl-row--degraded' : ''}>
                 <td class="wl-kind">
                   <span title={w.kind}>{KIND_ICON[w.kind] ?? '📦'}</span>
                   <span class="wl-kind-label">{w.kind}</span>
                 </td>
-                <td class="wl-name">{w.name}</td>
-                <td class="wl-ns">{w.namespace}</td>
+                <td class="wl-name-cell">
+                  <span class="wl-name">{w.name}</span>
+                  <span class="wl-ns-badge">{w.namespace}</span>
+                </td>
                 <td>
                   <span class={statusClass(w.status)}>{statusLabel(w)}</span>
                 </td>
-                <td class="wl-image" title={w.image}>{w.image || '—'}</td>
+                <td class="wl-image" title={w.image}>{shortImage(w.image)}</td>
               </tr>
             ))}
           </tbody>

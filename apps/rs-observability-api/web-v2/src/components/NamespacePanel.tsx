@@ -17,6 +17,13 @@ function pressureLabelClass(pct: number): string {
   return 'ns-pct ns-pct--ok';
 }
 
+function rowClass(ns: NamespaceQuota): string {
+  const max = Math.max(ns.cpu_pressure_pct, ns.mem_pressure_pct);
+  if (max > 80) return 'ns-row ns-row--critical';
+  if (max > 50) return 'ns-row ns-row--warning';
+  return 'ns-row';
+}
+
 function PressureBar({ pct }: { pct: number }) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
@@ -58,6 +65,13 @@ export function NamespacePanel({ data, error }: NamespacePanelProps) {
     );
   }
 
+  // Sort by max pressure descending (most loaded first)
+  const sorted = [...data.namespaces].sort((a, b) => {
+    const pa = Math.max(a.cpu_pressure_pct, a.mem_pressure_pct);
+    const pb = Math.max(b.cpu_pressure_pct, b.mem_pressure_pct);
+    return pb - pa;
+  });
+
   return (
     <div class="panel">
       <div class="panel-header">
@@ -81,16 +95,16 @@ export function NamespacePanel({ data, error }: NamespacePanelProps) {
           <thead>
             <tr>
               <th>Namespace</th>
-              <th>CPU (limit)</th>
+              <th>CPU usado / limite</th>
               <th>% CPU</th>
-              <th>Mem (limit)</th>
+              <th>Mem usada / limite</th>
               <th>% Mem</th>
               <th>Pods</th>
             </tr>
           </thead>
           <tbody>
-            {data.namespaces.map((ns: NamespaceQuota) => (
-              <tr key={ns.name}>
+            {sorted.map((ns: NamespaceQuota) => (
+              <tr key={ns.name} class={rowClass(ns)}>
                 <td class="ns-name">{ns.name}</td>
                 <td class="ns-quota">
                   <span class="ns-used">{ns.cpu_limit_used}</span>
