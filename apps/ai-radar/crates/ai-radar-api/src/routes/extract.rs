@@ -31,6 +31,10 @@ pub struct ExtractRunResponse {
     pub extracted: u64,
     /// Rows marked `failed`.
     pub failed: u64,
+    /// Rows persisted with quality score 40–69.
+    pub quality_warn: u64,
+    /// Rows rejected by quality gate (score < 40).
+    pub quality_rejected: u64,
 }
 
 /// Mount `/extract` routes.
@@ -52,6 +56,8 @@ async fn run(
         Json(ExtractRunResponse {
             extracted: extract_stats.extracted,
             failed: extract_stats.failed,
+            quality_warn: extract_stats.quality_warn,
+            quality_rejected: extract_stats.quality_rejected,
         }),
     ))
 }
