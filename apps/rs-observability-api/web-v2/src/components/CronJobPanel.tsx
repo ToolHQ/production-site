@@ -9,12 +9,35 @@ function fmtTimestamp(ts: string | null): string {
   if (!ts) return '—';
   const d = new Date(ts);
   if (isNaN(d.getTime())) return ts;
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  const diffH = Math.floor(diffMin / 60);
+  if (diffMin < 2) return 'agora';
+  if (diffMin < 60) return `${diffMin}min atrás`;
+  if (diffH < 24) return `${diffH}h atrás`;
   return d.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+// Human-readable cron description for common patterns
+function scheduleHint(cron: string): string {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length < 5) return '';
+  const [min, hour, dom, , dow] = parts;
+  if (min === '*' && hour === '*') return 'a cada minuto';
+  if (min.startsWith('*/')) return `a cada ${min.slice(2)}min`;
+  if (hour.startsWith('*/')) return `a cada ${hour.slice(2)}h`;
+  if (dom === '*' && dow === '*') {
+    const h = hour === '*' ? '?' : hour.padStart(2, '0');
+    const m = min === '*' ? '00' : min.padStart(2, '0');
+    return `diário ${h}:${m}`;
+  }
+  return '';
 }
 
 function statusBadge(job: CronJobInfo): string {
@@ -31,6 +54,16 @@ function statusLabel(job: CronJobInfo): string {
   if (job.last_run_succeeded === false) return 'Failed';
   if (job.last_run_succeeded === true) return 'OK';
   return 'Sem histórico';
+}
+
+function ScheduleCell({ schedule }: { schedule: string }) {
+  const hint = scheduleHint(schedule);
+  return (
+    <span class="cj-schedule-wrap">
+      <code class="cj-schedule-code">{schedule}</code>
+      {hint && <span class="cj-schedule-hint">{hint}</span>}
+    </span>
+  );
 }
 
 export function CronJobPanel({ data, error }: CronJobPanelProps) {
@@ -93,8 +126,8 @@ export function CronJobPanel({ data, error }: CronJobPanelProps) {
             {sorted.map((cj) => (
               <tr key={`${cj.namespace}/${cj.name}`}>
                 <td class="cj-name">{cj.name}</td>
-                <td class="cj-ns">{cj.namespace}</td>
-                <td class="cj-schedule"><code>{cj.schedule}</code></td>
+                <td class="cj-ns"><span class="cj-ns-badge">{cj.namespace}</span></td>
+                <td class="cj-schedule-cell"><ScheduleCell schedule={cj.schedule} /></td>
                 <td>
                   <span class={statusBadge(cj)}>{statusLabel(cj)}</span>
                 </td>
