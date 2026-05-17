@@ -188,7 +188,7 @@ export interface CorootAlert {
   /** Duration in milliseconds */
   duration: number;
   /** Alert category e.g. "Net", "Instances", "Logs" */
-  report: string;
+  report: string | null;
 }
 
 export interface CorootAlertsData {
