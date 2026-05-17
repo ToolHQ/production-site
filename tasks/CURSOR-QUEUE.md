@@ -33,11 +33,11 @@
 | 1 | **T-232** | Extract quality gate | ✅ PR #193 |
 | 2 | **T-231** | Entity resolution / dedup | ✅ PR #198 |
 | 3 | **T-233** | Adoption signals (GitHub → score) | ✅ PR #200 |
-| 4 | **T-234** | Popularity velocity & snapshots | backlog |
-| 5 | **T-235** | Explorer ranking & badges | 🏎️ agora |
-| 6 | **T-238** | Source health / noise | backlog |
-| 7 | **T-237** | Comparator no console | backlog |
-| 8 | **T-236** | Feedback-calibrated scoring v2 | backlog |
+| 4 | **T-234** | Popularity velocity & snapshots | ✅ PR #211 |
+| 5 | **T-235** | Explorer ranking & badges | ✅ PR #208 |
+| 6 | **T-238** | Source health / noise | ✅ PR #215 |
+| 7 | **T-237** | Comparator no console | ✅ PR #217 |
+| 8 | **T-236** | Feedback-calibrated scoring v2 | ✅ PR #218 |
 
 > **Nota IDs:** `T-233` no repo = adoption (antes planejado como velocity no stash). Velocity = **T-234**. UI premium console = PR #203.
 
@@ -45,7 +45,7 @@
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
-| T-167 | Scorer LLM opcional | Backlog (código em `main` via PR #159; fechar task) |
+| T-167 | Scorer LLM opcional | ✅ PR #159 |
 
 > **T-168** Comparator ✅ Done. Infra compartilhada = `Owner: Infra / Ops`.
 
