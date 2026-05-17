@@ -114,6 +114,40 @@ function decisionBadge(decision) {
   return `<span class="badge badge-decision badge-${escapeHtml(d)}">${escapeHtml(d)}</span>`;
 }
 
+const STARS_TIER_PT = {
+  niche: "Niche",
+  growing: "Growing",
+  popular: "Popular",
+  viral: "Viral",
+};
+
+const ACTIVITY_TIER_PT = {
+  active: "Ativo",
+  moderate: "Moderado",
+  stale: "Stale",
+  dormant: "Dormant",
+};
+
+function signalBadges(adoption, qualityWarn) {
+  const parts = [];
+  if (adoption?.stars_tier) {
+    const t = adoption.stars_tier;
+    parts.push(
+      `<span class="badge badge-tier badge-tier-${escapeHtml(t)}" title="GitHub stars">${escapeHtml(STARS_TIER_PT[t] || t)}${adoption.stars != null ? ` · ${fmtNum(adoption.stars)}` : ""}</span>`,
+    );
+  }
+  if (adoption?.activity_tier) {
+    const a = adoption.activity_tier;
+    parts.push(
+      `<span class="badge badge-activity badge-activity-${escapeHtml(a)}">${escapeHtml(ACTIVITY_TIER_PT[a] || a)}</span>`,
+    );
+  }
+  if (qualityWarn) {
+    parts.push(`<span class="badge badge-quality-warn">low conf.</span>`);
+  }
+  return parts.length ? parts.join(" ") : `<span class="muted">—</span>`;
+}
+
 function scorePct(score) {
   if (score == null || Number.isNaN(Number(score))) return "—";
   return `${Math.round(Number(score) * 100)}%`;
@@ -500,30 +534,81 @@ async function renderDigest(id) {
   $app.innerHTML = `<p><a href="#/digests">← Voltar</a></p><article class="digest-article digest-article--legacy">${renderMarkdown(md)}</article>`;
 }
 
+function explorerSearchFromForm() {
+  const decision = document.getElementById("decision-filter")?.value || "";
+  const starsTier = document.getElementById("stars-tier-filter")?.value || "";
+  const sort = document.getElementById("sort-filter")?.value || "score_desc";
+  const qualityWarn = document.getElementById("quality-warn-filter")?.checked;
+  const qs = new URLSearchParams();
+  if (decision) qs.set("decision", decision);
+  if (starsTier) qs.set("stars_tier", starsTier);
+  if (sort && sort !== "score_desc") qs.set("sort", sort);
+  if (qualityWarn) qs.set("quality_warn", "1");
+  location.search = qs.toString() ? `?${qs}` : "";
+  render();
+}
+
+function bindExplorerFilters() {
+  for (const id of [
+    "decision-filter",
+    "stars-tier-filter",
+    "sort-filter",
+    "quality-warn-filter",
+  ]) {
+    document.getElementById(id)?.addEventListener("change", explorerSearchFromForm);
+  }
+}
+
 async function renderItems() {
   setNav("#/items");
   const params = new URLSearchParams(location.search);
   const decision = params.get("decision") || "";
-  const qs = new URLSearchParams({ limit: "50", sort: "score_desc" });
+  const starsTier = params.get("stars_tier") || "";
+  const sort = params.get("sort") || "score_desc";
+  const qualityWarn = params.get("quality_warn") === "1";
+  const qs = new URLSearchParams({ limit: "50", sort });
   if (decision) qs.set("decision", decision);
+  if (starsTier) qs.set("stars_tier", starsTier);
+  if (qualityWarn) qs.set("quality_warn", "true");
 
   const data = await apiJson(`/items?${qs}`);
-  const filterOpts = ["", "adopt", "test", "monitor", "ignore"]
+  const decisionOpts = ["", "adopt", "test", "monitor", "ignore"]
     .map(
       (d) =>
-        `<option value="${d}" ${d === decision ? "selected" : ""}>${d || "todas"}</option>`,
+        `<option value="${d}" ${d === decision ? "selected" : ""}>${d || "todas decisões"}</option>`,
     )
     .join("");
+  const tierOpts = ["", "viral", "popular", "growing", "niche"]
+    .map(
+      (t) =>
+        `<option value="${t}" ${t === starsTier ? "selected" : ""}>${t || "qualquer adoção"}</option>`,
+    )
+    .join("");
+  const sortOpts = [
+    ["score_desc", "Score ↓"],
+    ["adoption_desc", "Adoção ↓"],
+    ["scored_at_desc", "Mais recentes"],
+  ]
+    .map(
+      ([v, label]) =>
+        `<option value="${v}" ${v === sort ? "selected" : ""}>${label}</option>`,
+    )
+    .join("");
+  const filters = `<div class="explorer-filters">
+    <label class="filter-row">Decisão <select id="decision-filter">${decisionOpts}</select></label>
+    <label class="filter-row">Stars tier <select id="stars-tier-filter">${tierOpts}</select></label>
+    <label class="filter-row">Ordenar <select id="sort-filter">${sortOpts}</select></label>
+    <label class="filter-row filter-row--check"><input type="checkbox" id="quality-warn-filter" ${qualityWarn ? "checked" : ""} /> Só quality warn</label>
+  </div>`;
 
   if (!data.items || data.items.length === 0) {
-    $app.innerHTML = `<h1 class="section-title">Itens scored</h1>
-      <label class="filter-row">Decisão <select id="decision-filter">${filterOpts}</select></label>
-      <p class="muted">Nenhum item com score ainda. Rode collect → extract → score.</p>`;
-    document.getElementById("decision-filter")?.addEventListener("change", (e) => {
-      const v = e.target.value;
-      location.search = v ? `?decision=${encodeURIComponent(v)}` : "";
-      render();
-    });
+    $app.innerHTML = `<header class="explorer-header">
+      <h1 class="section-title">Explorer</h1>
+      <p class="muted">Ferramentas scored com sinais de adoção e decisão.</p>
+    </header>
+    ${filters}
+    <p class="muted">Nenhum item com esses filtros.</p>`;
+    bindExplorerFilters();
     return;
   }
 
@@ -533,6 +618,7 @@ async function renderItems() {
       return `<tr>
         <td>${decisionBadge(it.decision)}</td>
         <td>${scorePct(it.score)}</td>
+        <td class="signal-cell">${signalBadges(it.adoption, it.quality_warn)}</td>
         <td>${escapeHtml(it.category || "—")}</td>
         <td><a href="#/items/${it.extracted_item_id}">${escapeHtml(name)}</a></td>
         <td class="muted">${new Date(it.scored_at).toLocaleString("pt-BR")}</td>
@@ -540,19 +626,17 @@ async function renderItems() {
     })
     .join("");
 
-  $app.innerHTML = `<h1 class="section-title">Itens scored</h1>
-    <p class="muted">${data.count} de ${data.total} itens</p>
-    <label class="filter-row">Decisão <select id="decision-filter">${filterOpts}</select></label>
-    <div class="table-wrap"><table>
-      <thead><tr><th>Decisão</th><th>Score</th><th>Categoria</th><th>Ferramenta</th><th>Scored em</th></tr></thead>
+  $app.innerHTML = `<header class="explorer-header">
+      <h1 class="section-title">Explorer</h1>
+      <p class="muted">${data.count} de ${data.total} itens scored</p>
+    </header>
+    ${filters}
+    <div class="table-wrap"><table class="explorer-table">
+      <thead><tr><th>Decisão</th><th>Score</th><th>Sinais</th><th>Categoria</th><th>Ferramenta</th><th>Scored em</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
 
-  document.getElementById("decision-filter")?.addEventListener("change", (e) => {
-    const v = e.target.value;
-    location.search = v ? `?decision=${encodeURIComponent(v)}` : "";
-    render();
-  });
+  bindExplorerFilters();
 }
 
 async function renderItem(id) {
@@ -585,6 +669,18 @@ async function renderItem(id) {
     ["Extract em", escapeHtml(fmtDate(ex.created_at))],
     ["Scored em", escapeHtml(fmtDate(sc.created_at))],
   ]);
+
+  const adoption = ex.metadata_json?.adoption;
+  const adoptionBlock = adoption
+    ? `<div class="item-adoption panel">${signalBadges(
+        {
+          stars_tier: adoption.stars_tier,
+          activity_tier: adoption.activity_tier,
+          stars: adoption.stars,
+        },
+        ex.metadata_json?.quality_warn,
+      )}<p class="muted">Fonte: ${escapeHtml(adoption.source || "metadata")}</p></div>`
+    : "";
 
   const reasonsBlock =
     reasons.length > 0
@@ -674,6 +770,7 @@ async function renderItem(id) {
     </header>
     ${itemTextBlock("Resumo", ex.summary)}
     ${itemSection("Atributos", attrs)}
+    ${adoptionBlock ? itemSection("Adoção GitHub", adoptionBlock) : ""}
     ${itemTextBlock("Problema / caso de uso", ex.problem_solved)}
     ${itemTextBlock("Encaixe de stack", ex.stack_fit)}
     ${itemSection("Por que este score?", reasonsBlock)}
