@@ -10,6 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+|        [T-225](2026/Q2/T-225-agent-meter-otel-integration.md)        | **agent-meter — OTEL integration + multi-agent docs** _(doc central, env vars, smoke script, deploy ConfigMap)_ | 🔼 High | **OpenCode** | 2h |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -21,6 +22,10 @@
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
 |        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
+|        [T-226](2026/Q2/T-226-agent-meter-antigravity-integration.md)         | **agent-meter — Antigravity integration** _(CLI, env vars, hooks)_ | 🔼 High | **Antigravity** | 1h |
+|        [T-227](2026/Q2/T-227-agent-meter-copilot-integration.md)         | **agent-meter — Copilot/VSCode integration** _(CLI, env vars, MCP wrapper)_ | 🔼 High | **Copilot/VSCode** | 1h |
+|        [T-228](2026/Q2/T-228-agent-meter-cursor-integration.md)         | **agent-meter — Cursor integration** _(CLI, env vars, MCP wrapper)_ | 🔼 High | **Cursor / AI Radar** | 1h |
+|        [T-229](2026/Q2/T-229-agent-meter-dashboard-ui.md)         | **agent-meter — Dashboard UI** _(Vite+Preact, filtros, sparklines, OTEL viz)_ | 🔼 High | **OpenCode** | 3h |
 
 ## ✅ Done
 

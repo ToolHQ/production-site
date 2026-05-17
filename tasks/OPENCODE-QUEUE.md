@@ -41,3 +41,7 @@
 - [x] Fase 3: OTEL spans para cada tool call — `tracing::info_span!("agent.tool_call", ...)` com todos os atributos do spec; `tracing_opentelemetry::layer()` integrado ao subscriber; upgrade opentelemetry 0.25 → 0.26; zero-crash se endpoint não configurado.
 - [x] Fase 4: MCP wrapper crate — HTTP proxy que mede tools/list e tools/call, envia métricas (bytes, duração, SHA256, erro) ao collector, passa-through de outros métodos.
 - [x] Fase 5: Testes de integração automatizados (20 testes: 7 unit + 8 api + 5 proxy).
+- [x] T-225: docs/agent-meter-otel.md + scripts/smoke-otel.sh
+- [ ] T-225: ConfigMap OTEL no deploy do collector
+- [ ] T-229: Dashboard UI melhorada (Vite+Preact)
+- [ ] Criar skill OTEL integration para agentes
