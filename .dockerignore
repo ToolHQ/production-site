@@ -1,0 +1,12 @@
+.git
+target/
+**/target/
+node_modules/
+**/node_modules/
+.agents
+.vscode
+.cursor
+.gemini
+tmp/
+logs/
+reports/
