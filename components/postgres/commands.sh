@@ -189,7 +189,7 @@ fi
 
 # Apply Kubernetes resources
 echo "🚀 Applying PostgreSQL resources..."
-if ! output=$(kubectl apply -f postgres-resources.yaml 2>&1); then
+if ! output=$(kubectl apply -k . 2>&1); then
     # Check for Immutable Field Error (e.g. volumeClaimTemplates)
     if echo "$output" | grep -q "forbidden"; then
         echo "⚠️  Immutable field change detected (likely Storage Size)."
@@ -201,7 +201,7 @@ if ! output=$(kubectl apply -f postgres-resources.yaml 2>&1); then
         
         # 2. Re-apply new manifest
         echo "   Applying new definition..."
-        if kubectl apply -f postgres-resources.yaml; then
+        if kubectl apply -k .; then
              echo "✅ Definition updated successfully."
         else
              echo "❌ Failed to re-apply resources."

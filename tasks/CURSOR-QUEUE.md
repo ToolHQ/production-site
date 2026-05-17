@@ -18,7 +18,7 @@
 2. ~~**T-175**~~ — Console ✅
 3. ~~**T-176**~~ — Dashboards ops ✅
 4. **Demo pipeline** — fontes + extract LLM + digest com conteúdo no console
-5. **T-177** — Items API + Explorer UI
+5. ~~**T-177**~~ — Items API + Explorer UI ✅
 
 ## Em andamento (sessão atual)
 
@@ -31,8 +31,8 @@
 
 | ID | Tarefa | Kanban |
 | :- | :----- | :----- |
-| **T-200** | **Compile-time / BuildKit** (~50 min/deploy → cargo-chef, deploy parcial) | Backlog 🔼 |
-| T-177 | Items API + Explorer UI | Backlog |
+| **T-200** | **Compile-time / BuildKit** _(cargo-chef mergeado; validar 2º deploy API-only)_ | In Progress 🔼 |
+| T-170 | Feedback loop | Backlog |
 | T-162 | GitHub collector | Backlog |
 | T-163 | Webpage fetcher | Backlog |
 | T-167 | Scorer LLM opcional | Backlog |
@@ -48,12 +48,15 @@
 - [x] Montar `ai-radar-llm` no Deployment da API — PR [#122](https://github.com/ToolHQ/production-site/pull/122)
 - [x] Demo pipeline: digest semanal com itens **Testar** no console
 - [x] Causa raiz `read-only transaction`: `postgres-service` → réplica; fix primário + reconcile `extracting`
-- [ ] Deploy PR reconcile + re-run extract (após merge ou patch cluster)
+- [x] Deploy T-177 API `1778974766` + explorer https://ai-radar.dnor.io/#/items
+- [x] CLI CronJobs `1778965790` (reconcile extract)
+- [x] Postgres entrypoint ConfigMap (hostNetwork + POD_NAME)
 
 ## Concluídas (histórico recente)
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
+| T-177 | Items API + Explorer — PR [#127](https://github.com/ToolHQ/production-site/pull/127) | 2026-05-16 |
 | T-176 | Dashboard pack Coroot/Grafana | 2026-05-16 |
 | T-175 | Operator Console — PR [#116](https://github.com/ToolHQ/production-site/pull/116) | 2026-05-16 |
 | T-173 deploy | Cluster tag `1778959644` | 2026-05-16 |

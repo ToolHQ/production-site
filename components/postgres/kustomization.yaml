@@ -1,0 +1,13 @@
+# Apply: kubectl apply -k components/postgres
+# Generates ConfigMap `postgres-entrypoint` from entrypoint-wrapper.sh (hostNetwork + POD_NAME).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - postgres-resources.yaml
+configMapGenerator:
+  - name: postgres-entrypoint
+    namespace: postgres
+    files:
+      - entrypoint-wrapper.sh
+generatorOptions:
+  disableNameSuffixHash: true

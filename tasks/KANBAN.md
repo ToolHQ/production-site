@@ -12,7 +12,6 @@
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
 | [T-195](2026/Q2/T-194-Cluster-Pulse-UI-Componentization-Vite-Preact.md) | **Cluster Pulse UI Componentization (Vite+Preact)** | 🔼 High | DevExp / Observability | 4h |
 |               [T-173](2026/Q2/T-173-AI-Radar-Hardening.md)               | **AI Radar — Hardening** _(retry/backoff, limits, chaos tests, reprocess versioning)_         |  🔽 Low  |       **Cursor / AI Radar**       |  1d  |
-| [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + explorer console)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-200](2026/Q2/T-200-AI-Radar-Rust-Build-Compile-Time-Optimization.md) | **AI Radar — compile-time / BuildKit** _(cargo-chef, deploy parcial)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -36,6 +35,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-177](2026/Q2/T-177-AI-Radar-Items-API-and-Explorer-UI.md) | **AI Radar — Items API + Explorer UI** _(GET /items + explorer console)_ | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-202](2026/Q2/T-202-Codex-worktree-isolation-and-autopilot-coordination.md) | **Codex worktree isolation and autopilot coordination** | 🔼 High | Codex / Rust Rover | 1h |
 | [T-176](2026/Q2/T-176-AI-Radar-Dashboard-Pack-Coroot-Grafana.md) | **AI Radar — Dashboard pack** _(Coroot/Grafana `ai_radar_*`)_ | 🔼 High | **Cursor / AI Radar** | 2h |
 | [T-175](2026/Q2/T-175-AI-Radar-Operator-Console-Thin-Slice.md) | **AI Radar — Operator Console** _(UI estática: stats, digests, sources em ai-radar.dnor.io)_ | 🔼 High | **Cursor / AI Radar** | 6h |
