@@ -15,6 +15,7 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/catalog/summary", get(catalog_summary))
         .route("/api/live/overview", get(live_overview))
         .route("/api/coroot-alerts", get(coroot_alerts))
+        .route("/api/coroot-incidents", get(coroot_incidents))
         .route("/api/reports", get(report_index))
         .route("/artifacts/*path", get(artifact))
         // Assets estáticos do Vite — embutidos no binário via include_bytes!
@@ -92,6 +93,22 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     payload.node_metrics = state.prometheus_monitor.fetch_node_metrics().await;
 
     Json(payload).into_response()
+}
+
+async fn coroot_incidents(State(state): State<AppState>) -> Response {
+    match &state.coroot_client {
+        Some(client) => Json(client.fetch_incidents().await).into_response(),
+        None => Json(crate::CorootIncidentsResponse {
+            available: false,
+            incidents: vec![],
+            total: 0,
+            queried_at_epoch: crate::unix_epoch_seconds(),
+            error: Some(
+                "Coroot client not configured (missing COROOT_EMAIL/COROOT_PASSWORD)".to_string(),
+            ),
+        })
+        .into_response(),
+    }
 }
 
 async fn coroot_alerts(State(state): State<AppState>) -> Response {

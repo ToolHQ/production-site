@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import type { CorootAlert, CorootAlertsData } from '../types/api';
 import styles from './CorootAlertsPanel.module.css';
 
@@ -7,6 +8,7 @@ interface CorootAlertsPanelProps {
   lastFetchAt: number | null;
 }
 
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, warning: 1, info: 2 };
 const SEVERITY_ICON: Record<string, string> = {
   critical: '🔴',
   warning: '🟡',
@@ -15,20 +17,14 @@ const SEVERITY_ICON: Record<string, string> = {
 
 const COROOT_BASE_URL = 'https://coroot.dnor.io';
 
-function severityLabel(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/** Parse "p3m78dle:namespace:Kind:name" → { namespace, kind, name } */
-function parseAppId(applicationId: string): { namespace: string; kind: string; name: string } {
-  const parts = applicationId.split(':');
-  if (parts.length >= 4) {
-    const namespace = parts[1] === '_' || parts[1] === 'external' ? parts[2] : parts[1];
-    const kind = parts[2];
-    const name = parts.slice(3).join(':');
-    return { namespace, kind, name };
-  }
-  return { namespace: '', kind: '', name: applicationId };
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h${m % 60}m`;
+  return `${Math.floor(h / 24)}d`;
 }
 
 function alertHref(alert: CorootAlert): string {
@@ -39,43 +35,109 @@ function alertHref(alert: CorootAlert): string {
   return COROOT_BASE_URL;
 }
 
-function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
+/** Returns the worst severity in a group */
+function groupSeverity(alerts: CorootAlert[]): string {
+  return alerts.reduce((worst, a) => {
+    return (SEVERITY_ORDER[a.severity] ?? 9) < (SEVERITY_ORDER[worst] ?? 9) ? a.severity : worst;
+  }, 'info');
 }
 
-function AlertRow({ alert }: { alert: CorootAlert }) {
-  const icon = SEVERITY_ICON[alert.severity] ?? '⚪';
-  const { namespace, name } = parseAppId(alert.application_id);
-  const href = alertHref(alert);
-  const durationStr = alert.duration > 0 ? formatDuration(alert.duration) : '';
+/** Parse "p3m78dle:namespace:Kind:name" → display name */
+function shortName(applicationId: string): string {
+  const parts = applicationId.split(':');
+  if (parts.length >= 4) return parts.slice(3).join(':');
+  return applicationId;
+}
+
+interface AlertGroup {
+  rule_name: string;
+  severity: string;
+  alerts: CorootAlert[];
+}
+
+function buildGroups(alerts: CorootAlert[]): AlertGroup[] {
+  const map = new Map<string, CorootAlert[]>();
+  for (const a of alerts) {
+    const key = a.rule_name;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(a);
+  }
+  const groups: AlertGroup[] = [];
+  for (const [rule_name, list] of map) {
+    groups.push({ rule_name, severity: groupSeverity(list), alerts: list });
+  }
+  groups.sort((a, b) => {
+    const sd = (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9);
+    if (sd !== 0) return sd;
+    return b.alerts.length - a.alerts.length;
+  });
+  return groups;
+}
+
+function AlertGroupRow({ group }: { group: AlertGroup }) {
+  const [expanded, setExpanded] = useState(false);
+  const icon = SEVERITY_ICON[group.severity] ?? '⚪';
+  const worst = group.alerts[0];
+  const href = alertHref(worst);
+  const maxDuration = Math.max(...group.alerts.map(a => a.duration ?? 0));
+
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      class={`${styles.row} ${styles[`sev_${alert.severity}`] ?? ''}`}
-      aria-label={`${alert.rule_name} — ${alert.severity} em ${name}`}
-      title={alert.summary}
-    >
-      <span class={styles.icon} aria-hidden="true">{icon}</span>
-      <span class={styles.body}>
-        <span class={styles.name}>{alert.summary}</span>
-        <span class={styles.meta}>
-          {name}
-          {namespace ? ` · ${namespace}` : ''}
-          {durationStr ? ` · ${durationStr}` : ''}
+    <li class={styles.listItem}>
+      <div class={`${styles.groupRow} ${styles[`sev_${group.severity}`] ?? ''}`}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          class={styles.groupLink}
+          title={`Ver ${group.rule_name} no Coroot`}
+        >
+          <span class={styles.icon} aria-hidden="true">{icon}</span>
+          <span class={styles.body}>
+            <span class={styles.name}>{group.rule_name}</span>
+            <span class={styles.meta}>
+              {group.alerts.length} serviço{group.alerts.length !== 1 ? 's' : ''}
+              {maxDuration > 0 ? ` · até ${formatDuration(maxDuration)}` : ''}
+            </span>
+          </span>
+        </a>
+        {group.alerts.length > 1 && (
+          <button
+            class={styles.expandBtn}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Recolher' : 'Expandir'}
+            onClick={() => setExpanded(v => !v)}
+          >
+            <span class={`${styles.expandIcon} ${expanded ? styles.expandIconOpen : ''}`}>›</span>
+          </button>
+        )}
+        <span class={`${styles.badge} ${styles[`badge_${group.severity}`] ?? ''}`}>
+          {group.alerts.length}
         </span>
-      </span>
-      <span class={`${styles.badge} ${styles[`badge_${alert.severity}`] ?? ''}`}>
-        {severityLabel(alert.severity)}
-      </span>
-    </a>
+      </div>
+
+      {expanded && group.alerts.length > 1 && (
+        <ul class={styles.subList}>
+          {group.alerts.map((alert, idx) => {
+            const name = shortName(alert.application_id);
+            const dur = alert.duration > 0 ? formatDuration(alert.duration) : '';
+            return (
+              <li key={`${alert.id}-${idx}`}>
+                <a
+                  href={alertHref(alert)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class={styles.subRow}
+                  title={alert.summary}
+                >
+                  <span class={styles.subName}>{name}</span>
+                  {dur && <span class={styles.subDur}>{dur}</span>}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </li>
   );
 }
 
@@ -88,11 +150,7 @@ export function CorootAlertsPanel({ data, error, lastFetchAt }: CorootAlertsPane
   const staleAge = lastFetchAt ? Math.floor((Date.now() - lastFetchAt) / 1000) : null;
   const isStale = staleAge !== null && staleAge > 90;
 
-  // Sort: critical first, then warning, then info
-  const sorted = [...alerts].sort((a, b) => {
-    const order: Record<string, number> = { critical: 0, warning: 1, info: 2 };
-    return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
-  });
+  const groups = buildGroups(alerts);
 
   return (
     <section class={styles.panel} aria-label="Coroot Alerts">
@@ -110,7 +168,7 @@ export function CorootAlertsPanel({ data, error, lastFetchAt }: CorootAlertsPane
             </span>
           )}
           {total > 0 && (
-            <span class={styles.totalCount} title={`${total} alerta(s) total`}>
+            <span class={styles.totalCount} title={`${total} alertas em ${groups.length} regras`}>
               ({total})
             </span>
           )}
@@ -145,12 +203,10 @@ export function CorootAlertsPanel({ data, error, lastFetchAt }: CorootAlertsPane
         </div>
       )}
 
-      {sorted.length > 0 && (
+      {groups.length > 0 && (
         <ul class={styles.list} role="list">
-          {sorted.map((alert, idx) => (
-            <li key={`${alert.id}-${idx}`} class={styles.listItem}>
-              <AlertRow alert={alert} />
-            </li>
+          {groups.map(g => (
+            <AlertGroupRow key={g.rule_name} group={g} />
           ))}
         </ul>
       )}
@@ -162,8 +218,10 @@ export function CorootAlertsPanel({ data, error, lastFetchAt }: CorootAlertsPane
       {lastFetchAt && !isStale && (
         <div class={styles.footer}>
           Sincronizado {Math.floor((Date.now() - lastFetchAt) / 1000)}s atrás · a cada 30s
+          {groups.length > 0 && ` · ${groups.length} regras`}
         </div>
       )}
     </section>
   );
 }
+
