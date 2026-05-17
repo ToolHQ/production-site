@@ -204,6 +204,4 @@ kind: ConfigMap
 metadata:
   name: tcp-services
   namespace: ingress-nginx
-data:
-  # Format: "<external-port>": "<namespace>/<service>:<internal-port>"
-  "5432": "postgres/postgres-service:5432"
+data: {}
