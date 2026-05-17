@@ -1,16 +1,23 @@
 //! Scoring pass over `extracted_items` (**T-166** + optional LLM **T-167**).
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
+use serde_json::json;
+
 use crate::config::AppConfig;
 use crate::curation::adoption::adoption_from_extracted;
+use crate::curation::apply_feedback_calibration;
+use crate::curation::source_health::source_health_from_extracted;
+use crate::curation::CategoryFeedbackStats;
 use crate::db::Database;
 use crate::llm::build_llm_provider;
 use crate::llm::LlmProvider;
 use crate::metrics;
 use crate::repos::{
-    ExtractedItemRepository, PgExtractedItemRepository, PgScoreRepository, ScoreRepository,
+    ExtractedItemRepository, FeedbackRepository, PgExtractedItemRepository, PgFeedbackRepository,
+    PgScoreRepository, ScoreRepository,
 };
 use crate::scorer::{
     log_llm_cost, merged_to_new_score, LlmScorer, MergePolicy, MergedScoreResult, Scorer,
@@ -89,6 +96,14 @@ pub async fn run_score_with_llm(
         .list_pending_scoring(limit, scoring_version, stale_hours, rescore_all)
         .await?;
 
+    let feedback_repo = PgFeedbackRepository::new(db);
+    let category_feedback: HashMap<String, CategoryFeedbackStats> = feedback_repo
+        .list_category_stats()
+        .await?
+        .into_iter()
+        .map(|s| (s.category.clone(), s))
+        .collect();
+
     let mut stats = ScoreStats::default();
 
     for row in batch {
@@ -112,9 +127,21 @@ pub async fn run_score_with_llm(
             None
         };
 
-        let merged = MergedScoreResult::merge(det, llm_opinion, policy);
+        let mut merged = MergedScoreResult::merge(det, llm_opinion, policy);
+        let calibrated = row
+            .category
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty())
+            .and_then(|cat| category_feedback.get(cat))
+            .is_some_and(|stats| apply_feedback_calibration(&mut merged, stats));
         let model = config.llm_model.as_deref();
-        let new_score = merged_to_new_score(&merged, row.id, model, None);
+        let mut new_score = merged_to_new_score(&merged, row.id, model, None);
+        if calibrated {
+            if let Some(serde_json::Value::Object(meta)) = &mut new_score.metadata_json {
+                meta.insert("feedback_calibration".to_string(), json!(true));
+            }
+        }
 
         match scores.insert(&new_score).await {
             Ok(_) => {
@@ -130,6 +157,19 @@ pub async fn run_score_with_llm(
                         merged.decision.as_str(),
                         adoption.stars_tier.as_str(),
                     );
+                    metrics::record_velocity_tier(
+                        merged.decision.as_str(),
+                        adoption.velocity_tier.as_str(),
+                    );
+                }
+                if let Some(health) = source_health_from_extracted(&row.metadata_json) {
+                    metrics::record_source_health_tier(
+                        merged.decision.as_str(),
+                        health.tier.as_str(),
+                    );
+                }
+                if calibrated {
+                    metrics::record_feedback_calibration(merged.decision.as_str());
                 }
                 stats.scored += 1;
             }
@@ -164,6 +204,13 @@ pub async fn score_single_extracted_item(
     }
     let extracted = PgExtractedItemRepository::new(db);
     let scores = PgScoreRepository::new(db);
+    let feedback_repo = PgFeedbackRepository::new(db);
+    let category_feedback: HashMap<String, CategoryFeedbackStats> = feedback_repo
+        .list_category_stats()
+        .await?
+        .into_iter()
+        .map(|s| (s.category.clone(), s))
+        .collect();
     let row = extracted.get(extracted_item_id).await?;
     let det = Scorer::v1().score(&row);
     let policy = MergePolicy::from_config(
@@ -180,16 +227,38 @@ pub async fn score_single_extracted_item(
     } else {
         None
     };
-    let merged = MergedScoreResult::merge(det, llm_opinion, policy);
-    let new_score = merged_to_new_score(
+    let mut merged = MergedScoreResult::merge(det, llm_opinion, policy);
+    let calibrated = row
+        .category
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+        .and_then(|cat| category_feedback.get(cat))
+        .is_some_and(|stats| apply_feedback_calibration(&mut merged, stats));
+    let mut new_score = merged_to_new_score(
         &merged,
         row.id,
         config.llm_model.as_deref(),
         None,
     );
+    if calibrated {
+        if let Some(serde_json::Value::Object(meta)) = &mut new_score.metadata_json {
+            meta.insert("feedback_calibration".to_string(), json!(true));
+        }
+    }
     scores.insert(&new_score).await?;
     if let Some(adoption) = adoption_from_extracted(&row.metadata_json) {
         metrics::record_adoption_tier(merged.decision.as_str(), adoption.stars_tier.as_str());
+        metrics::record_velocity_tier(
+            merged.decision.as_str(),
+            adoption.velocity_tier.as_str(),
+        );
+    }
+    if let Some(health) = source_health_from_extracted(&row.metadata_json) {
+        metrics::record_source_health_tier(merged.decision.as_str(), health.tier.as_str());
+    }
+    if calibrated {
+        metrics::record_feedback_calibration(merged.decision.as_str());
     }
     Ok(())
 }

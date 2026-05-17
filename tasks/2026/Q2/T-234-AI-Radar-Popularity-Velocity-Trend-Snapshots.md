@@ -1,6 +1,6 @@
 # T-234: AI Radar — Popularity Velocity & Trend Snapshots
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h

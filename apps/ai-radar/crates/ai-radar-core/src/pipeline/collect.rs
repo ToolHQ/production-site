@@ -12,11 +12,14 @@ use crate::collector::rss::RssCollector;
 use crate::collector::web::{WebCollector, WebFetcher, WebFetcherConfig};
 use crate::collector::Collector;
 use crate::config::AppConfig;
-use crate::curation::resolve_entity_for_inserted;
+use crate::curation::{record_metrics_snapshot, resolve_entity_for_inserted, tool_key_from_new_raw_item};
 use crate::db::Database;
 use crate::domain::{Source, SourceType};
 use crate::metrics;
-use crate::repos::{PgRawItemRepository, PgSourceRepository, RawItemRepository, SourceRepository};
+use crate::repos::{
+    PgRawItemRepository, PgSourceRepository, PgToolMetricsSnapshotRepository,
+    RawItemRepository, SourceRepository,
+};
 
 /// Aggregated counters printed by the CLI.
 #[derive(Debug, Default, Clone, Copy)]
@@ -85,7 +88,15 @@ pub async fn run_collect(
             async move {
                 let raw_repo = PgRawItemRepository::new(&db);
                 let source_repo = PgSourceRepository::new(&db);
-                process_one_source(collector.as_ref(), &raw_repo, &source_repo, &src).await
+                let snapshots = PgToolMetricsSnapshotRepository::new(&db);
+                process_one_source(
+                    collector.as_ref(),
+                    &raw_repo,
+                    &snapshots,
+                    &source_repo,
+                    &src,
+                )
+                .await
             }
         })
         .buffer_unordered(concurrency);
@@ -166,6 +177,7 @@ enum OneSource {
 async fn process_one_source(
     collector: &dyn Collector,
     raw_repo: &PgRawItemRepository,
+    snapshots: &PgToolMetricsSnapshotRepository,
     source_repo: &PgSourceRepository,
     source: &Source,
 ) -> OneSource {
@@ -190,6 +202,23 @@ async fn process_one_source(
                                 error = %e,
                                 "entity resolution failed after insert"
                             ),
+                        }
+                        if let Some(identity) = tool_key_from_new_raw_item(&item) {
+                            if let Err(e) = record_metrics_snapshot(
+                                snapshots,
+                                &identity.tool_key,
+                                source.id,
+                                item.metadata_json.as_ref(),
+                            )
+                            .await
+                            {
+                                tracing::warn!(
+                                    raw_item_id = %row.id,
+                                    tool_key = %identity.tool_key,
+                                    error = %e,
+                                    "tool_metrics_snapshot insert failed"
+                                );
+                            }
                         }
                         tracing::trace!(
                             source_id = %source.id,

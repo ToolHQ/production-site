@@ -21,11 +21,14 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
-| [T-238](2026/Q2/T-238-AI-Radar-Source-Health-Noise-Scoring.md) | **AI Radar — Source Health & Noise Scoring** | 🔽 Low | Cursor / AI Radar | 4h |
-| [T-237](2026/Q2/T-237-AI-Radar-Comparator-Console-UI.md) | **AI Radar — Comparator Console UI** | 🔽 Low | Cursor / AI Radar | 4h |
-| [T-236](2026/Q2/T-236-AI-Radar-Feedback-Calibrated-Scoring-v2.md) | **AI Radar — Feedback-Calibrated Scoring v2** | 🔽 Low | Cursor / AI Radar | 4h |
-| [T-234](2026/Q2/T-234-AI-Radar-Popularity-Velocity-Trend-Snapshots.md) | **AI Radar — Popularity Velocity & Trend Snapshots** | 🔼 High | Cursor / AI Radar | 6h |
-|        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
+| [T-246](2026/Q2/T-246-AI-Radar-Digest-Rising-Stars-API-Metadata.md) | **AI Radar — Digest Rising Stars API Metadata** | 🔽 Low | Cursor / AI Radar | 4h |
+| [T-245](2026/Q2/T-245-AI-Radar-Compare-Deep-Link-Category-UX.md) | **AI Radar — Compare Deep-Link & Category UX** | 🔽 Low | Cursor / AI Radar | 2h |
+| [T-244](2026/Q2/T-244-AI-Radar-Explorer-Filters-Velocity-Health.md) | **AI Radar — Explorer Filters Velocity & Health** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-243](2026/Q2/T-243-AI-Radar-Duplicates-Divergence-Console.md) | **AI Radar — Duplicates & Divergence Console** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-242](2026/Q2/T-242-AI-Radar-Explorer-Item-Signal-Panel.md) | **AI Radar — Explorer Item Signal Panel** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-241](2026/Q2/T-241-AI-Radar-Digest-v2-Signals-Trending-Section.md) | **AI Radar — Digest v2 Signals & Trending Section** | 🔼 High | Cursor / AI Radar | 6h |
+| [T-239](2026/Q2/T-239-agent-meter-schema-collector-enrichment.md) | **agent-meter — Schema & Collector Enrichment** _(model, cached_tokens, conversation_id, client_ip, user_agent; new GET /reports/events feed paginado)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| [T-240](2026/Q2/T-240-agent-meter-dashboard-events-ui.md) | **agent-meter — Dashboard UI: events feed + model + tokens breakdown** _(tab Events paginada, stats cards in/out/cached, coluna TOP MODEL, filtro por modelo; depende T-239)_ | 🔼 High | **Copilot/VSCode** | 2h |
 
 
 
@@ -33,6 +36,11 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+|        [T-167](2026/Q2/T-167-AI-Radar-Scorer-com-LLM-Opcional.md)         | **AI Radar — Scorer com LLM Opcional**                                                                                                                                           |   🔽 Low    | **Cursor / AI Radar**     |  4h  |
+| [T-236](2026/Q2/T-236-AI-Radar-Feedback-Calibrated-Scoring-v2.md) | **AI Radar — Feedback-Calibrated Scoring v2** | 🔽 Low | Cursor / AI Radar | 4h |
+| [T-237](2026/Q2/T-237-AI-Radar-Comparator-Console-UI.md) | **AI Radar — Comparator Console UI** | 🔽 Low | Cursor / AI Radar | 4h |
+| [T-238](2026/Q2/T-238-AI-Radar-Source-Health-Noise-Scoring.md) | **AI Radar — Source Health & Noise Scoring** | 🔽 Low | Cursor / AI Radar | 4h |
+| [T-234](2026/Q2/T-234-AI-Radar-Popularity-Velocity-Trend-Snapshots.md) | **AI Radar — Popularity Velocity & Trend Snapshots** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-233](2026/Q2/T-233-Postgres-TCP-Ingress-and-Watchdog-Webhook-Alerting.md) | **Postgres TCP Ingress & Watchdog Webhook Alerting** _(exposição TCP na porta livre 5433 para evitar colisão hostNetwork do PostgreSQL; alertas ativos markdown via webhook no cluster_health_check.sh; PR #197)_ | 🔼 High | **Antigravity** | 2h |
 | [T-235](2026/Q2/T-235-AI-Radar-Explorer-Ranking-Signals-UX.md) | **AI Radar — Explorer Ranking & Signals UX** _(badges adoption, sort, filtros)_ | 🔼 High | **Cursor / AI Radar** | 6h |
 | [T-233-AI-Radar](2026/Q2/T-233-AI-Radar-Adoption-Signals-GitHub-metadata.md) | **AI Radar — Adoption Signals (GitHub metadata)** | 🔼 High | Cursor / AI Radar | 4h |
