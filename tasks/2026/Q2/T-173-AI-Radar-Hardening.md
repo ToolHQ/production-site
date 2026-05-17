@@ -24,13 +24,13 @@ Fecha o ciclo de qualidade do MVP. Posiciona o sistema para operar autônomo no 
 - [x] `POST /items/:id/reprocess` com `{ "stage": "extract"|"score"|"all" }` (síncrono MVP)
 - [x] CLI `ai-radar reprocess --item <id> --stage all`
 - [x] Reprocess extract gera **nova versão** (`insert` com `version: None` → `MAX+1`)
-- [ ] Sanitização HTML defensiva (remover javascript: URIs, on* handlers em casos extremos)
+- [x] Sanitização HTML defensiva (remover javascript: URIs, on* handlers em casos extremos) — `util/sanitize.rs` no RSS body
 - [x] Bateria de chaos tests em `crates/ai-radar-core/tests/chaos.rs` (slice):
   - [x] RSS source retorna 500 → outras OK _( `parallel_rss_collect.rs` )_
   - [x] LLM timeout → [`LlmError::Timeout`] sem panic _(unit em `chaos.rs`)_
   - [ ] Postgres derruba conexão → erro claro, sem panic
   - [x] Conteúdo >200KB → rejected, métrica incrementada _(RSS + `ai_radar_entries_rejected_total`)_
-  - [ ] Múltiplos collects paralelos → zero duplicatas
+  - [x] Múltiplos collects paralelos → zero duplicatas _(idempotência `ON CONFLICT` + teste Postgres `idempotent_insert`)_
 - [x] Documentar "Failure modes" no README (quais falhas são esperadas, como debugar) _(secção curta + métricas)_
 
 ## DoD

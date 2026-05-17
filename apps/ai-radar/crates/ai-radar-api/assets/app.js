@@ -556,6 +556,39 @@ async function renderItem(id) {
     ? `<a href="${escapeHtml(raw.url)}" target="_blank" rel="noopener" class="item-source-link">Abrir fonte original</a>`
     : "";
 
+
+  const feedbackTypes = [
+    "useful",
+    "irrelevant",
+    "duplicate",
+    "low_quality",
+    "wrong_category",
+    "adopted",
+    "tested",
+    "monitoring",
+    "rejected",
+  ];
+  const feedbackHistory =
+    data.feedbacks && data.feedbacks.length
+      ? `<ul class="item-feedback-history">${data.feedbacks
+          .map(
+            (f) =>
+              `<li><strong>${escapeHtml(f.feedback_type)}</strong>${f.notes ? ` — ${escapeHtml(f.notes)}` : ""} <span class="muted">${fmtDate(f.created_at)}</span></li>`,
+          )
+          .join("")}</ul>`
+      : `<p class="muted">Nenhum feedback ainda.</p>`;
+  const feedbackForm = `<form class="item-feedback-form" id="feedback-form">
+    <label class="filter-row">Tipo
+      <select id="feedback-type" required>${feedbackTypes
+        .map((t) => `<option value="${t}">${t}</option>`)
+        .join("")}</select>
+    </label>
+    <label class="filter-row">Notas
+      <textarea id="feedback-notes" rows="2" placeholder="opcional"></textarea>
+    </label>
+    <button type="submit" class="btn">Enviar feedback</button>
+  </form>`;
+
   $app.innerHTML = `<div class="item-detail">
     <p class="item-back"><a href="#/items">← Voltar</a></p>
     <header class="item-hero">
@@ -579,12 +612,33 @@ async function renderItem(id) {
         : `<p class="muted item-next-hint">Próximo passo padrão do motor — valide manualmente conforme a categoria.</p>`
     }
     ${itemSection("Origem", rawPreview)}
+    ${itemSection("Seu feedback", `${feedbackHistory}${feedbackForm}`)}
     <div class="actions">
       <button type="button" class="btn" id="reprocess-score">Re-score</button>
     </div>
     ${history}
     <p id="reprocess-status" class="muted" aria-live="polite"></p>
   </div>`;
+
+  document.getElementById("feedback-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const status = document.getElementById("reprocess-status");
+    const feedbackType = document.getElementById("feedback-type")?.value;
+    const notes = document.getElementById("feedback-notes")?.value?.trim() || null;
+    status.textContent = "Enviando feedback…";
+    status.className = "muted";
+    try {
+      await apiPost(`/items/${id}/feedback`, {
+        feedback_type: feedbackType,
+        notes,
+      });
+      status.textContent = "Feedback registrado.";
+      await renderItem(id);
+    } catch (err) {
+      status.textContent = err.message;
+      status.className = "error";
+    }
+  });
 
   document.getElementById("reprocess-score")?.addEventListener("click", async () => {
     const status = document.getElementById("reprocess-status");
