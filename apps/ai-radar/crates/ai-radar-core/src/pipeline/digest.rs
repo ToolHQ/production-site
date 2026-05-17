@@ -8,9 +8,15 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use uuid::Uuid;
 
+use crate::curation::source_health::SourceHealthTier;
 use crate::db::Database;
 use crate::domain::{Decision, DigestType, NewDigest};
-use crate::repos::{DigestRepository, PgDigestRepository};
+use crate::repos::{
+    DigestRepository, PgDigestRepository, PgSourceHealthRepository, SourceHealthRepository,
+};
+
+/// Max highlights per signals section in digest v2.
+const SIGNAL_SECTION_LIMIT: i64 = 8;
 
 /// A digest cadence requested by API/CLI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +71,45 @@ pub struct DigestData {
     pub ignore: Vec<DigestItem>,
 }
 
+/// Curated signal highlights for digest v2 (**T-241**).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct DigestSignals {
+    pub rising: Vec<SignalHighlight>,
+    pub adoption: Vec<SignalHighlight>,
+    pub sources_alert: Vec<SourceAlertLine>,
+    pub feedback_calibration_count: usize,
+}
+
+/// One row in trending / adoption sections.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SignalHighlight {
+    pub tool_name: String,
+    pub url: String,
+    pub category: Option<String>,
+    pub score: f32,
+    pub decision: Decision,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stars: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stars_delta_7d: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub velocity_tier: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stars_tier: Option<String>,
+}
+
+/// Noisy or degraded source summary for operators.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SourceAlertLine {
+    pub source_name: String,
+    pub tier: String,
+    pub raw_failed: i64,
+    pub raw_skipped: i64,
+    pub quality_warn: i64,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct DigestLimits {
     pub adopt: usize,
@@ -97,8 +142,9 @@ pub async fn run_digest(
     let now = Utc::now();
     let (period_start, period_end) = kind.window(now);
     let data = select(db, kind.as_digest_type(), period_start, period_end, limits).await?;
-    let markdown = render_markdown(&data);
-    let metadata = build_metadata(&data, limits);
+    let signals = select_signals(db, period_start, period_end).await?;
+    let markdown = render_markdown(&data, &signals);
+    let metadata = build_metadata(&data, limits, &signals);
 
     let digests = PgDigestRepository::new(db);
     let row = digests
@@ -210,10 +256,179 @@ pub async fn select(
     })
 }
 
+/// Load signal highlights for digest v2 sections.
+///
+/// # Errors
+///
+/// Returns errors from Postgres or source-health aggregation.
+pub async fn select_signals(
+    db: &Database,
+    period_start: DateTime<Utc>,
+    period_end: DateTime<Utc>,
+) -> anyhow::Result<DigestSignals> {
+    let rising = fetch_velocity_highlights(db, period_start, period_end, SIGNAL_SECTION_LIMIT).await?;
+    let adoption =
+        fetch_adoption_highlights(db, period_start, period_end, SIGNAL_SECTION_LIMIT).await?;
+    let feedback_calibration_count =
+        count_feedback_calibrated(db, period_start, period_end).await?;
+
+    let health_repo = PgSourceHealthRepository::new(db);
+    let sources_alert: Vec<SourceAlertLine> = health_repo
+        .list_all()
+        .await?
+        .into_iter()
+        .filter(|s| {
+            matches!(
+                s.tier,
+                SourceHealthTier::Noisy | SourceHealthTier::Degraded
+            )
+        })
+        .map(|s| SourceAlertLine {
+            source_name: s.source_name,
+            tier: s.tier.as_str().to_string(),
+            raw_failed: s.raw_failed,
+            raw_skipped: s.raw_skipped,
+            quality_warn: s.quality_warn,
+        })
+        .collect();
+
+    Ok(DigestSignals {
+        rising,
+        adoption,
+        sources_alert,
+        feedback_calibration_count,
+    })
+}
+
+async fn fetch_velocity_highlights(
+    db: &Database,
+    period_start: DateTime<Utc>,
+    period_end: DateTime<Utc>,
+    limit: i64,
+) -> anyhow::Result<Vec<SignalHighlight>> {
+    let sql = "\
+        SELECT \
+            s.score, s.decision, \
+            e.tool_name, e.category, \
+            r.url, r.title, r.tool_key, \
+            (e.metadata_json->'adoption'->>'stars')::bigint AS stars, \
+            (e.metadata_json->'adoption'->>'stars_delta_7d')::bigint AS stars_delta_7d, \
+            e.metadata_json->'adoption'->>'velocity_tier' AS velocity_tier, \
+            e.metadata_json->'adoption'->>'stars_tier' AS stars_tier \
+        FROM ai_radar.scores s \
+        JOIN ai_radar.extracted_items e ON e.id = s.extracted_item_id \
+        JOIN ai_radar.raw_items r ON r.id = e.raw_item_id \
+        WHERE s.created_at >= $1 AND s.created_at <= $2 \
+          AND e.metadata_json->'adoption'->>'velocity_tier' IN ('spike', 'growing') \
+        ORDER BY (e.metadata_json->'adoption'->>'stars_delta_7d')::bigint DESC NULLS LAST, \
+                 s.score DESC \
+        LIMIT $3";
+    fetch_signal_rows(db, sql, period_start, period_end, limit).await
+}
+
+async fn fetch_adoption_highlights(
+    db: &Database,
+    period_start: DateTime<Utc>,
+    period_end: DateTime<Utc>,
+    limit: i64,
+) -> anyhow::Result<Vec<SignalHighlight>> {
+    let sql = "\
+        SELECT \
+            s.score, s.decision, \
+            e.tool_name, e.category, \
+            r.url, r.title, r.tool_key, \
+            (e.metadata_json->'adoption'->>'stars')::bigint AS stars, \
+            (e.metadata_json->'adoption'->>'stars_delta_7d')::bigint AS stars_delta_7d, \
+            e.metadata_json->'adoption'->>'velocity_tier' AS velocity_tier, \
+            e.metadata_json->'adoption'->>'stars_tier' AS stars_tier \
+        FROM ai_radar.scores s \
+        JOIN ai_radar.extracted_items e ON e.id = s.extracted_item_id \
+        JOIN ai_radar.raw_items r ON r.id = e.raw_item_id \
+        WHERE s.created_at >= $1 AND s.created_at <= $2 \
+          AND e.metadata_json->'adoption'->>'stars_tier' IN ('popular', 'viral') \
+        ORDER BY (e.metadata_json->'adoption'->>'stars')::bigint DESC NULLS LAST, \
+                 s.score DESC \
+        LIMIT $3";
+    fetch_signal_rows(db, sql, period_start, period_end, limit).await
+}
+
+async fn fetch_signal_rows(
+    db: &Database,
+    sql: &str,
+    period_start: DateTime<Utc>,
+    period_end: DateTime<Utc>,
+    limit: i64,
+) -> anyhow::Result<Vec<SignalHighlight>> {
+    let rows = sqlx::query(sql)
+        .bind(period_start)
+        .bind(period_end)
+        .bind(limit)
+        .fetch_all(&db.pool)
+        .await?;
+
+    let mut out = Vec::with_capacity(rows.len());
+    for row in rows {
+        let decision_raw: String = row.try_get("decision")?;
+        let decision =
+            Decision::parse(&decision_raw).map_err(|v| anyhow::anyhow!("unknown decision {v}"))?;
+        let tool_name: Option<String> = row.try_get("tool_name")?;
+        let title: Option<String> = row.try_get("title")?;
+        let name = tool_name
+            .or(title)
+            .unwrap_or_else(|| "Sem título".into());
+        out.push(SignalHighlight {
+            tool_name: name,
+            url: row.try_get("url")?,
+            category: row.try_get("category")?,
+            score: row.try_get("score")?,
+            decision,
+            tool_key: row.try_get("tool_key")?,
+            stars: row.try_get("stars")?,
+            stars_delta_7d: row.try_get("stars_delta_7d")?,
+            velocity_tier: row.try_get("velocity_tier")?,
+            stars_tier: row.try_get("stars_tier")?,
+        });
+    }
+    Ok(out)
+}
+
+async fn count_feedback_calibrated(
+    db: &Database,
+    period_start: DateTime<Utc>,
+    period_end: DateTime<Utc>,
+) -> anyhow::Result<usize> {
+    let row: (i64,) = sqlx::query_as(
+        "\
+        SELECT COUNT(*)::bigint \
+        FROM ai_radar.scores \
+        WHERE created_at >= $1 AND created_at <= $2 \
+          AND COALESCE(metadata_json->>'feedback_calibration', 'false') = 'true'",
+    )
+    .bind(period_start)
+    .bind(period_end)
+    .fetch_one(&db.pool)
+    .await?;
+    Ok(row.0 as usize)
+}
+
 /// JSON metadata persisted with each digest (console reads `buckets`).
 #[must_use]
-pub fn build_metadata(data: &DigestData, limits: DigestLimits) -> serde_json::Value {
+pub fn build_metadata(
+    data: &DigestData,
+    limits: DigestLimits,
+    signals: &DigestSignals,
+) -> serde_json::Value {
     let total = data.adopt.len() + data.test.len() + data.monitor.len() + data.ignore.len();
+    let rising_tool_keys: Vec<&str> = signals
+        .rising
+        .iter()
+        .filter_map(|h| h.tool_key.as_deref())
+        .collect();
+    let noisy_source_ids: Vec<String> = signals
+        .sources_alert
+        .iter()
+        .map(|s| s.source_name.clone())
+        .collect();
     serde_json::json!({
         "generator": "digest-v2",
         "limits": {
@@ -229,6 +444,17 @@ pub fn build_metadata(data: &DigestData, limits: DigestLimits) -> serde_json::Va
             "monitor": data.monitor.len(),
             "ignore": data.ignore.len(),
         },
+        "signals_summary": {
+            "rising": signals.rising.len(),
+            "adoption": signals.adoption.len(),
+            "sources_alert": signals.sources_alert.len(),
+            "feedback_calibration_count": signals.feedback_calibration_count,
+        },
+        "rising_tool_keys": rising_tool_keys,
+        "noisy_source_ids": noisy_source_ids,
+        "rising_stars": signals.rising,
+        "trending_adoption": signals.adoption,
+        "sources_alert": signals.sources_alert,
         "buckets": {
             "adopt": data.adopt,
             "test": data.test,
@@ -240,7 +466,7 @@ pub fn build_metadata(data: &DigestData, limits: DigestLimits) -> serde_json::Va
 
 /// Render a digest as Markdown (export, e-mail, fallback UI).
 #[must_use]
-pub fn render_markdown(data: &DigestData) -> String {
+pub fn render_markdown(data: &DigestData, signals: &DigestSignals) -> String {
     let mut out = String::new();
     out.push_str(&format!(
         "# AI Radar Digest — {}\n\n",
@@ -253,6 +479,7 @@ pub fn render_markdown(data: &DigestData) -> String {
         digest_type_label_pt(data.digest_type)
     ));
     render_executive_summary(&mut out, data);
+    render_signals_sections(&mut out, signals);
 
     render_section(&mut out, "✅ Adotar", &data.adopt);
     render_section(&mut out, "🔥 Testar", &data.test);
@@ -268,6 +495,116 @@ fn digest_type_label_pt(t: DigestType) -> &'static str {
         DigestType::Weekly => "semanal",
         DigestType::Monthly => "mensal",
         DigestType::Custom => "personalizado",
+    }
+}
+
+fn render_signals_sections(out: &mut String, signals: &DigestSignals) {
+    render_signal_highlights(out, "## Em ascensão", &signals.rising, true);
+    render_signal_highlights(out, "## Destaques de adoção", &signals.adoption, false);
+    render_sources_alert(out, &signals.sources_alert);
+    if signals.feedback_calibration_count > 0 {
+        out.push_str(&format!(
+            "## Calibração por feedback\n\n\
+             **{}** score(s) ajustado(s) com base em labels humanos nesta janela.\n\n",
+            signals.feedback_calibration_count
+        ));
+    }
+}
+
+fn render_signal_highlights(
+    out: &mut String,
+    title: &str,
+    items: &[SignalHighlight],
+    show_velocity: bool,
+) {
+    out.push_str(&format!("{title}\n\n"));
+    if items.is_empty() {
+        out.push_str("_Nenhum destaque nesta janela._\n\n");
+        return;
+    }
+    for (idx, it) in items.iter().enumerate() {
+        out.push_str(&format!(
+            "{}. **{}** — score {:.0}/100 ({})",
+            idx + 1,
+            it.tool_name,
+            it.score * 100.0,
+            decision_label_pt(it.decision)
+        ));
+        if let Some(cat) = &it.category {
+            out.push_str(&format!(" · {cat}"));
+        }
+        out.push('\n');
+        if let Some(stars) = it.stars {
+            out.push_str(&format!("   - ⭐ {stars} stars"));
+            if let Some(delta) = it.stars_delta_7d {
+                out.push_str(&format!(" (Δ7d {delta:+})"));
+            }
+            out.push('\n');
+        }
+        if show_velocity {
+            if let Some(v) = &it.velocity_tier {
+                out.push_str(&format!(
+                    "   - Tendência: {}\n",
+                    velocity_label_pt(v)
+                ));
+            }
+        } else if let Some(t) = &it.stars_tier {
+            out.push_str(&format!(
+                "   - Faixa: {}\n",
+                stars_tier_label_pt(t)
+            ));
+        }
+        out.push_str(&format!("   - {}\n", it.url));
+    }
+    out.push('\n');
+}
+
+fn render_sources_alert(out: &mut String, alerts: &[SourceAlertLine]) {
+    out.push_str("## Fontes (saúde)\n\n");
+    if alerts.is_empty() {
+        out.push_str("_Todas as fontes monitoradas estão saudáveis ou sem amostra suficiente._\n\n");
+        return;
+    }
+    out.push_str("⚠️ Fontes com ruído ou degradação — revisar antes de confiar no ranking:\n\n");
+    for a in alerts {
+        out.push_str(&format!(
+            "- **{}** ({}) — falhas collect: {}, skips: {}, avisos qualidade: {}\n",
+            a.source_name,
+            source_health_label_pt(&a.tier),
+            a.raw_failed,
+            a.raw_skipped,
+            a.quality_warn
+        ));
+    }
+    out.push('\n');
+}
+
+fn velocity_label_pt(tier: &str) -> &'static str {
+    match tier {
+        "spike" => "pico (spike)",
+        "growing" => "em crescimento",
+        "flat" => "estável",
+        "declining" => "em queda",
+        _ => "desconhecida",
+    }
+}
+
+fn stars_tier_label_pt(tier: &str) -> String {
+    match tier {
+        "viral" => "viral (10k+ stars)".into(),
+        "popular" => "popular (1k+ stars)".into(),
+        "growing" => "crescendo".into(),
+        "niche" => "nicho".into(),
+        other => other.to_string(),
+    }
+}
+
+fn source_health_label_pt(tier: &str) -> String {
+    match tier {
+        "noisy" => "ruidosa".into(),
+        "degraded" => "degradada".into(),
+        "healthy" => "saudável".into(),
+        other => other.to_string(),
     }
 }
 
@@ -454,6 +791,10 @@ static RULE_LABELS_PT: &[(&str, &str)] = &[
     ("experimental", "Maturidade experimental"),
     ("hype", "Texto promocional sem profundidade"),
     ("missing_license", "Licença não informada"),
+    ("velocity_spike", "Popularidade em forte alta (7d)"),
+    ("velocity_stale", "Popularidade estagnada ou em queda"),
+    ("source_noisy", "Fonte com alto ruído / falhas"),
+    ("source_degraded", "Fonte degradada (erros de collect)"),
 ];
 
 fn json_string_list(v: serde_json::Value) -> Vec<String> {
@@ -490,10 +831,58 @@ mod tests {
             monitor: vec![],
             ignore: vec![],
         };
-        let md = render_markdown(&data);
+        let signals = DigestSignals::default();
+        let md = render_markdown(&data, &signals);
         assert!(md.contains("# AI Radar Digest — 2026-05-08"));
+        assert!(md.contains("## Em ascensão"));
         assert!(md.contains("## 🔥 Testar"));
         assert!(md.contains("_Sem itens nesta janela._"));
+    }
+
+    #[test]
+    fn render_signals_sections_with_highlights() {
+        let data = DigestData {
+            digest_type: DigestType::Weekly,
+            period_start: Utc.with_ymd_and_hms(2026, 5, 1, 0, 0, 0).unwrap(),
+            period_end: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
+            adopt: vec![],
+            test: vec![],
+            monitor: vec![],
+            ignore: vec![],
+        };
+        let signals = DigestSignals {
+            rising: vec![SignalHighlight {
+                tool_name: "CoolTool".into(),
+                url: "https://github.com/x/cool".into(),
+                category: Some("agents".into()),
+                score: 0.82,
+                decision: Decision::Test,
+                tool_key: Some("github:x/cool".into()),
+                stars: Some(12_000),
+                stars_delta_7d: Some(500),
+                velocity_tier: Some("spike".into()),
+                stars_tier: Some("viral".into()),
+            }],
+            adoption: vec![],
+            sources_alert: vec![SourceAlertLine {
+                source_name: "lobsters-ai".into(),
+                tier: "noisy".into(),
+                raw_failed: 2,
+                raw_skipped: 40,
+                quality_warn: 5,
+            }],
+            feedback_calibration_count: 3,
+        };
+        let md = render_markdown(&data, &signals);
+        assert!(md.contains("CoolTool"));
+        assert!(md.contains("pico (spike)"));
+        assert!(md.contains("lobsters-ai"));
+        assert!(md.contains("**3** score(s) ajustado(s)"));
+
+        let meta = build_metadata(&data, DigestLimits::default(), &signals);
+        assert_eq!(meta["generator"], "digest-v2");
+        assert_eq!(meta["rising_tool_keys"][0], "github:x/cool");
+        assert_eq!(meta["signals_summary"]["feedback_calibration_count"], 3);
     }
 
     #[test]
