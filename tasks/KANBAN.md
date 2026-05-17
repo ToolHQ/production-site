@@ -10,7 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-
+|        [T-231](2026/Q2/T-231-AI-Radar-Entity-Resolution-Cross-Source-Dedup.md)        | **AI Radar — Entity Resolution & Cross-Source Dedup** | 🔼 High | **Cursor / AI Radar** | 1d |
 
 ## 🔥 Blocker (Deploy back-end travado)
 

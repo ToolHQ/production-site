@@ -6,7 +6,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
-use ai_radar_core::repos::FeedbackRepository;
+use ai_radar_core::repos::{FeedbackRepository, RawItemRepository};
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -31,8 +31,38 @@ pub struct DivergenceListResponse {
     pub offset: i64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct DuplicateClusterResponse {
+    pub clusters: Vec<ai_radar_core::repos::DuplicateCluster>,
+    pub count: usize,
+    pub limit: i64,
+}
+
 pub fn router() -> Router<AppState> {
-    Router::new().route("/reports/divergence", get(list_divergence))
+    Router::new()
+        .route("/reports/divergence", get(list_divergence))
+        .route("/reports/duplicates", get(list_duplicates))
+}
+
+async fn list_duplicates(
+    State(state): State<AppState>,
+    Query(q): Query<DivergenceQuery>,
+) -> Result<(StatusCode, Json<DuplicateClusterResponse>), ApiError> {
+    let limit = q.limit.clamp(1, 100);
+    let clusters = state
+        .raw_items
+        .list_duplicate_clusters(limit)
+        .await
+        .map_err(ApiError::from)?;
+
+    Ok((
+        StatusCode::OK,
+        Json(DuplicateClusterResponse {
+            count: clusters.len(),
+            limit,
+            clusters,
+        }),
+    ))
 }
 
 async fn list_divergence(
