@@ -1205,26 +1205,107 @@ function sourceHealthBadge(tier) {
   return `<span class="badge badge-health badge-health-${escapeHtml(tier)}">${escapeHtml(label)}</span>`;
 }
 
+function parseSemanticDupThreshold() {
+  const raw = new URLSearchParams(location.search).get("threshold");
+  const n = raw != null ? Number.parseFloat(raw) : 0.92;
+  if (Number.isNaN(n)) {
+    return 0.92;
+  }
+  return Math.min(0.999, Math.max(0.5, n));
+}
+
+function bindSemanticDupControls(onApply) {
+  const form = document.getElementById("semantic-dup-form");
+  const range = document.getElementById("semantic-dup-threshold");
+  const out = document.getElementById("semantic-dup-threshold-out");
+  if (!form || !range || !out) {
+    return;
+  }
+  range.addEventListener("input", () => {
+    out.textContent = `${range.value}%`;
+  });
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const thr = Number(range.value) / 100;
+    const qs = new URLSearchParams(location.search);
+    qs.set("threshold", String(thr));
+    location.search = `?${qs}`;
+    onApply(thr);
+  });
+}
+
 async function renderReportsSemanticDuplicates() {
   setNav("#/reports/semantic-duplicates");
-  const data = await apiJson("/reports/semantic-duplicates?threshold=0.92&limit=50");
-  const rows = (data.pairs || [])
-    .map(
-      (p) => `<tr>
-        <td><a href="#/items/${p.extracted_item_id_a}">${escapeHtml(p.tool_name_a || p.extracted_item_id_a)}</a></td>
-        <td><a href="#/items/${p.extracted_item_id_b}">${escapeHtml(p.tool_name_b || p.extracted_item_id_b)}</a></td>
-        <td><span class="badge badge-similarity">${similarityPct(p.similarity)}</span></td>
-        <td class="muted">${escapeHtml(p.category_a || "—")} / ${escapeHtml(p.category_b || "—")}</td>
-      </tr>`,
-    )
-    .join("");
-  $app.innerHTML = `<header class="explorer-header">
-    <h1 class="section-title">Duplicatas semânticas</h1>
-    <p class="muted">${data.count} pares · threshold ${Math.round((data.threshold || 0.92) * 100)}% · ${data.scanned ?? 0} embeddings analisados</p>
-    <p class="muted">Relatório operacional — não altera o pipeline. <a href="#/reports/duplicates">Duplicatas URL</a></p>
-  </header>
-  <div class="table-wrap"><table><thead><tr><th>Item A</th><th>Item B</th><th>Similaridade</th><th>Categorias</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="4" class="muted">Nenhum par acima do threshold (rode o batch de embed).</td></tr>'}</tbody></table></div>`;
+  const threshold = parseSemanticDupThreshold();
+
+  const load = async (thr) => {
+  const data = await apiJson(
+    `/reports/semantic-duplicates?threshold=${encodeURIComponent(thr)}&limit=50`,
+  );
+    const scanned = data.scanned ?? 0;
+    const thrPct = Math.round((data.threshold ?? thr) * 100);
+    const controls = `<form class="semantic-dup-controls" id="semantic-dup-form">
+      <label class="semantic-dup-threshold-label">Threshold de similaridade
+        <span class="semantic-dup-threshold-row">
+          <input type="range" id="semantic-dup-threshold" min="50" max="99" value="${thrPct}" />
+          <output id="semantic-dup-threshold-out">${thrPct}%</output>
+        </span>
+      </label>
+      <button type="submit" class="btn btn-ghost">Atualizar relatório</button>
+    </form>`;
+
+    let emptyBlock = "";
+    if (scanned < 10) {
+      emptyBlock = `<div class="search-empty-hint">
+        Apenas <strong>${fmtNum(scanned)}</strong> embeddings no pool (mínimo ~10 para análise útil).
+        Veja cobertura na <a href="#/">home</a> e rode o backfill de embed (CronJob <code>ai-radar-embed</code> ou README § Embedding backfill).
+      </div>`;
+    } else if (!data.pairs?.length) {
+      emptyBlock = `<p class="muted search-empty">Nenhum par acima de ${thrPct}% entre ${fmtNum(scanned)} embeddings. Baixe o threshold ou aguarde mais itens embedados.</p>`;
+    }
+
+    const rows = (data.pairs || [])
+      .map((p) => {
+        const nameA = p.tool_name_a || p.extracted_item_id_a;
+        const nameB = p.tool_name_b || p.extracted_item_id_b;
+        return `<tr>
+          <td><span class="badge badge-similarity">${similarityPct(p.similarity)}</span></td>
+          <td><a href="#/items/${p.extracted_item_id_a}">${escapeHtml(nameA)}</a></td>
+          <td>${scorePct(p.score_a ?? 0)}</td>
+          <td class="muted">${escapeHtml(p.category_a || "—")}</td>
+          <td><a href="#/items/${p.extracted_item_id_b}">${escapeHtml(nameB)}</a></td>
+          <td>${scorePct(p.score_b ?? 0)}</td>
+          <td class="muted">${escapeHtml(p.category_b || "—")}</td>
+          <td class="semantic-dup-actions">
+            <a class="btn btn-ghost btn-sm" href="#/items/${p.extracted_item_id_a}">A</a>
+            <a class="btn btn-ghost btn-sm" href="#/items/${p.extracted_item_id_b}">B</a>
+          </td>
+        </tr>`;
+      })
+      .join("");
+
+    const table =
+      data.pairs?.length > 0
+        ? `<div class="table-wrap"><table class="explorer-table semantic-dup-table">
+        <thead><tr>
+          <th>Sim.</th><th>Item A</th><th>Score A</th><th>Cat. A</th>
+          <th>Item B</th><th>Score B</th><th>Cat. B</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+        : "";
+
+    $app.innerHTML = `<header class="explorer-header">
+      <h1 class="section-title">Duplicatas semânticas</h1>
+      <p class="muted">${data.count} pares · ${fmtNum(scanned)} embeddings analisados · somente leitura</p>
+      <p class="muted"><a href="#/reports/duplicates">Duplicatas URL (tool_key)</a> · revisão manual, sem auto-merge</p>
+    </header>
+    ${controls}
+    ${emptyBlock}
+    ${table}`;
+    bindSemanticDupControls(load);
+  };
+
+  await load(threshold);
 }
 
 async function renderReportsDuplicates() {

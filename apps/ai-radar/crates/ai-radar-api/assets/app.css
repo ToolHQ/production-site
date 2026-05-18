@@ -1109,6 +1109,62 @@ tr:hover td {
   line-height: 1.45;
 }
 
+.semantic-dup-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1.25rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-elevated, rgba(30, 41, 59, 0.5));
+}
+
+.semantic-dup-threshold-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  min-width: min(100%, 280px);
+}
+
+.semantic-dup-threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.semantic-dup-threshold-row input[type="range"] {
+  flex: 1;
+  min-width: 120px;
+}
+
+.semantic-dup-threshold-row output {
+  font-variant-numeric: tabular-nums;
+  min-width: 3ch;
+  font-weight: 600;
+}
+
+.semantic-dup-table th,
+.semantic-dup-table td {
+  vertical-align: middle;
+}
+
+.semantic-dup-actions {
+  white-space: nowrap;
+}
+
+.semantic-dup-actions .btn-sm {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.8rem;
+  margin-right: 0.25rem;
+}
+
+.search-empty {
+  margin: 0.5rem 0 1rem;
+}
+
 .signal-cell {
   white-space: nowrap;
 }
