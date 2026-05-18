@@ -1,6 +1,6 @@
 # T-249: AI Radar — Semantic Search API
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
