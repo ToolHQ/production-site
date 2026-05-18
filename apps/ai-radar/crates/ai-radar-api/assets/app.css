@@ -1036,6 +1036,32 @@ tr:hover td {
   margin-right: 0.35rem;
 }
 
+.filter-row--search {
+  flex: 1 1 100%;
+  min-width: min(100%, 20rem);
+}
+
+.filter-row--search input[type="search"] {
+  width: 100%;
+  max-width: 36rem;
+  margin-top: 0.25rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.badge-similarity {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-mode-hint {
+  margin: 0.5rem 0 1rem;
+}
+
 .signal-cell {
   white-space: nowrap;
 }

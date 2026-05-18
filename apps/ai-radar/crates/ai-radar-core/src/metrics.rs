@@ -93,6 +93,10 @@ pub fn describe_metrics() {
         "ai_radar_embeddings_total",
         "embedding pipeline outcomes by status (T-248)"
     );
+    describe_counter!(
+        "ai_radar_search_total",
+        "search requests by mode semantic or lexical (T-249)"
+    );
 }
 
 /// Refresh gauge from DB count (call from `/metrics` before render).
@@ -147,6 +151,15 @@ pub fn record_score_pass(scored: u64, failed: u64, elapsed: Duration) {
         counter!("ai_radar_errors_total", "stage" => "score").increment(failed);
     }
     histogram!("ai_radar_stage_duration_seconds", "stage" => "score").record(elapsed.as_secs_f64());
+}
+
+/// One search request (`semantic` or `lexical`).
+pub fn record_search(mode: &str) {
+    counter!(
+        "ai_radar_search_total",
+        "mode" => mode.to_string()
+    )
+    .increment(1);
 }
 
 /// One embedding attempt (`success`, `failed`, `skipped`).

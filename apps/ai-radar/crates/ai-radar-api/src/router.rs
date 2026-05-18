@@ -43,6 +43,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::digest::router())
         .merge(routes::digests::router())
         .merge(routes::reports::router())
+        .merge(routes::search::router())
         .with_state(state);
 
     Router::new()

@@ -218,6 +218,13 @@ function scorePct(score) {
   return `${Math.round(Number(score) * 100)}%`;
 }
 
+function similarityPct(sim) {
+  if (sim == null || Number.isNaN(Number(sim))) return "—";
+  return `${Math.round(Number(sim) * 100)}%`;
+}
+
+let semanticSearchTimer = null;
+
 const RULE_LABELS_PT = {
   problem_filled: "Problema e caso de uso claros",
   self_hosted: "Compatível com self-host no cluster",
@@ -656,6 +663,7 @@ function explorerSearchFromForm() {
     document.getElementById("source-health-filter")?.value || "";
   const sort = document.getElementById("sort-filter")?.value || "score_desc";
   const qualityWarn = document.getElementById("quality-warn-filter")?.checked;
+  const semanticQ = document.getElementById("semantic-search")?.value?.trim() || "";
   const qs = new URLSearchParams();
   if (decision) qs.set("decision", decision);
   if (starsTier) qs.set("stars_tier", starsTier);
@@ -663,6 +671,7 @@ function explorerSearchFromForm() {
   if (sourceHealthTier) qs.set("source_health_tier", sourceHealthTier);
   if (sort && sort !== "score_desc") qs.set("sort", sort);
   if (qualityWarn) qs.set("quality_warn", "1");
+  if (semanticQ) qs.set("q", semanticQ);
   location.search = qs.toString() ? `?${qs}` : "";
   render();
 }
@@ -678,25 +687,38 @@ function bindExplorerFilters() {
   ]) {
     document.getElementById(id)?.addEventListener("change", explorerSearchFromForm);
   }
+  const searchEl = document.getElementById("semantic-search");
+  if (searchEl) {
+    searchEl.addEventListener("input", () => {
+      clearTimeout(semanticSearchTimer);
+      semanticSearchTimer = setTimeout(explorerSearchFromForm, 400);
+    });
+    searchEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        clearTimeout(semanticSearchTimer);
+        explorerSearchFromForm();
+      }
+    });
+  }
 }
 
-async function renderItems() {
-  setNav("#/items");
-  const params = new URLSearchParams(location.search);
-  const decision = params.get("decision") || "";
-  const starsTier = params.get("stars_tier") || "";
-  const velocityTier = params.get("velocity_tier") || "";
-  const sourceHealthTier = params.get("source_health_tier") || "";
-  const sort = params.get("sort") || "score_desc";
-  const qualityWarn = params.get("quality_warn") === "1";
-  const qs = new URLSearchParams({ limit: "50", sort });
-  if (decision) qs.set("decision", decision);
-  if (starsTier) qs.set("stars_tier", starsTier);
-  if (velocityTier) qs.set("velocity_tier", velocityTier);
-  if (sourceHealthTier) qs.set("source_health_tier", sourceHealthTier);
-  if (qualityWarn) qs.set("quality_warn", "true");
+function explorerSemanticSearchBar(query) {
+  return `<label class="filter-row filter-row--search">Busca semântica
+    <input type="search" id="semantic-search" placeholder="Ex.: agente de código self-hosted no cluster…" value="${escapeHtml(query)}" autocomplete="off" />
+  </label>`;
+}
 
-  const data = await apiJson(`/items?${qs}`);
+function explorerFilterControls({
+  decision,
+  starsTier,
+  velocityTier,
+  sourceHealthTier,
+  sort,
+  qualityWarn,
+  semanticQ,
+  filtersDisabled = false,
+}) {
+  const disabled = filtersDisabled ? " disabled" : "";
   const decisionOpts = ["", "adopt", "test", "monitor", "ignore"]
     .map(
       (d) =>
@@ -731,20 +753,108 @@ async function renderItems() {
         `<option value="${v}" ${v === sort ? "selected" : ""}>${label}</option>`,
     )
     .join("");
-  const filters = `<div class="explorer-filters">
-    <label class="filter-row">Decisão <select id="decision-filter">${decisionOpts}</select></label>
-    <label class="filter-row">Stars tier <select id="stars-tier-filter">${tierOpts}</select></label>
-    <label class="filter-row">Tendência <select id="velocity-tier-filter">${velocityOpts}</select></label>
-    <label class="filter-row">Saúde fonte <select id="source-health-filter">${healthOpts}</select></label>
-    <label class="filter-row">Ordenar <select id="sort-filter">${sortOpts}</select></label>
-    <label class="filter-row filter-row--check"><input type="checkbox" id="quality-warn-filter" ${qualityWarn ? "checked" : ""} /> Só quality warn</label>
+  return `<div class="explorer-filters">
+    ${explorerSemanticSearchBar(semanticQ)}
+    <label class="filter-row">Decisão <select id="decision-filter"${disabled}>${decisionOpts}</select></label>
+    <label class="filter-row">Stars tier <select id="stars-tier-filter"${disabled}>${tierOpts}</select></label>
+    <label class="filter-row">Tendência <select id="velocity-tier-filter"${disabled}>${velocityOpts}</select></label>
+    <label class="filter-row">Saúde fonte <select id="source-health-filter"${disabled}>${healthOpts}</select></label>
+    <label class="filter-row">Ordenar <select id="sort-filter"${disabled}>${sortOpts}</select></label>
+    <label class="filter-row filter-row--check"><input type="checkbox" id="quality-warn-filter" ${qualityWarn ? "checked" : ""}${disabled} /> Só quality warn</label>
   </div>`;
+}
+
+async function renderItems() {
+  setNav("#/items");
+  const params = new URLSearchParams(location.search);
+  const decision = params.get("decision") || "";
+  const starsTier = params.get("stars_tier") || "";
+  const velocityTier = params.get("velocity_tier") || "";
+  const sourceHealthTier = params.get("source_health_tier") || "";
+  const sort = params.get("sort") || "score_desc";
+  const qualityWarn = params.get("quality_warn") === "1";
+  const semanticQ = (params.get("q") || "").trim();
+
+  const filterArgs = {
+    decision,
+    starsTier,
+    velocityTier,
+    sourceHealthTier,
+    sort,
+    qualityWarn,
+    semanticQ,
+  };
+  const filters = explorerFilterControls({
+    ...filterArgs,
+    filtersDisabled: Boolean(semanticQ),
+  });
+
+  const header = `<header class="explorer-header">
+    <h1 class="section-title">Explorer</h1>
+    <p class="muted">Ferramentas scored com sinais de adoção e decisão.</p>
+  </header>`;
+
+  if (semanticQ) {
+    const searchQs = new URLSearchParams({ q: semanticQ, limit: "50" });
+    const searchRes = await apiJson(`/search?${searchQs}`);
+    const modeLabel =
+      searchRes.mode === "semantic"
+        ? "Busca semântica (embeddings)"
+        : "Busca lexical — embeddings desabilitados ou indisponíveis";
+    const modeHint =
+      searchRes.mode === "lexical"
+        ? `<p class="search-mode-hint muted">Modo lexical: ative <code>EMBEDDINGS_ENABLED</code> e rode o pipeline de embed para busca vetorial.</p>`
+        : "";
+
+    if (!searchRes.items || searchRes.items.length === 0) {
+      $app.innerHTML = `${header}
+        ${filters}
+        <p class="muted search-empty">Nenhum resultado para “${escapeHtml(searchRes.query || semanticQ)}”.</p>
+        <p class="muted">${escapeHtml(modeLabel)}</p>
+        ${modeHint}`;
+      bindExplorerFilters();
+      return;
+    }
+
+    const rows = searchRes.items
+      .map((hit) => {
+        const it = hit.item || hit;
+        const sim = hit.similarity;
+        const name = it.tool_name || it.summary?.slice(0, 48) || it.extracted_item_id;
+        return `<tr>
+          <td><span class="badge badge-similarity" title="similaridade">${similarityPct(sim)}</span></td>
+          <td>${decisionBadge(it.decision)}</td>
+          <td>${scorePct(it.score)}</td>
+          <td class="signal-cell">${signalBadges(it.adoption, it.quality_warn)}</td>
+          <td>${escapeHtml(it.category || "—")}</td>
+          <td><a href="#/items/${it.extracted_item_id}">${escapeHtml(name)}</a></td>
+        </tr>`;
+      })
+      .join("");
+
+    $app.innerHTML = `${header}
+      ${filters}
+      <p class="muted">${searchRes.count} resultado(s) · ${escapeHtml(modeLabel)}</p>
+      ${modeHint}
+      <div class="table-wrap"><table class="explorer-table">
+        <thead><tr><th>Match</th><th>Decisão</th><th>Score</th><th>Sinais</th><th>Categoria</th><th>Ferramenta</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+    bindExplorerFilters();
+    return;
+  }
+
+  const qs = new URLSearchParams({ limit: "50", sort });
+  if (decision) qs.set("decision", decision);
+  if (starsTier) qs.set("stars_tier", starsTier);
+  if (velocityTier) qs.set("velocity_tier", velocityTier);
+  if (sourceHealthTier) qs.set("source_health_tier", sourceHealthTier);
+  if (qualityWarn) qs.set("quality_warn", "true");
+
+  const data = await apiJson(`/items?${qs}`);
 
   if (!data.items || data.items.length === 0) {
-    $app.innerHTML = `<header class="explorer-header">
-      <h1 class="section-title">Explorer</h1>
-      <p class="muted">Ferramentas scored com sinais de adoção e decisão.</p>
-    </header>
+    $app.innerHTML = `${header}
     ${filters}
     <p class="muted">Nenhum item com esses filtros.</p>`;
     bindExplorerFilters();
@@ -765,10 +875,8 @@ async function renderItems() {
     })
     .join("");
 
-  $app.innerHTML = `<header class="explorer-header">
-      <h1 class="section-title">Explorer</h1>
-      <p class="muted">${data.count} de ${data.total} itens scored</p>
-    </header>
+  $app.innerHTML = `${header}
+    <p class="muted">${data.count} de ${data.total} itens scored</p>
     ${filters}
     <div class="table-wrap"><table class="explorer-table">
       <thead><tr><th>Decisão</th><th>Score</th><th>Sinais</th><th>Categoria</th><th>Ferramenta</th><th>Scored em</th></tr></thead>

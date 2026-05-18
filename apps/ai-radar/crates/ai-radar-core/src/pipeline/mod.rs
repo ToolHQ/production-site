@@ -7,3 +7,4 @@ pub mod embed;
 pub mod extract;
 pub mod reprocess;
 pub mod score;
+pub mod search;

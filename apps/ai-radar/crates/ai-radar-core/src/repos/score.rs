@@ -49,6 +49,20 @@ pub trait ScoreRepository: Send + Sync {
 
     /// Full score history for one extracted item, newest first.
     async fn list_for_extracted_item(&self, extracted_item_id: Uuid) -> RepoResult<Vec<Score>>;
+
+    /// Latest scored row summaries for the given extracted item ids (**T-249**).
+    async fn list_scored_summaries_by_ids(
+        &self,
+        extracted_item_ids: &[Uuid],
+    ) -> RepoResult<Vec<ScoredItemSummary>>;
+
+    /// Lexical fallback search on tool name / summary / category (**T-249**).
+    async fn search_lexical(
+        &self,
+        query: &str,
+        category: Option<&str>,
+        limit: i64,
+    ) -> RepoResult<Vec<ScoredItemSummary>>;
 }
 
 /// Sort order for [`ScoreRepository::list_scored_items`].
@@ -295,53 +309,142 @@ impl ScoreRepository for PgScoreRepository {
             .await
             .map_err(RepoError::from_sqlx)?;
 
-        rows.iter()
-            .map(|row| {
-                let raw_decision: String =
-                    row.try_get("decision").map_err(RepoError::from_sqlx)?;
-                let decision = Decision::parse(&raw_decision).map_err(|v| {
-                    RepoError::Validation(format!("unknown scores.decision '{v}'"))
-                })?;
-                let stars_tier: Option<String> = row.try_get("stars_tier").ok();
-                let activity_tier: Option<String> = row.try_get("activity_tier").ok();
-                let stars: Option<i64> = row.try_get("stars").ok();
-                let stars_delta_7d: Option<i64> = row.try_get("stars_delta_7d").ok();
-                let velocity_tier: Option<String> = row.try_get("velocity_tier").ok();
-                let adoption = if stars_tier.is_some()
-                    || activity_tier.is_some()
-                    || stars.is_some()
-                    || velocity_tier.is_some()
-                {
-                    Some(AdoptionSummary {
-                        stars_tier,
-                        activity_tier,
-                        stars,
-                        stars_delta_7d,
-                        velocity_tier,
-                    })
-                } else {
-                    None
-                };
-                let quality_warn: bool = row.try_get("quality_warn").unwrap_or(false);
-                Ok(ScoredItemSummary {
-                    extracted_item_id: row
-                        .try_get("extracted_item_id")
-                        .map_err(RepoError::from_sqlx)?,
-                    tool_name: row.try_get("tool_name").map_err(RepoError::from_sqlx)?,
-                    category: row.try_get("category").map_err(RepoError::from_sqlx)?,
-                    summary: row.try_get("summary").map_err(RepoError::from_sqlx)?,
-                    score: row.try_get("score").map_err(RepoError::from_sqlx)?,
-                    decision,
-                    scored_at: row.try_get("scored_at").map_err(RepoError::from_sqlx)?,
-                    extracted_at: row
-                        .try_get("extracted_at")
-                        .map_err(RepoError::from_sqlx)?,
-                    adoption,
-                    quality_warn: quality_warn.then_some(true),
-                })
-            })
-            .collect()
+        rows.iter().map(map_row_to_scored_summary).collect()
     }
+
+    async fn list_scored_summaries_by_ids(
+        &self,
+        extracted_item_ids: &[Uuid],
+    ) -> RepoResult<Vec<ScoredItemSummary>> {
+        if extracted_item_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let sql = format!(
+            "WITH latest_score AS ( \
+                 SELECT DISTINCT ON (extracted_item_id) \
+                     extracted_item_id, score, decision, created_at \
+                 FROM ai_radar.scores \
+                 ORDER BY extracted_item_id, created_at DESC \
+             ) \
+             SELECT \
+                 ei.id AS extracted_item_id, \
+                 ei.tool_name, \
+                 ei.category, \
+                 ei.summary, \
+                 ls.score, \
+                 ls.decision, \
+                 ls.created_at AS scored_at, \
+                 ei.created_at AS extracted_at, \
+                 ei.metadata_json->'adoption'->>'stars_tier' AS stars_tier, \
+                 ei.metadata_json->'adoption'->>'activity_tier' AS activity_tier, \
+                 (ei.metadata_json->'adoption'->>'stars')::bigint AS stars, \
+                 (ei.metadata_json->'adoption'->>'stars_delta_7d')::bigint AS stars_delta_7d, \
+                 ei.metadata_json->'adoption'->>'velocity_tier' AS velocity_tier, \
+                 COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) AS quality_warn \
+             FROM latest_score ls \
+             JOIN ai_radar.extracted_items ei ON ei.id = ls.extracted_item_id \
+             WHERE ei.id = ANY($1)"
+        );
+        let rows = sqlx::query(&sql)
+            .bind(extracted_item_ids)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RepoError::from_sqlx)?;
+        rows.iter().map(map_row_to_scored_summary).collect()
+    }
+
+    async fn search_lexical(
+        &self,
+        query: &str,
+        category: Option<&str>,
+        limit: i64,
+    ) -> RepoResult<Vec<ScoredItemSummary>> {
+        let limit = limit.clamp(1, 100);
+        let pattern = format!("%{}%", query.replace('%', ""));
+        let sql = format!(
+            "WITH latest_score AS ( \
+                 SELECT DISTINCT ON (extracted_item_id) \
+                     extracted_item_id, score, decision, created_at \
+                 FROM ai_radar.scores \
+                 ORDER BY extracted_item_id, created_at DESC \
+             ) \
+             SELECT \
+                 ei.id AS extracted_item_id, \
+                 ei.tool_name, \
+                 ei.category, \
+                 ei.summary, \
+                 ls.score, \
+                 ls.decision, \
+                 ls.created_at AS scored_at, \
+                 ei.created_at AS extracted_at, \
+                 ei.metadata_json->'adoption'->>'stars_tier' AS stars_tier, \
+                 ei.metadata_json->'adoption'->>'activity_tier' AS activity_tier, \
+                 (ei.metadata_json->'adoption'->>'stars')::bigint AS stars, \
+                 (ei.metadata_json->'adoption'->>'stars_delta_7d')::bigint AS stars_delta_7d, \
+                 ei.metadata_json->'adoption'->>'velocity_tier' AS velocity_tier, \
+                 COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) AS quality_warn \
+             FROM latest_score ls \
+             JOIN ai_radar.extracted_items ei ON ei.id = ls.extracted_item_id \
+             WHERE ($1::text IS NULL OR ei.category = $1) \
+               AND ( \
+                 ei.tool_name ILIKE $2 \
+                 OR ei.summary ILIKE $2 \
+                 OR ei.problem_solved ILIKE $2 \
+                 OR ei.category ILIKE $2 \
+               ) \
+             ORDER BY ls.score DESC, ls.created_at DESC \
+             LIMIT $3"
+        );
+        let rows = sqlx::query(&sql)
+            .bind(category)
+            .bind(&pattern)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RepoError::from_sqlx)?;
+        rows.iter().map(map_row_to_scored_summary).collect()
+    }
+}
+
+fn map_row_to_scored_summary(row: &sqlx::postgres::PgRow) -> RepoResult<ScoredItemSummary> {
+    let raw_decision: String = row.try_get("decision").map_err(RepoError::from_sqlx)?;
+    let decision =
+        Decision::parse(&raw_decision).map_err(|v| RepoError::Validation(format!("unknown scores.decision '{v}'")))?;
+    let stars_tier: Option<String> = row.try_get("stars_tier").ok();
+    let activity_tier: Option<String> = row.try_get("activity_tier").ok();
+    let stars: Option<i64> = row.try_get("stars").ok();
+    let stars_delta_7d: Option<i64> = row.try_get("stars_delta_7d").ok();
+    let velocity_tier: Option<String> = row.try_get("velocity_tier").ok();
+    let adoption = if stars_tier.is_some()
+        || activity_tier.is_some()
+        || stars.is_some()
+        || velocity_tier.is_some()
+    {
+        Some(AdoptionSummary {
+            stars_tier,
+            activity_tier,
+            stars,
+            stars_delta_7d,
+            velocity_tier,
+        })
+    } else {
+        None
+    };
+    let quality_warn: bool = row.try_get("quality_warn").unwrap_or(false);
+    Ok(ScoredItemSummary {
+        extracted_item_id: row
+            .try_get("extracted_item_id")
+            .map_err(RepoError::from_sqlx)?,
+        tool_name: row.try_get("tool_name").map_err(RepoError::from_sqlx)?,
+        category: row.try_get("category").map_err(RepoError::from_sqlx)?,
+        summary: row.try_get("summary").map_err(RepoError::from_sqlx)?,
+        score: row.try_get("score").map_err(RepoError::from_sqlx)?,
+        decision,
+        scored_at: row.try_get("scored_at").map_err(RepoError::from_sqlx)?,
+        extracted_at: row.try_get("extracted_at").map_err(RepoError::from_sqlx)?,
+        adoption,
+        quality_warn: quality_warn.then_some(true),
+    })
 }
 
 #[cfg(test)]
