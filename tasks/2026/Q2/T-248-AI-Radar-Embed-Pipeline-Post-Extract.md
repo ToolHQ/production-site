@@ -1,6 +1,6 @@
 # T-248: AI Radar — Embed Pipeline Post-Extract
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h

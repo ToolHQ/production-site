@@ -16,22 +16,22 @@
 
 | ID / Ref | Tarefa | Tipo |
 | :------- | :----- | :--- |
-| **T-247** | Embedding provider & schema (kick-off Fase 19) | feat |
+| — | _(aguardando próximo epic AI Radar)_ | — |
 
-## Fase 19 — Semântica leve (embeddings & busca)
+## Fase 19 — Semântica leve (embeddings & busca) ✅
 
 > **Tema:** embeddings self-hosted via gateway existente; busca semântica e related items; dedup semântico só como relatório.
 
 | # | ID | Tarefa | Prioridade | Status |
 | -: | :- | :----- | :--------- | :----- |
-| 1 | **T-247** | Embedding provider & schema | 🔼 High | Backlog |
-| 2 | **T-248** | Embed pipeline pós-extract | 🔼 High | Backlog |
-| 3 | **T-249** | Semantic search API | 🔼 High | Backlog |
-| 4 | **T-250** | Explorer search UI | 🔼 High | Backlog |
-| 5 | **T-251** | Related items no detalhe | 🔼 High | Backlog |
-| 6 | **T-252** | Relatório duplicate clusters semânticos | 🔽 Low | Backlog |
+| 1 | **T-247** | Embedding provider & schema | 🔼 High | ✅ PR #231 |
+| 2 | **T-248** | Embed pipeline pós-extract | 🔼 High | ✅ PR #235 |
+| 3 | **T-249** | Semantic search API | 🔼 High | ✅ PR #236 |
+| 4 | **T-250** | Explorer search UI | 🔼 High | ✅ PR #236 |
+| 5 | **T-251** | Related items no detalhe | 🔼 High | ✅ PR #237 |
+| 6 | **T-252** | Relatório duplicate clusters semânticos | 🔽 Low | ✅ PR #237 |
 
-**Ordem:** T-247 → T-248 → T-249 → T-250 → T-251 → T-252.
+**Ordem:** T-247 → T-248 → T-249 → T-250 → T-251 → T-252 — **concluída**.
 
 **Flags:** `EMBEDDINGS_ENABLED` default `false`; sem pgvector obrigatório no MVP.
 
@@ -49,11 +49,13 @@ T-232, T-231, T-233, T-234, T-235, T-238, T-237, T-236, T-168, T-167 — todas �
 
 - [x] Fase 18 deploy tag `1779057613`
 - [x] Console https://ai-radar.dnor.io/ (Explorer, relatórios, digests v2)
+- [ ] Fase 19 deploy pós-PR #237 (search, related, semantic-duplicates)
 
 ## Concluídas (histórico recente)
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
+| T-247–252 | Fase 19 — PRs #231, #235, #236, #237 | 2026-05-17 |
 | T-241–246 | Fase 18 — PR #224, KANBAN #226 | 2026-05-17 |
 | T-167 | LLM scorer — PR #221 | 2026-05-17 |
 | T-177 | Explorer — PR #127 | 2026-05-16 |

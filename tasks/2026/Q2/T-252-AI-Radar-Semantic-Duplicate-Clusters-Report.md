@@ -1,6 +1,6 @@
 # T-252: AI Radar — Semantic Duplicate Clusters Report
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h

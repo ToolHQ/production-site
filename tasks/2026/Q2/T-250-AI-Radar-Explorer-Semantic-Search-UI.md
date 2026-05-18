@@ -1,6 +1,6 @@
 # T-250: AI Radar — Explorer Semantic Search UI
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
