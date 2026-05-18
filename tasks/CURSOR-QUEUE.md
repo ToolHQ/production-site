@@ -18,6 +18,10 @@
 | :------- | :----- | :--- |
 | — | _(aguardando próximo epic AI Radar)_ | — |
 
+## Fase 20 — (próximo)
+
+> Definir no KANBAN após priorização.
+
 ## Fase 19 — Semântica leve (embeddings & busca) ✅
 
 > **Tema:** embeddings self-hosted via gateway existente; busca semântica e related items; dedup semântico só como relatório.
@@ -52,13 +56,14 @@ T-232, T-231, T-233, T-234, T-235, T-238, T-237, T-236, T-168, T-167 — todas �
 - [x] Fase 19 deploy tag `1779065738` (search, related, semantic-duplicates, cronjob-embed)
 - [x] Migrações Postgres `0005`–`0007` (entity resolution, snapshots, item_embeddings)
 - [x] Secret `ai-radar-llm`: `EMBEDDINGS_ENABLED=true`, `EMBEDDING_MODEL=openai/text-embedding-3-small`
-- [ ] **Deploy CLI** com `embed` (tag nova; CLI `1779047721` no cluster é anterior ao T-248) — bloqueado enquanto **Nexus** down (`k8s-node-2` NotReady, registry `31444` refused)
-- [ ] Recuperar **k8s-node-2** + Nexus (PVC Longhorn RWO) → destravar registry e embed batch
+- [x] **T-254** Deploy CLI com `embed` — tags `1779070701`, 20 embeddings, search semântico OK
+- [x] Recuperar **k8s-node-2** + Nexus; registry `31444` OK
 
 ## Concluídas (histórico recente)
 
 | ID / Ref | Tarefa | Data |
 | :------- | :----- | :--- |
+| T-254 | Embed CLI deploy + smoke cluster — tag `1779070701` | 2026-05-18 |
 | T-247–252 | Fase 19 — PRs #231, #235, #236, #237 | 2026-05-17 |
 | T-241–246 | Fase 18 — PR #224, KANBAN #226 | 2026-05-17 |
 | T-167 | LLM scorer — PR #221 | 2026-05-17 |
