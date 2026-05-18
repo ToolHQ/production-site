@@ -17,3 +17,4 @@ resources:
   - cronjobs/cronjob-extract.yaml
   - cronjobs/cronjob-score.yaml
   - cronjobs/cronjob-embed.yaml
+  - cronjobs/cronjob-embed-catchup.yaml

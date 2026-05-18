@@ -10,6 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
+| [T-260](2026/Q2/T-260-AI-Radar-Embed-Catch-Up-CronJob.md) | **AI Radar — Embed Catch-Up CronJob** | 🔼 High | Cursor / AI Radar | 3h |
 | [T-259](2026/Q2/T-259-AI-Radar-Post-Extract-Embed-Tail-Scale.md) | **AI Radar — Post-Extract Embed Tail Scale** | 🔼 High | Cursor / AI Radar | 3h |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High | **OpenCode** | 1h |
 
@@ -24,7 +25,6 @@
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
 | [T-262](2026/Q2/T-262-AI-Radar-Explorer-Sem-Embedding-Badge.md) | **AI Radar — Explorer Sem-Embedding Badge** | 🔽 Low | Cursor / AI Radar | 3h |
 | [T-261](2026/Q2/T-261-AI-Radar-Embedding-Coverage-Alert.md) | **AI Radar — Embedding Coverage Alert** | 🔼 High | Cursor / AI Radar | 2h |
-| [T-260](2026/Q2/T-260-AI-Radar-Embed-Catch-Up-CronJob.md) | **AI Radar — Embed Catch-Up CronJob** | 🔼 High | Cursor / AI Radar | 3h |
 
 
 
