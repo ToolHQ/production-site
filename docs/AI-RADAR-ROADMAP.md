@@ -895,7 +895,7 @@ Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 19.
 
 **Fora de escopo:** pgvector managed, SPA React dedicada, auto-merge de duplicatas semânticas.
 
-## Fase 20 — Semântica em produção (em andamento)
+## Fase 20 — Semântica em produção (concluída)
 
 **Tema:** tornar embeddings operacionais em escala — cobertura visível, backfill previsível, UX que explica estados vazios; drill-down no relatório de duplicatas.
 
@@ -906,9 +906,26 @@ Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 19.
 | T-257 | Related items e empty-states semânticos no Explorer | 3h |
 | T-258 | Console — drill-down em duplicatas semânticas | 4h |
 
+PRs: #245, #248, #251, #253. Deploy API `1779103228`.
+
 **Dependências:** Fase 19 + **T-254** (CLI `embed` no cluster). **Fora de escopo:** pgvector, auto-merge de duplicatas, novo collector YouTube.
 
-Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 20.
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 20 — **concluída**.
+
+## Fase 21 — Cobertura semântica alvo 80% (em andamento)
+
+**Tema:** fechar a fila de embeddings (~50% cobertura hoje) — tail pós-extract maior, catch-up agendado, alertas e visibilidade no Explorer.
+
+| ID | Entrega | Est. |
+| --- | --- | --- |
+| T-259 | Post-extract embed tail configurável (`POST_EXTRACT_EMBED_TAIL_LIMIT`) | 3h |
+| T-260 | CronJob `ai-radar-embed-catchup` (backfill agressivo) | 3h |
+| T-261 | Alerta Prometheus cobertura / fila embed | 2h |
+| T-262 | Explorer badge “sem vetor” + filtro | 3h |
+
+**Meta operacional:** `embeddings_pending → 0` ou `coverage_pct ≥ 80`.
+
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 21.
 
 ## Entregável esperado deste prompt
 

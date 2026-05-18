@@ -1,6 +1,6 @@
 # T-257: AI Radar — Related Items & Semantic Empty-State UX
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h

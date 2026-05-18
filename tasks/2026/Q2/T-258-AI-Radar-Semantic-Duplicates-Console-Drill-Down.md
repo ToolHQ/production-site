@@ -1,6 +1,6 @@
 # T-258: AI Radar — Semantic Duplicates Console Drill-Down
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h

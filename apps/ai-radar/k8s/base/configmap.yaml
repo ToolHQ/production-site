@@ -12,3 +12,5 @@ data:
   LLM_MAX_RPM: "15"
   # Rows per ai-radar-embed CronJob pass (hard max 100 in binary).
   EMBED_BATCH_LIMIT: "50"
+  # Rows embedded automatically after each extract CronJob pass (hard max 100).
+  POST_EXTRACT_EMBED_TAIL_LIMIT: "25"

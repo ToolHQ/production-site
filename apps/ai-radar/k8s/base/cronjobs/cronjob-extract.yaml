@@ -64,6 +64,11 @@ spec:
                     configMapKeyRef:
                       name: ai-radar-config
                       key: LLM_MAX_RPM
+                - name: POST_EXTRACT_EMBED_TAIL_LIMIT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ai-radar-config
+                      key: POST_EXTRACT_EMBED_TAIL_LIMIT
               resources:
                 requests:
                   cpu: 50m
