@@ -10,7 +10,6 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-| [T-248](2026/Q2/T-248-AI-Radar-Embed-Pipeline-Post-Extract.md) | **AI Radar — Embed Pipeline Post-Extract** | 🔼 High | Cursor / AI Radar | 4h |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High | **OpenCode** | 1h |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -22,10 +21,6 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
-| [T-252](2026/Q2/T-252-AI-Radar-Semantic-Duplicate-Clusters-Report.md) | **AI Radar — Semantic Duplicate Clusters Report** | 🔽 Low | Cursor / AI Radar | 6h |
-| [T-251](2026/Q2/T-251-AI-Radar-Related-Items-Panel.md) | **AI Radar — Related Items Panel** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-250](2026/Q2/T-250-AI-Radar-Explorer-Semantic-Search-UI.md) | **AI Radar — Explorer Semantic Search UI** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-249](2026/Q2/T-249-AI-Radar-Semantic-Search-API.md) | **AI Radar — Semantic Search API** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-239](2026/Q2/T-239-agent-meter-schema-collector-enrichment.md) | **agent-meter — Schema & Collector Enrichment** _(model, cached_tokens, conversation_id, client_ip, user_agent; new GET /reports/events feed paginado)_ | 🔼 High | **Copilot/VSCode** | 3h |
 | [T-240](2026/Q2/T-240-agent-meter-dashboard-events-ui.md) | **agent-meter — Dashboard UI: events feed + model + tokens breakdown** _(tab Events paginada, stats cards in/out/cached, coluna TOP MODEL, filtro por modelo; depende T-239)_ | 🔼 High | **Copilot/VSCode** | 2h |
 
@@ -35,6 +30,11 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-250](2026/Q2/T-250-AI-Radar-Explorer-Semantic-Search-UI.md) | **AI Radar — Explorer Semantic Search UI** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-249](2026/Q2/T-249-AI-Radar-Semantic-Search-API.md) | **AI Radar — Semantic Search API** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-252](2026/Q2/T-252-AI-Radar-Semantic-Duplicate-Clusters-Report.md) | **AI Radar — Semantic Duplicate Clusters Report** | 🔽 Low | Cursor / AI Radar | 6h |
+| [T-251](2026/Q2/T-251-AI-Radar-Related-Items-Panel.md) | **AI Radar — Related Items Panel** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-248](2026/Q2/T-248-AI-Radar-Embed-Pipeline-Post-Extract.md) | **AI Radar — Embed Pipeline Post-Extract** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-253](2026/Q2/T-253-Kubecost-Reuse-Coroot-Prometheus-to-reclaim-cluster-resources.md) | **Kubecost — Reuse Coroot Prometheus to reclaim cluster resources** | 🔼 High | Antigravity | 2h |
 | [T-247](2026/Q2/T-247-AI-Radar-Embedding-Provider-Schema.md) | **AI Radar — Embedding Provider & Schema** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-246](2026/Q2/T-246-AI-Radar-Digest-Rising-Stars-API-Metadata.md) | **AI Radar — Digest Rising Stars API Metadata** | 🔽 Low | Cursor / AI Radar | 4h |
