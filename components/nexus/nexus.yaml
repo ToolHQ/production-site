@@ -49,8 +49,8 @@ spec:
               value: "-Xms1024m -Xmx1024m -XX:MaxDirectMemorySize=512m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
           resources:
             requests:
-              cpu: 80m # was 170m, then 100m — actual usage ~4m (T-103)
-              memory: 1Gi
+              cpu: 50m # was 80m, reduced to fit k8s-node-3 requests
+              memory: 512Mi # was 1Gi, reduced to fit k8s-node-3 requests
             limits:
               cpu: 600m
               memory: 2Gi
@@ -70,9 +70,9 @@ spec:
           persistentVolumeClaim:
             claimName: nexus-pvc
       # Temporary containment after Longhorn flapping on k8s-node-1.
-      # Keep Nexus pinned to node-2 until T-190 closes.
+      # Keep Nexus pinned to node-3 while node-2 is offline and node-1 is cleaning sessions.
       nodeSelector:
-        kubernetes.io/hostname: k8s-node-2
+        kubernetes.io/hostname: k8s-node-3
       tolerations:
         - key: "node.kubernetes.io/disk-pressure"
           operator: "Exists"
