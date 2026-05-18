@@ -11,7 +11,9 @@ use ai_radar_core::domain::{
     ExtractedItem, Feedback, FeedbackType, NewFeedback, RawItem, Score, ScoredItemSummary,
 };
 use ai_radar_core::llm::build_llm_provider;
+use ai_radar_core::pipeline::related::run_related;
 use ai_radar_core::pipeline::reprocess::{run_reprocess, ReprocessStage};
+use ai_radar_core::pipeline::search::SearchHit;
 use ai_radar_core::repos::{
     ExtractedItemRepository, FeedbackRepository, RawItemRepository, ScoreRepository,
     ScoredItemSort,
@@ -88,10 +90,34 @@ pub struct ReprocessResponse {
     pub scored: bool,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RelatedQuery {
+    #[serde(default = "default_related_limit")]
+    pub limit: i64,
+    #[serde(default = "default_same_category")]
+    pub same_category: bool,
+}
+
+fn default_related_limit() -> i64 {
+    5
+}
+
+fn default_same_category() -> bool {
+    true
+}
+
+#[derive(Debug, Serialize)]
+pub struct RelatedResponse {
+    pub items: Vec<SearchHit>,
+    pub count: usize,
+    pub has_embedding: bool,
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/items", get(list))
         .route("/items/:id", get(get_one))
+        .route("/items/:id/related", get(list_related))
         .route("/items/:id/feedback", post(create_feedback))
         .route("/items/:id/reprocess", post(reprocess))
 }
@@ -155,6 +181,27 @@ async fn list(
             limit,
             offset,
             items,
+        }),
+    ))
+}
+
+async fn list_related(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Query(q): Query<RelatedQuery>,
+) -> Result<(StatusCode, Json<RelatedResponse>), ApiError> {
+    state.extracted_items.get(id).await?;
+
+    let result = run_related(&state.db, &state.config, id, q.limit, q.same_category)
+        .await
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+
+    Ok((
+        StatusCode::OK,
+        Json(RelatedResponse {
+            count: result.count,
+            has_embedding: result.has_embedding,
+            items: result.items,
         }),
     ))
 }

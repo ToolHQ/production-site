@@ -8,3 +8,5 @@ pub mod extract;
 pub mod reprocess;
 pub mod score;
 pub mod search;
+pub mod related;
+pub mod semantic_duplicates;

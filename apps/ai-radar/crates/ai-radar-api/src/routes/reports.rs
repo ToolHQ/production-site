@@ -6,6 +6,9 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
+use ai_radar_core::pipeline::semantic_duplicates::{
+    run_semantic_duplicates_report, SemanticDuplicatesReport, DEFAULT_SEMANTIC_DUP_THRESHOLD,
+};
 use ai_radar_core::repos::{FeedbackRepository, RawItemRepository};
 
 use crate::error::ApiError;
@@ -38,10 +41,33 @@ pub struct DuplicateClusterResponse {
     pub limit: i64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SemanticDuplicatesQuery {
+    #[serde(default = "default_semantic_threshold")]
+    pub threshold: f32,
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+}
+
+fn default_semantic_threshold() -> f32 {
+    DEFAULT_SEMANTIC_DUP_THRESHOLD
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/reports/divergence", get(list_divergence))
         .route("/reports/duplicates", get(list_duplicates))
+        .route("/reports/semantic-duplicates", get(list_semantic_duplicates))
+}
+
+async fn list_semantic_duplicates(
+    State(state): State<AppState>,
+    Query(q): Query<SemanticDuplicatesQuery>,
+) -> Result<(StatusCode, Json<SemanticDuplicatesReport>), ApiError> {
+    let report = run_semantic_duplicates_report(&state.db, &state.config, q.threshold, q.limit)
+        .await
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    Ok((StatusCode::OK, Json(report)))
 }
 
 async fn list_duplicates(
