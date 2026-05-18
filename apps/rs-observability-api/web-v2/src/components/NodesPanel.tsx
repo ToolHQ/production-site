@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useState, useCallback, useMemo } from 'preact/hooks';
+import { useState, useCallback, useMemo, useEffect } from 'preact/hooks';
 import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
@@ -33,19 +33,43 @@ interface TooltipWrapperProps {
 
 function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const [targetEl, setTargetEl] = useState<HTMLElement | null>(null);
 
-  const handleMouseEnter = (e: MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    // Position the tooltip card exactly below the cell
+  const updateCoords = useCallback((el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
     setCoords({
       left: rect.left + rect.width / 2,
       top: rect.bottom + 8,
     });
+  }, []);
+
+  const handleMouseEnter = (e: MouseEvent) => {
+    const el = e.currentTarget as HTMLElement;
+    setTargetEl(el);
+    updateCoords(el);
   };
 
   const handleMouseLeave = () => {
+    setTargetEl(null);
     setCoords(null);
   };
+
+  useEffect(() => {
+    if (!targetEl) return;
+
+    const handleScrollOrResize = () => {
+      updateCoords(targetEl);
+    };
+
+    // Use capture phase to catch scroll events on any scrollable parent container
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize, true);
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize, true);
+    };
+  }, [targetEl, updateCoords]);
 
   return (
     <div
@@ -176,8 +200,12 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
             <span class="tooltip-label">utilization</span>
           </div>
           <div class="tooltip-detail">
-            <strong>Absolute Value:</strong>
-            <span>{fmtCpu((metrics.cpu_percent / 100) * node.cpu_millicores)} used of {fmtCpu(node.cpu_millicores)} allocated</span>
+            <strong>Físico (Host):</strong>
+            <span>{((metrics.cpu_percent / 100) * 1.0).toFixed(2)} vCPU usado de 1.00 vCPU</span>
+          </div>
+          <div class="tooltip-detail">
+            <strong>Kubernetes (Alocável):</strong>
+            <span>{fmtCpu(node.cpu_millicores)} reservado no cluster</span>
           </div>
           {history && history.cpu.length >= 1 && (
             <div class="tooltip-history">
@@ -226,8 +254,12 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
             <span class="tooltip-label">utilization</span>
           </div>
           <div class="tooltip-detail">
-            <strong>Absolute Value:</strong>
-            <span>{fmtGiB(metrics.mem_used_bytes)} used of {fmtGiB(metrics.mem_total_bytes)} total</span>
+            <strong>Físico (Host):</strong>
+            <span>{fmtGiB(metrics.mem_used_bytes)} usado de {fmtGiB(metrics.mem_total_bytes)} total</span>
+          </div>
+          <div class="tooltip-detail">
+            <strong>Kubernetes (Alocável):</strong>
+            <span>{fmtGiB(node.memory_bytes)} reservado no cluster</span>
           </div>
           {history && history.mem.length >= 1 && (
             <div class="tooltip-history">
@@ -276,8 +308,12 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
             <span class="tooltip-label">utilization</span>
           </div>
           <div class="tooltip-detail">
-            <strong>Absolute Value:</strong>
-            <span>{fmtGiB(metrics.disk_used_bytes)} used of {fmtGiB(metrics.disk_total_bytes)} total</span>
+            <strong>Físico (Host):</strong>
+            <span>{fmtGiB(metrics.disk_used_bytes)} usado de {fmtGiB(metrics.disk_total_bytes)} total</span>
+          </div>
+          <div class="tooltip-detail">
+            <strong>Kubernetes (Alocável):</strong>
+            <span>{fmtGiB(node.ephemeral_storage_bytes)} reservado no cluster</span>
           </div>
           {history && history.disk.length >= 1 && (
             <div class="tooltip-history">
