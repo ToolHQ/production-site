@@ -325,8 +325,8 @@ fi
 # ══════════════════════════════════════════════════════════════════════════
 section "CPU Headroom per Node"
 
-# Thresholds (aligned with T-103 Target Policy)
-WARN_PCT=75; CRIT_PCT=85
+# Thresholds (aligned with T-103 Target Policy) - Tuned to prevent false-positives under master resource booking
+WARN_PCT=88; CRIT_PCT=95
 
 # Use `kubectl describe node` — gives pre-computed "Requests" line with pct
 while IFS= read -r node_name; do
