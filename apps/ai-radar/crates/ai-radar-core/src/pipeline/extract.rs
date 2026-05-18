@@ -124,12 +124,15 @@ pub async fn run_extract(
     );
 
     if config.embeddings_enabled && stats.extracted > 0 {
+        let tail_limit = config.post_extract_embed_tail_limit();
         let embedder = build_embedding_provider(config);
-        match run_embed_batch(db, config, embedder, 5).await {
+        match run_embed_batch(db, config, embedder, tail_limit).await {
             Ok(tail) => tracing::info!(
+                event = "post_extract_embed_tail",
                 embedded = tail.embedded,
                 failed = tail.failed,
                 skipped = tail.skipped,
+                tail_limit,
                 "post-extract embed tail"
             ),
             Err(e) => tracing::warn!(error = %e, "post-extract embed tail failed"),

@@ -425,6 +425,8 @@ Testes de integração (Postgres): `cargo test -p ai-radar-core --test feedback_
 
 O CronJob `ai-radar-embed` roda `ai-radar embed` sem `--limit`; o tamanho do lote vem de **`EMBED_BATCH_LIMIT`** (ConfigMap `ai-radar-config`, default **50**, teto **100** no binário).
 
+Após cada pass do CronJob `ai-radar-extract`, o pipeline roda um embed tail automático (**T-259**): até **`POST_EXTRACT_EMBED_TAIL_LIMIT`** linhas (default **25**, mesmo teto **100**), desde que `EMBEDDINGS_ENABLED=true`.
+
 Monitorar fila e cobertura:
 
 ```bash

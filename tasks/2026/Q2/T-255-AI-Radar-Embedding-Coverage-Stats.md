@@ -1,6 +1,6 @@
 # T-255: AI Radar — Embedding Coverage Stats
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h
