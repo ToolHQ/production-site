@@ -103,9 +103,11 @@ pub async fn run_embed_batch(
             .await
         {
             Ok(resp) => {
+                // Persist the configured model id (search/related query by config), not the
+                // provider's alias in the JSON response (e.g. `text-embedding-3-small`).
                 let payload = NewItemEmbedding {
                     extracted_item_id: item.id,
-                    model: resp.model,
+                    model: model.clone(),
                     dimensions: i32::try_from(resp.dimensions)
                         .map_err(|_| anyhow::anyhow!("embedding dimension overflow"))?,
                     vector: resp.vector,
