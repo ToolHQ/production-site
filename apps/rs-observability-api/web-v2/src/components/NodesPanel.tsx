@@ -32,19 +32,32 @@ interface TooltipWrapperProps {
 }
 
 function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
-  const [show, setShow] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+  const handleMouseEnter = (e: MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // Position the tooltip card exactly below the cell
+    setCoords({
+      left: rect.left + rect.width / 2,
+      top: rect.bottom + 8,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setCoords(null);
+  };
 
   return (
     <div
       class="node-cell-tooltip-container"
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {trigger}
-      {show && (
+      {coords && (
         <div
           class="node-cell-tooltip-card"
-          style="display:block;"
+          style={`position: fixed; bottom: auto; top: ${coords.top}px; left: ${coords.left}px; transform: translateX(-50%); display: block;`}
         >
           {card}
         </div>
