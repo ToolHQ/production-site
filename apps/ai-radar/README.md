@@ -411,6 +411,10 @@ curl -fsS -X POST "$API/items/$ITEM_ID/feedback" \
 
 curl -fsS "$API/items/$ITEM_ID" -H 'Accept: application/json' | jq '.feedbacks'
 curl -fsS "$API/reports/divergence?limit=20" -H 'Accept: application/json' | jq
+curl -fsS "$API/items/$ITEM_ID/related?limit=5" -H 'Accept: application/json' | jq
+curl -fsS "$API/search?q=agente%20coding&limit=10" -H 'Accept: application/json' | jq
+# Duplicatas semânticas (relatório; default threshold 0.92, até 300 embeddings):
+curl -fsS "$API/reports/semantic-duplicates?threshold=0.92&limit=20" -H 'Accept: application/json' | jq
 ```
 
 Tipos válidos: `useful`, `irrelevant`, `duplicate`, `low_quality`, `wrong_category`, `adopted`, `tested`, `monitoring`, `rejected`.

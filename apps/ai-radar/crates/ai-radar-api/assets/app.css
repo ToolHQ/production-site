@@ -1062,6 +1062,30 @@ tr:hover td {
   margin: 0.5rem 0 1rem;
 }
 
+.item-related-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item-related-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.item-related-list li:last-child {
+  border-bottom: none;
+}
+
+.item-related-hint {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
 .signal-cell {
   white-space: nowrap;
 }

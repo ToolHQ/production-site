@@ -12,6 +12,7 @@ const NAV = [
   { hash: "#/digests", label: "Digests" },
   { hash: "#/sources", label: "Fontes" },
   { hash: "#/reports/duplicates", label: "Duplicatas" },
+  { hash: "#/reports/semantic-duplicates", label: "Dup. semântica" },
   { hash: "#/reports/divergence", label: "Divergência" },
 ];
 
@@ -163,6 +164,28 @@ function signalBadges(adoption, qualityWarn) {
     parts.push(`<span class="badge badge-quality-warn">low conf.</span>`);
   }
   return parts.length ? parts.join(" ") : `<span class="muted">—</span>`;
+}
+
+function renderRelatedPanel(related) {
+  if (!related?.has_embedding || !related.items?.length) {
+    return "";
+  }
+  const rows = related.items
+    .map((hit) => {
+      const it = hit.item || hit;
+      const name = it.tool_name || it.summary?.slice(0, 48) || it.extracted_item_id;
+      return `<li>
+        <a href="#/items/${it.extracted_item_id}">${escapeHtml(name)}</a>
+        <span class="badge badge-similarity" title="similaridade vetorial">${similarityPct(hit.similarity)}</span>
+        ${it.category ? `<span class="muted"> · ${escapeHtml(it.category)}</span>` : ""}
+      </li>`;
+    })
+    .join("");
+  return itemSection(
+    "Ferramentas relacionadas",
+    `<ul class="item-related-list">${rows}</ul>
+     <p class="muted item-related-hint">Vizinhos por embedding (mesma categoria quando disponível).</p>`,
+  );
 }
 
 function renderItemSignalsPanel(ex, latestScore) {
@@ -352,6 +375,7 @@ function parseRoute() {
   if (hash === "#/digests") return { page: "digests" };
   if (hash === "#/sources") return { page: "sources" };
   if (hash === "#/reports/duplicates") return { page: "reports-duplicates" };
+  if (hash === "#/reports/semantic-duplicates") return { page: "reports-semantic-duplicates" };
   if (hash === "#/reports/divergence") return { page: "reports-divergence" };
   if (hash.startsWith("#/compare")) {
     const q = hash.includes("?") ? hash.slice(hash.indexOf("?") + 1) : "";
@@ -888,7 +912,14 @@ async function renderItems() {
 
 async function renderItem(id) {
   setNav("#/items");
-  const data = await apiJson(`/items/${id}`);
+  const [data, related] = await Promise.all([
+    apiJson(`/items/${id}`),
+    apiJson(`/items/${id}/related?limit=5`).catch(() => ({
+      has_embedding: false,
+      items: [],
+      count: 0,
+    })),
+  ]);
   const ex = data.extracted;
   const raw = data.raw || {};
   const sc = data.latest_score;
@@ -918,6 +949,7 @@ async function renderItem(id) {
   ]);
 
   const signalsPanel = renderItemSignalsPanel(ex, sc);
+  const relatedPanel = renderRelatedPanel(related);
   const compareLink = ex.category
     ? `<a class="btn btn-ghost" href="#/compare?category=${encodeURIComponent(ex.category)}">Comparar categoria</a>`
     : "";
@@ -1011,6 +1043,7 @@ async function renderItem(id) {
     </header>
     ${itemTextBlock("Resumo", ex.summary)}
     ${signalsPanel}
+    ${relatedPanel}
     ${itemSection("Atributos", attrs)}
     ${itemTextBlock("Problema / caso de uso", ex.problem_solved)}
     ${itemTextBlock("Encaixe de stack", ex.stack_fit)}
@@ -1074,6 +1107,28 @@ function sourceHealthBadge(tier) {
   return `<span class="badge badge-health badge-health-${escapeHtml(tier)}">${escapeHtml(label)}</span>`;
 }
 
+async function renderReportsSemanticDuplicates() {
+  setNav("#/reports/semantic-duplicates");
+  const data = await apiJson("/reports/semantic-duplicates?threshold=0.92&limit=50");
+  const rows = (data.pairs || [])
+    .map(
+      (p) => `<tr>
+        <td><a href="#/items/${p.extracted_item_id_a}">${escapeHtml(p.tool_name_a || p.extracted_item_id_a)}</a></td>
+        <td><a href="#/items/${p.extracted_item_id_b}">${escapeHtml(p.tool_name_b || p.extracted_item_id_b)}</a></td>
+        <td><span class="badge badge-similarity">${similarityPct(p.similarity)}</span></td>
+        <td class="muted">${escapeHtml(p.category_a || "—")} / ${escapeHtml(p.category_b || "—")}</td>
+      </tr>`,
+    )
+    .join("");
+  $app.innerHTML = `<header class="explorer-header">
+    <h1 class="section-title">Duplicatas semânticas</h1>
+    <p class="muted">${data.count} pares · threshold ${Math.round((data.threshold || 0.92) * 100)}% · ${data.scanned ?? 0} embeddings analisados</p>
+    <p class="muted">Relatório operacional — não altera o pipeline. <a href="#/reports/duplicates">Duplicatas URL</a></p>
+  </header>
+  <div class="table-wrap"><table><thead><tr><th>Item A</th><th>Item B</th><th>Similaridade</th><th>Categorias</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="4" class="muted">Nenhum par acima do threshold (rode o batch de embed).</td></tr>'}</tbody></table></div>`;
+}
+
 async function renderReportsDuplicates() {
   setNav("#/reports/duplicates");
   const data = await apiJson("/reports/duplicates?limit=50");
@@ -1088,7 +1143,7 @@ async function renderReportsDuplicates() {
     .join("");
   $app.innerHTML = `<header class="explorer-header">
     <h1 class="section-title">Duplicatas cross-fonte</h1>
-    <p class="muted">${data.count} clusters · <a href="#/reports/divergence">Divergência</a></p>
+    <p class="muted">${data.count} clusters · <a href="#/reports/semantic-duplicates">Dup. semântica</a> · <a href="#/reports/divergence">Divergência</a></p>
   </header>
   <div class="table-wrap"><table><thead><tr><th>tool_key</th><th>Contagem</th><th>Fontes</th></tr></thead>
   <tbody>${rows || '<tr><td colspan="3" class="muted">Nenhum cluster</td></tr>'}</tbody></table></div>`;
@@ -1211,6 +1266,8 @@ async function render() {
     else if (route.page === "item") await renderItem(route.id);
     else if (route.page === "sources") await renderSources();
     else if (route.page === "reports-duplicates") await renderReportsDuplicates();
+    else if (route.page === "reports-semantic-duplicates")
+      await renderReportsSemanticDuplicates();
     else if (route.page === "reports-divergence") await renderReportsDivergence();
     else if (route.page === "compare") await renderCompare(route.category || "");
   } catch (err) {
