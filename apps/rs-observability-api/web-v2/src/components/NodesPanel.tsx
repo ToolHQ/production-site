@@ -34,6 +34,7 @@ interface TooltipWrapperProps {
 function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const [targetEl, setTargetEl] = useState<HTMLElement | null>(null);
+  const [lastEnterTime, setLastEnterTime] = useState<number>(0);
 
   const updateCoords = useCallback((el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
@@ -47,11 +48,27 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
     const el = e.currentTarget as HTMLElement;
     setTargetEl(el);
     updateCoords(el);
+    setLastEnterTime(Date.now());
   };
 
   const handleMouseLeave = () => {
     setTargetEl(null);
     setCoords(null);
+  };
+
+  const handleToggleClick = (e: MouseEvent) => {
+    const el = e.currentTarget as HTMLElement;
+    // Prevent immediate closing on desktop click when triggered by mouseenter
+    if (Date.now() - lastEnterTime < 300) {
+      return;
+    }
+    if (targetEl) {
+      setTargetEl(null);
+      setCoords(null);
+    } else {
+      setTargetEl(el);
+      updateCoords(el);
+    }
   };
 
   useEffect(() => {
@@ -76,6 +93,7 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
       class="node-cell-tooltip-container"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleToggleClick}
     >
       {trigger}
       {coords && (
