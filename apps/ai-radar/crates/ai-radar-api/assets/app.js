@@ -419,6 +419,20 @@ async function renderHome() {
   const donePct = rawTotal > 0 ? Math.round((processed / rawTotal) * 100) : 0;
   const queuePct = rawTotal > 0 ? 100 - donePct : 0;
   const pendingHigh = pending > 100;
+  const emb = stats.embeddings;
+  const embCard = emb
+    ? (() => {
+        const pct = Math.round(emb.coverage_pct ?? 0);
+        const low = pct < 50 && (emb.embeddings_pending ?? 0) > 0;
+        return kpiCard(
+          "🧠",
+          "Embeddings",
+          emb.embeddings_total,
+          `${pct}% de ${fmtNum(emb.embeddings_eligible)} elegíveis · ${fmtNum(emb.embeddings_pending)} na fila embed`,
+          low ? "kpi-card--pending" : "",
+        );
+      })()
+    : "";
 
   const digestPanel = latest
     ? `<div class="digest-feature">
@@ -452,6 +466,7 @@ async function renderHome() {
       ${kpiCard("📥", "Itens coletados", rawTotal, "raw_items no Postgres")}
       ${kpiCard("⚡", "Scored no explorer", scoredTotal, "prontos para revisão")}
       ${kpiCard("⏳", "Pendentes extract", pending, "aguardando LLM", "kpi-card--pending")}
+      ${embCard}
     </div>
 
     <div class="home-panels">

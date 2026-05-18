@@ -895,6 +895,21 @@ Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 19.
 
 **Fora de escopo:** pgvector managed, SPA React dedicada, auto-merge de duplicatas semânticas.
 
+## Fase 20 — Semântica em produção (em andamento)
+
+**Tema:** tornar embeddings operacionais em escala — cobertura visível, backfill previsível, UX que explica estados vazios; drill-down no relatório de duplicatas.
+
+| ID | Entrega | Est. |
+| --- | --- | --- |
+| T-255 | Cobertura de embeddings em `GET /stats` + gauge Prometheus + card no console | 3h |
+| T-256 | Batch embed configurável + runbook de backfill no cluster | 4h |
+| T-257 | Related items e empty-states semânticos no Explorer | 3h |
+| T-258 | Console — drill-down em duplicatas semânticas | 4h |
+
+**Dependências:** Fase 19 + **T-254** (CLI `embed` no cluster). **Fora de escopo:** pgvector, auto-merge de duplicatas, novo collector YouTube.
+
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 20.
+
 ## Entregável esperado deste prompt
 
 Gere um roadmap de implementação com tasks pequenas e executáveis.

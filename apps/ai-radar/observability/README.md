@@ -26,6 +26,7 @@ curl -fsS 'http://127.0.0.1:19090/api/v1/query?query=ai_radar_pending_raw_items'
 | Métrica | Tipo | Labels | Significado |
 | ------- | ---- | ------ | ----------- |
 | `ai_radar_pending_raw_items` | gauge | — | Fila `raw_items.status=pending` (atualizado a cada `GET /metrics`) |
+| `ai_radar_embeddings_pending` | gauge | — | Itens extraídos sem vetor para `EMBEDDING_MODEL` (**T-255**) |
 | `ai_radar_collected_total` | counter | `source_type` | Inserts em collect |
 | `ai_radar_skipped_total` | counter | `source_type` | Duplicatas ignoradas |
 | `ai_radar_sources_skipped_poll_total` | counter | `source_type` | Fontes não polled (intervalo) |
