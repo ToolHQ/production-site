@@ -66,9 +66,9 @@ enum Command {
     },
     /// Embed latest `extracted_items` missing vectors (**T-248**).
     Embed {
-        /// Max rows to process.
-        #[arg(long, default_value_t = 25)]
-        limit: i64,
+        /// Max rows to process (default: `EMBED_BATCH_LIMIT` env, usually 50).
+        #[arg(long)]
+        limit: Option<i64>,
     },
     /// Fetch RSS/Atom feeds and insert idempotent `raw_items` rows.
     Collect {
@@ -451,6 +451,8 @@ async fn main() -> anyhow::Result<()> {
             run_extract_command(job_id, limit).instrument(span).await?;
         }
         Command::Embed { limit } => {
+            let config = AppConfig::from_env().context("configuration")?;
+            let limit = config.resolve_embed_batch_limit(limit);
             let job_id = Uuid::new_v4();
             let span = tracing::info_span!("embed_job", job_id = %job_id);
             run_embed_command(job_id, limit).instrument(span).await?;

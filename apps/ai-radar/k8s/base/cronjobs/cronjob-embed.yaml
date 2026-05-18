@@ -42,7 +42,7 @@ spec:
             - name: embed
               image: registry.local:31444/repository/docker-repo/my-site-ai-radar-cli:latest
               imagePullPolicy: Always
-              args: ["embed", "--limit", "25"]
+              args: ["embed"]
               envFrom:
                 - secretRef:
                     name: ai-radar-llm
@@ -58,6 +58,11 @@ spec:
                     configMapKeyRef:
                       name: ai-radar-config
                       key: AI_RADAR_LOG_LEVEL
+                - name: EMBED_BATCH_LIMIT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ai-radar-config
+                      key: EMBED_BATCH_LIMIT
               resources:
                 requests:
                   cpu: 50m
