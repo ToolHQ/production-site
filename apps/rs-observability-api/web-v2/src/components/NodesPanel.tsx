@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useState, useRef, useCallback, useMemo } from 'preact/hooks';
+import { useState, useCallback, useMemo } from 'preact/hooks';
 import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
@@ -32,24 +32,19 @@ interface TooltipWrapperProps {
 }
 
 function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const show = useCallback(() => {
-    if (!ref.current) return;
-    const r = ref.current.getBoundingClientRect();
-    setPos({ top: r.bottom + 8, left: r.left + r.width / 2 });
-  }, []);
-
-  const hide = useCallback(() => setPos(null), []);
+  const [show, setShow] = useState(false);
 
   return (
-    <div ref={ref} class="node-cell-tooltip-container" onMouseEnter={show} onMouseLeave={hide}>
+    <div
+      class="node-cell-tooltip-container"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
       {trigger}
-      {pos !== null && (
+      {show && (
         <div
           class="node-cell-tooltip-card"
-          style={`position:fixed;top:${pos.top}px;left:${pos.left}px;transform:translateX(-50%);display:block;`}
+          style="display:block;"
         >
           {card}
         </div>
