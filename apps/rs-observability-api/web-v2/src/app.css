@@ -564,6 +564,10 @@ mark.search-highlight {
 
 .node-cell-tooltip-card {
   display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
   width: 260px;
   padding: 1rem;
   background: #ffffff;
