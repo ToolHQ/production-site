@@ -1,6 +1,6 @@
 # T-248: AI Radar — Embed Pipeline Post-Extract
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
@@ -11,11 +11,11 @@ Após extract bem-sucedido, gerar embedding do texto canônico (`tool_name` + `s
 
 ## Tasks
 
-- [ ] `pipeline/embed.rs`: `run_embed_batch(db, limit)` — claim rows sem embedding
-- [ ] Input truncado (ex. 8k chars) — mesma política do extract
-- [ ] Hook opcional no fim de `run_extract` ou CronJob `ai-radar-embed` em k8s
-- [ ] Métrica `ai_radar_embeddings_total{status}`
-- [ ] CLI subcommand `embed` (**T-159** workspace)
+- [x] `pipeline/embed.rs`: `run_embed_batch(db, limit)` — claim rows sem embedding
+- [x] Input truncado (ex. 8k chars) — mesma política do extract
+- [x] Hook opcional no fim de `run_extract` + CronJob `ai-radar-embed` em k8s
+- [x] Métrica `ai_radar_embeddings_total{status}`
+- [x] CLI subcommand `embed` (**T-159** workspace)
 
 ## Dependências
 
