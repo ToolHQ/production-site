@@ -37,6 +37,7 @@
 | [T-248](2026/Q2/T-248-AI-Radar-Embed-Pipeline-Post-Extract.md) | **AI Radar — Embed Pipeline Post-Extract** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-253](2026/Q2/T-253-Kubecost-Reuse-Coroot-Prometheus-to-reclaim-cluster-resources.md) | **Kubecost — Reuse Coroot Prometheus to reclaim cluster resources** | 🔼 High | Antigravity | 2h |
 | [T-247](2026/Q2/T-247-AI-Radar-Embedding-Provider-Schema.md) | **AI Radar — Embedding Provider & Schema** | 🔼 High | Cursor / AI Radar | 6h |
+| [T-201](2026/Q2/T-201-Node-Fleet-Real-Machine-Metrics-Prometheus.md) | **Node Fleet — Real Machine Metrics** _(substituir allocatable por CPU%/mem%/disk% reais via Prometheus node_exporter + sparklines de tendência)_ | 🔼 High | Antigravity | 4h |
 | [T-246](2026/Q2/T-246-AI-Radar-Digest-Rising-Stars-API-Metadata.md) | **AI Radar — Digest Rising Stars API Metadata** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-245](2026/Q2/T-245-AI-Radar-Compare-Deep-Link-Category-UX.md) | **AI Radar — Compare Deep-Link & Category UX** | 🔽 Low | Cursor / AI Radar | 2h |
 | [T-244](2026/Q2/T-244-AI-Radar-Explorer-Filters-Velocity-Health.md) | **AI Radar — Explorer Filters Velocity & Health** | 🔼 High | Cursor / AI Radar | 4h |
@@ -83,7 +84,6 @@
 | [T-202](2026/Q2/T-202-Codex-worktree-isolation-and-autopilot-coordination.md) | **Codex worktree isolation and autopilot coordination** | 🔼 High | Codex / Rust Rover | 1h |
 | [T-221](2026/Q2/T-221-OpenCode-worktree-isolation-and-agent-setup.md) | **OpenCode agent isolation — worktree, OPENCODE-QUEUE, OpenCode owners** | 🔼 High | OpenCode | 30m |
 | [T-195](2026/Q2/T-194-Cluster-Pulse-UI-Componentization-Vite-Preact.md) | **Cluster Pulse UI Componentization (Vite+Preact)** _(modularized into atomic components, native polling, improved margins, Inter font, higher contrast slate-gray metrics & fix z-index tooltip hover)_ | 🔼 High | Antigravity | 4h |
-| [T-201](2026/Q2/T-201-Node-Fleet-Real-Machine-Metrics-Prometheus.md) | **Node Fleet — Real Machine Metrics** _(substituir allocatable por CPU%/mem%/disk% reais via Prometheus node_exporter + sparklines de tendência)_ | 🔼 High | Antigravity | 4h |
 | [T-200](2026/Q2/T-200-Node-Fleet-Panel-Layout-Polish.md) | **Node Fleet Panel — Layout Polish** _(headers redundantes, colunas idênticas, tooltip alloc vs uso real)_ | 🔽 Medium | Antigravity | 1h |
 | [T-176](2026/Q2/T-176-AI-Radar-Dashboard-Pack-Coroot-Grafana.md) | **AI Radar — Dashboard pack** _(Coroot/Grafana `ai_radar_*`)_ | 🔼 High | **Cursor / AI Radar** | 2h |
 | [T-175](2026/Q2/T-175-AI-Radar-Operator-Console-Thin-Slice.md) | **AI Radar — Operator Console** _(UI estática: stats, digests, sources em ai-radar.dnor.io)_ | 🔼 High | **Cursor / AI Radar** | 6h |
