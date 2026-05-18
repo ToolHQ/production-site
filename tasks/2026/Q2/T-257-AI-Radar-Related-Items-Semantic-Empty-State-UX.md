@@ -1,6 +1,6 @@
 # T-257: AI Radar — Related Items & Semantic Empty-State UX
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h
@@ -11,11 +11,11 @@
 
 ## Tasks
 
-- [ ] Explorer: toggle “mesma categoria” / “todas categorias” (`?same_category=`)
-- [ ] Empty state: mensagem contextual (sem embedding / baixa cobertura / sem vizinhos acima do limiar)
-- [ ] Opcional: query `min_similarity` no API (default 0.55) para debug operador
-- [ ] Busca semântica: hint quando `count=0` mas `mode=semantic` (sugerir termos ou lexical)
-- [ ] Testes API para `same_category=false` retornando mais vizinhos em fixture
+- [x] Explorer: toggle “mesma categoria” / “todas categorias” (`?same_category=`)
+- [x] Empty state: mensagem contextual (`empty_reason`, `best_similarity`)
+- [x] Query `min_similarity` no API (default 0.55)
+- [x] Busca semântica: hint quando `count=0` e `mode=semantic`
+- [x] Testes deserialize `RelatedQuery` (`same_category=false`, defaults)
 
 ## Definition of Done
 

@@ -1086,6 +1086,29 @@ tr:hover td {
   font-size: 0.85rem;
 }
 
+.item-related-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.item-related-empty {
+  margin: 0.25rem 0 0.5rem;
+  line-height: 1.45;
+}
+
+.search-empty-hint {
+  margin: 0.35rem 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-left: 3px solid var(--accent, #38bdf8);
+  background: color-mix(in srgb, var(--surface-elevated, #1e293b) 92%, transparent);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .signal-cell {
   white-space: nowrap;
 }
