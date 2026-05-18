@@ -874,7 +874,7 @@ Fase 15 (T-173 hardening) ──► Fase 16B (T-175 console) ──► Fase 16A 
 | T-245 | Compare deep-link por categoria | 2h |
 | T-246 | Digest `metadata_json` + stats strip (`GET /stats`) | 4h |
 
-## Fase 19 — Semântica leve (embeddings & busca) (aberta)
+## Fase 19 — Semântica leve (embeddings & busca) (concluída)
 
 **Tema:** embeddings via gateway OpenRouter-compatible já provisionado; cosine em Rust; busca e related items no console; dedup semântico só como relatório (não auto-skip).
 
@@ -886,6 +886,10 @@ Fase 15 (T-173 hardening) ──► Fase 16B (T-175 console) ──► Fase 16A 
 | T-250 | Explorer — barra de busca semântica | 4h |
 | T-251 | Related items no detalhe do item | 4h |
 | T-252 | Relatório clusters duplicatas semânticos | 6h |
+
+PRs: #231, #235, #236, #237. Deploy API tag `1779065738`.
+
+**Pós-deploy operacional:** migrações `0005`–`0007` aplicadas; secret `ai-radar-llm` com `EMBEDDINGS_ENABLED=true` + `EMBEDDING_MODEL=openai/text-embedding-3-small`. Batch embed exige **CLI** com subcomando `embed` (rebuild/push quando Nexus/registry estiver saudável).
 
 Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 19.
 

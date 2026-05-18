@@ -50,6 +50,10 @@ T-232, T-231, T-233, T-234, T-235, T-238, T-237, T-236, T-168, T-167 — todas �
 - [x] Fase 18 deploy tag `1779057613`
 - [x] Console https://ai-radar.dnor.io/ (Explorer, relatórios, digests v2)
 - [x] Fase 19 deploy tag `1779065738` (search, related, semantic-duplicates, cronjob-embed)
+- [x] Migrações Postgres `0005`–`0007` (entity resolution, snapshots, item_embeddings)
+- [x] Secret `ai-radar-llm`: `EMBEDDINGS_ENABLED=true`, `EMBEDDING_MODEL=openai/text-embedding-3-small`
+- [ ] **Deploy CLI** com `embed` (tag nova; CLI `1779047721` no cluster é anterior ao T-248) — bloqueado enquanto **Nexus** down (`k8s-node-2` NotReady, registry `31444` refused)
+- [ ] Recuperar **k8s-node-2** + Nexus (PVC Longhorn RWO) → destravar registry e embed batch
 
 ## Concluídas (histórico recente)
 
