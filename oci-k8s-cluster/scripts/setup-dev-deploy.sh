@@ -170,6 +170,18 @@ else
     ok "Tunnel kubectl aberto"
 fi
 
+# 5b. kubeconfig_tunnel.yaml (server :6445) para worktrees sem cópia manual
+KUBECONFIG_SRC="$REPO_ROOT/oci-k8s-cluster/kubeconfig.yaml"
+if [[ ! -f "$KUBECONFIG_PATH" ]] && [[ -f "$KUBECONFIG_SRC" ]]; then
+    mkdir -p "$(dirname "$KUBECONFIG_PATH")"
+    sed 's|https://127.0.0.1:6443|https://127.0.0.1:6445|' "$KUBECONFIG_SRC" >"$KUBECONFIG_PATH"
+    ok "kubeconfig_tunnel.yaml gerado ($KUBECONFIG_PATH)"
+elif [[ -f "$KUBECONFIG_PATH" ]]; then
+    ok "kubeconfig_tunnel.yaml presente"
+else
+    warn "kubeconfig_tunnel.yaml ausente — copie de outro worktree ou gere a partir de kubeconfig.yaml"
+fi
+
 # ─── 6. Docker auth para registry.local:31444 ─────────────────────────────────
 info "Verificando docker auth para $REGISTRY..."
 if jq -e ".auths[\"$REGISTRY\"]" ~/.docker/config.json >/dev/null 2>&1; then

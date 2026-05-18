@@ -49,7 +49,7 @@ T-232, T-231, T-233, T-234, T-235, T-238, T-237, T-236, T-168, T-167 — todas �
 
 - [x] Fase 18 deploy tag `1779057613`
 - [x] Console https://ai-radar.dnor.io/ (Explorer, relatórios, digests v2)
-- [ ] Fase 19 deploy pós-PR #237 (search, related, semantic-duplicates)
+- [x] Fase 19 deploy tag `1779065738` (search, related, semantic-duplicates, cronjob-embed)
 
 ## Concluídas (histórico recente)
 
