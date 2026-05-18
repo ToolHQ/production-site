@@ -96,6 +96,8 @@ pub struct RelatedQuery {
     pub limit: i64,
     #[serde(default = "default_same_category")]
     pub same_category: bool,
+    #[serde(default = "default_min_similarity")]
+    pub min_similarity: f32,
 }
 
 fn default_related_limit() -> i64 {
@@ -106,11 +108,21 @@ fn default_same_category() -> bool {
     true
 }
 
+fn default_min_similarity() -> f32 {
+    ai_radar_core::pipeline::related::MIN_RELATED_SIMILARITY
+}
+
 #[derive(Debug, Serialize)]
 pub struct RelatedResponse {
     pub items: Vec<SearchHit>,
     pub count: usize,
     pub has_embedding: bool,
+    pub same_category: bool,
+    pub min_similarity: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub empty_reason: Option<ai_radar_core::pipeline::related::RelatedEmptyReason>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub best_similarity: Option<f32>,
 }
 
 pub fn router() -> Router<AppState> {
@@ -192,9 +204,16 @@ async fn list_related(
 ) -> Result<(StatusCode, Json<RelatedResponse>), ApiError> {
     state.extracted_items.get(id).await?;
 
-    let result = run_related(&state.db, &state.config, id, q.limit, q.same_category)
-        .await
-        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    let result = run_related(
+        &state.db,
+        &state.config,
+        id,
+        q.limit,
+        q.same_category,
+        q.min_similarity,
+    )
+    .await
+    .map_err(|e| ApiError::BadRequest(e.to_string()))?;
 
     Ok((
         StatusCode::OK,
@@ -202,6 +221,10 @@ async fn list_related(
             count: result.count,
             has_embedding: result.has_embedding,
             items: result.items,
+            same_category: result.same_category,
+            min_similarity: result.min_similarity,
+            empty_reason: result.empty_reason,
+            best_similarity: result.best_similarity,
         }),
     ))
 }
@@ -293,4 +316,30 @@ async fn reprocess(
             scored: out.scored,
         }),
     ))
+}
+
+#[cfg(test)]
+mod related_query_tests {
+    use super::*;
+
+    #[test]
+    fn related_query_same_category_false_and_min_similarity() {
+        let q: RelatedQuery =
+            serde_json::from_str(r#"{"same_category":false,"min_similarity":0.4,"limit":10}"#)
+                .expect("deserialize");
+        assert!(!q.same_category);
+        assert_eq!(q.limit, 10);
+        assert!((q.min_similarity - 0.4).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn related_query_defaults_match_pipeline() {
+        let q: RelatedQuery = serde_json::from_str("{}").expect("deserialize");
+        assert!(q.same_category);
+        assert_eq!(q.limit, 5);
+        assert!(
+            (q.min_similarity - ai_radar_core::pipeline::related::MIN_RELATED_SIMILARITY).abs()
+                < f32::EPSILON
+        );
+    }
 }

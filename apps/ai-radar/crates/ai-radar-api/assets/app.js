@@ -166,11 +166,43 @@ function signalBadges(adoption, qualityWarn) {
   return parts.length ? parts.join(" ") : `<span class="muted">—</span>`;
 }
 
-function renderRelatedPanel(related) {
-  if (!related?.has_embedding || !related.items?.length) {
+function relatedEmptyHint(related) {
+  if (!related) {
+    return "Não foi possível carregar vizinhos semânticos.";
+  }
+  if (!related.has_embedding) {
+    return 'Este item ainda não tem embedding. Rode <code>ai-radar embed</code> ou aguarde o CronJob <code>ai-radar-embed</code>.';
+  }
+  if (related.count > 0) {
     return "";
   }
-  const rows = related.items
+  const min = related.min_similarity ?? 0.55;
+  const best =
+    related.best_similarity != null ? similarityPct(related.best_similarity) : null;
+  const bestBit = best ? ` (melhor candidato no pool: ${best})` : "";
+  switch (related.empty_reason) {
+    case "no_embedding":
+      return "Sem embedding para este item.";
+    case "insufficient_pool":
+      return 'Poucos embeddings no cluster — veja cobertura na <a href="#/">home</a> e rode o backfill de embed.';
+    case "below_threshold":
+      if (related.same_category) {
+        return `Nenhum vizinho na mesma categoria acima de ${Math.round(min * 100)}% de similaridade${bestBit}. Desmarque “só mesma categoria” para ampliar o pool.`;
+      }
+      return `Nenhum vizinho acima de ${Math.round(min * 100)}% de similaridade${bestBit}.`;
+    default:
+      if (related.same_category) {
+        return "Nenhum vizinho na mesma categoria. Tente buscar em todas as categorias.";
+      }
+      return `Nenhum vizinho semântico próximo o suficiente${bestBit}.`;
+  }
+}
+
+function renderRelatedPanelContent(related) {
+  if (!related?.items?.length) {
+    return `<p class="muted item-related-empty">${relatedEmptyHint(related)}</p>`;
+  }
+  return `<ul class="item-related-list">${related.items
     .map((hit) => {
       const it = hit.item || hit;
       const name = it.tool_name || it.summary?.slice(0, 48) || it.extracted_item_id;
@@ -180,12 +212,47 @@ function renderRelatedPanel(related) {
         ${it.category ? `<span class="muted"> · ${escapeHtml(it.category)}</span>` : ""}
       </li>`;
     })
-    .join("");
+    .join("")}</ul>`;
+}
+
+function renderRelatedPanel(related, itemId) {
+  const sameCategory = related?.same_category !== false;
+  const minPct = Math.round((related?.min_similarity ?? 0.55) * 100);
   return itemSection(
     "Ferramentas relacionadas",
-    `<ul class="item-related-list">${rows}</ul>
-     <p class="muted item-related-hint">Vizinhos por embedding (mesma categoria quando disponível).</p>`,
+    `<div class="item-related-panel" data-item-id="${escapeHtml(itemId)}">
+      <label class="item-related-toggle">
+        <input type="checkbox" id="related-same-category" ${sameCategory ? "checked" : ""} />
+        Só mesma categoria
+      </label>
+      <div id="related-panel-body">${renderRelatedPanelContent(related)}</div>
+      <p class="muted item-related-hint">Vizinhos por embedding · limiar mínimo ${minPct}%</p>
+    </div>`,
   );
+}
+
+function bindRelatedPanel(itemId) {
+  const cb = document.getElementById("related-same-category");
+  const body = document.getElementById("related-panel-body");
+  if (!cb || !body) {
+    return;
+  }
+  cb.addEventListener("change", async () => {
+    body.innerHTML = '<p class="muted">Carregando…</p>';
+    const same = cb.checked;
+    try {
+      const related = await apiJson(
+        `/items/${itemId}/related?limit=8&same_category=${same ? "true" : "false"}`,
+      );
+      body.innerHTML = renderRelatedPanelContent(related);
+    } catch {
+      body.innerHTML = renderRelatedPanelContent({
+        has_embedding: false,
+        items: [],
+        count: 0,
+      });
+    }
+  });
 }
 
 function renderItemSignalsPanel(ex, latestScore) {
@@ -846,11 +913,24 @@ async function renderItems() {
         : "";
 
     if (!searchRes.items || searchRes.items.length === 0) {
+      let semanticEmptyHint = "";
+      if (searchRes.mode === "semantic") {
+        const stats = await apiJson("/stats").catch(() => ({}));
+        const cov = stats.embeddings?.coverage_pct ?? 0;
+        const pending = stats.embeddings?.embeddings_pending ?? 0;
+        if (cov < 30 && pending > 0) {
+          semanticEmptyHint = `<p class="search-empty-hint">Cobertura de embeddings baixa (${Math.round(cov)}%, ${fmtNum(pending)} na fila). Rode o backfill de embed para melhorar a busca semântica.</p>`;
+        } else {
+          semanticEmptyHint =
+            '<p class="search-empty-hint">Nenhum match semântico para essa consulta. Tente termos do resumo/categoria da ferramenta ou palavras mais genéricas.</p>';
+        }
+      }
       $app.innerHTML = `${header}
         ${filters}
         <p class="muted search-empty">Nenhum resultado para “${escapeHtml(searchRes.query || semanticQ)}”.</p>
         <p class="muted">${escapeHtml(modeLabel)}</p>
-        ${modeHint}`;
+        ${modeHint}
+        ${semanticEmptyHint}`;
       bindExplorerFilters();
       return;
     }
@@ -929,10 +1009,11 @@ async function renderItem(id) {
   setNav("#/items");
   const [data, related] = await Promise.all([
     apiJson(`/items/${id}`),
-    apiJson(`/items/${id}/related?limit=5`).catch(() => ({
+    apiJson(`/items/${id}/related?limit=8&same_category=true`).catch(() => ({
       has_embedding: false,
       items: [],
       count: 0,
+      same_category: true,
     })),
   ]);
   const ex = data.extracted;
@@ -964,7 +1045,7 @@ async function renderItem(id) {
   ]);
 
   const signalsPanel = renderItemSignalsPanel(ex, sc);
-  const relatedPanel = renderRelatedPanel(related);
+  const relatedPanel = renderRelatedPanel(related, id);
   const compareLink = ex.category
     ? `<a class="btn btn-ghost" href="#/compare?category=${encodeURIComponent(ex.category)}">Comparar categoria</a>`
     : "";
@@ -1077,6 +1158,8 @@ async function renderItem(id) {
     ${history}
     <p id="reprocess-status" class="muted" aria-live="polite"></p>
   </div>`;
+
+  bindRelatedPanel(id);
 
   document.getElementById("feedback-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
