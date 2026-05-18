@@ -33,6 +33,10 @@ pub fn describe_metrics() {
         "ai_radar_pending_raw_items",
         "raw_items rows in pending status awaiting extract"
     );
+    describe_gauge!(
+        "ai_radar_embeddings_pending",
+        "latest extracted items without an embedding for the configured model (T-255)"
+    );
     describe_counter!(
         "ai_radar_sources_skipped_poll_total",
         "Sources not fetched because poll_interval has not elapsed since last_polled_at"
@@ -107,6 +111,16 @@ pub fn describe_metrics() {
 #[allow(clippy::cast_precision_loss)]
 pub fn set_pending_raw_items_count(count: i64) {
     gauge!("ai_radar_pending_raw_items").set(count.max(0) as f64);
+}
+
+/// Refresh embedding backlog gauge (**T-255**). Pass `None` when embeddings are disabled.
+#[inline]
+#[allow(clippy::cast_precision_loss)]
+pub fn set_embeddings_pending_count(count: Option<i64>) {
+    match count {
+        Some(n) => gauge!("ai_radar_embeddings_pending").set(n.max(0) as f64),
+        None => gauge!("ai_radar_embeddings_pending").set(0.0),
+    }
 }
 
 /// Emit counters and histogram after one `collect` pass completes.

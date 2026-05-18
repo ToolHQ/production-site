@@ -4,7 +4,7 @@ use axum::extract::State;
 use axum::routing::get;
 use axum::{Json, Router};
 
-use ai_radar_core::repos::{load_pipeline_stats, PipelineStats};
+use ai_radar_core::repos::{load_pipeline_stats_with_embeddings, PipelineStats};
 
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -15,6 +15,11 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn handler(State(state): State<AppState>) -> Result<Json<PipelineStats>, ApiError> {
-    let snapshot = load_pipeline_stats(&state.db).await?;
+    let snapshot = load_pipeline_stats_with_embeddings(
+        &state.db,
+        state.config.embeddings_enabled,
+        state.config.embedding_model.as_deref(),
+    )
+    .await?;
     Ok(Json(snapshot))
 }
