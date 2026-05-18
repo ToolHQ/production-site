@@ -32,7 +32,7 @@ spec:
         - name: regsecret
       containers:
         - name: collector
-          image: registry.local:31444/repository/docker-repo/agent-meter:latest
+          image: IMAGE_PLACEHOLDER
           imagePullPolicy: Always
           ports:
             - name: http
