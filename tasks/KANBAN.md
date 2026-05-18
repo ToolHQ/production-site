@@ -25,8 +25,7 @@
 | [T-262](2026/Q2/T-262-AI-Radar-Explorer-Sem-Embedding-Badge.md) | **AI Radar — Explorer Sem-Embedding Badge** | 🔽 Low | Cursor / AI Radar | 3h |
 | [T-261](2026/Q2/T-261-AI-Radar-Embedding-Coverage-Alert.md) | **AI Radar — Embedding Coverage Alert** | 🔼 High | Cursor / AI Radar | 2h |
 | [T-260](2026/Q2/T-260-AI-Radar-Embed-Catch-Up-CronJob.md) | **AI Radar — Embed Catch-Up CronJob** | 🔼 High | Cursor / AI Radar | 3h |
-| [T-239](2026/Q2/T-239-agent-meter-schema-collector-enrichment.md) | **agent-meter — Schema & Collector Enrichment** _(model, cached_tokens, conversation_id, client_ip, user_agent; new GET /reports/events feed paginado)_ | 🔼 High | **Copilot/VSCode** | 3h |
-| [T-240](2026/Q2/T-240-agent-meter-dashboard-events-ui.md) | **agent-meter — Dashboard UI: events feed + model + tokens breakdown** _(tab Events paginada, stats cards in/out/cached, coluna TOP MODEL, filtro por modelo; depende T-239)_ | 🔼 High | **Copilot/VSCode** | 2h |
+
 
 
 
@@ -34,6 +33,8 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-240](2026/Q2/T-240-agent-meter-dashboard-events-ui.md) | **agent-meter — Dashboard UI: events feed + model + tokens breakdown + coluna Prompt + CSV fix** _(PR #254; deploy9 pod kq4b4)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| [T-239](2026/Q2/T-239-agent-meter-schema-collector-enrichment.md) | **agent-meter — Schema & Collector Enrichment** _(model, cached_tokens, conversation_id, client_ip, user_prompt; events feed; fix false-positive parse_first_human_text claude; PR #254)_ | 🔼 High | **Copilot/VSCode** | 3h |
 | [T-258](2026/Q2/T-258-AI-Radar-Semantic-Duplicates-Console-Drill-Down.md) | **AI Radar — Semantic Duplicates Console Drill-Down** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-256](2026/Q2/T-256-AI-Radar-Embed-Batch-Scale-Backfill-Ops.md) | **AI Radar — Embed Batch Scale & Backfill Ops** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-257](2026/Q2/T-257-AI-Radar-Related-Items-Semantic-Empty-State-UX.md) | **AI Radar — Related Items & Semantic Empty-State UX** | 🔼 High | Cursor / AI Radar | 3h |
