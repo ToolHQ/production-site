@@ -2,7 +2,10 @@
 
 use std::time::Duration;
 
-use ai_radar_core::config::{AppConfig, DEFAULT_API_BIND, DEFAULT_EMBED_BATCH_LIMIT, DEFAULT_LOG_LEVEL};
+use ai_radar_core::config::{
+    AppConfig, DEFAULT_API_BIND, DEFAULT_EMBED_BATCH_LIMIT, DEFAULT_LOG_LEVEL,
+    DEFAULT_POST_EXTRACT_EMBED_TAIL_LIMIT,
+};
 use ai_radar_core::llm::{
     build_llm_provider, CompletionRequest, LlmError, LlmProvider, OpenRouterLlmProvider,
 };
@@ -30,6 +33,7 @@ fn llm_test_cfg(server: &MockServer) -> AppConfig {
         embeddings_enabled: false,
         embedding_model: None,
         embed_batch_limit: DEFAULT_EMBED_BATCH_LIMIT,
+        post_extract_embed_tail_limit: DEFAULT_POST_EXTRACT_EMBED_TAIL_LIMIT,
     }
 }
 

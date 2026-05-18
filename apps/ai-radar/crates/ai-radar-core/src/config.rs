@@ -37,6 +37,8 @@ pub const DEFAULT_LLM_MAX_RPM: u32 = 15;
 pub const DEFAULT_EMBED_BATCH_LIMIT: i64 = 50;
 /// Hard ceiling for `EMBED_BATCH_LIMIT` (cost guardrail).
 pub const MAX_EMBED_BATCH_LIMIT: i64 = 100;
+/// Default rows embedded automatically after each extract pass (**T-259**).
+pub const DEFAULT_POST_EXTRACT_EMBED_TAIL_LIMIT: i64 = 25;
 
 /// Strongly-typed application configuration.
 ///
@@ -121,6 +123,11 @@ pub struct AppConfig {
     /// Default `50`, clamped to `1..=MAX_EMBED_BATCH_LIMIT` (**T-256**).
     #[serde(default = "default_embed_batch_limit")]
     pub embed_batch_limit: i64,
+
+    /// Rows embedded after each extract pass (tail). Env: `POST_EXTRACT_EMBED_TAIL_LIMIT`.
+    /// Default `25` (**T-259**).
+    #[serde(default = "default_post_extract_embed_tail_limit")]
+    pub post_extract_embed_tail_limit: i64,
 }
 
 fn default_api_bind() -> String {
@@ -158,12 +165,23 @@ fn default_embed_batch_limit() -> i64 {
     DEFAULT_EMBED_BATCH_LIMIT
 }
 
+fn default_post_extract_embed_tail_limit() -> i64 {
+    DEFAULT_POST_EXTRACT_EMBED_TAIL_LIMIT
+}
+
 impl AppConfig {
     /// Resolve embed batch size: CLI `--limit` overrides config/env (**T-256**).
     #[must_use]
     pub fn resolve_embed_batch_limit(&self, cli_override: Option<i64>) -> i64 {
         let base = cli_override.unwrap_or(self.embed_batch_limit);
         base.clamp(1, MAX_EMBED_BATCH_LIMIT)
+    }
+
+    /// Effective post-extract embed tail size (**T-259**).
+    #[must_use]
+    pub fn post_extract_embed_tail_limit(&self) -> i64 {
+        self.post_extract_embed_tail_limit
+            .clamp(1, MAX_EMBED_BATCH_LIMIT)
     }
 
     /// Build configuration from process environment.
@@ -189,6 +207,7 @@ impl AppConfig {
                 "EMBEDDINGS_ENABLED",
                 "EMBEDDING_MODEL",
                 "EMBED_BATCH_LIMIT",
+                "POST_EXTRACT_EMBED_TAIL_LIMIT",
                 "GITHUB_TOKEN",
             ]));
 
@@ -219,6 +238,24 @@ mod tests {
             assert_eq!(cfg.collect_concurrency, 2);
             assert_eq!(cfg.max_items_per_run, 50);
             assert_eq!(cfg.embed_batch_limit, DEFAULT_EMBED_BATCH_LIMIT);
+            assert_eq!(
+                cfg.post_extract_embed_tail_limit(),
+                DEFAULT_POST_EXTRACT_EMBED_TAIL_LIMIT
+            );
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn post_extract_embed_tail_limit_from_env_and_clamp() {
+        Jail::expect_with(|jail| {
+            jail.clear_env();
+            jail.set_env("POST_EXTRACT_EMBED_TAIL_LIMIT", "200");
+            let cfg = AppConfig::from_env().expect("must load");
+            assert_eq!(cfg.post_extract_embed_tail_limit(), MAX_EMBED_BATCH_LIMIT);
+            jail.set_env("POST_EXTRACT_EMBED_TAIL_LIMIT", "10");
+            let cfg = AppConfig::from_env().expect("must load");
+            assert_eq!(cfg.post_extract_embed_tail_limit(), 10);
             Ok(())
         });
     }
