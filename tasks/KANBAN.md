@@ -33,6 +33,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| T-257 | **Watchdog Observability — CPU Headroom requested capacity thresholds tuned** _(adjusted thresholds to 88%/95% to prevent false-positive alarms under master resource bookings; PR #249; deployed to master node)_ | 🔼 High | Antigravity | 1h |
 | [T-255](2026/Q2/T-255-AI-Radar-Embedding-Coverage-Stats.md) | **AI Radar — Embedding Coverage Stats** | 🔼 High | Cursor / AI Radar | 3h |
 | [T-254](2026/Q2/T-254-AI-Radar-Embed-CLI-Deploy-Cluster.md) | **AI Radar — Deploy CLI embed + smoke semântico cluster** | 🔼 High | Cursor / AI Radar | 2h |
 | [T-250](2026/Q2/T-250-AI-Radar-Explorer-Semantic-Search-UI.md) | **AI Radar — Explorer Semantic Search UI** | 🔼 High | Cursor / AI Radar | 4h |
