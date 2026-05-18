@@ -24,6 +24,8 @@ pub struct SemanticDuplicatePair {
     pub tool_name_b: Option<String>,
     pub category_a: Option<String>,
     pub category_b: Option<String>,
+    pub score_a: f32,
+    pub score_b: f32,
     pub similarity: f32,
 }
 
@@ -130,6 +132,8 @@ pub async fn run_semantic_duplicates_report(
                 tool_name_b: b.tool_name.clone(),
                 category_a: a.category.clone(),
                 category_b: b.category.clone(),
+                score_a: a.score,
+                score_b: b.score,
                 similarity,
             })
         })
