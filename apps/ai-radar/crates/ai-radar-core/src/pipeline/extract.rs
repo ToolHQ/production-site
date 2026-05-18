@@ -18,8 +18,10 @@ use crate::extractor::{
     assess_extract_quality, audit_entry, extractor_id, llm_extract_with_retry, QualityTier,
     EXTRACTOR_VERSION,
 };
+use crate::embedding::build_embedding_provider;
 use crate::llm::LlmProvider;
 use crate::metrics;
+use crate::pipeline::embed::run_embed_batch;
 use crate::repos::{
     ExtractedItemRepository, PgExtractedItemRepository, PgRawItemRepository,
     PgSourceHealthRepository, PgToolMetricsSnapshotRepository, RawItemRepository,
@@ -120,6 +122,20 @@ pub async fn run_extract(
         stats.quality_rejected,
         started.elapsed(),
     );
+
+    if config.embeddings_enabled && stats.extracted > 0 {
+        let embedder = build_embedding_provider(config);
+        match run_embed_batch(db, config, embedder, 5).await {
+            Ok(tail) => tracing::info!(
+                embedded = tail.embedded,
+                failed = tail.failed,
+                skipped = tail.skipped,
+                "post-extract embed tail"
+            ),
+            Err(e) => tracing::warn!(error = %e, "post-extract embed tail failed"),
+        }
+    }
+
     Ok(stats)
 }
 

@@ -13,6 +13,7 @@ use ai_radar_core::llm::{build_llm_provider, CompletionRequest};
 use ai_radar_core::pipeline::collect::run_collect;
 use ai_radar_core::pipeline::compare::run_compare;
 use ai_radar_core::pipeline::digest::{run_digest, DigestKind, DigestLimits};
+use ai_radar_core::pipeline::embed::run_embed_batch_from_config;
 use ai_radar_core::pipeline::extract::run_extract;
 use ai_radar_core::pipeline::reprocess::{run_reprocess, ReprocessStage};
 use ai_radar_core::pipeline::score::{run_score, DEFAULT_SCORE_STALE_HOURS};
@@ -61,6 +62,12 @@ enum Command {
     Extract {
         /// Max rows to claim per run.
         #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
+    /// Embed latest `extracted_items` missing vectors (**T-248**).
+    Embed {
+        /// Max rows to process.
+        #[arg(long, default_value_t = 25)]
         limit: i64,
     },
     /// Fetch RSS/Atom feeds and insert idempotent `raw_items` rows.
@@ -206,6 +213,55 @@ async fn run_score_command(
     );
 
     println!("scored={} failed={}", stats.scored, stats.failed);
+
+    Ok(())
+}
+
+async fn run_embed_command(job_id: Uuid, limit: i64) -> anyhow::Result<()> {
+    let started = std::time::Instant::now();
+    let config = AppConfig::from_env().context("configuration")?;
+    telemetry::init_tracing(&config.log_level).context("tracing")?;
+
+    tracing::info!(
+        event = "job.started",
+        job = "embed",
+        job_id = %job_id,
+        limit,
+        "embed job started"
+    );
+
+    let database_url = config
+        .database_url
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required for embed"))?;
+
+    let db = Database::connect(&database_url)
+        .await
+        .map_err(|e| anyhow::anyhow!("database: {e}"))?;
+
+    let stats = run_embed_batch_from_config(&db, &config, limit.max(1))
+        .await
+        .context("embed pipeline")?;
+
+    tracing::info!(
+        event = "job.completed",
+        job = "embed",
+        job_id = %job_id,
+        embedded = stats.embedded,
+        failed = stats.failed,
+        skipped = stats.skipped,
+        duration_secs = started.elapsed().as_secs_f64(),
+        "embed job finished"
+    );
+
+    println!(
+        "embedded={} failed={} skipped={}",
+        stats.embedded, stats.failed, stats.skipped
+    );
+
+    if stats.failed > 0 && stats.embedded == 0 {
+        std::process::exit(1);
+    }
 
     Ok(())
 }
@@ -393,6 +449,11 @@ async fn main() -> anyhow::Result<()> {
             let job_id = Uuid::new_v4();
             let span = tracing::info_span!("extract_job", job_id = %job_id);
             run_extract_command(job_id, limit).instrument(span).await?;
+        }
+        Command::Embed { limit } => {
+            let job_id = Uuid::new_v4();
+            let span = tracing::info_span!("embed_job", job_id = %job_id);
+            run_embed_command(job_id, limit).instrument(span).await?;
         }
         Command::Collect {
             source_id,
