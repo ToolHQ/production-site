@@ -29,15 +29,71 @@ IMAGE_CLI_LATEST="$REGISTRY/$REPO/$SERVICE_CLI:latest"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
-export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
+KUBECONFIG_DEFAULT="$REPO_ROOT/oci-k8s-cluster/kubeconfig_tunnel.yaml"
+export KUBECONFIG="${KUBECONFIG:-$KUBECONFIG_DEFAULT}"
 
 die() {
 	printf '%s\n' "$*" >&2
 	exit 1
 }
 
+# Gera kubeconfig_tunnel.yaml (porta 6445) a partir de kubeconfig.yaml quando ausente.
+ensure_kubeconfig_tunnel() {
+	if [[ -f "$KUBECONFIG" ]]; then
+		return 0
+	fi
+	local src="$REPO_ROOT/oci-k8s-cluster/kubeconfig.yaml"
+	if [[ ! -f "$src" ]]; then
+		die "❌ KUBECONFIG ausente ($KUBECONFIG) e kubeconfig.yaml não encontrado. Rode: source $REPO_ROOT/oci-k8s-cluster/scripts/setup-dev-deploy.sh"
+	fi
+	mkdir -p "$(dirname "$KUBECONFIG")"
+	sed 's|https://127.0.0.1:6443|https://127.0.0.1:6445|' "$src" >"$KUBECONFIG"
+	printf '%s\n' "ℹ️  kubeconfig_tunnel.yaml gerado em $KUBECONFIG" >&2
+}
+
+# Substitui tags de imagem no manifest Kustomize (evita falhas do sed com & ou emojis).
+patch_manifest_images() {
+	local manifest="$1"
+	local api_img="$2"
+	local cli_img="$3"
+	python3 - "$manifest" "$api_img" "$cli_img" <<'PY'
+import pathlib
+import re
+import sys
+
+path, api, cli = sys.argv[1:4]
+text = pathlib.Path(path).read_text()
+text = re.sub(
+    r"registry\.local:31444/repository/docker-repo/my-site-ai-radar-api:[^\s\"']+",
+    api,
+    text,
+)
+text = re.sub(
+    r"registry\.local:31444/repository/docker-repo/my-site-ai-radar-cli:[^\s\"']+",
+    cli,
+    text,
+)
+pathlib.Path(path).write_text(text)
+PY
+}
+
+normalize_image_ref() {
+	# Primeira linha, sem CR/LF — evita poluir o manifest se stdout capturar lixo.
+	printf '%s' "$1" | head -n1 | tr -d '\r\n'
+}
+
+validate_image_ref() {
+	local ref="$1"
+	local label="$2"
+	if [[ ! "$ref" =~ ^registry\.local:31444/repository/docker-repo/my-site-ai-radar-(api|cli):[^[:space:]]+$ ]]; then
+		die "❌ $label inválida: [$ref]"
+	fi
+}
+
+ensure_kubeconfig_tunnel
+
 if ! kubectl get ns >/dev/null 2>&1; then
-	die "❌ kubectl indisponível ou tunnel inativo. rode setup-dev-deploy.sh + export KUBECONFIG tunnel."
+	die "❌ kubectl indisponível ou tunnel inativo. Rode: source $REPO_ROOT/oci-k8s-cluster/scripts/setup-dev-deploy.sh"
 fi
 
 kubectl apply -f "$ROOT_DIR/k8s/base/namespace.yaml"
@@ -239,7 +295,9 @@ resolve_cli_image_for_manifest() {
 }
 
 build_rust_image runtime-api ai-radar-api "$IMAGE_API_TAG" "$IMAGE_API_LATEST"
-IMAGE_CLI_FOR_MANIFEST="$(resolve_cli_image_for_manifest)"
+IMAGE_CLI_FOR_MANIFEST="$(normalize_image_ref "$(resolve_cli_image_for_manifest)")"
+validate_image_ref "$IMAGE_API_TAG" "imagem API"
+validate_image_ref "$IMAGE_CLI_FOR_MANIFEST" "imagem CLI"
 
 MANIFEST="$(mktemp)"
 cleanup() {
@@ -248,10 +306,11 @@ cleanup() {
 trap cleanup EXIT
 
 kubectl kustomize "$ROOT_DIR/k8s/overlays/production" >"$MANIFEST"
-sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-api:[^[:space:]]*|${IMAGE_API_TAG}|g" "$MANIFEST"
-sed -i "s|registry.local:31444/repository/docker-repo/my-site-ai-radar-cli:[^[:space:]]*|${IMAGE_CLI_FOR_MANIFEST}|g" "$MANIFEST"
+patch_manifest_images "$MANIFEST" "$IMAGE_API_TAG" "$IMAGE_CLI_FOR_MANIFEST"
 
 kubectl apply -f "$MANIFEST"
+kubectl rollout status deployment/ai-radar-api -n ai-radar --timeout=300s
+printf '%s\n' "✅ ai-radar-api rolled out ($IMAGE_API_TAG)"
 
 # Pós-build: prune profilático do cache BuildKit para prevenir DiskPressure acumulado (T-196).
 # Mantém ≤ 8 GiB de cache (--keep-storage) — sem --all para preservar layers reutilizáveis.
