@@ -421,6 +421,39 @@ Tipos válidos: `useful`, `irrelevant`, `duplicate`, `low_quality`, `wrong_categ
 
 Testes de integração (Postgres): `cargo test -p ai-radar-core --test feedback_integration -- --ignored`
 
+## Embedding backfill (**T-256**)
+
+O CronJob `ai-radar-embed` roda `ai-radar embed` sem `--limit`; o tamanho do lote vem de **`EMBED_BATCH_LIMIT`** (ConfigMap `ai-radar-config`, default **50**, teto **100** no binário).
+
+Monitorar fila e cobertura:
+
+```bash
+export API=https://ai-radar.dnor.io
+curl -fsS "$API/stats" | jq '.embeddings'
+curl -fsS "$API/metrics" | grep ai_radar_embeddings_pending
+```
+
+Backfill manual até `embeddings_pending` chegar a 0:
+
+```bash
+export KUBECONFIG=~/production-site-cursor/oci-k8s-cluster/kubeconfig_tunnel.yaml
+
+# Aplicar ConfigMap/CronJob atualizados (deploy.sh ou kubectl apply -k apps/ai-radar/k8s/base)
+kubectl apply -k apps/ai-radar/k8s/base -n ai-radar
+
+while true; do
+  pending=$(curl -fsS "$API/stats" | jq -r '.embeddings.embeddings_pending // 0')
+  echo "embeddings_pending=$pending"
+  [ "$pending" = "0" ] && break
+  job="ai-radar-embed-backfill-$(date +%s)"
+  kubectl create job "$job" --from=cronjob/ai-radar-embed -n ai-radar
+  kubectl wait --for=condition=complete "job/$job" -n ai-radar --timeout=600s
+  kubectl logs -n ai-radar "job/$job" --tail=30 | grep -E 'embedded=|embed.coverage|pending_after'
+done
+```
+
+Override pontual (ex. smoke de 10 itens): `ai-radar embed --limit 10`. Logs estruturados incluem `event=embed.coverage` com `pending_after` e `coverage_pct`.
+
 ## Failure modes (collect / RSS)
 
 - **HTTP 5xx / 429 / timeouts**: o fetch do feed é **retentado** com backoff e jitter; ver logs do CronJob e Coroot para `source_id`.

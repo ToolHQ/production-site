@@ -9,7 +9,8 @@ use crate::domain::ExtractedItem;
 use crate::embedding::{build_embedding_provider, EmbedRequest, EmbeddingProvider};
 use crate::metrics;
 use crate::repos::{
-    ItemEmbeddingRepository, NewItemEmbedding, PgItemEmbeddingRepository,
+    load_embedding_coverage, ItemEmbeddingRepository, NewItemEmbedding,
+    PgItemEmbeddingRepository,
 };
 use crate::util::limits::MAX_EXTRACT_INPUT_CHARS;
 
@@ -131,7 +132,35 @@ pub async fn run_embed_batch(
     }
 
     metrics::record_embed_pass(stats.embedded, stats.failed, stats.skipped, started.elapsed());
+    log_embed_coverage(db, &stats, &model).await;
     Ok(stats)
+}
+
+async fn log_embed_coverage(db: &Database, stats: &EmbedStats, model: &str) {
+    match load_embedding_coverage(db, model).await {
+        Ok(cov) => {
+            tracing::info!(
+                event = "embed.coverage",
+                embedded = stats.embedded,
+                failed = stats.failed,
+                skipped = stats.skipped,
+                pending_after = cov.embeddings_pending,
+                coverage_pct = cov.coverage_pct,
+                embeddings_total = cov.embeddings_total,
+                embeddings_eligible = cov.embeddings_eligible,
+                model = %cov.model,
+                "embed coverage snapshot"
+            );
+        }
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                event = "embed.coverage",
+                embedded = stats.embedded,
+                "embed coverage snapshot failed"
+            );
+        }
+    }
 }
 
 /// Convenience: build provider from config and run batch.

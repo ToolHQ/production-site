@@ -10,7 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-| [T-255](2026/Q2/T-255-AI-Radar-Embedding-Coverage-Stats.md) | **AI Radar — Embedding Coverage Stats** | 🔼 High | Cursor / AI Radar | 3h |
+| [T-256](2026/Q2/T-256-AI-Radar-Embed-Batch-Scale-Backfill-Ops.md) | **AI Radar — Embed Batch Scale & Backfill Ops** | 🔼 High | Cursor / AI Radar | 4h |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High | **OpenCode** | 1h |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -24,7 +24,6 @@
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
 | [T-258](2026/Q2/T-258-AI-Radar-Semantic-Duplicates-Console-Drill-Down.md) | **AI Radar — Semantic Duplicates Console Drill-Down** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-257](2026/Q2/T-257-AI-Radar-Related-Items-Semantic-Empty-State-UX.md) | **AI Radar — Related Items & Semantic Empty-State UX** | 🔼 High | Cursor / AI Radar | 3h |
-| [T-256](2026/Q2/T-256-AI-Radar-Embed-Batch-Scale-Backfill-Ops.md) | **AI Radar — Embed Batch Scale & Backfill Ops** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-239](2026/Q2/T-239-agent-meter-schema-collector-enrichment.md) | **agent-meter — Schema & Collector Enrichment** _(model, cached_tokens, conversation_id, client_ip, user_agent; new GET /reports/events feed paginado)_ | 🔼 High | **Copilot/VSCode** | 3h |
 | [T-240](2026/Q2/T-240-agent-meter-dashboard-events-ui.md) | **agent-meter — Dashboard UI: events feed + model + tokens breakdown** _(tab Events paginada, stats cards in/out/cached, coluna TOP MODEL, filtro por modelo; depende T-239)_ | 🔼 High | **Copilot/VSCode** | 2h |
 
@@ -34,6 +33,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-255](2026/Q2/T-255-AI-Radar-Embedding-Coverage-Stats.md) | **AI Radar — Embedding Coverage Stats** | 🔼 High | Cursor / AI Radar | 3h |
 | [T-254](2026/Q2/T-254-AI-Radar-Embed-CLI-Deploy-Cluster.md) | **AI Radar — Deploy CLI embed + smoke semântico cluster** | 🔼 High | Cursor / AI Radar | 2h |
 | [T-250](2026/Q2/T-250-AI-Radar-Explorer-Semantic-Search-UI.md) | **AI Radar — Explorer Semantic Search UI** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-249](2026/Q2/T-249-AI-Radar-Semantic-Search-API.md) | **AI Radar — Semantic Search API** | 🔼 High | Cursor / AI Radar | 4h |

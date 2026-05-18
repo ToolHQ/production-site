@@ -33,6 +33,10 @@ pub const DEFAULT_LLM_BASE_URL: &str = "https://openrouter.ai/api/v1";
 pub const DEFAULT_LLM_TIMEOUT_SECONDS: u64 = 60;
 /// Default cap on LLM HTTP calls per minute (OpenRouter `:free` ≈ 16–20 RPM).
 pub const DEFAULT_LLM_MAX_RPM: u32 = 15;
+/// Default rows per `ai-radar embed` pass (**T-256**).
+pub const DEFAULT_EMBED_BATCH_LIMIT: i64 = 50;
+/// Hard ceiling for `EMBED_BATCH_LIMIT` (cost guardrail).
+pub const MAX_EMBED_BATCH_LIMIT: i64 = 100;
 
 /// Strongly-typed application configuration.
 ///
@@ -112,6 +116,11 @@ pub struct AppConfig {
 
     /// Embedding model id (OpenAI-compatible `/embeddings`). Env: `EMBEDDING_MODEL`.
     pub embedding_model: Option<String>,
+
+    /// Max extracted items embedded per CLI/CronJob pass. Env: `EMBED_BATCH_LIMIT`.
+    /// Default `50`, clamped to `1..=MAX_EMBED_BATCH_LIMIT` (**T-256**).
+    #[serde(default = "default_embed_batch_limit")]
+    pub embed_batch_limit: i64,
 }
 
 fn default_api_bind() -> String {
@@ -145,7 +154,18 @@ fn default_llm_scoring_llm_weight() -> f32 {
     0.3
 }
 
+fn default_embed_batch_limit() -> i64 {
+    DEFAULT_EMBED_BATCH_LIMIT
+}
+
 impl AppConfig {
+    /// Resolve embed batch size: CLI `--limit` overrides config/env (**T-256**).
+    #[must_use]
+    pub fn resolve_embed_batch_limit(&self, cli_override: Option<i64>) -> i64 {
+        let base = cli_override.unwrap_or(self.embed_batch_limit);
+        base.clamp(1, MAX_EMBED_BATCH_LIMIT)
+    }
+
     /// Build configuration from process environment.
     ///
     /// # Errors
@@ -168,6 +188,7 @@ impl AppConfig {
                 "LLM_SCORING_LLM_WEIGHT",
                 "EMBEDDINGS_ENABLED",
                 "EMBEDDING_MODEL",
+                "EMBED_BATCH_LIMIT",
                 "GITHUB_TOKEN",
             ]));
 
@@ -197,6 +218,20 @@ mod tests {
             assert!(cfg.github_token.is_none());
             assert_eq!(cfg.collect_concurrency, 2);
             assert_eq!(cfg.max_items_per_run, 50);
+            assert_eq!(cfg.embed_batch_limit, DEFAULT_EMBED_BATCH_LIMIT);
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn embed_batch_limit_from_env_and_clamp() {
+        Jail::expect_with(|jail| {
+            jail.clear_env();
+            jail.set_env("EMBED_BATCH_LIMIT", "200");
+            let cfg = AppConfig::from_env().expect("must load");
+            assert_eq!(cfg.resolve_embed_batch_limit(None), MAX_EMBED_BATCH_LIMIT);
+            assert_eq!(cfg.resolve_embed_batch_limit(Some(75)), 75);
+            assert_eq!(cfg.resolve_embed_batch_limit(Some(0)), 1);
             Ok(())
         });
     }

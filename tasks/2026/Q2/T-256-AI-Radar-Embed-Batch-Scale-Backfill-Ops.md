@@ -1,6 +1,6 @@
 # T-256: AI Radar — Embed Batch Scale & Backfill Ops
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
@@ -11,12 +11,12 @@ CronJob `ai-radar-embed` usa `--limit 25` fixo; backfill de centenas de itens ex
 
 ## Tasks
 
-- [ ] Env `EMBED_BATCH_LIMIT` (config + CronJob + `.env.example`)
-- [ ] CLI `embed` lê limite do config com override `--limit`
-- [ ] Aumentar default CronJob para 50 (ou 100) se custo OpenRouter OK
-- [ ] Log estruturado `embed.coverage` com `embedded`, `pending_after`, `coverage_pct`
-- [ ] Runbook em README: loop de jobs manuais até `embeddings_pending=0`
-- [ ] Smoke cluster: job manual com limite alto reduz fila
+- [x] Env `EMBED_BATCH_LIMIT` (config + CronJob + `.env.example`)
+- [x] CLI `embed` lê limite do config com override `--limit`
+- [x] Default CronJob via ConfigMap `50` (teto 100 no binário)
+- [x] Log estruturado `embed.coverage` com `embedded`, `pending_after`, `coverage_pct`
+- [x] Runbook em README: loop de jobs manuais até `embeddings_pending=0`
+- [ ] Smoke cluster: job manual reduz fila
 
 ## Definition of Done
 

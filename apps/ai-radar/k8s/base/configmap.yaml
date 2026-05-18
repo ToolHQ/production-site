@@ -10,3 +10,5 @@ data:
   AI_RADAR_LOG_LEVEL: "info"
   # OpenRouter :free tier ≈ 16–20 RPM; keep headroom (see LLM_MAX_RPM in core).
   LLM_MAX_RPM: "15"
+  # Rows per ai-radar-embed CronJob pass (hard max 100 in binary).
+  EMBED_BATCH_LIMIT: "50"
