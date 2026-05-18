@@ -89,6 +89,10 @@ pub fn describe_metrics() {
         "ai_radar_feedback_calibration_total",
         "scores adjusted by category feedback calibration (T-236)"
     );
+    describe_counter!(
+        "ai_radar_embeddings_total",
+        "embedding pipeline outcomes by status (T-248)"
+    );
 }
 
 /// Refresh gauge from DB count (call from `/metrics` before render).
@@ -143,6 +147,25 @@ pub fn record_score_pass(scored: u64, failed: u64, elapsed: Duration) {
         counter!("ai_radar_errors_total", "stage" => "score").increment(failed);
     }
     histogram!("ai_radar_stage_duration_seconds", "stage" => "score").record(elapsed.as_secs_f64());
+}
+
+/// One embedding attempt (`success`, `failed`, `skipped`).
+pub fn record_embedding(status: &str) {
+    counter!(
+        "ai_radar_embeddings_total",
+        "status" => status.to_string()
+    )
+    .increment(1);
+}
+
+/// Emit counters after one `embed` pass completes.
+pub fn record_embed_pass(embedded: u64, failed: u64, skipped: u64, elapsed: Duration) {
+    if failed > 0 {
+        counter!("ai_radar_errors_total", "stage" => "embed").increment(failed);
+    }
+    histogram!("ai_radar_stage_duration_seconds", "stage" => "embed")
+        .record(elapsed.as_secs_f64());
+    let _ = (embedded, skipped);
 }
 
 /// Emit counters after one `extract` pass completes.
