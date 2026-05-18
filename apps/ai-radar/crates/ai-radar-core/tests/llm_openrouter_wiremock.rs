@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use ai_radar_core::config::{AppConfig, DEFAULT_API_BIND, DEFAULT_LOG_LEVEL};
+use ai_radar_core::config::{AppConfig, DEFAULT_API_BIND, DEFAULT_EMBED_BATCH_LIMIT, DEFAULT_LOG_LEVEL};
 use ai_radar_core::llm::{
     build_llm_provider, CompletionRequest, LlmError, LlmProvider, OpenRouterLlmProvider,
 };
@@ -29,6 +29,7 @@ fn llm_test_cfg(server: &MockServer) -> AppConfig {
         llm_scoring_llm_weight: 0.3,
         embeddings_enabled: false,
         embedding_model: None,
+        embed_batch_limit: DEFAULT_EMBED_BATCH_LIMIT,
     }
 }
 
