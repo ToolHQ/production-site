@@ -1,6 +1,6 @@
 # T-260: AI Radar — Embed Catch-Up CronJob
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h
@@ -11,9 +11,9 @@ CronJob `ai-radar-embed` roda 2×/h com limite 50. Para esvaziar fila de centena
 
 ## Tasks
 
-- [ ] CronJob `ai-radar-embed-catchup` (schedule espaçado, `EMBED_BATCH_LIMIT=100` no ConfigMap ou env dedicado)
-- [ ] Documentar coexistência com `ai-radar-embed` regular
-- [ ] Smoke: job reduz `embeddings_pending`
+- [x] CronJob `ai-radar-embed-catchup` (`15 */4 * * *`, `EMBED_CATCHUP_BATCH_LIMIT=100` → env `EMBED_BATCH_LIMIT`)
+- [x] Documentar coexistência com `ai-radar-embed` regular (README)
+- [ ] Smoke pós-deploy: job reduz `embeddings_pending`
 
 ## Definition of Done
 
