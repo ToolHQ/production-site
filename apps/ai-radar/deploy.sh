@@ -209,7 +209,7 @@ build_rust_image() {
 	local target="$1" bin_name="$2" image_tag="$3" image_latest="$4"
 	printf '%s\n' "🔨 buildx $target ($bin_name)…" >&2
 	if [ "$USE_HETZNER" = "true" ]; then
-		echo "🚀 Usando builder Hetzner remoto de alta performance..."
+		printf '%s\n' "🚀 Usando builder Hetzner remoto de alta performance..." >&2
 		docker buildx build \
 			--builder hetzner-builder \
 			--platform linux/arm64 \
@@ -221,7 +221,7 @@ build_rust_image() {
 			-t "$image_latest" \
 			"$ROOT_DIR"
 		
-		echo "🔌 Garantindo túnel SSH para o registro local (porta 31444)..."
+		printf '%s\n' "🔌 Garantindo túnel SSH para o registro local (porta 31444)..." >&2
 		if ! ss -tlnp 2>/dev/null | grep -q ':31444'; then
 			ssh -o StrictHostKeyChecking=no -L 31444:localhost:31444 oci-k8s-master -N -f
 			sleep 1
@@ -232,12 +232,12 @@ build_rust_image() {
 		docker tag "$image_tag" "$local_tag"
 		docker tag "$image_latest" "$local_latest"
 
-		echo "⬆️ Enviando imagem leve ao registro local..."
+		printf '%s\n' "⬆️ Enviando imagem leve ao registro local..." >&2
 		docker push "$local_tag"
 		docker push "$local_latest"
 		docker rmi "$local_tag" "$local_latest" >/dev/null 2>&1 || true
 	else
-		echo "⚠️ Builder Hetzner inativo. Usando o oci-builder padrão..."
+		printf '%s\n' "⚠️ Builder Hetzner inativo. Usando o oci-builder padrão..." >&2
 		docker buildx build \
 			--builder oci-builder \
 			--platform linux/arm64 \
@@ -273,29 +273,26 @@ should_deploy_cli() {
 	esac
 }
 
-resolve_cli_image_for_manifest() {
-	if should_deploy_cli; then
-		build_rust_image runtime-cli ai-radar "$IMAGE_CLI_TAG" "$IMAGE_CLI_LATEST"
-		printf '%s' "$IMAGE_CLI_TAG"
-		return
-	fi
-	local current
+build_rust_image runtime-api ai-radar-api "$IMAGE_API_TAG" "$IMAGE_API_LATEST"
+
+if should_deploy_cli; then
+	build_rust_image runtime-cli ai-radar "$IMAGE_CLI_TAG" "$IMAGE_CLI_LATEST"
+	IMAGE_CLI_FOR_MANIFEST="$IMAGE_CLI_TAG"
+else
 	current="$(
 		kubectl get cronjob ai-radar-extract -n ai-radar \
 			-o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}' 2>/dev/null || true
 	)"
 	if [[ -n "$current" ]]; then
 		printf '%s\n' "⏭️  CLI inalterado (AI_RADAR_DEPLOY_CLI=auto) — reutilizando $current" >&2
-		printf '%s' "$current"
-		return
+		IMAGE_CLI_FOR_MANIFEST="$current"
+	else
+		printf '%s\n' '⚠️  CronJob extract sem imagem — build CLI mesmo com auto' >&2
+		build_rust_image runtime-cli ai-radar "$IMAGE_CLI_TAG" "$IMAGE_CLI_LATEST"
+		IMAGE_CLI_FOR_MANIFEST="$IMAGE_CLI_TAG"
 	fi
-	printf '%s\n' '⚠️  CronJob extract sem imagem — build CLI mesmo com auto' >&2
-	build_rust_image runtime-cli ai-radar "$IMAGE_CLI_TAG" "$IMAGE_CLI_LATEST"
-	printf '%s' "$IMAGE_CLI_TAG"
-}
-
-build_rust_image runtime-api ai-radar-api "$IMAGE_API_TAG" "$IMAGE_API_LATEST"
-IMAGE_CLI_FOR_MANIFEST="$(normalize_image_ref "$(resolve_cli_image_for_manifest)")"
+fi
+IMAGE_CLI_FOR_MANIFEST="$(normalize_image_ref "$IMAGE_CLI_FOR_MANIFEST")"
 validate_image_ref "$IMAGE_API_TAG" "imagem API"
 validate_image_ref "$IMAGE_CLI_FOR_MANIFEST" "imagem CLI"
 
