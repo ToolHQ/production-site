@@ -1,6 +1,6 @@
 # T-258: AI Radar — Semantic Duplicates Console Drill-Down
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
@@ -11,11 +11,11 @@ Relatório `GET /reports/semantic-duplicates` e rota `#/reports/semantic-duplica
 
 ## Tasks
 
-- [ ] Cada par: links para `#/items/{id}` dos dois `extracted_item_id`
-- [ ] Colunas: tool_name, category, score, similarity %
-- [ ] Filtro por threshold no UI (slider ou input, repassa `?threshold=`)
-- [ ] Empty state quando `scanned < 10` embeddings (link para runbook T-256)
-- [ ] Smoke browser na página de duplicatas
+- [x] Cada par: links para `#/items/{id}` dos dois `extracted_item_id`
+- [x] Colunas: tool_name, category, score, similarity %
+- [x] Filtro por threshold no UI (slider + `?threshold=` na URL)
+- [x] Empty state quando `scanned < 10` embeddings (hint backfill)
+- [x] API: `score_a` / `score_b` no payload de pares
 
 ## Definition of Done
 
