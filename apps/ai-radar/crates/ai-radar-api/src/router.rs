@@ -33,6 +33,7 @@ pub fn build_router_no_state() -> Router {
 pub fn build_router(state: AppState) -> Router {
     let api = Router::new()
         .merge(routes::health::router())
+        .merge(routes::health::ready_router())
         .merge(routes::metrics::router())
         .merge(routes::stats::router())
         .merge(routes::sources::router())

@@ -1,15 +1,23 @@
-//! Health route.
+//! Health routes.
 //!
-//! Cheap liveness probe consumed by the Kubernetes liveness/readiness/startup
-//! probes (T-171). Intentionally has no dependencies on the database or LLM
-//! provider so the API stays "up" even when downstream resources misbehave.
+//! - `GET /health` — cheap liveness (no DB); keeps the process alive during
+//!   transient Postgres blips.
+//! - `GET /health/ready` — readiness with `SELECT 1` (**T-264**).
 
-use axum::extract::Extension;
+use std::time::Duration;
+
+use axum::extract::{Extension, State};
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Serialize;
 
 use crate::middleware::RequestId;
+use crate::state::AppState;
+
+/// Wall-clock budget for readiness `SELECT 1` (matches probe `timeoutSeconds`).
+pub const READINESS_DB_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Body returned by `GET /health`.
 #[derive(Debug, Serialize)]
@@ -22,27 +30,86 @@ pub struct HealthResponse {
     pub version: &'static str,
 }
 
-/// Build the `/health` sub-router.
-///
-/// Generic over the application state so it can be merged into both
-/// the production router (state = `AppState`) and the bare unit-test
-/// router (state = `()`).
+/// Body returned by `GET /health/ready`.
+#[derive(Debug, Serialize)]
+pub struct ReadyResponse {
+    pub status: &'static str,
+    pub service: &'static str,
+    pub version: &'static str,
+    /// `"ok"` when Postgres answered `SELECT 1` within the timeout budget.
+    pub database: &'static str,
+}
+
+/// Build the stateless `/health` sub-router (liveness).
 pub fn router<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
 {
-    Router::new().route("/health", get(handler))
+    Router::new().route("/health", get(liveness_handler))
 }
 
-async fn handler(request_id: Option<Extension<RequestId>>) -> Json<HealthResponse> {
+/// Build `/health/ready` (requires [`AppState`] + Postgres).
+pub fn ready_router() -> Router<AppState> {
+    Router::new().route("/health/ready", get(readiness_handler))
+}
+
+async fn liveness_handler(request_id: Option<Extension<RequestId>>) -> Json<HealthResponse> {
     if let Some(Extension(rid)) = request_id {
-        tracing::debug!(request_id = rid.as_str(), "health probe");
+        tracing::debug!(request_id = rid.as_str(), "liveness probe");
     }
     Json(HealthResponse {
         status: "ok",
         service: "ai-radar-api",
         version: ai_radar_core::VERSION,
     })
+}
+
+async fn readiness_handler(
+    State(state): State<AppState>,
+    request_id: Option<Extension<RequestId>>,
+) -> impl IntoResponse {
+    if let Some(Extension(rid)) = request_id {
+        tracing::debug!(request_id = rid.as_str(), "readiness probe");
+    }
+
+    match tokio::time::timeout(READINESS_DB_TIMEOUT, state.db.ping()).await {
+        Ok(Ok(())) => (
+            StatusCode::OK,
+            Json(ReadyResponse {
+                status: "ok",
+                service: "ai-radar-api",
+                version: ai_radar_core::VERSION,
+                database: "ok",
+            }),
+        ),
+        Ok(Err(e)) => {
+            tracing::warn!(error = %e, "readiness: database ping failed");
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ReadyResponse {
+                    status: "unavailable",
+                    service: "ai-radar-api",
+                    version: ai_radar_core::VERSION,
+                    database: "unavailable",
+                }),
+            )
+        }
+        Err(_) => {
+            tracing::warn!(
+                timeout_secs = READINESS_DB_TIMEOUT.as_secs(),
+                "readiness: database ping timed out"
+            );
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ReadyResponse {
+                    status: "unavailable",
+                    service: "ai-radar-api",
+                    version: ai_radar_core::VERSION,
+                    database: "timeout",
+                }),
+            )
+        }
+    }
 }
 
 #[cfg(test)]
