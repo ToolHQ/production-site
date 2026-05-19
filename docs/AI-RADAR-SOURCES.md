@@ -124,6 +124,34 @@ Ordem sugerida — **não aplicar em T-267** (doc-only); T-268 implementa.
 
 ---
 
+## 4b. Pack curado aplicado (T-268 · 2026-05-19)
+
+Script: [`apps/ai-radar/scripts/ensure-ai-rss-sources.sh`](../apps/ai-radar/scripts/ensure-ai-rss-sources.sh)
+
+| Nome | tier | Poll | URL |
+| ---- | ---- | ---- | --- |
+| `vendor-openai` | core | 180m | openai.com/news/rss.xml |
+| `vendor-google-ai` | core | 180m | blog.google/technology/ai/rss/ |
+| `vendor-huggingface` | core | 120m | huggingface.co/blog/feed.xml |
+| `vendor-deepmind` | core | 240m | deepmind.com/blog/rss.xml |
+| `vendor-aws-ml` | core | 240m | aws.amazon.com/blogs/machine-learning/feed/ |
+| `vendor-langchain` | core | 180m | blog.langchain.com/rss.xml |
+| `vendor-interconnects` | core | 360m | interconnects.ai/feed |
+| `vendor-simon-willison` | core | 120m | simonwillison.net/atom/everything/ |
+| `vendor-latent-space` | vendor | 360m | latent.space/feed |
+
+**Desabilitados:** `smoke-t173-hn`, `demo-lobsters`, `demo-hn-frontpage`, `smoke-direct`.
+
+**Smoke collect pós-apply:** `collected=308`, `errors=0`, `9 sources` polled (1 skipped poll interval).
+
+```bash
+kubectl -n postgres port-forward svc/postgres-service 36432:5432 &
+export DATABASE_URL="$(AI_RADAR_PG_HOST=127.0.0.1 AI_RADAR_PG_PORT=36432 python3 apps/ai-radar/scripts/render-ai-radar-database-url.py)"
+cd apps/ai-radar && ./scripts/ensure-ai-rss-sources.sh
+```
+
+---
+
 ## 5. Comandos de auditoria
 
 ```bash
