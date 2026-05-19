@@ -1,6 +1,6 @@
 # T-263: AI Radar — Metrics Scrape Resilience
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h

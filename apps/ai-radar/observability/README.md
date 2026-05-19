@@ -25,6 +25,8 @@ During rollouts, `/metrics` refreshes DB-backed gauges at most once per **60s** 
 
 **Probes (T-264):** liveness `GET /health`; readiness/startup `GET /health/ready` (503 until Postgres `SELECT 1` succeeds). Rollout: old pod drains before new pod passes readiness — fewer scrapes/traffic on pods sem DNS/DB.
 
+**Degradação (T-265):** `/stats` omite `embeddings` se só a query de cobertura falhar; falhas transitórias de pool → **503** + `Retry-After: 5` em rotas read-only (`/stats`, `/items`, `/sources`).
+
 ## Métricas `ai_radar_*`
 
 | Métrica | Tipo | Labels | Significado |

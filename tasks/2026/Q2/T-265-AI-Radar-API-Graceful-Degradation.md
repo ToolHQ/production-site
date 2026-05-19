@@ -1,6 +1,6 @@
 # T-265: AI Radar — API Graceful Degradation
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
@@ -11,10 +11,10 @@ Rotas além de `/metrics` podem falhar hard quando DB oscila. Operador perde con
 
 ## Tasks
 
-- [ ] Padrão: rotas read-only retornam 503 estruturado + retry-after quando pool esgotado
-- [ ] `/stats` degradado: omitir bloco embeddings se query falhar (não 500)
-- [ ] Timeout explícito em queries pesadas do Explorer
-- [ ] Testes de contrato 503
+- [x] Padrão: rotas read-only retornam 503 estruturado + `Retry-After` em falhas transitórias
+- [x] `/stats` degradado: omitir bloco embeddings se query falhar (não 500)
+- [x] Timeout explícito em queries pesadas do Explorer (8s) e `/stats` (5s)
+- [x] Testes de contrato 503 (`error.rs`, `RepoError::is_transient`)
 
 ## Definition of Done
 

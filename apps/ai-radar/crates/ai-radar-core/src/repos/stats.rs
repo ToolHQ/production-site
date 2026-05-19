@@ -157,6 +157,36 @@ pub async fn load_pipeline_stats_with_embeddings(
     Ok(stats)
 }
 
+/// Like [`load_pipeline_stats_with_embeddings`], but omits the embeddings block on failure (**T-265**).
+///
+/// Base pipeline counts must succeed; embedding coverage is best-effort.
+///
+/// # Errors
+///
+/// Propagates [`RepoError`] only when base pipeline queries fail.
+pub async fn load_pipeline_stats_degraded(
+    db: &Database,
+    embeddings_enabled: bool,
+    embedding_model: Option<&str>,
+) -> RepoResult<PipelineStats> {
+    let mut stats = load_pipeline_stats(db).await?;
+    if embeddings_enabled {
+        if let Some(model) = embedding_model.map(str::trim).filter(|s| !s.is_empty()) {
+            match load_embedding_coverage(db, model).await {
+                Ok(cov) => stats.embeddings = Some(cov),
+                Err(e) => {
+                    tracing::warn!(
+                        error = %e,
+                        event = "stats.embeddings_omitted",
+                        "stats: embedding coverage omitted after query failure"
+                    );
+                }
+            }
+        }
+    }
+    Ok(stats)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
