@@ -19,5 +19,10 @@ _(vazio)_
 | -: | :- | :----- | :----- |
 | 1 | T-267 | RSS audit + taxonomia | ✅ |
 | 2 | T-268 | Curated AI vendor RSS pack | ✅ |
-| 3 | T-269 | AI tools watchlist | 📋 **próximo** |
-| 4–9 | T-270…T-275 | Trends, UX, digest | backlog |
+| 3 | T-269 | AI tools watchlist | ✅ |
+| 4 | T-270 | LLM models & pricing monitor | 📋 **próximo** |
+| 5–9 | T-271…T-275 | Trends, UX, digest | backlog |
+
+## ⚠️ Cluster (2026-05-19)
+
+API `ai-radar` CrashLoopBackOff; `postgres-1` Error — aplicar watchlist (`ensure-ai-tools-watchlist.sh`) após recuperação.
