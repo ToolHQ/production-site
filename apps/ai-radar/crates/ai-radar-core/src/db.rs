@@ -84,6 +84,23 @@ impl RepoError {
         }
         RepoError::Database(Box::new(error))
     }
+
+    /// True for pool acquire timeout, DNS blips, and other short-lived faults (**T-265**).
+    #[must_use]
+    pub fn is_transient(&self) -> bool {
+        match self {
+            RepoError::Database(err) => {
+                let msg = err.to_string().to_ascii_lowercase();
+                msg.contains("pool timed out")
+                    || msg.contains("connection refused")
+                    || msg.contains("connection reset")
+                    || msg.contains("name or service not known")
+                    || msg.contains("communicating with database")
+                    || msg.contains("timeout")
+            }
+            _ => false,
+        }
+    }
 }
 
 /// Convenience alias used by repositories.
@@ -170,5 +187,11 @@ mod tests {
     fn from_sqlx_maps_row_not_found() {
         let mapped = RepoError::from_sqlx(SqlxError::RowNotFound);
         matches!(mapped, RepoError::NotFound);
+    }
+
+    #[test]
+    fn is_transient_for_pool_timeout() {
+        let err = RepoError::Database(Box::new(SqlxError::PoolTimedOut));
+        assert!(err.is_transient());
     }
 }

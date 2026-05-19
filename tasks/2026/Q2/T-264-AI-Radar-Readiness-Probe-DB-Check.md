@@ -1,6 +1,6 @@
 # T-264: AI Radar — Readiness Probe DB Check
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 2h

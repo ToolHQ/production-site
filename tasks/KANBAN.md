@@ -10,7 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-| [T-264](2026/Q2/T-264-AI-Radar-Readiness-Probe-DB-Check.md) | **AI Radar — Readiness Probe DB Check** | 🔼 High | Cursor / AI Radar | 2h |
+| [T-265](2026/Q2/T-265-AI-Radar-API-Graceful-Degradation.md) | **AI Radar — API Graceful Degradation** | 🔼 High | Cursor / AI Radar | 4h |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High | **OpenCode** | 1h |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -32,7 +32,6 @@
 | [T-268](2026/Q2/T-268-AI-Radar-Curated-AI-Vendor-RSS-Pack.md) | **AI Radar — Curated AI Vendor RSS Pack** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-267](2026/Q2/T-267-AI-Radar-RSS-Source-Audit-Taxonomy.md) | **AI Radar — RSS Source Audit & Taxonomy** | 🔼 High | Cursor / AI Radar | 3h |
 | [T-266](2026/Q2/T-266-AI-Radar-Pipeline-SLO-Runbook.md) | **AI Radar — Pipeline SLO Runbook** | 🔽 Low | Cursor / AI Radar | 2h |
-| [T-265](2026/Q2/T-265-AI-Radar-API-Graceful-Degradation.md) | **AI Radar — API Graceful Degradation** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-275](2026/Q2/T-275-AI-Radar-Digest-AI-Tools-Pulse-Section.md) | **AI Radar — Digest AI Tools Pulse Section** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-274](2026/Q2/T-274-AI-Radar-Sources-Console-Curation-UX.md) | **AI Radar — Sources Console Curation UX** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-273](2026/Q2/T-273-AI-Radar-Collect-Relevance-Gate.md) | **AI Radar — Collect Relevance Gate** | 🔼 High | Cursor / AI Radar | 5h |
@@ -54,6 +53,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-264](2026/Q2/T-264-AI-Radar-Readiness-Probe-DB-Check.md) | **AI Radar — Readiness Probe DB Check** | 🔼 High | Cursor / AI Radar | 2h |
 | [T-263](2026/Q2/T-263-AI-Radar-Metrics-Scrape-Resilience.md) | **AI Radar — Metrics Scrape Resilience** | 🔼 High | Cursor / AI Radar | 3h |
 | [T-262](2026/Q2/T-262-AI-Radar-Explorer-Sem-Embedding-Badge.md) | **AI Radar — Explorer Sem-Embedding Badge** | 🔽 Low | Cursor / AI Radar | 3h |
 | [T-261](2026/Q2/T-261-AI-Radar-Embedding-Coverage-Alert.md) | **AI Radar — Embedding Coverage Alert** | 🔼 High | Cursor / AI Radar | 2h |

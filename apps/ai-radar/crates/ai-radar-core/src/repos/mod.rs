@@ -54,8 +54,8 @@ pub use score::{PgScoreRepository, ScoreRepository, ScoredItemSort};
 pub use source::{PgSourceRepository, SourceRepository};
 pub use source_health::{PgSourceHealthRepository, SourceHealthRepository};
 pub use stats::{
-    load_embedding_coverage, load_pipeline_stats, load_pipeline_stats_with_embeddings,
-    EmbeddingCoverageStats, PipelineStats,
+    load_embedding_coverage, load_pipeline_stats, load_pipeline_stats_degraded,
+    load_pipeline_stats_with_embeddings, EmbeddingCoverageStats, PipelineStats,
 };
 pub use tool_metrics_snapshot::{
     NewToolMetricsSnapshot, PgToolMetricsSnapshotRepository, ToolMetricsSnapshotRepository,
