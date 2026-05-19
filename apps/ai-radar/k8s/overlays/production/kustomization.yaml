@@ -11,4 +11,4 @@ images:
   - name: registry.local:31444/repository/docker-repo/my-site-ai-radar-api
     newTag: latest
   - name: registry.local:31444/repository/docker-repo/my-site-ai-radar-cli
-    newTag: "1778470595"
+    newTag: "1779104491"
