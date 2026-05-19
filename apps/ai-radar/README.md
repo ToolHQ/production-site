@@ -383,12 +383,15 @@ curl -fsS -X POST http://127.0.0.1:18080/items/<extracted_item_id>/reprocess \
 
 ```bash
 curl -fsS https://ai-radar.dnor.io/health
+curl -fsS https://ai-radar.dnor.io/health/ready | jq .
 curl -fsS https://ai-radar.dnor.io/stats
 curl -fsS https://ai-radar.dnor.io/metrics | grep ai_radar | head
 # fila extract: gauge atualizado a cada scrape
 curl -fsS https://ai-radar.dnor.io/metrics | grep ai_radar_pending_raw_items
 curl -fsS -H 'X-Request-Id: edge-001' https://ai-radar.dnor.io/sources
 ```
+
+**Probes Kubernetes (T-264):** liveness → `GET /health` (sem DB). Readiness e startup → `GET /health/ready` (`SELECT 1`, budget 2s) — o pod só entra no Service quando Postgres responde.
 
 **Dashboards ops (Prometheus / Grafana / Coroot).** Métricas `ai_radar_*` são scrapeadas pelo Prometheus do namespace `coroot` (anotações no Service). Importe o dashboard Grafana e queries em [`observability/README.md`](observability/README.md) (**T-176**).
 

@@ -139,6 +139,19 @@ impl Database {
             .map_err(|e| RepoError::Database(Box::new(SqlxError::Migrate(Box::new(e)))))?;
         Ok(())
     }
+
+    /// Cheap connectivity check for Kubernetes readiness (**T-264**).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RepoError::Database`] when Postgres is unreachable or the query fails.
+    pub async fn ping(&self) -> RepoResult<()> {
+        sqlx::query_scalar::<_, i32>("SELECT 1")
+            .fetch_one(&self.pool)
+            .await
+            .map(|_| ())
+            .map_err(RepoError::from_sqlx)
+    }
 }
 
 #[cfg(test)]
