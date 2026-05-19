@@ -393,7 +393,7 @@ curl -fsS -H 'X-Request-Id: edge-001' https://ai-radar.dnor.io/sources
 
 **Probes Kubernetes (T-264):** liveness → `GET /health` (sem DB). Readiness e startup → `GET /health/ready` (`SELECT 1`, budget 2s) — o pod só entra no Service quando Postgres responde.
 
-**Dashboards ops (Prometheus / Grafana / Coroot).** Métricas `ai_radar_*` são scrapeadas pelo Prometheus do namespace `coroot` (anotações no Service). Importe o dashboard Grafana e queries em [`observability/README.md`](observability/README.md) (**T-176**).
+**Dashboards ops (Prometheus / Grafana / Coroot).** Métricas `ai_radar_*` são scrapeadas pelo Prometheus do namespace `coroot` (anotações no Service). Importe o dashboard Grafana e queries em [`observability/README.md`](observability/README.md) (**T-176**). **SLOs e playbooks de incidente/rollout:** [`observability/RUNBOOK.md`](observability/RUNBOOK.md) (**T-266**).
 
 Se `kubeconform` estiver instalado, você pode usar o comando da task
 [**T-174**](../../tasks/2026/Q2/T-174-AI-Radar-Kubernetes-Baseline-Primeiro-Deploy.md)

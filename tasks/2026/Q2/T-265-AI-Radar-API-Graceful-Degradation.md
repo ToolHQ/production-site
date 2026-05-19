@@ -1,6 +1,6 @@
 # T-265: AI Radar — API Graceful Degradation
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h

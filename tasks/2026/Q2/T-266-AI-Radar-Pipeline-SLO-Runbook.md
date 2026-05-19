@@ -1,6 +1,6 @@
 # T-266: AI Radar — Pipeline SLO Runbook
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 2h
@@ -11,9 +11,9 @@ Operação precisa saber o que é normal vs incidente (collect, extract, embed, 
 
 ## Tasks
 
-- [ ] Doc SLOs: latência p95 por stage, cobertura embed, fila raw pending
-- [ ] Playbook rollout (readiness, cache metrics, quando ignorar Coroot ERROR transitório)
-- [ ] Link no README + observability/
+- [x] Doc SLOs: latência p95 por stage, cobertura embed, fila raw pending
+- [x] Playbook rollout (readiness, cache metrics, quando ignorar Coroot ERROR transitório)
+- [x] Link no README + observability/
 
 ## Definition of Done
 
