@@ -279,3 +279,5 @@ Após executar todos os blocos, avaliar:
 | 2026-05-10 | MinIO 100%, 53 Error backups             | Limpeza + PR #90 (hardening CronJobs)  | MinIO 32%, 0 Error |
 | 2026-05-10 | node-3 /var/log 4.5GB (syslog.1)         | Logrotate aggressive + su root adm fix | 1.6GB (-2.9GB)     |
 | 2026-05-10 | maintenance-cleanup drift IaC vs cluster | kubectl apply -f cleanup-job.yaml      | Drift corrigido    |
+| 2026-05-19 | Perda de dados no Clickhouse sob restarts | Symlinks individuais em values.yaml    | 100% de persistência ativa |
+| 2026-05-19 | MinIO com 89% (próximo de estourar)       | Retain diário = 3 + Prune de backup órfão | 1.91GiB liberados imediatamente |
