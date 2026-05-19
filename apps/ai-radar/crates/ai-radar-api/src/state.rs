@@ -13,6 +13,8 @@ use ai_radar_core::repos::{
 };
 use metrics_exporter_prometheus::PrometheusHandle;
 
+use crate::metrics_cache::{MetricsGaugeCache, METRICS_GAUGE_TTL};
+
 /// Shared application state. Use `Arc<AppState>` if you need cheap
 /// cloning across async tasks.
 ///
@@ -41,6 +43,8 @@ pub struct AppState {
     pub feedback: Arc<PgFeedbackRepository>,
     /// `digests` repository.
     pub digests: Arc<PgDigestRepository>,
+    /// Cached DB gauge refresh for `/metrics` (**T-263**).
+    pub metrics_gauge_cache: Arc<MetricsGaugeCache>,
 }
 
 impl AppState {
@@ -56,6 +60,7 @@ impl AppState {
             scores: Arc::new(PgScoreRepository::new(&db)),
             feedback: Arc::new(PgFeedbackRepository::new(&db)),
             digests: Arc::new(PgDigestRepository::new(&db)),
+            metrics_gauge_cache: Arc::new(MetricsGaugeCache::new(METRICS_GAUGE_TTL)),
             db,
         }
     }

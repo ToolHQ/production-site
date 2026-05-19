@@ -10,6 +10,7 @@
 #![warn(clippy::pedantic)]
 
 mod error;
+mod metrics_cache;
 mod middleware;
 mod router;
 mod routes;

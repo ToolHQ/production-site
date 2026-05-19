@@ -1,6 +1,6 @@
 # T-261: AI Radar — Embedding Coverage Alert
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 2h
