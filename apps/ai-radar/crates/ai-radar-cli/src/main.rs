@@ -16,6 +16,7 @@ use ai_radar_core::pipeline::digest::{run_digest, DigestKind, DigestLimits};
 use ai_radar_core::pipeline::embed::run_embed_batch_from_config;
 use ai_radar_core::pipeline::extract::run_extract;
 use ai_radar_core::pipeline::reprocess::{run_reprocess, ReprocessStage};
+use ai_radar_core::pipeline::model_catalog::run_model_catalog_sync;
 use ai_radar_core::pipeline::score::{run_score, DEFAULT_SCORE_STALE_HOURS};
 use ai_radar_core::telemetry;
 use anyhow::Context;
@@ -106,6 +107,8 @@ enum Command {
         #[arg(long, action = ArgAction::SetTrue)]
         weekly: bool,
     },
+    /// Sync OpenRouter model catalog and persist pricing diffs (**T-270**).
+    ModelsSync,
 }
 
 async fn run_collect_command(
@@ -374,6 +377,57 @@ async fn run_digest_command(job_id: Uuid, kind: DigestKind) -> anyhow::Result<()
     Ok(())
 }
 
+async fn run_models_sync_command(job_id: Uuid) -> anyhow::Result<()> {
+    let started = std::time::Instant::now();
+    let config = AppConfig::from_env().context("configuration")?;
+    telemetry::init_tracing(&config.log_level).context("tracing")?;
+
+    tracing::info!(
+        event = "job.started",
+        job = "models-sync",
+        job_id = %job_id,
+        "model catalog sync started"
+    );
+
+    let database_url = config
+        .database_url
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required for models-sync"))?;
+
+    let db = Database::connect(&database_url)
+        .await
+        .map_err(|e| anyhow::anyhow!("database: {e}"))?;
+
+    let stats = run_model_catalog_sync(&db, &config)
+        .await
+        .map_err(|e| anyhow::anyhow!("model catalog sync: {e}"))?;
+
+    tracing::info!(
+        event = "job.completed",
+        job = "models-sync",
+        job_id = %job_id,
+        run_id = %stats.run_id,
+        model_count = stats.model_count,
+        events_count = stats.events_count,
+        added = stats.added,
+        removed = stats.removed,
+        price_changes = stats.price_changes,
+        duration_secs = started.elapsed().as_secs_f64(),
+        "model catalog sync finished"
+    );
+
+    println!(
+        "run_id={} models={} events={} added={} removed={} price_changes={}",
+        stats.run_id,
+        stats.model_count,
+        stats.events_count,
+        stats.added,
+        stats.removed,
+        stats.price_changes
+    );
+    Ok(())
+}
+
 async fn run_reprocess_command(item: Uuid, stage: String) -> anyhow::Result<()> {
     let config = AppConfig::from_env().context("configuration")?;
     telemetry::init_tracing(&config.log_level).context("tracing")?;
@@ -482,6 +536,11 @@ async fn main() -> anyhow::Result<()> {
             let job_id = Uuid::new_v4();
             let span = tracing::info_span!("digest_job", job_id = %job_id);
             run_digest_command(job_id, kind).instrument(span).await?;
+        }
+        Command::ModelsSync => {
+            let job_id = Uuid::new_v4();
+            let span = tracing::info_span!("models_sync_job", job_id = %job_id);
+            run_models_sync_command(job_id).instrument(span).await?;
         }
     }
 

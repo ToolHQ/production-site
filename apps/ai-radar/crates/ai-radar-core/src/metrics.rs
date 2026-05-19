@@ -105,6 +105,18 @@ pub fn describe_metrics() {
         "ai_radar_search_total",
         "search requests by mode semantic or lexical (T-249)"
     );
+    describe_counter!(
+        "ai_radar_model_catalog_events_total",
+        "model catalog diff events emitted per sync (T-270)"
+    );
+    describe_gauge!(
+        "ai_radar_model_catalog_events_last_run",
+        "events_count from the latest model catalog sync (T-270)"
+    );
+    describe_histogram!(
+        "ai_radar_model_catalog_sync_duration_seconds",
+        "Wall-clock duration of OpenRouter model catalog sync (T-270)"
+    );
 }
 
 /// Refresh gauge from DB count (call from `/metrics` before render).
@@ -303,4 +315,38 @@ pub fn record_entry_rejected(source_type: SourceType, reason: &'static str) {
         "reason" => reason
     )
     .increment(1);
+}
+
+/// Record model catalog sync outcome (**T-270**).
+pub fn record_model_catalog_sync(
+    events: u64,
+    added: u64,
+    removed: u64,
+    price_changes: u64,
+    elapsed: Duration,
+) {
+    counter!("ai_radar_model_catalog_events_total").increment(events);
+    if added > 0 {
+        counter!(
+            "ai_radar_model_catalog_events_total",
+            "event_type" => "model_added"
+        )
+        .increment(added);
+    }
+    if removed > 0 {
+        counter!(
+            "ai_radar_model_catalog_events_total",
+            "event_type" => "model_removed"
+        )
+        .increment(removed);
+    }
+    if price_changes > 0 {
+        counter!(
+            "ai_radar_model_catalog_events_total",
+            "event_type" => "price_change"
+        )
+        .increment(price_changes);
+    }
+    gauge!("ai_radar_model_catalog_events_last_run").set(events as f64);
+    histogram!("ai_radar_model_catalog_sync_duration_seconds").record(elapsed.as_secs_f64());
 }

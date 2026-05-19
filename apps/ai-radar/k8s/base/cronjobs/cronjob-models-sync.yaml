@@ -1,0 +1,68 @@
+# OpenRouter model catalog sync — daily diff (**T-270**).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-radar-models-sync
+  labels:
+    app.kubernetes.io/name: ai-radar-models-sync
+    app.kubernetes.io/component: model-catalog
+    app.kubernetes.io/part-of: ai-radar
+spec:
+  schedule: "0 6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 900
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: ai-radar-models-sync
+            app.kubernetes.io/component: model-catalog
+            app.kubernetes.io/part-of: ai-radar
+        spec:
+          serviceAccountName: ai-radar-api
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: regsecret
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: models-sync
+              image: registry.local:31444/repository/docker-repo/my-site-ai-radar-cli:latest
+              imagePullPolicy: Always
+              args: ["models-sync"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ai-radar-database
+                      key: DATABASE_URL
+                - name: AI_RADAR_LOG_LEVEL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ai-radar-config
+                      key: AI_RADAR_LOG_LEVEL
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
