@@ -50,13 +50,22 @@ if command -v systemctl >/dev/null 2>&1; then
   echo "🛑 systemctl --user stop buildkit ..."
   systemctl --user stop buildkit 2>/dev/null || true
   systemctl --user disable buildkit 2>/dev/null || true
+  echo "🔧 Removendo arquivos de serviço systemd..."
+  rm -f "$HOME/.config/systemd/user/buildkit.service" || true
+  rm -rf "$HOME/.config/systemd/user/buildkit.service.d" || true
+  systemctl --user daemon-reload || true
 fi
 
 echo "🔧 Limpando /run/user/\$UID/buildkit..."
 sudo rm -rf "/run/user/\$UID/buildkit" || true
 
 echo "🔧 Limpando \$HOME/.local/share/buildkit..."
-rm -rf "\$HOME/.local/share/buildkit/buildkit"* || true
+rm -rf "$HOME/.local/share/buildkit" || true
+
+echo "🔧 Limpando configurações e binários..."
+rm -rf "$HOME/.config/buildkit" || true
+rm -f "$HOME/bin/buildkitd" "$HOME/bin/buildctl" || true
+sudo rm -f "/usr/local/bin/rootlesskit" "/usr/local/bin/rootlesskit-dockerd" || true
 
 echo "===== NETWORK NAMESPACES ====="
 sudo ip netns list || true
