@@ -111,14 +111,6 @@ impl IntoResponse for ApiError {
 mod tests {
     use super::*;
     use axum::body::to_bytes;
-    use sqlx::Error as SqlxError;
-
-    #[test]
-    fn transient_pool_timeout_maps_to_service_unavailable() {
-        let err = RepoError::Database(Box::new(SqlxError::PoolTimedOut));
-        let api = ApiError::from_repo(err);
-        matches!(api, ApiError::ServiceUnavailable(_));
-    }
 
     #[tokio::test]
     async fn service_unavailable_includes_retry_after_header() {
