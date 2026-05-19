@@ -44,3 +44,26 @@ spec:
             severity: warning
           annotations:
             summary: AI Radar muitas falhas de extract
+
+        # T-261 — semantic embedding backlog / low coverage (gauges from GET /metrics scrape)
+        - alert: AiRadarEmbeddingsPendingHigh
+          expr: ai_radar_embeddings_pending{namespace="ai-radar"} > 80
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: AI Radar fila de embeddings alta
+            description: >
+              Mais de 80 itens extraídos sem vetor há 2h. Rodar backfill: CronJob
+              ai-radar-embed-catchup ou job manual a partir de ai-radar-embed (ver README).
+
+        - alert: AiRadarEmbeddingsCoverageLow
+          expr: ai_radar_embeddings_coverage_pct{namespace="ai-radar"} < 50
+          for: 4h
+          labels:
+            severity: warning
+          annotations:
+            summary: AI Radar cobertura semântica abaixo de 50%
+            description: >
+              Menos de metade dos itens elegíveis têm embedding há 4h. Verificar
+              EMBEDDINGS_ENABLED, CronJobs embed/catchup e logs embed.coverage.

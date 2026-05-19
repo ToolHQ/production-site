@@ -434,24 +434,25 @@ Monitorar fila e cobertura:
 ```bash
 export API=https://ai-radar.dnor.io
 curl -fsS "$API/stats" | jq '.embeddings'
-curl -fsS "$API/metrics" | grep ai_radar_embeddings_pending
+curl -fsS "$API/metrics" | grep -E 'ai_radar_embeddings_(pending|coverage_pct)'
 ```
+
+**Alertas sugeridos (T-261):** ver [`observability/prometheus/alerting-rules.example.yaml`](observability/prometheus/alerting-rules.example.yaml) — disparam quando `ai_radar_embeddings_pending > 80` por **2h** ou `ai_radar_embeddings_coverage_pct < 50` por **4h**. Grafana: painéis no JSON [`observability/grafana/ai-radar-pipeline.json`](observability/grafana/ai-radar-pipeline.json).
+
+**Quando disparar backfill:** após alerta ou se `coverage_pct` ficar abaixo da meta (~80%) com `embeddings_pending` > 0 — preferir job a partir de **`ai-radar-embed-catchup`** (lote 100); use `ai-radar-embed` para lotes menores e mais frequentes.
 
 Backfill manual até `embeddings_pending` chegar a 0:
 
 ```bash
 export KUBECONFIG=~/production-site-cursor/oci-k8s-cluster/kubeconfig_tunnel.yaml
 
-# Aplicar ConfigMap/CronJob atualizados (deploy.sh ou kubectl apply -k apps/ai-radar/k8s/base)
-kubectl apply -k apps/ai-radar/k8s/base -n ai-radar
-
 while true; do
   pending=$(curl -fsS "$API/stats" | jq -r '.embeddings.embeddings_pending // 0')
   echo "embeddings_pending=$pending"
   [ "$pending" = "0" ] && break
   job="ai-radar-embed-backfill-$(date +%s)"
-  kubectl create job "$job" --from=cronjob/ai-radar-embed -n ai-radar
-  kubectl wait --for=condition=complete "job/$job" -n ai-radar --timeout=600s
+  kubectl create job "$job" --from=cronjob/ai-radar-embed-catchup -n ai-radar
+  kubectl wait --for=condition=complete "job/$job" -n ai-radar --timeout=1200s
   kubectl logs -n ai-radar "job/$job" --tail=30 | grep -E 'embedded=|embed.coverage|pending_after'
 done
 ```

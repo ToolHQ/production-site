@@ -37,6 +37,10 @@ pub fn describe_metrics() {
         "ai_radar_embeddings_pending",
         "latest extracted items without an embedding for the configured model (T-255)"
     );
+    describe_gauge!(
+        "ai_radar_embeddings_coverage_pct",
+        "share of embedding-eligible items with a vector for EMBEDDING_MODEL (T-261)"
+    );
     describe_counter!(
         "ai_radar_sources_skipped_poll_total",
         "Sources not fetched because poll_interval has not elapsed since last_polled_at"
@@ -120,6 +124,16 @@ pub fn set_embeddings_pending_count(count: Option<i64>) {
     match count {
         Some(n) => gauge!("ai_radar_embeddings_pending").set(n.max(0) as f64),
         None => gauge!("ai_radar_embeddings_pending").set(0.0),
+    }
+}
+
+/// Refresh semantic coverage gauge (**T-261**). `None` when embeddings are disabled.
+#[inline]
+#[allow(clippy::cast_precision_loss)]
+pub fn set_embeddings_coverage_pct(pct: Option<f32>) {
+    match pct {
+        Some(p) => gauge!("ai_radar_embeddings_coverage_pct").set(f64::from(p.clamp(0.0, 100.0))),
+        None => gauge!("ai_radar_embeddings_coverage_pct").set(100.0),
     }
 }
 
