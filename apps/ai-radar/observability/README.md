@@ -2,6 +2,8 @@
 
 Camada **A** da Fase 16 (**T-176**): dashboards Prometheus/Grafana e queries para **Coroot**, complementando o [Operator Console](../README.md) (produto em `https://ai-radar.dnor.io/`).
 
+**Runbook SLO (Fase 22):** [`RUNBOOK.md`](RUNBOOK.md) — rollouts, filas, quando ignorar ERROR transitório no Coroot.
+
 ## Scrape
 
 O Service `ai-radar-api` já expõe anotações padrão:

@@ -938,7 +938,9 @@ Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 21 — 
 | T-265 | Graceful degradation `/stats` e rotas read-only | 4h | 3 |
 | T-266 | Pipeline SLO runbook | 2h | 4 |
 
-**Princípio:** uma task por PR; deploy API após T-263/T-264.
+**Fase 22 concluída** (T-263–T-266): cache metrics, readiness DB, degradação graciosa, runbook SLO.
+
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 22 — **concluída**.
 
 ## Fase 23 — Inteligência de fontes & trends
 
@@ -958,7 +960,7 @@ Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 21 — 
 
 **Fora de escopo imediato:** pgvector, auto-merge duplicatas, re-scoring massivo.
 
-Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fases 22–23.
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 23 — **T-267 próximo**.
 
 ## Entregável esperado deste prompt
 
