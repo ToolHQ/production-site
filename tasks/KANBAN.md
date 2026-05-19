@@ -29,7 +29,6 @@
 | [T-270](2026/Q2/T-270-AI-Radar-LLM-Models-Pricing-Monitor.md) | **AI Radar — LLM Models & Pricing Monitor** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-269](2026/Q2/T-269-AI-Radar-AI-Tools-Watchlist-Sources.md) | **AI Radar — AI Tools Watchlist Sources** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-268](2026/Q2/T-268-AI-Radar-Curated-AI-Vendor-RSS-Pack.md) | **AI Radar — Curated AI Vendor RSS Pack** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-267](2026/Q2/T-267-AI-Radar-RSS-Source-Audit-Taxonomy.md) | **AI Radar — RSS Source Audit & Taxonomy** | 🔼 High | Cursor / AI Radar | 3h |
 
 
 
@@ -38,6 +37,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-267](2026/Q2/T-267-AI-Radar-RSS-Source-Audit-Taxonomy.md) | **AI Radar — RSS Source Audit & Taxonomy** | 🔼 High | Cursor / AI Radar | 3h |
 | [T-266](2026/Q2/T-266-AI-Radar-Pipeline-SLO-Runbook.md) | **AI Radar — Pipeline SLO Runbook** | 🔽 Low | Cursor / AI Radar | 2h |
 | [T-265](2026/Q2/T-265-AI-Radar-API-Graceful-Degradation.md) | **AI Radar — API Graceful Degradation** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-264](2026/Q2/T-264-AI-Radar-Readiness-Probe-DB-Check.md) | **AI Radar — Readiness Probe DB Check** | 🔼 High | Cursor / AI Radar | 2h |

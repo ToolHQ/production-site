@@ -77,6 +77,8 @@ apps/ai-radar/
 | Tabela | Função | Chaves/constraints críticas |
 |---|---|---|
 | `sources` | Fontes monitoradas | `source_type` CHECK in (`rss`, `github_repo`, `github_releases`, `webpage`, `youtube`); `last_polled_at`, `last_error` |
+
+Inventário prod, taxonomia `tier`/`topic` e matriz keep/add/remove: [`AI-RADAR-SOURCES.md`](AI-RADAR-SOURCES.md) (**T-267**).
 | `raw_items` | Conteúdo cru coletado | `(source_id, content_hash) UNIQUE` (idempotência); `external_id` p/ GitHub release.id |
 | `extracted_items` | Saída do Extractor (1:1 inicial, depois versionado) | `version int NOT NULL DEFAULT 1` para reprocess |
 | `scores` | Pontuação determinística + LLM merged | `scoring_version` para auditoria; `metadata_json` jsonb com contribuições |
