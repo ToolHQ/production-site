@@ -442,6 +442,18 @@ Tipos válidos: `useful`, `irrelevant`, `duplicate`, `low_quality`, `wrong_categ
 
 Testes de integração (Postgres): `cargo test -p ai-radar-core --test feedback_integration -- --ignored`
 
+## Model catalog sync (**T-270**)
+
+Diff diário do catálogo OpenRouter (`GET /models`): detecta `model_added`, `model_removed`, `price_change`.
+
+```bash
+cargo run -p ai-radar-cli -- models-sync
+curl -fsS https://ai-radar.dnor.io/models/catalog?limit=10 | jq .
+curl -fsS https://ai-radar.dnor.io/stats | jq .model_catalog
+```
+
+CronJob `ai-radar-models-sync` — schedule `0 6 * * *`. Migração `0008_model_catalog`.
+
 ## Embedding backfill (**T-256**)
 
 O CronJob `ai-radar-embed` roda `ai-radar embed` sem `--limit`; o tamanho do lote vem de **`EMBED_BATCH_LIMIT`** (ConfigMap `ai-radar-config`, default **50**, teto **100** no binário).

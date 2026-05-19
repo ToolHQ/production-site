@@ -26,7 +26,6 @@
 | [T-273](2026/Q2/T-273-AI-Radar-Collect-Relevance-Gate.md) | **AI Radar — Collect Relevance Gate** | 🔼 High | Cursor / AI Radar | 5h |
 | [T-272](2026/Q2/T-272-AI-Radar-YouTube-AI-Trends-Collector.md) | **AI Radar — YouTube AI Trends Collector** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-271](2026/Q2/T-271-AI-Radar-Google-Trends-Collector-Spike.md) | **AI Radar — Google Trends Collector Spike** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-270](2026/Q2/T-270-AI-Radar-LLM-Models-Pricing-Monitor.md) | **AI Radar — LLM Models & Pricing Monitor** | 🔼 High | Cursor / AI Radar | 6h |
 
 
 
@@ -35,6 +34,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-270](2026/Q2/T-270-AI-Radar-LLM-Models-Pricing-Monitor.md) | **AI Radar — LLM Models & Pricing Monitor** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-269](2026/Q2/T-269-AI-Radar-AI-Tools-Watchlist-Sources.md) | **AI Radar — AI Tools Watchlist Sources** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-276](2026/Q2/T-276-Antigravity-Orphan-PVC-Cleanup.md) | **Antigravity — Orphan PVC Cleanup** _(deletado postgres-pvc de 2.15GB, removido do manifesto postgres-resources.yaml e corrigido commands.sh)_ | 🔼 High | Antigravity | 1h |
 | [T-268](2026/Q2/T-268-AI-Radar-Curated-AI-Vendor-RSS-Pack.md) | **AI Radar — Curated AI Vendor RSS Pack** | 🔼 High | Cursor / AI Radar | 4h |

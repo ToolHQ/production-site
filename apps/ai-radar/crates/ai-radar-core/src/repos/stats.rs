@@ -3,6 +3,7 @@
 use serde::Serialize;
 
 use crate::db::{Database, RepoError, RepoResult};
+use crate::repos::model_catalog::ModelCatalogStats;
 
 /// Embedding coverage for semantic search (**T-255**).
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -33,6 +34,9 @@ pub struct PipelineStats {
     /// Present when `EMBEDDINGS_ENABLED=true` and `EMBEDDING_MODEL` is set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub embeddings: Option<EmbeddingCoverageStats>,
+    /// OpenRouter model catalog sync summary (**T-270**).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_catalog: Option<ModelCatalogStats>,
 }
 
 /// Load counts in one round-trip to Postgres (four scalar queries).
@@ -68,6 +72,7 @@ pub async fn load_pipeline_stats(db: &Database) -> RepoResult<PipelineStats> {
         raw_items_total,
         raw_items_pending,
         embeddings: None,
+        model_catalog: None,
     })
 }
 
@@ -154,6 +159,7 @@ pub async fn load_pipeline_stats_with_embeddings(
             stats.embeddings = Some(load_embedding_coverage(db, model).await?);
         }
     }
+    stats.model_catalog = crate::repos::model_catalog::load_model_catalog_stats(db, "openrouter").await?;
     Ok(stats)
 }
 
@@ -184,6 +190,17 @@ pub async fn load_pipeline_stats_degraded(
             }
         }
     }
+    stats.model_catalog = match crate::repos::model_catalog::load_model_catalog_stats(db, "openrouter").await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                event = "stats.model_catalog_omitted",
+                "stats: model catalog omitted after query failure"
+            );
+            None
+        }
+    };
     Ok(stats)
 }
 

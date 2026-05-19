@@ -12,6 +12,7 @@ pub mod extracted_item;
 pub mod feedback;
 pub mod raw_item;
 pub mod score;
+pub mod model_catalog;
 pub mod source;
 
 pub use comparison::{Comparison, NewComparison};
