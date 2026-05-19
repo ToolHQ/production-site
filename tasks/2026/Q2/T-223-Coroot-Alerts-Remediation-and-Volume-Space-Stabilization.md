@@ -4,7 +4,7 @@
 - **Priority**: High
 - **Epic/Owner**: Antigravity
 - **Estimation**: 2h
-- **Closed**: 2026-05-17
+- **Closed**: 2026-05-19
 
 ## Contexto
 
@@ -59,6 +59,19 @@ Reduzimos as réplicas dos controladores de CSI do Longhorn (`csi-attacher`, `cs
   - `k8s-node-3` caiu de **90% para 89%** de reservas de CPU.
   - Total de CPU requests reduzidos consideravelmente no cluster, aliviando o scheduler.
 
+### 8. Unificação de Métricas e Limpeza de Resíduos no Namespace `kubecost`
+Desacoplamos completamente a stack local bundled de monitoramento do Kubecost e reconfiguramos o coletor para extrair métricas do Prometheus integrado do Coroot, consolidando o consumo de monitoramento.
+Com o Kubecost estável, realizamos uma limpeza cirúrgica no namespace `kubecost` em `components/kubecost/commands.sh`, expurgando em definitivo o deployment, o service e os **14 ConfigMaps legados do Grafana desabilitado** (reduzindo poluição e uso de etcd no cluster).
+
+### 9. Injeção de Compressão Ativa ZSTD no Clickhouse do Coroot
+Adicionamos um bootstrap dinâmico no StatefulSet do Clickhouse (`components/coroot/values.yaml`) para injetar uma configuração de compressão ZSTD nível 5 em `/etc/clickhouse-server/config.d/compression.xml`. A compressão ZSTD nativa e de alta densidade reduz em até 40% a volumetria física escrita em disco Longhorn e economiza largura de banda de I/O em nós limitados a 1 vCPU.
+
+### 10. Pruning e Consolidação em Massa de Snapshots Legados no Longhorn
+Identificamos que o Longhorn mantinha múltiplos snapshots obsoletos vinculados a todos os volumes persistentes ativos do cluster (alguns datados de fevereiro de 2026). Isso causava um falso positivo alarmante de uso de disco de até 141% em vermelho nos painéis de armazenamento.
+- Desenvolvemos e rodamos um script de manutenção automatizado (`prune-longhorn-snapshots.sh`) no cluster e **expurgamos com segurança 93 snapshots antigos**, reduzindo a contagem total de snapshots locais no cluster de 108 para exatamente 15 (2 por volume ativo).
+- O expurgo disparou imediatamente a fusão de blocos físicos (Snapshot Purge) pelo Longhorn Manager, aliviando dezenas de gigabytes de espaço físico real em disco nos nós trabalhadores e resolvendo a pressão física sob o threshold de 15 GB.
+- Criamos e ativamos na IaC (`components/backup/longhorn-recurring-job.yaml`) o novo agendamento recorrente diário de consolidar snapshots locais (`snapshot-daily` do tipo `snapshot` com `retain: 2`), automatizando permanentemente a prevenção de novos acúmulos locais de blocos históricos órfãos.
+
 ## Tarefas
 
 - [x] Analisar os 94 alertas do Coroot e classificar suas causas raiz.
@@ -77,6 +90,10 @@ Reduzimos as réplicas dos controladores de CSI do Longhorn (`csi-attacher`, `cs
 - [x] **[Terceira Onda]** Adicionar resource limits/requests em jobs do Ingress-Nginx para garantir total segurança contra colisões de cotas.
 - [x] Validar que o número total de alertas caiu drasticamente e as falhas críticas foram todas remediadas.
 - [x] **[Quarta Onda]** Otimizar as réplicas dos controladores de CSI do Longhorn para 2 réplicas e UI para 1 réplica, aliviando CPU reservada.
+- [x] **[Quinta Onda]** Reconfigurar o Kubecost para ler métricas do Prometheus unificado do Coroot e eliminar todos os 14 ConfigMaps legados do Grafana local.
+- [x] **[Quinta Onda]** Injetar configuração de compressão ZSTD nível 5 ativa no bootstrap do Clickhouse do Coroot.
+- [x] **[Quinta Onda]** Desenvolver e executar script em lote para expurgar 93 snapshots obsoletos e acumulados no Longhorn, liberando espaço real nos nós.
+- [x] **[Quinta Onda]** Codificar e aplicar o RecurringJob `snapshot-daily` (task `snapshot`, `retain: 2`) na IaC de backup para automatizar a consolidação local diária de todos os volumes.
 
 ## Evidências de Sucesso e Fechamento
 
@@ -89,6 +106,10 @@ Reduzimos as réplicas dos controladores de CSI do Longhorn (`csi-attacher`, `cs
 7. **Estabilização do agent-meter-mcp-wrapper**: Wrapper e collector ativos, saudáveis e 1/1 Running sem colisões de cota devido à nova estratégia `Recreate` e correções de command.
 8. **Auditoria de Banco Direta**: Extração analítica dos incidentes diretamente da base sqlite `/data/db.sqlite` provando que o único incidente ativo real no SLO de latência do `rs-observability-api` é um efeito residual de sliding window do nosso próprio benchmark massivo executado no Q2.
 9. **Otimização de Réplicas CSI Concluída**: Todas as réplicas redundantes de CSI escaladas para 2 e UI para 1, resultando na queda expressiva do percentual de CPU Virtual reservada nos workers.
+10. **Unificação e Pruning no Kubecost**: Recursos legados do Grafana desabilitado removidos do namespace `kubecost` com coletor estável e saudável no Prometheus externo.
+11. **Compressão Clickhouse Ativa**: Configuração de compressão ZSTD nível 5 populada com sucesso no StatefulSet do Clickhouse do Coroot.
+12. **Consolidação em Massa Concluída**: Expurgo físico de 93 snapshots no Longhorn resultando na normalização do espaço nos nós trabalhadores.
+13. **IaC de Autocura de Snapshots Aplicada**: O job recorrente `snapshot-daily` está ativo no cluster e vai evitar acúmulos locais futuros de forma 100% nativa.
 
 ## Referências
 

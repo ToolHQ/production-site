@@ -59,7 +59,57 @@ clickhouse:
   enabled: true
   nodeSelector:
     kubernetes.io/hostname: k8s-node-3  # pin to node where clickhouse PVC is attached (pvc-23ab203e) — T-195/T-200
-  command: []
+  command:
+    - "/bin/bash"
+    - "-c"
+    - |
+      echo "=== 🔄 CLICKHOUSE PERSISTENCE BOOTSTRAP ==="
+      
+      # 1. Lista de subdiretorios criticos para persistir
+      SUBDIRS="access data flags format_schemas metadata metadata_dropped named_collections preprocessed_configs store tmp user_defined user_files"
+      
+      for dir in $SUBDIRS; do
+        # Garantir que a pasta fisica correspondente existe no PVC persistente
+        mkdir -p /bitnami/clickhouse/data/$dir
+        
+        # Se a pasta original for fisica e nao for link, copiar seu conteudo e remove-la
+        if [ -d /var/lib/clickhouse/$dir ] && [ ! -L /var/lib/clickhouse/$dir ]; then
+          echo "📦 Migrando subdiretorio efemero '$dir' para o PVC..."
+          cp -a /var/lib/clickhouse/$dir/. /bitnami/clickhouse/data/$dir/ 2>/dev/null || true
+          rm -rf /var/lib/clickhouse/$dir
+        fi
+        
+        # Criar o link simbolico individual para a pasta no PVC
+        ln -sfn /bitnami/clickhouse/data/$dir /var/lib/clickhouse/$dir
+        echo "✅ Link criado: /var/lib/clickhouse/$dir -> /bitnami/clickhouse/data/$dir"
+      done
+      
+      # 2. Persistir arquivos individuais como uuid e status
+      for file in uuid status; do
+        if [ -f /var/lib/clickhouse/$file ] && [ ! -L /var/lib/clickhouse/$file ]; then
+          echo "📦 Migrando arquivo efemero '$file' para o PVC..."
+          cp -a /var/lib/clickhouse/$file /bitnami/clickhouse/data/$file 2>/dev/null || true
+          rm -f /var/lib/clickhouse/$file
+        fi
+        if [ -f /bitnami/clickhouse/data/$file ]; then
+          ln -sfn /bitnami/clickhouse/data/$file /var/lib/clickhouse/$file
+          echo "✅ Link criado: /var/lib/clickhouse/$file -> /bitnami/clickhouse/data/$file"
+        fi
+      done
+      
+      # 3. Injetar compressao ZSTD ativa para economizar disco e I/O
+      mkdir -p /etc/clickhouse-server/config.d
+      echo "<clickhouse><compression><case><min_part_size>8192</min_part_size><min_part_size_ratio>0.01</min_part_size_ratio><method>zstd</method><level>5</level></case></compression></clickhouse>" > /etc/clickhouse-server/config.d/compression.xml
+      echo "✅ Compressao ZSTD injetada."
+      
+      # 4. Linkar as configuracoes de overrides do Bitnami para a pasta oficial do Clickhouse
+      if [ -d /bitnami/clickhouse/etc/conf.d ]; then
+        ln -sfn /bitnami/clickhouse/etc/conf.d/* /etc/clickhouse-server/config.d/
+        echo "✅ Configs de overrides linkadas para /etc/clickhouse-server/config.d/"
+      fi
+      
+      echo "=== 🚀 INICIANDO CLICKHOUSE SERVER ==="
+      exec /entrypoint.sh
   image:
     registry: "docker.io"
     repository: "clickhouse/clickhouse-server"
