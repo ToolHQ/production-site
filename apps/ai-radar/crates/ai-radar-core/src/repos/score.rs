@@ -33,6 +33,8 @@ pub trait ScoreRepository: Send + Sync {
         quality_warn: Option<bool>,
         velocity_tier: Option<&str>,
         source_health_tier: Option<&str>,
+        embedding_model: Option<&str>,
+        has_embedding: Option<bool>,
         sort: ScoredItemSort,
     ) -> RepoResult<Vec<ScoredItemSummary>>;
 
@@ -45,6 +47,8 @@ pub trait ScoreRepository: Send + Sync {
         quality_warn: Option<bool>,
         velocity_tier: Option<&str>,
         source_health_tier: Option<&str>,
+        embedding_model: Option<&str>,
+        has_embedding: Option<bool>,
     ) -> RepoResult<i64>;
 
     /// Full score history for one extracted item, newest first.
@@ -95,6 +99,13 @@ impl ScoredItemSort {
 
 const SELECT_COLS: &str = "id, extracted_item_id, score, decision, next_step, reasons_json, \
      risks_json, scoring_version, metadata_json, created_at";
+
+const EMBEDDING_EXISTS: &str =
+    "EXISTS (SELECT 1 FROM ai_radar.item_embeddings ie WHERE ie.extracted_item_id = ei.id AND ie.model = $7)";
+
+const EMBEDDING_FILTER_WHERE: &str = " AND ($7::text IS NULL OR $8::bool IS NULL OR \
+     (($8 = true AND EXISTS (SELECT 1 FROM ai_radar.item_embeddings ie WHERE ie.extracted_item_id = ei.id AND ie.model = $7)) \
+      OR ($8 = false AND NOT EXISTS (SELECT 1 FROM ai_radar.item_embeddings ie WHERE ie.extracted_item_id = ei.id AND ie.model = $7))))";
 
 fn row_to_score(row: &sqlx::postgres::PgRow) -> RepoResult<Score> {
     let raw_decision: String = row.try_get("decision").map_err(RepoError::from_sqlx)?;
@@ -212,8 +223,10 @@ impl ScoreRepository for PgScoreRepository {
         quality_warn: Option<bool>,
         velocity_tier: Option<&str>,
         source_health_tier: Option<&str>,
+        embedding_model: Option<&str>,
+        has_embedding: Option<bool>,
     ) -> RepoResult<i64> {
-        let count: i64 = sqlx::query_scalar(
+        let sql = format!(
             "WITH latest_score AS ( \
                  SELECT DISTINCT ON (extracted_item_id) extracted_item_id, decision \
                  FROM ai_radar.scores \
@@ -227,14 +240,17 @@ impl ScoreRepository for PgScoreRepository {
                AND ($3::text IS NULL OR ei.metadata_json->'adoption'->>'stars_tier' = $3) \
                AND ($4::bool IS NULL OR COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) = $4) \
                AND ($5::text IS NULL OR ei.metadata_json->'adoption'->>'velocity_tier' = $5) \
-               AND ($6::text IS NULL OR ei.metadata_json->'source_health'->>'tier' = $6)",
-        )
+               AND ($6::text IS NULL OR ei.metadata_json->'source_health'->>'tier' = $6){EMBEDDING_FILTER_WHERE}"
+        );
+        let count: i64 = sqlx::query_scalar(&sql)
         .bind(decision)
         .bind(category)
         .bind(stars_tier)
         .bind(quality_warn)
         .bind(velocity_tier)
         .bind(source_health_tier)
+        .bind(embedding_model)
+        .bind(has_embedding)
         .fetch_one(&self.pool)
         .await
         .map_err(RepoError::from_sqlx)?;
@@ -251,6 +267,8 @@ impl ScoreRepository for PgScoreRepository {
         quality_warn: Option<bool>,
         velocity_tier: Option<&str>,
         source_health_tier: Option<&str>,
+        embedding_model: Option<&str>,
+        has_embedding: Option<bool>,
         sort: ScoredItemSort,
     ) -> RepoResult<Vec<ScoredItemSummary>> {
         let order = match sort {
@@ -284,7 +302,8 @@ impl ScoreRepository for PgScoreRepository {
                  (ei.metadata_json->'adoption'->>'stars')::bigint AS stars, \
                  (ei.metadata_json->'adoption'->>'stars_delta_7d')::bigint AS stars_delta_7d, \
                  ei.metadata_json->'adoption'->>'velocity_tier' AS velocity_tier, \
-                 COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) AS quality_warn \
+                 COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) AS quality_warn, \
+                 CASE WHEN $7::text IS NULL THEN NULL ELSE {EMBEDDING_EXISTS} END AS has_embedding \
              FROM latest_score ls \
              JOIN ai_radar.extracted_items ei ON ei.id = ls.extracted_item_id \
              WHERE ($1::text IS NULL OR ls.decision = $1) \
@@ -292,9 +311,9 @@ impl ScoreRepository for PgScoreRepository {
                AND ($3::text IS NULL OR ei.metadata_json->'adoption'->>'stars_tier' = $3) \
                AND ($4::bool IS NULL OR COALESCE((ei.metadata_json->>'quality_warn')::boolean, false) = $4) \
                AND ($5::text IS NULL OR ei.metadata_json->'adoption'->>'velocity_tier' = $5) \
-               AND ($6::text IS NULL OR ei.metadata_json->'source_health'->>'tier' = $6) \
+               AND ($6::text IS NULL OR ei.metadata_json->'source_health'->>'tier' = $6){EMBEDDING_FILTER_WHERE} \
              ORDER BY {order} \
-             LIMIT $7 OFFSET $8"
+             LIMIT $9 OFFSET $10"
         );
         let rows = sqlx::query(&sql)
             .bind(decision)
@@ -303,6 +322,8 @@ impl ScoreRepository for PgScoreRepository {
             .bind(quality_warn)
             .bind(velocity_tier)
             .bind(source_health_tier)
+            .bind(embedding_model)
+            .bind(has_embedding)
             .bind(limit)
             .bind(offset)
             .fetch_all(&self.pool)
@@ -431,6 +452,7 @@ fn map_row_to_scored_summary(row: &sqlx::postgres::PgRow) -> RepoResult<ScoredIt
         None
     };
     let quality_warn: bool = row.try_get("quality_warn").unwrap_or(false);
+    let has_embedding: Option<bool> = row.try_get("has_embedding").ok();
     Ok(ScoredItemSummary {
         extracted_item_id: row
             .try_get("extracted_item_id")
@@ -444,6 +466,7 @@ fn map_row_to_scored_summary(row: &sqlx::postgres::PgRow) -> RepoResult<ScoredIt
         extracted_at: row.try_get("extracted_at").map_err(RepoError::from_sqlx)?,
         adoption,
         quality_warn: quality_warn.then_some(true),
+        has_embedding,
     })
 }
 
