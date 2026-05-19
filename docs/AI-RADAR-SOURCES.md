@@ -152,6 +152,40 @@ cd apps/ai-radar && ./scripts/ensure-ai-rss-sources.sh
 
 ---
 
+## 4c. Watchlist coding tools (T-269)
+
+Script: [`apps/ai-radar/scripts/ensure-ai-tools-watchlist.sh`](../apps/ai-radar/scripts/ensure-ai-tools-watchlist.sh)
+
+Tag comum: `metadata_json.watchlist = "ai-coding-tools"`.
+
+| Nome | Vendor | Tipo | Poll | URL / notas |
+| ---- | ------ | ---- | ---- | ----------- |
+| `watchlist-cursor-changelog` | cursor | rss | 120m | cursor.com/changelog/rss.xml |
+| `watchlist-github-copilot` | copilot | rss | 120m | github.blog/changelog/label/copilot/feed/ |
+| `watchlist-antigravity-changelog` | antigravity | rss | 180m | gradually.ai mirror do changelog oficial |
+| `watchlist-claude-code-releases` | claude-code | github_releases | 240m | github.com/anthropics/claude-code |
+| `watchlist-opencode-releases` | opencode | github_releases | 240m | github.com/sst/opencode |
+| `watchlist-openrouter-runner` | openrouter | github_repo | 360m | OpenRouterTeam/openrouter-runner (preços → T-270) |
+
+```bash
+export KUBECONFIG=~/production-site-cursor/oci-k8s-cluster/kubeconfig_tunnel.yaml
+kubectl -n postgres port-forward pod/postgres-0 36432:5432 &
+export DATABASE_URL="$(AI_RADAR_PG_HOST=127.0.0.1 AI_RADAR_PG_PORT=36432 python3 apps/ai-radar/scripts/render-ai-radar-database-url.py)"
+cd apps/ai-radar && ./scripts/ensure-ai-tools-watchlist.sh
+```
+
+### Manutenção — adicionar vendor à watchlist
+
+1. **Spike:** validar URL (`curl` + root RSS/Atom ou GitHub API releases).
+2. **Editar** `WATCHLIST_SOURCES` em `ensure-ai-tools-watchlist.sh` — linha `name|source_type|url|poll|tier|vendor|topics`.
+3. **Rodar** script com `DATABASE_URL` (upsert idempotente por `(source_type, url)`).
+4. **Smoke:** `RUN_COLLECT_SMOKE=1 RUN_EXTRACT_SMOKE=1 ./scripts/ensure-ai-tools-watchlist.sh`
+5. **Verificar:** `GET /sources/enabled` filtrando `metadata_json.watchlist == "ai-coding-tools"`.
+
+Tipos suportados: `rss`, `github_releases`, `github_repo`. Para changelogs só-HTML use `webpage` (avaliar custo extract).
+
+---
+
 ## 5. Comandos de auditoria
 
 ```bash

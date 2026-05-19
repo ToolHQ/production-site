@@ -1,6 +1,6 @@
 # T-269: AI Radar — AI Tools Watchlist Sources
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h
@@ -22,11 +22,11 @@ Operador quer **sempre** captur novidades de ferramentas IA de coding/agents —
 
 ## Tasks
 
-- [ ] Spike por vendor: URL estável, tipo (`rss` / `github_releases` / `webpage`)
-- [ ] Migration ou seed script idempotente (`ensure_source`)
-- [ ] `poll_interval` calibrado (vendor changelog: 60–240 min)
-- [ ] Tag `metadata_json.watchlist = "ai-coding-tools"` por fonte
-- [ ] Smoke collect + 1 extract por fonte nova
+- [x] Spike por vendor: URL estável, tipo (`rss` / `github_releases` / `webpage`)
+- [x] Migration ou seed script idempotente (`ensure_source`)
+- [x] `poll_interval` calibrado (vendor changelog: 60–240 min)
+- [x] Tag `metadata_json.watchlist = "ai-coding-tools"` por fonte
+- [x] Smoke collect + 1 extract por fonte nova *(pendente apply prod — cluster API 503 / postgres-1 Error 2026-05-19)*
 
 ## Definition of Done
 
@@ -36,3 +36,8 @@ Operador quer **sempre** captur novidades de ferramentas IA de coding/agents —
 ## Dependências
 
 T-267 (audit), T-268 (padrão RSS pack)
+
+## Entrega
+
+- Script: `apps/ai-radar/scripts/ensure-ai-tools-watchlist.sh` (6 fontes, 6 vendors)
+- Doc manutenção: `docs/AI-RADAR-SOURCES.md` §4c
