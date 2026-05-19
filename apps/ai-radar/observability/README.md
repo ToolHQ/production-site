@@ -23,6 +23,8 @@ curl -fsS 'http://127.0.0.1:19090/api/v1/query?query=ai_radar_pending_raw_items'
 
 During rollouts, `/metrics` refreshes DB-backed gauges at most once per **60s** and serves **stale** values on transient DNS/pool errors (**T-263**). Coroot `metrics: embedding coverage failed` spikes during deploy are expected to drop sharply.
 
+**Probes (T-264):** liveness `GET /health`; readiness/startup `GET /health/ready` (503 until Postgres `SELECT 1` succeeds). Rollout: old pod drains before new pod passes readiness — fewer scrapes/traffic on pods sem DNS/DB.
+
 ## Métricas `ai_radar_*`
 
 | Métrica | Tipo | Labels | Significado |

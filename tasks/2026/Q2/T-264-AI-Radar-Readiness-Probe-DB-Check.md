@@ -1,6 +1,6 @@
 # T-264: AI Radar — Readiness Probe DB Check
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 2h
@@ -11,10 +11,10 @@
 
 ## Tasks
 
-- [ ] `GET /health/ready` com `SELECT 1` (timeout 2s)
-- [ ] `readinessProbe` no deployment apontando para `/health/ready`
-- [ ] `livenessProbe` mantém `/health` leve
-- [ ] Doc rollout: readiness vs liveness
+- [x] `GET /health/ready` com `SELECT 1` (timeout 2s)
+- [x] `readinessProbe` no deployment apontando para `/health/ready`
+- [x] `livenessProbe` mantém `/health` leve; startup também `/health/ready`
+- [x] Doc rollout: readiness vs liveness
 
 ## Definition of Done
 
