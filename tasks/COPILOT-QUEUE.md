@@ -16,7 +16,7 @@
 
 | ID / Ref | Tarefa | Tipo |
 | :------- | :----- | :--- |
-| — | Housekeeping KANBAN + CronJob fix | micro |
+| — | Audit completo Agent Meter — todas abas, filtros e reports | QA |
 
 ## 📋 Próximas (Copilot/VSCode)
 
@@ -24,7 +24,13 @@
 
 | ID / Ref | Tarefa | Prioridade |
 | :------- | :----- | :--------- |
-| — | Monitorar estabilidade do cluster (node-1 disk 85%) | 🔽 Low |
+| [T-276](2026/Q2/T-276-Agent-Meter-Top-MCP-Servers-Semantic-Fix.md) | Fix Top MCP Servers: excluir llm_chat da query SQL | 🔼 High |
+| [T-277](2026/Q2/T-277-Agent-Meter-Top-Tasks-Para-Top-Conversations.md) | Top Tasks → Top Conversations (agrupar por conversation_id) | 🔼 High |
+| [T-279](2026/Q2/T-279-Agent-Meter-Duration-Humanizada.md) | Formatação humanizada de duração (ms → s/min) | 🔵 Medium |
+| [T-278](2026/Q2/T-278-Agent-Meter-Metrics-Endpoint.md) | Endpoint /metrics — 404 (link morto no footer) | 🔵 Medium |
+| [T-280](2026/Q2/T-280-Agent-Meter-Model-Filter-Em-Reports.md) | Filtro model global não afeta reports | 🔵 Medium |
+| [T-281](2026/Q2/T-281-Agent-Meter-Sort-Colunas-Reports.md) | Sort interativo em colunas dos reports | 🟡 Low |
+| — | Monitorar estabilidade do cluster | 🔽 Low |
 
 ## 🔬 Micro-Tasks (sem T-ID, sem PR)
 
@@ -33,6 +39,10 @@
 - [x] `kubectl delete pods -n kube-system --field-selector=status.phase=Failed` — limpar evicted
 - [x] Deletar pods stale ContainerStatusUnknown (ai-radar, hubble-relay, failed-pod-cleaner)
 - [x] Fix CronJob `failed-pod-cleaner` image: `bitnami/kubectl:1.31` → `registry.k8s.io/kubectl:v1.28.0`
+- [x] T-263: Brand header (icon, title, subtitle, bg-glow, favicon, footer) — PR #262 merged
+- [x] Fix max-width:220px em `td` quebrando column resize — PR #264 merged
+- [x] Fix CONV ID substring(0,8) hardcoded no JS + IP substring(0,15) + click-to-filter — tag 1779188533
+- [x] Audit completo Agent Meter (2025-07-14): todas abas, filtros, endpoints — criadas T-276 a T-281
 
 ## ✅ Concluídas (histórico recente)
 
