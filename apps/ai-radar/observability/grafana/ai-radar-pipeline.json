@@ -168,6 +168,66 @@
       ],
       "title": "Entradas rejeitadas (ex. oversize)",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "green", "value": 80 }
+            ]
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 28 },
+      "id": 10,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "ai_radar_embeddings_coverage_pct{namespace=\"ai-radar\"}",
+          "legendFormat": "coverage",
+          "refId": "A"
+        }
+      ],
+      "title": "Cobertura semântica (%)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 80 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 28 },
+      "id": 11,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "expr": "ai_radar_embeddings_pending{namespace=\"ai-radar\"}",
+          "legendFormat": "pending",
+          "refId": "A"
+        }
+      ],
+      "title": "Fila embed (pendentes)",
+      "type": "stat"
     }
   ],
   "refresh": "30s",

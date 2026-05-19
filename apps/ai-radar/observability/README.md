@@ -27,6 +27,7 @@ curl -fsS 'http://127.0.0.1:19090/api/v1/query?query=ai_radar_pending_raw_items'
 | ------- | ---- | ------ | ----------- |
 | `ai_radar_pending_raw_items` | gauge | — | Fila `raw_items.status=pending` (atualizado a cada `GET /metrics`) |
 | `ai_radar_embeddings_pending` | gauge | — | Itens extraídos sem vetor para `EMBEDDING_MODEL` (**T-255**) |
+| `ai_radar_embeddings_coverage_pct` | gauge | — | `%` elegíveis com vetor (0–100, atualizado no scrape) (**T-261**) |
 | `ai_radar_collected_total` | counter | `source_type` | Inserts em collect |
 | `ai_radar_skipped_total` | counter | `source_type` | Duplicatas ignoradas |
 | `ai_radar_sources_skipped_poll_total` | counter | `source_type` | Fontes não polled (intervalo) |
@@ -59,6 +60,8 @@ No **Coroot** (`https://coroot.dnor.io`), use **Metrics** / explorador com as qu
 | Collect / 5m | `sum(rate(ai_radar_collected_total{namespace="ai-radar"}[5m])) by (source_type)` |
 | Erros / 5m | `sum(rate(ai_radar_errors_total{namespace="ai-radar"}[5m])) by (stage)` |
 | Latência p95 collect | `histogram_quantile(0.95, sum(rate(ai_radar_stage_duration_seconds_bucket{namespace="ai-radar",stage="collect"}[5m])) by (le))` |
+| Fila embed | `ai_radar_embeddings_pending{namespace="ai-radar"}` |
+| Cobertura semântica | `ai_radar_embeddings_coverage_pct{namespace="ai-radar"}` |
 
 ## Alertas sugeridos (não aplicados automaticamente)
 
@@ -87,9 +90,26 @@ Exemplos para PrometheusRule ou UI Coroot — calibrar limiares após baseline:
   for: 10m
   labels:
     severity: warning
+
+# Cobertura semântica baixa (T-261)
+- alert: AiRadarEmbeddingsCoverageLow
+  expr: ai_radar_embeddings_coverage_pct{namespace="ai-radar"} < 50
+  for: 4h
+
+# Fila de embed alta (T-261)
+- alert: AiRadarEmbeddingsPendingHigh
+  expr: ai_radar_embeddings_pending{namespace="ai-radar"} > 80
+  for: 2h
 ```
 
 Arquivo de referência: [`prometheus/alerting-rules.example.yaml`](prometheus/alerting-rules.example.yaml).
+
+**PromQL smoke** (Coroot / Prometheus UI):
+
+```bash
+curl -fsS 'http://127.0.0.1:19090/api/v1/query?query=ai_radar_embeddings_coverage_pct{namespace="ai-radar"}' | jq .
+curl -fsS 'http://127.0.0.1:19090/api/v1/query?query=ai_radar_embeddings_pending{namespace="ai-radar"}' | jq .
+```
 
 ## Produto vs ops
 

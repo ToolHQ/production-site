@@ -33,13 +33,20 @@ async fn handler(State(state): State<AppState>) -> impl IntoResponse {
     };
     match embed_pending {
         Some(fut) => match fut.await {
-            Ok(cov) => radar_metrics::set_embeddings_pending_count(Some(cov.embeddings_pending)),
+            Ok(cov) => {
+                radar_metrics::set_embeddings_pending_count(Some(cov.embeddings_pending));
+                radar_metrics::set_embeddings_coverage_pct(Some(cov.coverage_pct));
+            }
             Err(e) => {
                 tracing::error!(error = %e, "metrics: embedding coverage failed");
                 radar_metrics::set_embeddings_pending_count(None);
+                radar_metrics::set_embeddings_coverage_pct(None);
             }
         },
-        None => radar_metrics::set_embeddings_pending_count(None),
+        None => {
+            radar_metrics::set_embeddings_pending_count(None);
+            radar_metrics::set_embeddings_coverage_pct(None);
+        }
     }
     (
         [(header::CONTENT_TYPE, "text/plain; version=0.0.4")],
