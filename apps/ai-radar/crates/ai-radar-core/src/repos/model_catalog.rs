@@ -237,8 +237,14 @@ pub async fn load_model_catalog_stats(db: &Database, provider: &str) -> RepoResu
 
     Ok(row.map(|r| ModelCatalogStats {
         provider: r.try_get("provider").unwrap_or_else(|_| provider.to_string()),
-        model_count: r.try_get("model_count").unwrap_or(0),
-        events_last_run: r.try_get("events_count").unwrap_or(0),
+        model_count: r
+            .try_get::<i32, _>("model_count")
+            .map(i64::from)
+            .unwrap_or(0),
+        events_last_run: r
+            .try_get::<i32, _>("events_count")
+            .map(i64::from)
+            .unwrap_or(0),
         last_sync_at: r.try_get("collected_at").ok(),
     }))
 }
