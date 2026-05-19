@@ -232,7 +232,7 @@ if kubectl -n postgres rollout status statefulset/postgres --timeout=5m 2>&1; th
     echo "💡 Useful commands:"
     echo "   - Port forward: kubectl port-forward --namespace=postgres statefulset/postgres 54322:5432"
     echo "   - View logs: kubectl -n postgres logs -l app=postgres -f"
-    echo "   - Check PVC: kubectl -n postgres describe pvc postgres-pvc"
+    echo "   - Check PVC: kubectl -n postgres describe pvc postgres-data-postgres-0"
     echo "   - Check events: kubectl -n postgres get events --sort-by='.lastTimestamp'"
     echo "   - Connect: psql -h localhost -p 54322 -U postgres"
     # Added explicit success message for clarity
@@ -254,7 +254,7 @@ else
         echo ""
         echo "   Or use manual cleanup:"
         echo "   kubectl -n postgres delete statefulset postgres"
-        echo "   kubectl -n postgres delete pvc postgres-pvc"
+        echo "   kubectl -n postgres delete pvc postgres-data-postgres-0 postgres-data-postgres-1"
         echo "   Then re-apply the resources"
     fi
     
@@ -262,7 +262,7 @@ else
     echo "   - View pod events: kubectl -n postgres get events --sort-by='.lastTimestamp'"
     echo "   - View pod logs: kubectl -n postgres logs -l app=postgres"
     echo "   - Describe pods: kubectl -n postgres describe pods -l app=postgres"
-    echo "   - Check PVC status: kubectl -n postgres describe pvc postgres-pvc"
+    echo "   - Check PVC status: kubectl -n postgres describe pvc postgres-data-postgres-0"
     
     exit 1
 fi

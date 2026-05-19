@@ -8,3 +8,4 @@ reports/
 tools/coredns/coredns
 tools/coredns/coredns.log
 artifacts/
+.last_build_hash
