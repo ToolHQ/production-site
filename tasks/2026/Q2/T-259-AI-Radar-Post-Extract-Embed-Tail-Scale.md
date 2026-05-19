@@ -1,6 +1,6 @@
 # T-259: AI Radar — Post-Extract Embed Tail Scale
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h

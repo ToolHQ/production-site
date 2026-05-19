@@ -923,9 +923,42 @@ Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 20 — 
 | T-261 | Alerta Prometheus cobertura / fila embed | 2h |
 | T-262 | Explorer badge “sem vetor” + filtro | 3h |
 
-**Meta operacional:** `embeddings_pending → 0` ou `coverage_pct ≥ 80`.
+**Meta operacional:** `embeddings_pending → 0` ou `coverage_pct ≥ 80` — **atingida (~91%)**.
 
-Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 21.
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 21 — **concluída**.
+
+## Fase 22 — Resiliência & estabilidade do backend
+
+**Tema:** eliminar rajadas de ERROR no Coroot, probes corretos, degradação graciosa — **sem** mudar pipeline de negócio.
+
+| ID | Entrega | Est. | Ordem |
+| --- | --- | --- | --- |
+| T-263 | Metrics scrape cache + stale-while-revalidate | 3h | 1 |
+| T-264 | Readiness probe com check Postgres | 2h | 2 |
+| T-265 | Graceful degradation `/stats` e rotas read-only | 4h | 3 |
+| T-266 | Pipeline SLO runbook | 2h | 4 |
+
+**Princípio:** uma task por PR; deploy API após T-263/T-264.
+
+## Fase 23 — Inteligência de fontes & trends
+
+**Tema:** feeds curados (vendors IA), watchlist coding tools, modelos/preços, Google/YouTube trends — **planejamento antes de código**.
+
+| ID | Entrega | Est. | Ordem |
+| --- | --- | --- | --- |
+| T-267 | Audit RSS + taxonomia (keep/add/remove) | 3h | 1 |
+| T-268 | Curated AI vendor RSS pack | 4h | 2 |
+| T-269 | Watchlist: Cursor, Copilot, Antigravity, Claude Code, OpenCode, OpenRouter | 6h | 3 |
+| T-270 | Monitor modelos LLM & preços (OpenRouter diff) | 6h | 4 |
+| T-271 | Spike Google Trends collector | 4h | 5 |
+| T-272 | YouTube AI trends collector | 6h | 6 |
+| T-273 | Collect relevance gate (pré-extract) | 5h | 7 |
+| T-274 | Console Sources curation UX | 4h | 8 |
+| T-275 | Digest “AI Tools Pulse” | 4h | 9 |
+
+**Fora de escopo imediato:** pgvector, auto-merge duplicatas, re-scoring massivo.
+
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fases 22–23.
 
 ## Entregável esperado deste prompt
 

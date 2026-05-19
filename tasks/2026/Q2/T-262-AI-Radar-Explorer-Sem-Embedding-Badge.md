@@ -1,6 +1,6 @@
 # T-262: AI Radar — Explorer Sem-Embedding Badge
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h

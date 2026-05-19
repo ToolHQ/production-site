@@ -1,6 +1,6 @@
 # T-260: AI Radar — Embed Catch-Up CronJob
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h
