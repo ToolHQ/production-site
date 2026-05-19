@@ -50,10 +50,17 @@ if command -v systemctl >/dev/null 2>&1; then
   echo "🛑 systemctl --user stop buildkit ..."
   systemctl --user stop buildkit 2>/dev/null || true
   systemctl --user disable buildkit 2>/dev/null || true
+  echo "🛑 systemctl stop buildkit (system-level) ..."
+  sudo systemctl stop buildkit 2>/dev/null || true
+  sudo systemctl disable buildkit 2>/dev/null || true
   echo "🔧 Removendo arquivos de serviço systemd..."
   rm -f "$HOME/.config/systemd/user/buildkit.service" || true
   rm -rf "$HOME/.config/systemd/user/buildkit.service.d" || true
+  sudo rm -f "/etc/systemd/system/buildkit.service" || true
+  sudo rm -rf "/etc/systemd/system/buildkit.service.d" || true
   systemctl --user daemon-reload || true
+  sudo systemctl daemon-reload || true
+  sudo systemctl reset-failed || true
 fi
 
 echo "🔧 Limpando /run/user/\$UID/buildkit..."

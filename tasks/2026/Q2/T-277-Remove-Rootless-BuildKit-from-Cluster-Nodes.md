@@ -23,9 +23,13 @@ Esta tarefa consistiu em:
 
 ## Validação
 
-O script de heal foi executado e todas as operações foram concluídas com sucesso. O DNS e todos os nodes estão verdes:
+O script de heal foi atualizado para cobrir a limpeza do serviço systemd a nível de sistema (`/etc/systemd/system/buildkit.service`), além do nível de usuário (`--user`). O serviço foi parado, desabilitado e removido com sucesso de todos os nodes.
+
 - Comando de verificação nos nodes:
-  `for n in oci-k8s-master oci-k8s-node-1 oci-k8s-node-2 oci-k8s-node-3; do ssh $n "systemctl --user status buildkit.service"; done`
+  `for n in oci-k8s-master oci-k8s-node-1 oci-k8s-node-2 oci-k8s-node-3; do echo "=== $n ==="; ssh $n "systemctl status buildkit 2>&1 | head -n 1"; done`
 - Resultado:
-  `Unit buildkit.service could not be found.` em todos os nodes.
+  ```
+  Unit buildkit.service could not be found.
+  ```
+  em todos os nodes. Os erros de auto-restart cessaram e a observabilidade está totalmente limpa.
 
