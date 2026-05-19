@@ -6,7 +6,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/common.sh"
-source "$(dirname "$0")/install_buildkit.sh"
+# source "$(dirname "$0")/install_buildkit.sh"
 
 export DEBIAN_FRONTEND=noninteractive
 LOGFILE="../logs/setup_k8s_cluster_$(date +%Y%m%d_%H%M%S).log"
@@ -2365,7 +2365,7 @@ check_reachability() {
 
 # --- PHASES -----------------------------------------------------
 measure_phase "check reachability"           check_reachability
-measure_phase "buildkitd (remote buildx)"    phase_buildkitd
+# measure_phase "buildkitd (remote buildx)"    phase_buildkitd
 measure_phase "prepare nodes"                phase_prepare_nodes
 
 # Fix: Check for admin.conf file instead of API availability
