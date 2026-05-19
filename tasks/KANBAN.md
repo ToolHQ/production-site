@@ -35,8 +35,9 @@
 
 ## ✅ Done
 
-|                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
-| :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :--- | :---: | :---: | :---: |
+| [T-276](2026/Q2/T-276-Antigravity-Orphan-PVC-Cleanup.md) | **Antigravity — Orphan PVC Cleanup** _(deletado postgres-pvc de 2.15GB, removido do manifesto postgres-resources.yaml e corrigido commands.sh)_ | 🔼 High | Antigravity | 1h |
 | [T-267](2026/Q2/T-267-AI-Radar-RSS-Source-Audit-Taxonomy.md) | **AI Radar — RSS Source Audit & Taxonomy** | 🔼 High | Cursor / AI Radar | 3h |
 | [T-266](2026/Q2/T-266-AI-Radar-Pipeline-SLO-Runbook.md) | **AI Radar — Pipeline SLO Runbook** | 🔽 Low | Cursor / AI Radar | 2h |
 | [T-265](2026/Q2/T-265-AI-Radar-API-Graceful-Degradation.md) | **AI Radar — API Graceful Degradation** | 🔼 High | Cursor / AI Radar | 4h |
