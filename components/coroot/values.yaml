@@ -97,8 +97,12 @@ clickhouse:
         fi
       done
       
-      # 3. Linkar as configuracoes de overrides do Bitnami para a pasta oficial do Clickhouse
+      # 3. Injetar compressao ZSTD ativa para economizar disco e I/O
       mkdir -p /etc/clickhouse-server/config.d
+      echo "<clickhouse><compression><case><min_part_size>8192</min_part_size><min_part_size_ratio>0.01</min_part_size_ratio><method>zstd</method><level>5</level></case></compression></clickhouse>" > /etc/clickhouse-server/config.d/compression.xml
+      echo "✅ Compressao ZSTD injetada."
+      
+      # 4. Linkar as configuracoes de overrides do Bitnami para a pasta oficial do Clickhouse
       if [ -d /bitnami/clickhouse/etc/conf.d ]; then
         ln -sfn /bitnami/clickhouse/etc/conf.d/* /etc/clickhouse-server/config.d/
         echo "✅ Configs de overrides linkadas para /etc/clickhouse-server/config.d/"

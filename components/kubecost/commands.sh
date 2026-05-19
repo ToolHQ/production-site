@@ -36,10 +36,29 @@ HELM_ARGS+=("--wait")
 "$helm_cmd" "${HELM_ARGS[@]}"
 
 # Grafana desabilitado via values.yaml (grafana.enabled: false)
-# Se deployment legado ainda existir no cluster, escalar para 0
+# Se deployment legado ainda existir no cluster, remover completamente
 if kubectl get deployment -n kubecost kubecost-grafana >/dev/null 2>&1; then
-    kubectl scale deployment -n kubecost kubecost-grafana --replicas=0
-    echo "  - kubecost-grafana desabilitado (replicas=0) — legado"
+    echo "🧹 Removing legacy Kubecost Grafana deployment, service and configs..."
+    kubectl delete deployment -n kubecost kubecost-grafana --ignore-not-found=true
+    kubectl delete service -n kubecost kubecost-grafana --ignore-not-found=true
+    
+    # Deletar todos os configmaps de dashboards e configuracoes legadas do Grafana
+    kubectl delete configmap -n kubecost \
+      kubecost-grafana \
+      kubecost-grafana-config-dashboards \
+      attached-disk-metrics-dashboard \
+      cluster-metrics-dashboard \
+      cluster-utilization-dashboard \
+      deployment-utilization-dashboard \
+      grafana-dashboard-kubernetes-resource-efficiency \
+      grafana-dashboard-networkcosts-metrics \
+      grafana-dashboard-pod-utilization-multi-cluster \
+      label-cost-dashboard \
+      namespace-utilization-dashboard \
+      nginx-conf \
+      node-utilization-dashboard \
+      pod-utilization-dashboard \
+      prom-benchmark-dashboard --ignore-not-found=true 2>/dev/null || true
 fi
 
 # Se mudamos para Prometheus externo, garantir que o prometheus-server legado do kubecost seja removido/escalado a 0
