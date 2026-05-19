@@ -52,10 +52,14 @@ run_k8s_job() {
 log "API: $API_URL"
 curl -fsS "${API_URL}/health" | jq -r '.status' | xargs -I{} log "health: {}"
 
-# Fontes demo (RSS confiável + variedade para o digest)
-ensure_source "demo-hn-frontpage" "rss" "https://hnrss.org/frontpage" 30
-ensure_source "demo-lobsters" "rss" "https://lobste.rs/rss" 60
-ensure_source "demo-pragmatic-engineer" "rss" "https://newsletter.pragmaticengineer.com/feed" 120
+# Fontes curadas (T-268) — preferir sobre demos genéricos
+if [[ -x "$(dirname "$0")/ensure-ai-rss-sources.sh" ]]; then
+  "$(dirname "$0")/ensure-ai-rss-sources.sh" || log "ensure-ai-rss-sources falhou — ver DATABASE_URL"
+else
+  ensure_source "demo-hn-frontpage" "rss" "https://hnrss.org/frontpage" 30
+  ensure_source "demo-lobsters" "rss" "https://lobste.rs/rss" 60
+  ensure_source "demo-pragmatic-engineer" "rss" "https://newsletter.pragmaticengineer.com/feed" 120
+fi
 
 if run_k8s_job "ai-radar-collect" "demo"; then
   :

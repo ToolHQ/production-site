@@ -951,7 +951,7 @@ Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 22 — 
 | T-267 | Audit RSS + taxonomia (keep/add/remove) | 3h | 1 ✅ |
 
 Entregável: [`docs/AI-RADAR-SOURCES.md`](../docs/AI-RADAR-SOURCES.md).
-| T-268 | Curated AI vendor RSS pack | 4h | 2 |
+| T-268 | Curated AI vendor RSS pack | 4h | 2 ✅ |
 | T-269 | Watchlist: Cursor, Copilot, Antigravity, Claude Code, OpenCode, OpenRouter | 6h | 3 |
 | T-270 | Monitor modelos LLM & preços (OpenRouter diff) | 6h | 4 |
 | T-271 | Spike Google Trends collector | 4h | 5 |
@@ -962,7 +962,7 @@ Entregável: [`docs/AI-RADAR-SOURCES.md`](../docs/AI-RADAR-SOURCES.md).
 
 **Fora de escopo imediato:** pgvector, auto-merge duplicatas, re-scoring massivo.
 
-Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 23 — **T-268 próximo**.
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 23 — **T-269 próximo**.
 
 ## Entregável esperado deste prompt
 
