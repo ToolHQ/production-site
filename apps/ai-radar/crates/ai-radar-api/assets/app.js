@@ -140,6 +140,13 @@ const VELOCITY_TIER_PT = {
   unknown: "?",
 };
 
+function embeddingBadge(hasEmbedding) {
+  if (hasEmbedding === false) {
+    return '<span class="badge badge-embed-missing" title="Sem vetor para busca semântica">sem vetor</span>';
+  }
+  return "";
+}
+
 function signalBadges(adoption, qualityWarn) {
   const parts = [];
   if (adoption?.stars_tier) {
@@ -777,6 +784,8 @@ function explorerSearchFromForm() {
   if (sourceHealthTier) qs.set("source_health_tier", sourceHealthTier);
   if (sort && sort !== "score_desc") qs.set("sort", sort);
   if (qualityWarn) qs.set("quality_warn", "1");
+  const noEmbed = document.getElementById("no-embedding-filter")?.checked;
+  if (noEmbed) qs.set("has_embedding", "false");
   if (semanticQ) qs.set("q", semanticQ);
   location.search = qs.toString() ? `?${qs}` : "";
   render();
@@ -790,6 +799,7 @@ function bindExplorerFilters() {
     "source-health-filter",
     "sort-filter",
     "quality-warn-filter",
+    "no-embedding-filter",
   ]) {
     document.getElementById(id)?.addEventListener("change", explorerSearchFromForm);
   }
@@ -821,6 +831,7 @@ function explorerFilterControls({
   sourceHealthTier,
   sort,
   qualityWarn,
+  noEmbedding,
   semanticQ,
   filtersDisabled = false,
 }) {
@@ -867,6 +878,7 @@ function explorerFilterControls({
     <label class="filter-row">Saúde fonte <select id="source-health-filter"${disabled}>${healthOpts}</select></label>
     <label class="filter-row">Ordenar <select id="sort-filter"${disabled}>${sortOpts}</select></label>
     <label class="filter-row filter-row--check"><input type="checkbox" id="quality-warn-filter" ${qualityWarn ? "checked" : ""}${disabled} /> Só quality warn</label>
+    <label class="filter-row filter-row--check"><input type="checkbox" id="no-embedding-filter" ${noEmbedding ? "checked" : ""}${disabled} /> Só sem vetor</label>
   </div>`;
 }
 
@@ -879,6 +891,7 @@ async function renderItems() {
   const sourceHealthTier = params.get("source_health_tier") || "";
   const sort = params.get("sort") || "score_desc";
   const qualityWarn = params.get("quality_warn") === "1";
+  const noEmbedding = params.get("has_embedding") === "false";
   const semanticQ = (params.get("q") || "").trim();
 
   const filterArgs = {
@@ -888,6 +901,7 @@ async function renderItems() {
     sourceHealthTier,
     sort,
     qualityWarn,
+    noEmbedding,
     semanticQ,
   };
   const filters = explorerFilterControls({
@@ -969,6 +983,7 @@ async function renderItems() {
   if (velocityTier) qs.set("velocity_tier", velocityTier);
   if (sourceHealthTier) qs.set("source_health_tier", sourceHealthTier);
   if (qualityWarn) qs.set("quality_warn", "true");
+  if (noEmbedding) qs.set("has_embedding", "false");
 
   const data = await apiJson(`/items?${qs}`);
 
@@ -986,7 +1001,7 @@ async function renderItems() {
       return `<tr>
         <td>${decisionBadge(it.decision)}</td>
         <td>${scorePct(it.score)}</td>
-        <td class="signal-cell">${signalBadges(it.adoption, it.quality_warn)}</td>
+        <td class="signal-cell">${signalBadges(it.adoption, it.quality_warn)}${embeddingBadge(it.has_embedding)}</td>
         <td>${escapeHtml(it.category || "—")}</td>
         <td><a href="#/items/${it.extracted_item_id}">${escapeHtml(name)}</a></td>
         <td class="muted">${new Date(it.scored_at).toLocaleString("pt-BR")}</td>

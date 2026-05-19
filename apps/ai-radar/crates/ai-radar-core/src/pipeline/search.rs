@@ -237,6 +237,7 @@ mod tests {
             extracted_at: Utc::now(),
             adoption: None,
             quality_warn: None,
+            has_embedding: None,
         }
     }
 

@@ -37,4 +37,7 @@ pub struct ScoredItemSummary {
     /// `metadata_json.quality_warn` from extract gate.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quality_warn: Option<bool>,
+    /// Whether a vector exists for the configured `EMBEDDING_MODEL` (**T-262**).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_embedding: Option<bool>,
 }
