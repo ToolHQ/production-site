@@ -367,6 +367,13 @@ export DATABASE_URL="$(AI_RADAR_PG_HOST=127.0.0.1 AI_RADAR_PG_PORT=36432 python3
 
 Inventário e taxonomia: [`docs/AI-RADAR-SOURCES.md`](../../docs/AI-RADAR-SOURCES.md).
 
+**Watchlist coding tools (T-269).** Cursor, Copilot, Antigravity, Claude Code, OpenCode, OpenRouter:
+
+```bash
+# Mesmo DATABASE_URL + port-forward que T-268
+./scripts/ensure-ai-tools-watchlist.sh
+```
+
 **Demo pipeline (console com conteúdo).** Script repetível que garante fontes curadas, dispara jobs collect/extract/score/digest e imprime o link do digest no console:
 
 ```bash
