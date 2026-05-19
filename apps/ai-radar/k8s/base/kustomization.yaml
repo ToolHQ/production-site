@@ -18,3 +18,4 @@ resources:
   - cronjobs/cronjob-score.yaml
   - cronjobs/cronjob-embed.yaml
   - cronjobs/cronjob-embed-catchup.yaml
+  - cronjobs/cronjob-models-sync.yaml

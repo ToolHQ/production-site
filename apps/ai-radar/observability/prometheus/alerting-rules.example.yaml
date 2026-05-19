@@ -67,3 +67,14 @@ spec:
             description: >
               Menos de metade dos itens elegíveis têm embedding há 4h. Verificar
               EMBEDDINGS_ENABLED, CronJobs embed/catchup e logs embed.coverage.
+
+        - alert: AiRadarModelCatalogChanges
+          expr: ai_radar_model_catalog_events_last_run{namespace="ai-radar"} > 0
+          for: 5m
+          labels:
+            severity: info
+          annotations:
+            summary: AI Radar mudanças no catálogo OpenRouter
+            description: >
+              Último sync detectou novos modelos, remoções ou alteração de preço.
+              Ver GET /models/catalog ou /stats.model_catalog.

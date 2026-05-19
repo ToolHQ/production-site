@@ -39,6 +39,7 @@ pub mod raw_item;
 pub mod score;
 pub mod source;
 pub mod source_health;
+pub mod model_catalog;
 pub mod stats;
 pub mod tool_metrics_snapshot;
 
@@ -53,6 +54,10 @@ pub use raw_item::{DuplicateCluster, PgRawItemRepository, RawItemRepository};
 pub use score::{PgScoreRepository, ScoreRepository, ScoredItemSort};
 pub use source::{PgSourceRepository, SourceRepository};
 pub use source_health::{PgSourceHealthRepository, SourceHealthRepository};
+pub use model_catalog::{
+    load_latest_events_count, load_model_catalog_stats, ModelCatalogRepository,
+    ModelCatalogStats, PgModelCatalogRepository,
+};
 pub use stats::{
     load_embedding_coverage, load_pipeline_stats, load_pipeline_stats_degraded,
     load_pipeline_stats_with_embeddings, EmbeddingCoverageStats, PipelineStats,

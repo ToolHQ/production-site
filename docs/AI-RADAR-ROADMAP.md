@@ -953,7 +953,11 @@ Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 22 — 
 Entregável: [`docs/AI-RADAR-SOURCES.md`](../docs/AI-RADAR-SOURCES.md).
 | T-268 | Curated AI vendor RSS pack | 4h | 2 ✅ |
 | T-269 | Watchlist: Cursor, Copilot, Antigravity, Claude Code, OpenCode, OpenRouter | 6h | 3 ✅ |
-| T-270 | Monitor modelos LLM & preços (OpenRouter diff) | 6h | 4 |
+| T-270 | Monitor modelos LLM & preços (OpenRouter diff) | 6h | 4 ✅ |
+
+Entregável: CLI `models-sync`, `GET /models/catalog`, CronJob diário.
+
+Fila Cursor: [`tasks/CURSOR-QUEUE.md`](../tasks/CURSOR-QUEUE.md) § Fase 23 — **T-271 próximo**.
 | T-271 | Spike Google Trends collector | 4h | 5 |
 | T-272 | YouTube AI trends collector | 6h | 6 |
 | T-273 | Collect relevance gate (pré-extract) | 5h | 7 |
