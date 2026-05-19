@@ -356,7 +356,18 @@ Se aparecer **`context deadline exceeded`** no primeiro passo `#1 waiting for co
 
 **Smoke no cluster.** Checklist operacional completo (digest, métricas `ai_radar_*`, jobs manuais): [`T-191`](../../tasks/2026/Q2/T-191-AI-Radar-Cluster-Smoke-Demo-Runbook-post-T-169.md).
 
-**Demo pipeline (console com conteúdo).** Script repetível que cadastra fontes RSS, dispara jobs collect/extract/score/digest e imprime o link do digest no console:
+**Fontes RSS curadas (T-268).** Aplicar o pack de vendors IA e desabilitar feeds demo genéricos (requer `DATABASE_URL` + port-forward Postgres):
+
+```bash
+export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+kubectl -n postgres port-forward svc/postgres-service 36432:5432 &
+export DATABASE_URL="$(AI_RADAR_PG_HOST=127.0.0.1 AI_RADAR_PG_PORT=36432 python3 scripts/render-ai-radar-database-url.py)"
+./scripts/ensure-ai-rss-sources.sh
+```
+
+Inventário e taxonomia: [`docs/AI-RADAR-SOURCES.md`](../../docs/AI-RADAR-SOURCES.md).
+
+**Demo pipeline (console com conteúdo).** Script repetível que garante fontes curadas, dispara jobs collect/extract/score/digest e imprime o link do digest no console:
 
 ```bash
 export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml

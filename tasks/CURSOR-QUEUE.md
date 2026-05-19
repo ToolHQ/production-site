@@ -18,5 +18,6 @@ _(vazio)_
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
 | 1 | T-267 | RSS audit + taxonomia | ✅ |
-| 2 | T-268 | Curated AI vendor RSS pack | 📋 **próximo** |
-| 3–9 | T-269…T-275 | Watchlist, trends, UX | backlog |
+| 2 | T-268 | Curated AI vendor RSS pack | ✅ |
+| 3 | T-269 | AI tools watchlist | 📋 **próximo** |
+| 4–9 | T-270…T-275 | Trends, UX, digest | backlog |
