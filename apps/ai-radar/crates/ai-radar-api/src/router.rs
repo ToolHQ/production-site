@@ -36,6 +36,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::health::ready_router())
         .merge(routes::metrics::router())
         .merge(routes::stats::router())
+        .merge(routes::models::router())
         .merge(routes::sources::router())
         .merge(routes::extract::router())
         .merge(routes::items::router())
