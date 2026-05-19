@@ -97,11 +97,22 @@ scan_apps() {
         fi
 
         # --- Dockerfile ---
+        local df_path=""
         if [[ -f "$app_dir/Dockerfile" ]]; then
+            df_path="$app_dir/Dockerfile"
+        elif [[ -f "$app_dir/docker/Dockerfile" ]]; then
+            df_path="$app_dir/docker/Dockerfile"
+        elif ls "$app_dir/Dockerfile"* &>/dev/null; then
+            df_path=$(ls "$app_dir/Dockerfile"* | head -1)
+        elif ls "$app_dir/docker/Dockerfile"* &>/dev/null; then
+            df_path=$(ls "$app_dir/docker/Dockerfile"* | head -1)
+        fi
+
+        if [[ -n "$df_path" ]]; then
             has_dockerfile=true
-            base_image=$(grep -m1 '^FROM' "$app_dir/Dockerfile" 2>/dev/null | awk '{print $2}' || true)
+            base_image=$(grep -m1 '^FROM' "$df_path" 2>/dev/null | awk '{print $2}' || true)
             # If multi-stage, get last FROM
-            local last_from=$(grep '^FROM' "$app_dir/Dockerfile" 2>/dev/null | tail -1 | awk '{print $2}')
+            local last_from=$(grep '^FROM' "$df_path" 2>/dev/null | tail -1 | awk '{print $2}')
             [[ -n "$last_from" ]] && base_image="$last_from"
         fi
 
