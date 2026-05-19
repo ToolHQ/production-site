@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useState, useCallback, useMemo, useEffect } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
@@ -35,6 +36,7 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const [targetEl, setTargetEl] = useState<HTMLElement | null>(null);
   const [lastEnterTime, setLastEnterTime] = useState<number>(0);
+  const [isPinned, setIsPinned] = useState<boolean>(false);
 
   const updateCoords = useCallback((el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
@@ -45,6 +47,7 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
   }, []);
 
   const handleMouseEnter = (e: MouseEvent) => {
+    if (isPinned) return;
     const el = e.currentTarget as HTMLElement;
     setTargetEl(el);
     updateCoords(el);
@@ -52,20 +55,24 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
   };
 
   const handleMouseLeave = () => {
+    if (isPinned) return;
     setTargetEl(null);
     setCoords(null);
   };
 
   const handleToggleClick = (e: MouseEvent) => {
+    e.stopPropagation();
     const el = e.currentTarget as HTMLElement;
     // Prevent immediate closing on desktop click when triggered by mouseenter
     if (Date.now() - lastEnterTime < 300) {
       return;
     }
-    if (targetEl) {
+    if (isPinned) {
+      setIsPinned(false);
       setTargetEl(null);
       setCoords(null);
     } else {
+      setIsPinned(true);
       setTargetEl(el);
       updateCoords(el);
     }
@@ -88,6 +95,32 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
     };
   }, [targetEl, updateCoords]);
 
+  useEffect(() => {
+    if (!isPinned || !targetEl) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't close if clicking the trigger container itself
+      if (targetEl.contains(target)) {
+        return;
+      }
+      // Since the card is rendered in a Portal, find it in the DOM
+      const cardEl = document.querySelector('.node-cell-tooltip-card');
+      if (cardEl && cardEl.contains(target)) {
+        return;
+      }
+
+      setIsPinned(false);
+      setTargetEl(null);
+      setCoords(null);
+    };
+
+    document.addEventListener('click', handleClickOutside, true);
+    return () => {
+      document.removeEventListener('click', handleClickOutside, true);
+    };
+  }, [isPinned, targetEl]);
+
   return (
     <div
       class="node-cell-tooltip-container"
@@ -96,13 +129,14 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
       onClick={handleToggleClick}
     >
       {trigger}
-      {coords && (
+      {coords && createPortal(
         <div
           class="node-cell-tooltip-card"
-          style={`position: fixed; bottom: auto; top: ${coords.top}px; left: ${coords.left}px; transform: translateX(-50%); display: block;`}
+          style={`position: fixed; bottom: auto; top: ${coords.top}px; left: ${coords.left}px; transform: translateX(-50%); display: block; pointer-events: ${isPinned ? 'auto' : 'none'};`}
         >
           {card}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

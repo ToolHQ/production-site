@@ -59,7 +59,34 @@ clickhouse:
   enabled: true
   nodeSelector:
     kubernetes.io/hostname: k8s-node-3  # pin to node where clickhouse PVC is attached (pvc-23ab203e) — T-195/T-200
-  command: []
+  command:
+    - "/bin/bash"
+    - "-c"
+    - |
+      # 1. Garantir que o diretorio persistente existe no PVC
+      mkdir -p /bitnami/clickhouse/data
+      
+      # 2. Se /var/lib/clickhouse for um diretorio real e nao um link, migrar dados e recriar como link
+      if [ -d /var/lib/clickhouse ] && [ ! -L /var/lib/clickhouse ]; then
+        echo "📦 Migrando dados efemeros para o volume persistente..."
+        cp -a /var/lib/clickhouse/* /bitnami/clickhouse/data/ 2>/dev/null || true
+        rm -rf /var/lib/clickhouse
+      fi
+      
+      # 3. Criar o link simbolico para persistir os dados no PVC
+      ln -sfn /bitnami/clickhouse/data /var/lib/clickhouse
+      echo "✅ Link simbolico de dados criado: /var/lib/clickhouse -> /bitnami/clickhouse/data"
+      
+      # 4. Linkar as configuracoes de overrides do Bitnami para a pasta oficial do Clickhouse
+      mkdir -p /etc/clickhouse-server/config.d
+      if [ -d /bitnami/clickhouse/etc/conf.d ]; then
+        ln -sfn /bitnami/clickhouse/etc/conf.d/* /etc/clickhouse-server/config.d/
+        echo "✅ Configs de overrides linkadas para /etc/clickhouse-server/config.d/"
+      fi
+      
+      # 5. Chamar o entrypoint original da imagem Clickhouse
+      echo "🚀 Iniciando Clickhouse Server..."
+      exec /entrypoint.sh
   image:
     registry: "docker.io"
     repository: "clickhouse/clickhouse-server"
