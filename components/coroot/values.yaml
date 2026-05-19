@@ -63,29 +63,48 @@ clickhouse:
     - "/bin/bash"
     - "-c"
     - |
-      # 1. Garantir que o diretorio persistente existe no PVC
-      mkdir -p /bitnami/clickhouse/data
+      echo "=== 🔄 CLICKHOUSE PERSISTENCE BOOTSTRAP ==="
       
-      # 2. Se /var/lib/clickhouse for um diretorio real e nao um link, migrar dados e recriar como link
-      if [ -d /var/lib/clickhouse ] && [ ! -L /var/lib/clickhouse ]; then
-        echo "📦 Migrando dados efemeros para o volume persistente..."
-        cp -a /var/lib/clickhouse/* /bitnami/clickhouse/data/ 2>/dev/null || true
-        rm -rf /var/lib/clickhouse
-      fi
+      # 1. Lista de subdiretorios criticos para persistir
+      SUBDIRS="access data flags format_schemas metadata metadata_dropped named_collections preprocessed_configs store tmp user_defined user_files"
       
-      # 3. Criar o link simbolico para persistir os dados no PVC
-      ln -sfn /bitnami/clickhouse/data /var/lib/clickhouse
-      echo "✅ Link simbolico de dados criado: /var/lib/clickhouse -> /bitnami/clickhouse/data"
+      for dir in $SUBDIRS; do
+        # Garantir que a pasta fisica correspondente existe no PVC persistente
+        mkdir -p /bitnami/clickhouse/data/$dir
+        
+        # Se a pasta original for fisica e nao for link, copiar seu conteudo e remove-la
+        if [ -d /var/lib/clickhouse/$dir ] && [ ! -L /var/lib/clickhouse/$dir ]; then
+          echo "📦 Migrando subdiretorio efemero '$dir' para o PVC..."
+          cp -a /var/lib/clickhouse/$dir/. /bitnami/clickhouse/data/$dir/ 2>/dev/null || true
+          rm -rf /var/lib/clickhouse/$dir
+        fi
+        
+        # Criar o link simbolico individual para a pasta no PVC
+        ln -sfn /bitnami/clickhouse/data/$dir /var/lib/clickhouse/$dir
+        echo "✅ Link criado: /var/lib/clickhouse/$dir -> /bitnami/clickhouse/data/$dir"
+      done
       
-      # 4. Linkar as configuracoes de overrides do Bitnami para a pasta oficial do Clickhouse
+      # 2. Persistir arquivos individuais como uuid e status
+      for file in uuid status; do
+        if [ -f /var/lib/clickhouse/$file ] && [ ! -L /var/lib/clickhouse/$file ]; then
+          echo "📦 Migrando arquivo efemero '$file' para o PVC..."
+          cp -a /var/lib/clickhouse/$file /bitnami/clickhouse/data/$file 2>/dev/null || true
+          rm -f /var/lib/clickhouse/$file
+        fi
+        if [ -f /bitnami/clickhouse/data/$file ]; then
+          ln -sfn /bitnami/clickhouse/data/$file /var/lib/clickhouse/$file
+          echo "✅ Link criado: /var/lib/clickhouse/$file -> /bitnami/clickhouse/data/$file"
+        fi
+      done
+      
+      # 3. Linkar as configuracoes de overrides do Bitnami para a pasta oficial do Clickhouse
       mkdir -p /etc/clickhouse-server/config.d
       if [ -d /bitnami/clickhouse/etc/conf.d ]; then
         ln -sfn /bitnami/clickhouse/etc/conf.d/* /etc/clickhouse-server/config.d/
         echo "✅ Configs de overrides linkadas para /etc/clickhouse-server/config.d/"
       fi
       
-      # 5. Chamar o entrypoint original da imagem Clickhouse
-      echo "🚀 Iniciando Clickhouse Server..."
+      echo "=== 🚀 INICIANDO CLICKHOUSE SERVER ==="
       exec /entrypoint.sh
   image:
     registry: "docker.io"
