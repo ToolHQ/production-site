@@ -8,5 +8,18 @@ spec:
   task: "backup"
   groups:
   - default
-  retain: 7
+  retain: 3
+  concurrency: 2
+---
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: snapshot-daily
+  namespace: longhorn-system
+spec:
+  cron: "0 2 * * *"
+  task: "snapshot"
+  groups:
+  - default
+  retain: 2
   concurrency: 2

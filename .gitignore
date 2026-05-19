@@ -7,3 +7,4 @@ reports/
 # CoreDNS binary (downloaded)
 tools/coredns/coredns
 tools/coredns/coredns.log
+artifacts/

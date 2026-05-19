@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact';
-import { useState, useCallback, useMemo } from 'preact/hooks';
+import { useState, useCallback, useMemo, useEffect } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
@@ -33,34 +34,109 @@ interface TooltipWrapperProps {
 
 function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const [targetEl, setTargetEl] = useState<HTMLElement | null>(null);
+  const [lastEnterTime, setLastEnterTime] = useState<number>(0);
+  const [isPinned, setIsPinned] = useState<boolean>(false);
 
-  const handleMouseEnter = (e: MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    // Position the tooltip card exactly below the cell
+  const updateCoords = useCallback((el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
     setCoords({
       left: rect.left + rect.width / 2,
       top: rect.bottom + 8,
     });
+  }, []);
+
+  const handleMouseEnter = (e: MouseEvent) => {
+    if (isPinned) return;
+    const el = e.currentTarget as HTMLElement;
+    setTargetEl(el);
+    updateCoords(el);
+    setLastEnterTime(Date.now());
   };
 
   const handleMouseLeave = () => {
+    if (isPinned) return;
+    setTargetEl(null);
     setCoords(null);
   };
+
+  const handleToggleClick = (e: MouseEvent) => {
+    e.stopPropagation();
+    const el = e.currentTarget as HTMLElement;
+    // Prevent immediate closing on desktop click when triggered by mouseenter
+    if (Date.now() - lastEnterTime < 300) {
+      return;
+    }
+    if (isPinned) {
+      setIsPinned(false);
+      setTargetEl(null);
+      setCoords(null);
+    } else {
+      setIsPinned(true);
+      setTargetEl(el);
+      updateCoords(el);
+    }
+  };
+
+  useEffect(() => {
+    if (!targetEl) return;
+
+    const handleScrollOrResize = () => {
+      updateCoords(targetEl);
+    };
+
+    // Use capture phase to catch scroll events on any scrollable parent container
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize, true);
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize, true);
+    };
+  }, [targetEl, updateCoords]);
+
+  useEffect(() => {
+    if (!isPinned || !targetEl) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't close if clicking the trigger container itself
+      if (targetEl.contains(target)) {
+        return;
+      }
+      // Since the card is rendered in a Portal, find it in the DOM
+      const cardEl = document.querySelector('.node-cell-tooltip-card');
+      if (cardEl && cardEl.contains(target)) {
+        return;
+      }
+
+      setIsPinned(false);
+      setTargetEl(null);
+      setCoords(null);
+    };
+
+    document.addEventListener('click', handleClickOutside, true);
+    return () => {
+      document.removeEventListener('click', handleClickOutside, true);
+    };
+  }, [isPinned, targetEl]);
 
   return (
     <div
       class="node-cell-tooltip-container"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleToggleClick}
     >
       {trigger}
-      {coords && (
+      {coords && createPortal(
         <div
           class="node-cell-tooltip-card"
-          style={`position: fixed; bottom: auto; top: ${coords.top}px; left: ${coords.left}px; transform: translateX(-50%); display: block;`}
+          style={`position: fixed; bottom: auto; top: ${coords.top}px; left: ${coords.left}px; transform: translateX(-50%); display: block; pointer-events: ${isPinned ? 'auto' : 'none'};`}
         >
           {card}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -176,8 +252,12 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
             <span class="tooltip-label">utilization</span>
           </div>
           <div class="tooltip-detail">
-            <strong>Absolute Value:</strong>
-            <span>{fmtCpu((metrics.cpu_percent / 100) * node.cpu_millicores)} used of {fmtCpu(node.cpu_millicores)} allocated</span>
+            <strong>Físico (Host):</strong>
+            <span>{((metrics.cpu_percent / 100) * 1.0).toFixed(2)} vCPU usado de 1.00 vCPU</span>
+          </div>
+          <div class="tooltip-detail">
+            <strong>Kubernetes (Alocável):</strong>
+            <span>{fmtCpu(node.cpu_millicores)} reservado no cluster</span>
           </div>
           {history && history.cpu.length >= 1 && (
             <div class="tooltip-history">
@@ -226,8 +306,12 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
             <span class="tooltip-label">utilization</span>
           </div>
           <div class="tooltip-detail">
-            <strong>Absolute Value:</strong>
-            <span>{fmtGiB(metrics.mem_used_bytes)} used of {fmtGiB(metrics.mem_total_bytes)} total</span>
+            <strong>Físico (Host):</strong>
+            <span>{fmtGiB(metrics.mem_used_bytes)} usado de {fmtGiB(metrics.mem_total_bytes)} total</span>
+          </div>
+          <div class="tooltip-detail">
+            <strong>Kubernetes (Alocável):</strong>
+            <span>{fmtGiB(node.memory_bytes)} reservado no cluster</span>
           </div>
           {history && history.mem.length >= 1 && (
             <div class="tooltip-history">
@@ -276,8 +360,12 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
             <span class="tooltip-label">utilization</span>
           </div>
           <div class="tooltip-detail">
-            <strong>Absolute Value:</strong>
-            <span>{fmtGiB(metrics.disk_used_bytes)} used of {fmtGiB(metrics.disk_total_bytes)} total</span>
+            <strong>Físico (Host):</strong>
+            <span>{fmtGiB(metrics.disk_used_bytes)} usado de {fmtGiB(metrics.disk_total_bytes)} total</span>
+          </div>
+          <div class="tooltip-detail">
+            <strong>Kubernetes (Alocável):</strong>
+            <span>{fmtGiB(node.ephemeral_storage_bytes)} reservado no cluster</span>
           </div>
           {history && history.disk.length >= 1 && (
             <div class="tooltip-history">

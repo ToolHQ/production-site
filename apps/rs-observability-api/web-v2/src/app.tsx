@@ -103,7 +103,7 @@ export function App() {
     }
     setNodeHistory(seeded);
     setNodeHistorySeeded(true);
-  }, [live?.metrics?.available, nodeHistorySeeded]);
+  }, [live?.metrics?.node_history, nodeHistorySeeded]);
 
   useEffect(() => {
     if (live?.node_metrics) {
