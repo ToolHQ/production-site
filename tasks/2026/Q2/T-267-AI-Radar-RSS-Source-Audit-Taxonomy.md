@@ -1,6 +1,6 @@
 # T-267: AI Radar — RSS Source Audit & Taxonomy
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h
@@ -11,10 +11,10 @@ Fontes atuais em prod são **demo/genéricas**: HN frontpage, Lobsters, Pragmati
 
 ## Tasks
 
-- [ ] Inventário: todas as fontes + volume collect/7d + taxa extract/score
-- [ ] Taxonomia proposta: `tier` (core | vendor | trends | experimental), `topic` (agents, models, infra, pricing)
-- [ ] Matriz relevância vs missão AI Radar (doc `docs/AI-RADAR-SOURCES.md`)
-- [ ] Recomendações: desabilitar, repoll, substituir
+- [x] Inventário: todas as fontes + volume collect/7d + taxa extract/score
+- [x] Taxonomia proposta: `tier` (core | vendor | trends | experimental), `topic` (agents, models, infra, pricing)
+- [x] Matriz relevância vs missão AI Radar (doc `docs/AI-RADAR-SOURCES.md`)
+- [x] Recomendações: desabilitar, repoll, substituir
 
 ## Definition of Done
 
