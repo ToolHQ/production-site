@@ -10,7 +10,7 @@
 
 |                                    ID                                    | Task Name                                                                                     | Priority |               Owner               | Est. |
 | :----------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------- | :------: | :-------------------------------: | :--: |
-| [T-261](2026/Q2/T-261-AI-Radar-Embedding-Coverage-Alert.md) | **AI Radar — Embedding Coverage Alert** | 🔼 High | Cursor / AI Radar | 2h |
+| [T-262](2026/Q2/T-262-AI-Radar-Explorer-Sem-Embedding-Badge.md) | **AI Radar — Explorer Sem-Embedding Badge** | 🔽 Low | Cursor / AI Radar | 3h |
 | [T-259](2026/Q2/T-259-AI-Radar-Post-Extract-Embed-Tail-Scale.md) | **AI Radar — Post-Extract Embed Tail Scale** | 🔼 High | Cursor / AI Radar | 3h |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High | **OpenCode** | 1h |
 
@@ -23,7 +23,6 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
-| [T-262](2026/Q2/T-262-AI-Radar-Explorer-Sem-Embedding-Badge.md) | **AI Radar — Explorer Sem-Embedding Badge** | 🔽 Low | Cursor / AI Radar | 3h |
 
 
 
@@ -32,6 +31,7 @@
 
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
+| [T-261](2026/Q2/T-261-AI-Radar-Embedding-Coverage-Alert.md) | **AI Radar — Embedding Coverage Alert** | 🔼 High | Cursor / AI Radar | 2h |
 | [T-260](2026/Q2/T-260-AI-Radar-Embed-Catch-Up-CronJob.md) | **AI Radar — Embed Catch-Up CronJob** | 🔼 High | Cursor / AI Radar | 3h |
 | [T-240](2026/Q2/T-240-agent-meter-dashboard-events-ui.md) | **agent-meter — Dashboard UI: events feed + model + tokens breakdown + coluna Prompt + CSV fix** _(PR #254; deploy9 pod kq4b4)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | [T-239](2026/Q2/T-239-agent-meter-schema-collector-enrichment.md) | **agent-meter — Schema & Collector Enrichment** _(model, cached_tokens, conversation_id, client_ip, user_prompt; events feed; fix false-positive parse_first_human_text claude; PR #254)_ | 🔼 High | **Copilot/VSCode** | 3h |

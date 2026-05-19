@@ -1204,6 +1204,12 @@ tr:hover td {
   color: #fca5a5;
 }
 
+.badge-embed-missing {
+  background: rgba(251, 191, 36, 0.15);
+  color: #b45309;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
 .badge-quality-warn {
   background: rgba(251, 191, 36, 0.15);
   color: var(--warn);

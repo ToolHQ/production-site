@@ -1,6 +1,6 @@
 # T-262: AI Radar — Explorer Sem-Embedding Badge
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔽 Low
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 3h
@@ -11,9 +11,9 @@ Itens sem vetor não são visíveis na lista do Explorer — operador não sabe 
 
 ## Tasks
 
-- [ ] API lista: flag `has_embedding` por item (join leve ou subquery)
-- [ ] Badge “sem vetor” na tabela Explorer
-- [ ] Filtro opcional `?has_embedding=false`
+- [x] API lista: flag `has_embedding` por item (EXISTS em `item_embeddings`)
+- [x] Badge “sem vetor” na tabela Explorer
+- [x] Filtro opcional `?has_embedding=false`
 
 ## Definition of Done
 

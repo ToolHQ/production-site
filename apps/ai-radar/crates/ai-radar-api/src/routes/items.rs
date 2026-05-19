@@ -39,12 +39,32 @@ pub struct ListItemsQuery {
     pub velocity_tier: Option<String>,
     /// Filter `metadata_json.source_health.tier` (`healthy`, `noisy`, …).
     pub source_health_tier: Option<String>,
+    /// When `false`, only scored items missing an embedding for `EMBEDDING_MODEL` (**T-262**).
+    pub has_embedding: Option<bool>,
     #[serde(default)]
     pub sort: String,
 }
 
 fn default_limit() -> i64 {
     50
+}
+
+/// Resolve embedding model + optional `has_embedding` filter for explorer list (**T-262**).
+fn embedding_list_filters(
+    config: &ai_radar_core::config::AppConfig,
+    has_embedding: Option<bool>,
+) -> (Option<String>, Option<bool>) {
+    if !config.embeddings_enabled {
+        return (None, None);
+    }
+    let model = config
+        .embedding_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let filter = has_embedding.and_then(|want| model.as_ref().map(|_| want));
+    (model, filter)
 }
 
 #[derive(Debug, Serialize)]
@@ -155,6 +175,7 @@ async fn list(
         .map(str::trim)
         .filter(|s| !s.is_empty());
     let sort = ScoredItemSort::parse(&q.sort).map_err(ApiError::BadRequest)?;
+    let (embedding_model, has_embedding_filter) = embedding_list_filters(&state.config, q.has_embedding);
 
     let total = state
         .scores
@@ -165,6 +186,8 @@ async fn list(
             quality_warn,
             velocity_tier,
             source_health_tier,
+            embedding_model.as_deref(),
+            has_embedding_filter,
         )
         .await
         .map_err(ApiError::from)?;
@@ -180,6 +203,8 @@ async fn list(
             quality_warn,
             velocity_tier,
             source_health_tier,
+            embedding_model.as_deref(),
+            has_embedding_filter,
             sort,
         )
         .await
@@ -330,6 +355,13 @@ mod related_query_tests {
         assert!(!q.same_category);
         assert_eq!(q.limit, 10);
         assert!((q.min_similarity - 0.4).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn list_items_query_has_embedding_filter() {
+        let q: ListItemsQuery =
+            serde_json::from_str(r#"{"has_embedding":false,"limit":10}"#).expect("deserialize");
+        assert_eq!(q.has_embedding, Some(false));
     }
 
     #[test]
