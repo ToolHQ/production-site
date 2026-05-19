@@ -65,13 +65,13 @@ async fn list_health(
     State(state): State<AppState>,
 ) -> Result<Json<ListSourceHealthResponse>, ApiError> {
     let repo = PgSourceHealthRepository::new(&state.db);
-    let items = repo.list_all().await?;
+    let items = repo.list_all().await.map_err(ApiError::from_repo)?;
     let count = items.len();
     Ok(Json(ListSourceHealthResponse { items, count }))
 }
 
 async fn list(State(state): State<AppState>) -> Result<Json<ListSourcesResponse>, ApiError> {
-    let items = state.sources.list_all().await?;
+    let items = state.sources.list_all().await.map_err(ApiError::from_repo)?;
     let count = items.len();
     Ok(Json(ListSourcesResponse { items, count }))
 }
@@ -79,7 +79,11 @@ async fn list(State(state): State<AppState>) -> Result<Json<ListSourcesResponse>
 async fn list_enabled(
     State(state): State<AppState>,
 ) -> Result<Json<ListSourcesResponse>, ApiError> {
-    let items = state.sources.list_enabled().await?;
+    let items = state
+        .sources
+        .list_enabled()
+        .await
+        .map_err(ApiError::from_repo)?;
     let count = items.len();
     Ok(Json(ListSourcesResponse { items, count }))
 }

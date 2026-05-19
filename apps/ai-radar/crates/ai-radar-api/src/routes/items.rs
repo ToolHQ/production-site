@@ -1,11 +1,14 @@
 //! `GET /items`, `GET /items/:id`, and `POST /items/:id/reprocess` (**T-177**, **T-173**).
 
+use std::time::Duration;
+
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use tokio::time::timeout;
 
 use ai_radar_core::domain::{
     ExtractedItem, Feedback, FeedbackType, NewFeedback, RawItem, Score, ScoredItemSummary,
@@ -48,6 +51,9 @@ pub struct ListItemsQuery {
 fn default_limit() -> i64 {
     50
 }
+
+/// Wall-clock budget for Explorer list/count queries (**T-265**).
+const EXPLORER_QUERY_TIMEOUT: Duration = Duration::from_secs(8);
 
 /// Resolve embedding model + optional `has_embedding` filter for explorer list (**T-262**).
 fn embedding_list_filters(
@@ -177,9 +183,9 @@ async fn list(
     let sort = ScoredItemSort::parse(&q.sort).map_err(ApiError::BadRequest)?;
     let (embedding_model, has_embedding_filter) = embedding_list_filters(&state.config, q.has_embedding);
 
-    let total = state
-        .scores
-        .count_scored_items(
+    let total = timeout(
+        EXPLORER_QUERY_TIMEOUT,
+        state.scores.count_scored_items(
             decision,
             category,
             stars_tier,
@@ -188,13 +194,17 @@ async fn list(
             source_health_tier,
             embedding_model.as_deref(),
             has_embedding_filter,
-        )
-        .await
-        .map_err(ApiError::from)?;
+        ),
+    )
+    .await
+    .map_err(|_| {
+        ApiError::ServiceUnavailable("explorer count timed out; retry shortly".into())
+    })?
+    .map_err(ApiError::from_repo)?;
 
-    let items = state
-        .scores
-        .list_scored_items(
+    let items = timeout(
+        EXPLORER_QUERY_TIMEOUT,
+        state.scores.list_scored_items(
             limit,
             offset,
             decision,
@@ -206,9 +216,13 @@ async fn list(
             embedding_model.as_deref(),
             has_embedding_filter,
             sort,
-        )
-        .await
-        .map_err(ApiError::from)?;
+        ),
+    )
+    .await
+    .map_err(|_| {
+        ApiError::ServiceUnavailable("explorer list timed out; retry shortly".into())
+    })?
+    .map_err(ApiError::from_repo)?;
 
     Ok((
         StatusCode::OK,
