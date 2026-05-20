@@ -43,6 +43,7 @@ if kubectl get deployment -n kubecost kubecost-grafana >/dev/null 2>&1; then
     kubectl delete service -n kubecost kubecost-grafana --ignore-not-found=true
     
     # Deletar todos os configmaps de dashboards e configuracoes legadas do Grafana
+    # NOTA: nginx-conf NÃO deve ser deletado — é usado pelo nginx sidecar do cost-analyzer
     kubectl delete configmap -n kubecost \
       kubecost-grafana \
       kubecost-grafana-config-dashboards \
@@ -55,7 +56,6 @@ if kubectl get deployment -n kubecost kubecost-grafana >/dev/null 2>&1; then
       grafana-dashboard-pod-utilization-multi-cluster \
       label-cost-dashboard \
       namespace-utilization-dashboard \
-      nginx-conf \
       node-utilization-dashboard \
       pod-utilization-dashboard \
       prom-benchmark-dashboard --ignore-not-found=true 2>/dev/null || true
