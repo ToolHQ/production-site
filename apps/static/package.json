@@ -24,7 +24,7 @@
     "typescript": "5.4.5",
     "webpack": "5.106.2",
     "webpack-cli": "5.1.4",
-    "webpack-dev-server": "5.2.3",
+    "webpack-dev-server": "5.2.4",
     "webpack-obfuscator": "3.5.1"
   },
   "dependencies": {
