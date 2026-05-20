@@ -21,6 +21,8 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+| [T-281](2026/Q2/T-281-Agent-Meter-Sort-Colunas-Reports.md) | **agent-meter — Sort interativo nas colunas dos reports** | 🟡 Low | Copilot/VSCode | 2h |
+| [T-280](2026/Q2/T-280-Agent-Meter-Model-Filter-Em-Reports.md) | **agent-meter — Filtro model global não afeta reports** | 🔵 Medium | Copilot/VSCode | 2h |
 | [T-275](2026/Q2/T-275-AI-Radar-Digest-AI-Tools-Pulse-Section.md) | **AI Radar — Digest AI Tools Pulse Section** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-274](2026/Q2/T-274-AI-Radar-Sources-Console-Curation-UX.md) | **AI Radar — Sources Console Curation UX** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-273](2026/Q2/T-273-AI-Radar-Collect-Relevance-Gate.md) | **AI Radar — Collect Relevance Gate** | 🔼 High | Cursor / AI Radar | 5h |
@@ -35,6 +37,10 @@
 |                                           ID                                            | Task Name                                                                                                                                                                                                                 |  Priority   |         Owner          |  Est.  |
 | :-------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------: | :--------------------: | :----: |
 | [T-270](2026/Q2/T-270-AI-Radar-LLM-Models-Pricing-Monitor.md) | **AI Radar — LLM Models & Pricing Monitor** | 🔼 High | Cursor / AI Radar | 6h |
+| [T-282](2026/Q2/T-282-Agent-Meter-Top-MCP-Servers-Semantic-Fix.md) | **agent-meter — Top MCP Servers: excluir llm_chat da query SQL** _(AND tool_name != 'llm_chat'; PR #271; tag 1779193279)_ | 🔼 High | Copilot/VSCode | 1h |
+| [T-279](2026/Q2/T-279-Agent-Meter-Duration-Humanizada.md) | **agent-meter — formatDuration() humanizada** _(ms/s/min em Top Tools, Top Conversations e Events; PR #271; tag 1779193279)_ | 🔵 Medium | Copilot/VSCode | 1h |
+| [T-278](2026/Q2/T-278-Agent-Meter-Metrics-Endpoint.md) | **agent-meter — Remover link /metrics morto do footer** _(PR #271; tag 1779193279)_ | 🔵 Medium | Copilot/VSCode | 30min |
+| [T-277](2026/Q2/T-277-Agent-Meter-Top-Tasks-Para-Top-Conversations.md) | **agent-meter — Top Tasks → Top Conversations** _(GROUP BY conversation_id, click-to-filter; PR #271; tag 1779193279)_ | 🔼 High | Copilot/VSCode | 2h |
 | [T-269](2026/Q2/T-269-AI-Radar-AI-Tools-Watchlist-Sources.md) | **AI Radar — AI Tools Watchlist Sources** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-276](2026/Q2/T-276-Antigravity-Orphan-PVC-Cleanup.md) | **Antigravity — Orphan PVC Cleanup** _(deletado postgres-pvc de 2.15GB, removido do manifesto postgres-resources.yaml e corrigido commands.sh)_ | 🔼 High | Antigravity | 1h |
 | [T-268](2026/Q2/T-268-AI-Radar-Curated-AI-Vendor-RSS-Pack.md) | **AI Radar — Curated AI Vendor RSS Pack** | 🔼 High | Cursor / AI Radar | 4h |
