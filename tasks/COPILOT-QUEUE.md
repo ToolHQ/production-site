@@ -42,6 +42,7 @@ _Nada em andamento — aguardando próxima task._
 - [x] T-278: Remover link /metrics morto do footer — PR #271 merged ✅
 - [x] T-279: formatDuration() humanizada (ms/s/min) — PR #271 merged ✅
 - [x] Fix kubecost nginx-conf ConfigMap deletado acidentalmente — PR #274 merged ✅
+- [x] Mitigar flapping no k8s-master: desativado `pleg-monitor.service` (reiniciava containerd/kubelet a cada 60s)
 
 ## ✅ Concluídas (histórico recente)
 
