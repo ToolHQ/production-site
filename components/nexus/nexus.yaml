@@ -33,7 +33,7 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 30
+            failureThreshold: 45
             successThreshold: 1
           readinessProbe:
             httpGet:
@@ -46,7 +46,7 @@ spec:
             successThreshold: 1
           env:
             - name: INSTALL4J_ADD_VM_PARAMS
-              value: "-Xms1024m -Xmx1024m -XX:MaxDirectMemorySize=512m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
+              value: "-Xms512m -Xmx768m -XX:MaxDirectMemorySize=256m -XX:MaxMetaspaceSize=192m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
           resources:
             requests:
               cpu: 50m # was 80m, reduced to fit k8s-node-3 requests
