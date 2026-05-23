@@ -21,7 +21,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   paths:
     name: Detect changed paths
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '"ubuntu-latest"') }}
     outputs:
       shell: ${{ steps.filter.outputs.shell }}
       rust: ${{ steps.filter.outputs.rust }}
@@ -72,7 +72,7 @@ jobs:
     name: Shell quality gates
     needs: paths
     if: needs.paths.outputs.shell == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '"ubuntu-latest"') }}
     # Informative mode during T-146 stabilisation window — will become
     # required status check in next task after passing consistently.
     continue-on-error: true
@@ -114,7 +114,7 @@ jobs:
     name: Rust quality gates (rs-observability-api)
     needs: paths
     if: needs.paths.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '"ubuntu-latest"') }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -166,7 +166,7 @@ jobs:
     name: BATS gates (oci-k8s-cluster)
     needs: paths
     if: needs.paths.outputs.bats == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '"ubuntu-latest"') }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -188,7 +188,7 @@ jobs:
     name: JS quality gates (back-end)
     needs: paths
     if: needs.paths.outputs.js_backend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '"ubuntu-latest"') }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -259,7 +259,7 @@ jobs:
     name: JS quality gates (react-static)
     needs: paths
     if: needs.paths.outputs.js_react == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '"ubuntu-latest"') }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -292,7 +292,7 @@ jobs:
     name: JS quality gates (static)
     needs: paths
     if: needs.paths.outputs.js_static == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '"ubuntu-latest"') }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -317,7 +317,7 @@ jobs:
     name: YAML lint (manifests)
     needs: paths
     if: needs.paths.outputs.yaml == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '"ubuntu-latest"') }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
