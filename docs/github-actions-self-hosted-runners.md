@@ -6,7 +6,7 @@ Reduzir custo de GitHub Actions movendo execucao de CI para runner self-hosted n
 
 ## O que ja foi preparado no repo
 
-- Workflows usam `CI_RUNNER_LABELS` com fallback seguro para `ubuntu-latest`:
+- Workflows usam `CI_RUNNER_LABELS` com default estrito self-hosted (`self-hosted,linux,arm64,hetzner-ci`):
   - `.github/workflows/quality-gates.yml`
   - `.github/workflows/auto-docs.yml`
 
@@ -16,11 +16,11 @@ Formato esperado de `CI_RUNNER_LABELS` em **Settings > Secrets and variables > A
 ["self-hosted","linux","arm64","hetzner-ci"]
 ```
 
-Se a variavel estiver vazia/ausente, os jobs continuam no runner hospedado da GitHub.
+Se a variavel estiver vazia/ausente, os jobs continuam no pool self-hosted padrao da Hetzner.
 
 ## Plano de execucao imediata (hoje)
 
-1. Provisionar host Hetzner dedicado ao CI (x64 Linux).
+1. Provisionar host Hetzner dedicado ao CI (ARM64 Linux).
 2. Instalar runner com `scripts/ci/setup_github_runner_hetzner.sh`.
 3. Definir variavel de repo `CI_RUNNER_LABELS` com labels do runner.
 4. Abrir PR de smoke para validar execução no host Hetzner.
@@ -110,12 +110,12 @@ Criar/atualizar variavel `CI_RUNNER_LABELS` com:
 
 Se o runner falhar:
 
-1. Limpar variavel `CI_RUNNER_LABELS` (vazia) ou remover.
-2. Re-run dos workflows -> jobs voltam para `ubuntu-latest`.
+1. Corrigir runner/labels e reexecutar jobs.
+2. Se precisar fallback emergencial para GitHub-hosted, setar `CI_RUNNER_LABELS` para `"ubuntu-latest"` temporariamente.
 
 ## Riscos e mitigacoes
 
-- Runner indisponivel: manter fallback por variavel (ja implementado).
+- Runner indisponivel: manter 2+ runners online e healthcheck diario.
 - Disco cheio no host: cron de limpeza para `_work` e caches.
 - Codigo nao confiavel em PR publico: restringir permissao de runners para forks.
 - Segredos: usar ambiente isolado e minimo privilegio.
