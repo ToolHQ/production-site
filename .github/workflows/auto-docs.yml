@@ -16,7 +16,7 @@ jobs:
   # ───────────────────────────────────────────────────────────────────
   changelog:
     name: Update CHANGELOG
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","linux","arm64","hetzner-ci"]') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","Linux","ARM64","hetzner-ci"]') }}
     permissions:
       contents: write
       pull-requests: read
@@ -54,7 +54,7 @@ jobs:
   # ───────────────────────────────────────────────────────────────────
   shell-api-delta:
     name: Shell function delta
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","linux","arm64","hetzner-ci"]') }}
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","Linux","ARM64","hetzner-ci"]') }}
     if: github.event_name == 'pull_request'
     permissions:
       pull-requests: write

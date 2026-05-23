@@ -13,7 +13,7 @@ Reduzir custo de GitHub Actions movendo execucao de CI para runner self-hosted n
 Formato esperado de `CI_RUNNER_LABELS` em **Settings > Secrets and variables > Actions > Variables**:
 
 ```json
-["self-hosted","linux","arm64","hetzner-ci"]
+["self-hosted","Linux","ARM64","hetzner-ci"]
 ```
 
 Se a variavel estiver vazia/ausente, os jobs continuam no pool self-hosted padrao da Hetzner.
@@ -97,7 +97,7 @@ E os services:
 Criar/atualizar variavel `CI_RUNNER_LABELS` com:
 
 ```json
-["self-hosted","linux","arm64","hetzner-ci"]
+["self-hosted","Linux","ARM64","hetzner-ci"]
 ```
 
 ### 4) Smoke test
