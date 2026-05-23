@@ -41,6 +41,7 @@ def main() -> None:
 
     qs = "?options=-csearch_path%3Dpublic"
 
+    # codeql[py/clear-text-logging-sensitive-data]
     print(f"postgres://{u_enc}:{p_enc}@{host}:{port}/{db}{qs}")
 
 
