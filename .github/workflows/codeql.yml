@@ -14,7 +14,7 @@ permissions:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","Linux","ARM64","hetzner-ci"]') }}
+    runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
