@@ -8,7 +8,7 @@ Uso:
     --url https://github.com/<owner>/<repo> \
     --token <registration_token> \
     --name hetzner-ci-01 \
-    --labels self-hosted,linux,x64,hetzner-ci
+    --labels self-hosted,linux,arm64,hetzner-ci
 
 Notas:
 - O token e de registro temporario (Settings > Actions > Runners > New self-hosted runner).
@@ -31,7 +31,25 @@ RUNNER_WORK_DIR="_work"
 RUNNER_URL=""
 RUNNER_TOKEN=""
 RUNNER_NAME=""
-RUNNER_LABELS="self-hosted,linux,x64,hetzner-ci"
+RUNNER_ARCH=""
+RUNNER_LABELS="self-hosted,linux,arm64,hetzner-ci"
+
+detect_arch() {
+  local machine
+  machine="$(uname -m)"
+  case "$machine" in
+    x86_64|amd64)
+      RUNNER_ARCH="x64"
+      ;;
+    aarch64|arm64)
+      RUNNER_ARCH="arm64"
+      ;;
+    *)
+      echo "[erro] arquitetura nao suportada: $machine" >&2
+      exit 1
+      ;;
+  esac
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +70,7 @@ if [[ -z "$RUNNER_URL" || -z "$RUNNER_TOKEN" || -z "$RUNNER_NAME" ]]; then
 fi
 
 require_root
+detect_arch
 
 if ! id -u "$RUNNER_USER" >/dev/null 2>&1; then
   useradd --create-home --home-dir "$RUNNER_HOME" --shell /bin/bash "$RUNNER_USER"
@@ -63,7 +82,7 @@ chown -R "$RUNNER_USER":"$RUNNER_USER" "$RUNNER_HOME"
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-ARCHIVE="actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
+ARCHIVE="actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz"
 DOWNLOAD_URL="https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${ARCHIVE}"
 
 echo "[info] baixando runner ${RUNNER_VERSION}..."

@@ -13,7 +13,7 @@ Reduzir custo de GitHub Actions movendo execucao de CI para runner self-hosted n
 Formato esperado de `CI_RUNNER_LABELS` em **Settings > Secrets and variables > Actions > Variables**:
 
 ```json
-["self-hosted","linux","x64","hetzner-ci"]
+["self-hosted","linux","arm64","hetzner-ci"]
 ```
 
 Se a variavel estiver vazia/ausente, os jobs continuam no runner hospedado da GitHub.
@@ -43,7 +43,7 @@ sudo bash scripts/ci/setup_github_runner_hetzner.sh \
   --url https://github.com/ToolHQ/production-site \
   --token <TOKEN_TEMPORARIO> \
   --name hetzner-ci-01 \
-  --labels self-hosted,linux,x64,hetzner-ci
+  --labels self-hosted,linux,arm64,hetzner-ci
 ```
 
 ### 3) Ligar workflows ao self-hosted
@@ -51,7 +51,7 @@ sudo bash scripts/ci/setup_github_runner_hetzner.sh \
 Criar/atualizar variavel `CI_RUNNER_LABELS` com:
 
 ```json
-["self-hosted","linux","x64","hetzner-ci"]
+["self-hosted","linux","arm64","hetzner-ci"]
 ```
 
 ### 4) Smoke test
