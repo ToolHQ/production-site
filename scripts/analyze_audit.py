@@ -1,6 +1,5 @@
 
 import csv
-import sys
 
 def analyze():
     waste = []

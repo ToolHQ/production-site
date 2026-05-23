@@ -1,10 +1,9 @@
 import warnings
-from elasticsearch import Elasticsearch, helpers
+from elasticsearch import Elasticsearch
 import pyarrow as pa
 import pyarrow.parquet as pq
 import os
 import time
-import json
 from datetime import datetime
 
 # Disable TLS InsecureRequestWarnings
