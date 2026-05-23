@@ -14,17 +14,7 @@
 
 ## 🏎️ Em Andamento (sessão atual)
 
-| ID / Ref | Tarefa | Status |
-| :------- | :----- | :----- |
-| — | GitHub Actions -> self-hosted runners (Hetzner) | Em execução |
-
-Checklist desta migração:
-- [x] Parametrizar workflows para runner via variável `CI_RUNNER_LABELS` com fallback em `ubuntu-latest`
-- [x] Criar runbook operacional + rollback rápido
-- [x] Criar script de bootstrap do runner no host Hetzner
-- [ ] Registrar runner `hetzner-ci-01` no GitHub (token temporário)
-- [ ] Definir `CI_RUNNER_LABELS=["self-hosted","linux","x64","hetzner-ci"]`
-- [ ] Executar PR de smoke para validar execução no self-hosted
+_Nada em andamento — aguardando próxima task._
 
 ## 📋 Próximas (Copilot/VSCode)
 
