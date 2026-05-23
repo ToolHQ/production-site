@@ -109,6 +109,13 @@ export const executeQuery = async <T>(
     logs: true,
   }
 ) => {
+  if (typeof sql !== 'string') {
+    throw new Error('Invalid SQL parameter: must be a string');
+  }
+  if (!Array.isArray(bindings)) {
+    throw new Error('Invalid bindings parameter: must be an array');
+  }
+
   // Set default values for options
   const { connection = 'postgres_default', logs = true } = options;
 

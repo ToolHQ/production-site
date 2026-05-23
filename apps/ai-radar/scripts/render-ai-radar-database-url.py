@@ -36,12 +36,12 @@ def main() -> None:
     port = os.environ.get("AI_RADAR_PG_PORT", "5432")
     db = os.environ.get("AI_RADAR_PG_DATABASE", "postgres")
 
-    user = urllib.parse.quote(raw_user, safe="")
-    password = urllib.parse.quote(raw_pass, safe="")
+    u_enc = urllib.parse.quote(raw_user, safe="")
+    p_enc = urllib.parse.quote(raw_pass, safe="")
 
     qs = "?options=-csearch_path%3Dpublic"
 
-    print(f"postgres://{user}:{password}@{host}:{port}/{db}{qs}")
+    print(f"postgres://{u_enc}:{p_enc}@{host}:{port}/{db}{qs}")
 
 
 if __name__ == "__main__":
