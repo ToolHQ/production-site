@@ -23,6 +23,7 @@ _Nada em andamento — aguardando próxima task._
 | ID / Ref | Tarefa | Prioridade |
 | :------- | :----- | :--------- |
 | — | Finalizar cutover de CI para self-hosted Hetzner (runner + variable + smoke) | 🔼 High |
+| Radar (futuro) | Plataforma AppSec Open Source (roadmap faseado, separado das demandas principais) -> `docs/open-source-appsec-roadmap.md` | 🔽 Low |
 | — | Monitorar estabilidade do cluster | 🔽 Low |
 
 ## 🔬 Micro-Tasks (sem T-ID, sem PR)
