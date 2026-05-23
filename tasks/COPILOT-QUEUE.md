@@ -41,6 +41,7 @@ _Nada em andamento — aguardando próxima task._
 - [x] T-279: formatDuration() humanizada (ms/s/min) — PR #271 merged ✅
 - [x] Fix kubecost nginx-conf ConfigMap deletado acidentalmente — PR #274 merged ✅
 - [x] Mitigar flapping no k8s-master: desativado `pleg-monitor.service` (reiniciava containerd/kubelet a cada 60s)
+- [x] agent-meter low-cost polish: pausar polling com aba oculta, reduzir fetch em Events, corrigir `loadEvents()` → `renderEventsTab()`, `imagePullPolicy: IfNotPresent`, dedupe `RUST_LOG`
 
 ## ✅ Concluídas (histórico recente)
 
