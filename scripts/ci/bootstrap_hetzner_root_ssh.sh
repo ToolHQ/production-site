@@ -57,7 +57,7 @@ echo "[info] host remoto: $HOST"
 echo "[info] usuario remoto atual: $REMOTE_USER"
 echo "[info] preparando authorized_keys do usuario remoto para root..."
 
-ssh "$HOST" "set -euo pipefail
+ssh -tt "$HOST" "set -euo pipefail
   test -f \"\$HOME/.ssh/authorized_keys\"
   cp \"\$HOME/.ssh/authorized_keys\" /tmp/${REMOTE_USER}.authorized_keys.root-bootstrap
   chmod 600 /tmp/${REMOTE_USER}.authorized_keys.root-bootstrap
