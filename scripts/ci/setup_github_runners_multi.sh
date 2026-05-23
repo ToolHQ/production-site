@@ -102,6 +102,7 @@ chown -R "$RUNNER_USER":"$RUNNER_USER" "$RUNNER_BASE_DIR"
 
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
+chmod 755 "$TMP_DIR"
 
 ARCHIVE="actions-runner-linux-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz"
 DOWNLOAD_URL="https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${ARCHIVE}"
