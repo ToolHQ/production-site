@@ -28,6 +28,26 @@ Se a variavel estiver vazia/ausente, os jobs continuam no runner hospedado da Gi
 
 ## Passo a passo operacional
 
+### 0) Bootstrap de root por chave (recomendado)
+
+Para parar de depender de senha/sudo interativo no host, rode localmente:
+
+```bash
+./scripts/ci/bootstrap_hetzner_root_ssh.sh --host hetzner-cax21-helsinki-4vcpu-8gb-ipv4
+```
+
+Esse script:
+
+- copia o `authorized_keys` do usuario remoto atual para `/root/.ssh/authorized_keys`
+- define `PermitRootLogin prohibit-password`
+- reinicia `ssh/sshd`
+
+Depois disso, o teste esperado e:
+
+```bash
+ssh root@hetzner-cax21-helsinki-4vcpu-8gb-ipv4
+```
+
 ### 1) Criar token de registro do runner
 
 - GitHub repo -> Settings -> Actions -> Runners -> New self-hosted runner
@@ -45,6 +65,32 @@ sudo bash scripts/ci/setup_github_runner_hetzner.sh \
   --name hetzner-ci-01 \
   --labels self-hosted,linux,arm64,hetzner-ci
 ```
+
+### 2.1) Instalar varios runners na mesma maquina
+
+Para paralelizar jobs na mesma instancia, use um runner por pasta/servico:
+
+```bash
+cd /path/do/repo
+sudo bash scripts/ci/setup_github_runners_multi.sh \
+  --url https://github.com/ToolHQ/production-site \
+  --token <TOKEN_TEMPORARIO> \
+  --count 3 \
+  --name-prefix hetzner-ci- \
+  --labels self-hosted,linux,arm64,hetzner-ci
+```
+
+Isso cria, por exemplo:
+
+- `/opt/github-runners/hetzner-ci-01`
+- `/opt/github-runners/hetzner-ci-02`
+- `/opt/github-runners/hetzner-ci-03`
+
+E os services:
+
+- `github-runner-hetzner-ci-01.service`
+- `github-runner-hetzner-ci-02.service`
+- `github-runner-hetzner-ci-03.service`
 
 ### 3) Ligar workflows ao self-hosted
 
@@ -73,6 +119,7 @@ Se o runner falhar:
 - Disco cheio no host: cron de limpeza para `_work` e caches.
 - Codigo nao confiavel em PR publico: restringir permissao de runners para forks.
 - Segredos: usar ambiente isolado e minimo privilegio.
+- Colisao de portas/containers entre jobs paralelos: evitar bind fixo no host e preferir redes bridge/nomes unicos.
 
 ## Backlog recomendado (curto prazo)
 
