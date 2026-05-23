@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, TypedDict, Optional
+from typing import Dict, TypedDict
 from typeguard import typechecked
 
 from app.libs.db_wrapper import get_connection

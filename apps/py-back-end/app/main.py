@@ -6,10 +6,6 @@ from fastapi.staticfiles import StaticFiles
 from app.libs.middleware import request_logger_middleware, custom_security_headers_middleware
 from .routes import database #, parquet
 
-from app.libs.keys_loader import load_credentials_environment
-
-# load_credentials_environment()
-
 swagger_root_path = os.getenv("SWAGGER_ROOT_PATH", "")
 
 app = FastAPI(
