@@ -6,27 +6,47 @@ Reduzir custo de GitHub Actions movendo execucao de CI para runner self-hosted n
 
 ## O que ja foi preparado no repo
 
-- Workflows usam `CI_RUNNER_LABELS` com fallback seguro para `ubuntu-latest`:
+- Workflows usam `CI_RUNNER_LABELS` com default estrito self-hosted (`self-hosted,linux,arm64,hetzner-ci`):
   - `.github/workflows/quality-gates.yml`
   - `.github/workflows/auto-docs.yml`
 
 Formato esperado de `CI_RUNNER_LABELS` em **Settings > Secrets and variables > Actions > Variables**:
 
 ```json
-["self-hosted","linux","arm64","hetzner-ci"]
+["self-hosted","Linux","ARM64","hetzner-ci"]
 ```
 
-Se a variavel estiver vazia/ausente, os jobs continuam no runner hospedado da GitHub.
+Se a variavel estiver vazia/ausente, os jobs continuam no pool self-hosted padrao da Hetzner.
 
 ## Plano de execucao imediata (hoje)
 
-1. Provisionar host Hetzner dedicado ao CI (x64 Linux).
+1. Provisionar host Hetzner dedicado ao CI (ARM64 Linux).
 2. Instalar runner com `scripts/ci/setup_github_runner_hetzner.sh`.
 3. Definir variavel de repo `CI_RUNNER_LABELS` com labels do runner.
 4. Abrir PR de smoke para validar execução no host Hetzner.
 5. Monitorar 24h de estabilidade antes de escalar concorrencia.
 
 ## Passo a passo operacional
+
+### 0) Bootstrap de root por chave (recomendado)
+
+Para parar de depender de senha/sudo interativo no host, rode localmente:
+
+```bash
+./scripts/ci/bootstrap_hetzner_root_ssh.sh --host hetzner-cax21-helsinki-4vcpu-8gb-ipv4
+```
+
+Esse script:
+
+- copia o `authorized_keys` do usuario remoto atual para `/root/.ssh/authorized_keys`
+- define `PermitRootLogin prohibit-password`
+- reinicia `ssh/sshd`
+
+Depois disso, o teste esperado e:
+
+```bash
+ssh root@hetzner-cax21-helsinki-4vcpu-8gb-ipv4
+```
 
 ### 1) Criar token de registro do runner
 
@@ -46,12 +66,38 @@ sudo bash scripts/ci/setup_github_runner_hetzner.sh \
   --labels self-hosted,linux,arm64,hetzner-ci
 ```
 
+### 2.1) Instalar varios runners na mesma maquina
+
+Para paralelizar jobs na mesma instancia, use um runner por pasta/servico:
+
+```bash
+cd /path/do/repo
+sudo bash scripts/ci/setup_github_runners_multi.sh \
+  --url https://github.com/ToolHQ/production-site \
+  --token <TOKEN_TEMPORARIO> \
+  --count 3 \
+  --name-prefix hetzner-ci- \
+  --labels self-hosted,linux,arm64,hetzner-ci
+```
+
+Isso cria, por exemplo:
+
+- `/opt/github-runners/hetzner-ci-01`
+- `/opt/github-runners/hetzner-ci-02`
+- `/opt/github-runners/hetzner-ci-03`
+
+E os services:
+
+- `github-runner-hetzner-ci-01.service`
+- `github-runner-hetzner-ci-02.service`
+- `github-runner-hetzner-ci-03.service`
+
 ### 3) Ligar workflows ao self-hosted
 
 Criar/atualizar variavel `CI_RUNNER_LABELS` com:
 
 ```json
-["self-hosted","linux","arm64","hetzner-ci"]
+["self-hosted","Linux","ARM64","hetzner-ci"]
 ```
 
 ### 4) Smoke test
@@ -64,15 +110,16 @@ Criar/atualizar variavel `CI_RUNNER_LABELS` com:
 
 Se o runner falhar:
 
-1. Limpar variavel `CI_RUNNER_LABELS` (vazia) ou remover.
-2. Re-run dos workflows -> jobs voltam para `ubuntu-latest`.
+1. Corrigir runner/labels e reexecutar jobs.
+2. Se precisar fallback emergencial para GitHub-hosted, setar `CI_RUNNER_LABELS` para `"ubuntu-latest"` temporariamente.
 
 ## Riscos e mitigacoes
 
-- Runner indisponivel: manter fallback por variavel (ja implementado).
+- Runner indisponivel: manter 2+ runners online e healthcheck diario.
 - Disco cheio no host: cron de limpeza para `_work` e caches.
 - Codigo nao confiavel em PR publico: restringir permissao de runners para forks.
 - Segredos: usar ambiente isolado e minimo privilegio.
+- Colisao de portas/containers entre jobs paralelos: evitar bind fixo no host e preferir redes bridge/nomes unicos.
 
 ## Backlog recomendado (curto prazo)
 
