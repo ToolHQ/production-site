@@ -33,7 +33,7 @@ spec:
       containers:
         - name: collector
           image: IMAGE_PLACEHOLDER
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3000
@@ -65,8 +65,6 @@ spec:
                   name: agent-meter-otel
                   key: otel_service_name
                   optional: true
-            - name: RUST_LOG
-              value: "info"
           resources:
             limits:
               memory: 96Mi
