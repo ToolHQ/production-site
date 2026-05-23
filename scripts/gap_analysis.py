@@ -1,6 +1,5 @@
 
 import subprocess
-import sys
 
 def check_coverage():
     print("# Inventory Gap Analysis")

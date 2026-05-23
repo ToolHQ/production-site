@@ -1,25 +1,13 @@
-import tempfile
-import multiprocessing
 from time import time
-from datetime import timedelta
-import asyncio
 import os
-import json
 from concurrent.futures import ThreadPoolExecutor
 
 from typing import Optional, List, Dict, Any
 import boto3
-import boto3.s3
-import boto3.s3.constants
 import botocore.exceptions
-import duckdb
-import pandas as pd
 from boto3.s3.transfer import TransferConfig
 
 from app.libs.logger import CustomLogger
-
-from .parquet_common import next_item
-from ..enrich_processor.db import simple_pre_consult_user_data
 
 logger = CustomLogger("Generic DuckDB Parquet Processor")
 
