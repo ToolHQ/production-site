@@ -22,8 +22,6 @@ _Nada em andamento — aguardando próxima task._
 
 | ID / Ref | Tarefa | Prioridade |
 | :------- | :----- | :--------- |
-| [T-280](2026/Q2/T-280-Agent-Meter-Model-Filter-Em-Reports.md) | Filtro model global não afeta reports | 🔵 Medium |
-| [T-281](2026/Q2/T-281-Agent-Meter-Sort-Colunas-Reports.md) | Sort interativo em colunas dos reports | 🟡 Low |
 | — | Monitorar estabilidade do cluster | 🔽 Low |
 
 ## 🔬 Micro-Tasks (sem T-ID, sem PR)
@@ -48,6 +46,8 @@ _Nada em andamento — aguardando próxima task._
 
 | ID / Ref                      | Tarefa                                               | Data       |
 | :---------------------------- | :--------------------------------------------------- | :--------- |
+| [T-280](2026/Q2/T-280-Agent-Meter-Model-Filter-Em-Reports.md) | agent-meter — filtro model global aplicado em reports (backend + dashboard) | 2026-05-23 |
+| [T-281](2026/Q2/T-281-Agent-Meter-Sort-Colunas-Reports.md) | agent-meter — sort interativo em colunas dos reports | 2026-05-23 |
 | [T-203](2026/Q2/T-203-Node-Fleet-Tooltip-Fixed-Positioning.md) | Node Fleet Tooltip Fixed Positioning (TooltipWrapper) | 2026-05-17 |
 | [T-201](2026/Q2/T-201-Node-Fleet-Real-Machine-Metrics-Prometheus.md) | Node Fleet Real Machine Metrics via Prometheus | 2026-05-17 |
 | [T-200](2026/Q2/T-200-Node-Fleet-Panel-Layout-Polish.md) | Node Fleet Panel Layout Polish | 2026-05-17 |
