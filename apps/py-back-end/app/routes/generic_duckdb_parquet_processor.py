@@ -102,4 +102,4 @@ def sync_process_generic_raw_parquet_generator(
     yield '{"total": 0, "result": []}'
     return
 
-  logger.info({ "step":  })
+  logger.info({ "step": "files_downloaded" })
