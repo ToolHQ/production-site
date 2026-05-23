@@ -14,17 +14,7 @@
 
 ## 🏎️ Em Andamento (sessão atual)
 
-| ID / Ref | Tarefa | Status |
-| :------- | :----- | :----- |
-| — | GitHub Actions -> self-hosted runners (Hetzner) | Em execução |
-
-Checklist desta migração:
-- [x] Parametrizar workflows para runner via variável `CI_RUNNER_LABELS` com fallback em `ubuntu-latest`
-- [x] Criar runbook operacional + rollback rápido
-- [x] Criar script de bootstrap do runner no host Hetzner
-- [ ] Registrar runner `hetzner-ci-01` no GitHub (token temporário)
-- [ ] Definir `CI_RUNNER_LABELS=["self-hosted","linux","x64","hetzner-ci"]`
-- [ ] Executar PR de smoke para validar execução no self-hosted
+_Nada em andamento — aguardando próxima task._
 
 ## 📋 Próximas (Copilot/VSCode)
 
@@ -54,6 +44,7 @@ Checklist desta migração:
 - [x] Mitigar flapping no k8s-master: desativado `pleg-monitor.service` (reiniciava containerd/kubelet a cada 60s)
 - [x] agent-meter low-cost polish: pausar polling com aba oculta, reduzir fetch em Events, corrigir `loadEvents()` → `renderEventsTab()`, `imagePullPolicy: IfNotPresent`, dedupe `RUST_LOG`
 - [x] agent-meter DB perf pass: reescrever Top Tools com CTE (sem subquery correlacionada) + índices compostos focados em filtros de reports
+- [x] CI cost cutover: self-hosted runner Hetzner ativo (`hetzner-ci-01`, ARM64) + `CI_RUNNER_LABELS` aplicado + PR #284 merged
 
 ## ✅ Concluídas (histórico recente)
 
