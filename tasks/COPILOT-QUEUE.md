@@ -54,6 +54,7 @@ Checklist desta migração:
 - [x] Mitigar flapping no k8s-master: desativado `pleg-monitor.service` (reiniciava containerd/kubelet a cada 60s)
 - [x] agent-meter low-cost polish: pausar polling com aba oculta, reduzir fetch em Events, corrigir `loadEvents()` → `renderEventsTab()`, `imagePullPolicy: IfNotPresent`, dedupe `RUST_LOG`
 - [x] agent-meter DB perf pass: reescrever Top Tools com CTE (sem subquery correlacionada) + índices compostos focados em filtros de reports
+- [x] CI cost cutover: self-hosted runner Hetzner ativo (`hetzner-ci-01`, ARM64) + `CI_RUNNER_LABELS` aplicado + PR #284 merged
 
 ## ✅ Concluídas (histórico recente)
 
