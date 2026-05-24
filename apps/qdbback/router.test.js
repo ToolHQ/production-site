@@ -190,7 +190,7 @@ describe('router.js', () => {
     expect(runDefaultFn).toBeCalled()
     expect(runDefaultFn.mock.calls).toEqual([
       [
-        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           '1994-04-03T15:00:00.005Z',
           'GET',
@@ -202,6 +202,7 @@ describe('router.js', () => {
           'testingHelpers/1.0.0',
           null,
           JSON.stringify({ 'user-agent': 'testingHelpers/1.0.0' }),
+          'unclassified',
         ],
       ],
     ])
@@ -257,7 +258,7 @@ describe('router.js', () => {
     expect(runDefaultFn).toBeCalled()
     expect(runDefaultFn.mock.calls).toEqual([
       [
-        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           '1994-04-03T15:00:00.005Z',
           'GET',
@@ -269,6 +270,7 @@ describe('router.js', () => {
           'testingHelpers/1.0.0',
           null,
           JSON.stringify({ 'user-agent': 'testingHelpers/1.0.0' }),
+          'probe:404,probe:root',
         ],
       ],
     ])

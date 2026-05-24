@@ -106,7 +106,7 @@ describe('routers/mainRouter.js', () => {
     expect(runDefaultFn).toBeCalled()
     expect(runDefaultFn.mock.calls).toEqual([
       [
-        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           '1994-04-03T15:00:00.005Z',
           'GET',
@@ -118,6 +118,7 @@ describe('routers/mainRouter.js', () => {
           undefined,
           null,
           JSON.stringify({ 'Content-Encoding': 'gzip' }),
+          'probe:root',
         ],
       ],
     ])
@@ -154,7 +155,7 @@ describe('routers/mainRouter.js', () => {
     expect(runDefaultFn).toBeCalled()
     expect(runDefaultFn.mock.calls).toEqual([
       [
-        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           '1994-04-03T15:00:00.005Z',
           'GET',
@@ -166,6 +167,7 @@ describe('routers/mainRouter.js', () => {
           undefined,
           null,
           JSON.stringify({ 'Content-Encoding': 'gzip' }),
+          'env-leak',
         ],
       ],
     ])

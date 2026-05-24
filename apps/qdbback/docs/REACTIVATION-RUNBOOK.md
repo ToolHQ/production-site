@@ -55,6 +55,16 @@ Confirma incremento de `httpRequests` após probe externo.
 - skip webpack em prod se `dist/monitor/` existir
 - logs em `/var/log/qdbback.log`
 
-## Fase 5 — Modernização (futuro)
+## Fase 5 — Modernização
 
-Node 22, classificação de bots, Prometheus, auth admin robusto.
+### 5a — Classificação heurística ✅ (este PR)
+
+- Tags automáticas em `classification` no INSERT (`services/classifyRequest.js`)
+- API `GET /api/monitor/threats` — resumo por tag
+- Coluna `classification` no grid de requests
+
+### 5b — Pendente
+
+- Node 22 LTS, métricas Prometheus / Node Fleet
+- Auth admin robusto, TLS Let's Encrypt
+- GeoIP (`country`), logrotate

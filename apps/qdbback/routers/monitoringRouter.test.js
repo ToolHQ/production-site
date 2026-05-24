@@ -293,7 +293,7 @@ describe('routers/monitoringRouter.js', () => {
       expect(runDefaultFn).toBeCalled()
       expect(runDefaultFn.mock.calls).toEqual([
         [
-          'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             '1994-04-03T15:00:00.005Z',
             'GET',
@@ -305,6 +305,7 @@ describe('routers/monitoringRouter.js', () => {
             'abc',
             null,
             JSON.stringify(headers),
+            'probe:root',
           ],
         ],
       ])
