@@ -98,6 +98,29 @@ async fn live_overview(State(state): State<AppState>) -> Response {
 
     payload.node_metrics = state.prometheus_monitor.fetch_node_metrics().await;
 
+    let hetzner_has_metrics = payload.node_metrics.contains_key("hetzner-cax21-helsinki");
+
+    // Populate cluster property for existing K8s nodes
+    for node in &mut payload.nodes {
+        node.cluster = "OCI-K8S".to_string();
+    }
+
+    // Inject the Hetzner runner physical node stat
+    payload.nodes.push(NodeStat {
+        name: "hetzner-cax21-helsinki".to_string(),
+        cluster: "HETZNER".to_string(),
+        role: "builder".to_string(),
+        ready: hetzner_has_metrics,
+        disk_pressure: false,
+        memory_pressure: false,
+        cpu_millicores: 4000,                             // 4 ARM64 vCPUs
+        memory_bytes: 8 * 1024 * 1024 * 1024,             // 8 GiB
+        ephemeral_storage_bytes: 80 * 1024 * 1024 * 1024, // 80 GiB
+    });
+
+    // Re-sort the nodes list alphabetically by name
+    payload.nodes.sort_by(|a, b| a.name.cmp(&b.name));
+
     Json(payload).into_response()
 }
 

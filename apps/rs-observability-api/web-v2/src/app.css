@@ -346,12 +346,13 @@ mark.search-highlight {
   border-collapse: collapse;
 
   /* Column widths */
-  col.col-node    { width: 22%; }
-  col.col-role    { width: 14%; }
-  col.col-cpu     { width: 16%; }
-  col.col-mem     { width: 16%; }
-  col.col-disk    { width: 16%; }
-  col.col-alerts  { width: 16%; }
+  col.col-node    { width: 20%; }
+  col.col-cluster { width: 12%; }
+  col.col-role    { width: 12%; }
+  col.col-cpu     { width: 14%; }
+  col.col-mem     { width: 14%; }
+  col.col-disk    { width: 14%; }
+  col.col-alerts  { width: 14%; }
 
   th {
     cursor: default;
@@ -495,6 +496,34 @@ mark.search-highlight {
     color: var(--ink);
     opacity: 0.9;
     border: 1px solid var(--line);
+  }
+
+  &--builder {
+    background: rgba(109, 40, 217, 0.1);
+    color: rgb(109, 40, 217);
+    border: 1px solid rgba(109, 40, 217, 0.3);
+  }
+}
+
+.node-cluster-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+
+  &--oci {
+    background: rgba(13, 148, 136, 0.1);
+    color: rgb(13, 148, 136);
+    border: 1px solid rgba(13, 148, 136, 0.3);
+  }
+
+  &--hetzner {
+    background: rgba(234, 88, 12, 0.1);
+    color: rgb(234, 88, 12);
+    border: 1px solid rgba(234, 88, 12, 0.3);
   }
 }
 
