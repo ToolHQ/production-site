@@ -2805,7 +2805,11 @@ fn build_live_service(
         format!("{} of {} replicas ready", ready, desired.max(1))
     };
 
-    if status == "healthy" && rollup.restart_count > 0 {
+    // Only flag as degraded from restarts if the cumulative count exceeds a per-pod
+    // threshold. A single historical restart on an otherwise healthy pod is normal;
+    // genuine crash-loops are already caught above via has_blocker (CrashLoopBackOff).
+    let restart_threshold = (rollup.total as i32).max(1) * 5;
+    if status == "healthy" && rollup.restart_count > restart_threshold {
         status = "degraded";
         message = format!(
             "{} restarts observed across {} pod{}",
