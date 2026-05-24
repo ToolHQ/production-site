@@ -46,7 +46,7 @@ done
 
 run_ssh() {
   if [[ "$DRY_RUN" == true ]]; then
-    log "[dry-run] ssh $SSH_ALIAS: $*"
+    info "[dry-run] ssh $SSH_ALIAS: $*"
   else
     ssh -o BatchMode=yes "$SSH_ALIAS" "$@"
   fi
@@ -54,7 +54,7 @@ run_ssh() {
 
 run_rsync() {
   if [[ "$DRY_RUN" == true ]]; then
-    log "[dry-run] rsync → $SSH_ALIAS:/home/ec2-user/server/"
+    info "[dry-run] rsync → $SSH_ALIAS:/home/ec2-user/server/"
     return 0
   fi
   rsync -az --delete \
@@ -66,13 +66,13 @@ run_rsync() {
 }
 
 phase_sync() {
-  log "Fase sync: apps/qdbback → EC2"
+  info "Fase sync: apps/qdbback → EC2"
   run_rsync
   run_ssh "chmod +x /home/ec2-user/server/app.js 2>/dev/null || true"
 }
 
 phase_tls() {
-  log "Fase tls: cert self-signed para IP público"
+  info "Fase tls: cert self-signed para IP público"
   run_ssh bash <<'REMOTE'
 set -euo pipefail
 PUB_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
@@ -96,7 +96,7 @@ REMOTE
 }
 
 phase_systemd() {
-  log "Fase systemd: qdbback.service"
+  info "Fase systemd: qdbback.service"
   run_ssh bash <<'REMOTE'
 set -euo pipefail
 sudo tee /etc/systemd/system/qdbback.service > /dev/null <<'UNIT'
@@ -129,7 +129,7 @@ REMOTE
 }
 
 phase_start() {
-  log "Fase start: restart qdbback"
+  info "Fase start: restart qdbback"
   run_ssh bash <<'REMOTE'
 set -euo pipefail
 pkill -f "node /home/ec2-user/server/app.js" 2>/dev/null || true
@@ -164,4 +164,4 @@ case "$PHASE" in
   *) fail "Fase desconhecida: $PHASE" ;;
 esac
 
-log "Deploy qdbback fase '$PHASE' concluída"
+info "Deploy qdbback fase '$PHASE' concluída"
