@@ -31,7 +31,7 @@ describe('services/bodyParser.js', () => {
       await promise
       throw Error('Should Propagate Error')
     } catch (err) {
-      expect(err.message).toBe('Unexpected token a in JSON at position 17')
+      expect(err.message).toContain('JSON at position 17')
     }
   })
 

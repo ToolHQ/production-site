@@ -22,6 +22,7 @@ const initMock = () => {
   const lookupServiceWithCacheFn = jest.fn(async (remoteIp, remotePort) => defaultServiceName)
 
   const runDefaultFn = jest.fn()
+  const allDefaultFn = jest.fn(async () => null)
 
   jest.mockModule('../logger.js', () => ({
     logger: {
@@ -41,6 +42,7 @@ const initMock = () => {
 
   jest.mockModule('../sqlite3.js', () => ({
     runDefault: runDefaultFn,
+    allDefault: allDefaultFn,
   }))
 
   const reloadMock = () => {

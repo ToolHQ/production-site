@@ -47,6 +47,10 @@ const initMock = () => {
     lookupCountry: jest.fn(() => null),
   }))
 
+  jest.mockModule('../services/monitorAuth.js', () => ({
+    monitorAuthMiddleware: jest.fn(() => false),
+  }))
+
   const fileLastModifiedFn = jest.fn(() => 123)
   jest.mockModule('../services/fs.js', () => ({
     createReadStream,
@@ -209,6 +213,14 @@ const getExpectedRouteRegisteredLogs = () => {
         method: 'GET',
         regexStr: '^/api/monitor/status$',
         route: '/api/monitor/status',
+      },
+    ],
+    [
+      'Route registered',
+      {
+        method: 'GET',
+        regexStr: '^/api/monitor/threats$',
+        route: '/api/monitor/threats',
       },
     ],
   ]
