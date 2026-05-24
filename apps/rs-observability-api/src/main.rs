@@ -36,6 +36,27 @@ const PROMETHEUS_STEP_SECONDS: u64 = 300;
 const PROMETHEUS_BASE_URL_DEFAULT: &str =
     "http://coroot-prometheus-server.coroot.svc.cluster.local";
 
+const EXTERNAL_NODE_SPECS: &[ExternalNodeSpec] = &[
+    ExternalNodeSpec {
+        instance_host: "37.27.85.100",
+        fallback_name: "hetzner-cax21-helsinki",
+        cluster: "HETZNER",
+        role: "builder",
+        cpu_millicores: 4000,
+        memory_bytes: 8 * 1024 * 1024 * 1024,
+        ephemeral_storage_bytes: 80 * 1024 * 1024 * 1024,
+    },
+    ExternalNodeSpec {
+        instance_host: "104.225.218.78",
+        fallback_name: "ssdnodes-6a12f10c9ef11",
+        cluster: "SSD-NODES",
+        role: "dedicated",
+        cpu_millicores: 12000,
+        memory_bytes: 65_004_691_456,
+        ephemeral_storage_bytes: 1_268_158_550_016,
+    },
+];
+
 const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
     (
         "catalog-json",
@@ -1148,6 +1169,10 @@ struct NodeStatus {
     #[serde(default)]
     conditions: Vec<NodeCondition>,
     allocatable: Option<NodeAllocatable>,
+    #[serde(default)]
+    addresses: Vec<NodeAddress>,
+    #[serde(rename = "nodeInfo")]
+    node_info: Option<NodeSystemInfo>,
 }
 
 #[derive(Deserialize, Clone, Default)]
@@ -1163,6 +1188,23 @@ struct NodeCondition {
     #[serde(rename = "type")]
     type_name: Option<String>,
     status: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct NodeAddress {
+    #[serde(rename = "type")]
+    type_name: Option<String>,
+    address: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct NodeSystemInfo {
+    #[serde(default)]
+    architecture: String,
+    #[serde(default, rename = "operatingSystem")]
+    operating_system: String,
+    #[serde(default, rename = "osImage")]
+    os_image: String,
 }
 
 // K8s PersistentVolumeClaim (for cross-mapping with Longhorn volumes)
@@ -1185,6 +1227,9 @@ struct NodeStat {
     name: String,
     cluster: String,
     role: String,
+    ip: String,
+    architecture: String,
+    operating_system: String,
     ready: bool,
     disk_pressure: bool,
     memory_pressure: bool,
@@ -1204,6 +1249,17 @@ struct NodeMetrics {
     disk_used_bytes: u64,
     disk_total_bytes: u64,
     disk_percent: f64,
+}
+
+#[derive(Clone, Copy)]
+struct ExternalNodeSpec {
+    instance_host: &'static str,
+    fallback_name: &'static str,
+    cluster: &'static str,
+    role: &'static str,
+    cpu_millicores: u64,
+    memory_bytes: u64,
+    ephemeral_storage_bytes: u64,
 }
 
 #[derive(Default)]
@@ -2344,19 +2400,21 @@ impl PrometheusMonitor {
     /// Returns a map keyed by K8s node name (e.g. "k8s-node-1").
     /// Nodes without node_exporter (e.g. k8s-master) are simply absent from the map.
     pub(crate) async fn fetch_node_metrics(&self) -> HashMap<String, NodeMetrics> {
-        // Run 5 instant queries concurrently.
+        // Run instant queries concurrently.
         let cpu_q = r#"100 - (avg by (node, instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)"#;
         let mem_avail_q = "node_memory_MemAvailable_bytes";
         let mem_total_q = "node_memory_MemTotal_bytes";
         let disk_avail_q = r#"node_filesystem_avail_bytes{mountpoint="/"}"#;
         let disk_total_q = r#"node_filesystem_size_bytes{mountpoint="/"}"#;
+        let uname_q = "node_uname_info";
 
-        let (cpu_res, mem_avail_res, mem_total_res, disk_avail_res, disk_total_res) = tokio::join!(
+        let (cpu_res, mem_avail_res, mem_total_res, disk_avail_res, disk_total_res, uname_res) = tokio::join!(
             self.query_instant_series(cpu_q),
             self.query_instant_series(mem_avail_q),
             self.query_instant_series(mem_total_q),
             self.query_instant_series(disk_avail_q),
             self.query_instant_series(disk_total_q),
+            self.query_instant_series(uname_q),
         );
 
         let cpu_map = series_to_node_map(cpu_res.unwrap_or_default());
@@ -2364,6 +2422,9 @@ impl PrometheusMonitor {
         let mem_total_map = series_to_node_map(mem_total_res.unwrap_or_default());
         let disk_avail_map = series_to_node_map(disk_avail_res.unwrap_or_default());
         let disk_total_map = series_to_node_map(disk_total_res.unwrap_or_default());
+
+        let (instance_to_nodename, nodename_to_instance) =
+            build_instance_nodename_aliases(&uname_res.unwrap_or_default());
 
         // Collect all node names seen across any metric.
         let mut node_names: BTreeSet<String> = BTreeSet::new();
@@ -2374,17 +2435,24 @@ impl PrometheusMonitor {
             &disk_avail_map,
             &disk_total_map,
         ] {
-            node_names.extend(map.keys().cloned());
+            node_names.extend(map.keys().map(|key| {
+                canonical_node_name(key, &instance_to_nodename)
+                    .unwrap_or_else(|| key.clone())
+            }));
         }
 
         node_names
             .into_iter()
             .filter_map(|node| {
-                let cpu_percent = *cpu_map.get(&node).unwrap_or(&0.0);
-                let mem_avail = *mem_avail_map.get(&node).unwrap_or(&0.0) as u64;
-                let mem_total = *mem_total_map.get(&node).unwrap_or(&0.0) as u64;
-                let disk_avail = *disk_avail_map.get(&node).unwrap_or(&0.0) as u64;
-                let disk_total = *disk_total_map.get(&node).unwrap_or(&0.0) as u64;
+                let cpu_percent = metric_value_for_node(&cpu_map, &node, &nodename_to_instance);
+                let mem_avail =
+                    metric_value_for_node(&mem_avail_map, &node, &nodename_to_instance) as u64;
+                let mem_total =
+                    metric_value_for_node(&mem_total_map, &node, &nodename_to_instance) as u64;
+                let disk_avail =
+                    metric_value_for_node(&disk_avail_map, &node, &nodename_to_instance) as u64;
+                let disk_total =
+                    metric_value_for_node(&disk_total_map, &node, &nodename_to_instance) as u64;
 
                 if mem_total == 0 && disk_total == 0 {
                     return None; // skip empty entries
@@ -2418,6 +2486,84 @@ impl PrometheusMonitor {
             })
             .collect()
     }
+
+    pub(crate) async fn fetch_external_node_stats(&self) -> Vec<NodeStat> {
+        let uname_series = self
+            .query_instant_series("node_uname_info")
+            .await
+            .unwrap_or_default();
+
+        let mut uname_by_instance: HashMap<String, (String, String, String)> = HashMap::new();
+        for series in uname_series {
+            let instance = series
+                .metric
+                .get("instance")
+                .map(|value| extract_instance_host(value));
+            let Some(instance_host) = instance else {
+                continue;
+            };
+
+            let nodename = series
+                .metric
+                .get("nodename")
+                .filter(|value| !value.is_empty())
+                .cloned()
+                .unwrap_or_else(|| {
+                    fallback_name_for_instance(&instance_host)
+                        .map(ToOwned::to_owned)
+                        .unwrap_or_else(|| instance_host.clone())
+                });
+            let arch = series
+                .metric
+                .get("machine")
+                .filter(|value| !value.is_empty())
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string());
+            let os = match (
+                series.metric.get("sysname").map(String::as_str),
+                series.metric.get("release").map(String::as_str),
+            ) {
+                (Some(sysname), Some(release)) if !sysname.is_empty() && !release.is_empty() => {
+                    format!("{} {}", sysname, release)
+                }
+                (Some(sysname), _) if !sysname.is_empty() => sysname.to_string(),
+                _ => "unknown".to_string(),
+            };
+
+            uname_by_instance.insert(instance_host, (nodename, arch, os));
+        }
+
+        EXTERNAL_NODE_SPECS
+            .iter()
+            .map(|spec| {
+                let (name, architecture, operating_system) = uname_by_instance
+                    .get(spec.instance_host)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        (
+                            spec.fallback_name.to_string(),
+                            "unknown".to_string(),
+                            "unknown".to_string(),
+                        )
+                    });
+
+                NodeStat {
+                    name,
+                    cluster: spec.cluster.to_string(),
+                    role: spec.role.to_string(),
+                    ip: spec.instance_host.to_string(),
+                    architecture,
+                    operating_system,
+                    ready: false,
+                    disk_pressure: false,
+                    memory_pressure: false,
+                    cpu_millicores: spec.cpu_millicores,
+                    memory_bytes: spec.memory_bytes,
+                    ephemeral_storage_bytes: spec.ephemeral_storage_bytes,
+                }
+            })
+            .collect()
+    }
 }
 
 /// Convert a list of PrometheusSeries to a map: node_label → f64 value.
@@ -2427,14 +2573,10 @@ fn series_to_node_map(series: Vec<PrometheusSeries>) -> HashMap<String, f64> {
         .filter_map(|s| {
             let node = if let Some(n) = s.metric.get("node") {
                 n.clone()
+            } else if let Some(nodename) = s.metric.get("nodename") {
+                nodename.clone()
             } else if let Some(inst) = s.metric.get("instance") {
-                if inst.starts_with("37.27.85.100") {
-                    "hetzner-cax21-helsinki".to_string()
-                } else if inst.starts_with("104.225.218.78") {
-                    "ssdnodes-monstro".to_string()
-                } else {
-                    return None;
-                }
+                extract_instance_host(inst)
             } else {
                 return None;
             };
@@ -2442,6 +2584,83 @@ fn series_to_node_map(series: Vec<PrometheusSeries>) -> HashMap<String, f64> {
             Some((node, parse_prometheus_value(&val_str)))
         })
         .collect()
+}
+
+fn extract_instance_host(instance: &str) -> String {
+    instance
+        .split_once(':')
+        .map(|(host, _)| host)
+        .unwrap_or(instance)
+        .trim_matches('[')
+        .trim_matches(']')
+        .to_string()
+}
+
+fn fallback_name_for_instance(instance_host: &str) -> Option<&'static str> {
+    EXTERNAL_NODE_SPECS
+        .iter()
+        .find(|spec| spec.instance_host == instance_host)
+        .map(|spec| spec.fallback_name)
+}
+
+fn build_instance_nodename_aliases(
+    series: &[PrometheusSeries],
+) -> (HashMap<String, String>, HashMap<String, String>) {
+    let mut instance_to_nodename = HashMap::new();
+    let mut nodename_to_instance = HashMap::new();
+
+    for entry in series {
+        let Some(instance) = entry.metric.get("instance") else {
+            continue;
+        };
+        let Some(nodename) = entry.metric.get("nodename") else {
+            continue;
+        };
+        if nodename.is_empty() {
+            continue;
+        }
+
+        let host = extract_instance_host(instance);
+        instance_to_nodename.insert(host.clone(), nodename.clone());
+        nodename_to_instance.insert(nodename.clone(), host);
+    }
+
+    for spec in EXTERNAL_NODE_SPECS {
+        nodename_to_instance
+            .entry(spec.fallback_name.to_string())
+            .or_insert_with(|| spec.instance_host.to_string());
+        instance_to_nodename
+            .entry(spec.instance_host.to_string())
+            .or_insert_with(|| spec.fallback_name.to_string());
+    }
+
+    (instance_to_nodename, nodename_to_instance)
+}
+
+fn canonical_node_name(
+    key: &str,
+    instance_to_nodename: &HashMap<String, String>,
+) -> Option<String> {
+    if let Some(alias) = instance_to_nodename.get(key) {
+        return Some(alias.clone());
+    }
+
+    fallback_name_for_instance(key).map(ToOwned::to_owned)
+}
+
+fn metric_value_for_node(
+    map: &HashMap<String, f64>,
+    node_name: &str,
+    nodename_to_instance: &HashMap<String, String>,
+) -> f64 {
+    map.get(node_name)
+        .copied()
+        .or_else(|| {
+            nodename_to_instance
+                .get(node_name)
+                .and_then(|instance| map.get(instance).copied())
+        })
+        .unwrap_or(0.0)
 }
 
 fn content_type_for_path(path: &Path) -> &'static str {
@@ -2750,10 +2969,35 @@ fn build_node_stats(nodes: &[NodeResource]) -> Vec<NodeStat> {
                 })
                 .unwrap_or((0, 0, 0));
 
+            let ip = node_internal_ip(node).unwrap_or_else(|| "unknown".to_string());
+            let architecture = node
+                .status
+                .as_ref()
+                .and_then(|status| status.node_info.as_ref())
+                .map(|info| info.architecture.clone())
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| "unknown".to_string());
+            let operating_system = node
+                .status
+                .as_ref()
+                .and_then(|status| status.node_info.as_ref())
+                .map(|info| {
+                    if !info.os_image.is_empty() {
+                        info.os_image.clone()
+                    } else {
+                        info.operating_system.clone()
+                    }
+                })
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| "unknown".to_string());
+
             NodeStat {
                 name,
                 cluster: "OCI-K8S".to_string(),
                 role,
+                ip,
+                architecture,
+                operating_system,
                 ready,
                 disk_pressure,
                 memory_pressure,
@@ -3249,6 +3493,18 @@ fn is_node_ready(node: &NodeResource) -> bool {
 
 fn node_name(node: &NodeResource) -> &str {
     node.metadata.name.as_deref().unwrap_or("unknown-node")
+}
+
+fn node_internal_ip(node: &NodeResource) -> Option<String> {
+    node.status
+        .as_ref()
+        .and_then(|status| {
+            status
+                .addresses
+                .iter()
+                .find(|address| address.type_name.as_deref() == Some("InternalIP"))
+                .and_then(|address| address.address.clone())
+        })
 }
 
 fn unavailable_live_overview(reason: impl Into<String>) -> LiveOverview {

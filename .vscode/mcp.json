@@ -13,6 +13,20 @@
         "--acceptInsecureCerts",
         "--no-usage-statistics"
       ]
+    },
+    "chromeDevtoolsReports": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@0.21.0",
+        "--headless",
+        "--isolated",
+        "--executablePath",
+        "/usr/bin/google-chrome",
+        "--acceptInsecureCerts",
+        "--no-usage-statistics"
+      ]
     }
   }
 }

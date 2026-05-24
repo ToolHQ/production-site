@@ -417,6 +417,11 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
       </td>
       <td class="node-cluster-cell">{clusterBadge}</td>
       <td class="node-role-cell">{roleBadge}</td>
+      <td class="node-ip-cell">{_highlight ? _highlight(node.ip, _query) : node.ip}</td>
+      <td class="node-arch-cell">{_highlight ? _highlight(node.architecture, _query) : node.architecture}</td>
+      <td class="node-os-cell" title={node.operating_system}>
+        {_highlight ? _highlight(node.operating_system, _query) : node.operating_system}
+      </td>
       <td class="node-cpu">{cpuCell}</td>
       <td class="node-mem">{memCell}</td>
       <td class="node-disk">{diskCell}</td>
@@ -490,6 +495,11 @@ function NodeCard({ node, metrics, diskWarn, diskCrit, memWarn, memCrit, cpuWarn
         <span class={`node-cluster-badge node-cluster-badge--${node.cluster === 'HETZNER' ? 'hetzner' : node.cluster === 'SSD-NODES' ? 'ssd-nodes' : 'oci'}`}>{node.cluster}</span>
         <span class={`node-role node-role--${node.role === 'control-plane' ? 'cp' : node.role === 'builder' ? 'builder' : node.role === 'dedicated' ? 'dedicated' : 'worker'}`}>{node.role}</span>
       </div>
+      <div class="nc-meta">
+        <span class="nc-meta-pill">IP: {node.ip}</span>
+        <span class="nc-meta-pill">Arch: {node.architecture}</span>
+        <span class="nc-meta-pill" title={node.operating_system}>OS: {node.operating_system}</span>
+      </div>
       {metrics ? (
         <div class="nc-metrics">
           <div class="nc-metric-row">
@@ -544,6 +554,10 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
     return nodes.filter((n) =>
       n.name.toLowerCase().includes(q) ||
       n.role.toLowerCase().includes(q) ||
+      n.cluster.toLowerCase().includes(q) ||
+      n.ip.toLowerCase().includes(q) ||
+      n.architecture.toLowerCase().includes(q) ||
+      n.operating_system.toLowerCase().includes(q) ||
       (n.ready ? 'ready' : 'notready').includes(q)
     );
   }, [nodes, search]);
@@ -584,7 +598,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
             placeholder="Filter nodes…"
             value={search}
             onInput={(e) => setSearch(e.currentTarget.value)}
-            aria-label="Filter nodes by name or role"
+            aria-label="Filter nodes by name, role, cluster, IP, architecture, or OS"
           />
           {search && (
             <button class="nodes-search-clear" onClick={() => setSearch('')} aria-label="Clear search">✕</button>
@@ -635,6 +649,9 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
             <col class="col-node" />
             <col class="col-cluster" />
             <col class="col-role" />
+            <col class="col-ip" />
+            <col class="col-arch" />
+            <col class="col-os" />
             <col class="col-cpu" />
             <col class="col-mem" />
             <col class="col-disk" />
@@ -645,6 +662,9 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
               <th>Node{search && filteredNodes.length < nodes.length && <span class="nodes-search-count"> {filteredNodes.length}/{nodes.length}</span>}</th>
               <th>Cluster</th>
               <th>Role</th>
+              <th>IP</th>
+              <th>Arch</th>
+              <th>OS</th>
               <th title={hasRealMetrics ? 'Real CPU utilization (5m avg)' : 'Kubernetes allocatable CPU (fixed per node)'}>CPU</th>
               <th title={hasRealMetrics ? 'Real memory utilization' : 'Kubernetes allocatable memory (fixed per node)'}>Memory</th>
               <th title={hasRealMetrics ? 'Real disk utilization on / filesystem' : 'Kubernetes allocatable ephemeral-storage (fixed per node)'}>Disk</th>

@@ -24,7 +24,11 @@ function buildSnapshot(live: LiveOverview | null, metrics: MetricsData | null) {
         const m = live?.node_metrics?.[n.name];
         return {
           name: n.name,
+          cluster: n.cluster,
           role: n.role,
+          ip: n.ip,
+          architecture: n.architecture,
+          operating_system: n.operating_system,
           ready: n.ready,
           disk_pressure: n.disk_pressure,
           memory_pressure: n.memory_pressure,
@@ -68,7 +72,7 @@ function buildSnapshot(live: LiveOverview | null, metrics: MetricsData | null) {
 // ── CSV: nodes table ─────────────────────────────────────────
 function nodesToCSV(live: LiveOverview | null): string {
   const headers = [
-    'name', 'role', 'ready', 'disk_pressure', 'memory_pressure',
+    'name', 'cluster', 'role', 'ip', 'architecture', 'operating_system', 'ready', 'disk_pressure', 'memory_pressure',
     'cpu_percent', 'mem_percent', 'disk_percent',
     'cpu_millicores', 'mem_total_gib', 'disk_total_gib',
   ];
@@ -76,7 +80,11 @@ function nodesToCSV(live: LiveOverview | null): string {
     const m = live?.node_metrics?.[n.name];
     return [
       n.name,
+      n.cluster,
       n.role,
+      n.ip,
+      n.architecture,
+      `"${n.operating_system.replace(/"/g, '""')}"`,
       n.ready ? 'true' : 'false',
       n.disk_pressure ? 'true' : 'false',
       n.memory_pressure ? 'true' : 'false',

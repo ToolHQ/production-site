@@ -20,11 +20,11 @@ _Nada em andamento — aguardando próxima task._
 
 > Referenciar T-IDs do KANBAN.md (com `Owner: Copilot/VSCode`) ou micro-tasks.
 
-| ID / Ref | Tarefa | Prioridade |
-| :------- | :----- | :--------- |
-| — | Finalizar cutover de CI para self-hosted Hetzner (runner + variable + smoke) | 🔼 High |
-| Radar (futuro) | Plataforma AppSec Open Source (roadmap faseado, separado das demandas principais) -> `docs/open-source-appsec-roadmap.md` | 🔽 Low |
-| — | Monitorar estabilidade do cluster | 🔽 Low |
+| ID / Ref                                                                          | Tarefa                                                                                                                    | Prioridade |
+| :-------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ | :--------- |
+| —                                                                                 | Finalizar cutover de CI para self-hosted Hetzner (runner + variable + smoke)                                              | 🔼 High    |
+| Radar (futuro)                                                                    | Plataforma AppSec Open Source (roadmap faseado, separado das demandas principais) -> `docs/open-source-appsec-roadmap.md` | 🔽 Low     |
+| —                                                                                 | Monitorar estabilidade do cluster                                                                                         | 🔽 Low     |
 
 ## 🔬 Micro-Tasks (sem T-ID, sem PR)
 
@@ -49,15 +49,16 @@ _Nada em andamento — aguardando próxima task._
 
 ## ✅ Concluídas (histórico recente)
 
-| ID / Ref                      | Tarefa                                               | Data       |
-| :---------------------------- | :--------------------------------------------------- | :--------- |
-| [T-280](2026/Q2/T-280-Agent-Meter-Model-Filter-Em-Reports.md) | agent-meter — filtro model global aplicado em reports (backend + dashboard) | 2026-05-23 |
-| [T-281](2026/Q2/T-281-Agent-Meter-Sort-Colunas-Reports.md) | agent-meter — sort interativo em colunas dos reports | 2026-05-23 |
-| [T-203](2026/Q2/T-203-Node-Fleet-Tooltip-Fixed-Positioning.md) | Node Fleet Tooltip Fixed Positioning (TooltipWrapper) | 2026-05-17 |
-| [T-201](2026/Q2/T-201-Node-Fleet-Real-Machine-Metrics-Prometheus.md) | Node Fleet Real Machine Metrics via Prometheus | 2026-05-17 |
-| [T-200](2026/Q2/T-200-Node-Fleet-Panel-Layout-Polish.md) | Node Fleet Panel Layout Polish | 2026-05-17 |
-| [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | Master rootfs cleanup + hook prune pós-build | 2026-05-16 |
-| [T-282](2026/Q2/T-282-Agent-Meter-Top-MCP-Servers-Semantic-Fix.md) | agent-meter T-282/277/278/279 — audit fixes (PR #271) | 2026-05-19 |
-| — | fix(kubecost): nginx-conf ConfigMap deletado acidentalmente (PR #274) | 2026-05-20 |
-| `feat/copilot-infra-backlog`  | Triage infra/estabilidade: T-196/197/198 + KANBAN    | 2026-05-16 |
-| `feat/copilot-task-structure` | Setup inicial: worktree + queue + loop workflow + PR | 2026-05-16 |
+| ID / Ref                                                                    | Tarefa                                                                      | Data       |
+| :-------------------------------------------------------------------------- | :-------------------------------------------------------------------------- | :--------- |
+| [T-292](2026/Q2/T-292-Node-Fleet-External-Node-Identity-And-Hardware-Metadata.md) | Node Fleet — identidade de nós externos + IP/arquitetura/SO + validação ao vivo | 2026-05-24 |
+| [T-280](2026/Q2/T-280-Agent-Meter-Model-Filter-Em-Reports.md)               | agent-meter — filtro model global aplicado em reports (backend + dashboard) | 2026-05-23 |
+| [T-281](2026/Q2/T-281-Agent-Meter-Sort-Colunas-Reports.md)                  | agent-meter — sort interativo em colunas dos reports                        | 2026-05-23 |
+| [T-203](2026/Q2/T-203-Node-Fleet-Tooltip-Fixed-Positioning.md)              | Node Fleet Tooltip Fixed Positioning (TooltipWrapper)                       | 2026-05-17 |
+| [T-201](2026/Q2/T-201-Node-Fleet-Real-Machine-Metrics-Prometheus.md)        | Node Fleet Real Machine Metrics via Prometheus                              | 2026-05-17 |
+| [T-200](2026/Q2/T-200-Node-Fleet-Panel-Layout-Polish.md)                    | Node Fleet Panel Layout Polish                                              | 2026-05-17 |
+| [T-193](2026/Q2/T-193-Master-rootfs-cleanup-BuildKit-cache-legado-MinIO.md) | Master rootfs cleanup + hook prune pós-build                                | 2026-05-16 |
+| [T-282](2026/Q2/T-282-Agent-Meter-Top-MCP-Servers-Semantic-Fix.md)          | agent-meter T-282/277/278/279 — audit fixes (PR #271)                       | 2026-05-19 |
+| —                                                                           | fix(kubecost): nginx-conf ConfigMap deletado acidentalmente (PR #274)       | 2026-05-20 |
+| `feat/copilot-infra-backlog`                                                | Triage infra/estabilidade: T-196/197/198 + KANBAN                           | 2026-05-16 |
+| `feat/copilot-task-structure`                                               | Setup inicial: worktree + queue + loop workflow + PR                        | 2026-05-16 |

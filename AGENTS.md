@@ -40,6 +40,7 @@ Exemplos: usar *arquivo*, *usuário*, *acessar*, *compartilhar*, *rodar* — evi
 6.  **Pull Requests (owned end-to-end by the agent)**: “Submit via PR” means the agent **opens** the PR (`gh pr create`), **watches** CI (`gh pr checks`, `gh pr view`), **fixes** failures, and **merges** when green — not a checklist left for the human to click links. Prefer `gh pr merge`; if another `git worktree` already has `main` checked out and the CLI refuses to touch local refs, merge via GitHub API (`gh api --method PUT …/pulls/{N}/merge`) instead of delegating. Never treat “here is the compare URL” as a complete handoff.
 7.  **Git worktrees (paralelismo)**: For long-lived branches, infra vs app work, or parallel agent/Copilot sessions, use **isolated `git worktree` directories** instead of switching branches in a single checkout. Keeps `main` comparison and rebases predictable. See **[docs/dev-worktrees.md](docs/dev-worktrees.md)**.
 8.  **Run deploys yourself (no “você rode aí”)**: When cluster delivery is in scope (merged manifests, image bumps, CronJobs, smoke), the agent **executes** the service’s **`./deploy.sh`** (or **`publish.sh`**) end-to-end — after `source oci-k8s-cluster/scripts/setup-dev-deploy.sh`, tunnel + `KUBECONFIG`, and the deploy-service skill. Verify with **`kubectl get`** / **`kubectl rollout status`** (or job logs). **Do not** close a task by only telling the operator to run `deploy.sh` unless execution is genuinely impossible from this environment (then state the concrete blocker: e.g. no SSH, buildx unreachable, missing secret material).
+9.  **Live validation harness (mandatory for UI/API tasks)**: For report/dashboard changes, the agent must execute live validation evidence after deploy (rollout + API payload + visual check). Use skill **Live Validation Harness** and browser MCP (`chromeDevtools`) configured in `.vscode/mcp.json`.
 
 **Personality**:
 
@@ -112,11 +113,30 @@ Reinaldinho, briefing de [DATA]:
 | **Operate K8s TUI**         | `.agents/skills/operate-k8s-tui/SKILL.md`               | Usar o `k8s_ops_menu.sh`                                                      |
 | **Dev worktrees**           | [docs/dev-worktrees.md](docs/dev-worktrees.md)          | Trabalho paralelo (várias branches) sem compartilhar o mesmo diretório        |
 | **Full Stability Check**    | `.agents/skills/full-stability-check/SKILL.md`          | Verificação completa de todos os componentes do cluster (8 blocos, ordem de dependência) |
+| **Live Validation Harness** | `.agents/skills/live-validation-harness/SKILL.md`       | Deploy + validação ao vivo (rollout, API e UI via MCP) para tarefas de observabilidade/report |
 | **Copilot Loop**            | `.agents/workflows/copilot_loop.md`                     | Loop de execução do Copilot/VSCode (sessões interativas, isolado de Cursor/Antigravity) |
 | **Cursor Loop**             | `.agents/workflows/cursor_loop.md`                      | Loop Cursor — owner AI Radar; worktree `production-site-cursor` |
 | **Codex Loop**              | `.agents/workflows/codex_loop.md`                       | Loop Codex/Rust Rover — coordenação, infra/tooling, autopilot assistido |
 | **OpenCode Loop**           | `.agents/workflows/opencode_loop.md`                    | Loop OpenCode — owner tasks OpenCode; worktree `production-site-opencode` |
 | **Orquestração multi-agente** | [docs/agent-orchestration.md](docs/agent-orchestration.md) | KANBAN + filas + ralph sem duplicar cards |
+
+---
+
+## 🧪 Harness de Validação Ao Vivo (obrigatório)
+
+Para tasks de UI/API com impacto em produção (ex.: Node Fleet, reports, export), o fechamento obrigatório é:
+
+1. Executar `source oci-k8s-cluster/scripts/setup-dev-deploy.sh`
+2. Rodar deploy do serviço (`./deploy.sh`)
+3. Validar rollout com `kubectl rollout status`
+4. Validar payload real (ex.: `curl https://reports.dnor.io/api/live/overview`)
+5. Validar visual via MCP browser (`chromeDevtools`)
+
+Referências operacionais:
+
+- Skill: `.agents/skills/live-validation-harness/SKILL.md`
+- Script utilitário: `scripts/harness/validate_rs_observability_live.sh --deploy`
+- MCP browser: `.vscode/mcp.json` (servidores `chromeDevtools` e `chromeDevtoolsReports`)
 
 ---
 
