@@ -3,7 +3,7 @@ use std::{
     env,
     net::SocketAddr,
     path::{Component, Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, OnceLock},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -36,26 +36,16 @@ const PROMETHEUS_STEP_SECONDS: u64 = 300;
 const PROMETHEUS_BASE_URL_DEFAULT: &str =
     "http://coroot-prometheus-server.coroot.svc.cluster.local";
 
-const EXTERNAL_NODE_SPECS: &[ExternalNodeSpec] = &[
-    ExternalNodeSpec {
-        instance_host: "37.27.85.100",
-        fallback_name: "hetzner-cax21-helsinki",
-        cluster: "HETZNER",
-        role: "builder",
-        cpu_millicores: 4000,
-        memory_bytes: 8 * 1024 * 1024 * 1024,
-        ephemeral_storage_bytes: 80 * 1024 * 1024 * 1024,
-    },
-    ExternalNodeSpec {
-        instance_host: "104.225.218.78",
-        fallback_name: "ssdnodes-6a12f10c9ef11",
-        cluster: "SSD-NODES",
-        role: "dedicated",
-        cpu_millicores: 12000,
-        memory_bytes: 65_004_691_456,
-        ephemeral_storage_bytes: 1_268_158_550_016,
-    },
-];
+const EXTERNAL_NODES_JSON: &str = include_str!("../config/external_nodes.json");
+
+fn external_node_specs() -> &'static [ExternalNodeSpec] {
+    static SPECS: OnceLock<Vec<ExternalNodeSpec>> = OnceLock::new();
+    SPECS.get_or_init(|| {
+        serde_json::from_str(EXTERNAL_NODES_JSON)
+            .unwrap_or_else(|err| panic!("failed to parse external_nodes.json: {err}"))
+    })
+    .as_slice()
+}
 
 const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
     (
@@ -1251,12 +1241,12 @@ struct NodeMetrics {
     disk_percent: f64,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Deserialize)]
 struct ExternalNodeSpec {
-    instance_host: &'static str,
-    fallback_name: &'static str,
-    cluster: &'static str,
-    role: &'static str,
+    instance_host: String,
+    fallback_name: String,
+    cluster: String,
+    role: String,
     cpu_millicores: u64,
     memory_bytes: u64,
     ephemeral_storage_bytes: u64,
@@ -2510,7 +2500,6 @@ impl PrometheusMonitor {
                 .cloned()
                 .unwrap_or_else(|| {
                     fallback_name_for_instance(&instance_host)
-                        .map(ToOwned::to_owned)
                         .unwrap_or_else(|| instance_host.clone())
                 });
             let arch = series
@@ -2533,11 +2522,11 @@ impl PrometheusMonitor {
             uname_by_instance.insert(instance_host, (nodename, arch, os));
         }
 
-        EXTERNAL_NODE_SPECS
+        external_node_specs()
             .iter()
             .map(|spec| {
                 let (name, architecture, operating_system) = uname_by_instance
-                    .get(spec.instance_host)
+                    .get(spec.instance_host.as_str())
                     .cloned()
                     .unwrap_or_else(|| {
                         (
@@ -2596,11 +2585,11 @@ fn extract_instance_host(instance: &str) -> String {
         .to_string()
 }
 
-fn fallback_name_for_instance(instance_host: &str) -> Option<&'static str> {
-    EXTERNAL_NODE_SPECS
+fn fallback_name_for_instance(instance_host: &str) -> Option<String> {
+    external_node_specs()
         .iter()
         .find(|spec| spec.instance_host == instance_host)
-        .map(|spec| spec.fallback_name)
+        .map(|spec| spec.fallback_name.clone())
 }
 
 fn build_instance_nodename_aliases(
@@ -2625,13 +2614,13 @@ fn build_instance_nodename_aliases(
         nodename_to_instance.insert(nodename.clone(), host);
     }
 
-    for spec in EXTERNAL_NODE_SPECS {
+    for spec in external_node_specs() {
         nodename_to_instance
-            .entry(spec.fallback_name.to_string())
-            .or_insert_with(|| spec.instance_host.to_string());
+            .entry(spec.fallback_name.clone())
+            .or_insert_with(|| spec.instance_host.clone());
         instance_to_nodename
-            .entry(spec.instance_host.to_string())
-            .or_insert_with(|| spec.fallback_name.to_string());
+            .entry(spec.instance_host.clone())
+            .or_insert_with(|| spec.fallback_name.clone());
     }
 
     (instance_to_nodename, nodename_to_instance)
@@ -2645,7 +2634,7 @@ fn canonical_node_name(
         return Some(alias.clone());
     }
 
-    fallback_name_for_instance(key).map(ToOwned::to_owned)
+    fallback_name_for_instance(key)
 }
 
 fn metric_value_for_node(

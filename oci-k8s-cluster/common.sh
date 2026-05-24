@@ -44,10 +44,13 @@ WORKER_NODES=("${NODES[@]:1}")
 
 # External servers (not K8s nodes, but part of the infrastructure fleet)
 # shellcheck disable=SC2034
+# BEGIN EXTERNAL_FLEET_NODES
 EXTERNAL_NODES=(
-  "hetzner-cax21-helsinki-4vcpu-8gb-ipv4"  # Hetzner ARM64 builder
-  "ssdnodes-monstro"                       # SSD Nodes dedicated server
+  "hetzner-cax21-helsinki-4vcpu-8gb-ipv4"  # HETZNER @ 37.27.85.100
+  "ssdnodes-monstro"  # SSD-NODES @ 104.225.218.78
+  "aws-ec2-fleet-01"  # AWS-EC2 @ 3.236.249.77
 )
+# END EXTERNAL_FLEET_NODES
 # Full fleet: cluster nodes + external servers
 # shellcheck disable=SC2034
 ALL_FLEET_NODES=("${CLUSTER_NODES[@]}" "${EXTERNAL_NODES[@]}")
