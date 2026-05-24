@@ -108,6 +108,21 @@ clickhouse:
         echo "✅ Configs de overrides linkadas para /etc/clickhouse-server/config.d/"
       fi
       
+      # 5. Throttle background merges para reduzir I/O no host (OCI 1vCPU)
+      mkdir -p /etc/clickhouse-server/config.d
+      cat > /etc/clickhouse-server/config.d/merges-throttle.xml << 'XMLEOF'
+<clickhouse>
+  <background_pool_size>1</background_pool_size>
+  <background_merges_mutations_concurrency_ratio>1</background_merges_mutations_concurrency_ratio>
+  <background_move_pool_size>0</background_move_pool_size>
+  <background_fetches_pool_size>0</background_fetches_pool_size>
+  <merge_tree>
+    <max_bytes_to_merge_at_max_space_in_pool>1073741824</max_bytes_to_merge_at_max_space_in_pool>
+  </merge_tree>
+</clickhouse>
+XMLEOF
+      echo "✅ Merge throttle configurado."
+
       echo "=== 🚀 INICIANDO CLICKHOUSE SERVER ==="
       exec /entrypoint.sh
   image:
