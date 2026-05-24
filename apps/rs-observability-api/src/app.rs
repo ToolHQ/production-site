@@ -497,6 +497,7 @@ mod tests {
         AppState {
             reports_root: Arc::new(reports_root),
             live_monitor: None,
+            secondary_live_monitor: None,
             prometheus_monitor: Arc::new(PrometheusMonitor::new()),
             coroot_client: None,
         }
