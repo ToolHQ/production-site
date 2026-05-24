@@ -329,6 +329,7 @@ jobs:
 
       - name: yamllint
         run: |
+          export PATH="$HOME/.local/bin:$PATH"
           find components apps -name '*.yaml' -o -name '*.yml' \
             | grep -v 'node_modules\|/target/' \
             | xargs yamllint -c .yamllint.yaml
