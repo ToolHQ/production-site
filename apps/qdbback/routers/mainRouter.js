@@ -5,6 +5,7 @@ import { cacheConstants, pkiCertFileName, mimeTypes } from '../constants.js'
 import { acceptLanguageHandler } from '../handlers/acceptLanguage.js'
 import { indexHandler } from '../handlers/indexHandler.js'
 import { cspReportsHandler } from '../handlers/cspReportsHandler.js'
+import { internalThreatSummaryHandler } from '../handlers/internalThreatSummaryHandler.js'
 
 const cachePolicyImg = {
   time: cacheConstants.time.week,
@@ -32,6 +33,7 @@ export const getRouter = () => {
     .get(`/.well-known/pki-validation/${pkiCertFileName}`, handleFileResponse({ relativePath: `./assets/${pkiCertFileName}`, cache: noCachePolicy }))
     .get('/mydevtools/benchdata/db.csv', handleFileResponse({ relativePath: '../benchdata/db.csv', cache: sensitiveDataCachePolicy }))
     .post('/internal/csp-reports', cspReportsHandler)
+    .get('/internal/threats-summary', internalThreatSummaryHandler)
     .get('/favicon.ico', handleFileResponse({ relativePath: './assets/favicon-16x16.ico', cache: cachePolicyImg }))
     .get('/pudim.png', handleFileResponse({ relativePath: './assets/pudim.webp', cache: cachePolicyImg }))
     .get('/accept-languages', acceptLanguageHandler)

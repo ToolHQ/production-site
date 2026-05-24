@@ -318,6 +318,117 @@ mark.search-highlight {
   flex-wrap: wrap;
 }
 
+.honeypot-panel {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.honeypot-card {
+  border: 1px solid rgba(255, 153, 0, 0.25);
+  background: linear-gradient(135deg, rgba(255, 153, 0, 0.06), rgba(15, 23, 42, 0.02));
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.honeypot-card--error {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.honeypot-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.honeypot-card__title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.honeypot-card__host {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+.honeypot-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.honeypot-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.honeypot-metric__value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.honeypot-metric__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.honeypot-card__tags {
+  margin-top: 0.9rem;
+}
+
+.honeypot-card__tags-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  margin-bottom: 0.45rem;
+}
+
+.honeypot-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.honeypot-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 153, 0, 0.12);
+  border: 1px solid rgba(255, 153, 0, 0.25);
+  font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.honeypot-tag__count {
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+.honeypot-card__error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgb(185, 28, 28);
+}
+
+@media (max-width: 720px) {
+  .honeypot-card__metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
 .nodes-alert-pill {
   display: inline-flex;
   align-items: center;
