@@ -113,8 +113,8 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         ready: hetzner_has_metrics,
         disk_pressure: false,
         memory_pressure: false,
-        cpu_millicores: 4000,                  // 4 ARM64 vCPUs
-        memory_bytes: 8 * 1024 * 1024 * 1024,   // 8 GiB
+        cpu_millicores: 4000,                             // 4 ARM64 vCPUs
+        memory_bytes: 8 * 1024 * 1024 * 1024,             // 8 GiB
         ephemeral_storage_bytes: 80 * 1024 * 1024 * 1024, // 80 GiB
     });
 
