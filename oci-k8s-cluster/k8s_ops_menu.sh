@@ -5348,6 +5348,7 @@ $(t "menu_preferences")
 $(t "menu_health")
 $(t "menu_catalog")
 $(t "menu_jslibs")
+$(t "menu_bootstrap")
 $(t "menu_exit")"
 
     local selected
@@ -5699,6 +5700,11 @@ $(t "menu_exit")"
         ;;
       31)
         jslibs_menu
+        ;;
+      32)
+        # Cluster Bootstrap — k3s on any cloud machine (T-295)
+        source "$SCRIPT_DIR/scripts/bootstrap/tui_bootstrap.sh"
+        bootstrap_cluster_menu
         ;;
 
       0)
