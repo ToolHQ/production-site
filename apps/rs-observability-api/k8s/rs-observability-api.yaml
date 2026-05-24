@@ -91,6 +91,16 @@ spec:
         app: rs-observability-api
     spec:
       serviceAccountName: rs-observability-api
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values:
+                      - k8s-node-3  # avoid saturated node (ClickHouse I/O)
       imagePullSecrets:
         - name: regsecret
       containers:
