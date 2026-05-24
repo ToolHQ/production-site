@@ -98,13 +98,34 @@ async fn live_overview(State(state): State<AppState>) -> Response {
 
     payload.node_metrics = state.prometheus_monitor.fetch_node_metrics().await;
 
-    // Populate cluster property for existing K8s nodes
+    // Populate cluster property for existing OCI K8s nodes
     for node in &mut payload.nodes {
         node.cluster = "OCI-K8S".to_string();
     }
 
-    // Inject external physical nodes (Hetzner / SSD Nodes) with metadata from Prometheus.
+    // Inject secondary K8s cluster nodes (e.g., SSD-NODES kubeadm cluster).
+    // These are tagged with the cluster name from external_nodes.json for metric correlation.
+    let mut secondary_clusters: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
+    if let Some(secondary) = &state.secondary_live_monitor {
+        let secondary_overview = secondary.cached_or_refresh().await;
+        for mut node in secondary_overview.nodes {
+            // Match the cluster tag from external_nodes.json so Prometheus metrics correlate
+            node.cluster = "SSD-NODES".to_string();
+            node.ready = payload.node_metrics.contains_key(&node.name)
+                || payload.node_metrics.contains_key(&node.ip);
+            secondary_clusters.insert(node.cluster.clone());
+            payload.nodes.push(node);
+        }
+        payload.incidents.extend(secondary_overview.incidents);
+    }
+
+    // Inject external physical nodes (Hetzner / SSD Nodes) — skip clusters already
+    // covered by the secondary K8s monitor to avoid duplicate node entries.
     for mut node in state.prometheus_monitor.fetch_external_node_stats().await {
+        if secondary_clusters.contains(&node.cluster) {
+            continue;
+        }
         node.ready = payload.node_metrics.contains_key(&node.name)
             || payload.node_metrics.contains_key(&node.ip);
         payload.nodes.push(node);
@@ -478,6 +499,7 @@ mod tests {
         AppState {
             reports_root: Arc::new(reports_root),
             live_monitor: None,
+            secondary_live_monitor: None,
             prometheus_monitor: Arc::new(PrometheusMonitor::new()),
             coroot_client: None,
         }

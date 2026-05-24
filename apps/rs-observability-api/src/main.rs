@@ -12,6 +12,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use reqwest::{
     header::{HeaderMap, HeaderValue as ReqwestHeaderValue, ACCEPT, AUTHORIZATION},
     Certificate, Client,
@@ -85,6 +86,7 @@ const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
 struct AppState {
     reports_root: Arc<PathBuf>,
     live_monitor: Option<Arc<LiveMonitor>>,
+    secondary_live_monitor: Option<Arc<LiveMonitor>>,
     prometheus_monitor: Arc<PrometheusMonitor>,
     coroot_client: Option<Arc<CorootClient>>,
 }
@@ -1342,6 +1344,20 @@ async fn main() {
             None
         }
     };
+    let secondary_live_monitor = if let Ok(path) = env::var("SECONDARY_KUBECONFIG_PATH") {
+        match LiveMonitor::from_kubeconfig(&path).await {
+            Ok(monitor) => {
+                println!("secondary K8s monitor enabled ({})", path);
+                Some(Arc::new(monitor))
+            }
+            Err(err) => {
+                eprintln!("secondary K8s monitor disabled: {}", err);
+                None
+            }
+        }
+    } else {
+        None
+    };
     let prometheus_monitor = Arc::new(PrometheusMonitor::new());
 
     let coroot_client = {
@@ -1362,6 +1378,7 @@ async fn main() {
     let state = AppState {
         reports_root: Arc::new(reports_root),
         live_monitor,
+        secondary_live_monitor,
         prometheus_monitor,
         coroot_client,
     };
@@ -1457,6 +1474,64 @@ impl LiveMonitor {
         Ok(Self {
             client,
             base_url: format!("https://{}:{}", host, port),
+            cache: Arc::new(RwLock::new(None)),
+        })
+    }
+
+    /// Build a LiveMonitor from an external kubeconfig file (client certificate auth).
+    /// Used for secondary clusters (e.g., SSDNodes kubeadm cluster).
+    async fn from_kubeconfig(path: &str) -> Result<Self, String> {
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(|e| format!("read kubeconfig {}: {}", path, e))?;
+        let cfg: serde_yaml::Value =
+            serde_yaml::from_str(&content).map_err(|e| format!("parse kubeconfig YAML: {}", e))?;
+
+        let cluster = &cfg["clusters"][0]["cluster"];
+        let server = cluster["server"]
+            .as_str()
+            .ok_or("kubeconfig: missing server URL")?
+            .to_string();
+        let ca_b64 = cluster["certificate-authority-data"]
+            .as_str()
+            .ok_or("kubeconfig: missing certificate-authority-data")?;
+        let ca_pem = BASE64_STANDARD
+            .decode(ca_b64)
+            .map_err(|e| format!("decode CA cert: {}", e))?;
+
+        let user = &cfg["users"][0]["user"];
+        let cert_b64 = user["client-certificate-data"]
+            .as_str()
+            .ok_or("kubeconfig: missing client-certificate-data")?;
+        let key_b64 = user["client-key-data"]
+            .as_str()
+            .ok_or("kubeconfig: missing client-key-data")?;
+        let cert_pem = BASE64_STANDARD
+            .decode(cert_b64)
+            .map_err(|e| format!("decode client cert: {}", e))?;
+        let key_pem = BASE64_STANDARD
+            .decode(key_b64)
+            .map_err(|e| format!("decode client key: {}", e))?;
+
+        // reqwest Identity expects cert PEM followed by key PEM in the same buffer
+        let mut identity_pem = cert_pem;
+        identity_pem.extend_from_slice(&key_pem);
+
+        let ca_cert =
+            Certificate::from_pem(&ca_pem).map_err(|e| format!("parse CA cert: {}", e))?;
+        let identity = reqwest::Identity::from_pem(&identity_pem)
+            .map_err(|e| format!("parse client identity: {}", e))?;
+
+        let client = Client::builder()
+            .use_rustls_tls()
+            .add_root_certificate(ca_cert)
+            .identity(identity)
+            .build()
+            .map_err(|e| format!("build secondary K8s client: {}", e))?;
+
+        Ok(Self {
+            client,
+            base_url: server,
             cache: Arc::new(RwLock::new(None)),
         })
     }
