@@ -1,0 +1,82 @@
+{
+  "name": "@dnorio/qdbback",
+  "description": "Question DB",
+  "license": "UNLICENSED",
+  "author": "Daniel Norio",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "@material/button": "8.0.0",
+    "@material/chips": "10.0.0",
+    "@material/data-table": "10.0.0",
+    "@material/linear-progress": "10.0.0",
+    "@material/menu": "10.0.0",
+    "@material/select": "10.0.0",
+    "@material/textfield": "10.0.0",
+    "@material/top-app-bar": "10.0.0",
+    "chart.js": "3.5.1",
+    "clean-webpack-plugin": "3.0.0",
+    "css-loader": "5.2.6",
+    "html-webpack-plugin": "5.3.1",
+    "material-components-web": "8.0.0",
+    "mini-css-extract-plugin": "1.3.1",
+    "sass": "1.29.0",
+    "sass-loader": "10.1.0",
+    "sqlite3": "5.0.2",
+    "systeminformation": "5.7.14",
+    "webpack": "5.44.0"
+  },
+  "devDependencies": {
+    "@dnorio/jest": "1.0.0-alpha.2",
+    "@jest/globals": "27.0.6",
+    "eslint": "^7.30.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-plugin-import": "^2.23.4",
+    "eslint-plugin-node": "11.1.0",
+    "eslint-plugin-promise": "5.1.0",
+    "eslint-plugin-security": "^1.4.0",
+    "jest": "27.0.6"
+  },
+  "jest": {
+    "verbose": true,
+    "collectCoverageFrom": [
+      "**/*.js",
+      "!coverage/**",
+      "!dist/**",
+      "!dir.js",
+      "!assets/**"
+    ],
+    "collectCoverage": true,
+    "coverageProvider": "babel",
+    "reporters": [
+      "default"
+    ],
+    "coverageReporters": [
+      "text",
+      "text-summary",
+      "html",
+      "cobertura"
+    ],
+    "transform": {},
+    "setupFiles": [
+      "./testingHelpers.js"
+    ]
+  },
+  "scripts": {
+    "test-official": "node --experimental-vm-modules node_modules/.bin/jest && ./node_modules/.bin/eslint .",
+    "test-from-local-jest-repo": "NODE_OPTIONS=\"--trace-warnings --experimental-vm-modules\" ../../jest/jest && ./node_modules/.bin/eslint .",
+    "lint": "./node_modules/.bin/eslint .",
+    "test": "./node_modules/.bin/eslint . && node --experimental-vm-modules ./node_modules/@dnorio/jest/index.js"
+  },
+  "standard": {
+    "globals": [
+      "fetch",
+      "cancelAnimationFrame",
+      "requestAnimationFrame",
+      "localStorage",
+      "test",
+      "expect"
+    ]
+  }
+}

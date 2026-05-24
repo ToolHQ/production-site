@@ -1,0 +1,268 @@
+// @use "@material/checkbox"; // Required only for data table with row selection.
+@use "@material/icon-button"; // Required only for data table with column sorting.
+@use "@material/data-table/data-table";
+@use "@material/list/mdc-list";
+@use "@material/menu-surface/mdc-menu-surface";
+@use "@material/menu/mdc-menu";
+@use "@material/select/styles";
+@use "@material/linear-progress";
+@use "@material/tab-bar/mdc-tab-bar";
+@use "@material/tab-scroller/mdc-tab-scroller";
+@use "@material/tab-indicator/mdc-tab-indicator";
+@use "@material/tab/mdc-tab";
+@use "@material/top-app-bar/mdc-top-app-bar";
+@use "@material/chips/mdc-chips";
+@use "@material/textfield";
+@use "@material/button";
+
+@include button.core-styles;
+@include icon-button.core-styles;
+@include data-table.core-styles;
+@include data-table.theme-baseline;
+@include linear-progress.core-styles;
+@include textfield.core-styles;
+
+table {
+  width: 100%;
+}
+
+div > div.mdc-data-table__table-container > table > thead > tr > th.mdc-data-table__header-cell > div > button {
+  font-size: 15px;
+}
+
+#no-script {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: #f2efe9;
+}
+
+.no-script-message {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 575px;
+  transform: translateX(-50%) translateY(-50%);
+  transform: translateX(-50%) translateY(-50%);
+  background: url(//maps.gstatic.com/tactile/basepage/pegman_sherlock.png) no-repeat;
+  background-size: 160px 193px;
+  height: 143px;
+  padding-top: 50px;
+  padding-left: 200px;
+  font-size: 30px;
+  font-weight: 300;
+}
+
+.no-script-help-link {
+  color: #4285f4;
+  font-size: 14px;
+  font-weight: normal;
+}
+
+.width10p {
+  width: 10%;
+}
+.width20p {
+  width: 20%;
+}
+.width30p {
+  width: 30%;
+}
+.width40p {
+  width: 40%;
+}
+.width50p {
+  width: 50%;
+}
+.width60p {
+  width: 60%;
+}
+.width70p {
+  width: 70%;
+}
+
+@media (max-width: 599px) {
+  .secondrow {
+    top: 56px;
+  }
+
+  html:not([data-scroll='0']) div.mdc-top-app-bar {
+    top: -56px;
+  }
+
+  html[data-scroll='0'] div.mdc-tab-bar, html[data-scrolldir='u'] div.mdc-tab-bar {
+    top: 56px;
+  }
+
+  main.mdc-top-app-bar--fixed-adjust {
+    padding-top: 104px;
+  }
+}
+
+@media (min-width: 600px) {
+  .secondrow {
+    top: 64px;
+  }
+
+  html:not([data-scroll='0']) div.mdc-top-app-bar {
+    top: -64px;
+  }
+
+  html[data-scroll='0'] div.mdc-tab-bar, html[data-scrolldir='u'] div.mdc-tab-bar {
+    top: 64px;
+  }
+
+  main.mdc-top-app-bar--fixed-adjust {
+    padding-top: 112px;
+  }
+}
+
+html[data-scroll='0'] div.mdc-top-app-bar, html[data-scrolldir='u'] div.mdc-top-app-bar {
+  top: 0px;
+}
+
+html[data-scrolldir='d'] div.mdc-tab-bar {
+  top: 0px;
+}
+
+div.mdc-top-app-bar {
+  left: 0px;
+  transition: top 0.3s;
+}
+
+div.mdc-tab-bar {
+  position: fixed;
+  z-index: 1;
+  background-color: white;
+  transition: top 0.3s;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 50%);
+  left: 0px;
+}
+
+.search-input-style {
+  caret-color: white;
+  color: white;
+}
+
+.search-input-sugestion-list {
+  background-color: white;
+  color: black;
+  width: 300px;
+  z-index: 5;
+  position: fixed;
+  top: 64px;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 50%);
+}
+
+/*
+  Max width before this PARTICULAR table gets nasty. This query will take effect for any screen smaller than 760px and also iPads specifically.
+  */
+  @media
+    only screen 
+    and (max-width: 760px), (min-device-width: 768px) 
+    and (max-device-width: 1024px)  {
+
+    div.mdc-data-table {
+      width: 100%;
+    }
+
+    /* Force table to not be like tables anymore */
+    table, thead, tbody, th, td, tr {
+      display: block;
+    }
+
+    /* Hide table headers (but not display: none;, for accessibility) */
+    thead tr {
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+    }
+
+    tr {
+      margin: 0 0 1rem 0;
+    }
+      
+    tr:nth-child(odd) {
+      background: #ccc;
+    }
+    
+    td.mdc-data-table__cell {
+      /* Behave  like a "row" */
+      border: none;
+      border-bottom: 1px solid #eee;
+      position: relative;
+      padding-left: 50%;
+      text-align: left;
+      height: auto;
+      width: auto;
+      min-height: 52px;
+    }
+
+    td.mdc-data-table__cell:before {
+      /* Now like a table header */
+      position: absolute;
+      /* Top/left values mimic padding */
+      top: 0;
+      left: 6px;
+      width: 45%;
+      padding-right: 10px;
+      white-space: nowrap;
+      text-align: left;
+    }
+
+    /*
+    Label the data
+    You could also use a data-* attribute and content for this. That way "bloats" the HTML, this way means you need to keep HTML and CSS in sync. Lea Verou has a clever way to handle with text-shadow.
+    */
+    td.mdc-data-table__cell[data-column-id="id"]:before { content: "Id"; }
+    td.mdc-data-table__cell[data-column-id="timestamp"]:before { content: "Timestamp"; }
+    td.mdc-data-table__cell[data-column-id="method"]:before { content: "HTTP Method"; }
+    td.mdc-data-table__cell[data-column-id="path"]:before { content: "HTTP Path"; }
+    td.mdc-data-table__cell[data-column-id="timeElapsed"]:before { content: "Time Elapsed"; }
+    td.mdc-data-table__cell[data-column-id="remoteIp"]:before { content: "Remote IP"; }
+    td.mdc-data-table__cell[data-column-id="remoteHostname"]:before { content: "Remote Hostname"; }
+    td.mdc-data-table__cell[data-column-id="statusCode"]:before { content: "Status Code"; }
+    td.mdc-data-table__cell[data-column-id="userAgent"]:before { content: "User-Agent"; } 
+    td.mdc-data-table__cell[data-column-id="body"]:before { content: "Body"; }
+    td.mdc-data-table__cell[data-column-id="headers"]:before { content: "Headers"; }
+    td.mdc-data-table__cell[data-column-id="country"]:before { content: "Country"; }
+    td.mdc-data-table__cell[data-column-id="classification"]:before { content: "Classification"; }
+    td.mdc-data-table__cell[data-column-id="severity"]:before { content: "Severity"; }
+    td.mdc-data-table__cell[data-column-id="event"]:before { content: "Event"; }
+    td.mdc-data-table__cell[data-column-id="log"]:before { content: "Log"; }
+
+    td.mdc-data-table__cell[data-column-id="pid"]:before { content: "PID"; }
+    td.mdc-data-table__cell[data-column-id="process"]:before { content: "Process"; }
+    td.mdc-data-table__cell[data-column-id="started"]:before { content: "Started"; }
+    td.mdc-data-table__cell[data-column-id="state"]:before { content: "State"; }
+    td.mdc-data-table__cell[data-column-id="rss"]:before { content: "RSS"; }
+    td.mdc-data-table__cell[data-column-id="rssPercentage"]:before { content: "RSS Percentage"; }
+    td.mdc-data-table__cell[data-column-id="cpu"]:before { content: "CPU"; }
+
+    td.mdc-data-table__cell[data-column-id="method"][locale="pt-BR"]:before { content: "Método HTTP"; }
+    td.mdc-data-table__cell[data-column-id="timeElapsed"][locale="pt-BR"]:before { content: "Tempo Total"; }
+    td.mdc-data-table__cell[data-column-id="country"][locale="pt-BR"]:before { content: "País"; }
+    td.mdc-data-table__cell[data-column-id="classification"][locale="pt-BR"]:before { content: "Classificação"; }
+    td.mdc-data-table__cell[data-column-id="severity"][locale="pt-BR"]:before { content: "Severidade"; }
+    td.mdc-data-table__cell[data-column-id="event"][locale="pt-BR"]:before { content: "Evento"; }
+  }
+
+// canvas { 
+//   height: 100vh;
+// }
+// .box {
+//   display: flex;
+// }
+// .one {
+//   flex: 1 1 auto;
+// }
+
+// .two {
+//   flex: 1 1 auto;
+// }
+
+// .three {
+//   flex: 1 1 auto;
+// }
