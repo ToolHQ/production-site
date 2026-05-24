@@ -144,6 +144,8 @@ prometheus:
         cpu: 100m
         memory: 100Mi
   server:
+    nodeSelector:
+      kubernetes.io/hostname: k8s-node-2  # move Prometheus off k8s-node-3 to relieve I/O wait on the ClickHouse host
     extraFlags:
       - web.enable-remote-write-receiver
       - storage.tsdb.retention.size=1500MB
