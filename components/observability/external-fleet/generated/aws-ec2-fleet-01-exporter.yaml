@@ -1,0 +1,35 @@
+# Gerado por scripts/aws-fleet/generate_fleet_artifacts.py — não editar manualmente.
+apiVersion: v1
+kind: Service
+metadata:
+  name: aws-ec2-fleet-01-node-exporter
+  namespace: coroot
+  labels:
+    app: aws-ec2-fleet-01-node-exporter
+    app.kubernetes.io/part-of: coroot
+    app.kubernetes.io/component: node-exporter
+    external-fleet/provider: aws
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9100"
+spec:
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+      protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: aws-ec2-fleet-01-node-exporter
+  namespace: coroot
+  labels:
+    app: aws-ec2-fleet-01-node-exporter
+subsets:
+  - addresses:
+      - ip: 3.236.249.77
+    ports:
+      - name: metrics
+        port: 9100
+        protocol: TCP

@@ -11,6 +11,7 @@ FROM rust:1.86-slim-bookworm AS backend-builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
+COPY config/external_nodes.json ./config/external_nodes.json
 # web-v2/dist é embutido no binário Rust via include_str!/include_bytes! (compile-time)
 COPY --from=frontend-builder /app/web-v2/dist ./web-v2/dist
 RUN cargo build --release --bin rs-observability-api

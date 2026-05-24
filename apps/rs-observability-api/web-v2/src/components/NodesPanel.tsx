@@ -5,6 +5,7 @@ import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
 import { ThresholdSettings } from './ThresholdSettings';
+import { clusterBadgeClass } from '../utils/clusterBadge';
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -238,14 +239,9 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
       <span class="node-role node-role--worker">worker</span>
     );
 
-  const clusterBadge =
-    node.cluster === 'HETZNER' ? (
-      <span class="node-cluster-badge node-cluster-badge--hetzner">HETZNER</span>
-    ) : node.cluster === 'SSD-NODES' ? (
-      <span class="node-cluster-badge node-cluster-badge--ssd-nodes">SSD-NODES</span>
-    ) : (
-      <span class="node-cluster-badge node-cluster-badge--oci">OCI-K8S</span>
-    );
+  const clusterBadge = (
+    <span class={`node-cluster-badge ${clusterBadgeClass(node.cluster)}`}>{node.cluster}</span>
+  );
 
   // 1. CPU cell with interactive tooltip card & sparkline
   const cpuCell = metrics ? (
@@ -492,7 +488,7 @@ function NodeCard({ node, metrics, diskWarn, diskCrit, memWarn, memCrit, cpuWarn
       <div class="nc-header">
         <span class="node-ready-dot">{node.ready ? '🟢' : '🔴'}</span>
         <span class="nc-name">{highlight ? highlight(node.name, query) : node.name}</span>
-        <span class={`node-cluster-badge node-cluster-badge--${node.cluster === 'HETZNER' ? 'hetzner' : node.cluster === 'SSD-NODES' ? 'ssd-nodes' : 'oci'}`}>{node.cluster}</span>
+        <span class={`node-cluster-badge ${clusterBadgeClass(node.cluster)}`}>{node.cluster}</span>
         <span class={`node-role node-role--${node.role === 'control-plane' ? 'cp' : node.role === 'builder' ? 'builder' : node.role === 'dedicated' ? 'dedicated' : 'worker'}`}>{node.role}</span>
       </div>
       <div class="nc-meta">
