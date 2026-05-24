@@ -133,6 +133,12 @@ spec:
               value: http://coroot.coroot.svc.cluster.local:8080
             - name: COROOT_PROJECT_ID
               value: p3m78dle
+            - name: SECONDARY_KUBECONFIG_PATH
+              value: /etc/kubeconfigs/ssdnodes/kubeconfig
+          volumeMounts:
+            - name: ssdnodes-kubeconfig
+              mountPath: /etc/kubeconfigs/ssdnodes
+              readOnly: true
           resources:
             requests:
               cpu: 10m
@@ -162,6 +168,10 @@ spec:
             periodSeconds: 2
             timeoutSeconds: 3
             failureThreshold: 20
+      volumes:
+        - name: ssdnodes-kubeconfig
+          secret:
+            secretName: ssdnodes-kubeconfig
 ---
 apiVersion: v1
 kind: Service

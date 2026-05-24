@@ -8,7 +8,7 @@
 # What it installs:
 #   containerd     → CRI runtime (SystemdCgroup=true)
 #   kubeadm init   → API server, etcd, scheduler, controller-manager
-#   kubelet/kubectl → from pkgs.k8s.io (stable/v1.31)
+#   kubelet/kubectl → from pkgs.k8s.io (stable/v1.33)
 #   Flannel CNI    → pod networking (10.244.0.0/16)
 #   Security       → journal limits 200M + UFW firewall
 #
@@ -31,7 +31,7 @@ SSH_HOST="${1:?Usage: $0 <ssh-host> [--name NAME] [--version TAG] [--join-server
 shift
 
 CLUSTER_NAME="k8s"
-K8S_VERSION=""       # empty = latest in stable channel v1.31
+K8S_VERSION=""       # empty = latest in stable channel v1.33
 JOIN_SERVER=""       # if set → install as worker (kubeadm join)
 DO_HARDENING=true
 SKIP_KUBECONFIG=false
@@ -66,9 +66,9 @@ ssh $SSH_OPTS "$SSH_HOST" "exit" 2>/dev/null \
     || fail "SSH falhou para $SSH_HOST. Verifique ~/.ssh/config e authorized_keys."
 ok "SSH OK"
 
-read -r REMOTE_ARCH REMOTE_OS REMOTE_RAM REMOTE_DISK REMOTE_CPU < <(
+read -r REMOTE_ARCH REMOTE_OS REMOTE_RAM REMOTE_DISK REMOTE_CPU REMOTE_CODENAME < <(
     ssh $SSH_OPTS "$SSH_HOST" \
-        "echo \"\$(uname -m) \$(grep -oP '(?<=^ID=\"?).*(?=\"?)' /etc/os-release 2>/dev/null || uname -s) \$(free -m | awk '/^Mem:/{print \$2}') \$(df -BG / | awk 'NR==2{gsub(/G/,\"\",\$4); print \$4}') \$(nproc)\""
+        "echo \"\$(uname -m) \$(grep -oP '(?<=^ID=\"?).*(?=\"?)' /etc/os-release 2>/dev/null || uname -s) \$(free -m | awk '/^Mem:/{print \$2}') \$(df -BG / | awk 'NR==2{gsub(/G/,\"\",\$4); print \$4}') \$(nproc) \$(. /etc/os-release && echo \"\${UBUNTU_CODENAME:-\$VERSION_CODENAME}\")\""
 )
 
 echo -e "  Arch:  ${BOLD}$REMOTE_ARCH${NC}  OS: ${BOLD}$REMOTE_OS${NC}"
@@ -103,6 +103,7 @@ ssh -t $SSH_OPTS "$SSH_HOST" "
     set -e
     export DEBIAN_FRONTEND=noninteractive
     PKG_ARCH=${PKG_ARCH}
+    PKG_CODENAME=${REMOTE_CODENAME}
 
     echo '📦 Atualizando apt e dependências base...'
     sudo apt-get update -qq
@@ -116,7 +117,7 @@ ssh -t $SSH_OPTS "$SSH_HOST" "
             | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null
         echo \"deb [arch=\${PKG_ARCH} signed-by=/etc/apt/keyrings/docker.gpg] \
             https://download.docker.com/linux/ubuntu \
-            \$(. /etc/os-release && echo \"\\\$VERSION_CODENAME\") stable\" \
+            \${PKG_CODENAME} stable\" \
             | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
         sudo apt-get update -qq
         sudo apt-get install -y -qq containerd.io
@@ -151,11 +152,11 @@ EOF
     echo '✅ Swap desativado'
 
     # ── kubeadm / kubelet / kubectl from pkgs.k8s.io (arm64 + amd64)
-    echo '📦 Instalando kubeadm/kubelet/kubectl (pkgs.k8s.io/stable/v1.31)...'
+    echo '📦 Instalando kubeadm/kubelet/kubectl (pkgs.k8s.io/stable/v1.33)...'
     sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key \
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key \
         | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg 2>/dev/null
-    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' \
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' \
         | sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null
     sudo apt-get update -qq
     sudo apt-get install -y -qq kubelet kubeadm kubectl
