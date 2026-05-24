@@ -40,11 +40,12 @@ const EXTERNAL_NODES_JSON: &str = include_str!("../config/external_nodes.json");
 
 fn external_node_specs() -> &'static [ExternalNodeSpec] {
     static SPECS: OnceLock<Vec<ExternalNodeSpec>> = OnceLock::new();
-    SPECS.get_or_init(|| {
-        serde_json::from_str(EXTERNAL_NODES_JSON)
-            .unwrap_or_else(|err| panic!("failed to parse external_nodes.json: {err}"))
-    })
-    .as_slice()
+    SPECS
+        .get_or_init(|| {
+            serde_json::from_str(EXTERNAL_NODES_JSON)
+                .unwrap_or_else(|err| panic!("failed to parse external_nodes.json: {err}"))
+        })
+        .as_slice()
 }
 
 const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
@@ -2426,8 +2427,7 @@ impl PrometheusMonitor {
             &disk_total_map,
         ] {
             node_names.extend(map.keys().map(|key| {
-                canonical_node_name(key, &instance_to_nodename)
-                    .unwrap_or_else(|| key.clone())
+                canonical_node_name(key, &instance_to_nodename).unwrap_or_else(|| key.clone())
             }));
         }
 
@@ -3489,15 +3489,13 @@ fn node_name(node: &NodeResource) -> &str {
 }
 
 fn node_internal_ip(node: &NodeResource) -> Option<String> {
-    node.status
-        .as_ref()
-        .and_then(|status| {
-            status
-                .addresses
-                .iter()
-                .find(|address| address.type_name.as_deref() == Some("InternalIP"))
-                .and_then(|address| address.address.clone())
-        })
+    node.status.as_ref().and_then(|status| {
+        status
+            .addresses
+            .iter()
+            .find(|address| address.type_name.as_deref() == Some("InternalIP"))
+            .and_then(|address| address.address.clone())
+    })
 }
 
 fn unavailable_live_overview(reason: impl Into<String>) -> LiveOverview {
