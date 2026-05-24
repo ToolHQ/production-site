@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useState, useCallback, useMemo, useEffect } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
-import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
+import type { LiveOverview, NodeMetrics, NodeStat, HoneypotNodeStats } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
 import { ThresholdSettings } from './ThresholdSettings';
@@ -520,6 +520,60 @@ function NodeCard({ node, metrics, diskWarn, diskCrit, memWarn, memCrit, cpuWarn
 }
 
 // ────────────────────────────────────────────────────────────
+// HoneypotThreatsCard — qdbback stats for external honeypot nodes
+// ────────────────────────────────────────────────────────────
+
+interface HoneypotThreatsCardProps {
+  stats: HoneypotNodeStats;
+}
+
+function HoneypotThreatsCard({ stats }: HoneypotThreatsCardProps) {
+  const topTags = stats.top_tags.slice(0, 5);
+
+  return (
+    <div class={`honeypot-card ${stats.available ? '' : 'honeypot-card--error'}`}>
+      <div class="honeypot-card__header">
+        <span class="honeypot-card__title">🍯 Honeypot — {stats.cluster}</span>
+        <span class="honeypot-card__host">{stats.instance_host}</span>
+      </div>
+      {stats.available ? (
+        <>
+          <div class="honeypot-card__metrics">
+            <div class="honeypot-metric">
+              <span class="honeypot-metric__value">{stats.total.toLocaleString()}</span>
+              <span class="honeypot-metric__label">Total requests</span>
+            </div>
+            <div class="honeypot-metric">
+              <span class="honeypot-metric__value">{stats.last24h.toLocaleString()}</span>
+              <span class="honeypot-metric__label">Last 24h</span>
+            </div>
+            <div class="honeypot-metric">
+              <span class="honeypot-metric__value">{stats.classified.toLocaleString()}</span>
+              <span class="honeypot-metric__label">Classified</span>
+            </div>
+          </div>
+          {topTags.length > 0 && (
+            <div class="honeypot-card__tags">
+              <span class="honeypot-card__tags-label">Top threats</span>
+              <div class="honeypot-tag-list">
+                {topTags.map((item) => (
+                  <span key={item.tag} class="honeypot-tag">
+                    {item.tag}
+                    <span class="honeypot-tag__count">{item.count.toLocaleString()}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <p class="honeypot-card__error">{stats.error ?? 'Honeypot metrics unavailable'}</p>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
 // NodesPanel (export)
 // ────────────────────────────────────────────────────────────
 
@@ -581,6 +635,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
 
   const pressureCount = nodes.filter((n) => n.disk_pressure || n.memory_pressure).length;
   const notReadyCount = nodes.filter((n) => !n.ready).length;
+  const honeypotNodes = live?.honeypot?.nodes ?? [];
 
   return (
     <div class="nodes-panel" id="nodes-panel">
@@ -632,6 +687,14 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
               {pressureCount} node{pressureCount > 1 ? 's' : ''} with pressure
             </span>
           )}
+        </div>
+      )}
+
+      {honeypotNodes.length > 0 && (
+        <div class="honeypot-panel">
+          {honeypotNodes.map((stats) => (
+            <HoneypotThreatsCard key={stats.id} stats={stats} />
+          ))}
         </div>
       )}
 

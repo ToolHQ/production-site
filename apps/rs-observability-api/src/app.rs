@@ -113,6 +113,8 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     // Re-sort the nodes list alphabetically by name
     payload.nodes.sort_by(|a, b| a.name.cmp(&b.name));
 
+    payload.honeypot = state.prometheus_monitor.fetch_honeypot_overview().await;
+
     Json(payload).into_response()
 }
 

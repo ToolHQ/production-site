@@ -879,7 +879,46 @@ struct LiveOverview {
     services: Vec<LiveService>,
     incidents: Vec<LiveIncident>,
     metrics: MetricsOverview,
+    #[serde(default)]
+    honeypot: HoneypotOverview,
     error: Option<String>,
+}
+
+#[derive(Serialize, Clone, Default, Deserialize)]
+struct HoneypotTagCount {
+    tag: String,
+    count: u64,
+}
+
+#[derive(Serialize, Clone, Default)]
+struct HoneypotNodeStats {
+    id: String,
+    cluster: String,
+    instance_host: String,
+    available: bool,
+    total: u64,
+    last24h: u64,
+    classified: u64,
+    unclassified: u64,
+    top_tags: Vec<HoneypotTagCount>,
+    refreshed_at_epoch: u64,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone, Default)]
+struct HoneypotOverview {
+    available: bool,
+    nodes: Vec<HoneypotNodeStats>,
+}
+
+#[derive(Deserialize)]
+struct QdbbackThreatSummary {
+    total: u64,
+    last24h: u64,
+    classified: u64,
+    unclassified: u64,
+    #[serde(default, rename = "topTags")]
+    top_tags: Vec<HoneypotTagCount>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -1244,6 +1283,8 @@ struct NodeMetrics {
 
 #[derive(Debug, Clone, Deserialize)]
 struct ExternalNodeSpec {
+    #[serde(default)]
+    id: String,
     instance_host: String,
     fallback_name: String,
     cluster: String,
@@ -1251,6 +1292,10 @@ struct ExternalNodeSpec {
     cpu_millicores: u64,
     memory_bytes: u64,
     ephemeral_storage_bytes: u64,
+    #[serde(default)]
+    honeypot: bool,
+    #[serde(default)]
+    threats_path: Option<String>,
 }
 
 #[derive(Default)]
@@ -1494,6 +1539,7 @@ impl LiveMonitor {
             services,
             incidents,
             metrics: unavailable_metrics_overview("metrics not fetched yet"),
+            honeypot: HoneypotOverview::default(),
             error: None,
         })
     }
@@ -2553,6 +2599,107 @@ impl PrometheusMonitor {
             })
             .collect()
     }
+
+    pub(crate) async fn fetch_honeypot_overview(&self) -> HoneypotOverview {
+        let specs: Vec<&ExternalNodeSpec> = external_node_specs()
+            .iter()
+            .filter(|spec| spec.honeypot)
+            .collect();
+
+        if specs.is_empty() {
+            return HoneypotOverview::default();
+        }
+
+        let client = match Client::builder()
+            .timeout(Duration::from_secs(8))
+            .danger_accept_invalid_certs(true)
+            .build()
+        {
+            Ok(client) => client,
+            Err(error) => {
+                let message = format!("build honeypot client: {}", error);
+                return HoneypotOverview {
+                    available: false,
+                    nodes: specs
+                        .into_iter()
+                        .map(|spec| honeypot_node_error(spec, &message))
+                        .collect(),
+                };
+            }
+        };
+
+        let mut nodes = Vec::with_capacity(specs.len());
+        for spec in specs {
+            nodes.push(fetch_honeypot_node(&client, spec).await);
+        }
+
+        HoneypotOverview {
+            available: nodes.iter().any(|node| node.available),
+            nodes,
+        }
+    }
+}
+
+async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> HoneypotNodeStats {
+    let path = spec
+        .threats_path
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/internal/threats-summary");
+    let url = format!(
+        "https://{}/{}",
+        spec.instance_host,
+        path.trim_start_matches('/')
+    );
+
+    match client.get(&url).send().await {
+        Ok(response) => {
+            if !response.status().is_success() {
+                return honeypot_node_error(
+                    spec,
+                    &format!("honeypot API status {}", response.status()),
+                );
+            }
+
+            match response.json::<QdbbackThreatSummary>().await {
+                Ok(summary) => HoneypotNodeStats {
+                    id: honeypot_node_id(spec),
+                    cluster: spec.cluster.clone(),
+                    instance_host: spec.instance_host.clone(),
+                    available: true,
+                    total: summary.total,
+                    last24h: summary.last24h,
+                    classified: summary.classified,
+                    unclassified: summary.unclassified,
+                    top_tags: summary.top_tags,
+                    refreshed_at_epoch: unix_epoch_seconds(),
+                    error: None,
+                },
+                Err(error) => honeypot_node_error(spec, &format!("decode honeypot JSON: {}", error)),
+            }
+        }
+        Err(error) => honeypot_node_error(spec, &format!("request honeypot API: {}", error)),
+    }
+}
+
+fn honeypot_node_id(spec: &ExternalNodeSpec) -> String {
+    if spec.id.is_empty() {
+        spec.fallback_name.clone()
+    } else {
+        spec.id.clone()
+    }
+}
+
+fn honeypot_node_error(spec: &ExternalNodeSpec, message: &str) -> HoneypotNodeStats {
+    HoneypotNodeStats {
+        id: honeypot_node_id(spec),
+        cluster: spec.cluster.clone(),
+        instance_host: spec.instance_host.clone(),
+        available: false,
+        refreshed_at_epoch: unix_epoch_seconds(),
+        error: Some(message.to_string()),
+        ..HoneypotNodeStats::default()
+    }
 }
 
 /// Convert a list of PrometheusSeries to a map: node_label → f64 value.
@@ -3515,6 +3662,7 @@ fn unavailable_live_overview(reason: impl Into<String>) -> LiveOverview {
         services: Vec::new(),
         incidents: Vec::new(),
         metrics: unavailable_metrics_overview("prometheus metrics unavailable"),
+        honeypot: HoneypotOverview::default(),
         error: Some(reason.into()),
     }
 }

@@ -59,3 +59,5 @@ nodes:
     bootstrap_managed: true
     aws_instance_type: t4g.micro
     aws_region: us-east-1
+    honeypot: true
+    threats_path: /internal/threats-summary

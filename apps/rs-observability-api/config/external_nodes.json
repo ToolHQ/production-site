@@ -1,5 +1,6 @@
 [
   {
+    "id": "hetzner-cax21",
     "instance_host": "37.27.85.100",
     "fallback_name": "hetzner-cax21-helsinki",
     "cluster": "HETZNER",
@@ -9,6 +10,7 @@
     "ephemeral_storage_bytes": 85899345920
   },
   {
+    "id": "ssdnodes-monstro",
     "instance_host": "104.225.218.78",
     "fallback_name": "ssdnodes-6a12f10c9ef11",
     "cluster": "SSD-NODES",
@@ -18,12 +20,15 @@
     "ephemeral_storage_bytes": 1268158550016
   },
   {
+    "id": "aws-ec2-fleet-01",
     "instance_host": "3.236.249.77",
     "fallback_name": "ip-172-31-65-56",
     "cluster": "AWS-EC2",
     "role": "dedicated",
     "cpu_millicores": 2000,
     "memory_bytes": 983498752,
-    "ephemeral_storage_bytes": 8567894016
+    "ephemeral_storage_bytes": 8567894016,
+    "honeypot": true,
+    "threats_path": "/internal/threats-summary"
   }
 ]

@@ -68,8 +68,10 @@ subsets:
 
 
 def write_external_nodes_json(nodes: list[dict[str, Any]], out_path: Path) -> None:
-    payload = [
-        {
+    payload = []
+    for n in nodes:
+        entry: dict[str, Any] = {
+            "id": n["id"],
             "instance_host": n["instance_host"],
             "fallback_name": n["fallback_name"],
             "cluster": n["cluster"],
@@ -78,8 +80,11 @@ def write_external_nodes_json(nodes: list[dict[str, Any]], out_path: Path) -> No
             "memory_bytes": int(n["memory_bytes"]),
             "ephemeral_storage_bytes": int(n["ephemeral_storage_bytes"]),
         }
-        for n in nodes
-    ]
+        if n.get("honeypot"):
+            entry["honeypot"] = True
+        if n.get("threats_path"):
+            entry["threats_path"] = n["threats_path"]
+        payload.append(entry)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2) + "\n")
 
