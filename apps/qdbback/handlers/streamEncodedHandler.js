@@ -37,7 +37,8 @@ export const getStreamHandler = (requestListener, propagateErrors = false) => as
     })
   } catch (err) {
     logger.error(`${req.path} Handler ERROR`, { name: err.name, message: err.message, stack: err.stack })
-    res.writeHead(500, {
+    const statusCode = err.statusCode || 500
+    res.writeHead(statusCode, {
       'Content-Type': mimeTypes.json,
       'Content-Encoding': 'identity',
       'Cache-Control': cacheConstants.policies.noStore,

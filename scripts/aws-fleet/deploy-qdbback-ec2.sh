@@ -19,14 +19,18 @@ APP_SRC="$REPO_ROOT/apps/qdbback"
 
 usage() {
   cat <<'EOF'
-Deploy qdbback na EC2 (Fases 1 e 4).
+Deploy qdbback na EC2 (Fases 1–5c).
 
 Fases:
-  sync     — rsync apps/qdbback → /home/ec2-user/server (sem node_modules)
-  tls      — gera cert self-signed para IP atual (Fase 2)
-  systemd  — instala qdbback.service + enable (Fase 4)
-  start    — restart via systemd ou nohup fallback (Fase 1)
-  all      — sync + tls + systemd + start
+  sync       — rsync apps/qdbback → /home/ec2-user/server (sem node_modules)
+  tls        — gera cert self-signed para IP atual (Fase 2)
+  secrets    — /etc/qdbback/monitor.env (auth admin via env)
+  node22     — Node.js 22 LTS + npm ci --omit=dev
+  logrotate  — /etc/logrotate.d/qdbback
+  purge      — instala timer systemd de purge applicationLogs
+  systemd    — instala qdbback.service + enable (Fase 4/5c)
+  start      — restart via systemd ou nohup fallback (Fase 1)
+  all        — sync + tls + secrets + node22 + logrotate + purge + systemd + start
 
 Opções:
   --ssh-alias ALIAS   (default: aws-ec2-fleet-01)
@@ -95,6 +99,95 @@ echo "TLS gerado para CN=${PUB_IP}"
 REMOTE
 }
 
+phase_secrets() {
+  info "Fase secrets: /etc/qdbback/monitor.env"
+  run_ssh bash <<'REMOTE'
+set -euo pipefail
+sudo mkdir -p /etc/qdbback
+ENV_FILE=/etc/qdbback/monitor.env
+if [[ ! -f "$ENV_FILE" ]]; then
+  SECRET=$(openssl rand -hex 24)
+  LOGIN=$(openssl rand -hex 12)
+  sudo tee "$ENV_FILE" > /dev/null <<EOF
+# qdbback monitor admin — gerado pelo deploy (Fase 5c)
+QDBBACK_MONITOR_SECRET=${SECRET}
+QDBBACK_MONITOR_LOGIN_KEY=${LOGIN}
+EOF
+  sudo chmod 600 "$ENV_FILE"
+  sudo chown root:root "$ENV_FILE"
+  echo "NOVO monitor.env criado. Login: https://HOST:3500/monitor?key=${LOGIN}"
+else
+  echo "monitor.env já existe — preservado"
+fi
+REMOTE
+}
+
+phase_node22() {
+  info "Fase node22: Node.js 22 LTS + deps"
+  run_ssh bash <<'REMOTE'
+set -euo pipefail
+source ~/.nvm/nvm.sh
+nvm install 22
+nvm alias default 22
+cd /home/ec2-user/server
+npm ci --omit=dev
+node --version
+REMOTE
+}
+
+phase_logrotate() {
+  info "Fase logrotate: /etc/logrotate.d/qdbback"
+  run_ssh bash <<'REMOTE'
+set -euo pipefail
+sudo tee /etc/logrotate.d/qdbback > /dev/null <<'ROTATE'
+/var/log/qdbback.log {
+  daily
+  rotate 14
+  compress
+  delaycompress
+  missingok
+  notifempty
+  copytruncate
+}
+ROTATE
+echo "logrotate configurado"
+REMOTE
+}
+
+phase_purge() {
+  info "Fase purge: timer systemd qdbback-purge"
+  run_ssh bash <<'REMOTE'
+set -euo pipefail
+sudo tee /etc/systemd/system/qdbback-purge.service > /dev/null <<'UNIT'
+[Unit]
+Description=Purge old qdbback applicationLogs
+
+[Service]
+Type=oneshot
+User=ec2-user
+Environment=QDBBACK_DB_PATH=/home/ec2-user/database.sqlite
+Environment=QDBBACK_LOGS_KEEP_DAYS=30
+EnvironmentFile=-/etc/qdbback/monitor.env
+WorkingDirectory=/home/ec2-user/server
+ExecStart=/bin/bash -lc 'source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && node /home/ec2-user/server/scripts/purge-old-data.js'
+UNIT
+sudo tee /etc/systemd/system/qdbback-purge.timer > /dev/null <<'TIMER'
+[Unit]
+Description=Daily qdbback DB purge
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+TIMER
+sudo systemctl daemon-reload
+sudo systemctl enable --now qdbback-purge.timer
+echo "qdbback-purge.timer enabled"
+REMOTE
+}
+
 phase_systemd() {
   info "Fase systemd: qdbback.service"
   run_ssh bash <<'REMOTE'
@@ -110,12 +203,12 @@ User=ec2-user
 Group=ec2-user
 WorkingDirectory=/home/ec2-user/server
 Environment=NODE_ENV=production
-Environment=PATH=/home/ec2-user/.nvm/versions/node/v16.6.0/bin:/usr/local/bin:/usr/bin
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-ExecStart=/home/ec2-user/.nvm/versions/node/v16.6.0/bin/node /home/ec2-user/server/app.js
+EnvironmentFile=-/etc/qdbback/monitor.env
+ExecStart=/bin/bash -lc 'source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && exec node /home/ec2-user/server/app.js'
 Restart=on-failure
 RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 StandardOutput=append:/var/log/qdbback.log
 StandardError=append:/var/log/qdbback.log
 
@@ -149,7 +242,7 @@ if systemctl is-enabled qdbback.service &>/dev/null; then
   sleep 18
   systemctl is-active qdbback.service
 else
-  source ~/.nvm/nvm.sh && nvm use 16.6.0 >/dev/null
+  source ~/.nvm/nvm.sh && nvm use 22 >/dev/null
   cd /home/ec2-user/server
   nohup node app.js >> /var/log/qdbback.log 2>&1 &
   sleep 18
@@ -162,11 +255,19 @@ REMOTE
 case "$PHASE" in
   sync) phase_sync ;;
   tls) phase_tls ;;
+  secrets) phase_secrets ;;
+  node22) phase_node22 ;;
+  logrotate) phase_logrotate ;;
+  purge) phase_purge ;;
   systemd) phase_systemd ;;
   start) phase_start ;;
   all)
     phase_sync
     phase_tls
+    phase_secrets
+    phase_node22
+    phase_logrotate
+    phase_purge
     phase_systemd
     phase_start
     ;;

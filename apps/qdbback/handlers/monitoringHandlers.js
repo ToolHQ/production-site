@@ -1,8 +1,10 @@
 import { logger } from '../logger.js'
 import { getStreamFromSQL, getStreamFromAnySQL, allDefault } from '../sqlite3.js'
 import { getStreamHandler } from './streamEncodedHandler.js'
+import { isProduction } from '../config.js'
+import { isReadOnlySelect } from '../services/sqlGuard.js'
 
-const httpRequestsQueryFields = ['id', 'timestamp', 'method', 'path', 'timeElapsed', 'remoteHostname', 'statusCode', 'classification']
+const httpRequestsQueryFields = ['id', 'timestamp', 'method', 'path', 'timeElapsed', 'remoteHostname', 'statusCode', 'country', 'classification']
 const logsQueryFields = ['id', 'timestamp', 'severity', 'event', 'log']
 
 const defaultPartHttpRequestsQuery = httpRequestsQueryFields.join(',')
@@ -54,6 +56,9 @@ OFFSET $offset`
 
 export const queryAnySQLHandler = getStreamHandler(async (req) => {
   const { body: sql } = req
+  if (isProduction && !isReadOnlySelect(sql)) {
+    throw Object.assign(new Error('Only read-only SELECT queries are allowed in production'), { statusCode: 403 })
+  }
   logger.info('RAW SQL QUERY', { sql })
   const dbStream = await getStreamFromAnySQL(sql, {})
   return [dbStream]

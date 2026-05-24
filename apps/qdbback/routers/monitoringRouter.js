@@ -7,6 +7,7 @@ import { systemReportHandler } from '../handlers/systemReportHandler.js'
 import { validateQueryHttpRequestsHandler, validateQueryLogsHandler, validateQueryAnySQLHandler } from '../handlers/monitoringSchemas.js'
 import { queryHttpRequestsHandler, queryLogsHandler, queryAnySQLHandler } from '../handlers/monitoringHandlers.js'
 import { threatSummaryHandler } from '../handlers/threatSummaryHandler.js'
+import { monitorAuthMiddleware } from '../services/monitorAuth.js'
 
 const cache = {
   time: cacheConstants.time.week,
@@ -26,15 +27,7 @@ const cache = {
  * @param {import('http').ServerResponse} res
  * @returns {Boolean}
  */
-const securityValidateMiddleware = (req, res) => {
-  const firstStep = req?.query?.key === 'palmeirasnaotemmundial'
-  if (firstStep) {
-    res.setHeader('Set-Cookie', 'monitor-key=215eaf6a-74c4-42cf-8417-b8f395bfeea6; Max-Age=120; Path=/; HttpOnly; Secure')
-    return false
-  }
-
-  return !req?.headers?.cookie?.includes('monitor-key=215eaf6a-74c4-42cf-8417-b8f395bfeea6')
-}
+const securityValidateMiddleware = (req, res) => monitorAuthMiddleware(req, res)
 
 export const getRouter = (isProduction) => {
   const router = isProduction ? new Router(
