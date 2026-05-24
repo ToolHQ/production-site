@@ -22,6 +22,7 @@
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
 
+| [T-293](2026/Q2/T-293-Node3-IOWait-Saturation-Containment.md) | **Cluster Pulse — Node-3 I/O Wait Saturation Containment (ClickHouse/Prometheus)** _(CPU efetiva em 100% na série Prometheus com `wa` alto no host; conter saturação e estabilizar headroom)_ | 🚨 Critical | Infra / Observability | 4h |
 | [T-285](2026/Q2/T-285-Rust-3D-Game-Mes-1.md) | **Rust 3D Game — Mês 1: Setup da Engine, Mecânicas Core & Prototipagem 3D** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-286](2026/Q2/T-286-Rust-3D-Game-Mes-2.md) | **Rust 3D Game — Mês 2: Level Design, HUD/UI & Integração com Steamworks SDK** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-287](2026/Q2/T-287-Rust-3D-Game-Mes-3.md) | **Rust 3D Game — Mês 3: Otimizações de Performance, Pacote CI/CD & Playtest Steam Deck** | 🔵 Medium | Rust 3D Steam Game | 4w |
