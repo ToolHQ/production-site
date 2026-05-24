@@ -90,7 +90,7 @@ export interface LiveSummary {
 
 export interface NodeStat {
   name: string;
-  role: 'control-plane' | 'worker';
+  role: 'control-plane' | 'worker' | 'builder';
   ready: boolean;
   disk_pressure: boolean;
   memory_pressure: boolean;
@@ -100,6 +100,7 @@ export interface NodeStat {
   memory_bytes: number;
   /** Allocatable ephemeral-storage em bytes */
   ephemeral_storage_bytes: number;
+  cluster: string;
 }
 
 /** Real host utilization from Prometheus node_exporter (workers only). */

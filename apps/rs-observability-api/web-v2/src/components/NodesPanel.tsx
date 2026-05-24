@@ -230,8 +230,17 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
   const roleBadge =
     node.role === 'control-plane' ? (
       <span class="node-role node-role--cp">control-plane</span>
+    ) : node.role === 'builder' ? (
+      <span class="node-role node-role--builder">builder</span>
     ) : (
       <span class="node-role node-role--worker">worker</span>
+    );
+
+  const clusterBadge =
+    node.cluster === 'HETZNER' ? (
+      <span class="node-cluster-badge node-cluster-badge--hetzner">HETZNER</span>
+    ) : (
+      <span class="node-cluster-badge node-cluster-badge--oci">OCI-K8S</span>
     );
 
   // 1. CPU cell with interactive tooltip card & sparkline
@@ -402,6 +411,7 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
         <span class="node-ready-dot">{readyDot}</span>
         <span class="node-hostname">{_highlight ? _highlight(node.name, _query) : node.name}</span>
       </td>
+      <td class="node-cluster-cell">{clusterBadge}</td>
       <td class="node-role-cell">{roleBadge}</td>
       <td class="node-cpu">{cpuCell}</td>
       <td class="node-mem">{memCell}</td>
@@ -473,7 +483,8 @@ function NodeCard({ node, metrics, diskWarn, diskCrit, memWarn, memCrit, cpuWarn
       <div class="nc-header">
         <span class="node-ready-dot">{node.ready ? '🟢' : '🔴'}</span>
         <span class="nc-name">{highlight ? highlight(node.name, query) : node.name}</span>
-        <span class={`node-role node-role--${node.role === 'control-plane' ? 'cp' : 'worker'}`}>{node.role}</span>
+        <span class={`node-cluster-badge node-cluster-badge--${node.cluster === 'HETZNER' ? 'hetzner' : 'oci'}`}>{node.cluster}</span>
+        <span class={`node-role node-role--${node.role === 'control-plane' ? 'cp' : node.role === 'builder' ? 'builder' : 'worker'}`}>{node.role}</span>
       </div>
       {metrics ? (
         <div class="nc-metrics">
@@ -618,6 +629,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
         <table class="nodes-table">
           <colgroup>
             <col class="col-node" />
+            <col class="col-cluster" />
             <col class="col-role" />
             <col class="col-cpu" />
             <col class="col-mem" />
@@ -627,6 +639,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
           <thead>
             <tr>
               <th>Node{search && filteredNodes.length < nodes.length && <span class="nodes-search-count"> {filteredNodes.length}/{nodes.length}</span>}</th>
+              <th>Cluster</th>
               <th>Role</th>
               <th title={hasRealMetrics ? 'Real CPU utilization (5m avg)' : 'Kubernetes allocatable CPU (fixed per node)'}>CPU</th>
               <th title={hasRealMetrics ? 'Real memory utilization' : 'Kubernetes allocatable memory (fixed per node)'}>Memory</th>

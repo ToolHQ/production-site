@@ -1183,6 +1183,7 @@ struct PvcSpec {
 #[derive(Serialize, Clone)]
 struct NodeStat {
     name: String,
+    cluster: String,
     role: String,
     ready: bool,
     disk_pressure: bool,
@@ -2345,7 +2346,7 @@ impl PrometheusMonitor {
     pub(crate) async fn fetch_node_metrics(&self) -> HashMap<String, NodeMetrics> {
         // Run 5 instant queries concurrently.
         let cpu_q =
-            r#"100 - (avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)"#;
+            r#"100 - (avg by (node, instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)"#;
         let mem_avail_q = "node_memory_MemAvailable_bytes";
         let mem_total_q = "node_memory_MemTotal_bytes";
         let disk_avail_q = r#"node_filesystem_avail_bytes{mountpoint="/"}"#;
@@ -2425,7 +2426,17 @@ fn series_to_node_map(series: Vec<PrometheusSeries>) -> HashMap<String, f64> {
     series
         .into_iter()
         .filter_map(|s| {
-            let node = s.metric.get("node")?.clone();
+            let node = if let Some(n) = s.metric.get("node") {
+                n.clone()
+            } else if let Some(inst) = s.metric.get("instance") {
+                if inst.starts_with("37.27.85.100") {
+                    "hetzner-cax21-helsinki".to_string()
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            };
             let (_, val_str) = s.value?;
             Some((node, parse_prometheus_value(&val_str)))
         })
@@ -2740,6 +2751,7 @@ fn build_node_stats(nodes: &[NodeResource]) -> Vec<NodeStat> {
 
             NodeStat {
                 name,
+                cluster: "OCI-K8S".to_string(),
                 role,
                 ready,
                 disk_pressure,
