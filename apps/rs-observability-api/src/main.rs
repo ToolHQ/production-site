@@ -7,12 +7,12 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use reqwest::{
     header::{HeaderMap, HeaderValue as ReqwestHeaderValue, ACCEPT, AUTHORIZATION},
     Certificate, Client,
@@ -1439,8 +1439,8 @@ impl LiveMonitor {
         let content = tokio::fs::read_to_string(path)
             .await
             .map_err(|e| format!("read kubeconfig {}: {}", path, e))?;
-        let cfg: serde_yaml::Value = serde_yaml::from_str(&content)
-            .map_err(|e| format!("parse kubeconfig YAML: {}", e))?;
+        let cfg: serde_yaml::Value =
+            serde_yaml::from_str(&content).map_err(|e| format!("parse kubeconfig YAML: {}", e))?;
 
         let cluster = &cfg["clusters"][0]["cluster"];
         let server = cluster["server"]
@@ -1472,8 +1472,8 @@ impl LiveMonitor {
         let mut identity_pem = cert_pem;
         identity_pem.extend_from_slice(&key_pem);
 
-        let ca_cert = Certificate::from_pem(&ca_pem)
-            .map_err(|e| format!("parse CA cert: {}", e))?;
+        let ca_cert =
+            Certificate::from_pem(&ca_pem).map_err(|e| format!("parse CA cert: {}", e))?;
         let identity = reqwest::Identity::from_pem(&identity_pem)
             .map_err(|e| format!("parse client identity: {}", e))?;
 
