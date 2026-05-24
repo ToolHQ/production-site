@@ -15,7 +15,7 @@ Reativar esta stack na EC2 AWS do Node Fleet como **sensor de tráfego malicioso
 ## Arquitetura (como funcionava)
 
 ```
-Internet → :3000 HTTP / :3443 HTTPS
+Internet → :80 HTTP / :443 HTTPS (prod EC2)
               │
               ▼
          index.js (createServer)
@@ -32,14 +32,14 @@ Internet → :3000 HTTP / :3443 HTTPS
 
 ### Portas (`config.js`)
 
-| Porta | Protocolo (prod) | Função |
-|-------|------------------|--------|
-| 3000 | HTTP | Redirect 301 → HTTPS |
-| 3443 | HTTPS | Site público (honeypot) |
-| 3500 | **HTTPS** | Admin / monitoring dashboard |
-| 9100 | HTTP | node_exporter (Node Fleet) |
+| Porta | Protocolo (prod EC2) | Dev local | Função |
+|-------|----------------------|-----------|--------|
+| 80 | HTTP | 3000 | Redirect 301 → HTTPS |
+| 443 | HTTPS | 3443 | Site público (honeypot) |
+| 3500 | HTTPS | 3500 | Admin / monitoring dashboard |
+| 9100 | HTTP | — | node_exporter (Node Fleet) |
 
-`isProduction = hostname.endsWith('.ec2.internal')` — detecta EC2 automaticamente.
+Em produção (`*.ec2.internal`), bind em **80/443** via `CAP_NET_BIND_SERVICE` no systemd.
 
 ### Auth admin (`:3500` em produção)
 

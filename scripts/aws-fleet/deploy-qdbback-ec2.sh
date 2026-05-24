@@ -111,6 +111,8 @@ Group=ec2-user
 WorkingDirectory=/home/ec2-user/server
 Environment=NODE_ENV=production
 Environment=PATH=/home/ec2-user/.nvm/versions/node/v16.6.0/bin:/usr/local/bin:/usr/bin
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 ExecStart=/home/ec2-user/.nvm/versions/node/v16.6.0/bin/node /home/ec2-user/server/app.js
 Restart=on-failure
 RestartSec=5
@@ -132,6 +134,13 @@ phase_start() {
   info "Fase start: restart qdbback"
   run_ssh bash <<'REMOTE'
 set -euo pipefail
+# Remove redirects legados (80→3000, 443→3443) se existirem — quebram bind direto em 80/443
+while sudo iptables -t nat -C PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000 2>/dev/null; do
+  sudo iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3000
+done
+while sudo iptables -t nat -C PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 3443 2>/dev/null; do
+  sudo iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 3443
+done
 pkill -f "node /home/ec2-user/server/app.js" 2>/dev/null || true
 pkill -f "node app.js" 2>/dev/null || true
 sleep 1
@@ -145,8 +154,8 @@ else
   nohup node app.js >> /var/log/qdbback.log 2>&1 &
   sleep 18
 fi
-curl -s -o /dev/null -w "HTTP3000:%{http_code}\n" http://127.0.0.1:3000/
-curl -sk -o /dev/null -w "HTTPS3443:%{http_code}\n" https://127.0.0.1:3443/
+curl -s -o /dev/null -w "HTTP80:%{http_code}\n" http://127.0.0.1/
+curl -sk -o /dev/null -w "HTTPS443:%{http_code}\n" https://127.0.0.1/
 REMOTE
 }
 

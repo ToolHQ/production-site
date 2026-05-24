@@ -23,9 +23,9 @@ usage() {
 Abre portas do honeypot qdbback no Security Group da EC2.
 
 Regras:
-  :3000  TCP  0.0.0.0/0        — HTTP público (redirect)
-  :3443  TCP  0.0.0.0/0        — HTTPS honeypot
-  :3500  TCP  OPERATOR_IP/32   — admin HTTPS (restrito)
+  :80    TCP  0.0.0.0/0        — HTTP público (redirect → HTTPS)
+  :443   TCP  0.0.0.0/0        — HTTPS honeypot
+  :3500  TCP  OPERATOR_IP/32   — admin HTTPS (restrito; não usar 443)
 
 Requisitos: AWS CLI autenticado (aws sso login).
 
@@ -75,15 +75,25 @@ authorize() {
     info "Planned: $port ← $cidr ($desc) — use --apply"
     return 0
   fi
-  aws ec2 authorize-security-group-ingress \
+  local out rc
+  out="$(aws ec2 authorize-security-group-ingress \
     --region "$REGION" \
     --group-id "$SG_ID" \
-    --ip-permissions "IpProtocol=tcp,FromPort=$port,ToPort=$port,IpRanges=[{CidrIp=$cidr,Description=\"$desc\"}]" \
-    2>/dev/null || info "Regra $port/$cidr já existe ou conflito ignorado"
+    --ip-permissions "IpProtocol=tcp,FromPort=$port,ToPort=$port,IpRanges=[{CidrIp=$cidr,Description=\"$desc\"}]" 2>&1)" || rc=$?
+  rc="${rc:-0}"
+  if [[ "$rc" -eq 0 ]]; then
+    ok "Regra $port ← $cidr ($desc)"
+  elif [[ "$out" == *InvalidPermission.Duplicate* ]] || [[ "$out" == *already exists* ]]; then
+    ok "Regra $port/$cidr já existe"
+  elif [[ "$out" == *UnauthorizedOperation* ]]; then
+    fail "Sem permissão IAM (ec2:AuthorizeSecurityGroupIngress). Adicione as regras manualmente — ver apps/qdbback/docs/SG-CONSOLE-RULES.md"
+  else
+    warn "Regra $port/$cidr: $out"
+  fi
 }
 
-authorize 3000 "0.0.0.0/0" "qdbback-http-honeypot"
-authorize 3443 "0.0.0.0/0" "qdbback-https-honeypot"
+authorize 80 "0.0.0.0/0" "qdbback-http-honeypot"
+authorize 443 "0.0.0.0/0" "qdbback-https-honeypot"
 authorize 3500 "${OPERATOR_IP}/32" "qdbback-admin-https"
 
 info "SG configure concluído"
