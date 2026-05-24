@@ -12,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 INSTANCE_ID="${INSTANCE_ID:-i-0e8ca7a9b50e474a9}"
+SG_ID="${SG_ID:-sg-06a97865399016318}"
 REGION="${AWS_REGION:-us-east-1}"
 OPERATOR_IP="${OPERATOR_IP:-}"
 DRY_RUN=false
@@ -58,29 +59,31 @@ SG_ID="$(aws ec2 describe-instances \
   --instance-ids "$INSTANCE_ID" \
   --region "$REGION" \
   --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' \
-  --output text 2>/dev/null)" || fail "AWS CLI falhou — rode: aws sso login"
+  --output text 2>/dev/null)" || SG_ID="${SG_ID:-sg-06a97865399016318}"
 
-log "Security Group: $SG_ID | Operator: ${OPERATOR_IP}/32"
+[[ -n "$SG_ID" && "$SG_ID" != None ]] || fail "SG_ID inválido — defina SG_ID ou rode: aws sso login"
+
+info "Security Group: $SG_ID | Operator: ${OPERATOR_IP}/32"
 
 authorize() {
   local port="$1" cidr="$2" desc="$3"
   if [[ "$DRY_RUN" == true ]]; then
-    log "[dry-run] authorize $port from $cidr ($desc)"
+    info "[dry-run] authorize $port from $cidr ($desc)"
     return 0
   fi
   if [[ "$APPLY" != true ]]; then
-    log "Planned: $port ← $cidr ($desc) — use --apply"
+    info "Planned: $port ← $cidr ($desc) — use --apply"
     return 0
   fi
   aws ec2 authorize-security-group-ingress \
     --region "$REGION" \
     --group-id "$SG_ID" \
     --ip-permissions "IpProtocol=tcp,FromPort=$port,ToPort=$port,IpRanges=[{CidrIp=$cidr,Description=\"$desc\"}]" \
-    2>/dev/null || log "Regra $port/$cidr já existe ou conflito ignorado"
+    2>/dev/null || info "Regra $port/$cidr já existe ou conflito ignorado"
 }
 
 authorize 3000 "0.0.0.0/0" "qdbback-http-honeypot"
 authorize 3443 "0.0.0.0/0" "qdbback-https-honeypot"
 authorize 3500 "${OPERATOR_IP}/32" "qdbback-admin-https"
 
-log "SG configure concluído"
+info "SG configure concluído"
