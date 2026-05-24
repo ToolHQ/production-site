@@ -2675,7 +2675,9 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
                     refreshed_at_epoch: unix_epoch_seconds(),
                     error: None,
                 },
-                Err(error) => honeypot_node_error(spec, &format!("decode honeypot JSON: {}", error)),
+                Err(error) => {
+                    honeypot_node_error(spec, &format!("decode honeypot JSON: {}", error))
+                }
             }
         }
         Err(error) => honeypot_node_error(spec, &format!("request honeypot API: {}", error)),
