@@ -21,7 +21,19 @@ provision-aws-external-node.sh
         └── registry + generate + (opcional) kubectl apply
 ```
 
-## Pré-requisitos locais
+## qdbback (honeypot HTTP logger)
+
+Reativação do app legado na EC2 `aws-ec2-fleet-01`:
+
+```bash
+./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase all
+./scripts/aws-fleet/configure-qdbback-sg.sh --apply   # requer: aws sso login
+./scripts/aws-fleet/validate-qdbback-logging.sh
+```
+
+Docs: `apps/qdbback/docs/AS-IS-ANALYSIS.md`
+
+---
 
 - `python3` + `PyYAML` (`pip install pyyaml`)
 - `ssh`, `scp`, `curl`

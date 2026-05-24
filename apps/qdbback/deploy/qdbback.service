@@ -1,0 +1,19 @@
+[Unit]
+Description=qdbback HTTP honeypot logger
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/server
+Environment=NODE_ENV=production
+Environment=PATH=/home/ec2-user/.nvm/versions/node/v16.6.0/bin:/usr/local/bin:/usr/bin
+ExecStart=/home/ec2-user/.nvm/versions/node/v16.6.0/bin/node /home/ec2-user/server/app.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/qdbback.log
+StandardError=append:/var/log/qdbback.log
+
+[Install]
+WantedBy=multi-user.target
