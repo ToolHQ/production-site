@@ -20,6 +20,8 @@ spec:
       labels:
         app: gta-vi
     spec:
+      imagePullSecrets:
+        - name: regsecret
       containers:
         - name: gta-vi
           image: registry.local:31444/repository/docker-repo/gta-vi:latest
