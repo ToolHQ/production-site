@@ -118,6 +118,20 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         ephemeral_storage_bytes: 80 * 1024 * 1024 * 1024, // 80 GiB
     });
 
+    // Inject the SSD Nodes dedicated server physical node stat
+    let ssdnodes_has_metrics = payload.node_metrics.contains_key("ssdnodes-monstro");
+    payload.nodes.push(NodeStat {
+        name: "ssdnodes-monstro".to_string(),
+        cluster: "SSD-NODES".to_string(),
+        role: "dedicated".to_string(),
+        ready: ssdnodes_has_metrics,
+        disk_pressure: false,
+        memory_pressure: false,
+        cpu_millicores: 12000,                               // 12 x86_64 vCPUs
+        memory_bytes: 65_004_691_456,                        // 60.54 GiB
+        ephemeral_storage_bytes: 1_268_158_550_016,          // 1181 GiB
+    });
+
     // Re-sort the nodes list alphabetically by name
     payload.nodes.sort_by(|a, b| a.name.cmp(&b.name));
 
