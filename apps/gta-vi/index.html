@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTA VI — Vice City Cluster Edition</title>
+  <link rel="icon" type="image/x-icon" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/favicon-32x32.png">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Press+Start+2P&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="background-glow"></div>
+  
+  <header>
+    <div class="logo-container">
+      <h1 class="logo-gta">GTA</h1>
+      <h1 class="logo-six">VI</h1>
+      <p class="subtitle">VICE CITY CLUSTER EDITION</p>
+    </div>
+    
+    <div class="system-stats">
+      <div class="stat-badge">
+        <span class="badge-label">CLUSTER CPU</span>
+        <span class="badge-value pulse">1 vCPU</span>
+      </div>
+      <div class="stat-badge">
+        <span class="badge-label">STATUS</span>
+        <span class="badge-value green">100% ESTÁVEL</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid-container">
+    <!-- Painel de Stats do Jogador -->
+    <section class="panel stats-panel">
+      <h2>PERFIL DO INFRATOR</h2>
+      <div class="player-profile">
+        <div class="avatar">
+          <div class="avatar-glow"></div>
+          <span class="avatar-text">👨‍💻</span>
+        </div>
+        <div class="player-info">
+          <div class="player-name" id="player-name">Reinaldinho</div>
+          <div class="player-rank" id="player-rank">Estagiário de DevOps</div>
+        </div>
+      </div>
+
+      <hr class="neon-divider">
+
+      <div class="stats-list">
+        <div class="stat-item">
+          <span class="stat-label">💰 Créditos OCI</span>
+          <span class="stat-val neon-green" id="stat-money">$100</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">⭐ Reputação</span>
+          <span class="stat-val neon-pink" id="stat-rep">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">💻 Servidores Domados</span>
+          <span class="stat-val neon-blue" id="stat-servers">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">🔥 Procurado</span>
+          <span class="stat-val stars" id="stat-stars"></span>
+        </div>
+      </div>
+
+      <div class="radio-controls">
+        <h3>📻 K-CHAT SYNTH RADIO</h3>
+        <div class="radio-buttons">
+          <button id="radio-play-btn" class="btn btn-secondary">LIGAR RÁDIO</button>
+          <div class="sound-wave" id="sound-wave">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Painel de Gameplay Central -->
+    <section class="panel game-panel">
+      <h2>MISSÕES DE SUBMUNDO DEV-OPS</h2>
+      <div class="missions-container" id="missions-list">
+        <!-- Missões geradas dinamicamente via JS -->
+      </div>
+    </section>
+
+    <!-- Console de Logs e Ações -->
+    <section class="panel console-panel">
+      <h2>CONSOLE DE ATIVIDADES</h2>
+      <div class="console-body" id="console-logs">
+        <div class="log-entry system">[SISTEMA] Vice City Cluster iniciado com sucesso. Realize missões para dominar a nuvem!</div>
+      </div>
+      <div class="console-footer">
+        <button id="reset-game-btn" class="btn btn-danger">WIPE DATABASE (RESET)</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>GTA VI — Vice City Cluster Edition | Desenvolvido com HSL CSS & Web Audio procedural synthwave | 2026</p>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>

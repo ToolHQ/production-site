@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gta-vi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gta-vi-deployment
+  namespace: gta-vi
+  labels:
+    app: gta-vi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gta-vi
+  template:
+    metadata:
+      labels:
+        app: gta-vi
+    spec:
+      containers:
+        - name: gta-vi
+          image: registry.local:31444/repository/docker-repo/gta-vi:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          livenessProbe:
+            httpGet:
+              path: /index.html
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /index.html
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gta-vi-service
+  namespace: gta-vi
+spec:
+  type: ClusterIP
+  selector:
+    app: gta-vi
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gta-vi-ingress
+  namespace: gta-vi
+  annotations:
+    cert-manager.io/cluster-issuer: "dnor-ca-issuer"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - gta.dnor.io
+      secretName: gta-vi-tls
+  rules:
+    - host: gta.dnor.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gta-vi-service
+                port:
+                  number: 80
