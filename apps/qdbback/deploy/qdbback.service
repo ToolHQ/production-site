@@ -9,6 +9,8 @@ Group=ec2-user
 WorkingDirectory=/home/ec2-user/server
 Environment=NODE_ENV=production
 Environment=PATH=/home/ec2-user/.nvm/versions/node/v16.6.0/bin:/usr/local/bin:/usr/bin
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 ExecStart=/home/ec2-user/.nvm/versions/node/v16.6.0/bin/node /home/ec2-user/server/app.js
 Restart=on-failure
 RestartSec=5

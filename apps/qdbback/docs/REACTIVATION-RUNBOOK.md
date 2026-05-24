@@ -17,8 +17,8 @@ Ordem obrigatória das fases (2026-05-24).
 Validação interna na EC2:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/          # 301
-curl -sk -o /dev/null -w '%{http_code}\n' https://127.0.0.1:3443/       # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1/              # 301
+curl -sk -o /dev/null -w '%{http_code}\n' https://127.0.0.1/           # 200
 curl -sk -H 'Cookie: monitor-key=215eaf6a-74c4-42cf-8417-b8f395bfeea6' \
   https://127.0.0.1:3500/api/monitor/status                               # 200
 ```
@@ -34,7 +34,7 @@ Teste de fora:
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://3.236.249.77/
-curl -sk -o /dev/null -w '%{http_code}\n' https://3.236.249.77:3443/
+curl -sk -o /dev/null -w '%{http_code}\n' https://3.236.249.77/
 ```
 
 ## Fase 3 — Logging end-to-end

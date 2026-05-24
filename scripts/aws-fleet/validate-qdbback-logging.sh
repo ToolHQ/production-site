@@ -19,7 +19,8 @@ BEFORE="$(ssh -o BatchMode=yes "$SSH_ALIAS" \
   "python3 -c \"import sqlite3;c=sqlite3.connect('/home/ec2-user/database.sqlite');print(c.execute('SELECT COUNT(*) FROM httpRequests').fetchone()[0])\"")"
 
 info "Probe externo: http://${HOST}${PROBE_PATH}"
-HTTP_CODE="$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 10 "http://${HOST}${PROBE_PATH}" || echo "000")"
+HTTP_CODE="$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 10 "http://${HOST}${PROBE_PATH}" 2>/dev/null || true)"
+HTTP_CODE="${HTTP_CODE:-000}"
 info "HTTP response: $HTTP_CODE"
 
 sleep 2

@@ -27,8 +27,8 @@ Honeypot/logger HTTP: persiste cada requisição recebida em SQLite, com dashboa
 
 | Porta | Protocolo (prod) | Função |
 |-------|------------------|--------|
-| 3000 | HTTP | Redirect 301 → HTTPS |
-| 3443 | HTTPS | Site público (honeypot) |
+| 80 | HTTP | Redirect 301 → HTTPS (prod; dev: 3000) |
+| 443 | HTTPS | Site público honeypot (prod; dev: 3443) |
 | 3500 | **HTTPS** | Admin/monitor (não HTTP) |
 | 9100 | HTTP | node_exporter (fleet) |
 
@@ -118,7 +118,7 @@ Insert no `res.on('finish')` — **exceto `127.0.0.1`**.
 Na EC2 com Node 16.6 + código intacto:
 
 - Boot ~14,5s, RSS ~49 MB
-- `:3000` → 301, `:3443` → 200, `:3500` HTTPS + cookie → 200 + API JSON
+- `:80` → 301, `:443` → 200, `:3500` HTTPS + cookie → 200 + API JSON
 
 ## Fases de reativação
 
