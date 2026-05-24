@@ -21,6 +21,9 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+| [T-285](2026/Q2/T-285-Rust-3D-Game-Mes-1.md) | **Rust 3D Game — Mês 1: Setup da Engine, Mecânicas Core & Prototipagem 3D** | 🔵 Medium | Rust 3D Steam Game | 4w |
+| [T-286](2026/Q2/T-286-Rust-3D-Game-Mes-2.md) | **Rust 3D Game — Mês 2: Level Design, HUD/UI & Integração com Steamworks SDK** | 🔵 Medium | Rust 3D Steam Game | 4w |
+| [T-287](2026/Q2/T-287-Rust-3D-Game-Mes-3.md) | **Rust 3D Game — Mês 3: Otimizações de Performance, Pacote CI/CD & Playtest Steam Deck** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-275](2026/Q2/T-275-AI-Radar-Digest-AI-Tools-Pulse-Section.md) | **AI Radar — Digest AI Tools Pulse Section** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-274](2026/Q2/T-274-AI-Radar-Sources-Console-Curation-UX.md) | **AI Radar — Sources Console Curation UX** | 🔽 Low | Cursor / AI Radar | 4h |
 | [T-273](2026/Q2/T-273-AI-Radar-Collect-Relevance-Gate.md) | **AI Radar — Collect Relevance Gate** | 🔼 High | Cursor / AI Radar | 5h |
