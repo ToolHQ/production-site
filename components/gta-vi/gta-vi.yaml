@@ -75,10 +75,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - gta.dnor.io
+        - gta-oci.dnor.io
       secretName: gta-vi-tls
   rules:
-    - host: gta.dnor.io
+    - host: gta-oci.dnor.io
       http:
         paths:
           - path: /
