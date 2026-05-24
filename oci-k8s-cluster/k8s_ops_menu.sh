@@ -4096,12 +4096,14 @@ node_maintenance_menu() {
 # --- HARDENING MENU ---
 show_hardening_menu() {
   while true; do
-    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 18 75 6 \
+    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 20 75 8 \
       "1" "Force Cleanup (All Nodes)" \
-      "2" "Re-apply Log Limits" \
+      "2" "Re-apply Log Limits (OCI: 200M cap)" \
       "3" "Re-deploy Watchdog" \
       "4" "Verify Control Plane Config (T-192)" \
       "5" "Re-apply Control Plane Hardening (T-192)" \
+      "6" "Vacuum Old Journals (All Nodes, >7d)" \
+      "7" "Vacuum Old Journals (Single Node)" \
       "0" "Back" 3>&1 1>&2 2>&3)
     
     if [ $? != 0 ]; then return; fi
@@ -4161,6 +4163,32 @@ show_hardening_menu() {
           echo "✅ Control plane hardening re-aplicado."
         else
           echo "Cancelado."
+        fi
+        read -p "Press Enter..."
+        ;;
+      6)
+        # T-293: Emergency vacuum — remove archived journals >7d from ALL nodes
+        # Prevents coroot-node-agent from re-reading GB of old archives on restart
+        echo -e "\n🗑️  Vacuum Old Journals (All Nodes, cutoff=7d)..."
+        ./scripts/hardening/vacuum_journals.sh
+        read -p "Press Enter..."
+        ;;
+      7)
+        # T-293: Emergency vacuum for a single node (interactive selection)
+        NODE=$(whiptail --title "Select Node" --menu "Vacuum journals on which node?" 15 60 5 \
+          "oci-k8s-master"  "Control Plane" \
+          "oci-k8s-node-1"  "Worker 1" \
+          "oci-k8s-node-2"  "Worker 2" \
+          "oci-k8s-node-3"  "Worker 3" \
+          "0" "Cancel" 3>&1 1>&2 2>&3)
+        if [ $? != 0 ] || [ "$NODE" = "0" ]; then
+          echo "Cancelado."; read -p "Press Enter..."
+        else
+          CUTOFF=$(whiptail --inputbox "Vacuum journals older than (e.g. 7d, 3d, 1d):" 8 50 "7d" \
+            --title "Cutoff Time" 3>&1 1>&2 2>&3)
+          [ $? != 0 ] && CUTOFF="7d"
+          echo -e "\n🗑️  Vacuum Old Journals on ${NODE} (cutoff=${CUTOFF})..."
+          ./scripts/hardening/vacuum_journals.sh "$NODE" "$CUTOFF"
         fi
         read -p "Press Enter..."
         ;;

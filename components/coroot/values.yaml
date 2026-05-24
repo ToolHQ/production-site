@@ -110,17 +110,7 @@ clickhouse:
       
       # 5. Throttle background merges para reduzir I/O no host (OCI 1vCPU)
       mkdir -p /etc/clickhouse-server/config.d
-      cat > /etc/clickhouse-server/config.d/merges-throttle.xml << 'XMLEOF'
-<clickhouse>
-  <background_pool_size>1</background_pool_size>
-  <background_merges_mutations_concurrency_ratio>1</background_merges_mutations_concurrency_ratio>
-  <background_move_pool_size>0</background_move_pool_size>
-  <background_fetches_pool_size>0</background_fetches_pool_size>
-  <merge_tree>
-    <max_bytes_to_merge_at_max_space_in_pool>1073741824</max_bytes_to_merge_at_max_space_in_pool>
-  </merge_tree>
-</clickhouse>
-XMLEOF
+      printf '<clickhouse>\n  <background_pool_size>1</background_pool_size>\n  <background_merges_mutations_concurrency_ratio>1</background_merges_mutations_concurrency_ratio>\n</clickhouse>\n' > /etc/clickhouse-server/config.d/merges-throttle.xml
       echo "✅ Merge throttle configurado."
 
       echo "=== 🚀 INICIANDO CLICKHOUSE SERVER ==="

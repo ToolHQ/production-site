@@ -1,6 +1,17 @@
 #!/bin/bash
 # scripts/hardening/configure_log_limits.sh
 # Applies limits to Systemd Journal and Docker Logs to prevent disk exhaustion.
+#
+# OCI-optimised limits (1 vCPU / 6 GB RAM per node):
+#   SystemMaxUse=200M      — cap total journal at 200 MB (prevents coroot-node-agent
+#                            re-reading GB of archived journals after restarts → iowait)
+#   SystemKeepFree=500M    — always keep 500 MB free on disk
+#   SystemMaxFileSize=50M  — max size of a single journal file (faster rotation)
+#   MaxRetentionSec=7day   — auto-expire journals older than 7 days
+#   RuntimeMaxUse=50M      — volatile /run journals cap
+#
+# Root cause mitigated: T-293 (2026-05-24) — coroot-node-agent reading 1 GB of
+# archived journals after 5 restarts caused 145 MB/s disk I/O → 76% iowait → CPU 100%.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source common for node list if available, else standard define
@@ -11,7 +22,7 @@ else
     CLUSTER_NODES=("oci-k8s-master" "oci-k8s-node-1" "oci-k8s-node-2" "oci-k8s-node-3")
 fi
 
-echo -e "\n🛡️  Thinking... Applying Log Limits (Closing the Faucets)..."
+echo -e "\n🛡️  Applying Log Limits (OCI-optimised: 200M journal cap)..."
 
 apply_node() {
     local node=$1
@@ -22,24 +33,40 @@ apply_node() {
     
     # 1. Systemd Journal Configuration
     # --------------------------------
-    echo "      - Configuring journald..."
+    echo "      - Configuring journald (200M cap)..."
     # Ensure directory exists just in case
     sudo mkdir -p /etc/systemd
     
-    # Backup
+    # Backup (once)
     if [ ! -f /etc/systemd/journald.conf.bak ]; then
         sudo cp /etc/systemd/journald.conf /etc/systemd/journald.conf.bak
     fi
     
-    # Apply Limits (1G Max, Keep 2G Free always)
-    # Using sed to replace or append if missing
-    sudo sed -i 's/^#\?SystemMaxUse.*/SystemMaxUse=1G/' /etc/systemd/journald.conf
-    sudo sed -i 's/^#\?SystemKeepFree.*/SystemKeepFree=2G/' /etc/systemd/journald.conf
-    sudo sed -i 's/^#\?RuntimeMaxUse.*/RuntimeMaxUse=200M/' /etc/systemd/journald.conf
+    # Apply OCI-optimised limits.
+    # sed: replace existing (commented or not) lines; append if not present.
+    apply_or_append() {
+        local key="$1" val="$2" file="/etc/systemd/journald.conf"
+        if sudo grep -qE "^#?${key}=" "$file"; then
+            sudo sed -i "s|^#\?${key}=.*|${key}=${val}|" "$file"
+        else
+            echo "${key}=${val}" | sudo tee -a "$file" > /dev/null
+        fi
+    }
+    apply_or_append SystemMaxUse      200M
+    apply_or_append SystemKeepFree    500M
+    apply_or_append SystemMaxFileSize  50M
+    apply_or_append MaxRetentionSec   7day
+    apply_or_append RuntimeMaxUse      50M
     
     # Reload
     echo "      - Restarting journald..."
     sudo systemctl restart systemd-journald
+    
+    # Immediately vacuum existing archived journals to the new limit
+    echo "      - Vacuuming archived journals (--vacuum-size=200M)..."
+    sudo journalctl --vacuum-size=200M 2>&1 | grep -E "Deleted|Freed|freed|No archive" || true
+    AFTER=$(sudo journalctl --disk-usage 2>/dev/null | grep -oP '[0-9.]+ [A-Z]' | tail -1)
+    echo "      - Journal disk usage after vacuum: ${AFTER:-unknown}"
     
     # 2. Docker Log Driver Configuration
     # --------------------------------
