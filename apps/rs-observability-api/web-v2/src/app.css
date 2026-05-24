@@ -525,6 +525,20 @@ mark.search-highlight {
     color: rgb(234, 88, 12);
     border: 1px solid rgba(234, 88, 12, 0.3);
   }
+
+  &--ssd-nodes {
+    background: rgba(139, 92, 246, 0.1);
+    color: rgb(139, 92, 246);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
+}
+
+.node-role {
+  &--dedicated {
+    background: rgba(139, 92, 246, 0.1);
+    color: rgb(139, 92, 246);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
 }
 
 .node-alert {

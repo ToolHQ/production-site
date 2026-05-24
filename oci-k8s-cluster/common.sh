@@ -41,6 +41,15 @@ MASTER_PUBLIC_IP="150.136.34.254"
 MASTER_PRIVATE_IP="10.0.1.100"
 MASTER_NODE="${NODES[0]}"
 WORKER_NODES=("${NODES[@]:1}")
+
+# External servers (not K8s nodes, but part of the infrastructure fleet)
+EXTERNAL_NODES=(
+  "hetzner-cax21-helsinki-4vcpu-8gb-ipv4"  # Hetzner ARM64 builder
+  "ssdnodes-monstro"                       # SSD Nodes dedicated server
+)
+# Full fleet: cluster nodes + external servers
+ALL_FLEET_NODES=("${CLUSTER_NODES[@]}" "${EXTERNAL_NODES[@]}")
+
 K8S_VERSION="1.34.1"
 POD_CIDR="192.168.0.0/16"   # Pod CIDR; Cilium runs in VXLAN overlay
 SERVICE_CIDR="10.96.0.0/12" # kubeadm default

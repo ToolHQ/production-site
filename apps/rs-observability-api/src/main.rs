@@ -2430,6 +2430,8 @@ fn series_to_node_map(series: Vec<PrometheusSeries>) -> HashMap<String, f64> {
             } else if let Some(inst) = s.metric.get("instance") {
                 if inst.starts_with("37.27.85.100") {
                     "hetzner-cax21-helsinki".to_string()
+                } else if inst.starts_with("104.225.218.78") {
+                    "ssdnodes-monstro".to_string()
                 } else {
                     return None;
                 }

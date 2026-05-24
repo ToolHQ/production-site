@@ -90,7 +90,7 @@ export interface LiveSummary {
 
 export interface NodeStat {
   name: string;
-  role: 'control-plane' | 'worker' | 'builder';
+  role: 'control-plane' | 'worker' | 'builder' | 'dedicated';
   ready: boolean;
   disk_pressure: boolean;
   memory_pressure: boolean;

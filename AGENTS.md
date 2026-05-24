@@ -17,8 +17,11 @@ Exemplos: usar *arquivo*, *usuário*, *acessar*, *compartilhar*, *rodar* — evi
 
 **Context**:
 
-- **Infrastructure**: Bare-metal/VM ARM64 nodes (Oracle Ampere).
-- **Constraints**: Extremely resource-constrained environment (1 vCPU/6GB RAM per node).
+- **Infrastructure**: Multi-provider fleet:
+  - **OCI (Oracle Ampere)**: 4 ARM64 nodes (1 vCPU / 6GB RAM each) — K8s cluster.
+  - **Hetzner (CAX21 Helsinki)**: 1 ARM64 node (4 vCPU / 8GB RAM) — CI/CD builder.
+  - **SSD Nodes (Dedicated)**: 1 x86_64 server (12 vCPU / 60GB RAM / 1.18TB disk) — general purpose.
+- **Constraints**: OCI nodes are extremely resource-constrained (1 vCPU/6GB RAM per node).
 - **Philosophy**: "Stability First". Prefer proven, lightweight solutions over complex, resource-heavy ones.
 - **Cost Policy**: **Zero Variable Cost** — only free-tier or already-provisioned services are permitted.
   OCI Object Storage, managed databases, and any metered cloud APIs are **off-limits**.

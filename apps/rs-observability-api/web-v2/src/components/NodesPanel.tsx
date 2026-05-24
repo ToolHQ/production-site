@@ -232,6 +232,8 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
       <span class="node-role node-role--cp">control-plane</span>
     ) : node.role === 'builder' ? (
       <span class="node-role node-role--builder">builder</span>
+    ) : node.role === 'dedicated' ? (
+      <span class="node-role node-role--dedicated">dedicated</span>
     ) : (
       <span class="node-role node-role--worker">worker</span>
     );
@@ -239,6 +241,8 @@ function NodeRow({ node, metrics, history, diskWarn = 80, diskCrit = 90, memWarn
   const clusterBadge =
     node.cluster === 'HETZNER' ? (
       <span class="node-cluster-badge node-cluster-badge--hetzner">HETZNER</span>
+    ) : node.cluster === 'SSD-NODES' ? (
+      <span class="node-cluster-badge node-cluster-badge--ssd-nodes">SSD-NODES</span>
     ) : (
       <span class="node-cluster-badge node-cluster-badge--oci">OCI-K8S</span>
     );
@@ -483,8 +487,8 @@ function NodeCard({ node, metrics, diskWarn, diskCrit, memWarn, memCrit, cpuWarn
       <div class="nc-header">
         <span class="node-ready-dot">{node.ready ? '🟢' : '🔴'}</span>
         <span class="nc-name">{highlight ? highlight(node.name, query) : node.name}</span>
-        <span class={`node-cluster-badge node-cluster-badge--${node.cluster === 'HETZNER' ? 'hetzner' : 'oci'}`}>{node.cluster}</span>
-        <span class={`node-role node-role--${node.role === 'control-plane' ? 'cp' : node.role === 'builder' ? 'builder' : 'worker'}`}>{node.role}</span>
+        <span class={`node-cluster-badge node-cluster-badge--${node.cluster === 'HETZNER' ? 'hetzner' : node.cluster === 'SSD-NODES' ? 'ssd-nodes' : 'oci'}`}>{node.cluster}</span>
+        <span class={`node-role node-role--${node.role === 'control-plane' ? 'cp' : node.role === 'builder' ? 'builder' : node.role === 'dedicated' ? 'dedicated' : 'worker'}`}>{node.role}</span>
       </div>
       {metrics ? (
         <div class="nc-metrics">
