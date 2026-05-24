@@ -6,6 +6,7 @@ import { cspReportsHandler } from '../handlers/cspReportsHandler.js'
 import { systemReportHandler } from '../handlers/systemReportHandler.js'
 import { validateQueryHttpRequestsHandler, validateQueryLogsHandler, validateQueryAnySQLHandler } from '../handlers/monitoringSchemas.js'
 import { queryHttpRequestsHandler, queryLogsHandler, queryAnySQLHandler } from '../handlers/monitoringHandlers.js'
+import { threatSummaryHandler } from '../handlers/threatSummaryHandler.js'
 
 const cache = {
   time: cacheConstants.time.week,
@@ -66,6 +67,7 @@ export const getRouter = (isProduction) => {
     .get('/api/monitor/logs', validateQueryLogsHandler, queryLogsHandler)
     .post('/api/monitor/sql', validateQueryAnySQLHandler, queryAnySQLHandler)
     .get('/api/monitor/status', systemReportHandler)
+    .get('/api/monitor/threats', threatSummaryHandler)
 
   return router
 }

@@ -2,6 +2,7 @@
 import { METHODS } from 'http'
 import { log, logger } from './logger.js'
 import { lookupServiceWithCache } from './services/dns.js'
+import { classifyRequest } from './services/classifyRequest.js'
 import { runDefault } from './sqlite3.js'
 import { cspDefaultHeader } from './config.js'
 
@@ -245,8 +246,14 @@ export class Router {
         statusCode: res.statusCode,
       })
       if (remoteIp !== '127.0.0.1') {
+        const classification = classifyRequest({
+          path,
+          method: req.method,
+          userAgent,
+          statusCode: res.statusCode,
+        })
         await runDefault(
-          'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             new Date().toISOString(),
             req.method,
@@ -258,6 +265,7 @@ export class Router {
             userAgent,
             null,
             JSON.stringify(req.headers),
+            classification,
           ],
         )
       }

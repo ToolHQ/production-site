@@ -2,7 +2,7 @@ import { logger } from '../logger.js'
 import { getStreamFromSQL, getStreamFromAnySQL, allDefault } from '../sqlite3.js'
 import { getStreamHandler } from './streamEncodedHandler.js'
 
-const httpRequestsQueryFields = ['id', 'timestamp', 'method', 'path', 'timeElapsed', 'remoteHostname', 'statusCode']
+const httpRequestsQueryFields = ['id', 'timestamp', 'method', 'path', 'timeElapsed', 'remoteHostname', 'statusCode', 'classification']
 const logsQueryFields = ['id', 'timestamp', 'severity', 'event', 'log']
 
 const defaultPartHttpRequestsQuery = httpRequestsQueryFields.join(',')
