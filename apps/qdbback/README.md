@@ -23,20 +23,36 @@ Internet → :3000 HTTP / :3443 HTTPS
               ▼
          router.js ── on response finish ──► INSERT httpRequests (SQLite)
               │
-              ├── productionHttpRouter (rotas públicas mínimas)
-              ├── mainRouter (dev)
-              └── monitoringRouter :3500 (admin UI + API paginada)
+              ├── routers/productionHttpRouter (redirect HTTP)
+              ├── routers/mainRouter (site público HTTPS)
+              └── routers/monitoringRouter :3500 HTTPS (admin UI + API)
 ```
+
+> **Layout:** `index.js` importa de `routers/` e `services/` — não use cópias legadas na raiz.
 
 ### Portas (`config.js`)
 
-| Porta | Função |
-|-------|--------|
-| 3000 | HTTP público |
-| 3443 | HTTPS (certificados no diretório pai) |
-| 3500 | Admin / monitoring dashboard |
+| Porta | Protocolo (prod) | Função |
+|-------|------------------|--------|
+| 3000 | HTTP | Redirect 301 → HTTPS |
+| 3443 | HTTPS | Site público (honeypot) |
+| 3500 | **HTTPS** | Admin / monitoring dashboard |
+| 9100 | HTTP | node_exporter (Node Fleet) |
 
 `isProduction = hostname.endsWith('.ec2.internal')` — detecta EC2 automaticamente.
+
+### Auth admin (`:3500` em produção)
+
+1. Acesse `https://HOST:3500/monitor?key=palmeirasnaotemmundial`
+2. Cookie `monitor-key=215eaf6a-74c4-42cf-8417-b8f395bfeea6` (HttpOnly, Secure)
+3. Sem cookie → **404** em todas as rotas admin
+
+**Tunnel SSH (recomendado — não exponha :3500 publicamente):**
+
+```bash
+ssh -L 3500:127.0.0.1:3500 aws-ec2-fleet-01
+# https://localhost:3500/monitor?key=palmeirasnaotemmundial
+```
 
 ### Persistência (`sqlite3.js` + `router.js`)
 
@@ -79,8 +95,19 @@ Backup completo: `archive/aws-ec2-fleet-01/recovery-2026-05-24/` (local, gitigno
 ```bash
 cd apps/qdbback
 npm ci
-# Copiar database.sqlite do archive para apps/qdbback/ (ou path em sqlite3.js)
+# database.sqlite: copiar do archive para apps/qdbback/../ (path ../database.sqlite)
+# version.json: já em apps/version.json
 node app.js
+```
+
+## Reativação na EC2
+
+Ver [`docs/REACTIVATION-RUNBOOK.md`](docs/REACTIVATION-RUNBOOK.md) e [`docs/AS-IS-ANALYSIS.md`](docs/AS-IS-ANALYSIS.md).
+
+```bash
+./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase all
+./scripts/aws-fleet/configure-qdbback-sg.sh --apply
+./scripts/aws-fleet/validate-qdbback-logging.sh
 ```
 
 ## Próximos passos (modernização — não implementado)

@@ -2,7 +2,7 @@ import http from 'http'
 import https from 'https'
 import path from 'path'
 import { fork } from 'child_process'
-import { watch } from 'fs'
+import { watch, existsSync } from 'fs'
 import {
   port, portHttps, portAdmin, isProduction,
 } from './config.js'
@@ -13,6 +13,8 @@ import { getRouter as getProductionHttpRouter } from './routers/productionHttpRo
 import { getRouter as getMonitoringRouter } from './routers/monitoringRouter.js'
 import { init as sqlite3Init } from './sqlite3.js'
 import { __dirname } from './dir.js'
+
+const monitorDistIndex = path.join(__dirname, './dist/monitor/index.html')
 
 const webpack = () => new Promise((resolve, reject) => {
   const hrTimeStart = process.hrtime()
@@ -29,6 +31,14 @@ const webpack = () => new Promise((resolve, reject) => {
     }
   })
 })
+
+const runWebpackIfNeeded = () => {
+  if (isProduction && existsSync(monitorDistIndex)) {
+    log('Skipping webpack in production (dist/monitor present)', {})
+    return Promise.resolve()
+  }
+  return webpack()
+}
 
 const beingChanged = new Map()
 if (!isProduction) {
@@ -68,7 +78,7 @@ const formatMemoryUsage = (data) => `${Math.round(((data / 1024) / 1024) * 100) 
  */
 const startApp = async () => {
   const depsLoadPromise = Promise.all([
-    webpack(),
+    runWebpackIfNeeded(),
     sqlite3Init(),
   ])
   const mainRouter = getMainRouter()
