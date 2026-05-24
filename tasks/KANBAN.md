@@ -21,6 +21,8 @@
 
 |                                    ID                                     | Task Name                                                                                                                                                                        |  Priority   | Epic                      | Est. |
 | :-----------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :------------------------ | :--: |
+| [T-288](2026/Q2/T-288-Cluster-Pulse-Node3-CPU-Investigation.md) | **Cluster Pulse — Investigação e Mitigação de Alta CPU (100%) no Nó k8s-node-3** | 🚨 Critical | Cluster Pulse / Observability | 4h |
+| [T-289](2026/Q2/T-289-Cluster-Pulse-Hetzner-Monitor-Node-Fleet.md) | **Cluster Pulse — Monitoramento do Hetzner Runner no Node Fleet com Marcador de Cluster** | 🔼 High | Cluster Pulse / Observability | 6h |
 | [T-285](2026/Q2/T-285-Rust-3D-Game-Mes-1.md) | **Rust 3D Game — Mês 1: Setup da Engine, Mecânicas Core & Prototipagem 3D** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-286](2026/Q2/T-286-Rust-3D-Game-Mes-2.md) | **Rust 3D Game — Mês 2: Level Design, HUD/UI & Integração com Steamworks SDK** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-287](2026/Q2/T-287-Rust-3D-Game-Mes-3.md) | **Rust 3D Game — Mês 3: Otimizações de Performance, Pacote CI/CD & Playtest Steam Deck** | 🔵 Medium | Rust 3D Steam Game | 4w |
