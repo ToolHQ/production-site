@@ -11,3 +11,9 @@ artifacts/
 .last_build_hash
 .hetzner.root
 .ssdnodes.creds
+
+# AWS EC2 fleet-01 — backup local completo (sqlite, nvm, node_modules, TLS keys)
+archive/aws-ec2-fleet-01/recovery-*/
+archive/aws-ec2-fleet-01/*.zip
+!archive/aws-ec2-fleet-01/MANIFEST.md
+!archive/aws-ec2-fleet-01/checksums.sha256

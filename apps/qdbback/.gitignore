@@ -1,0 +1,9 @@
+node_modules/
+coverage/
+*.sqlite
+*.sqlite3
+nohup.out
+private.key
+certificate.crt
+ca_bundle.crt
+.env
