@@ -10,7 +10,6 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
-| [T-297](2026/Q2/T-297-Node-Fleet-v2-UI-mockup-DNOR-tabela-unificada-sparklines-reais-shell.md) | **Node Fleet v2 — UI mockup DNOR (tabela unificada + sparklines reais + shell)** | Cursor / AI Radar | High | 3w |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -31,8 +30,15 @@
 | [T-273](2026/Q2/T-273-AI-Radar-Collect-Relevance-Gate.md) | **AI Radar — Collect Relevance Gate** | 🔼 High | Cursor / AI Radar | 5h |
 | [T-272](2026/Q2/T-272-AI-Radar-YouTube-AI-Trends-Collector.md) | **AI Radar — YouTube AI Trends Collector** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-271](2026/Q2/T-271-AI-Radar-Google-Trends-Collector-Spike.md) | **AI Radar — Google Trends Collector Spike** | 🔼 High | Cursor / AI Radar | 4h |
+| T-300 | **SSDNodes — Criar DNS: `s3.ssdnodes.dnor.io` + `minio.ssdnodes.dnor.io` → 104.225.218.78** _(para habilitar Ingress MinIO já deployado)_ | 🔵 Medium | Copilot/VSCode | 30min |
 
 ## ✅ Done
+
+|                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
+| :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
+| T-299 | **SSDNodes K8s — Workloads base deployados** _(local-path-provisioner SC padrão; nginx-ingress DaemonSet hostNetwork 80/443; MinIO standalone 500 GiB PVC Bound; Ingresses s3/minio.ssdnodes.dnor.io; manifests em components/ssdnodes/; PR #329 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| T-298 | **reports.dnor.io — UI multi-cluster: agrupar nós por cluster com headers** _(NodesPanel agrupa OCI-K8S/SSD-NODES/HETZNER/AWS-EC2 com borda colorida, badge, X/Y ready, vCPU, GiB RAM; flat list em busca; mobile cards também; PR #329 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| T-297 | **Bootstrap fix — remover `ssh -t` incompatível com `BatchMode=yes`** _(install_k8s_kubeadm.sh: 3 ocorrências corrigidas; PR #329 merged)_ | 🔵 Medium | **Copilot/VSCode** | 30min |
 
 |                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
