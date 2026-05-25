@@ -2,7 +2,9 @@
 
 ## Em andamento
 
-_(vazio)_
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-297** | Node Fleet v2 — mockup DNOR (tabela + sparklines reais + shell) | 🏎️ 5d-a ✅ hero PR #331 |
 
 ## qdbback / External Fleet (concluído 2026-05-25)
 

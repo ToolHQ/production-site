@@ -10,6 +10,7 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
+| [T-297](2026/Q2/T-297-Node-Fleet-v2-UI-mockup-DNOR-tabela-unificada-sparklines-reais-shell.md) | **Node Fleet v2 — UI mockup DNOR (tabela unificada + sparklines reais + shell)** | Cursor / AI Radar | High | 3w |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
