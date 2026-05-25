@@ -157,8 +157,10 @@ EOF
     # ── kubeadm / kubelet / kubectl from pkgs.k8s.io (arm64 + amd64)
     echo '📦 Instalando kubeadm/kubelet/kubectl (pkgs.k8s.io/stable/v1.33)...'
     sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key \
-        | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg 2>/dev/null
+    if [[ ! -f /etc/apt/keyrings/kubernetes-apt-keyring.gpg ]]; then
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg 2>/dev/null
+    fi
     echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' \
         | sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null
     sudo apt-get update -qq
