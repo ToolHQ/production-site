@@ -225,7 +225,7 @@ describe('handlers/streamEncodedHandler.js', () => {
     expect(loggerErrorFn.mock.calls[0][0]).toBe('some/path Handler ERROR')
     expect(loggerErrorFn.mock.calls[0][1]).toHaveProperty('message')
     expect(loggerErrorFn.mock.calls[0][1].message)
-      .toBe('The "source" argument must be of type function or an instance of Stream, Iterable, or AsyncIterable. Received an instance of Object')
+      .toContain('Received an instance of Object')
     expect(resMock.body).toEqual(JSON.stringify({
       message: 'Internal Server Error',
     }))
@@ -255,9 +255,9 @@ describe('handlers/streamEncodedHandler.js', () => {
     expect(loggerErrorFn.mock.calls[0][0]).toBe('some/path/more/internal Handler ERROR')
     expect(loggerErrorFn.mock.calls[0][1]).toHaveProperty('message')
     expect(loggerErrorFn.mock.calls[0][1].message)
-      .toBe('The "source" argument must be of type function or an instance of Stream, Iterable, or AsyncIterable. Received an instance of Object')
+      .toContain('Received an instance of Object')
     expect(resMock.body).toEqual(JSON.stringify({
-      message: 'The "source" argument must be of type function or an instance of Stream, Iterable, or AsyncIterable. Received an instance of Object',
+      message: loggerErrorFn.mock.calls[0][1].message,
     }))
   })
 })

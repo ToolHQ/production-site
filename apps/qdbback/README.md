@@ -43,8 +43,16 @@ Em produção (`*.ec2.internal`), bind em **80/443** via `CAP_NET_BIND_SERVICE` 
 
 ### Auth admin (`:3500` em produção)
 
-1. Acesse `https://HOST:3500/monitor?key=palmeirasnaotemmundial`
-2. Cookie `monitor-key=215eaf6a-74c4-42cf-8417-b8f395bfeea6` (HttpOnly, Secure)
+## Monitor admin (`:3500`)
+
+Auth via env (Fase 5c) — arquivo `/etc/qdbback/monitor.env` na EC2:
+
+1. `QDBBACK_MONITOR_SECRET` — deriva cookie `monitor-key`
+2. `QDBBACK_MONITOR_LOGIN_KEY` — query `?key=` para login (8h cookie)
+
+Dev local (sem env): `?key=palmeirasnaotemmundial` (legado).
+
+`/api/monitor/sql` em produção: **somente SELECT read-only**.
 3. Sem cookie → **404** em todas as rotas admin
 
 **Tunnel SSH (recomendado — não exponha :3500 publicamente):**

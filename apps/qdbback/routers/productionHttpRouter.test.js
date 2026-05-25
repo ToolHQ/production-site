@@ -35,6 +35,10 @@ const initMock = () => {
     lookupServiceWithCache: lookupServiceWithCacheFn,
   }))
 
+  jest.mockModule('../services/geoip.js', () => ({
+    lookupCountry: jest.fn(() => null),
+  }))
+
   jest.mockModule('../sqlite3.js', () => ({
     runDefault: runDefaultFn,
   }))
@@ -106,7 +110,7 @@ describe('routers/productionHttpRouter.js', () => {
     expect(runDefaultFn).toBeCalled()
     expect(runDefaultFn.mock.calls).toEqual([
       [
-        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, country, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           '1994-04-03T15:00:00.005Z',
           'GET',
@@ -118,6 +122,7 @@ describe('routers/productionHttpRouter.js', () => {
           undefined,
           null,
           JSON.stringify({ host: 'www.cursosgratis.com' }),
+          null,
           'unclassified',
         ],
       ],

@@ -43,6 +43,14 @@ const initMock = () => {
     lookupServiceWithCache: lookupServiceWithCacheFn,
   }))
 
+  jest.mockModule('../services/geoip.js', () => ({
+    lookupCountry: jest.fn(() => null),
+  }))
+
+  jest.mockModule('../services/monitorAuth.js', () => ({
+    monitorAuthMiddleware: jest.fn(() => false),
+  }))
+
   const fileLastModifiedFn = jest.fn(() => 123)
   jest.mockModule('../services/fs.js', () => ({
     createReadStream,
@@ -207,6 +215,14 @@ const getExpectedRouteRegisteredLogs = () => {
         route: '/api/monitor/status',
       },
     ],
+    [
+      'Route registered',
+      {
+        method: 'GET',
+        regexStr: '^/api/monitor/threats$',
+        route: '/api/monitor/threats',
+      },
+    ],
   ]
 }
 
@@ -293,7 +309,7 @@ describe('routers/monitoringRouter.js', () => {
       expect(runDefaultFn).toBeCalled()
       expect(runDefaultFn.mock.calls).toEqual([
         [
-          'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, country, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             '1994-04-03T15:00:00.005Z',
             'GET',
@@ -305,6 +321,7 @@ describe('routers/monitoringRouter.js', () => {
             'abc',
             null,
             JSON.stringify(headers),
+            null,
             'probe:root',
           ],
         ],

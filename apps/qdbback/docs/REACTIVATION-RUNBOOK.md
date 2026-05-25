@@ -63,8 +63,28 @@ Confirma incremento de `httpRequests` após probe externo.
 - API `GET /api/monitor/threats` — resumo por tag
 - Coluna `classification` no grid de requests
 
-### 5b — Pendente
+### 5b — Node Fleet honeypot ✅
 
-- Node 22 LTS, métricas Prometheus / Node Fleet
-- Auth admin robusto, TLS Let's Encrypt
-- GeoIP (`country`), logrotate
+- `GET /internal/threats-summary` + card no Node Fleet (`reports.dnor.io`)
+
+### 5c — Modernização operacional (este PR)
+
+- **Node 22 LTS** na EC2 (`deploy --phase node22`)
+- **Auth admin** via `/etc/qdbback/monitor.env` (`QDBBACK_MONITOR_SECRET`, `QDBBACK_MONITOR_LOGIN_KEY`)
+- **GeoIP** — preenche `country` no INSERT (`geoip-lite`)
+- **SQL guard** — `/api/monitor/sql` só aceita `SELECT` read-only em produção
+- **Purge** — `scripts/purge-old-data.js` + timer `qdbback-purge` (applicationLogs > 30d)
+- **Logrotate** — `/var/log/qdbback.log` (14 dias)
+
+```bash
+# Deploy completo 5c
+./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase all
+
+# Login admin (use key do monitor.env na EC2)
+ssh aws-ec2-fleet-01 'sudo grep LOGIN /etc/qdbback/monitor.env'
+```
+
+### Pendente (futuro)
+
+- TLS Let's Encrypt (requer domínio apontando para a EC2)
+- Métricas Prometheus nativas no qdbback
