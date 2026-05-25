@@ -195,6 +195,14 @@ else
     # shellcheck disable=SC2089
     INIT_FLAGS="--pod-network-cidr=10.244.0.0/16 ${VERSION_FLAG}"
 
+    # Check if kubeadm has already been initialized on the remote node
+    ALREADY_INIT=$(ssh $SSH_OPTS "$SSH_HOST" \
+        "test -f /etc/kubernetes/manifests/kube-apiserver.yaml && echo yes || echo no")
+
+    if [[ "$ALREADY_INIT" == "yes" ]]; then
+        warn "kubeadm já inicializado em $SSH_HOST — pulando kubeadm init (cluster existente)."
+        warn "Para reinicializar: ssh $SSH_HOST 'kubeadm reset -f' e rode o script novamente."
+    else
     ssh $SSH_OPTS "$SSH_HOST" "
         set -e
         MASTER_IP=\$(hostname -I | awk '{print \$1}')
@@ -237,6 +245,7 @@ else
         kubectl get pods -n kube-system --no-headers | head -20
     "
     ok "Cluster kubeadm inicializado"
+    fi  # end: ALREADY_INIT == no
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
