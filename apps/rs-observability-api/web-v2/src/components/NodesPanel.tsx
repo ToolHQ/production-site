@@ -8,6 +8,7 @@ import { ThresholdSettings } from './ThresholdSettings';
 import { clusterBadgeClass, clusterBadgeSlug } from '../utils/clusterBadge';
 import { FleetOverviewTable } from './FleetOverviewTable';
 import { buildFleetOverviewRows, filterFleetRows } from '../utils/fleetOverview';
+import { useDnorShell } from '../context/DnorShellContext';
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -707,7 +708,9 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
   const nodeMetrics = live?.node_metrics ?? {};
   const hasRealMetrics = Object.keys(nodeMetrics).length > 0;
 
-  const [search, setSearch] = useState('');
+  const { nodeSearch, setNodeSearch } = useDnorShell();
+  const search = nodeSearch;
+  const setSearch = setNodeSearch;
   const [showSettings, setShowSettings] = useState(false);
   const { thresholds, update: updateThreshold, reset: resetThresholds } = useAlertThresholds();
 

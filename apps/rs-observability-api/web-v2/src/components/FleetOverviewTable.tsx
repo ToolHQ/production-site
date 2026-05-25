@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
 import { MetricSparkline } from './MetricSparkline';
 import { clusterBadgeClass } from '../utils/clusterBadge';
 import type { FleetOverviewRow, FleetStatus } from '../utils/fleetOverview';
@@ -7,7 +8,10 @@ interface FleetOverviewTableProps {
   rows: FleetOverviewRow[];
   highlight?: (text: string, query: string) => ComponentChildren;
   query?: string;
+  pageSize?: number;
 }
+
+const DEFAULT_PAGE_SIZE = 8;
 
 function statusLabel(status: FleetStatus): string {
   switch (status) {
@@ -45,7 +49,25 @@ function MetricCell({
   );
 }
 
-export function FleetOverviewTable({ rows, highlight, query = '' }: FleetOverviewTableProps) {
+export function FleetOverviewTable({
+  rows,
+  highlight,
+  query = '',
+  pageSize = DEFAULT_PAGE_SIZE,
+}: FleetOverviewTableProps) {
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return rows.slice(start, start + pageSize);
+  }, [rows, safePage, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rows.length, query]);
+
   if (rows.length === 0) return null;
 
   const hl = (text: string) => (highlight ? highlight(text, query) : text);
@@ -56,7 +78,7 @@ export function FleetOverviewTable({ rows, highlight, query = '' }: FleetOvervie
         <div>
           <h3 class="fleet-overview__title">Fleet overview</h3>
           <p class="fleet-overview__subtitle">
-            {rows.length} node{rows.length === 1 ? '' : 's'} across all environments
+            Showing {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, rows.length)} of {rows.length} nodes
           </p>
         </div>
       </div>
@@ -77,7 +99,7 @@ export function FleetOverviewTable({ rows, highlight, query = '' }: FleetOvervie
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {pageRows.map((row) => (
               <tr
                 key={row.key}
                 class={`fleet-row fleet-row--${row.status}${row.isHoneypot ? ' fleet-row--honeypot' : ''}`}
@@ -152,6 +174,30 @@ export function FleetOverviewTable({ rows, highlight, query = '' }: FleetOvervie
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div class="fleet-overview__pagination">
+          <button
+            type="button"
+            class="fleet-overview__page-btn"
+            disabled={safePage <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            ← Prev
+          </button>
+          <span class="fleet-overview__page-info">
+            Page {safePage} of {totalPages}
+          </span>
+          <button
+            type="button"
+            class="fleet-overview__page-btn"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </section>
   );
 }

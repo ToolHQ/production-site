@@ -815,6 +815,35 @@ mark.search-highlight {
   }
 }
 
+.fleet-overview__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+}
+
+.fleet-overview__page-btn {
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.fleet-overview__page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fleet-overview__page-info {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .nodes-alert-pill {
   display: inline-flex;
   align-items: center;
