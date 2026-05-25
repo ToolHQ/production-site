@@ -69,7 +69,7 @@ Confirma incremento de `httpRequests` após probe externo.
 
 ### 5c — Modernização operacional (este PR)
 
-- **Node 22 LTS** na EC2 (`deploy --phase node22`)
+- **Node 16.20 LTS** na EC2 (AL2 — Node 22+ exige Amazon Linux 2023)
 - **Auth admin** via `/etc/qdbback/monitor.env` (`QDBBACK_MONITOR_SECRET`, `QDBBACK_MONITOR_LOGIN_KEY`)
 - **GeoIP** — preenche `country` no INSERT (`geoip-lite`)
 - **SQL guard** — `/api/monitor/sql` só aceita `SELECT` read-only em produção
