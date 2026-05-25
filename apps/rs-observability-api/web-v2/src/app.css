@@ -669,6 +669,76 @@ mark.search-highlight {
   }
 }
 
+/* ── Cluster group header rows (desktop table) ── */
+.cluster-group-header {
+  td {
+    padding: 10px 14px 8px;
+    background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    font-size: 0.78rem;
+    vertical-align: middle;
+  }
+
+  &--oci td { border-left: 3px solid rgb(13, 148, 136); }
+  &--hetzner td { border-left: 3px solid rgb(234, 88, 12); }
+  &--ssd-nodes td { border-left: 3px solid rgb(139, 92, 246); }
+  &--aws-ec2 td { border-left: 3px solid rgb(251, 191, 36); }
+  &--external td { border-left: 3px solid var(--muted); }
+
+  .node-cluster-badge {
+    font-size: 0.78rem;
+    vertical-align: middle;
+  }
+}
+
+.cluster-group-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.75rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.cluster-ready-pill {
+  font-weight: 600;
+  &--all { color: var(--ok); }
+  &--partial { color: var(--warm); }
+}
+
+.cluster-stat-sep {
+  color: var(--line);
+}
+
+.cluster-stat {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* ── Cluster section headers (mobile cards) ── */
+.cluster-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 10px 12px 8px;
+  margin: 12px 0 4px;
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  border-radius: 8px;
+  border-left: 3px solid var(--muted);
+
+  &--oci { border-left-color: rgb(13, 148, 136); }
+  &--hetzner { border-left-color: rgb(234, 88, 12); }
+  &--ssd-nodes { border-left-color: rgb(139, 92, 246); }
+  &--aws-ec2 { border-left-color: rgb(251, 191, 36); }
+}
+
+.cluster-card-stats {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
 .node-alert {
   display: inline-flex;
   align-items: center;

@@ -1,0 +1,42 @@
+# nginx-ingress Helm values para SSDNodes (bare-metal / single-node)
+# hostNetwork=true para bindar portas 80/443 diretamente no IP do host
+
+controller:
+  kind: DaemonSet          # DaemonSet para garantir que o pod use o node
+  hostNetwork: true        # Bind diretamente na NIC do host
+  hostPort:
+    enabled: true
+    ports:
+      http: 80
+      https: 443
+
+  service:
+    enabled: false         # Sem LoadBalancer (não tem cloud LB aqui)
+
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+
+  # Recursos conservadores — 12 vCPU / 60 GB RAM tem folga
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  config:
+    use-forwarded-headers: "true"
+    compute-full-forwarded-for: "true"
+    proxy-body-size: "100m"
+    proxy-read-timeout: "600"
+    proxy-send-timeout: "600"
+
+  metrics:
+    enabled: false         # Sem Prometheus no SSDNodes por enquanto
+
+# Sem defaultBackend (economiza recursos)
+defaultBackend:
+  enabled: false

@@ -5,7 +5,7 @@ import type { LiveOverview, NodeMetrics, NodeStat, HoneypotNodeStats } from '../
 import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
 import { ThresholdSettings } from './ThresholdSettings';
-import { clusterBadgeClass } from '../utils/clusterBadge';
+import { clusterBadgeClass, clusterBadgeSlug } from '../utils/clusterBadge';
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -612,6 +612,30 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
     );
   }, [nodes, search]);
 
+  // Cluster ordering: known clusters first, then alphabetical
+  const CLUSTER_ORDER = ['OCI-K8S', 'SSD-NODES', 'HETZNER', 'AWS-EC2'];
+
+  // When searching: flat list. Otherwise: group by cluster.
+  const groupedNodes = useMemo(() => {
+    const map = new Map<string, NodeStat[]>();
+    for (const node of filteredNodes) {
+      const list = map.get(node.cluster) ?? [];
+      list.push(node);
+      map.set(node.cluster, list);
+    }
+    const sorted = [...map.keys()].sort((a, b) => {
+      const ai = CLUSTER_ORDER.indexOf(a);
+      const bi = CLUSTER_ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    return sorted.map((cluster) => ({ cluster, nodes: map.get(cluster)! }));
+  }, [filteredNodes]);
+
+  const showGroupHeaders = !search.trim() && groupedNodes.length > 1;
+
   const highlightText = useCallback((text: string, query: string): ComponentChildren => {
     if (!query.trim()) return text;
     const idx = text.toLowerCase().indexOf(query.toLowerCase());
@@ -731,21 +755,41 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
             </tr>
           </thead>
           <tbody>
-            {filteredNodes.map((node) => (
-              <NodeRow
-                key={node.name}
-                node={{ ...node, name: node.name }}
-                metrics={nodeMetrics[node.name]}
-                history={history?.[node.name]}
-                diskWarn={thresholds.disk_warn}
-                diskCrit={thresholds.disk_crit}
-                memWarn={thresholds.mem_warn}
-                memCrit={thresholds.mem_crit}
-                cpuWarn={thresholds.cpu_warn}
-                cpuCrit={thresholds.cpu_crit}
-                _highlight={highlightText}
-                _query={search}
-              />
+            {groupedNodes.map(({ cluster, nodes: clusterNodes }) => (
+              <>
+                {showGroupHeaders && (
+                  <tr class={`cluster-group-header cluster-group-header--${clusterBadgeSlug(cluster)}`}>
+                    <td colspan={10}>
+                      <span class={`node-cluster-badge ${clusterBadgeClass(cluster)}`}>{cluster}</span>
+                      <span class="cluster-group-stats">
+                        <span class={`cluster-ready-pill ${clusterNodes.filter(n => n.ready).length === clusterNodes.length ? 'cluster-ready-pill--all' : 'cluster-ready-pill--partial'}`}>
+                          {clusterNodes.filter(n => n.ready).length}/{clusterNodes.length} ready
+                        </span>
+                        <span class="cluster-stat-sep">·</span>
+                        <span class="cluster-stat">{Math.round(clusterNodes.reduce((s, n) => s + n.cpu_millicores, 0) / 1000)} vCPU</span>
+                        <span class="cluster-stat-sep">·</span>
+                        <span class="cluster-stat">{(clusterNodes.reduce((s, n) => s + n.memory_bytes, 0) / 1073741824).toFixed(0)} GiB RAM</span>
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {clusterNodes.map((node) => (
+                  <NodeRow
+                    key={node.name}
+                    node={{ ...node, name: node.name }}
+                    metrics={nodeMetrics[node.name]}
+                    history={history?.[node.name]}
+                    diskWarn={thresholds.disk_warn}
+                    diskCrit={thresholds.disk_crit}
+                    memWarn={thresholds.mem_warn}
+                    memCrit={thresholds.mem_crit}
+                    cpuWarn={thresholds.cpu_warn}
+                    cpuCrit={thresholds.cpu_crit}
+                    _highlight={highlightText}
+                    _query={search}
+                  />
+                ))}
+              </>
             ))}
           </tbody>
         </table>
@@ -753,20 +797,36 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
 
       {/* ── Mobile card view (CSS shows/hides based on viewport) ── */}
       <div class="node-cards-mobile">
-        {filteredNodes.map((node) => (
-          <NodeCard
-            key={node.name}
-            node={node}
-            metrics={nodeMetrics[node.name]}
-            diskWarn={thresholds.disk_warn}
-            diskCrit={thresholds.disk_crit}
-            memWarn={thresholds.mem_warn}
-            memCrit={thresholds.mem_crit}
-            cpuWarn={thresholds.cpu_warn}
-            cpuCrit={thresholds.cpu_crit}
-            highlight={highlightText}
-            query={search}
-          />
+        {groupedNodes.map(({ cluster, nodes: clusterNodes }) => (
+          <>
+            {showGroupHeaders && (
+              <div class={`cluster-card-header cluster-card-header--${clusterBadgeSlug(cluster)}`}>
+                <span class={`node-cluster-badge ${clusterBadgeClass(cluster)}`}>{cluster}</span>
+                <span class="cluster-card-stats">
+                  {clusterNodes.filter(n => n.ready).length}/{clusterNodes.length} ready
+                  &nbsp;·&nbsp;
+                  {Math.round(clusterNodes.reduce((s, n) => s + n.cpu_millicores, 0) / 1000)} vCPU
+                  &nbsp;·&nbsp;
+                  {(clusterNodes.reduce((s, n) => s + n.memory_bytes, 0) / 1073741824).toFixed(0)} GiB
+                </span>
+              </div>
+            )}
+            {clusterNodes.map((node) => (
+              <NodeCard
+                key={node.name}
+                node={node}
+                metrics={nodeMetrics[node.name]}
+                diskWarn={thresholds.disk_warn}
+                diskCrit={thresholds.disk_crit}
+                memWarn={thresholds.mem_warn}
+                memCrit={thresholds.mem_crit}
+                cpuWarn={thresholds.cpu_warn}
+                cpuCrit={thresholds.cpu_crit}
+                highlight={highlightText}
+                query={search}
+              />
+            ))}
+          </>
         ))}
       </div>
       <p class="nodes-table-footnote">

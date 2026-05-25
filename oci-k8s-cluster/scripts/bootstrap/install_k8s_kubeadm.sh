@@ -99,7 +99,7 @@ else
     step "2/5" "Instalando containerd + kubeadm/kubelet/kubectl (${PKG_ARCH}) em $SSH_HOST"
 fi
 
-ssh -t $SSH_OPTS "$SSH_HOST" "
+ssh $SSH_OPTS "$SSH_HOST" "
     set -e
     export DEBIAN_FRONTEND=noninteractive
     PKG_ARCH=${PKG_ARCH}
@@ -178,7 +178,7 @@ if [[ -n "$JOIN_SERVER" ]]; then
         "sudo kubeadm token create --print-join-command 2>/dev/null") \
         || fail "Não foi possível gerar join command no servidor $JOIN_SERVER"
 
-    ssh -t $SSH_OPTS "$SSH_HOST" "
+    ssh $SSH_OPTS "$SSH_HOST" "
         set -e
         echo 'Executando kubeadm join...'
         sudo $JOIN_CMD
@@ -195,7 +195,7 @@ else
     # shellcheck disable=SC2089
     INIT_FLAGS="--pod-network-cidr=10.244.0.0/16 ${VERSION_FLAG}"
 
-    ssh -t $SSH_OPTS "$SSH_HOST" "
+    ssh $SSH_OPTS "$SSH_HOST" "
         set -e
         MASTER_IP=\$(hostname -I | awk '{print \$1}')
         echo \"🚀 Inicializando control plane em \${MASTER_IP}...\"
