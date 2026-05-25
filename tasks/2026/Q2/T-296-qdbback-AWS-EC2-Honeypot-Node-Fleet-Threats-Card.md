@@ -69,6 +69,7 @@ Duas UIs distintas:
 |----------|------|------|
 | `GET /api/live/overview` → `.honeypot` | `reports.dnor.io` | ingress público |
 | scrape interno | `https://3.236.249.77/internal/threats-summary` | allowlist OCI |
+| Prometheus | `https://3.236.249.77/internal/metrics` | allowlist OCI |
 
 ## Critérios de aceite
 
@@ -90,9 +91,9 @@ Duas UIs distintas:
 
 ## Pendente (backlog futuro)
 
-- [ ] TLS Let's Encrypt (requer domínio)
-- [ ] Migração Amazon Linux 2023 → Node 22+
-- [ ] Métricas Prometheus nativas no qdbback
+- [ ] TLS Let's Encrypt (`honeypot.dnor.io`; `./deploy-qdbback-ec2.sh --phase letsencrypt`)
+- [ ] Migração Amazon Linux 2023 → Node 22+ (runbook Fase 6)
+- [x] Métricas Prometheus nativas — `GET /internal/metrics`
 - [x] Sincronizar `apps/qdbback/deploy/qdbback.service` com unit live do deploy script
 
 ## Tasks

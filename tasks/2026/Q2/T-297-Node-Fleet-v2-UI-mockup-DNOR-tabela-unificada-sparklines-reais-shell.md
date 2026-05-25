@@ -1,6 +1,9 @@
-# T-297: Node Fleet v2 — UI mockup DNOR (tabela unificada + sparklines reais + shell)
+# T-297: Node Fleet v2 — UI mockup DNOR _(arquivo histórico — ver T-301)_
 
-- **Status**: In Progress
+> **Nota (2026-05-25):** Este epic foi fechado como **[T-301](T-301-Node-Fleet-v2-UI-mockup-DNOR-period-export-done.md)** no KANBAN.
+> O ID **T-297** no `KANBAN.md` pertence à task Copilot *Bootstrap fix ssh -t* — não reutilizar.
+
+- **Status**: Superseded by T-301
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: Node Fleet / rs-observability-api web-v2
@@ -23,9 +26,10 @@ Relacionado: **T-296** (dados qdbback + card básico, PRs #319–#328). Este epi
 |------|--------|--------|
 | **5d-a** | Hero card premium (radar, copy IP, bar sparklines decorativas) | ✅ PR [#331](https://github.com/ToolHQ/production-site/pull/331) |
 | **5d-b** | API séries temporais honeypot (`/internal/threats-timeseries`) | ✅ PR [#334](https://github.com/ToolHQ/production-site/pull/334) |
-| **5d-c** | Sparklines reais no hero + células da tabela | ⬜ |
+| **5d-c** | Sparklines reais no hero + células da tabela | ✅ |
 | **5d-d** | Tabela fleet unificada (K8s + external/honeypot) | ✅ PR [#338](https://github.com/ToolHQ/production-site/pull/338) |
-| **5d-e** | Shell DNOR (nav, search ⌘K, filtros, paginação) | ⬜ |
+| **5d-e** | Shell DNOR (nav, search ⌘K, filtros, paginação) | ✅ PR [#340](https://github.com/ToolHQ/production-site/pull/340) |
+| **5d-f** | Filtro período 24h/7d + export fleet JSON/CSV | ✅ PR [#344](https://github.com/ToolHQ/production-site/pull/344) |
 
 ## Tasks
 
