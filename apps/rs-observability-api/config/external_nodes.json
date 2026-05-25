@@ -29,6 +29,7 @@
     "memory_bytes": 983498752,
     "ephemeral_storage_bytes": 8567894016,
     "honeypot": true,
-    "threats_path": "/internal/threats-summary"
+    "threats_path": "/internal/threats-summary",
+    "timeseries_path": "/internal/threats-timeseries"
   }
 ]

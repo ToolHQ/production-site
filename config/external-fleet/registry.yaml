@@ -61,3 +61,4 @@ nodes:
     aws_region: us-east-1
     honeypot: true
     threats_path: /internal/threats-summary
+    timeseries_path: /internal/threats-timeseries

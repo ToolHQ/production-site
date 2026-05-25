@@ -84,6 +84,8 @@ def write_external_nodes_json(nodes: list[dict[str, Any]], out_path: Path) -> No
             entry["honeypot"] = True
         if n.get("threats_path"):
             entry["threats_path"] = n["threats_path"]
+        if n.get("timeseries_path"):
+            entry["timeseries_path"] = n["timeseries_path"]
         payload.append(entry)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2) + "\n")
