@@ -24,7 +24,7 @@ Relacionado: **T-296** (dados qdbback + card básico, PRs #319–#328). Este epi
 | **5d-a** | Hero card premium (radar, copy IP, bar sparklines decorativas) | ✅ PR [#331](https://github.com/ToolHQ/production-site/pull/331) |
 | **5d-b** | API séries temporais honeypot (`/internal/threats-timeseries`) | ✅ PR [#334](https://github.com/ToolHQ/production-site/pull/334) |
 | **5d-c** | Sparklines reais no hero + células da tabela | ⬜ |
-| **5d-d** | Tabela fleet unificada (K8s + external/honeypot) | ⬜ |
+| **5d-d** | Tabela fleet unificada (K8s + external/honeypot) | ✅ PR [#338](https://github.com/ToolHQ/production-site/pull/338) |
 | **5d-e** | Shell DNOR (nav, search ⌘K, filtros, paginação) | ⬜ |
 
 ## Tasks
@@ -57,10 +57,11 @@ Relacionado: **T-296** (dados qdbback + card básico, PRs #319–#328). Este epi
 
 ### Fase 5d-e — Shell DNOR
 
-- [ ] Nav top-level (Overview, Nodes, Incidents, Reports, Intel, Settings)
-- [ ] Search global nodes/IPs/ASNs
-- [ ] Filtro período (Last 24h) + paginação
-- [ ] Alinhar tipografia/cores ao mockup (dark premium)
+- [x] Nav top-level (Overview, Nodes, Incidents, Reports, Intel, Settings) via hash routing
+- [x] Search global nodes/IPs (`⌘K` palette)
+- [x] Filtro período (Last 24h / 7d) na view Nodes
+- [x] Paginação na fleet overview table
+- [ ] Export CSV/JSON fleet fields (backlog)
 
 ## Critérios de aceite (epic completo)
 
