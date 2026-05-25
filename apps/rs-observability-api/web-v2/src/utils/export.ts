@@ -1,4 +1,11 @@
 import type { LiveOverview, MetricsData } from '../types/api';
+import {
+  buildFleetOverviewRows,
+  fleetActivityMetrics,
+  fleetOverviewToCSV,
+  honeypotActivityMetrics,
+  type FleetPeriod,
+} from './fleetOverview';
 
 function nowIso(): string {
   return new Date().toISOString().slice(0, 19).replace('T', '_');
@@ -14,11 +21,23 @@ function download(content: string, filename: string, mime: string): void {
   URL.revokeObjectURL(url);
 }
 
+function fleetRowsForExport(live: LiveOverview | null) {
+  return buildFleetOverviewRows(live?.nodes ?? [], live?.honeypot?.nodes ?? []);
+}
+
 // ── Build flat snapshot object ────────────────────────────────
-function buildSnapshot(live: LiveOverview | null, metrics: MetricsData | null) {
+function buildSnapshot(
+  live: LiveOverview | null,
+  metrics: MetricsData | null,
+  period: FleetPeriod = '24h',
+) {
   const ts = nowIso();
+  const fleetRows = fleetRowsForExport(live);
+  const honeypotNodes = live?.honeypot?.nodes ?? [];
+
   return {
     exported_at: ts,
+    fleet_period: period,
     cluster: {
       nodes: (live?.nodes ?? []).map((n) => {
         const m = live?.node_metrics?.[n.name];
@@ -50,6 +69,52 @@ function buildSnapshot(live: LiveOverview | null, metrics: MetricsData | null) {
         severity: i.severity,
         message: i.message,
       })),
+    },
+    fleet: {
+      period,
+      rows: fleetRows.map((row) => {
+        const activity = fleetActivityMetrics(row, period);
+        return {
+          status: row.status,
+          name: row.name,
+          subtitle: row.subtitle ?? null,
+          cluster: row.cluster,
+          ip: row.ip,
+          asn: row.asn,
+          asn_label: row.asnLabel,
+          total_requests: row.totalRequests,
+          activity_label: activity.label,
+          activity_count: activity.value,
+          classified: row.classified,
+          is_honeypot: row.isHoneypot,
+          monitor_href: row.monitorHref ?? null,
+          requests_24h: row.requests24h,
+          requests_7d: row.requests7d,
+        };
+      }),
+    },
+    honeypot: {
+      available: live?.honeypot?.available ?? false,
+      nodes: honeypotNodes.map((stats) => {
+        const activity = honeypotActivityMetrics(stats, period);
+        return {
+          id: stats.id,
+          cluster: stats.cluster,
+          instance_host: stats.instance_host,
+          available: stats.available,
+          total: stats.total,
+          last24h: stats.last24h,
+          classified: stats.classified,
+          unclassified: stats.unclassified,
+          top_tags: stats.top_tags,
+          activity_label: activity.label,
+          activity_count: activity.value,
+          requests_24h: stats.requests_24h ?? [],
+          requests_7d: stats.requests_7d ?? [],
+          refreshed_at_epoch: stats.refreshed_at_epoch,
+          error: stats.error ?? null,
+        };
+      }),
     },
     prometheus: metrics?.available
       ? {
@@ -117,15 +182,27 @@ function servicesToCSV(metrics: MetricsData | null): string {
 }
 
 // ── Public API ───────────────────────────────────────────────
-export function exportJSON(live: LiveOverview | null, metrics: MetricsData | null): void {
-  const snapshot = buildSnapshot(live, metrics);
+export function exportJSON(
+  live: LiveOverview | null,
+  metrics: MetricsData | null,
+  period: FleetPeriod = '24h',
+): void {
+  const snapshot = buildSnapshot(live, metrics, period);
   const json = JSON.stringify(snapshot, null, 2);
   download(json, `cluster-snapshot_${nowIso()}.json`, 'application/json');
 }
 
-export function exportCSVBundle(live: LiveOverview | null, metrics: MetricsData | null): void {
-  // Single CSV: three sections separated by blank lines + section headers
+export function exportCSVBundle(
+  live: LiveOverview | null,
+  metrics: MetricsData | null,
+  period: FleetPeriod = '24h',
+): void {
+  const fleetRows = fleetRowsForExport(live);
+  const periodLabel = period === '7d' ? '7d' : '24h';
   const parts = [
+    `# FLEET OVERVIEW (period: ${periodLabel})`,
+    fleetOverviewToCSV(fleetRows, period),
+    '',
     '# NODES',
     nodesToCSV(live),
     '',

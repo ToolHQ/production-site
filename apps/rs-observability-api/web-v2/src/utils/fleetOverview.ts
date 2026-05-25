@@ -1,5 +1,7 @@
 import type { HoneypotNodeStats, NodeStat, TimeSeriesPoint } from '../types/api';
 
+export type FleetPeriod = '24h' | '7d';
+
 export type FleetStatus = 'honeypot' | 'online' | 'degraded' | 'offline';
 
 export interface FleetOverviewRow {
@@ -92,4 +94,68 @@ export function filterFleetRows(rows: FleetOverviewRow[], query: string): FleetO
       row.asnLabel.toLowerCase().includes(q) ||
       row.status.includes(q),
   );
+}
+
+export function sumSeriesValues(series: TimeSeriesPoint[]): number {
+  return series.reduce((total, point) => total + point.value, 0);
+}
+
+export function fleetActivityMetrics(
+  row: FleetOverviewRow,
+  period: FleetPeriod,
+): { label: string; value: number | null; series: TimeSeriesPoint[] } {
+  if (period === '7d') {
+    return {
+      label: 'Last 7d',
+      value: row.isHoneypot ? sumSeriesValues(row.requests7d) : null,
+      series: row.requests7d,
+    };
+  }
+  return {
+    label: 'Last 24h',
+    value: row.last24h,
+    series: row.requests24h,
+  };
+}
+
+export function honeypotActivityMetrics(
+  stats: HoneypotNodeStats,
+  period: FleetPeriod,
+): { label: string; value: number; series: TimeSeriesPoint[] } {
+  if (period === '7d') {
+    return {
+      label: 'Last 7D',
+      value: sumSeriesValues(stats.requests_7d ?? []),
+      series: stats.requests_7d ?? [],
+    };
+  }
+  return {
+    label: 'Last 24H',
+    value: stats.last24h,
+    series: stats.requests_24h ?? [],
+  };
+}
+
+export function fleetOverviewToCSV(rows: FleetOverviewRow[], period: FleetPeriod = '24h'): string {
+  const headers = [
+    'status', 'name', 'cluster', 'ip', 'asn', 'asn_label',
+    'total_requests', 'activity_label', 'activity_count', 'classified', 'is_honeypot',
+  ];
+  const csvRows = rows.map((row) => {
+    const activity = fleetActivityMetrics(row, period);
+    return [
+      row.status,
+      `"${row.name.replace(/"/g, '""')}"`,
+      row.cluster,
+      row.ip,
+      row.asn,
+      row.asnLabel,
+      row.totalRequests ?? '',
+      activity.label,
+      activity.value ?? '',
+      row.classified === null ? '' : row.classified ? 'yes' : 'no',
+      row.isHoneypot ? 'true' : 'false',
+    ].join(',');
+  });
+  return [headers.join(','), ...csvRows].join('\n');
 }
