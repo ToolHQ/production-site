@@ -125,10 +125,17 @@ REMOTE
 phase_node22() {
   info "Fase node22: Node.js 16.20 LTS (Amazon Linux 2) + deps"
   run_ssh bash <<'REMOTE'
-set -euo pipefail
+set -eo pipefail
 export NVM_DIR="$HOME/.nvm"
 # shellcheck disable=SC1090
 . "$NVM_DIR/nvm.sh"
+# Corrige alias quebrado (ex.: default → Node 22 incompatível com AL2)
+if [[ -f "$NVM_DIR/alias/default" ]]; then
+  current_default="$(cat "$NVM_DIR/alias/default" 2>/dev/null || true)"
+  if [[ "$current_default" == "22" ]] || [[ "$current_default" == v22* ]]; then
+    nvm alias default 16.6.0 || true
+  fi
+fi
 nvm install 16.20.2
 nvm alias default 16.20.2
 cd /home/ec2-user/server
@@ -205,8 +212,9 @@ User=ec2-user
 Group=ec2-user
 WorkingDirectory=/home/ec2-user/server
 Environment=NODE_ENV=production
+Environment=HOME=/home/ec2-user
 EnvironmentFile=-/etc/qdbback/monitor.env
-ExecStart=/bin/bash -lc 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 16.20.2 >/dev/null && exec node /home/ec2-user/server/app.js'
+ExecStart=/home/ec2-user/.nvm/versions/node/v16.20.2/bin/node /home/ec2-user/server/app.js
 Restart=on-failure
 RestartSec=5
 AmbientCapabilities=CAP_NET_BIND_SERVICE
