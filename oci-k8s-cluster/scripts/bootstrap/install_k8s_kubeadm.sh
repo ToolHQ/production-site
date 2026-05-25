@@ -22,6 +22,7 @@
 #   --name <cluster-name>    Context name in kubeconfig (default: k8s)
 #   --version <tag>          K8s version, e.g. v1.31.0 (default: latest in channel v1.31)
 #   --join-server <host>     SSH host of existing control-plane to join as worker
+#   --force                  Reinicializar mesmo se cluster já existir (kubeadm reset -f + init)
 #   --no-hardening           Skip journal limits + UFW
 #   --skip-kubeconfig        Don't download kubeconfig locally
 
@@ -35,12 +36,14 @@ K8S_VERSION=""       # empty = latest in stable channel v1.33
 JOIN_SERVER=""       # if set → install as worker (kubeadm join)
 DO_HARDENING=true
 SKIP_KUBECONFIG=false
+FORCE_REINIT=false   # --force: reinicializa mesmo se cluster já existe
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --name)            CLUSTER_NAME="$2"; shift 2 ;;
         --version)         K8S_VERSION="$2";  shift 2 ;;
         --join-server)     JOIN_SERVER="$2";  shift 2 ;;
+        --force)           FORCE_REINIT=true; shift ;;
         --no-hardening)    DO_HARDENING=false; shift ;;
         --skip-kubeconfig) SKIP_KUBECONFIG=true; shift ;;
         *) echo "Flag desconhecida: $1" >&2; exit 1 ;;
@@ -199,10 +202,15 @@ else
     ALREADY_INIT=$(ssh $SSH_OPTS "$SSH_HOST" \
         "test -f /etc/kubernetes/manifests/kube-apiserver.yaml && echo yes || echo no")
 
-    if [[ "$ALREADY_INIT" == "yes" ]]; then
+    if [[ "$ALREADY_INIT" == "yes" && "$FORCE_REINIT" == "false" ]]; then
         warn "kubeadm já inicializado em $SSH_HOST — pulando kubeadm init (cluster existente)."
-        warn "Para reinicializar: ssh $SSH_HOST 'kubeadm reset -f' e rode o script novamente."
+        warn "Para reinicializar: passe --force ao script (executa kubeadm reset -f + init)."
     else
+    if [[ "$ALREADY_INIT" == "yes" && "$FORCE_REINIT" == "true" ]]; then
+        warn "--force: executando kubeadm reset -f em $SSH_HOST antes de reinicializar..."
+        ssh $SSH_OPTS "$SSH_HOST" "sudo kubeadm reset -f 2>&1 | tail -5 || true"
+        ok "kubeadm reset concluído — prosseguindo com kubeadm init"
+    fi
     ssh $SSH_OPTS "$SSH_HOST" "
         set -e
         MASTER_IP=\$(hostname -I | awk '{print \$1}')
@@ -245,7 +253,7 @@ else
         kubectl get pods -n kube-system --no-headers | head -20
     "
     ok "Cluster kubeadm inicializado"
-    fi  # end: ALREADY_INIT == no
+    fi  # end: skip block (ALREADY_INIT=yes && !FORCE_REINIT)
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
