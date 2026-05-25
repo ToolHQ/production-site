@@ -520,56 +520,157 @@ function NodeCard({ node, metrics, diskWarn, diskCrit, memWarn, memCrit, cpuWarn
 }
 
 // ────────────────────────────────────────────────────────────
-// HoneypotThreatsCard — qdbback stats for external honeypot nodes
+// HoneypotHeroCard — featured honeypot node (qdbback / external fleet)
 // ────────────────────────────────────────────────────────────
+
+function HoneypotRadarIcon() {
+  return (
+    <div class="honeypot-hero__radar" aria-hidden="true">
+      <svg viewBox="0 0 120 120" class="honeypot-hero__radar-svg">
+        <circle cx="60" cy="60" r="52" class="honeypot-hero__ring honeypot-hero__ring--3" />
+        <circle cx="60" cy="60" r="38" class="honeypot-hero__ring honeypot-hero__ring--2" />
+        <circle cx="60" cy="60" r="24" class="honeypot-hero__ring honeypot-hero__ring--1" />
+        <line x1="60" y1="8" x2="60" y2="112" class="honeypot-hero__cross" />
+        <line x1="8" y1="60" x2="112" y2="60" class="honeypot-hero__cross" />
+        <path
+          class="honeypot-hero__sweep"
+          d="M60 60 L60 12 A48 48 0 0 1 96 36 Z"
+        />
+        <circle cx="60" cy="60" r="18" class="honeypot-hero__pot-base" />
+        <ellipse cx="60" cy="48" rx="14" ry="6" class="honeypot-hero__pot-rim" />
+        <path
+          class="honeypot-hero__pot-body"
+          d="M46 48 C46 58 48 68 60 72 C72 68 74 58 74 48 Z"
+        />
+        <text x="60" y="54" text-anchor="middle" class="honeypot-hero__pot-icon">
+          🍯
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function HoneypotBarSparkline({ seed, color = '#ff9900' }: { seed: number; color?: string }) {
+  const bars = 14;
+  const heights = useMemo(() => {
+    return Array.from({ length: bars }, (_, i) => {
+      const wave = Math.sin(seed * 0.0007 + i * 0.95) * 0.35 + Math.cos(i * 0.55) * 0.25;
+      return Math.max(12, Math.min(100, 38 + wave * 42 + (i % 3) * 8));
+    });
+  }, [seed]);
+
+  return (
+    <svg class="honeypot-hero__bars" viewBox="0 0 140 28" preserveAspectRatio="none" aria-hidden="true">
+      {heights.map((h, i) => (
+        <rect
+          key={i}
+          x={i * 10 + 1}
+          y={28 - (h / 100) * 24}
+          width="7"
+          height={(h / 100) * 24}
+          rx="1.5"
+          fill={color}
+          opacity={0.35 + (i / bars) * 0.45}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function CopyHostButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async (e: MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }, [value]);
+
+  return (
+    <button
+      type="button"
+      class="honeypot-hero__copy"
+      onClick={handleCopy}
+      title="Copy IP address"
+      aria-label={copied ? 'Copied' : `Copy ${value}`}
+    >
+      {copied ? '✓' : '⎘'}
+    </button>
+  );
+}
 
 interface HoneypotThreatsCardProps {
   stats: HoneypotNodeStats;
 }
 
 function HoneypotThreatsCard({ stats }: HoneypotThreatsCardProps) {
-  const topTags = stats.top_tags.slice(0, 5);
+  const topTags = stats.top_tags.slice(0, 3);
+  const isClassified = stats.available && stats.classified > 0;
+  const sparkSeed = stats.total + stats.last24h * 97;
 
   return (
-    <div class={`honeypot-card ${stats.available ? '' : 'honeypot-card--error'}`}>
-      <div class="honeypot-card__header">
-        <span class="honeypot-card__title">🍯 Honeypot — {stats.cluster}</span>
-        <span class="honeypot-card__host">{stats.instance_host}</span>
+    <article class={`honeypot-hero ${stats.available ? '' : 'honeypot-hero--error'}`}>
+      <HoneypotRadarIcon />
+
+      <div class="honeypot-hero__body">
+        <div class="honeypot-hero__heading">
+          <h3 class="honeypot-hero__title">
+            Honeypot
+            <span class="honeypot-hero__env-badge">{stats.cluster}</span>
+          </h3>
+          <p class="honeypot-hero__desc">
+            This node is a honeypot deployed to simulate exposed services and detect malicious activity.
+          </p>
+        </div>
+        <div class="honeypot-hero__host-row">
+          <code class="honeypot-hero__host">{stats.instance_host}</code>
+          <CopyHostButton value={stats.instance_host} />
+        </div>
       </div>
+
       {stats.available ? (
-        <>
-          <div class="honeypot-card__metrics">
-            <div class="honeypot-metric">
-              <span class="honeypot-metric__value">{stats.total.toLocaleString()}</span>
-              <span class="honeypot-metric__label">Total requests</span>
-            </div>
-            <div class="honeypot-metric">
-              <span class="honeypot-metric__value">{stats.last24h.toLocaleString()}</span>
-              <span class="honeypot-metric__label">Last 24h</span>
-            </div>
-            <div class="honeypot-metric">
-              <span class="honeypot-metric__value">{stats.classified.toLocaleString()}</span>
-              <span class="honeypot-metric__label">Classified</span>
-            </div>
+        <div class="honeypot-hero__metrics">
+          <div class="honeypot-hero__metric">
+            <span class="honeypot-hero__metric-label">Total Requests</span>
+            <span class="honeypot-hero__metric-value">{stats.total.toLocaleString()}</span>
+            <HoneypotBarSparkline seed={sparkSeed} />
+          </div>
+          <div class="honeypot-hero__metric">
+            <span class="honeypot-hero__metric-label">Last 24H</span>
+            <span class="honeypot-hero__metric-value">{stats.last24h.toLocaleString()}</span>
+            <HoneypotBarSparkline seed={sparkSeed + 17} color="#ffb347" />
+          </div>
+          <div class="honeypot-hero__metric honeypot-hero__metric--classified">
+            <span class="honeypot-hero__metric-label">Classified</span>
+            <span class={`honeypot-hero__classified-badge${isClassified ? ' honeypot-hero__classified-badge--yes' : ''}`}>
+              {isClassified ? 'Yes' : 'No'}
+            </span>
+            <span class="honeypot-hero__classified-sub">
+              {isClassified ? 'Honeypot traffic' : `${stats.unclassified.toLocaleString()} unclassified`}
+            </span>
           </div>
           {topTags.length > 0 && (
-            <div class="honeypot-card__tags">
-              <span class="honeypot-card__tags-label">Top threats</span>
-              <div class="honeypot-tag-list">
+            <div class="honeypot-hero__metric honeypot-hero__metric--tags">
+              <span class="honeypot-hero__metric-label">Tags</span>
+              <div class="honeypot-hero__tag-list">
                 {topTags.map((item) => (
-                  <span key={item.tag} class="honeypot-tag">
+                  <span key={item.tag} class="honeypot-hero__tag">
                     {item.tag}
-                    <span class="honeypot-tag__count">{item.count.toLocaleString()}</span>
                   </span>
                 ))}
               </div>
             </div>
           )}
-        </>
+        </div>
       ) : (
-        <p class="honeypot-card__error">{stats.error ?? 'Honeypot metrics unavailable'}</p>
+        <p class="honeypot-hero__error">{stats.error ?? 'Honeypot metrics unavailable'}</p>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -715,7 +816,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
       )}
 
       {honeypotNodes.length > 0 && (
-        <div class="honeypot-panel">
+        <div class="honeypot-hero-panel">
           {honeypotNodes.map((stats) => (
             <HoneypotThreatsCard key={stats.id} stats={stats} />
           ))}
