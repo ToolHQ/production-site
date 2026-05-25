@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { MetricSparkline } from './MetricSparkline';
 import { clusterBadgeClass } from '../utils/clusterBadge';
 import type { FleetOverviewRow, FleetStatus } from '../utils/fleetOverview';
