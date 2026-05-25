@@ -25,7 +25,7 @@ Fases:
   sync       — rsync apps/qdbback → /home/ec2-user/server (sem node_modules)
   tls        — gera cert self-signed para IP atual (Fase 2)
   secrets    — /etc/qdbback/monitor.env (auth admin via env)
-  node22     — Node.js 22 LTS + npm ci --omit=dev
+  node22     — Node.js 16.20 LTS (máx. compatível AL2) + npm ci --omit=dev
   logrotate  — /etc/logrotate.d/qdbback
   purge      — instala timer systemd de purge applicationLogs
   systemd    — instala qdbback.service + enable (Fase 4/5c)
@@ -123,12 +123,14 @@ REMOTE
 }
 
 phase_node22() {
-  info "Fase node22: Node.js 22 LTS + deps"
+  info "Fase node22: Node.js 16.20 LTS (Amazon Linux 2) + deps"
   run_ssh bash <<'REMOTE'
 set -euo pipefail
-source ~/.nvm/nvm.sh
-nvm install 22
-nvm alias default 22
+export NVM_DIR="$HOME/.nvm"
+# shellcheck disable=SC1090
+. "$NVM_DIR/nvm.sh"
+nvm install 16.20.2
+nvm alias default 16.20.2
 cd /home/ec2-user/server
 npm ci --omit=dev
 node --version
@@ -169,7 +171,7 @@ Environment=QDBBACK_DB_PATH=/home/ec2-user/database.sqlite
 Environment=QDBBACK_LOGS_KEEP_DAYS=30
 EnvironmentFile=-/etc/qdbback/monitor.env
 WorkingDirectory=/home/ec2-user/server
-ExecStart=/bin/bash -lc 'source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && node /home/ec2-user/server/scripts/purge-old-data.js'
+ExecStart=/bin/bash -lc 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 16.20.2 >/dev/null && node /home/ec2-user/server/scripts/purge-old-data.js'
 UNIT
 sudo tee /etc/systemd/system/qdbback-purge.timer > /dev/null <<'TIMER'
 [Unit]
@@ -204,7 +206,7 @@ Group=ec2-user
 WorkingDirectory=/home/ec2-user/server
 Environment=NODE_ENV=production
 EnvironmentFile=-/etc/qdbback/monitor.env
-ExecStart=/bin/bash -lc 'source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && exec node /home/ec2-user/server/app.js'
+ExecStart=/bin/bash -lc 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 16.20.2 >/dev/null && exec node /home/ec2-user/server/app.js'
 Restart=on-failure
 RestartSec=5
 AmbientCapabilities=CAP_NET_BIND_SERVICE
@@ -242,7 +244,7 @@ if systemctl is-enabled qdbback.service &>/dev/null; then
   sleep 18
   systemctl is-active qdbback.service
 else
-  source ~/.nvm/nvm.sh && nvm use 22 >/dev/null
+  source ~/.nvm/nvm.sh && nvm use 16.20.2 >/dev/null
   cd /home/ec2-user/server
   nohup node app.js >> /var/log/qdbback.log 2>&1 &
   sleep 18
