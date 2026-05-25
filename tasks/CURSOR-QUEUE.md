@@ -4,6 +4,12 @@
 
 _(vazio)_
 
+## qdbback / External Fleet (concluído 2026-05-25)
+
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-296** | qdbback EC2 honeypot + card Node Fleet (Fases 0–5c) | ✅ |
+
 ## Fase 23 — Fontes & trends
 
 | # | ID | Tarefa | Status |
