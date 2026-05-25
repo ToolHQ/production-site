@@ -1,0 +1,54 @@
+# MinIO Helm values para SSDNodes
+# 500 GiB de storage S3-compatible no disco de 1.1 TB
+
+mode: standalone   # single-node (sem erasure coding)
+
+# Credenciais — alterar antes de usar em produção
+rootUser: "minio-admin"
+rootPassword: "change-me-in-production"
+
+# Storage: 500 GiB no local-path-provisioner
+persistence:
+  enabled: true
+  storageClass: "local-path"
+  size: 500Gi
+  accessMode: ReadWriteOnce
+
+# Recursos: generoso dado 12 vCPU / 60 GB RAM
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+  limits:
+    memory: 4Gi
+    cpu: 2000m
+
+# Service (ClusterIP — exposto via Ingress)
+service:
+  type: ClusterIP
+  port: 9000      # S3 API
+  consolePort: 9001   # Console web
+
+# Console web
+consoleService:
+  type: ClusterIP
+  port: 9001
+
+# Toleration para control-plane node
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+# Sem métricas por enquanto
+metrics:
+  serviceMonitor:
+    enabled: false
+
+# Ingress: S3 API + Console
+# Note: habilitar após instalar ingress-nginx e criar DNS entries
+ingress:
+  enabled: false
+
+consoleIngress:
+  enabled: false
