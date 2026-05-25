@@ -22,7 +22,7 @@ Relacionado: **T-296** (dados qdbback + card básico, PRs #319–#328). Este epi
 | Fase | Escopo | Status |
 |------|--------|--------|
 | **5d-a** | Hero card premium (radar, copy IP, bar sparklines decorativas) | ✅ PR [#331](https://github.com/ToolHQ/production-site/pull/331) |
-| **5d-b** | API séries temporais honeypot (`/internal/threats-timeseries` ou similar) | ⬜ |
+| **5d-b** | API séries temporais honeypot (`/internal/threats-timeseries` ou similar) | 🏎️ PR pendente |
 | **5d-c** | Sparklines reais no hero + células da tabela | ⬜ |
 | **5d-d** | Tabela fleet unificada (K8s + external/honeypot) | ⬜ |
 | **5d-e** | Shell DNOR (nav, search ⌘K, filtros, paginação) | ⬜ |
@@ -38,9 +38,10 @@ Relacionado: **T-296** (dados qdbback + card básico, PRs #319–#328). Este epi
 
 ### Fase 5d-b — Backend timeseries
 
-- [ ] qdbback: endpoint agregado por hora (últimas 24h / 7d) em SQLite
-- [ ] Allowlist OCI + scrape em `rs-observability-api` (`fetch_honeypot_timeseries`)
-- [ ] Campo `.honeypot.nodes[].timeseries` em `/api/live/overview`
+- [x] qdbback: endpoint agregado por hora (24h) + dia (7d) em SQLite
+- [x] Allowlist OCI + scrape em `rs-observability-api` (parallel fetch)
+- [x] Campo `.honeypot.nodes[].requests_24h` / `requests_7d` em `/api/live/overview`
+- [x] UI hero usa `MetricSparkline` quando série real disponível
 
 ### Fase 5d-c — Sparklines reais
 

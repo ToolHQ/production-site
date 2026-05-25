@@ -903,6 +903,10 @@ struct HoneypotNodeStats {
     classified: u64,
     unclassified: u64,
     top_tags: Vec<HoneypotTagCount>,
+    #[serde(default)]
+    requests_24h: Vec<MetricPoint>,
+    #[serde(default)]
+    requests_7d: Vec<MetricPoint>,
     refreshed_at_epoch: u64,
     error: Option<String>,
 }
@@ -911,6 +915,14 @@ struct HoneypotNodeStats {
 struct HoneypotOverview {
     available: bool,
     nodes: Vec<HoneypotNodeStats>,
+}
+
+#[derive(Deserialize, Default)]
+struct QdbbackThreatTimeseries {
+    #[serde(default, rename = "requests24h")]
+    requests_24h: Vec<MetricPoint>,
+    #[serde(default, rename = "requests7d")]
+    requests_7d: Vec<MetricPoint>,
 }
 
 #[derive(Deserialize)]
@@ -1020,7 +1032,7 @@ struct RestartHotspot {
     restarts_last_hour: f64,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 struct MetricPoint {
     timestamp: u64,
     value: f64,
@@ -1298,6 +1310,8 @@ struct ExternalNodeSpec {
     honeypot: bool,
     #[serde(default)]
     threats_path: Option<String>,
+    #[serde(default)]
+    timeseries_path: Option<String>,
 }
 
 #[derive(Default)]
@@ -2716,18 +2730,33 @@ impl PrometheusMonitor {
 }
 
 async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> HoneypotNodeStats {
-    let path = spec
+    let summary_path = spec
         .threats_path
         .as_deref()
         .filter(|value| !value.is_empty())
         .unwrap_or("/internal/threats-summary");
-    let url = format!(
-        "https://{}/{}",
-        spec.instance_host,
-        path.trim_start_matches('/')
+    let timeseries_path = spec
+        .timeseries_path
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/internal/threats-timeseries");
+    let summary_url = honeypot_api_url(spec, summary_path);
+    let timeseries_url = honeypot_api_url(spec, timeseries_path);
+
+    let (summary_result, timeseries_result) = tokio::join!(
+        client.get(&summary_url).send(),
+        client.get(&timeseries_url).send(),
     );
 
-    match client.get(&url).send().await {
+    let timeseries = match timeseries_result {
+        Ok(response) if response.status().is_success() => response
+            .json::<QdbbackThreatTimeseries>()
+            .await
+            .unwrap_or_default(),
+        _ => QdbbackThreatTimeseries::default(),
+    };
+
+    match summary_result {
         Ok(response) => {
             if !response.status().is_success() {
                 return honeypot_node_error(
@@ -2747,6 +2776,8 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
                     classified: summary.classified,
                     unclassified: summary.unclassified,
                     top_tags: summary.top_tags,
+                    requests_24h: timeseries.requests_24h,
+                    requests_7d: timeseries.requests_7d,
                     refreshed_at_epoch: unix_epoch_seconds(),
                     error: None,
                 },
@@ -2757,6 +2788,14 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
         }
         Err(error) => honeypot_node_error(spec, &format!("request honeypot API: {}", error)),
     }
+}
+
+fn honeypot_api_url(spec: &ExternalNodeSpec, path: &str) -> String {
+    format!(
+        "https://{}/{}",
+        spec.instance_host,
+        path.trim_start_matches('/')
+    )
 }
 
 fn honeypot_node_id(spec: &ExternalNodeSpec) -> String {

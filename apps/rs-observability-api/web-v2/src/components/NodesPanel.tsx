@@ -612,6 +612,8 @@ function HoneypotThreatsCard({ stats }: HoneypotThreatsCardProps) {
   const topTags = stats.top_tags.slice(0, 3);
   const isClassified = stats.available && stats.classified > 0;
   const sparkSeed = stats.total + stats.last24h * 97;
+  const hasReal24h = (stats.requests_24h?.length ?? 0) >= 2;
+  const hasReal7d = (stats.requests_7d?.length ?? 0) >= 2;
 
   return (
     <article class={`honeypot-hero ${stats.available ? '' : 'honeypot-hero--error'}`}>
@@ -638,12 +640,20 @@ function HoneypotThreatsCard({ stats }: HoneypotThreatsCardProps) {
           <div class="honeypot-hero__metric">
             <span class="honeypot-hero__metric-label">Total Requests</span>
             <span class="honeypot-hero__metric-value">{stats.total.toLocaleString()}</span>
-            <HoneypotBarSparkline seed={sparkSeed} />
+            {hasReal7d ? (
+              <MetricSparkline points={stats.requests_7d!} color="#ff9900" width={140} height={28} />
+            ) : (
+              <HoneypotBarSparkline seed={sparkSeed} />
+            )}
           </div>
           <div class="honeypot-hero__metric">
             <span class="honeypot-hero__metric-label">Last 24H</span>
             <span class="honeypot-hero__metric-value">{stats.last24h.toLocaleString()}</span>
-            <HoneypotBarSparkline seed={sparkSeed + 17} color="#ffb347" />
+            {hasReal24h ? (
+              <MetricSparkline points={stats.requests_24h!} color="#ffb347" width={140} height={28} />
+            ) : (
+              <HoneypotBarSparkline seed={sparkSeed + 17} color="#ffb347" />
+            )}
           </div>
           <div class="honeypot-hero__metric honeypot-hero__metric--classified">
             <span class="honeypot-hero__metric-label">Classified</span>
