@@ -7,7 +7,7 @@ import { useAlertThresholds } from '../hooks/useAlertThresholds';
 import { ThresholdSettings } from './ThresholdSettings';
 import { clusterBadgeClass, clusterBadgeSlug } from '../utils/clusterBadge';
 import { FleetOverviewTable } from './FleetOverviewTable';
-import { buildFleetOverviewRows, filterFleetRows } from '../utils/fleetOverview';
+import { buildFleetOverviewRows, filterFleetRows, honeypotActivityMetrics, type FleetPeriod } from '../utils/fleetOverview';
 import { useDnorShell } from '../context/DnorShellContext';
 
 // ────────────────────────────────────────────────────────────
@@ -642,13 +642,15 @@ function CopyHostButton({ value }: { value: string }) {
 
 interface HoneypotThreatsCardProps {
   stats: HoneypotNodeStats;
+  period: FleetPeriod;
 }
 
-function HoneypotThreatsCard({ stats }: HoneypotThreatsCardProps) {
+function HoneypotThreatsCard({ stats, period }: HoneypotThreatsCardProps) {
   const topTags = stats.top_tags.slice(0, 3);
   const isClassified = stats.available && stats.classified > 0;
   const sparkSeed = stats.total + stats.last24h * 97;
-  const hasReal24h = (stats.requests_24h?.length ?? 0) >= 2;
+  const activity = honeypotActivityMetrics(stats, period);
+  const hasRealActivity = activity.series.length >= 2;
   const hasReal7d = (stats.requests_7d?.length ?? 0) >= 2;
 
   return (
@@ -683,10 +685,10 @@ function HoneypotThreatsCard({ stats }: HoneypotThreatsCardProps) {
             )}
           </div>
           <div class="honeypot-hero__metric">
-            <span class="honeypot-hero__metric-label">Last 24H</span>
-            <span class="honeypot-hero__metric-value">{stats.last24h.toLocaleString()}</span>
-            {hasReal24h ? (
-              <MetricSparkline points={stats.requests_24h!} color="#ffb347" width={140} height={28} />
+            <span class="honeypot-hero__metric-label">{activity.label}</span>
+            <span class="honeypot-hero__metric-value">{activity.value.toLocaleString()}</span>
+            {hasRealActivity ? (
+              <MetricSparkline points={activity.series} color="#ffb347" width={140} height={28} />
             ) : (
               <HoneypotBarSparkline seed={sparkSeed + 17} color="#ffb347" />
             )}
@@ -741,7 +743,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
   const nodeMetrics = live?.node_metrics ?? {};
   const hasRealMetrics = Object.keys(nodeMetrics).length > 0;
 
-  const { nodeSearch, setNodeSearch } = useDnorShell();
+  const { nodeSearch, setNodeSearch, period } = useDnorShell();
   const search = nodeSearch;
   const setSearch = setNodeSearch;
   const [showSettings, setShowSettings] = useState(false);
@@ -875,13 +877,14 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
       {honeypotNodes.length > 0 && (
         <div class="honeypot-hero-panel">
           {honeypotNodes.map((stats) => (
-            <HoneypotThreatsCard key={stats.id} stats={stats} />
+            <HoneypotThreatsCard key={stats.id} stats={stats} period={period} />
           ))}
         </div>
       )}
 
       <FleetOverviewTable
         rows={filteredFleetRows}
+        period={period}
         highlight={highlightText}
         query={search}
       />

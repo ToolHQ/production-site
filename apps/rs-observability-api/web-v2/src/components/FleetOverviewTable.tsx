@@ -2,10 +2,12 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { MetricSparkline } from './MetricSparkline';
 import { clusterBadgeClass } from '../utils/clusterBadge';
-import type { FleetOverviewRow, FleetStatus } from '../utils/fleetOverview';
+import type { FleetOverviewRow, FleetPeriod, FleetStatus } from '../utils/fleetOverview';
+import { fleetActivityMetrics } from '../utils/fleetOverview';
 
 interface FleetOverviewTableProps {
   rows: FleetOverviewRow[];
+  period?: FleetPeriod;
   highlight?: (text: string, query: string) => ComponentChildren;
   query?: string;
   pageSize?: number;
@@ -51,6 +53,7 @@ function MetricCell({
 
 export function FleetOverviewTable({
   rows,
+  period = '24h',
   highlight,
   query = '',
   pageSize = DEFAULT_PAGE_SIZE,
@@ -70,6 +73,7 @@ export function FleetOverviewTable({
 
   if (rows.length === 0) return null;
 
+  const activityHeader = period === '7d' ? 'Last 7D' : 'Last 24H';
   const hl = (text: string) => (highlight ? highlight(text, query) : text);
 
   return (
@@ -93,13 +97,15 @@ export function FleetOverviewTable({
               <th>IP</th>
               <th>ASN</th>
               <th>Total Requests</th>
-              <th>Last 24H</th>
+              <th>{activityHeader}</th>
               <th>Classified</th>
               <th class="fleet-table__actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {pageRows.map((row) => (
+            {pageRows.map((row) => {
+              const activity = fleetActivityMetrics(row, period);
+              return (
               <tr
                 key={row.key}
                 class={`fleet-row fleet-row--${row.status}${row.isHoneypot ? ' fleet-row--honeypot' : ''}`}
@@ -138,8 +144,8 @@ export function FleetOverviewTable({
                 </td>
                 <td>
                   <MetricCell
-                    value={row.last24h}
-                    series={row.requests24h}
+                    value={activity.value}
+                    series={activity.series}
                     color="#ffb347"
                   />
                 </td>
@@ -170,7 +176,8 @@ export function FleetOverviewTable({
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
