@@ -22,7 +22,6 @@
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
 
-
 | [T-285](2026/Q2/T-285-Rust-3D-Game-Mes-1.md) | **Rust 3D Game — Mês 1: Setup da Engine, Mecânicas Core & Prototipagem 3D** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-286](2026/Q2/T-286-Rust-3D-Game-Mes-2.md) | **Rust 3D Game — Mês 2: Level Design, HUD/UI & Integração com Steamworks SDK** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-287](2026/Q2/T-287-Rust-3D-Game-Mes-3.md) | **Rust 3D Game — Mês 3: Otimizações de Performance, Pacote CI/CD & Playtest Steam Deck** | 🔵 Medium | Rust 3D Steam Game | 4w |
@@ -36,6 +35,7 @@
 
 |                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
+| [T-296](2026/Q2/T-296-qdbback-AWS-EC2-Honeypot-Node-Fleet-Threats-Card.md) | **qdbback AWS EC2 — Honeypot reativação + Node Fleet threats card** _(Fases 0–5c; PRs #319–#328; card 🍯 em reports.dnor.io; monitor admin :3500; GeoIP + auth env)_ | 🔼 High | **Cursor / AI Radar** | 3d |
 | [T-292](2026/Q2/T-292-Node-Fleet-External-Node-Identity-And-Hardware-Metadata.md) | **Node Fleet — Correção de identidade de nós externos + colunas IP/Arquitetura/SO** _(deploy e validação ao vivo concluídos; `ip`/`architecture`/`operating_system` no payload; classificação HETZNER/SSD-NODES corrigida)_ | 🔼 High | **Copilot/VSCode** | 5h |
 |               [T-290](2026/Q2/T-290-Cluster-Pulse-SSDNodes-Monitor-Node-Fleet.md)                | **Cluster Pulse — Monitoramento do Servidor SSD Nodes no Node Fleet** _(IP mapeado via prometheus_monitor; badge violeta profundo SSD-NODES; role dedicated; specs de hardware injetadas)_                                                                                    |   🔼 High   |          **Antigravity**          |   6h   |
 |                 [T-291](2026/Q2/T-291-Ops-TUI-SSDNodes-Inventory-Integration.md)                 | **Ops TUI — Integração do Servidor SSD Nodes no Inventário de Infraestrutura e TUI** _(Adicionado array EXTERNAL_NODES para testes de rede; atualizado AGENTS.md com a frota completa)_                                                                                       |  🔵 Medium  |          **Antigravity**          |   4h   |
