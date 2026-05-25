@@ -36,11 +36,24 @@ interface TooltipWrapperProps {
   card: ComponentChildren;
 }
 
+/** Ensures only one hover tooltip is open — scroll skips mouseleave between rows. */
+let activeHoverTooltipClose: (() => void) | null = null;
+
+function dismissActiveHoverTooltip() {
+  activeHoverTooltipClose?.();
+  activeHoverTooltipClose = null;
+}
+
 function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const [targetEl, setTargetEl] = useState<HTMLElement | null>(null);
   const [lastEnterTime, setLastEnterTime] = useState<number>(0);
   const [isPinned, setIsPinned] = useState<boolean>(false);
+
+  const closeTooltip = useCallback(() => {
+    setTargetEl(null);
+    setCoords(null);
+  }, []);
 
   const updateCoords = useCallback((el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
@@ -52,16 +65,20 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
 
   const handleMouseEnter = (e: MouseEvent) => {
     if (isPinned) return;
+    dismissActiveHoverTooltip();
     const el = e.currentTarget as HTMLElement;
     setTargetEl(el);
     updateCoords(el);
     setLastEnterTime(Date.now());
+    activeHoverTooltipClose = () => {
+      closeTooltip();
+    };
   };
 
   const handleMouseLeave = () => {
     if (isPinned) return;
-    setTargetEl(null);
-    setCoords(null);
+    activeHoverTooltipClose = null;
+    closeTooltip();
   };
 
   const handleToggleClick = (e: MouseEvent) => {
@@ -73,9 +90,10 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
     }
     if (isPinned) {
       setIsPinned(false);
-      setTargetEl(null);
-      setCoords(null);
+      activeHoverTooltipClose = null;
+      closeTooltip();
     } else {
+      dismissActiveHoverTooltip();
       setIsPinned(true);
       setTargetEl(el);
       updateCoords(el);
@@ -86,18 +104,33 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
     if (!targetEl) return;
 
     const handleScrollOrResize = () => {
-      updateCoords(targetEl);
+      if (isPinned) {
+        updateCoords(targetEl);
+        return;
+      }
+      // Wheel/scroll moves rows under the cursor without mouseleave.
+      dismissActiveHoverTooltip();
     };
 
     // Use capture phase to catch scroll events on any scrollable parent container
     window.addEventListener('scroll', handleScrollOrResize, true);
     window.addEventListener('resize', handleScrollOrResize, true);
+    window.addEventListener('wheel', handleScrollOrResize, { capture: true, passive: true });
 
     return () => {
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize, true);
+      window.removeEventListener('wheel', handleScrollOrResize, true);
     };
-  }, [targetEl, updateCoords]);
+  }, [targetEl, updateCoords, isPinned]);
+
+  useEffect(() => {
+    return () => {
+      if (activeHoverTooltipClose) {
+        activeHoverTooltipClose = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isPinned || !targetEl) return;
@@ -115,15 +148,15 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
       }
 
       setIsPinned(false);
-      setTargetEl(null);
-      setCoords(null);
+      activeHoverTooltipClose = null;
+      closeTooltip();
     };
 
     document.addEventListener('click', handleClickOutside, true);
     return () => {
       document.removeEventListener('click', handleClickOutside, true);
     };
-  }, [isPinned, targetEl]);
+  }, [isPinned, targetEl, closeTooltip]);
 
   return (
     <div
