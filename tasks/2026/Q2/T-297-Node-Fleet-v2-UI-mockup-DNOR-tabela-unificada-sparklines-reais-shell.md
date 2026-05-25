@@ -45,14 +45,14 @@ Relacionado: **T-296** (dados qdbback + card básico, PRs #319–#328). Este epi
 
 ### Fase 5d-c — Sparklines reais
 
-- [ ] Substituir `HoneypotBarSparkline` decorativo por `MetricSparkline` com dados reais
-- [ ] Mini sparklines nas colunas Total Requests / Last 24H da tabela fleet
+- [x] Substituir `HoneypotBarSparkline` decorativo por `MetricSparkline` com dados reais (hero)
+- [x] Mini sparklines nas colunas Total Requests / Last 24H da tabela fleet
 
 ### Fase 5d-d — Tabela fleet unificada
 
-- [ ] Modelo de linha unificado: K8s nodes + external nodes (honeypot, Hetzner, SSD)
-- [ ] Colunas: Status, Node, Environment, IP, ASN, Total Requests, Last 24H, Classified
-- [ ] Honeypot row destacada + link para monitor admin `:3500`
+- [x] Modelo de linha unificado: K8s nodes + external nodes enriquecidos com honeypot
+- [x] Colunas: Status, Node, Environment, IP, ASN, Total Requests, Last 24H, Classified
+- [x] Honeypot row destacada + link Monitor admin `:3500`
 - [ ] Export CSV/JSON com novos campos
 
 ### Fase 5d-e — Shell DNOR

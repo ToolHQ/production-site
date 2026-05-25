@@ -6,6 +6,8 @@ import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
 import { ThresholdSettings } from './ThresholdSettings';
 import { clusterBadgeClass, clusterBadgeSlug } from '../utils/clusterBadge';
+import { FleetOverviewTable } from './FleetOverviewTable';
+import { buildFleetOverviewRows, filterFleetRows } from '../utils/fleetOverview';
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -760,6 +762,16 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
     );
   }, []);
 
+  const honeypotNodes = live?.honeypot?.nodes ?? [];
+  const fleetRows = useMemo(
+    () => buildFleetOverviewRows(nodes, honeypotNodes),
+    [nodes, honeypotNodes],
+  );
+  const filteredFleetRows = useMemo(
+    () => filterFleetRows(fleetRows, search),
+    [fleetRows, search],
+  );
+
   if (!live?.available || nodes.length === 0) {
     return (
       <div class="nodes-empty">
@@ -770,7 +782,6 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
 
   const pressureCount = nodes.filter((n) => n.disk_pressure || n.memory_pressure).length;
   const notReadyCount = nodes.filter((n) => !n.ready).length;
-  const honeypotNodes = live?.honeypot?.nodes ?? [];
 
   return (
     <div class="nodes-panel" id="nodes-panel">
@@ -833,8 +844,23 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
         </div>
       )}
 
-      {filteredNodes.length === 0 && search && (
-        <div class="nodes-empty">No nodes match &quot;<strong>{search}</strong>&quot;</div>
+      <FleetOverviewTable
+        rows={filteredFleetRows}
+        highlight={highlightText}
+        query={search}
+      />
+
+      {filteredFleetRows.length === 0 && search && (
+        <div class="nodes-empty">No fleet nodes match &quot;<strong>{search}</strong>&quot;</div>
+      )}
+
+      <div class="nodes-section-divider">
+        <h3 class="nodes-section-divider__title">Infrastructure metrics</h3>
+        <p class="nodes-section-divider__subtitle">CPU, memory and disk utilization per node</p>
+      </div>
+
+      {filteredNodes.length === 0 && search && filteredFleetRows.length > 0 && (
+        <div class="nodes-empty">No infrastructure nodes match &quot;<strong>{search}</strong>&quot;</div>
       )}
 
       <div class="table-shell">

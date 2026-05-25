@@ -1,0 +1,157 @@
+import type { ComponentChildren } from 'preact';
+import { MetricSparkline } from './MetricSparkline';
+import { clusterBadgeClass } from '../utils/clusterBadge';
+import type { FleetOverviewRow, FleetStatus } from '../utils/fleetOverview';
+
+interface FleetOverviewTableProps {
+  rows: FleetOverviewRow[];
+  highlight?: (text: string, query: string) => ComponentChildren;
+  query?: string;
+}
+
+function statusLabel(status: FleetStatus): string {
+  switch (status) {
+    case 'honeypot':
+      return 'Honeypot';
+    case 'online':
+      return 'Online';
+    case 'degraded':
+      return 'Degraded';
+    case 'offline':
+      return 'Offline';
+  }
+}
+
+function MetricCell({
+  value,
+  series,
+  color,
+}: {
+  value: number | null;
+  series: FleetOverviewRow['requests24h'];
+  color: string;
+}) {
+  if (value === null) {
+    return <span class="fleet-metric-empty">—</span>;
+  }
+
+  return (
+    <div class="fleet-metric-cell">
+      <span class="fleet-metric-value">{value.toLocaleString()}</span>
+      {series.length >= 2 && (
+        <MetricSparkline points={series} color={color} width={88} height={24} />
+      )}
+    </div>
+  );
+}
+
+export function FleetOverviewTable({ rows, highlight, query = '' }: FleetOverviewTableProps) {
+  if (rows.length === 0) return null;
+
+  const hl = (text: string) => (highlight ? highlight(text, query) : text);
+
+  return (
+    <section class="fleet-overview">
+      <div class="fleet-overview__header">
+        <div>
+          <h3 class="fleet-overview__title">Fleet overview</h3>
+          <p class="fleet-overview__subtitle">
+            {rows.length} node{rows.length === 1 ? '' : 's'} across all environments
+          </p>
+        </div>
+      </div>
+
+      <div class="table-shell fleet-overview__shell">
+        <table class="fleet-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Node</th>
+              <th>Environment</th>
+              <th>IP</th>
+              <th>ASN</th>
+              <th>Total Requests</th>
+              <th>Last 24H</th>
+              <th>Classified</th>
+              <th class="fleet-table__actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.key}
+                class={`fleet-row fleet-row--${row.status}${row.isHoneypot ? ' fleet-row--honeypot' : ''}`}
+              >
+                <td class="fleet-status-cell">
+                  <span
+                    class={`fleet-status-dot fleet-status-dot--${row.status}`}
+                    title={statusLabel(row.status)}
+                    aria-label={statusLabel(row.status)}
+                  />
+                </td>
+                <td class="fleet-node-cell">
+                  <span class="fleet-node-name">{hl(row.name)}</span>
+                  {row.subtitle && row.subtitle !== row.name && (
+                    <span class="fleet-node-sub">{hl(row.subtitle)}</span>
+                  )}
+                </td>
+                <td>
+                  <span class={`node-cluster-badge ${clusterBadgeClass(row.cluster)}`}>
+                    {row.cluster}
+                  </span>
+                </td>
+                <td class="fleet-ip-cell">
+                  <code>{hl(row.ip)}</code>
+                </td>
+                <td class="fleet-asn-cell">
+                  <span class="fleet-asn-code">{row.asn}</span>
+                  <span class="fleet-asn-label">{row.asnLabel}</span>
+                </td>
+                <td>
+                  <MetricCell
+                    value={row.totalRequests}
+                    series={row.requests7d}
+                    color="#ff9900"
+                  />
+                </td>
+                <td>
+                  <MetricCell
+                    value={row.last24h}
+                    series={row.requests24h}
+                    color="#ffb347"
+                  />
+                </td>
+                <td class="fleet-classified-cell">
+                  {row.classified === null ? (
+                    <span class="fleet-metric-empty">—</span>
+                  ) : (
+                    <span
+                      class={`fleet-classified-badge${row.classified ? ' fleet-classified-badge--yes' : ''}`}
+                    >
+                      {row.classified ? 'Yes' : 'No'}
+                    </span>
+                  )}
+                </td>
+                <td class="fleet-actions-cell">
+                  {row.monitorHref ? (
+                    <a
+                      class="fleet-action-link"
+                      href={row.monitorHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open honeypot admin monitor (login key required)"
+                    >
+                      Monitor
+                    </a>
+                  ) : (
+                    <span class="fleet-metric-empty">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
