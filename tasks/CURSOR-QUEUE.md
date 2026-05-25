@@ -4,7 +4,14 @@
 
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
-| 1 | **T-297** | Node Fleet v2 — mockup DNOR | 🏎️ 5d-b ✅ timeseries PR #334 |
+| 1 | **T-302** | qdbback backlog — Prometheus + Let's Encrypt + AL2023 | 🏎️ Fase A |
+
+## Node Fleet v2 (concluído 2026-05-25)
+
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-301** | Node Fleet v2 DNOR (hero, fleet table, shell, período, export) | ✅ PR #344 |
+| — | T-297 | _(arquivo histórico; epic fechado como T-301)_ | — |
 
 ## qdbback / External Fleet (concluído 2026-05-25)
 

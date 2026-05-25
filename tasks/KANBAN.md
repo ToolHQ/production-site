@@ -10,6 +10,7 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
+| [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -39,6 +40,7 @@
 | T-299 | **SSDNodes K8s — Workloads base deployados** _(local-path-provisioner SC padrão; nginx-ingress DaemonSet hostNetwork 80/443; MinIO standalone 500 GiB PVC Bound; Ingresses s3/minio.ssdnodes.dnor.io; manifests em components/ssdnodes/; PR #329 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | T-298 | **reports.dnor.io — UI multi-cluster: agrupar nós por cluster com headers** _(NodesPanel agrupa OCI-K8S/SSD-NODES/HETZNER/AWS-EC2 com borda colorida, badge, X/Y ready, vCPU, GiB RAM; flat list em busca; mobile cards também; PR #329 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | T-297 | **Bootstrap fix — remover `ssh -t` incompatível com `BatchMode=yes`** _(install_k8s_kubeadm.sh: 3 ocorrências corrigidas; PR #329 merged)_ | 🔵 Medium | **Copilot/VSCode** | 30min |
+| [T-301](2026/Q2/T-301-Node-Fleet-v2-UI-mockup-DNOR-period-export-done.md) | **Node Fleet v2 — UI mockup DNOR (hero + fleet table + shell + período + export)** _(PRs #331–#344; tooltip fix #343; live reports.dnor.io/#nodes)_ | 🔼 High | **Cursor / AI Radar** | 3w |
 
 |                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
