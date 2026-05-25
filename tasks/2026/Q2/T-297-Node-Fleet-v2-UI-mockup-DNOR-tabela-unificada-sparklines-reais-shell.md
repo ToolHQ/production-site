@@ -22,7 +22,7 @@ Relacionado: **T-296** (dados qdbback + card básico, PRs #319–#328). Este epi
 | Fase | Escopo | Status |
 |------|--------|--------|
 | **5d-a** | Hero card premium (radar, copy IP, bar sparklines decorativas) | ✅ PR [#331](https://github.com/ToolHQ/production-site/pull/331) |
-| **5d-b** | API séries temporais honeypot (`/internal/threats-timeseries` ou similar) | 🏎️ PR pendente |
+| **5d-b** | API séries temporais honeypot (`/internal/threats-timeseries`) | ✅ PR [#334](https://github.com/ToolHQ/production-site/pull/334) |
 | **5d-c** | Sparklines reais no hero + células da tabela | ⬜ |
 | **5d-d** | Tabela fleet unificada (K8s + external/honeypot) | ⬜ |
 | **5d-e** | Shell DNOR (nav, search ⌘K, filtros, paginação) | ⬜ |
