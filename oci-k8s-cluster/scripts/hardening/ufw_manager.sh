@@ -158,13 +158,11 @@ echo "  ✔  ${ip}  # ${comment}"
 HEREDOC_INGRESS
     done
 
-    # HTTP/HTTPS público (Let's Encrypt + acesso web público ao nginx-ingress)
-    cat <<'HEREDOC_PUBLIC'
-ufw allow 80/tcp  comment "http-public" >/dev/null
-ufw allow 443/tcp comment "https-public" >/dev/null
-echo "  ✔  0.0.0.0/0  # http-public (Let's Encrypt + nginx-ingress redirect)"
-echo "  ✔  0.0.0.0/0  # https-public (nginx-ingress TLS)"
-HEREDOC_PUBLIC
+    # NOTA: porta 80 NÃO é aberta permanentemente.
+    # A renovação HTTP-01 do cert-manager é gerenciada pelo serviço
+    # cert-renew-ufw (systemd timer diário), que abre 80 temporariamente,
+    # aguarda o cert ficar Ready e fecha em seguida.
+    # Ver: components/ssdnodes/cert-renew-ufw/
 
     # Habilitar
     cat <<'HEREDOC_ENABLE'
