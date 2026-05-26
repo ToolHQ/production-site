@@ -40,15 +40,22 @@ ssh oci-k8s-node-1 'curl -sk https://3.236.249.77/internal/metrics | head -8'
 ### Fase B — Let's Encrypt
 
 - [x] Documentar DNS `honeypot.dnor.io` → `3.236.249.77`
-- [x] Fase `letsencrypt` em `deploy-qdbback-ec2.sh` (certbot standalone)
-- [ ] Criar DNS A record (operador) — **`honeypot.dnor.io` ainda não resolve** (bloqueio Fase B)
+- [x] Fase `letsencrypt` + `dns-check` em `deploy-qdbback-ec2.sh`
+- [x] Runbook GoDaddy: `apps/qdbback/docs/DNS-GODADDY-honeypot.md`
+- [ ] Criar DNS A record no GoDaddy (operador) — **bloqueio**
 - [ ] Executar `--phase letsencrypt` + validar HTTPS confiável
-- [ ] Atualizar `registry.yaml` / rs-observability scrape host (se migrar de IP)
+- [ ] Atualizar `registry.yaml` `instance_host` → hostname (pós-TLS)
+
+### Fase A+ — Scrape Coroot
+
+- [x] Manifest `aws-ec2-fleet-01-honeypot-metrics` (HTTPS :443 `/internal/metrics`)
+- [x] Script `validate-qdbback-metrics.sh`
+- [ ] `kubectl apply` manifest no cluster + confirmar target no Prometheus
 
 ### Fase C — AL2023
 
-- [x] Runbook migração AL2 → AL2023 (Fase 6 runbook)
-- [x] Fase `al2023` no deploy script (checklist, não destrutivo)
+- [x] Runbook `apps/qdbback/docs/MIGRATION-AL2023.md`
+- [x] Fase `al2023` no deploy script (checklist)
 - [ ] Executar migração EC2 + smoke pós-migração
 
 ## Validação

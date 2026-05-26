@@ -29,7 +29,10 @@ Reativação do app legado na EC2 `aws-ec2-fleet-01`:
 ./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase all
 ./scripts/aws-fleet/configure-qdbback-sg.sh --apply   # requer: aws sso login
 ./scripts/aws-fleet/validate-qdbback-logging.sh
+./scripts/aws-fleet/validate-qdbback-metrics.sh
 ```
+
+DNS Let's Encrypt: `apps/qdbback/docs/DNS-GODADDY-honeypot.md`
 
 Docs: `apps/qdbback/docs/AS-IS-ANALYSIS.md`
 
