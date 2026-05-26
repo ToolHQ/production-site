@@ -24,9 +24,14 @@ def load_registry(path: Path) -> dict[str, Any]:
         return yaml.safe_load(handle)
 
 
+def endpoint_ip(node: dict[str, Any]) -> str:
+    """K8s Endpoints require IP; instance_host may be a TLS hostname."""
+    return str(node.get("endpoint_ip") or node["instance_host"])
+
+
 def write_exporter_manifest(node: dict[str, Any], out_dir: Path) -> None:
     service = node["exporter_service"]
-    host = node["instance_host"]
+    host = endpoint_ip(node)
     content = f"""# Gerado por scripts/aws-fleet/generate_fleet_artifacts.py — não editar manualmente.
 apiVersion: v1
 kind: Service
@@ -72,7 +77,7 @@ def write_honeypot_metrics_manifest(node: dict[str, Any], out_dir: Path) -> None
         return
 
     service = f"{node['id']}-honeypot-metrics"
-    host = node["instance_host"]
+    host = endpoint_ip(node)
     metrics_path = node["metrics_path"]
     content = f"""# Gerado por scripts/aws-fleet/generate_fleet_artifacts.py — não editar manualmente.
 apiVersion: v1

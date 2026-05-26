@@ -42,9 +42,9 @@ ssh oci-k8s-node-1 'curl -sk https://3.236.249.77/internal/metrics | head -8'
 - [x] Documentar DNS `honeypot.dnor.io` → `3.236.249.77`
 - [x] Fase `letsencrypt` + `dns-check` em `deploy-qdbback-ec2.sh`
 - [x] Runbook GoDaddy: `apps/qdbback/docs/DNS-GODADDY-honeypot.md`
-- [ ] Criar DNS A record no GoDaddy (operador) — **bloqueio**
-- [ ] Executar `--phase letsencrypt` + validar HTTPS confiável
-- [ ] Atualizar `registry.yaml` `instance_host` → hostname (pós-TLS)
+- [x] Criar DNS A record via GoDaddy API (`configure-qdbback-dns-godaddy.sh`)
+- [x] Executar `--phase letsencrypt` + validar HTTPS confiável (Let's Encrypt R13, exp 2026-08-23)
+- [x] Atualizar `registry.yaml` `instance_host` → `honeypot.dnor.io` + `endpoint_ip`
 
 ### Fase A+ — Scrape Coroot
 
