@@ -131,6 +131,9 @@ sudo install -m 600 -o ec2-user -g ec2-user \
 sudo install -m 644 -o ec2-user -g ec2-user \
   "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" /home/ec2-user/certificate.crt
 sudo systemctl start qdbback.service
+sudo tee /etc/cron.d/qdbback-certbot-renew > /dev/null <<CRON
+0 3 * * * root certbot renew --quiet --pre-hook "systemctl stop qdbback" --post-hook "install -m 600 -o ec2-user -g ec2-user /etc/letsencrypt/live/${DOMAIN}/privkey.pem /home/ec2-user/private.key && install -m 644 -o ec2-user -g ec2-user /etc/letsencrypt/live/${DOMAIN}/fullchain.pem /home/ec2-user/certificate.crt && systemctl start qdbback"
+CRON
 echo "Let's Encrypt instalado para ${DOMAIN}"
 REMOTE
 }

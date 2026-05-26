@@ -4,7 +4,7 @@
 
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
-| 1 | **T-302** | qdbback backlog — Prometheus + Let's Encrypt + AL2023 | 🏎️ Fase A |
+| 1 | **T-302** | qdbback backlog — Prometheus ✅ / Let's Encrypt (DNS pendente) / AL2023 | 🏎️ Fase B bloqueada (DNS) |
 
 ## Node Fleet v2 (concluído 2026-05-25)
 

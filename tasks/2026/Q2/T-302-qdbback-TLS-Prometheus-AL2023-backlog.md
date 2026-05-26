@@ -21,13 +21,27 @@ Backlog pós **T-296** na EC2 `aws-ec2-fleet-01` (`3.236.249.77`, AL2, Node 16.2
 - [x] Handler text/plain exposition format (counter/gauge honeypot)
 - [x] Rota allowlist OCI em `mainRouter`
 - [x] Testes unitários handler
-- [ ] Deploy sync + validação curl from OCI egress IP
+- [x] Deploy sync + validação curl from OCI egress IP
+
+**Evidência live (2026-05-25):**
+
+```bash
+# Off-cluster → 403
+curl -sk https://3.236.249.77/internal/metrics
+# forbidden
+
+# OCI node-1 (allowlisted) → exposition 0.0.4
+ssh oci-k8s-node-1 'curl -sk https://3.236.249.77/internal/metrics | head -8'
+# qdbback_http_requests_total 86762
+# qdbback_http_requests_last24h 3565
+# ...
+```
 
 ### Fase B — Let's Encrypt
 
 - [x] Documentar DNS `honeypot.dnor.io` → `3.236.249.77`
 - [x] Fase `letsencrypt` em `deploy-qdbback-ec2.sh` (certbot standalone)
-- [ ] Criar DNS A record (operador)
+- [ ] Criar DNS A record (operador) — **`honeypot.dnor.io` ainda não resolve** (bloqueio Fase B)
 - [ ] Executar `--phase letsencrypt` + validar HTTPS confiável
 - [ ] Atualizar `registry.yaml` / rs-observability scrape host (se migrar de IP)
 
