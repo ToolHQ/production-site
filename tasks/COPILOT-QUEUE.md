@@ -24,6 +24,7 @@ _Nada em andamento — aguardando próxima task._
 | :------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------ | :---------- |
 | [T-293](2026/Q2/T-293-Node3-IOWait-Saturation-Containment.md) | Conter saturação de I/O wait no k8s-node-3 (ClickHouse/Prometheus)                                                        | 🚨 Critical |
 | —                                                             | Finalizar cutover de CI para self-hosted Hetzner (runner + variable + smoke)                                              | 🔼 High     |
+| —                                                             | **CodeQL no ssdnodes-monstro**: instalar runner x86_64 + mover `codeql.yml` de `ubuntu-latest` → `[self-hosted, Linux, X64, ssdnodes]`. Diagnosticar falhas JS/Python no próprio hardware. | 🔵 Medium   |
 | Radar (futuro)                                                | Plataforma AppSec Open Source (roadmap faseado, separado das demandas principais) -> `docs/open-source-appsec-roadmap.md` | 🔽 Low      |
 | —                                                             | Monitorar estabilidade do cluster                                                                                         | 🔽 Low      |
 
