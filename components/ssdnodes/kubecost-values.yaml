@@ -1,0 +1,36 @@
+# Kubecost Free Tier — ssdnodes-monstro
+# Free tier: sem persistência de longo prazo, dados em memória/15 dias.
+# UI exposta via ingress nginx em cost.ssdnodes.dnor.io
+
+global:
+  clusterId: "ssdnodes-prod"
+  grafana:
+    enabled: true   # Necessário: frontend nginx referencia o Grafana bundled
+  prometheus:
+    enabled: true  # Prometheus bundled — ssdnodes não tem Prometheus externo
+
+# Ingress gerenciado via kubecost-ingress.yaml
+ingress:
+  enabled: false
+
+kubecostFrontend:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+kubecostModel:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Retenção de 15 dias (free tier)
+kubecostProductConfigs:
+  clusterName: "ssdnodes-prod"
