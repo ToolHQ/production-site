@@ -21,7 +21,7 @@
   },
   {
     "id": "aws-ec2-fleet-01",
-    "instance_host": "3.236.249.77",
+    "instance_host": "honeypot.dnor.io",
     "fallback_name": "ip-172-31-65-56",
     "cluster": "AWS-EC2",
     "role": "dedicated",

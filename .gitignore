@@ -11,6 +11,7 @@ artifacts/
 .last_build_hash
 .hetzner.root
 .ssdnodes.creds
+.env.godaddy
 
 # AWS EC2 fleet-01 — backup local completo (sqlite, nvm, node_modules, TLS keys)
 archive/aws-ec2-fleet-01/recovery-*/
