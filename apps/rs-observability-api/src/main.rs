@@ -1558,11 +1558,15 @@ impl LiveMonitor {
     }
 
     async fn cached_or_refresh(&self) -> LiveOverview {
-        self.overview_with_refresh_budget(Duration::from_secs(10)).await
+        self.overview_with_refresh_budget(Duration::from_secs(10))
+            .await
     }
 
     /// Refresh live data with a bounded wait; reuse stale cache on timeout/error.
-    pub(crate) async fn overview_with_refresh_budget(&self, refresh_budget: Duration) -> LiveOverview {
+    pub(crate) async fn overview_with_refresh_budget(
+        &self,
+        refresh_budget: Duration,
+    ) -> LiveOverview {
         if let Some(payload) = self.fresh_cache().await {
             return payload;
         }
@@ -1585,10 +1589,7 @@ impl LiveMonitor {
                 }
             }
             Err(_) => {
-                let message = format!(
-                    "refresh timed out after {}s",
-                    refresh_budget.as_secs()
-                );
+                let message = format!("refresh timed out after {}s", refresh_budget.as_secs());
                 if let Some(mut stale_payload) = self.cached_payload().await {
                     stale_payload.stale = true;
                     stale_payload.error = Some(message);
