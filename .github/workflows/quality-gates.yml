@@ -81,14 +81,25 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install shellcheck
-        run: sudo apt-get install -y shellcheck
+        run: |
+          if ! command -v shellcheck &>/dev/null; then
+            SHELLCHECK_VERSION=v0.10.0
+            curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.aarch64.tar.xz" \
+              | tar -xJf - --strip-components=1 "shellcheck-${SHELLCHECK_VERSION}/shellcheck"
+            sudo mv shellcheck /usr/local/bin/ 2>/dev/null \
+              || { mkdir -p ~/.local/bin; mv shellcheck ~/.local/bin/; echo "$HOME/.local/bin" >> "$GITHUB_PATH"; }
+          fi
 
       - name: Install shfmt
         run: |
           SHFMT_VERSION=v3.8.0
-          curl -sSfL "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" \
-            -o /usr/local/bin/shfmt
-          chmod +x /usr/local/bin/shfmt
+          if ! command -v shfmt &>/dev/null; then
+            curl -sSfL "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_arm64" \
+              -o shfmt
+            chmod +x shfmt
+            sudo mv shfmt /usr/local/bin/ 2>/dev/null \
+              || { mkdir -p ~/.local/bin; mv shfmt ~/.local/bin/; echo "$HOME/.local/bin" >> "$GITHUB_PATH"; }
+          fi
 
       - name: Run shell quality gates
         run: |
