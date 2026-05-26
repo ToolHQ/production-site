@@ -1,6 +1,7 @@
 k8s.token
 ai-radar.token
 pixie_deploy_key.txt
+.env.godaddy
 reports/
 # Generated QA artifacts
 .qa/reports/

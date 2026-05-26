@@ -158,6 +158,12 @@ echo "  ✔  ${ip}  # ${comment}"
 HEREDOC_INGRESS
     done
 
+    # NOTA: porta 80 NÃO é aberta permanentemente.
+    # A renovação HTTP-01 do cert-manager é gerenciada pelo serviço
+    # cert-renew-ufw (systemd timer diário), que abre 80 temporariamente,
+    # aguarda o cert ficar Ready e fecha em seguida.
+    # Ver: components/ssdnodes/cert-renew-ufw/
+
     # Habilitar
     cat <<'HEREDOC_ENABLE'
 echo ""

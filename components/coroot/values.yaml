@@ -5,7 +5,7 @@ corootCE:
   image:
     tag: "1.18.6"
   nodeSelector:
-    kubernetes.io/hostname: k8s-node-1  # pin to node where coroot-data PVC is attached (pvc-efbe8d2c) — T-195/T-200
+    kubernetes.io/hostname: k8s-node-1 # pin to node where coroot-data PVC is attached (pvc-efbe8d2c) — T-195/T-200
   env:
     - name: BOOTSTRAP_CLICKHOUSE_ADDRESS
       value: "clickhouse:9000"
@@ -15,7 +15,7 @@ corootCE:
       memory: 100Mi
     limits:
       cpu: 300m
-      memory: 900Mi  # raised from 600Mi — OOMKilled 2026-05-02 after clickhouse restart
+      memory: 900Mi # raised from 600Mi — OOMKilled 2026-05-02 after clickhouse restart
       ephemeral-storage: 1Gi
   # Persistence and Ingress from original
   persistentVolume:
@@ -58,16 +58,16 @@ node-agent:
 clickhouse:
   enabled: true
   nodeSelector:
-    kubernetes.io/hostname: k8s-node-3  # pin to node where clickhouse PVC is attached (pvc-23ab203e) — T-195/T-200
+    kubernetes.io/hostname: k8s-node-3 # pin to node where clickhouse PVC is attached (pvc-23ab203e) — T-195/T-200
   command:
     - "/bin/bash"
     - "-c"
     - |
       echo "=== 🔄 CLICKHOUSE PERSISTENCE BOOTSTRAP ==="
-      
+
       # 1. Lista de subdiretorios criticos para persistir
       SUBDIRS="access data flags format_schemas metadata metadata_dropped named_collections preprocessed_configs store tmp user_defined user_files"
-      
+
       for dir in $SUBDIRS; do
         # Garantir que a pasta fisica correspondente existe no PVC persistente
         mkdir -p /bitnami/clickhouse/data/$dir
@@ -83,7 +83,7 @@ clickhouse:
         ln -sfn /bitnami/clickhouse/data/$dir /var/lib/clickhouse/$dir
         echo "✅ Link criado: /var/lib/clickhouse/$dir -> /bitnami/clickhouse/data/$dir"
       done
-      
+
       # 2. Persistir arquivos individuais como uuid e status
       for file in uuid status; do
         if [ -f /var/lib/clickhouse/$file ] && [ ! -L /var/lib/clickhouse/$file ]; then
@@ -96,18 +96,18 @@ clickhouse:
           echo "✅ Link criado: /var/lib/clickhouse/$file -> /bitnami/clickhouse/data/$file"
         fi
       done
-      
+
       # 3. Injetar compressao ZSTD ativa para economizar disco e I/O
       mkdir -p /etc/clickhouse-server/config.d
       echo "<clickhouse><compression><case><min_part_size>8192</min_part_size><min_part_size_ratio>0.01</min_part_size_ratio><method>zstd</method><level>5</level></case></compression></clickhouse>" > /etc/clickhouse-server/config.d/compression.xml
       echo "✅ Compressao ZSTD injetada."
-      
+
       # 4. Linkar as configuracoes de overrides do Bitnami para a pasta oficial do Clickhouse
       if [ -d /bitnami/clickhouse/etc/conf.d ]; then
         ln -sfn /bitnami/clickhouse/etc/conf.d/* /etc/clickhouse-server/config.d/
         echo "✅ Configs de overrides linkadas para /etc/clickhouse-server/config.d/"
       fi
-      
+
       # 5. Throttle background merges para reduzir I/O no host (OCI 1vCPU)
       mkdir -p /etc/clickhouse-server/config.d
       printf '<clickhouse>\n  <background_pool_size>1</background_pool_size>\n  <background_merges_mutations_concurrency_ratio>1</background_merges_mutations_concurrency_ratio>\n</clickhouse>\n' > /etc/clickhouse-server/config.d/merges-throttle.xml
@@ -150,17 +150,17 @@ prometheus:
         memory: 100Mi
   server:
     nodeSelector:
-      kubernetes.io/hostname: k8s-node-2  # move Prometheus off k8s-node-3 to relieve I/O wait on the ClickHouse host
+      kubernetes.io/hostname: k8s-node-2 # move Prometheus off k8s-node-3 to relieve I/O wait on the ClickHouse host
     extraFlags:
       - web.enable-remote-write-receiver
       - storage.tsdb.retention.size=1500MB
     resources:
       requests:
         cpu: 60m
-        memory: 300Mi  # actual steady-state ~267Mi; was 400Mi (over-provisioned request)
+        memory: 300Mi # actual steady-state ~267Mi; was 400Mi (over-provisioned request)
       limits:
         cpu: 300m
-        memory: 800Mi  # raised from 600Mi — 6 restarts (Exit 2); TSDB WAL replay spikes at startup
+        memory: 800Mi # raised from 600Mi — 6 restarts (Exit 2); TSDB WAL replay spikes at startup
     persistentVolume:
       enabled: true
       size: 4Gi

@@ -2,8 +2,8 @@
 # hostNetwork=true para bindar portas 80/443 diretamente no IP do host
 
 controller:
-  kind: DaemonSet          # DaemonSet para garantir que o pod use o node
-  hostNetwork: true        # Bind diretamente na NIC do host
+  kind: DaemonSet # DaemonSet para garantir que o pod use o node
+  hostNetwork: true # Bind diretamente na NIC do host
   hostPort:
     enabled: true
     ports:
@@ -11,7 +11,7 @@ controller:
       https: 443
 
   service:
-    enabled: false         # Sem LoadBalancer (não tem cloud LB aqui)
+    enabled: false # Sem LoadBalancer (não tem cloud LB aqui)
 
   tolerations:
     - key: node-role.kubernetes.io/control-plane
@@ -35,7 +35,7 @@ controller:
     proxy-send-timeout: "600"
 
   metrics:
-    enabled: false         # Sem Prometheus no SSDNodes por enquanto
+    enabled: false # Sem Prometheus no SSDNodes por enquanto
 
 # Sem defaultBackend (economiza recursos)
 defaultBackend:
