@@ -136,6 +136,8 @@ def write_external_nodes_json(nodes: list[dict[str, Any]], out_path: Path) -> No
         }
         if n.get("honeypot"):
             entry["honeypot"] = True
+        if n.get("endpoint_ip"):
+            entry["endpoint_ip"] = n["endpoint_ip"]
         if n.get("threats_path"):
             entry["threats_path"] = n["threats_path"]
         if n.get("timeseries_path"):
