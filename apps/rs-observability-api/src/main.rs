@@ -2917,12 +2917,12 @@ fn alias_external_node_metrics(
         let source_key = metrics
             .keys()
             .find(|key| {
-                key == &spec.fallback_name
-                    || key == &spec.instance_host
+                key.as_str() == spec.fallback_name.as_str()
+                    || key.as_str() == spec.instance_host.as_str()
                     || spec
                         .endpoint_ip
                         .as_deref()
-                        .is_some_and(|endpoint| key == endpoint)
+                        .is_some_and(|endpoint| key.as_str() == endpoint)
                     || key.contains(&spec.fallback_name)
                     || spec
                         .endpoint_ip
