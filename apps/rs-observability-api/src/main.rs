@@ -1359,14 +1359,19 @@ async fn main() {
         }
     };
     let secondary_live_monitor = if let Ok(path) = env::var("SECONDARY_KUBECONFIG_PATH") {
-        match LiveMonitor::from_kubeconfig(&path).await {
-            Ok(monitor) => {
-                println!("secondary K8s monitor enabled ({})", path);
-                Some(Arc::new(monitor))
-            }
-            Err(err) => {
-                eprintln!("secondary K8s monitor disabled: {}", err);
-                None
+        let path = path.trim();
+        if path.is_empty() {
+            None
+        } else {
+            match LiveMonitor::from_kubeconfig(path).await {
+                Ok(monitor) => {
+                    println!("secondary K8s monitor enabled ({})", path);
+                    Some(Arc::new(monitor))
+                }
+                Err(err) => {
+                    eprintln!("secondary K8s monitor disabled: {}", err);
+                    None
+                }
             }
         }
     } else {
@@ -1482,6 +1487,7 @@ impl LiveMonitor {
             .use_rustls_tls()
             .add_root_certificate(certificate)
             .default_headers(headers)
+            .timeout(Duration::from_secs(10))
             .build()
             .map_err(|error| format!("build Kubernetes client: {}", error))?;
 
@@ -1540,6 +1546,7 @@ impl LiveMonitor {
             .use_rustls_tls()
             .add_root_certificate(ca_cert)
             .identity(identity)
+            .timeout(Duration::from_secs(10))
             .build()
             .map_err(|e| format!("build secondary K8s client: {}", e))?;
 
@@ -1551,25 +1558,44 @@ impl LiveMonitor {
     }
 
     async fn cached_or_refresh(&self) -> LiveOverview {
+        self.overview_with_refresh_budget(Duration::from_secs(10))
+            .await
+    }
+
+    /// Refresh live data with a bounded wait; reuse stale cache on timeout/error.
+    pub(crate) async fn overview_with_refresh_budget(
+        &self,
+        refresh_budget: Duration,
+    ) -> LiveOverview {
         if let Some(payload) = self.fresh_cache().await {
             return payload;
         }
 
-        match self.fetch_live().await {
-            Ok(payload) => {
+        match tokio::time::timeout(refresh_budget, self.fetch_live()).await {
+            Ok(Ok(payload)) => {
                 *self.cache.write().await = Some(CachedLiveOverview {
                     fetched_at: Instant::now(),
                     payload: payload.clone(),
                 });
                 payload
             }
-            Err(error) => {
+            Ok(Err(error)) => {
                 if let Some(mut stale_payload) = self.cached_payload().await {
                     stale_payload.stale = true;
                     stale_payload.error = Some(error);
                     stale_payload
                 } else {
                     unavailable_live_overview(error)
+                }
+            }
+            Err(_) => {
+                let message = format!("refresh timed out after {}s", refresh_budget.as_secs());
+                if let Some(mut stale_payload) = self.cached_payload().await {
+                    stale_payload.stale = true;
+                    stale_payload.error = Some(message);
+                    stale_payload
+                } else {
+                    unavailable_live_overview(message)
                 }
             }
         }
@@ -2325,44 +2351,52 @@ impl PrometheusMonitor {
             namespace_regex
         );
 
-        let cluster_cpu_percent_series = self
-            .query_range_points(
+        let (
+            cluster_cpu_percent_series,
+            cluster_cpu_used_series,
+            cluster_memory_percent_series,
+            cluster_memory_used_series,
+            restart_pressure_series,
+            restart_events_last_hour,
+            top_restarts,
+            pod_cpu_series,
+            pod_memory_series,
+        ) = tokio::join!(
+            self.query_range_points(
                 cluster_cpu_percent_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let cluster_cpu_used_series = self
-            .query_range_points(cluster_cpu_used_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let cluster_memory_percent_series = self
-            .query_range_points(
+            ),
+            self.query_range_points(cluster_cpu_used_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_range_points(
                 cluster_memory_percent_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let cluster_memory_used_series = self
-            .query_range_points(
+            ),
+            self.query_range_points(
                 cluster_memory_used_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let restart_pressure_series = self
-            .query_range_points(&restart_pressure_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let restart_events_last_hour = self.query_instant_value(&restart_last_hour_query).await?;
-        let top_restarts = self.query_restart_hotspots(&top_restart_query).await?;
-        let pod_cpu_series = self
-            .query_range_series(&pod_cpu_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let pod_memory_series = self
-            .query_range_series(&pod_memory_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
+            ),
+            self.query_range_points(&restart_pressure_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_instant_value(&restart_last_hour_query),
+            self.query_restart_hotspots(&top_restart_query),
+            self.query_range_series(&pod_cpu_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_range_series(&pod_memory_query, start, end, PROMETHEUS_STEP_SECONDS),
+        );
+
+        let cluster_cpu_percent_series = cluster_cpu_percent_series?;
+        let cluster_cpu_used_series = cluster_cpu_used_series?;
+        let cluster_memory_percent_series = cluster_memory_percent_series?;
+        let cluster_memory_used_series = cluster_memory_used_series?;
+        let restart_pressure_series = restart_pressure_series?;
+        let restart_events_last_hour = restart_events_last_hour?;
+        let top_restarts = top_restarts?;
+        let pod_cpu_series = pod_cpu_series?;
+        let pod_memory_series = pod_memory_series?;
 
         let service_metrics = services
             .iter()
