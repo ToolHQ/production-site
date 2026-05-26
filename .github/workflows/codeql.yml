@@ -13,8 +13,8 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
+    name: Analyze (${{ matrix.language }})
+    runs-on: ["self-hosted", "Linux", "X64", "ssdnodes"]
     permissions:
       actions: read
       contents: read
