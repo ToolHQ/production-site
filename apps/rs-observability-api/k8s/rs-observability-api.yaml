@@ -100,7 +100,7 @@ spec:
                   - key: kubernetes.io/hostname
                     operator: NotIn
                     values:
-                      - k8s-node-3  # avoid saturated node (ClickHouse I/O)
+                      - k8s-node-3 # avoid saturated node (ClickHouse I/O)
       imagePullSecrets:
         - name: regsecret
       containers:

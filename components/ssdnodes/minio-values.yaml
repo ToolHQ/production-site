@@ -1,7 +1,7 @@
 # MinIO Helm values para SSDNodes
 # 500 GiB de storage S3-compatible no disco de 1.1 TB
 
-mode: standalone   # single-node (sem erasure coding)
+mode: standalone # single-node (sem erasure coding)
 
 # Credenciais — alterar antes de usar em produção
 rootUser: "minio-admin"
@@ -26,8 +26,8 @@ resources:
 # Service (ClusterIP — exposto via Ingress)
 service:
   type: ClusterIP
-  port: 9000      # S3 API
-  consolePort: 9001   # Console web
+  port: 9000 # S3 API
+  consolePort: 9001 # Console web
 
 # Console web
 consoleService:

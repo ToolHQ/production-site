@@ -8,11 +8,11 @@ Workloads para o cluster K8s do servidor SSDNodes (x86_64, 12 vCPU / 60 GB RAM /
 
 ## Componentes
 
-| Componente | Namespace | Quando instalar |
-|---|---|---|
-| `local-path-provisioner` | `local-path-storage` | Pré-requisito para qualquer PVC |
-| `nginx-ingress` | `ingress-nginx` | Pré-requisito para Ingress HTTP/HTTPS |
-| `minio` | `minio` | Object storage S3-compatible (500 GiB) |
+| Componente               | Namespace            | Quando instalar                        |
+| ------------------------ | -------------------- | -------------------------------------- |
+| `local-path-provisioner` | `local-path-storage` | Pré-requisito para qualquer PVC        |
+| `nginx-ingress`          | `ingress-nginx`      | Pré-requisito para Ingress HTTP/HTTPS  |
+| `minio`                  | `minio`              | Object storage S3-compatible (500 GiB) |
 
 ## Deploy
 
@@ -30,17 +30,26 @@ helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
   -f components/ssdnodes/nginx-ingress-values.yaml \
   --wait
 
-# 3. MinIO via Helm
+# 3. cert-manager (TLS via Let's Encrypt)
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.3/cert-manager.yaml
+kubectl wait --for=condition=Available deployment --all -n cert-manager --timeout=90s
+kubectl apply -f components/ssdnodes/cluster-issuer.yaml
+
+# 4. MinIO via Helm
 helm repo add minio https://charts.min.io/
 helm repo update
 helm upgrade --install minio minio/minio \
   --namespace minio --create-namespace \
   -f components/ssdnodes/minio-values.yaml \
   --wait
+
+# 5. Ingresses com TLS
+kubectl apply -f components/ssdnodes/minio-ingress.yaml
 ```
 
 ## DNS
 
 Para usar os Ingresses, apontar subdomínios para `104.225.218.78`:
+
 - `minio.ssdnodes.dnor.io` → console MinIO
 - `s3.ssdnodes.dnor.io` → API S3 MinIO

@@ -158,6 +158,14 @@ echo "  ✔  ${ip}  # ${comment}"
 HEREDOC_INGRESS
     done
 
+    # HTTP/HTTPS público (Let's Encrypt + acesso web público ao nginx-ingress)
+    cat <<'HEREDOC_PUBLIC'
+ufw allow 80/tcp  comment "http-public" >/dev/null
+ufw allow 443/tcp comment "https-public" >/dev/null
+echo "  ✔  0.0.0.0/0  # http-public (Let's Encrypt + nginx-ingress redirect)"
+echo "  ✔  0.0.0.0/0  # https-public (nginx-ingress TLS)"
+HEREDOC_PUBLIC
+
     # Habilitar
     cat <<'HEREDOC_ENABLE'
 echo ""

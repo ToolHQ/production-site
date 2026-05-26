@@ -64,7 +64,7 @@ Sem partição por data, toda operação de merge TTL exige varredura completa d
 2. **`MODIFY SETTING merge_with_ttl_timeout=86400`** em todas as 5 tabelas MergeTree ativas:
    - `otel_traces_trace_id_ts` — principal offender (sem PARTITION BY)
    - `otel_traces`, `otel_logs`, `profiling_samples`, `metrics`
-   
+
    Resultado: merges TTL passam de 4h para 1 dia de intervalo, reduzindo frequência de I/O spikes em 6x.
 
 3. **Estado pós-fix** (node-3, 2026-05-25):
