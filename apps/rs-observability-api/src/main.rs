@@ -2602,7 +2602,7 @@ impl PrometheusMonitor {
             }));
         }
 
-        node_names
+        let map = node_names
             .into_iter()
             .filter_map(|node| {
                 let cpu_percent = metric_value_for_node(&cpu_map, &node, &nodename_to_instance);
