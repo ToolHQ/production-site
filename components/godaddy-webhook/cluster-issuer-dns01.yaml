@@ -1,0 +1,29 @@
+---
+# ClusterIssuer DNS-01 via GoDaddy webhook
+# Substitui letsencrypt-prod (HTTP-01) sem necessidade de portas 80/443 abertas
+# Referência: https://github.com/snowdrop/godaddy-webhook
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dns01
+  labels:
+    app.kubernetes.io/name: godaddy-webhook
+    app.kubernetes.io/version: 0.1.0
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@dnor.io
+    privateKeySecretRef:
+      name: letsencrypt-dns01-key
+    solvers:
+      - dns01:
+          webhook:
+            groupName: acme.dnor.io
+            solverName: godaddy
+            config:
+              apiKeySecretRef:
+                name: godaddy-api-key
+                key: token
+              production: true
+              ttl: 600
