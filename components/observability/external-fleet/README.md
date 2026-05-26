@@ -13,3 +13,4 @@ kubectl apply -f components/observability/external-fleet/generated/
 - **hetzner-cax21** — `HETZNER` @ `37.27.85.100` (`hetzner-node-exporter`)
 - **ssdnodes-monstro** — `SSD-NODES` @ `104.225.218.78` (`ssdnodes-node-exporter`)
 - **aws-ec2-fleet-01** — `AWS-EC2` @ `3.236.249.77` (`aws-ec2-fleet-01-node-exporter`)
+  - honeypot metrics: `aws-ec2-fleet-01-honeypot-metrics` → `/internal/metrics` (HTTPS :443)

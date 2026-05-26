@@ -25,6 +25,7 @@ Deploy qdbback na EC2 (Fases 1–5c).
 Fases:
   sync       — rsync apps/qdbback → /home/ec2-user/server (sem node_modules)
   tls        — gera cert self-signed para IP atual (Fase 2)
+  dns-check  — valida A record honeypot.dnor.io → IP EC2 (pré Let's Encrypt)
   letsencrypt — certbot para QDBBACK_TLS_DOMAIN (default honeypot.dnor.io)
   secrets    — /etc/qdbback/monitor.env (auth admin via env)
   node22     — Node.js 16.20 LTS (máx. compatível AL2) + npm ci --omit=dev
@@ -101,6 +102,29 @@ openssl req -x509 -newkey rsa:2048 -nodes \
 chmod 600 "$KEY"
 chmod 644 "$CRT"
 echo "TLS gerado para CN=${PUB_IP}"
+REMOTE
+}
+
+phase_dns_check() {
+  info "Fase dns-check: ${TLS_DOMAIN} → IP EC2"
+  run_ssh bash -s "$TLS_DOMAIN" <<'REMOTE'
+set -euo pipefail
+DOMAIN="$1"
+PUB_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+RESOLVED=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1; exit}' || true)
+echo "EC2 public IP: ${PUB_IP}"
+echo "DNS ${DOMAIN}: ${RESOLVED:-<não resolve>}"
+if [[ -z "$RESOLVED" ]]; then
+  echo ""
+  echo "Ação: criar A record ${DOMAIN} → ${PUB_IP} no GoDaddy"
+  echo "Doc: apps/qdbback/docs/DNS-GODADDY-honeypot.md"
+  exit 1
+fi
+if [[ "$RESOLVED" != "$PUB_IP" ]]; then
+  echo "ERRO: DNS aponta para ${RESOLVED}, esperado ${PUB_IP}"
+  exit 1
+fi
+echo "DNS OK — pode rodar --phase letsencrypt"
 REMOTE
 }
 
@@ -319,6 +343,7 @@ REMOTE
 case "$PHASE" in
   sync) phase_sync ;;
   tls) phase_tls ;;
+  dns-check) phase_dns_check ;;
   letsencrypt) phase_letsencrypt ;;
   al2023) phase_al2023 ;;
   secrets) phase_secrets ;;

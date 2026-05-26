@@ -62,3 +62,5 @@ nodes:
     honeypot: true
     threats_path: /internal/threats-summary
     timeseries_path: /internal/threats-timeseries
+    metrics_path: /internal/metrics
+    tls_domain: honeypot.dnor.io

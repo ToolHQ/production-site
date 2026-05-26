@@ -86,8 +86,8 @@ ssh aws-ec2-fleet-01 'sudo grep LOGIN /etc/qdbback/monitor.env'
 
 ### Pendente (futuro)
 
-- TLS Let's Encrypt — `./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase letsencrypt --tls-domain honeypot.dnor.io` (DNS A → IP EC2)
-- Migração AL2023 — `./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase al2023` (checklist)
+- TLS Let's Encrypt — ver [DNS-GODADDY-honeypot.md](./DNS-GODADDY-honeypot.md) + `./deploy-qdbback-ec2.sh --phase dns-check`
+- Migração AL2023 — ver [MIGRATION-AL2023.md](./MIGRATION-AL2023.md)
 
 ## Fase 5d — Prometheus (T-302) ✅
 
@@ -113,25 +113,26 @@ Deploy:
 
 Pré-requisito: registro DNS **`honeypot.dnor.io`** A → `3.236.249.77`.
 
+Guia GoDaddy: [DNS-GODADDY-honeypot.md](./DNS-GODADDY-honeypot.md)
+
 ```bash
+./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase dns-check
 ./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase letsencrypt --tls-domain honeypot.dnor.io
 ```
 
-Após sucesso, atualizar `config/external-fleet/registry.yaml` / scrape rs-observability se migrar hostname.
+## Fase 5f — Prometheus scrape (Coroot)
+
+Manifest gerado: `components/observability/external-fleet/generated/aws-ec2-fleet-01-honeypot-metrics.yaml`
+
+```bash
+kubectl apply -f components/observability/external-fleet/generated/aws-ec2-fleet-01-honeypot-metrics.yaml
+./scripts/aws-fleet/validate-qdbback-metrics.sh
+```
 
 ## Fase 6 — AL2023 + Node 22
 
-Checklist não destrutivo (migração manual):
+Checklist completo: [MIGRATION-AL2023.md](./MIGRATION-AL2023.md)
 
 ```bash
 ./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase al2023
 ```
-
-Passos resumidos:
-
-1. AMI/snapshot da instância atual
-2. Nova instância Amazon Linux 2023 ARM64 (mesmo SG)
-3. Copiar `/home/ec2-user`, `database.sqlite`, `/etc/qdbback/monitor.env`
-4. `nvm install 22` + `npm ci --omit=dev`
-5. `./deploy-qdbback-ec2.sh --phase systemd && --phase start`
-6. Smoke: honeypot 80/443, monitor :3500, Node Fleet card, `/internal/metrics`

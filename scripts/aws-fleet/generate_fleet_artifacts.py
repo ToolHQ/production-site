@@ -67,6 +67,55 @@ subsets:
     (out_dir / f"{node['id']}-exporter.yaml").write_text(content)
 
 
+def write_honeypot_metrics_manifest(node: dict[str, Any], out_dir: Path) -> None:
+    if not node.get("honeypot") or not node.get("metrics_path"):
+        return
+
+    service = f"{node['id']}-honeypot-metrics"
+    host = node["instance_host"]
+    metrics_path = node["metrics_path"]
+    content = f"""# Gerado por scripts/aws-fleet/generate_fleet_artifacts.py — não editar manualmente.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {service}
+  namespace: coroot
+  labels:
+    app: {service}
+    app.kubernetes.io/part-of: coroot
+    app.kubernetes.io/component: honeypot-metrics
+    external-fleet/provider: {node.get('provider', 'unknown')}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: "https"
+    prometheus.io/port: "443"
+    prometheus.io/path: "{metrics_path}"
+spec:
+  ports:
+    - name: metrics
+      port: 443
+      targetPort: 443
+      protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: {service}
+  namespace: coroot
+  labels:
+    app: {service}
+subsets:
+  - addresses:
+      - ip: {host}
+    ports:
+      - name: metrics
+        port: 443
+        protocol: TCP
+"""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{node['id']}-honeypot-metrics.yaml").write_text(content)
+
+
 def write_external_nodes_json(nodes: list[dict[str, Any]], out_path: Path) -> None:
     payload = []
     for n in nodes:
@@ -198,6 +247,10 @@ def write_readme(repo_root: Path, nodes: list[dict[str, Any]]) -> None:
         lines.append(
             f"- **{node['id']}** — `{node['cluster']}` @ `{node['instance_host']}` (`{node['exporter_service']}`)"
         )
+        if node.get("honeypot") and node.get("metrics_path"):
+            lines.append(
+                f"  - honeypot metrics: `{node['id']}-honeypot-metrics` → `{node['metrics_path']}` (HTTPS :443)"
+            )
     readme.write_text("\n".join(lines) + "\n")
 
 
@@ -218,6 +271,7 @@ def main() -> None:
 
     for node in nodes:
         write_exporter_manifest(node, out_dir)
+        write_honeypot_metrics_manifest(node, out_dir)
 
     write_external_nodes_json(
         nodes,
