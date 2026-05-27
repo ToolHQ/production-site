@@ -11,7 +11,6 @@
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
 | [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 1d |
-| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 4h |
 | [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
@@ -46,6 +45,7 @@
 
 |                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
+| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas** | 🔼 High | Cursor / AI Radar | 6h |
 | T-300 | **SSDNodes — DNS `s3.ssdnodes.dnor.io` + `minio.ssdnodes.dnor.io` → 104.225.218.78** _(registros A criados; Let's Encrypt READY para ambos os domínios; MinIO HTTPS funcional via Ingress)_ | 🔵 Medium | **Copilot/VSCode** | 30min |
 | T-303 | **SSDNodes — K8s Dashboard + Kubecost HTTPS** _(k8s.ssdnodes.dnor.io HTTP 200 TLS R12; cost.ssdnodes.dnor.io HTTP 200 TLS R13; chart tgz kubernetes-retired/dashboard v7.14.0; Kubecost 2.8.6 pinado; Prometheus+Grafana bundled; PR #352)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
 | T-299 | **SSDNodes K8s — Workloads base deployados** _(local-path-provisioner SC padrão; nginx-ingress DaemonSet hostNetwork 80/443; MinIO standalone 500 GiB PVC Bound; Ingresses s3/minio.ssdnodes.dnor.io; manifests em components/ssdnodes/; PR #329 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |
