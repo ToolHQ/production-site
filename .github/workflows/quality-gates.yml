@@ -170,7 +170,6 @@ jobs:
       - name: rust test
         run: cd apps/rs-observability-api && cargo test
 
-
   # ─────────────────────────────────────────────────────────────────
   # BATS: oci-k8s-cluster shell/TUI tests
   # ─────────────────────────────────────────────────────────────────
