@@ -56,7 +56,9 @@ metadata:
   name: rs-observability-api-ingress
   namespace: default
   annotations:
-    cert-manager.io/cluster-issuer: dnor-ca-issuer
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
 spec:
   ingressClassName: nginx
   tls:
@@ -100,7 +102,7 @@ spec:
                   - key: kubernetes.io/hostname
                     operator: NotIn
                     values:
-                      - k8s-node-3  # avoid saturated node (ClickHouse I/O)
+                      - k8s-node-3 # avoid saturated node (ClickHouse I/O)
       imagePullSecrets:
         - name: regsecret
       containers:
@@ -141,11 +143,11 @@ spec:
               readOnly: true
           resources:
             requests:
-              cpu: 10m
-              memory: 16Mi
-            limits:
-              cpu: 50m
+              cpu: 25m
               memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
           livenessProbe:
             httpGet:
               path: /health

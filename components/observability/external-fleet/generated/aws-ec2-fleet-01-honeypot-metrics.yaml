@@ -1,0 +1,37 @@
+# Gerado por scripts/aws-fleet/generate_fleet_artifacts.py — não editar manualmente.
+apiVersion: v1
+kind: Service
+metadata:
+  name: aws-ec2-fleet-01-honeypot-metrics
+  namespace: coroot
+  labels:
+    app: aws-ec2-fleet-01-honeypot-metrics
+    app.kubernetes.io/part-of: coroot
+    app.kubernetes.io/component: honeypot-metrics
+    external-fleet/provider: aws
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: "https"
+    prometheus.io/port: "443"
+    prometheus.io/path: "/internal/metrics"
+spec:
+  ports:
+    - name: metrics
+      port: 443
+      targetPort: 443
+      protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: aws-ec2-fleet-01-honeypot-metrics
+  namespace: coroot
+  labels:
+    app: aws-ec2-fleet-01-honeypot-metrics
+subsets:
+  - addresses:
+      - ip: 3.236.249.77
+    ports:
+      - name: metrics
+        port: 443
+        protocol: TCP

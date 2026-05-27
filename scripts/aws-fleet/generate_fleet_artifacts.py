@@ -24,9 +24,14 @@ def load_registry(path: Path) -> dict[str, Any]:
         return yaml.safe_load(handle)
 
 
+def endpoint_ip(node: dict[str, Any]) -> str:
+    """K8s Endpoints require IP; instance_host may be a TLS hostname."""
+    return str(node.get("endpoint_ip") or node["instance_host"])
+
+
 def write_exporter_manifest(node: dict[str, Any], out_dir: Path) -> None:
     service = node["exporter_service"]
-    host = node["instance_host"]
+    host = endpoint_ip(node)
     content = f"""# Gerado por scripts/aws-fleet/generate_fleet_artifacts.py — não editar manualmente.
 apiVersion: v1
 kind: Service
@@ -67,6 +72,55 @@ subsets:
     (out_dir / f"{node['id']}-exporter.yaml").write_text(content)
 
 
+def write_honeypot_metrics_manifest(node: dict[str, Any], out_dir: Path) -> None:
+    if not node.get("honeypot") or not node.get("metrics_path"):
+        return
+
+    service = f"{node['id']}-honeypot-metrics"
+    host = endpoint_ip(node)
+    metrics_path = node["metrics_path"]
+    content = f"""# Gerado por scripts/aws-fleet/generate_fleet_artifacts.py — não editar manualmente.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {service}
+  namespace: coroot
+  labels:
+    app: {service}
+    app.kubernetes.io/part-of: coroot
+    app.kubernetes.io/component: honeypot-metrics
+    external-fleet/provider: {node.get('provider', 'unknown')}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: "https"
+    prometheus.io/port: "443"
+    prometheus.io/path: "{metrics_path}"
+spec:
+  ports:
+    - name: metrics
+      port: 443
+      targetPort: 443
+      protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: {service}
+  namespace: coroot
+  labels:
+    app: {service}
+subsets:
+  - addresses:
+      - ip: {host}
+    ports:
+      - name: metrics
+        port: 443
+        protocol: TCP
+"""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{node['id']}-honeypot-metrics.yaml").write_text(content)
+
+
 def write_external_nodes_json(nodes: list[dict[str, Any]], out_path: Path) -> None:
     payload = []
     for n in nodes:
@@ -82,8 +136,12 @@ def write_external_nodes_json(nodes: list[dict[str, Any]], out_path: Path) -> No
         }
         if n.get("honeypot"):
             entry["honeypot"] = True
+        if n.get("endpoint_ip"):
+            entry["endpoint_ip"] = n["endpoint_ip"]
         if n.get("threats_path"):
             entry["threats_path"] = n["threats_path"]
+        if n.get("timeseries_path"):
+            entry["timeseries_path"] = n["timeseries_path"]
         payload.append(entry)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2) + "\n")
@@ -196,6 +254,10 @@ def write_readme(repo_root: Path, nodes: list[dict[str, Any]]) -> None:
         lines.append(
             f"- **{node['id']}** — `{node['cluster']}` @ `{node['instance_host']}` (`{node['exporter_service']}`)"
         )
+        if node.get("honeypot") and node.get("metrics_path"):
+            lines.append(
+                f"  - honeypot metrics: `{node['id']}-honeypot-metrics` → `{node['metrics_path']}` (HTTPS :443)"
+            )
     readme.write_text("\n".join(lines) + "\n")
 
 
@@ -216,6 +278,7 @@ def main() -> None:
 
     for node in nodes:
         write_exporter_manifest(node, out_dir)
+        write_honeypot_metrics_manifest(node, out_dir)
 
     write_external_nodes_json(
         nodes,

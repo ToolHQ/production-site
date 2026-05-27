@@ -132,6 +132,8 @@ export interface HoneypotNodeStats {
   classified: number;
   unclassified: number;
   top_tags: HoneypotTagCount[];
+  requests_24h?: TimeSeriesPoint[];
+  requests_7d?: TimeSeriesPoint[];
   refreshed_at_epoch: number;
   error?: string;
 }

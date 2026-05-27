@@ -22,6 +22,7 @@
 #   --name <cluster-name>    Context name in kubeconfig (default: k8s)
 #   --version <tag>          K8s version, e.g. v1.31.0 (default: latest in channel v1.31)
 #   --join-server <host>     SSH host of existing control-plane to join as worker
+#   --force                  Reinicializar mesmo se cluster já existir (kubeadm reset -f + init)
 #   --no-hardening           Skip journal limits + UFW
 #   --skip-kubeconfig        Don't download kubeconfig locally
 
@@ -35,12 +36,14 @@ K8S_VERSION=""       # empty = latest in stable channel v1.33
 JOIN_SERVER=""       # if set → install as worker (kubeadm join)
 DO_HARDENING=true
 SKIP_KUBECONFIG=false
+FORCE_REINIT=false   # --force: reinicializa mesmo se cluster já existe
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --name)            CLUSTER_NAME="$2"; shift 2 ;;
         --version)         K8S_VERSION="$2";  shift 2 ;;
         --join-server)     JOIN_SERVER="$2";  shift 2 ;;
+        --force)           FORCE_REINIT=true; shift ;;
         --no-hardening)    DO_HARDENING=false; shift ;;
         --skip-kubeconfig) SKIP_KUBECONFIG=true; shift ;;
         *) echo "Flag desconhecida: $1" >&2; exit 1 ;;
@@ -99,7 +102,7 @@ else
     step "2/5" "Instalando containerd + kubeadm/kubelet/kubectl (${PKG_ARCH}) em $SSH_HOST"
 fi
 
-ssh -t $SSH_OPTS "$SSH_HOST" "
+ssh $SSH_OPTS "$SSH_HOST" "
     set -e
     export DEBIAN_FRONTEND=noninteractive
     PKG_ARCH=${PKG_ARCH}
@@ -154,8 +157,10 @@ EOF
     # ── kubeadm / kubelet / kubectl from pkgs.k8s.io (arm64 + amd64)
     echo '📦 Instalando kubeadm/kubelet/kubectl (pkgs.k8s.io/stable/v1.33)...'
     sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key \
-        | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg 2>/dev/null
+    if [[ ! -f /etc/apt/keyrings/kubernetes-apt-keyring.gpg ]]; then
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg 2>/dev/null
+    fi
     echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' \
         | sudo tee /etc/apt/sources.list.d/kubernetes.list >/dev/null
     sudo apt-get update -qq
@@ -178,7 +183,7 @@ if [[ -n "$JOIN_SERVER" ]]; then
         "sudo kubeadm token create --print-join-command 2>/dev/null") \
         || fail "Não foi possível gerar join command no servidor $JOIN_SERVER"
 
-    ssh -t $SSH_OPTS "$SSH_HOST" "
+    ssh $SSH_OPTS "$SSH_HOST" "
         set -e
         echo 'Executando kubeadm join...'
         sudo $JOIN_CMD
@@ -195,7 +200,20 @@ else
     # shellcheck disable=SC2089
     INIT_FLAGS="--pod-network-cidr=10.244.0.0/16 ${VERSION_FLAG}"
 
-    ssh -t $SSH_OPTS "$SSH_HOST" "
+    # Check if kubeadm has already been initialized on the remote node
+    ALREADY_INIT=$(ssh $SSH_OPTS "$SSH_HOST" \
+        "test -f /etc/kubernetes/manifests/kube-apiserver.yaml && echo yes || echo no")
+
+    if [[ "$ALREADY_INIT" == "yes" && "$FORCE_REINIT" == "false" ]]; then
+        warn "kubeadm já inicializado em $SSH_HOST — pulando kubeadm init (cluster existente)."
+        warn "Para reinicializar: passe --force ao script (executa kubeadm reset -f + init)."
+    else
+    if [[ "$ALREADY_INIT" == "yes" && "$FORCE_REINIT" == "true" ]]; then
+        warn "--force: executando kubeadm reset -f em $SSH_HOST antes de reinicializar..."
+        ssh $SSH_OPTS "$SSH_HOST" "sudo kubeadm reset -f 2>&1 | tail -5 || true"
+        ok "kubeadm reset concluído — prosseguindo com kubeadm init"
+    fi
+    ssh $SSH_OPTS "$SSH_HOST" "
         set -e
         MASTER_IP=\$(hostname -I | awk '{print \$1}')
         echo \"🚀 Inicializando control plane em \${MASTER_IP}...\"
@@ -237,6 +255,7 @@ else
         kubectl get pods -n kube-system --no-headers | head -20
     "
     ok "Cluster kubeadm inicializado"
+    fi  # end: skip block (ALREADY_INIT=yes && !FORCE_REINIT)
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

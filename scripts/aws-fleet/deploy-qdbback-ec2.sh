@@ -14,6 +14,7 @@ source "$SCRIPT_DIR/lib/common.sh"
 SSH_ALIAS="${SSH_ALIAS:-aws-ec2-fleet-01}"
 PHASE="all"
 DRY_RUN=false
+TLS_DOMAIN="${QDBBACK_TLS_DOMAIN:-honeypot.dnor.io}"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 APP_SRC="$REPO_ROOT/apps/qdbback"
 
@@ -24,8 +25,11 @@ Deploy qdbback na EC2 (Fases 1–5c).
 Fases:
   sync       — rsync apps/qdbback → /home/ec2-user/server (sem node_modules)
   tls        — gera cert self-signed para IP atual (Fase 2)
+  dns-check  — valida A record honeypot.dnor.io → IP EC2 (pré Let's Encrypt)
+  letsencrypt — certbot para QDBBACK_TLS_DOMAIN (default honeypot.dnor.io)
   secrets    — /etc/qdbback/monitor.env (auth admin via env)
   node22     — Node.js 16.20 LTS (máx. compatível AL2) + npm ci --omit=dev
+  al2023     — checklist migração AL2 → AL2023 (somente documentação/remoto)
   logrotate  — /etc/logrotate.d/qdbback
   purge      — instala timer systemd de purge applicationLogs
   systemd    — instala qdbback.service + enable (Fase 4/5c)
@@ -35,6 +39,7 @@ Fases:
 Opções:
   --ssh-alias ALIAS   (default: aws-ec2-fleet-01)
   --dry-run
+  --tls-domain FQDN   (default: honeypot.dnor.io, fase letsencrypt)
 EOF
 }
 
@@ -42,6 +47,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --phase) PHASE="$2"; shift 2 ;;
     --ssh-alias) SSH_ALIAS="$2"; shift 2 ;;
+    --tls-domain) TLS_DOMAIN="$2"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) fail "Argumento desconhecido: $1" ;;
@@ -99,6 +105,78 @@ echo "TLS gerado para CN=${PUB_IP}"
 REMOTE
 }
 
+phase_dns_check() {
+  info "Fase dns-check: ${TLS_DOMAIN} → IP EC2"
+  run_ssh bash -s "$TLS_DOMAIN" <<'REMOTE'
+set -euo pipefail
+DOMAIN="$1"
+PUB_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+RESOLVED=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1; exit}' || true)
+echo "EC2 public IP: ${PUB_IP}"
+echo "DNS ${DOMAIN}: ${RESOLVED:-<não resolve>}"
+if [[ -z "$RESOLVED" ]]; then
+  echo ""
+  echo "Ação: criar A record ${DOMAIN} → ${PUB_IP} no GoDaddy"
+  echo "Doc: apps/qdbback/docs/DNS-GODADDY-honeypot.md"
+  exit 1
+fi
+if [[ "$RESOLVED" != "$PUB_IP" ]]; then
+  echo "ERRO: DNS aponta para ${RESOLVED}, esperado ${PUB_IP}"
+  exit 1
+fi
+echo "DNS OK — pode rodar --phase letsencrypt"
+REMOTE
+}
+
+phase_letsencrypt() {
+  info "Fase letsencrypt: certbot para ${TLS_DOMAIN} (requer DNS A → IP EC2)"
+  run_ssh bash -s "$TLS_DOMAIN" <<'REMOTE'
+set -euo pipefail
+DOMAIN="$1"
+PUB_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+RESOLVED=$(getent ahostsv4 "$DOMAIN" | awk '{print $1; exit}' || true)
+if [[ -z "$RESOLVED" ]]; then
+  echo "ERRO: DNS para ${DOMAIN} não resolve — crie A record → ${PUB_IP} antes de continuar"
+  exit 1
+fi
+if [[ "$RESOLVED" != "$PUB_IP" ]]; then
+  echo "ERRO: ${DOMAIN} resolve para ${RESOLVED}, esperado ${PUB_IP}"
+  exit 1
+fi
+if ! command -v certbot >/dev/null 2>&1; then
+  sudo yum install -y certbot || sudo amazon-linux-extras install epel -y && sudo yum install -y certbot
+fi
+sudo systemctl stop qdbback.service || true
+sudo certbot certonly --standalone --non-interactive --agree-tos \
+  --register-unsafely-without-email \
+  -d "$DOMAIN"
+sudo install -m 600 -o ec2-user -g ec2-user \
+  "/etc/letsencrypt/live/${DOMAIN}/privkey.pem" /home/ec2-user/private.key
+sudo install -m 644 -o ec2-user -g ec2-user \
+  "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" /home/ec2-user/certificate.crt
+sudo systemctl start qdbback.service
+sudo tee /etc/cron.d/qdbback-certbot-renew > /dev/null <<CRON
+0 3 * * * root certbot renew --quiet --pre-hook "systemctl stop qdbback" --post-hook "install -m 600 -o ec2-user -g ec2-user /etc/letsencrypt/live/${DOMAIN}/privkey.pem /home/ec2-user/private.key && install -m 644 -o ec2-user -g ec2-user /etc/letsencrypt/live/${DOMAIN}/fullchain.pem /home/ec2-user/certificate.crt && systemctl start qdbback"
+CRON
+echo "Let's Encrypt instalado para ${DOMAIN}"
+REMOTE
+}
+
+phase_al2023() {
+  info "Fase al2023: checklist migração (não destrutivo — ver runbook Fase 6)"
+  run_ssh bash <<'REMOTE'
+set -euo pipefail
+echo "=== qdbback AL2023 migration checklist ==="
+echo "1. Snapshot/AMI da instância aws-ec2-fleet-01"
+echo "2. Lançar AL2023 ARM64 com mesmo SG + elastic IP (se aplicável)"
+echo "3. rsync /home/ec2-user + /etc/qdbback/monitor.env + database.sqlite"
+echo "4. nvm install 22 + npm ci --omit=dev"
+echo "5. ./deploy-qdbback-ec2.sh --phase systemd && --phase start"
+echo "6. Validar honeypot + Node Fleet card + /internal/metrics"
+echo "Runbook: apps/qdbback/docs/REACTIVATION-RUNBOOK.md#fase-6--al2023--node-22"
+REMOTE
+}
+
 phase_secrets() {
   info "Fase secrets: /etc/qdbback/monitor.env"
   run_ssh bash <<'REMOTE'
@@ -125,10 +203,17 @@ REMOTE
 phase_node22() {
   info "Fase node22: Node.js 16.20 LTS (Amazon Linux 2) + deps"
   run_ssh bash <<'REMOTE'
-set -euo pipefail
+set -eo pipefail
 export NVM_DIR="$HOME/.nvm"
 # shellcheck disable=SC1090
 . "$NVM_DIR/nvm.sh"
+# Corrige alias quebrado (ex.: default → Node 22 incompatível com AL2)
+if [[ -f "$NVM_DIR/alias/default" ]]; then
+  current_default="$(cat "$NVM_DIR/alias/default" 2>/dev/null || true)"
+  if [[ "$current_default" == "22" ]] || [[ "$current_default" == v22* ]]; then
+    nvm alias default 16.6.0 || true
+  fi
+fi
 nvm install 16.20.2
 nvm alias default 16.20.2
 cd /home/ec2-user/server
@@ -205,8 +290,9 @@ User=ec2-user
 Group=ec2-user
 WorkingDirectory=/home/ec2-user/server
 Environment=NODE_ENV=production
+Environment=HOME=/home/ec2-user
 EnvironmentFile=-/etc/qdbback/monitor.env
-ExecStart=/bin/bash -lc 'export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && nvm use 16.20.2 >/dev/null && exec node /home/ec2-user/server/app.js'
+ExecStart=/home/ec2-user/.nvm/versions/node/v16.20.2/bin/node /home/ec2-user/server/app.js
 Restart=on-failure
 RestartSec=5
 AmbientCapabilities=CAP_NET_BIND_SERVICE
@@ -257,6 +343,9 @@ REMOTE
 case "$PHASE" in
   sync) phase_sync ;;
   tls) phase_tls ;;
+  dns-check) phase_dns_check ;;
+  letsencrypt) phase_letsencrypt ;;
+  al2023) phase_al2023 ;;
   secrets) phase_secrets ;;
   node22) phase_node22 ;;
   logrotate) phase_logrotate ;;

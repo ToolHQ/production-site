@@ -903,6 +903,10 @@ struct HoneypotNodeStats {
     classified: u64,
     unclassified: u64,
     top_tags: Vec<HoneypotTagCount>,
+    #[serde(default)]
+    requests_24h: Vec<MetricPoint>,
+    #[serde(default)]
+    requests_7d: Vec<MetricPoint>,
     refreshed_at_epoch: u64,
     error: Option<String>,
 }
@@ -911,6 +915,14 @@ struct HoneypotNodeStats {
 struct HoneypotOverview {
     available: bool,
     nodes: Vec<HoneypotNodeStats>,
+}
+
+#[derive(Deserialize, Default)]
+struct QdbbackThreatTimeseries {
+    #[serde(default, rename = "requests24h")]
+    requests_24h: Vec<MetricPoint>,
+    #[serde(default, rename = "requests7d")]
+    requests_7d: Vec<MetricPoint>,
 }
 
 #[derive(Deserialize)]
@@ -1020,7 +1032,7 @@ struct RestartHotspot {
     restarts_last_hour: f64,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 struct MetricPoint {
     timestamp: u64,
     value: f64,
@@ -1288,6 +1300,8 @@ struct ExternalNodeSpec {
     #[serde(default)]
     id: String,
     instance_host: String,
+    #[serde(default)]
+    endpoint_ip: Option<String>,
     fallback_name: String,
     cluster: String,
     role: String,
@@ -1298,6 +1312,8 @@ struct ExternalNodeSpec {
     honeypot: bool,
     #[serde(default)]
     threats_path: Option<String>,
+    #[serde(default)]
+    timeseries_path: Option<String>,
 }
 
 #[derive(Default)]
@@ -1345,14 +1361,19 @@ async fn main() {
         }
     };
     let secondary_live_monitor = if let Ok(path) = env::var("SECONDARY_KUBECONFIG_PATH") {
-        match LiveMonitor::from_kubeconfig(&path).await {
-            Ok(monitor) => {
-                println!("secondary K8s monitor enabled ({})", path);
-                Some(Arc::new(monitor))
-            }
-            Err(err) => {
-                eprintln!("secondary K8s monitor disabled: {}", err);
-                None
+        let path = path.trim();
+        if path.is_empty() {
+            None
+        } else {
+            match LiveMonitor::from_kubeconfig(path).await {
+                Ok(monitor) => {
+                    println!("secondary K8s monitor enabled ({})", path);
+                    Some(Arc::new(monitor))
+                }
+                Err(err) => {
+                    eprintln!("secondary K8s monitor disabled: {}", err);
+                    None
+                }
             }
         }
     } else {
@@ -1468,6 +1489,7 @@ impl LiveMonitor {
             .use_rustls_tls()
             .add_root_certificate(certificate)
             .default_headers(headers)
+            .timeout(Duration::from_secs(10))
             .build()
             .map_err(|error| format!("build Kubernetes client: {}", error))?;
 
@@ -1526,6 +1548,7 @@ impl LiveMonitor {
             .use_rustls_tls()
             .add_root_certificate(ca_cert)
             .identity(identity)
+            .timeout(Duration::from_secs(10))
             .build()
             .map_err(|e| format!("build secondary K8s client: {}", e))?;
 
@@ -1537,25 +1560,44 @@ impl LiveMonitor {
     }
 
     async fn cached_or_refresh(&self) -> LiveOverview {
+        self.overview_with_refresh_budget(Duration::from_secs(10))
+            .await
+    }
+
+    /// Refresh live data with a bounded wait; reuse stale cache on timeout/error.
+    pub(crate) async fn overview_with_refresh_budget(
+        &self,
+        refresh_budget: Duration,
+    ) -> LiveOverview {
         if let Some(payload) = self.fresh_cache().await {
             return payload;
         }
 
-        match self.fetch_live().await {
-            Ok(payload) => {
+        match tokio::time::timeout(refresh_budget, self.fetch_live()).await {
+            Ok(Ok(payload)) => {
                 *self.cache.write().await = Some(CachedLiveOverview {
                     fetched_at: Instant::now(),
                     payload: payload.clone(),
                 });
                 payload
             }
-            Err(error) => {
+            Ok(Err(error)) => {
                 if let Some(mut stale_payload) = self.cached_payload().await {
                     stale_payload.stale = true;
                     stale_payload.error = Some(error);
                     stale_payload
                 } else {
                     unavailable_live_overview(error)
+                }
+            }
+            Err(_) => {
+                let message = format!("refresh timed out after {}s", refresh_budget.as_secs());
+                if let Some(mut stale_payload) = self.cached_payload().await {
+                    stale_payload.stale = true;
+                    stale_payload.error = Some(message);
+                    stale_payload
+                } else {
+                    unavailable_live_overview(message)
                 }
             }
         }
@@ -2311,44 +2353,52 @@ impl PrometheusMonitor {
             namespace_regex
         );
 
-        let cluster_cpu_percent_series = self
-            .query_range_points(
+        let (
+            cluster_cpu_percent_series,
+            cluster_cpu_used_series,
+            cluster_memory_percent_series,
+            cluster_memory_used_series,
+            restart_pressure_series,
+            restart_events_last_hour,
+            top_restarts,
+            pod_cpu_series,
+            pod_memory_series,
+        ) = tokio::join!(
+            self.query_range_points(
                 cluster_cpu_percent_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let cluster_cpu_used_series = self
-            .query_range_points(cluster_cpu_used_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let cluster_memory_percent_series = self
-            .query_range_points(
+            ),
+            self.query_range_points(cluster_cpu_used_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_range_points(
                 cluster_memory_percent_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let cluster_memory_used_series = self
-            .query_range_points(
+            ),
+            self.query_range_points(
                 cluster_memory_used_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let restart_pressure_series = self
-            .query_range_points(&restart_pressure_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let restart_events_last_hour = self.query_instant_value(&restart_last_hour_query).await?;
-        let top_restarts = self.query_restart_hotspots(&top_restart_query).await?;
-        let pod_cpu_series = self
-            .query_range_series(&pod_cpu_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let pod_memory_series = self
-            .query_range_series(&pod_memory_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
+            ),
+            self.query_range_points(&restart_pressure_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_instant_value(&restart_last_hour_query),
+            self.query_restart_hotspots(&top_restart_query),
+            self.query_range_series(&pod_cpu_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_range_series(&pod_memory_query, start, end, PROMETHEUS_STEP_SECONDS),
+        );
+
+        let cluster_cpu_percent_series = cluster_cpu_percent_series?;
+        let cluster_cpu_used_series = cluster_cpu_used_series?;
+        let cluster_memory_percent_series = cluster_memory_percent_series?;
+        let cluster_memory_used_series = cluster_memory_used_series?;
+        let restart_pressure_series = restart_pressure_series?;
+        let restart_events_last_hour = restart_events_last_hour?;
+        let top_restarts = top_restarts?;
+        let pod_cpu_series = pod_cpu_series?;
+        let pod_memory_series = pod_memory_series?;
 
         let service_metrics = services
             .iter()
@@ -2552,7 +2602,7 @@ impl PrometheusMonitor {
             }));
         }
 
-        node_names
+        let map = node_names
             .into_iter()
             .filter_map(|node| {
                 let cpu_percent = metric_value_for_node(&cpu_map, &node, &nodename_to_instance);
@@ -2595,7 +2645,9 @@ impl PrometheusMonitor {
                     },
                 ))
             })
-            .collect()
+            .collect();
+
+        alias_external_node_metrics(map)
     }
 
     pub(crate) async fn fetch_external_node_stats(&self) -> Vec<NodeStat> {
@@ -2646,9 +2698,10 @@ impl PrometheusMonitor {
         external_node_specs()
             .iter()
             .map(|spec| {
-                let (name, architecture, operating_system) = uname_by_instance
-                    .get(spec.instance_host.as_str())
-                    .cloned()
+                let lookup_hosts = external_lookup_hosts(spec);
+                let (name, architecture, operating_system) = lookup_hosts
+                    .iter()
+                    .find_map(|host| uname_by_instance.get(host.as_str()).cloned())
                     .unwrap_or_else(|| {
                         (
                             spec.fallback_name.to_string(),
@@ -2716,18 +2769,33 @@ impl PrometheusMonitor {
 }
 
 async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> HoneypotNodeStats {
-    let path = spec
+    let summary_path = spec
         .threats_path
         .as_deref()
         .filter(|value| !value.is_empty())
         .unwrap_or("/internal/threats-summary");
-    let url = format!(
-        "https://{}/{}",
-        spec.instance_host,
-        path.trim_start_matches('/')
+    let timeseries_path = spec
+        .timeseries_path
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/internal/threats-timeseries");
+    let summary_url = honeypot_api_url(spec, summary_path);
+    let timeseries_url = honeypot_api_url(spec, timeseries_path);
+
+    let (summary_result, timeseries_result) = tokio::join!(
+        client.get(&summary_url).send(),
+        client.get(&timeseries_url).send(),
     );
 
-    match client.get(&url).send().await {
+    let timeseries = match timeseries_result {
+        Ok(response) if response.status().is_success() => response
+            .json::<QdbbackThreatTimeseries>()
+            .await
+            .unwrap_or_default(),
+        _ => QdbbackThreatTimeseries::default(),
+    };
+
+    match summary_result {
         Ok(response) => {
             if !response.status().is_success() {
                 return honeypot_node_error(
@@ -2747,6 +2815,8 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
                     classified: summary.classified,
                     unclassified: summary.unclassified,
                     top_tags: summary.top_tags,
+                    requests_24h: timeseries.requests_24h,
+                    requests_7d: timeseries.requests_7d,
                     refreshed_at_epoch: unix_epoch_seconds(),
                     error: None,
                 },
@@ -2757,6 +2827,14 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
         }
         Err(error) => honeypot_node_error(spec, &format!("request honeypot API: {}", error)),
     }
+}
+
+fn honeypot_api_url(spec: &ExternalNodeSpec, path: &str) -> String {
+    format!(
+        "https://{}/{}",
+        spec.instance_host,
+        path.trim_start_matches('/')
+    )
 }
 
 fn honeypot_node_id(spec: &ExternalNodeSpec) -> String {
@@ -2812,8 +2890,73 @@ fn extract_instance_host(instance: &str) -> String {
 fn fallback_name_for_instance(instance_host: &str) -> Option<String> {
     external_node_specs()
         .iter()
-        .find(|spec| spec.instance_host == instance_host)
+        .find(|spec| {
+            spec.instance_host == instance_host
+                || spec
+                    .endpoint_ip
+                    .as_deref()
+                    .is_some_and(|endpoint| endpoint == instance_host)
+        })
         .map(|spec| spec.fallback_name.clone())
+}
+
+fn external_lookup_hosts(spec: &ExternalNodeSpec) -> Vec<String> {
+    let mut hosts = vec![spec.instance_host.clone()];
+    if let Some(endpoint_ip) = spec.endpoint_ip.as_ref() {
+        if !hosts.iter().any(|host| host == endpoint_ip) {
+            hosts.push(endpoint_ip.clone());
+        }
+    }
+    hosts
+}
+
+fn alias_external_node_metrics(
+    mut metrics: HashMap<String, NodeMetrics>,
+) -> HashMap<String, NodeMetrics> {
+    for spec in external_node_specs() {
+        let source_key = metrics
+            .keys()
+            .find(|key| {
+                key.as_str() == spec.fallback_name.as_str()
+                    || key.as_str() == spec.instance_host.as_str()
+                    || spec
+                        .endpoint_ip
+                        .as_deref()
+                        .is_some_and(|endpoint| key.as_str() == endpoint)
+                    || key.contains(&spec.fallback_name)
+                    || spec
+                        .endpoint_ip
+                        .as_deref()
+                        .is_some_and(|endpoint| key.contains(endpoint))
+            })
+            .cloned();
+
+        let Some(source_key) = source_key else {
+            continue;
+        };
+        let Some(entry) = metrics.get(&source_key).cloned() else {
+            continue;
+        };
+        metrics.insert(spec.fallback_name.clone(), entry.clone());
+        metrics.insert(spec.instance_host.clone(), entry);
+    }
+    metrics
+}
+
+fn node_has_metrics(node: &NodeStat, metrics: &HashMap<String, NodeMetrics>) -> bool {
+    if metrics.contains_key(&node.name) || metrics.contains_key(&node.ip) {
+        return true;
+    }
+
+    external_node_specs().iter().any(|spec| {
+        (spec.fallback_name == node.name || spec.instance_host == node.ip)
+            && (metrics.contains_key(&spec.fallback_name)
+                || metrics.contains_key(&spec.instance_host)
+                || spec
+                    .endpoint_ip
+                    .as_deref()
+                    .is_some_and(|endpoint| metrics.contains_key(endpoint)))
+    })
 }
 
 fn build_instance_nodename_aliases(
@@ -2841,10 +2984,22 @@ fn build_instance_nodename_aliases(
     for spec in external_node_specs() {
         nodename_to_instance
             .entry(spec.fallback_name.clone())
-            .or_insert_with(|| spec.instance_host.clone());
+            .or_insert_with(|| {
+                spec.endpoint_ip
+                    .clone()
+                    .unwrap_or_else(|| spec.instance_host.clone())
+            });
         instance_to_nodename
             .entry(spec.instance_host.clone())
             .or_insert_with(|| spec.fallback_name.clone());
+        if let Some(endpoint_ip) = spec.endpoint_ip.as_ref() {
+            instance_to_nodename
+                .entry(endpoint_ip.clone())
+                .or_insert_with(|| spec.fallback_name.clone());
+            nodename_to_instance
+                .entry(spec.fallback_name.clone())
+                .or_insert_with(|| endpoint_ip.clone());
+        }
     }
 
     (instance_to_nodename, nodename_to_instance)

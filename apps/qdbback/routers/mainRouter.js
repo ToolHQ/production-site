@@ -6,6 +6,8 @@ import { acceptLanguageHandler } from '../handlers/acceptLanguage.js'
 import { indexHandler } from '../handlers/indexHandler.js'
 import { cspReportsHandler } from '../handlers/cspReportsHandler.js'
 import { internalThreatSummaryHandler } from '../handlers/internalThreatSummaryHandler.js'
+import { internalThreatTimeseriesHandler } from '../handlers/internalThreatTimeseriesHandler.js'
+import { prometheusMetricsHandler } from '../handlers/prometheusMetricsHandler.js'
 
 const cachePolicyImg = {
   time: cacheConstants.time.week,
@@ -34,6 +36,8 @@ export const getRouter = () => {
     .get('/mydevtools/benchdata/db.csv', handleFileResponse({ relativePath: '../benchdata/db.csv', cache: sensitiveDataCachePolicy }))
     .post('/internal/csp-reports', cspReportsHandler)
     .get('/internal/threats-summary', internalThreatSummaryHandler)
+    .get('/internal/threats-timeseries', internalThreatTimeseriesHandler)
+    .get('/internal/metrics', prometheusMetricsHandler)
     .get('/favicon.ico', handleFileResponse({ relativePath: './assets/favicon-16x16.ico', cache: cachePolicyImg }))
     .get('/pudim.png', handleFileResponse({ relativePath: './assets/pudim.webp', cache: cachePolicyImg }))
     .get('/accept-languages', acceptLanguageHandler)

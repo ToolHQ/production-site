@@ -21,7 +21,7 @@
   },
   {
     "id": "aws-ec2-fleet-01",
-    "instance_host": "3.236.249.77",
+    "instance_host": "honeypot.dnor.io",
     "fallback_name": "ip-172-31-65-56",
     "cluster": "AWS-EC2",
     "role": "dedicated",
@@ -29,6 +29,8 @@
     "memory_bytes": 983498752,
     "ephemeral_storage_bytes": 8567894016,
     "honeypot": true,
-    "threats_path": "/internal/threats-summary"
+    "endpoint_ip": "3.236.249.77",
+    "threats_path": "/internal/threats-summary",
+    "timeseries_path": "/internal/threats-timeseries"
   }
 ]
