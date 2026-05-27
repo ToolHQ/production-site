@@ -100,6 +100,7 @@ Hotel/aeroporto (IP: 201.x.x.x)
 ```
 
 **Solução rápida:** Adicionar o IP temporário via OCI CLI:
+
 ```bash
 # Ver IP atual
 curl ifconfig.me
@@ -161,14 +162,14 @@ Qualquer IP público (203.x.x.x)
 
 ## Tabela Resumo
 
-| Quem acessa | Meio | Security List | Resultado |
-|---|---|---|---|
-| Celular 3G + Tailscale + Accept routes | WireGuard UDP 41641 | Não vê TCP 443 | ✅ Acesso pleno |
-| Computador casa (189.62.149.233) | TCP direto | IP na whitelist | ✅ Acesso pleno |
-| Computador viagem + Tailscale | WireGuard UDP 41641 | Não vê TCP 443 | ✅ Acesso pleno |
-| Computador viagem sem Tailscale | TCP direto | IP desconhecido | ❌ Timeout |
-| Hetzner CI (37.27.85.100) | TCP direto | IP na whitelist | ✅ Acesso pleno |
-| Internet pública | TCP direto | IP desconhecido | ❌ Timeout |
+| Quem acessa                            | Meio                | Security List   | Resultado       |
+| -------------------------------------- | ------------------- | --------------- | --------------- |
+| Celular 3G + Tailscale + Accept routes | WireGuard UDP 41641 | Não vê TCP 443  | ✅ Acesso pleno |
+| Computador casa (189.62.149.233)       | TCP direto          | IP na whitelist | ✅ Acesso pleno |
+| Computador viagem + Tailscale          | WireGuard UDP 41641 | Não vê TCP 443  | ✅ Acesso pleno |
+| Computador viagem sem Tailscale        | TCP direto          | IP desconhecido | ❌ Timeout      |
+| Hetzner CI (37.27.85.100)              | TCP direto          | IP na whitelist | ✅ Acesso pleno |
+| Internet pública                       | TCP direto          | IP desconhecido | ❌ Timeout      |
 
 ---
 
@@ -189,12 +190,14 @@ cert-manager → remove TXT → armazena cert no K8s Secret
 ## Manutenção
 
 ### Adicionar novo IP à whitelist
+
 ```bash
 # Via OCI CLI (ver scripts/network/update-seclist.sh)
 NOVO_IP="x.x.x.x/32"
 ```
 
 ### Ver IPs whitelisted atuais
+
 ```bash
 /home/dnorio/bin/oci network security-list get \
   --security-list-id ocid1.securitylist.oc1.iad.aaaaaaaa5ejiximqihrxqryrnukwl4hfwiysvm2yn5skr7wg5ovtk4ynalua \
@@ -210,6 +213,7 @@ for r in d['data']['ingress-security-rules']:
 ```
 
 ### Verificar estado do Tailscale nos workers
+
 ```bash
 ssh oci-k8s-master "tailscale status"
 ```
