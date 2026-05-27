@@ -1300,6 +1300,8 @@ struct ExternalNodeSpec {
     #[serde(default)]
     id: String,
     instance_host: String,
+    #[serde(default)]
+    endpoint_ip: Option<String>,
     fallback_name: String,
     cluster: String,
     role: String,
@@ -2600,7 +2602,7 @@ impl PrometheusMonitor {
             }));
         }
 
-        node_names
+        let map = node_names
             .into_iter()
             .filter_map(|node| {
                 let cpu_percent = metric_value_for_node(&cpu_map, &node, &nodename_to_instance);
@@ -2643,7 +2645,9 @@ impl PrometheusMonitor {
                     },
                 ))
             })
-            .collect()
+            .collect();
+
+        alias_external_node_metrics(map)
     }
 
     pub(crate) async fn fetch_external_node_stats(&self) -> Vec<NodeStat> {
@@ -2694,9 +2698,10 @@ impl PrometheusMonitor {
         external_node_specs()
             .iter()
             .map(|spec| {
-                let (name, architecture, operating_system) = uname_by_instance
-                    .get(spec.instance_host.as_str())
-                    .cloned()
+                let lookup_hosts = external_lookup_hosts(spec);
+                let (name, architecture, operating_system) = lookup_hosts
+                    .iter()
+                    .find_map(|host| uname_by_instance.get(host.as_str()).cloned())
                     .unwrap_or_else(|| {
                         (
                             spec.fallback_name.to_string(),
@@ -2885,8 +2890,73 @@ fn extract_instance_host(instance: &str) -> String {
 fn fallback_name_for_instance(instance_host: &str) -> Option<String> {
     external_node_specs()
         .iter()
-        .find(|spec| spec.instance_host == instance_host)
+        .find(|spec| {
+            spec.instance_host == instance_host
+                || spec
+                    .endpoint_ip
+                    .as_deref()
+                    .is_some_and(|endpoint| endpoint == instance_host)
+        })
         .map(|spec| spec.fallback_name.clone())
+}
+
+fn external_lookup_hosts(spec: &ExternalNodeSpec) -> Vec<String> {
+    let mut hosts = vec![spec.instance_host.clone()];
+    if let Some(endpoint_ip) = spec.endpoint_ip.as_ref() {
+        if !hosts.iter().any(|host| host == endpoint_ip) {
+            hosts.push(endpoint_ip.clone());
+        }
+    }
+    hosts
+}
+
+fn alias_external_node_metrics(
+    mut metrics: HashMap<String, NodeMetrics>,
+) -> HashMap<String, NodeMetrics> {
+    for spec in external_node_specs() {
+        let source_key = metrics
+            .keys()
+            .find(|key| {
+                key.as_str() == spec.fallback_name.as_str()
+                    || key.as_str() == spec.instance_host.as_str()
+                    || spec
+                        .endpoint_ip
+                        .as_deref()
+                        .is_some_and(|endpoint| key.as_str() == endpoint)
+                    || key.contains(&spec.fallback_name)
+                    || spec
+                        .endpoint_ip
+                        .as_deref()
+                        .is_some_and(|endpoint| key.contains(endpoint))
+            })
+            .cloned();
+
+        let Some(source_key) = source_key else {
+            continue;
+        };
+        let Some(entry) = metrics.get(&source_key).cloned() else {
+            continue;
+        };
+        metrics.insert(spec.fallback_name.clone(), entry.clone());
+        metrics.insert(spec.instance_host.clone(), entry);
+    }
+    metrics
+}
+
+fn node_has_metrics(node: &NodeStat, metrics: &HashMap<String, NodeMetrics>) -> bool {
+    if metrics.contains_key(&node.name) || metrics.contains_key(&node.ip) {
+        return true;
+    }
+
+    external_node_specs().iter().any(|spec| {
+        (spec.fallback_name == node.name || spec.instance_host == node.ip)
+            && (metrics.contains_key(&spec.fallback_name)
+                || metrics.contains_key(&spec.instance_host)
+                || spec
+                    .endpoint_ip
+                    .as_deref()
+                    .is_some_and(|endpoint| metrics.contains_key(endpoint)))
+    })
 }
 
 fn build_instance_nodename_aliases(
@@ -2914,10 +2984,22 @@ fn build_instance_nodename_aliases(
     for spec in external_node_specs() {
         nodename_to_instance
             .entry(spec.fallback_name.clone())
-            .or_insert_with(|| spec.instance_host.clone());
+            .or_insert_with(|| {
+                spec.endpoint_ip
+                    .clone()
+                    .unwrap_or_else(|| spec.instance_host.clone())
+            });
         instance_to_nodename
             .entry(spec.instance_host.clone())
             .or_insert_with(|| spec.fallback_name.clone());
+        if let Some(endpoint_ip) = spec.endpoint_ip.as_ref() {
+            instance_to_nodename
+                .entry(endpoint_ip.clone())
+                .or_insert_with(|| spec.fallback_name.clone());
+            nodename_to_instance
+                .entry(spec.fallback_name.clone())
+                .or_insert_with(|| endpoint_ip.clone());
+        }
     }
 
     (instance_to_nodename, nodename_to_instance)
