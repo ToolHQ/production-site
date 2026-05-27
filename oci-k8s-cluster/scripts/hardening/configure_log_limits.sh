@@ -126,33 +126,5 @@ echo -e "✅ All nodes configured.\n"
 # Override: daily rotation, max 3 kept, compress immediately, maxsize 200M.
 # ---------------------------------------------------------------------------
 
-LOGROTATE_CONF='# T-202: aggressive syslog rotation (production-site cluster)
-# Prevents syslog.1 from accumulating >1G between daily runs.
-/var/log/syslog
-/var/log/auth.log
-/var/log/kern.log
-/var/log/daemon.log {
-    daily
-    rotate 3
-    compress
-    delaycompress
-    maxsize 200M
-    missingok
-    notifempty
-    sharedscripts
-    postrotate
-        /usr/lib/rsyslog/rsyslog-rotate
-    endscript
-}
-'
-
-echo -e "\n📝 Applying rsyslog logrotate policy (maxsize 200M, rotate 3)..."
-for node in "${CLUSTER_NODES[@]}"; do
-    echo "   [${node}] Deploying logrotate config..."
-    echo "$LOGROTATE_CONF" | ssh -T -o StrictHostKeyChecking=no "$node" \
-        "sudo tee /etc/logrotate.d/rsyslog-aggressive > /dev/null && \
-         sudo logrotate --force /etc/logrotate.d/rsyslog-aggressive 2>/dev/null; \
-         echo '   ✅ Done'" &
-done
-wait
-echo -e "✅ Logrotate policy deployed to all nodes.\n"
+echo -e "\n📝 Applying rsyslog logrotate policy (T-305: single file, no duplicates)..."
+"$SCRIPT_DIR/repair_logrotate_rsyslog.sh"

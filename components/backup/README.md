@@ -26,6 +26,7 @@
 
 ## Operational notes
 
+- **T-304 capacity prune (IaC/TUI):** enforce excess `backup.longhorn.io` CR removal (retain=3 per volume, purge all replica-postgres backups) via `oci-k8s-cluster/scripts/backup/prune_minio_backup_capacity.sh --dry-run|--apply`. TUI: Backup Ops → option 11. Longhorn reclaims `backupstore/` asynchronously after CR delete.
 - Do not prune `backupstore/` by file age. Longhorn backupstore is block-deduplicated and requires Longhorn-aware cleanup.
 - The offsite copy is intentionally append-only for Longhorn data. Retention reduction happens at the MinIO generation layer by assigning the correct recurring job group per PVC.
 - The MinIO bucket `nexus/` is active Nexus blob-store data, not backup payload. Keep bucket expiration disabled and manage any future retention from Nexus itself, never by deleting MinIO objects directly.

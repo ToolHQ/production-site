@@ -1,6 +1,6 @@
 # T-305: OCI logrotate rsyslog-aggressive duplicado em IaC/TUI
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
@@ -25,13 +25,13 @@ Arquivos/caminhos candidatos:
 
 ## Tasks
 
-- [ ] Comparar `/etc/logrotate.d/rsyslog` e `/etc/logrotate.d/rsyslog-aggressive` em master + workers.
-- [ ] Decidir padrão: substituir config padrão, criar override sem duplicidade ou remover entries redundantes.
-- [ ] Implementar script idempotente em `scripts/hardening/` para aplicar e validar logrotate.
-- [ ] Expor na TUI ação de `Validate/Repair logrotate hardening` com dry-run e status por nó.
-- [ ] Aplicar nos 4 nós OCI por caminho versionado, não edição manual isolada.
-- [ ] Rodar `logrotate -d /etc/logrotate.conf` e `systemctl reset-failed logrotate.service` após correção.
-- [ ] Documentar causa raiz e padrão de não duplicar paths já gerenciados pelo pacote base.
+- [x] Comparar `/etc/logrotate.d/rsyslog` e `/etc/logrotate.d/rsyslog-aggressive` em master + workers.
+- [x] Decidir padrão: substituir `/etc/logrotate.d/rsyslog` e remover `rsyslog-aggressive` + `.bak` fora de `logrotate.d`.
+- [x] Implementar `scripts/hardening/repair_logrotate_rsyslog.sh` idempotente com `--dry-run`.
+- [x] Expor na TUI (Hardening → Validate/Repair logrotate rsyslog T-305).
+- [/] Aplicar nos 4 nós OCI — **master OK**; workers bloqueados por Tailscale SSH jump (auth pendente).
+- [x] Rodar `logrotate -d` e `systemctl reset-failed logrotate.service` no master.
+- [x] Integrar em `configure_log_limits.sh` (chama repair script).
 
 ## Validação
 

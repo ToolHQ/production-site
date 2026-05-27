@@ -1,6 +1,6 @@
 # T-304: OCI MinIO backup capacity headroom e retention IaC/TUI
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d
@@ -20,13 +20,13 @@ Arquivos/caminhos candidatos:
 
 ## Tasks
 
-- [ ] Capturar inventário detalhado de `/data` por prefixo, idade e crescimento (`k8s-backups`, `nexus`, outros).
-- [ ] Mapear quais CronJobs/escritas alimentam cada prefixo e qual retenção já está codificada.
-- [ ] Definir política alvo: warning/critical, retenção diária/semanal e janela segura de prune.
-- [ ] Implementar prune/retention em manifesto/script versionado, com modo `--dry-run` obrigatório.
-- [ ] Integrar ação na TUI em menu de Backup/Storage: diagnóstico, dry-run, aplicar e rollback/restore guidance.
-- [ ] Atualizar documentação/runbook com causa raiz, comandos de verificação e regra para evitar limpeza manual sem IaC.
-- [ ] Validar queda do uso para zona segura (<75%) e confirmar que backups Longhorn continuam `Completed`.
+- [x] Inventário: `k8s-backups` 6.6G (backupstore 5.6G + etcd 1G), `nexus` 4.2G (blob store — não prunear).
+- [x] Fontes: Longhorn `backup-daily` retain=3, `etcd-backup-prune`, `minio-capacity-watchdog`; réplica postgres tinha regressão T-223.
+- [x] Script `scripts/backup/prune_minio_backup_capacity.sh` (`--dry-run` / `--apply`, retain=3).
+- [x] TUI Backup → opção 11 (diagnose + apply).
+- [/] Aplicado: 10 backup CRs removidos + label recurring off na réplica postgres; uso ainda **92%** (órfãos S3 / nexus fixo).
+- [ ] Validar <75% após GC Longhorn ou follow-up (resize PVC / T-132 Nexus policy).
+- [ ] Atualizar `components/backup/README.md` com runbook do prune.
 
 ## Validação
 
