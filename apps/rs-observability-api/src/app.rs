@@ -115,15 +115,22 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     let mut secondary_clusters: std::collections::HashSet<String> =
         std::collections::HashSet::new();
     if let Some(secondary) = &state.secondary_live_monitor {
-        let secondary_overview = secondary
-            .overview_with_refresh_budget(Duration::from_secs(3))
-            .await;
+        let secondary_overview =
+            match tokio::time::timeout(Duration::from_secs(8), secondary.cached_or_refresh()).await
+            {
+                Ok(overview) => overview,
+                Err(_) => {
+                    eprintln!("secondary K8s refresh slow; using stale cache if available");
+                    secondary
+                        .overview_with_refresh_budget(Duration::from_millis(1))
+                        .await
+                }
+            };
         if secondary_overview.available {
             for mut node in secondary_overview.nodes {
                 // Match the cluster tag from external_nodes.json so Prometheus metrics correlate
                 node.cluster = "SSD-NODES".to_string();
-                node.ready = payload.node_metrics.contains_key(&node.name)
-                    || payload.node_metrics.contains_key(&node.ip);
+                node.ready = node_has_metrics(&node, &payload.node_metrics);
                 secondary_clusters.insert(node.cluster.clone());
                 payload.nodes.push(node);
             }
@@ -139,8 +146,7 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         if secondary_clusters.contains(&node.cluster) {
             continue;
         }
-        node.ready = payload.node_metrics.contains_key(&node.name)
-            || payload.node_metrics.contains_key(&node.ip);
+        node.ready = node_has_metrics(&node, &payload.node_metrics);
         payload.nodes.push(node);
     }
 
