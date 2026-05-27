@@ -2711,6 +2711,7 @@ schedule_snapshots() {
 8. Schedule Snapshots ⏰
 9. Housekeeping (Cluster PVC Recovery) 🧹
 10. Offsite Sync (Google Drive) ☁️
+11. MinIO capacity — diagnose & prune backups (T-304) 📦
 0. Back"
         
         local choice
@@ -2724,6 +2725,16 @@ schedule_snapshots() {
             10)
                 echo -e "${BLUE}☁️  Running Google Drive Sync...${NC}"
                 bash scripts/cloud_ops/sync_to_gdrive.sh
+                read -p "$(t "press_enter")"
+                ;;
+            11)
+                echo -e "${BLUE}📦 MinIO backup capacity (T-304)${NC}"
+                ./scripts/backup/prune_minio_backup_capacity.sh --dry-run
+                echo ""
+                read -p "Apply prune now? (y/N): " CONFIRM
+                if [[ "${CONFIRM:-}" =~ ^[yY]$ ]]; then
+                    ./scripts/backup/prune_minio_backup_capacity.sh --apply
+                fi
                 read -p "$(t "press_enter")"
                 ;;
             1)
@@ -4099,7 +4110,8 @@ show_hardening_menu() {
     CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 26 78 13 \
       "1" "Force Cleanup (All Nodes)" \
       "2" "Re-apply Log Limits (OCI: 200M cap)" \
-      "3" "Re-deploy Watchdog" \
+      "2b" "Validate/Repair logrotate rsyslog (T-305)" \
+      "3" "Re-deploy Health Watchdog (T-306)" \
       "4" "Verify Control Plane Config (T-192)" \
       "5" "Re-apply Control Plane Hardening (T-192)" \
       "6" "Vacuum Old Journals (All Nodes, >7d)" \
@@ -4125,8 +4137,18 @@ show_hardening_menu() {
         ./scripts/hardening/configure_log_limits.sh
         read -p "Press Enter..." 
         ;;
+      2b)
+        echo -e "\n🔍 Logrotate rsyslog (T-305)..."
+        read -p "Dry-run only? (Y/n): " DRY
+        if [[ "${DRY:-Y}" =~ ^[nN]$ ]]; then
+          ./scripts/hardening/repair_logrotate_rsyslog.sh
+        else
+          ./scripts/hardening/repair_logrotate_rsyslog.sh --dry-run
+        fi
+        read -p "Press Enter..."
+        ;;
       3)
-        ./scripts/hardening/install_storage_protection.sh
+        ./scripts/observability/install_health_watchdog.sh
         read -p "Press Enter..." 
         ;;
       4)
