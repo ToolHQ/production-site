@@ -58,26 +58,68 @@ LOGROTATE_CONF='# T-202/T-305: aggressive syslog rotation (production-site clust
 }
 '
 
+# Workers: SSH público costuma falhar no WSL; jump via master + hostname interno (Tailscale SSH).
+MASTER_JUMP="${MASTER_NODE:-oci-k8s-master}"
+ssh_target() {
+    local node=$1
+    case "$node" in
+        oci-k8s-node-1) echo "${MASTER_JUMP}|k8s-node-1" ;;
+        oci-k8s-node-2) echo "${MASTER_JUMP}|k8s-node-2" ;;
+        oci-k8s-node-3) echo "${MASTER_JUMP}|k8s-node-3" ;;
+        *) echo "$node|" ;;
+    esac
+}
+
+run_on_node() {
+    local node=$1
+    local remote_cmd=$2
+    local target jump_host inner
+    target=$(ssh_target "$node")
+    jump_host="${target%%|*}"
+    inner="${target#*|}"
+    if [ -n "$inner" ]; then
+        ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=20 "$jump_host" \
+            "ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new $inner $(printf '%q' "$remote_cmd")"
+    else
+        ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=20 "$jump_host" "$remote_cmd"
+    fi
+}
+
+tee_on_node() {
+    local node=$1
+    local target jump_host inner
+    target=$(ssh_target "$node")
+    jump_host="${target%%|*}"
+    inner="${target#*|}"
+    if [ -n "$inner" ]; then
+        ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=20 "$jump_host" \
+            "ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new $inner 'sudo tee /etc/logrotate.d/rsyslog > /dev/null'"
+    else
+        ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=20 "$jump_host" \
+            "sudo tee /etc/logrotate.d/rsyslog > /dev/null"
+    fi
+}
+
 repair_node() {
     local node=$1
     echo "   [${node}]"
     if [ "$DRY_RUN" -eq 1 ]; then
-        ssh -T -o StrictHostKeyChecking=no "$node" "sudo logrotate -d /etc/logrotate.conf 2>&1" | tail -5
+        run_on_node "$node" "sudo logrotate -d /etc/logrotate.conf 2>&1" | tail -5
         return
     fi
 
-    echo "$LOGROTATE_CONF" | ssh -T -o StrictHostKeyChecking=no "$node" \
+    run_on_node "$node" \
         "sudo mkdir -p /var/backups/logrotate; \
          sudo cp -a /etc/logrotate.d/rsyslog /var/backups/logrotate/rsyslog.bak.\$(date +%Y%m%d%H%M%S) 2>/dev/null || true; \
-         sudo rm -f /etc/logrotate.d/rsyslog.bak.* /etc/logrotate.d/rsyslog-aggressive; \
-         sudo tee /etc/logrotate.d/rsyslog > /dev/null; \
-         if sudo logrotate -d /etc/logrotate.conf 2>&1 | grep -q 'error:'; then \
-           echo '      ❌ logrotate still reports errors' >&2; \
-           sudo logrotate -d /etc/logrotate.conf 2>&1 | grep error || true; \
-           exit 1; \
-         fi; \
-         sudo systemctl reset-failed logrotate.service 2>/dev/null || true; \
-         echo '      ✅ logrotate config OK'"
+         sudo rm -f /etc/logrotate.d/rsyslog.bak.* /etc/logrotate.d/rsyslog-aggressive"
+    echo "$LOGROTATE_CONF" | tee_on_node "$node"
+    if run_on_node "$node" "sudo logrotate -d /etc/logrotate.conf 2>&1 | grep -q 'error:'"; then
+        echo '      ❌ logrotate still reports errors' >&2
+        run_on_node "$node" "sudo logrotate -d /etc/logrotate.conf 2>&1 | grep error || true"
+        return 1
+    fi
+    run_on_node "$node" "sudo systemctl reset-failed logrotate.service 2>/dev/null || true"
+    echo '      ✅ logrotate config OK'
 }
 
 echo -e "\n📝 Repair logrotate rsyslog policy (T-305) — dry_run=${DRY_RUN}"
