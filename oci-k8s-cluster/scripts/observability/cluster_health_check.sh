@@ -5,15 +5,18 @@
 # Designed to run on the master node (kubectl must be configured).
 # Invoked by: TUI Health Report (via SSH), systemd timer (locally on master).
 #
-# Exit codes: 0=healthy  1=warnings only  2=critical issues present
+# Exit codes: 0=healthy or warnings only  2=critical issues present
+# (systemd SuccessExitStatus=0 2 — warnings must not mark the timer failed)
 # Usage: ./cluster_health_check.sh [--no-color]
 
 set -uo pipefail
 
 # ── Load environment configuration if exists ───────────────────────────────
-if [[ -f "/opt/k8s-ops/watchdog.env" ]]; then
+if [[ -r "/opt/k8s-ops/watchdog.env" ]]; then
     # shellcheck disable=SC1090
     source "/opt/k8s-ops/watchdog.env"
+elif [[ -f "/opt/k8s-ops/watchdog.env" ]]; then
+    echo "watchdog.env exists but is not readable (fix: install_health_watchdog.sh)" >&2
 fi
 
 # ── Color setup ────────────────────────────────────────────────────────────
@@ -525,7 +528,6 @@ send_notifications() {
 # Send any pending webhook notifications before exiting
 send_notifications
 
-# Exit 2=critical, 1=warnings, 0=healthy
-(( ISSUES   > 0 )) && exit 2
-(( WARNINGS > 0 )) && exit 1
+# Exit 2=critical only; warnings stay 0 so systemd timer stays healthy
+(( ISSUES > 0 )) && exit 2
 exit 0

@@ -23,6 +23,14 @@ ssh "$MASTER" "sudo mkdir -p $INSTALL_DIR"
 scp "$SCRIPT_DIR/cluster_health_check.sh" "$MASTER:/tmp/cluster_health_check.sh"
 ssh "$MASTER" "sudo mv /tmp/cluster_health_check.sh $INSTALL_DIR/ && sudo chmod +x $INSTALL_DIR/cluster_health_check.sh"
 
+# Optional webhook/env (readable by root service; secrets belong here)
+if [ -f "${SCRIPT_DIR}/watchdog.env.example" ]; then
+    scp "${SCRIPT_DIR}/watchdog.env.example" "$MASTER:/tmp/watchdog.env"
+    ssh "$MASTER" "if [ ! -f $INSTALL_DIR/watchdog.env ]; then sudo mv /tmp/watchdog.env $INSTALL_DIR/watchdog.env; else rm -f /tmp/watchdog.env; fi; sudo chown root:root $INSTALL_DIR/watchdog.env 2>/dev/null || true; sudo chmod 640 $INSTALL_DIR/watchdog.env 2>/dev/null || true"
+else
+    ssh "$MASTER" "sudo touch $INSTALL_DIR/watchdog.env && sudo chown root:root $INSTALL_DIR/watchdog.env && sudo chmod 640 $INSTALL_DIR/watchdog.env"
+fi
+
 # 2. Install systemd units
 echo "  → Installing systemd units"
 scp "${SCRIPT_DIR}/../../systemd/k8s-health-check.service" "$MASTER:/tmp/"

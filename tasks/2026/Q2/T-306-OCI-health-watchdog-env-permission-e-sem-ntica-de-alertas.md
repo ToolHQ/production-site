@@ -1,6 +1,6 @@
 # T-306: OCI health watchdog env permission e semântica de alertas
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h
@@ -19,12 +19,12 @@ A correção deve ficar conectada ao source da TUI/IaC, pois o health watchdog �
 
 ## Tasks
 
-- [ ] Auditar owner/permissions de `/opt/k8s-ops/watchdog.env` e como ele é provisionado no repo.
-- [ ] Definir semântica de exit code: `0` para OK/warnings tolerados, `1` apenas critical/failure ou usar `SuccessExitStatus` no unit.
-- [ ] Codificar ajuste no script/unit versionado, com instalação idempotente via TUI/hardening.
-- [ ] Garantir que warnings continuem visíveis sem sujar `systemctl --failed`.
-- [ ] Documentar matriz de severidade: OK, warning, critical, exit codes e ações.
-- [ ] Validar `systemctl status k8s-health-check.service` após execução manual e via timer.
+- [x] Auditar owner/permissions de `/opt/k8s-ops/watchdog.env` (600 root; provisionado só no nó, não no repo).
+- [x] Semântica: exit `0` para warnings, `2` para critical; `SuccessExitStatus=0 2` no unit.
+- [x] `watchdog.env.example` + install com `chmod 640`; `cluster_health_check.sh` usa `-r` antes do source.
+- [x] TUI Hardening opção 3 corrigida → `install_health_watchdog.sh`.
+- [x] Deploy no master; `systemctl start k8s-health-check.service` → `status=0/SUCCESS`.
+- [ ] Documentar matriz de severidade em runbook (follow-up curto no PR).
 
 ## Validação
 

@@ -8,3 +8,5 @@ ExecStart=/opt/k8s-ops/cluster_health_check.sh --no-color
 StandardOutput=append:/var/log/k8s-health-check.log
 StandardError=append:/var/log/k8s-health-check.log
 User=root
+# 0=OK/warnings, 2=critical — do not treat warnings as unit failure
+SuccessExitStatus=0 2
