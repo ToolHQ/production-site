@@ -22,6 +22,15 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-312](2026/Q2/T-312-AWS-qdbback-purge-failure-e-reten-o-de-logs.md) | **AWS qdbback purge failure e retenção de logs** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-311](2026/Q2/T-311-Hetzner-BuildKit-disk-growth-guardrails.md) | **Hetzner BuildKit disk growth guardrails** | 🚨 Critical | Cursor / AI Radar | 1d |
+| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** | 🔼 High | Cursor / AI Radar | 1d |
+| [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** | 🔼 High | Cursor / AI Radar | 4h |
+| [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
+| [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** | 🔼 High | Cursor / AI Radar | 1d |
+| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas** | 🔼 High | Cursor / AI Radar | 6h |
+| [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 4h |
+| [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 1d |
 
 | [T-285](2026/Q2/T-285-Rust-3D-Game-Mes-1.md) | **Rust 3D Game — Mês 1: Setup da Engine, Mecânicas Core & Prototipagem 3D** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-286](2026/Q2/T-286-Rust-3D-Game-Mes-2.md) | **Rust 3D Game — Mês 2: Level Design, HUD/UI & Integração com Steamworks SDK** | 🔵 Medium | Rust 3D Steam Game | 4w |
