@@ -42,10 +42,11 @@ IMAGE_LATEST=$REGISTRY/$REPO/$SERVICE:latest
 
 cd "$APP_DIR"
 
-# Inicializa ou verifica o builder remoto Hetzner automaticamente (padrão de alta performance)
+# oci-builder --push é o padrão (Nexus pull instável com docker push via tunnel Hetzner).
+# Opt-in explícito: USE_HETZNER=1 ./deploy.sh
 USE_HETZNER=false
 HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
-if [ -f "$HETZNER_SETUP" ]; then
+if [ "${USE_HETZNER:-0}" = "1" ] && [ -f "$HETZNER_SETUP" ]; then
   if "$HETZNER_SETUP" --silent; then
     USE_HETZNER=true
   fi
@@ -92,3 +93,10 @@ sed "s|image: .*|image: $IMAGE_TAG|" "$MANIFEST_PATH" > "$RENDERED_MANIFEST"
 
 export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
 kubectl apply -f "$RENDERED_MANIFEST"
+
+IMPORT_SCRIPT="$REPO_ROOT/scripts/harness/deploy_rs_observability_import.sh"
+if [ -x "$IMPORT_SCRIPT" ]; then
+  "$IMPORT_SCRIPT" "$TAG_VERSION" || true
+fi
+
+kubectl rollout status deployment/rs-observability-api-deployment -n default --timeout=180s
