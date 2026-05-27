@@ -46,7 +46,8 @@ nodes:
 
   - id: aws-ec2-fleet-01
     provider: aws
-    instance_host: 3.236.249.77
+    instance_host: honeypot.dnor.io
+    endpoint_ip: 3.236.249.77
     instance_id: i-0e8ca7a9b50e474a9
     fallback_name: ip-172-31-65-56
     ssh_alias: aws-ec2-fleet-01
@@ -59,3 +60,8 @@ nodes:
     bootstrap_managed: true
     aws_instance_type: t4g.micro
     aws_region: us-east-1
+    honeypot: true
+    threats_path: /internal/threats-summary
+    timeseries_path: /internal/threats-timeseries
+    metrics_path: /internal/metrics
+    tls_domain: honeypot.dnor.io

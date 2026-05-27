@@ -117,6 +117,32 @@ export interface NodeMetrics {
   disk_percent: number;
 }
 
+export interface HoneypotTagCount {
+  tag: string;
+  count: number;
+}
+
+export interface HoneypotNodeStats {
+  id: string;
+  cluster: string;
+  instance_host: string;
+  available: boolean;
+  total: number;
+  last24h: number;
+  classified: number;
+  unclassified: number;
+  top_tags: HoneypotTagCount[];
+  requests_24h?: TimeSeriesPoint[];
+  requests_7d?: TimeSeriesPoint[];
+  refreshed_at_epoch: number;
+  error?: string;
+}
+
+export interface HoneypotOverview {
+  available: boolean;
+  nodes: HoneypotNodeStats[];
+}
+
 export interface LiveOverview {
   available: boolean;
   stale: boolean;
@@ -130,6 +156,7 @@ export interface LiveOverview {
   services: ServiceStatus[];
   incidents: Incident[];
   metrics: MetricsData;
+  honeypot?: HoneypotOverview;
 }
 
 // Tipos para /api/catalog/summary e /api/catalog

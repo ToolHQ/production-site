@@ -1,0 +1,13 @@
+[Unit]
+Description=Verifica renovação de certs Let's Encrypt diariamente (cert-manager HTTP-01)
+Requires=cert-renew-ufw.service
+
+[Timer]
+# Roda todo dia às 03:00 UTC com jitter de 30min para evitar spike
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=1800
+# Roda na próxima oportunidade se o host estiver desligado na hora prevista
+Persistent=true
+
+[Install]
+WantedBy=timers.target

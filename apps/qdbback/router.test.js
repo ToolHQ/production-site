@@ -35,6 +35,10 @@ const initMock = () => {
     lookupServiceWithCache: lookupServiceWithCacheFn,
   }))
 
+  jest.mockModule('./services/geoip.js', () => ({
+    lookupCountry: jest.fn(() => null),
+  }))
+
   jest.mockModule('./sqlite3.js', () => ({
     runDefault: runDefaultFn,
   }))
@@ -190,7 +194,7 @@ describe('router.js', () => {
     expect(runDefaultFn).toBeCalled()
     expect(runDefaultFn.mock.calls).toEqual([
       [
-        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, country, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           '1994-04-03T15:00:00.005Z',
           'GET',
@@ -202,6 +206,8 @@ describe('router.js', () => {
           'testingHelpers/1.0.0',
           null,
           JSON.stringify({ 'user-agent': 'testingHelpers/1.0.0' }),
+          null,
+          'unclassified',
         ],
       ],
     ])
@@ -257,7 +263,7 @@ describe('router.js', () => {
     expect(runDefaultFn).toBeCalled()
     expect(runDefaultFn.mock.calls).toEqual([
       [
-        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'insert into httpRequests (timestamp, method, path, timeElapsed, remoteIp, remoteHostname, statusCode, userAgent, body, headers, country, classification) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           '1994-04-03T15:00:00.005Z',
           'GET',
@@ -269,6 +275,8 @@ describe('router.js', () => {
           'testingHelpers/1.0.0',
           null,
           JSON.stringify({ 'user-agent': 'testingHelpers/1.0.0' }),
+          null,
+          'probe:404,probe:root',
         ],
       ],
     ])

@@ -1,0 +1,15 @@
+[Unit]
+Description=Abre porta 80 temporariamente para renovação cert-manager HTTP-01
+Documentation=file:///home/dnorio/production-site/components/ssdnodes/cert-renew-ufw/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/cert-renew-ufw
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=1200
+
+[Install]
+WantedBy=multi-user.target

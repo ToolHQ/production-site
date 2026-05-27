@@ -49,7 +49,7 @@ print("[harness] required_fields_all_nodes=", required)
 
 external = [
     n for n in nodes
-    if n.get("cluster") in ("AWS-EC2", "HETZNER", "SSD-NODES") or n.get("ip") in ("37.27.85.100", "104.225.218.78", "3.236.249.77")
+    if n.get("cluster") in ("AWS-EC2", "HETZNER", "SSD-NODES") or n.get("ip") in ("37.27.85.100", "104.225.218.78", "honeypot.dnor.io")
 ]
 
 if not external:

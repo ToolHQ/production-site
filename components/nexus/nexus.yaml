@@ -46,11 +46,11 @@ spec:
             successThreshold: 1
           env:
             - name: INSTALL4J_ADD_VM_PARAMS
-              value: "-Xms512m -Xmx768m -XX:MaxDirectMemorySize=256m -XX:MaxMetaspaceSize=192m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
+              value: "-Xms768m -Xmx1280m -XX:MaxDirectMemorySize=256m -XX:MaxMetaspaceSize=192m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
           resources:
             requests:
               cpu: 50m # was 80m, reduced to fit k8s-node-3 requests
-              memory: 512Mi # was 1Gi, reduced to fit k8s-node-3 requests
+              memory: 768Mi
             limits:
               cpu: 600m
               memory: 2Gi
@@ -109,8 +109,14 @@ metadata:
   namespace: nexus
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: 800m
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - nexus.dnor.io
+        - docker-nexus.dnor.io
+      secretName: nexus-ingress-tls
   rules:
     - host: nexus.dnor.io
       http:

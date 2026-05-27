@@ -15,7 +15,7 @@ Reativar esta stack na EC2 AWS do Node Fleet como **sensor de tráfego malicioso
 ## Arquitetura (como funcionava)
 
 ```
-Internet → :3000 HTTP / :3443 HTTPS
+Internet → :80 HTTP / :443 HTTPS (prod EC2)
               │
               ▼
          index.js (createServer)
@@ -23,20 +23,44 @@ Internet → :3000 HTTP / :3443 HTTPS
               ▼
          router.js ── on response finish ──► INSERT httpRequests (SQLite)
               │
-              ├── productionHttpRouter (rotas públicas mínimas)
-              ├── mainRouter (dev)
-              └── monitoringRouter :3500 (admin UI + API paginada)
+              ├── routers/productionHttpRouter (redirect HTTP)
+              ├── routers/mainRouter (site público HTTPS)
+              └── routers/monitoringRouter :3500 HTTPS (admin UI + API)
 ```
+
+> **Layout:** `index.js` importa de `routers/` e `services/` — não use cópias legadas na raiz.
 
 ### Portas (`config.js`)
 
-| Porta | Função |
-|-------|--------|
-| 3000 | HTTP público |
-| 3443 | HTTPS (certificados no diretório pai) |
-| 3500 | Admin / monitoring dashboard |
+| Porta | Protocolo (prod EC2) | Dev local | Função |
+|-------|----------------------|-----------|--------|
+| 80 | HTTP | 3000 | Redirect 301 → HTTPS |
+| 443 | HTTPS | 3443 | Site público (honeypot) |
+| 3500 | HTTPS | 3500 | Admin / monitoring dashboard |
+| 9100 | HTTP | — | node_exporter (Node Fleet) |
 
-`isProduction = hostname.endsWith('.ec2.internal')` — detecta EC2 automaticamente.
+Em produção (`*.ec2.internal`), bind em **80/443** via `CAP_NET_BIND_SERVICE` no systemd.
+
+### Auth admin (`:3500` em produção)
+
+## Monitor admin (`:3500`)
+
+Auth via env (Fase 5c) — arquivo `/etc/qdbback/monitor.env` na EC2:
+
+1. `QDBBACK_MONITOR_SECRET` — deriva cookie `monitor-key`
+2. `QDBBACK_MONITOR_LOGIN_KEY` — query `?key=` para login (8h cookie)
+
+Dev local (sem env): `?key=palmeirasnaotemmundial` (legado).
+
+`/api/monitor/sql` em produção: **somente SELECT read-only**.
+3. Sem cookie → **404** em todas as rotas admin
+
+**Tunnel SSH (recomendado — não exponha :3500 publicamente):**
+
+```bash
+ssh -L 3500:127.0.0.1:3500 aws-ec2-fleet-01
+# https://localhost:3500/monitor?key=palmeirasnaotemmundial
+```
 
 ### Persistência (`sqlite3.js` + `router.js`)
 
@@ -79,8 +103,19 @@ Backup completo: `archive/aws-ec2-fleet-01/recovery-2026-05-24/` (local, gitigno
 ```bash
 cd apps/qdbback
 npm ci
-# Copiar database.sqlite do archive para apps/qdbback/ (ou path em sqlite3.js)
+# database.sqlite: copiar do archive para apps/qdbback/../ (path ../database.sqlite)
+# version.json: já em apps/version.json
 node app.js
+```
+
+## Reativação na EC2
+
+Ver [`docs/REACTIVATION-RUNBOOK.md`](docs/REACTIVATION-RUNBOOK.md) e [`docs/AS-IS-ANALYSIS.md`](docs/AS-IS-ANALYSIS.md).
+
+```bash
+./scripts/aws-fleet/deploy-qdbback-ec2.sh --phase all
+./scripts/aws-fleet/configure-qdbback-sg.sh --apply
+./scripts/aws-fleet/validate-qdbback-logging.sh
 ```
 
 ## Próximos passos (modernização — não implementado)
