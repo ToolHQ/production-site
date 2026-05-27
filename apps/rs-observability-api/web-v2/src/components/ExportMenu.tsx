@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import type { LiveOverview, MetricsData } from '../types/api';
 import { exportJSON, exportCSVBundle } from '../utils/export';
+import { useDnorShell } from '../context/DnorShellContext';
 import styles from './ExportMenu.module.css';
 
 interface ExportMenuProps {
@@ -12,6 +13,7 @@ export function ExportMenu({ live, metrics }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const { period } = useDnorShell();
 
   // Close on outside click
   useEffect(() => {
@@ -27,8 +29,8 @@ export function ExportMenu({ live, metrics }: ExportMenuProps) {
 
   const doExport = (format: 'json' | 'csv') => {
     setOpen(false);
-    if (format === 'json') exportJSON(live, metrics);
-    else exportCSVBundle(live, metrics);
+    if (format === 'json') exportJSON(live, metrics, period);
+    else exportCSVBundle(live, metrics, period);
     setFlash(format.toUpperCase());
     setTimeout(() => setFlash(null), 1800);
   };
@@ -66,7 +68,7 @@ export function ExportMenu({ live, metrics }: ExportMenuProps) {
           >
             <span class={styles.itemIcon}>⊞</span>
             <span class={styles.itemLabel}>CSV</span>
-            <span class={styles.itemMeta}>Nodes · Incidents · Services</span>
+            <span class={styles.itemMeta}>Fleet · Nodes · Incidents · Services</span>
           </button>
         </div>
       )}

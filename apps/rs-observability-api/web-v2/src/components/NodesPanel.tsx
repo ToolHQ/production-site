@@ -1,11 +1,14 @@
 import type { ComponentChildren } from 'preact';
 import { useState, useCallback, useMemo, useEffect } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
-import type { LiveOverview, NodeMetrics, NodeStat } from '../types/api';
+import type { LiveOverview, NodeMetrics, NodeStat, HoneypotNodeStats } from '../types/api';
 import { MetricSparkline } from './MetricSparkline';
 import { useAlertThresholds } from '../hooks/useAlertThresholds';
 import { ThresholdSettings } from './ThresholdSettings';
-import { clusterBadgeClass } from '../utils/clusterBadge';
+import { clusterBadgeClass, clusterBadgeSlug } from '../utils/clusterBadge';
+import { FleetOverviewTable } from './FleetOverviewTable';
+import { buildFleetOverviewRows, filterFleetRows, honeypotActivityMetrics, type FleetPeriod } from '../utils/fleetOverview';
+import { useDnorShell } from '../context/DnorShellContext';
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -33,11 +36,24 @@ interface TooltipWrapperProps {
   card: ComponentChildren;
 }
 
+/** Ensures only one hover tooltip is open — scroll skips mouseleave between rows. */
+let activeHoverTooltipClose: (() => void) | null = null;
+
+function dismissActiveHoverTooltip() {
+  activeHoverTooltipClose?.();
+  activeHoverTooltipClose = null;
+}
+
 function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const [targetEl, setTargetEl] = useState<HTMLElement | null>(null);
   const [lastEnterTime, setLastEnterTime] = useState<number>(0);
   const [isPinned, setIsPinned] = useState<boolean>(false);
+
+  const closeTooltip = useCallback(() => {
+    setTargetEl(null);
+    setCoords(null);
+  }, []);
 
   const updateCoords = useCallback((el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
@@ -49,16 +65,20 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
 
   const handleMouseEnter = (e: MouseEvent) => {
     if (isPinned) return;
+    dismissActiveHoverTooltip();
     const el = e.currentTarget as HTMLElement;
     setTargetEl(el);
     updateCoords(el);
     setLastEnterTime(Date.now());
+    activeHoverTooltipClose = () => {
+      closeTooltip();
+    };
   };
 
   const handleMouseLeave = () => {
     if (isPinned) return;
-    setTargetEl(null);
-    setCoords(null);
+    activeHoverTooltipClose = null;
+    closeTooltip();
   };
 
   const handleToggleClick = (e: MouseEvent) => {
@@ -70,9 +90,10 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
     }
     if (isPinned) {
       setIsPinned(false);
-      setTargetEl(null);
-      setCoords(null);
+      activeHoverTooltipClose = null;
+      closeTooltip();
     } else {
+      dismissActiveHoverTooltip();
       setIsPinned(true);
       setTargetEl(el);
       updateCoords(el);
@@ -83,18 +104,33 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
     if (!targetEl) return;
 
     const handleScrollOrResize = () => {
-      updateCoords(targetEl);
+      if (isPinned) {
+        updateCoords(targetEl);
+        return;
+      }
+      // Wheel/scroll moves rows under the cursor without mouseleave.
+      dismissActiveHoverTooltip();
     };
 
     // Use capture phase to catch scroll events on any scrollable parent container
     window.addEventListener('scroll', handleScrollOrResize, true);
     window.addEventListener('resize', handleScrollOrResize, true);
+    window.addEventListener('wheel', handleScrollOrResize, { capture: true, passive: true });
 
     return () => {
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize, true);
+      window.removeEventListener('wheel', handleScrollOrResize, true);
     };
-  }, [targetEl, updateCoords]);
+  }, [targetEl, updateCoords, isPinned]);
+
+  useEffect(() => {
+    return () => {
+      if (activeHoverTooltipClose) {
+        activeHoverTooltipClose = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isPinned || !targetEl) return;
@@ -112,15 +148,15 @@ function TooltipWrapper({ trigger, card }: TooltipWrapperProps) {
       }
 
       setIsPinned(false);
-      setTargetEl(null);
-      setCoords(null);
+      activeHoverTooltipClose = null;
+      closeTooltip();
     };
 
     document.addEventListener('click', handleClickOutside, true);
     return () => {
       document.removeEventListener('click', handleClickOutside, true);
     };
-  }, [isPinned, targetEl]);
+  }, [isPinned, targetEl, closeTooltip]);
 
   return (
     <div
@@ -520,6 +556,173 @@ function NodeCard({ node, metrics, diskWarn, diskCrit, memWarn, memCrit, cpuWarn
 }
 
 // ────────────────────────────────────────────────────────────
+// HoneypotHeroCard — featured honeypot node (qdbback / external fleet)
+// ────────────────────────────────────────────────────────────
+
+function HoneypotRadarIcon() {
+  return (
+    <div class="honeypot-hero__radar" aria-hidden="true">
+      <svg viewBox="0 0 120 120" class="honeypot-hero__radar-svg">
+        <circle cx="60" cy="60" r="52" class="honeypot-hero__ring honeypot-hero__ring--3" />
+        <circle cx="60" cy="60" r="38" class="honeypot-hero__ring honeypot-hero__ring--2" />
+        <circle cx="60" cy="60" r="24" class="honeypot-hero__ring honeypot-hero__ring--1" />
+        <line x1="60" y1="8" x2="60" y2="112" class="honeypot-hero__cross" />
+        <line x1="8" y1="60" x2="112" y2="60" class="honeypot-hero__cross" />
+        <path
+          class="honeypot-hero__sweep"
+          d="M60 60 L60 12 A48 48 0 0 1 96 36 Z"
+        />
+        <circle cx="60" cy="60" r="18" class="honeypot-hero__pot-base" />
+        <ellipse cx="60" cy="48" rx="14" ry="6" class="honeypot-hero__pot-rim" />
+        <path
+          class="honeypot-hero__pot-body"
+          d="M46 48 C46 58 48 68 60 72 C72 68 74 58 74 48 Z"
+        />
+        <text x="60" y="54" text-anchor="middle" class="honeypot-hero__pot-icon">
+          🍯
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function HoneypotBarSparkline({ seed, color = '#ff9900' }: { seed: number; color?: string }) {
+  const bars = 14;
+  const heights = useMemo(() => {
+    return Array.from({ length: bars }, (_, i) => {
+      const wave = Math.sin(seed * 0.0007 + i * 0.95) * 0.35 + Math.cos(i * 0.55) * 0.25;
+      return Math.max(12, Math.min(100, 38 + wave * 42 + (i % 3) * 8));
+    });
+  }, [seed]);
+
+  return (
+    <svg class="honeypot-hero__bars" viewBox="0 0 140 28" preserveAspectRatio="none" aria-hidden="true">
+      {heights.map((h, i) => (
+        <rect
+          key={i}
+          x={i * 10 + 1}
+          y={28 - (h / 100) * 24}
+          width="7"
+          height={(h / 100) * 24}
+          rx="1.5"
+          fill={color}
+          opacity={0.35 + (i / bars) * 0.45}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function CopyHostButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async (e: MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }, [value]);
+
+  return (
+    <button
+      type="button"
+      class="honeypot-hero__copy"
+      onClick={handleCopy}
+      title="Copy IP address"
+      aria-label={copied ? 'Copied' : `Copy ${value}`}
+    >
+      {copied ? '✓' : '⎘'}
+    </button>
+  );
+}
+
+interface HoneypotThreatsCardProps {
+  stats: HoneypotNodeStats;
+  period: FleetPeriod;
+}
+
+function HoneypotThreatsCard({ stats, period }: HoneypotThreatsCardProps) {
+  const topTags = stats.top_tags.slice(0, 3);
+  const isClassified = stats.available && stats.classified > 0;
+  const sparkSeed = stats.total + stats.last24h * 97;
+  const activity = honeypotActivityMetrics(stats, period);
+  const hasRealActivity = activity.series.length >= 2;
+  const hasReal7d = (stats.requests_7d?.length ?? 0) >= 2;
+
+  return (
+    <article class={`honeypot-hero ${stats.available ? '' : 'honeypot-hero--error'}`}>
+      <HoneypotRadarIcon />
+
+      <div class="honeypot-hero__body">
+        <div class="honeypot-hero__heading">
+          <h3 class="honeypot-hero__title">
+            Honeypot
+            <span class="honeypot-hero__env-badge">{stats.cluster}</span>
+          </h3>
+          <p class="honeypot-hero__desc">
+            This node is a honeypot deployed to simulate exposed services and detect malicious activity.
+          </p>
+        </div>
+        <div class="honeypot-hero__host-row">
+          <code class="honeypot-hero__host">{stats.instance_host}</code>
+          <CopyHostButton value={stats.instance_host} />
+        </div>
+      </div>
+
+      {stats.available ? (
+        <div class="honeypot-hero__metrics">
+          <div class="honeypot-hero__metric">
+            <span class="honeypot-hero__metric-label">Total Requests</span>
+            <span class="honeypot-hero__metric-value">{stats.total.toLocaleString()}</span>
+            {hasReal7d ? (
+              <MetricSparkline points={stats.requests_7d!} color="#ff9900" width={140} height={28} />
+            ) : (
+              <HoneypotBarSparkline seed={sparkSeed} />
+            )}
+          </div>
+          <div class="honeypot-hero__metric">
+            <span class="honeypot-hero__metric-label">{activity.label}</span>
+            <span class="honeypot-hero__metric-value">{activity.value.toLocaleString()}</span>
+            {hasRealActivity ? (
+              <MetricSparkline points={activity.series} color="#ffb347" width={140} height={28} />
+            ) : (
+              <HoneypotBarSparkline seed={sparkSeed + 17} color="#ffb347" />
+            )}
+          </div>
+          <div class="honeypot-hero__metric honeypot-hero__metric--classified">
+            <span class="honeypot-hero__metric-label">Classified</span>
+            <span class={`honeypot-hero__classified-badge${isClassified ? ' honeypot-hero__classified-badge--yes' : ''}`}>
+              {isClassified ? 'Yes' : 'No'}
+            </span>
+            <span class="honeypot-hero__classified-sub">
+              {isClassified ? 'Honeypot traffic' : `${stats.unclassified.toLocaleString()} unclassified`}
+            </span>
+          </div>
+          {topTags.length > 0 && (
+            <div class="honeypot-hero__metric honeypot-hero__metric--tags">
+              <span class="honeypot-hero__metric-label">Tags</span>
+              <div class="honeypot-hero__tag-list">
+                {topTags.map((item) => (
+                  <span key={item.tag} class="honeypot-hero__tag">
+                    {item.tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p class="honeypot-hero__error">{stats.error ?? 'Honeypot metrics unavailable'}</p>
+      )}
+    </article>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
 // NodesPanel (export)
 // ────────────────────────────────────────────────────────────
 
@@ -540,7 +743,9 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
   const nodeMetrics = live?.node_metrics ?? {};
   const hasRealMetrics = Object.keys(nodeMetrics).length > 0;
 
-  const [search, setSearch] = useState('');
+  const { nodeSearch, setNodeSearch, period } = useDnorShell();
+  const search = nodeSearch;
+  const setSearch = setNodeSearch;
   const [showSettings, setShowSettings] = useState(false);
   const { thresholds, update: updateThreshold, reset: resetThresholds } = useAlertThresholds();
 
@@ -558,6 +763,30 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
     );
   }, [nodes, search]);
 
+  // Cluster ordering: known clusters first, then alphabetical
+  const CLUSTER_ORDER = ['OCI-K8S', 'SSD-NODES', 'HETZNER', 'AWS-EC2'];
+
+  // When searching: flat list. Otherwise: group by cluster.
+  const groupedNodes = useMemo(() => {
+    const map = new Map<string, NodeStat[]>();
+    for (const node of filteredNodes) {
+      const list = map.get(node.cluster) ?? [];
+      list.push(node);
+      map.set(node.cluster, list);
+    }
+    const sorted = [...map.keys()].sort((a, b) => {
+      const ai = CLUSTER_ORDER.indexOf(a);
+      const bi = CLUSTER_ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    return sorted.map((cluster) => ({ cluster, nodes: map.get(cluster)! }));
+  }, [filteredNodes]);
+
+  const showGroupHeaders = !search.trim() && groupedNodes.length > 1;
+
   const highlightText = useCallback((text: string, query: string): ComponentChildren => {
     if (!query.trim()) return text;
     const idx = text.toLowerCase().indexOf(query.toLowerCase());
@@ -570,6 +799,16 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
       </>
     );
   }, []);
+
+  const honeypotNodes = live?.honeypot?.nodes ?? [];
+  const fleetRows = useMemo(
+    () => buildFleetOverviewRows(nodes, honeypotNodes),
+    [nodes, honeypotNodes],
+  );
+  const filteredFleetRows = useMemo(
+    () => filterFleetRows(fleetRows, search),
+    [fleetRows, search],
+  );
 
   if (!live?.available || nodes.length === 0) {
     return (
@@ -635,8 +874,32 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
         </div>
       )}
 
-      {filteredNodes.length === 0 && search && (
-        <div class="nodes-empty">No nodes match &quot;<strong>{search}</strong>&quot;</div>
+      {honeypotNodes.length > 0 && (
+        <div class="honeypot-hero-panel">
+          {honeypotNodes.map((stats) => (
+            <HoneypotThreatsCard key={stats.id} stats={stats} period={period} />
+          ))}
+        </div>
+      )}
+
+      <FleetOverviewTable
+        rows={filteredFleetRows}
+        period={period}
+        highlight={highlightText}
+        query={search}
+      />
+
+      {filteredFleetRows.length === 0 && search && (
+        <div class="nodes-empty">No fleet nodes match &quot;<strong>{search}</strong>&quot;</div>
+      )}
+
+      <div class="nodes-section-divider">
+        <h3 class="nodes-section-divider__title">Infrastructure metrics</h3>
+        <p class="nodes-section-divider__subtitle">CPU, memory and disk utilization per node</p>
+      </div>
+
+      {filteredNodes.length === 0 && search && filteredFleetRows.length > 0 && (
+        <div class="nodes-empty">No infrastructure nodes match &quot;<strong>{search}</strong>&quot;</div>
       )}
 
       <div class="table-shell">
@@ -668,21 +931,41 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
             </tr>
           </thead>
           <tbody>
-            {filteredNodes.map((node) => (
-              <NodeRow
-                key={node.name}
-                node={{ ...node, name: node.name }}
-                metrics={nodeMetrics[node.name]}
-                history={history?.[node.name]}
-                diskWarn={thresholds.disk_warn}
-                diskCrit={thresholds.disk_crit}
-                memWarn={thresholds.mem_warn}
-                memCrit={thresholds.mem_crit}
-                cpuWarn={thresholds.cpu_warn}
-                cpuCrit={thresholds.cpu_crit}
-                _highlight={highlightText}
-                _query={search}
-              />
+            {groupedNodes.map(({ cluster, nodes: clusterNodes }) => (
+              <>
+                {showGroupHeaders && (
+                  <tr class={`cluster-group-header cluster-group-header--${clusterBadgeSlug(cluster)}`}>
+                    <td colspan={10}>
+                      <span class={`node-cluster-badge ${clusterBadgeClass(cluster)}`}>{cluster}</span>
+                      <span class="cluster-group-stats">
+                        <span class={`cluster-ready-pill ${clusterNodes.filter(n => n.ready).length === clusterNodes.length ? 'cluster-ready-pill--all' : 'cluster-ready-pill--partial'}`}>
+                          {clusterNodes.filter(n => n.ready).length}/{clusterNodes.length} ready
+                        </span>
+                        <span class="cluster-stat-sep">·</span>
+                        <span class="cluster-stat">{Math.round(clusterNodes.reduce((s, n) => s + n.cpu_millicores, 0) / 1000)} vCPU</span>
+                        <span class="cluster-stat-sep">·</span>
+                        <span class="cluster-stat">{(clusterNodes.reduce((s, n) => s + n.memory_bytes, 0) / 1073741824).toFixed(0)} GiB RAM</span>
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {clusterNodes.map((node) => (
+                  <NodeRow
+                    key={node.name}
+                    node={{ ...node, name: node.name }}
+                    metrics={nodeMetrics[node.name]}
+                    history={history?.[node.name]}
+                    diskWarn={thresholds.disk_warn}
+                    diskCrit={thresholds.disk_crit}
+                    memWarn={thresholds.mem_warn}
+                    memCrit={thresholds.mem_crit}
+                    cpuWarn={thresholds.cpu_warn}
+                    cpuCrit={thresholds.cpu_crit}
+                    _highlight={highlightText}
+                    _query={search}
+                  />
+                ))}
+              </>
             ))}
           </tbody>
         </table>
@@ -690,20 +973,36 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
 
       {/* ── Mobile card view (CSS shows/hides based on viewport) ── */}
       <div class="node-cards-mobile">
-        {filteredNodes.map((node) => (
-          <NodeCard
-            key={node.name}
-            node={node}
-            metrics={nodeMetrics[node.name]}
-            diskWarn={thresholds.disk_warn}
-            diskCrit={thresholds.disk_crit}
-            memWarn={thresholds.mem_warn}
-            memCrit={thresholds.mem_crit}
-            cpuWarn={thresholds.cpu_warn}
-            cpuCrit={thresholds.cpu_crit}
-            highlight={highlightText}
-            query={search}
-          />
+        {groupedNodes.map(({ cluster, nodes: clusterNodes }) => (
+          <>
+            {showGroupHeaders && (
+              <div class={`cluster-card-header cluster-card-header--${clusterBadgeSlug(cluster)}`}>
+                <span class={`node-cluster-badge ${clusterBadgeClass(cluster)}`}>{cluster}</span>
+                <span class="cluster-card-stats">
+                  {clusterNodes.filter(n => n.ready).length}/{clusterNodes.length} ready
+                  &nbsp;·&nbsp;
+                  {Math.round(clusterNodes.reduce((s, n) => s + n.cpu_millicores, 0) / 1000)} vCPU
+                  &nbsp;·&nbsp;
+                  {(clusterNodes.reduce((s, n) => s + n.memory_bytes, 0) / 1073741824).toFixed(0)} GiB
+                </span>
+              </div>
+            )}
+            {clusterNodes.map((node) => (
+              <NodeCard
+                key={node.name}
+                node={node}
+                metrics={nodeMetrics[node.name]}
+                diskWarn={thresholds.disk_warn}
+                diskCrit={thresholds.disk_crit}
+                memWarn={thresholds.mem_warn}
+                memCrit={thresholds.mem_crit}
+                cpuWarn={thresholds.cpu_warn}
+                cpuCrit={thresholds.cpu_crit}
+                highlight={highlightText}
+                query={search}
+              />
+            ))}
+          </>
         ))}
       </div>
       <p class="nodes-table-footnote">

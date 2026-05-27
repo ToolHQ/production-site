@@ -43,3 +43,11 @@ export const cacheConstants = {
 }
 
 export const pkiCertFileName = 'B1428DBC78506B94D0DD0B9170890F76.txt'
+
+/** OCI K8s public IPs — egress for in-cluster scrapers (see config/external-fleet/registry.yaml). */
+export const INTERNAL_SCRAPE_IPS = new Set([
+  '150.136.34.254',
+  '150.136.67.52',
+  '150.136.70.212',
+  '150.136.88.87',
+])

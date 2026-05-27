@@ -30,6 +30,11 @@ import { IngressPanel } from './components/IngressPanel';
 import { CertExpiryPanel } from './components/CertExpiryPanel';
 import { WorkloadPanel } from './components/WorkloadPanel';
 import { NamespacePanel } from './components/NamespacePanel';
+import { DnorTopNav } from './components/DnorTopNav';
+import { GlobalSearchPalette } from './components/GlobalSearchPalette';
+import { DnorShellProvider, useDnorShell } from './context/DnorShellContext';
+import { ThemeToggle } from './components/ThemeToggle';
+import { ExportMenu } from './components/ExportMenu';
 
 import {
   formatEpoch,
@@ -61,6 +66,15 @@ function useWindowWidth() {
 // ────────────────────────────────────────────────────────────
 
 export function App() {
+  return (
+    <DnorShellProvider>
+      <AppContent />
+    </DnorShellProvider>
+  );
+}
+
+function AppContent() {
+  const { view } = useDnorShell();
   // Hook de resize para rerender das pills/tags responsivos
   useWindowWidth();
 
@@ -175,21 +189,37 @@ export function App() {
     : 'Waiting for snapshot';
 
   const errorMessage = [liveError, snapshotError].filter(Boolean).join(' | ');
+  const showOverview = view === 'overview';
 
   return (
-    <main>
+    <>
+      <DnorTopNav liveAvailable={Boolean(live?.available)} />
+      <GlobalSearchPalette live={live} />
+
+      <main>
       <section class="shell">
-        {/* ── Masthead ── */}
+        {/* ── Masthead (overview only) ── */}
+        {showOverview && (
         <header class="masthead">
           <DashboardHeader snapshot={summary} live={live} metrics={metrics} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
           <SignalCard live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
         </header>
+        )}
 
         {/* ── Signal mini counters ── */}
+        {showOverview && (
         <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+        )}
 
-        {/* ── Node Fleet Status ── */}
-        <section class="nodes-section-band">
+        {/* ── Node Fleet ── */}
+        {(showOverview || view === 'nodes') && (
+        <section class="nodes-section-band" id="dnor-nodes">
+          {view === 'nodes' ? (
+            <div class="dnor-page-head">
+              <h1 class="dnor-page-head__title">Nodes</h1>
+              <p class="dnor-page-head__subtitle">Monitor and explore your infrastructure.</p>
+            </div>
+          ) : (
           <div class="section-head">
             <div>
               <div class="section-kicker">Infrastructure</div>
@@ -200,10 +230,13 @@ export function App() {
               <span class="panel-tag">{live?.available ? `Live · ${(live.nodes ?? []).length} nós` : 'Waiting for live data'}</span>
             </div>
           </div>
+          )}
           <NodesPanel live={live} history={nodeHistory} />
         </section>
+        )}
 
-        {/* ── Cluster Pressure (Prometheus metrics) ── */}
+        {/* ── Cluster Pressure ── */}
+        {(showOverview || view === 'intel') && (
         <section class="metric-band">
           <div class="section-head">
             <div>
@@ -217,26 +250,20 @@ export function App() {
           </div>
           <ClusterMetrics metrics={metrics} />
         </section>
+        )}
 
-        {/* ── Longhorn Storage Health ── */}
+        {showOverview && (
+        <>
         <StoragePanel data={longhornData} error={longhornError} />
-
-        {/* ── CronJobs Health ── */}
         <CronJobPanel data={cronJobsData} error={cronJobsError} />
-
-        {/* ── Certificados TLS ── */}
         <CertExpiryPanel data={certsData} error={certsError} />
-
-        {/* ── Ingresses ── */}
         <IngressPanel data={ingressesData} error={ingressesError} />
-
-        {/* ── Workloads ── */}
         <WorkloadPanel data={workloadsData} error={workloadsError} />
-
-        {/* ── Namespace Quotas ── */}
         <NamespacePanel data={namespacesData} error={namespacesError} />
+        </>
+        )}
 
-        {/* ── Priority grid: Incidents + Restart Debt ── */}
+        {(showOverview || view === 'incidents') && (
         <section class="priority-grid">
           <section class="panel priority-panel">
             <div class="section-head">
@@ -264,11 +291,11 @@ export function App() {
             <RestartHotspots metrics={metrics} />
           </section>
         </section>
+        )}
 
-        {/* ── Content grid: Services + Telemetry / Rail ── */}
+        {showOverview && (
         <div class="content-grid">
           <section class="main-stack">
-            {/* Critical Services */}
             <section class="panel">
               <div class="section-head">
                 <div>
@@ -282,7 +309,6 @@ export function App() {
               <ServiceGrid live={live} alerts={corootAlerts?.alerts ?? []} incidents={corootIncidents?.incidents ?? []} />
             </section>
 
-            {/* Service Telemetry */}
             <section class="panel">
               <div class="section-head">
                 <div>
@@ -297,7 +323,6 @@ export function App() {
             </section>
           </section>
 
-          {/* Rail */}
           <aside class="rail-stack">
             <CorootIncidentsPanel
               data={corootIncidents}
@@ -347,14 +372,32 @@ export function App() {
             </section>
           </aside>
         </div>
+        )}
 
-        {/* ── Catalog zone (secondary surface) ── */}
+        {view === 'intel' && (
+        <div class="content-grid content-grid--intel">
+          <aside class="rail-stack rail-stack--full">
+            <CorootIncidentsPanel
+              data={corootIncidents}
+              error={corootIncidentsError}
+              lastFetchAt={corootIncidentsFetchAt}
+            />
+            <CorootAlertsPanel
+              data={corootAlerts}
+              error={corootError}
+              lastFetchAt={corootFetchAt}
+            />
+          </aside>
+        </div>
+        )}
+
+        {(showOverview || view === 'reports') && (
         <section class="catalog-zone">
           <div class="catalog-shell">
             <div class="catalog-head">
               <div>
-                <div class="section-kicker">Secondary surface</div>
-                <h2>Catalog and deploy context</h2>
+                <div class="section-kicker">{view === 'reports' ? 'Reports' : 'Secondary surface'}</div>
+                <h2>{view === 'reports' ? 'Deploy reports & catalog' : 'Catalog and deploy context'}</h2>
               </div>
               <div>
                 <p>
@@ -386,14 +429,40 @@ export function App() {
             </div>
           </div>
         </section>
+        )}
+
+        {view === 'settings' && (
+        <section class="panel dnor-settings">
+          <div class="dnor-page-head">
+            <h1 class="dnor-page-head__title">Settings</h1>
+            <p class="dnor-page-head__subtitle">Appearance and export preferences.</p>
+          </div>
+          <div class="dnor-settings__grid">
+            <div class="dnor-settings__card">
+              <h3>Theme</h3>
+              <p>Cycle light, dark or system auto.</p>
+              <ThemeToggle />
+            </div>
+            <div class="dnor-settings__card">
+              <h3>Export</h3>
+              <p>Download live overview data.</p>
+              <ExportMenu live={live} metrics={metrics} />
+            </div>
+            <div class="dnor-settings__card">
+              <h3>Node thresholds</h3>
+              <p>Configure CPU, memory and disk alert thresholds in the Nodes view.</p>
+            </div>
+          </div>
+        </section>
+        )}
       </section>
 
-      {/* Error banner */}
       {errorMessage && (
         <div id="error-box">
           <div class="error">{errorMessage}</div>
         </div>
       )}
     </main>
+    </>
   );
 }

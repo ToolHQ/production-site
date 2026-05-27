@@ -11,7 +11,7 @@ const getPatternSplittedByCommaSortBy = (fields) => {
   return `^(${fieldsStr})(,(${fieldsStr}))*$`
 }
 
-const httpRequestsQueryFields = ['id', 'timestamp', 'method', 'path', 'timeElapsed', 'remoteHostname', 'statusCode']
+const httpRequestsQueryFields = ['id', 'timestamp', 'method', 'path', 'timeElapsed', 'remoteHostname', 'statusCode', 'country', 'classification']
 const logsQueryFields = ['id', 'timestamp', 'severity', 'event', 'log']
 
 const validateReq = getValidator({

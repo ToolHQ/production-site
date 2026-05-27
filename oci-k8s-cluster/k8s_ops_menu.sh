@@ -4096,7 +4096,7 @@ node_maintenance_menu() {
 # --- HARDENING MENU ---
 show_hardening_menu() {
   while true; do
-    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 20 75 8 \
+    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 26 78 13 \
       "1" "Force Cleanup (All Nodes)" \
       "2" "Re-apply Log Limits (OCI: 200M cap)" \
       "3" "Re-deploy Watchdog" \
@@ -4104,6 +4104,11 @@ show_hardening_menu() {
       "5" "Re-apply Control Plane Hardening (T-192)" \
       "6" "Vacuum Old Journals (All Nodes, >7d)" \
       "7" "Vacuum Old Journals (Single Node)" \
+      "8" "🔥 Firewall UFW — ssdnodes-monstro (Status)" \
+      "9" "🔥 Firewall UFW — ssdnodes-monstro (Aplicar Regras)" \
+      "10" "🚀 Deploy K8s Dashboard — ssdnodes-monstro (k8s.ssdnodes.dnor.io)" \
+      "11" "🚀 Deploy Kubecost — ssdnodes-monstro (cost.ssdnodes.dnor.io)" \
+      "12" "📋 Status componentes ssdnodes-monstro" \
       "0" "Back" 3>&1 1>&2 2>&3)
     
     if [ $? != 0 ]; then return; fi
@@ -4192,7 +4197,51 @@ show_hardening_menu() {
         fi
         read -p "Press Enter..."
         ;;
-      0) return ;;
+      8)
+        # Firewall UFW — ssdnodes-monstro: Status
+        clear
+        bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-monstro --status
+        read -p "Press Enter..."
+        ;;
+      9)
+        # Firewall UFW — ssdnodes-monstro: Aplicar regras completas
+        clear
+        echo -e "${YELLOW}⚠️  Porta 22 permanece aberta (safety net).${NC}"
+        echo -e "${YELLOW}    Todas as outras conexões da internet serão bloqueadas.${NC}"
+        echo ""
+        if whiptail --title "Firewall UFW — ssdnodes-monstro" \
+            --yesno "Aplicar regras UFW em ssdnodes-monstro?\n\n- Porta 22: ABERTA para qualquer IP\n- Portas 80/443: só IPs autorizados\n- Porta 6443: só admin IP\n- Todo o resto: BLOQUEADO" \
+            15 65; then
+            bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-monstro --apply
+        else
+            echo "Cancelado."
+        fi
+        read -p "Press Enter..."
+        ;;
+      10)
+        # Deploy Kubernetes Dashboard no ssdnodes-monstro
+        clear
+        echo -e "${GREEN}🚀 Deploy Kubernetes Dashboard → k8s.ssdnodes.dnor.io${NC}"
+        echo ""
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" dashboard
+        read -p "Press Enter..."
+        ;;
+      11)
+        # Deploy Kubecost no ssdnodes-monstro
+        clear
+        echo -e "${GREEN}🚀 Deploy Kubecost Free → cost.ssdnodes.dnor.io${NC}"
+        echo ""
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" kubecost
+        read -p "Press Enter..."
+        ;;
+      12)
+        # Status dos componentes ssdnodes
+        clear
+        echo -e "${GREEN}📋 Status componentes ssdnodes-monstro${NC}"
+        echo ""
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" status
+        read -p "Press Enter..."
+        ;;
     esac
   done
 }

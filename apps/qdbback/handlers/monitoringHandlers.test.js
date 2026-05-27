@@ -154,7 +154,7 @@ OFFSET $offset`, { $limit: 3, $offset: 0 }, 42)
       expect(loggerErrorFn).not.toBeCalled()
       expect(resMock.statusCode).toBe(200)
       expect(getStreamFromSQLFn).toBeCalledWith(`
-SELECT id, timestamp, method, path, timeElapsed, remoteHostname, statusCode
+SELECT id, timestamp, method, path, timeElapsed, remoteHostname, statusCode, country, classification
 FROM httpRequests
 ORDER BY id DESC
 LIMIT $limit

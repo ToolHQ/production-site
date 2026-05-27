@@ -12,6 +12,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use reqwest::{
     header::{HeaderMap, HeaderValue as ReqwestHeaderValue, ACCEPT, AUTHORIZATION},
     Certificate, Client,
@@ -85,6 +86,7 @@ const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
 struct AppState {
     reports_root: Arc<PathBuf>,
     live_monitor: Option<Arc<LiveMonitor>>,
+    secondary_live_monitor: Option<Arc<LiveMonitor>>,
     prometheus_monitor: Arc<PrometheusMonitor>,
     coroot_client: Option<Arc<CorootClient>>,
 }
@@ -879,7 +881,58 @@ struct LiveOverview {
     services: Vec<LiveService>,
     incidents: Vec<LiveIncident>,
     metrics: MetricsOverview,
+    #[serde(default)]
+    honeypot: HoneypotOverview,
     error: Option<String>,
+}
+
+#[derive(Serialize, Clone, Default, Deserialize)]
+struct HoneypotTagCount {
+    tag: String,
+    count: u64,
+}
+
+#[derive(Serialize, Clone, Default)]
+struct HoneypotNodeStats {
+    id: String,
+    cluster: String,
+    instance_host: String,
+    available: bool,
+    total: u64,
+    last24h: u64,
+    classified: u64,
+    unclassified: u64,
+    top_tags: Vec<HoneypotTagCount>,
+    #[serde(default)]
+    requests_24h: Vec<MetricPoint>,
+    #[serde(default)]
+    requests_7d: Vec<MetricPoint>,
+    refreshed_at_epoch: u64,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone, Default)]
+struct HoneypotOverview {
+    available: bool,
+    nodes: Vec<HoneypotNodeStats>,
+}
+
+#[derive(Deserialize, Default)]
+struct QdbbackThreatTimeseries {
+    #[serde(default, rename = "requests24h")]
+    requests_24h: Vec<MetricPoint>,
+    #[serde(default, rename = "requests7d")]
+    requests_7d: Vec<MetricPoint>,
+}
+
+#[derive(Deserialize)]
+struct QdbbackThreatSummary {
+    total: u64,
+    last24h: u64,
+    classified: u64,
+    unclassified: u64,
+    #[serde(default, rename = "topTags")]
+    top_tags: Vec<HoneypotTagCount>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -979,7 +1032,7 @@ struct RestartHotspot {
     restarts_last_hour: f64,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 struct MetricPoint {
     timestamp: u64,
     value: f64,
@@ -1244,13 +1297,23 @@ struct NodeMetrics {
 
 #[derive(Debug, Clone, Deserialize)]
 struct ExternalNodeSpec {
+    #[serde(default)]
+    id: String,
     instance_host: String,
+    #[serde(default)]
+    endpoint_ip: Option<String>,
     fallback_name: String,
     cluster: String,
     role: String,
     cpu_millicores: u64,
     memory_bytes: u64,
     ephemeral_storage_bytes: u64,
+    #[serde(default)]
+    honeypot: bool,
+    #[serde(default)]
+    threats_path: Option<String>,
+    #[serde(default)]
+    timeseries_path: Option<String>,
 }
 
 #[derive(Default)]
@@ -1297,6 +1360,25 @@ async fn main() {
             None
         }
     };
+    let secondary_live_monitor = if let Ok(path) = env::var("SECONDARY_KUBECONFIG_PATH") {
+        let path = path.trim();
+        if path.is_empty() {
+            None
+        } else {
+            match LiveMonitor::from_kubeconfig(path).await {
+                Ok(monitor) => {
+                    println!("secondary K8s monitor enabled ({})", path);
+                    Some(Arc::new(monitor))
+                }
+                Err(err) => {
+                    eprintln!("secondary K8s monitor disabled: {}", err);
+                    None
+                }
+            }
+        }
+    } else {
+        None
+    };
     let prometheus_monitor = Arc::new(PrometheusMonitor::new());
 
     let coroot_client = {
@@ -1317,6 +1399,7 @@ async fn main() {
     let state = AppState {
         reports_root: Arc::new(reports_root),
         live_monitor,
+        secondary_live_monitor,
         prometheus_monitor,
         coroot_client,
     };
@@ -1406,6 +1489,7 @@ impl LiveMonitor {
             .use_rustls_tls()
             .add_root_certificate(certificate)
             .default_headers(headers)
+            .timeout(Duration::from_secs(10))
             .build()
             .map_err(|error| format!("build Kubernetes client: {}", error))?;
 
@@ -1416,26 +1500,104 @@ impl LiveMonitor {
         })
     }
 
+    /// Build a LiveMonitor from an external kubeconfig file (client certificate auth).
+    /// Used for secondary clusters (e.g., SSDNodes kubeadm cluster).
+    async fn from_kubeconfig(path: &str) -> Result<Self, String> {
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(|e| format!("read kubeconfig {}: {}", path, e))?;
+        let cfg: serde_yaml::Value =
+            serde_yaml::from_str(&content).map_err(|e| format!("parse kubeconfig YAML: {}", e))?;
+
+        let cluster = &cfg["clusters"][0]["cluster"];
+        let server = cluster["server"]
+            .as_str()
+            .ok_or("kubeconfig: missing server URL")?
+            .to_string();
+        let ca_b64 = cluster["certificate-authority-data"]
+            .as_str()
+            .ok_or("kubeconfig: missing certificate-authority-data")?;
+        let ca_pem = BASE64_STANDARD
+            .decode(ca_b64)
+            .map_err(|e| format!("decode CA cert: {}", e))?;
+
+        let user = &cfg["users"][0]["user"];
+        let cert_b64 = user["client-certificate-data"]
+            .as_str()
+            .ok_or("kubeconfig: missing client-certificate-data")?;
+        let key_b64 = user["client-key-data"]
+            .as_str()
+            .ok_or("kubeconfig: missing client-key-data")?;
+        let cert_pem = BASE64_STANDARD
+            .decode(cert_b64)
+            .map_err(|e| format!("decode client cert: {}", e))?;
+        let key_pem = BASE64_STANDARD
+            .decode(key_b64)
+            .map_err(|e| format!("decode client key: {}", e))?;
+
+        // reqwest Identity expects cert PEM followed by key PEM in the same buffer
+        let mut identity_pem = cert_pem;
+        identity_pem.extend_from_slice(&key_pem);
+
+        let ca_cert =
+            Certificate::from_pem(&ca_pem).map_err(|e| format!("parse CA cert: {}", e))?;
+        let identity = reqwest::Identity::from_pem(&identity_pem)
+            .map_err(|e| format!("parse client identity: {}", e))?;
+
+        let client = Client::builder()
+            .use_rustls_tls()
+            .add_root_certificate(ca_cert)
+            .identity(identity)
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| format!("build secondary K8s client: {}", e))?;
+
+        Ok(Self {
+            client,
+            base_url: server,
+            cache: Arc::new(RwLock::new(None)),
+        })
+    }
+
     async fn cached_or_refresh(&self) -> LiveOverview {
+        self.overview_with_refresh_budget(Duration::from_secs(10))
+            .await
+    }
+
+    /// Refresh live data with a bounded wait; reuse stale cache on timeout/error.
+    pub(crate) async fn overview_with_refresh_budget(
+        &self,
+        refresh_budget: Duration,
+    ) -> LiveOverview {
         if let Some(payload) = self.fresh_cache().await {
             return payload;
         }
 
-        match self.fetch_live().await {
-            Ok(payload) => {
+        match tokio::time::timeout(refresh_budget, self.fetch_live()).await {
+            Ok(Ok(payload)) => {
                 *self.cache.write().await = Some(CachedLiveOverview {
                     fetched_at: Instant::now(),
                     payload: payload.clone(),
                 });
                 payload
             }
-            Err(error) => {
+            Ok(Err(error)) => {
                 if let Some(mut stale_payload) = self.cached_payload().await {
                     stale_payload.stale = true;
                     stale_payload.error = Some(error);
                     stale_payload
                 } else {
                     unavailable_live_overview(error)
+                }
+            }
+            Err(_) => {
+                let message = format!("refresh timed out after {}s", refresh_budget.as_secs());
+                if let Some(mut stale_payload) = self.cached_payload().await {
+                    stale_payload.stale = true;
+                    stale_payload.error = Some(message);
+                    stale_payload
+                } else {
+                    unavailable_live_overview(message)
                 }
             }
         }
@@ -1494,6 +1656,7 @@ impl LiveMonitor {
             services,
             incidents,
             metrics: unavailable_metrics_overview("metrics not fetched yet"),
+            honeypot: HoneypotOverview::default(),
             error: None,
         })
     }
@@ -2190,44 +2353,52 @@ impl PrometheusMonitor {
             namespace_regex
         );
 
-        let cluster_cpu_percent_series = self
-            .query_range_points(
+        let (
+            cluster_cpu_percent_series,
+            cluster_cpu_used_series,
+            cluster_memory_percent_series,
+            cluster_memory_used_series,
+            restart_pressure_series,
+            restart_events_last_hour,
+            top_restarts,
+            pod_cpu_series,
+            pod_memory_series,
+        ) = tokio::join!(
+            self.query_range_points(
                 cluster_cpu_percent_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let cluster_cpu_used_series = self
-            .query_range_points(cluster_cpu_used_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let cluster_memory_percent_series = self
-            .query_range_points(
+            ),
+            self.query_range_points(cluster_cpu_used_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_range_points(
                 cluster_memory_percent_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let cluster_memory_used_series = self
-            .query_range_points(
+            ),
+            self.query_range_points(
                 cluster_memory_used_query,
                 start,
                 end,
                 PROMETHEUS_STEP_SECONDS,
-            )
-            .await?;
-        let restart_pressure_series = self
-            .query_range_points(&restart_pressure_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let restart_events_last_hour = self.query_instant_value(&restart_last_hour_query).await?;
-        let top_restarts = self.query_restart_hotspots(&top_restart_query).await?;
-        let pod_cpu_series = self
-            .query_range_series(&pod_cpu_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
-        let pod_memory_series = self
-            .query_range_series(&pod_memory_query, start, end, PROMETHEUS_STEP_SECONDS)
-            .await?;
+            ),
+            self.query_range_points(&restart_pressure_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_instant_value(&restart_last_hour_query),
+            self.query_restart_hotspots(&top_restart_query),
+            self.query_range_series(&pod_cpu_query, start, end, PROMETHEUS_STEP_SECONDS),
+            self.query_range_series(&pod_memory_query, start, end, PROMETHEUS_STEP_SECONDS),
+        );
+
+        let cluster_cpu_percent_series = cluster_cpu_percent_series?;
+        let cluster_cpu_used_series = cluster_cpu_used_series?;
+        let cluster_memory_percent_series = cluster_memory_percent_series?;
+        let cluster_memory_used_series = cluster_memory_used_series?;
+        let restart_pressure_series = restart_pressure_series?;
+        let restart_events_last_hour = restart_events_last_hour?;
+        let top_restarts = top_restarts?;
+        let pod_cpu_series = pod_cpu_series?;
+        let pod_memory_series = pod_memory_series?;
 
         let service_metrics = services
             .iter()
@@ -2431,7 +2602,7 @@ impl PrometheusMonitor {
             }));
         }
 
-        node_names
+        let map = node_names
             .into_iter()
             .filter_map(|node| {
                 let cpu_percent = metric_value_for_node(&cpu_map, &node, &nodename_to_instance);
@@ -2474,7 +2645,9 @@ impl PrometheusMonitor {
                     },
                 ))
             })
-            .collect()
+            .collect();
+
+        alias_external_node_metrics(map)
     }
 
     pub(crate) async fn fetch_external_node_stats(&self) -> Vec<NodeStat> {
@@ -2525,9 +2698,10 @@ impl PrometheusMonitor {
         external_node_specs()
             .iter()
             .map(|spec| {
-                let (name, architecture, operating_system) = uname_by_instance
-                    .get(spec.instance_host.as_str())
-                    .cloned()
+                let lookup_hosts = external_lookup_hosts(spec);
+                let (name, architecture, operating_system) = lookup_hosts
+                    .iter()
+                    .find_map(|host| uname_by_instance.get(host.as_str()).cloned())
                     .unwrap_or_else(|| {
                         (
                             spec.fallback_name.to_string(),
@@ -2552,6 +2726,134 @@ impl PrometheusMonitor {
                 }
             })
             .collect()
+    }
+
+    pub(crate) async fn fetch_honeypot_overview(&self) -> HoneypotOverview {
+        let specs: Vec<&ExternalNodeSpec> = external_node_specs()
+            .iter()
+            .filter(|spec| spec.honeypot)
+            .collect();
+
+        if specs.is_empty() {
+            return HoneypotOverview::default();
+        }
+
+        let client = match Client::builder()
+            .timeout(Duration::from_secs(8))
+            .danger_accept_invalid_certs(true)
+            .build()
+        {
+            Ok(client) => client,
+            Err(error) => {
+                let message = format!("build honeypot client: {}", error);
+                return HoneypotOverview {
+                    available: false,
+                    nodes: specs
+                        .into_iter()
+                        .map(|spec| honeypot_node_error(spec, &message))
+                        .collect(),
+                };
+            }
+        };
+
+        let mut nodes = Vec::with_capacity(specs.len());
+        for spec in specs {
+            nodes.push(fetch_honeypot_node(&client, spec).await);
+        }
+
+        HoneypotOverview {
+            available: nodes.iter().any(|node| node.available),
+            nodes,
+        }
+    }
+}
+
+async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> HoneypotNodeStats {
+    let summary_path = spec
+        .threats_path
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/internal/threats-summary");
+    let timeseries_path = spec
+        .timeseries_path
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .unwrap_or("/internal/threats-timeseries");
+    let summary_url = honeypot_api_url(spec, summary_path);
+    let timeseries_url = honeypot_api_url(spec, timeseries_path);
+
+    let (summary_result, timeseries_result) = tokio::join!(
+        client.get(&summary_url).send(),
+        client.get(&timeseries_url).send(),
+    );
+
+    let timeseries = match timeseries_result {
+        Ok(response) if response.status().is_success() => response
+            .json::<QdbbackThreatTimeseries>()
+            .await
+            .unwrap_or_default(),
+        _ => QdbbackThreatTimeseries::default(),
+    };
+
+    match summary_result {
+        Ok(response) => {
+            if !response.status().is_success() {
+                return honeypot_node_error(
+                    spec,
+                    &format!("honeypot API status {}", response.status()),
+                );
+            }
+
+            match response.json::<QdbbackThreatSummary>().await {
+                Ok(summary) => HoneypotNodeStats {
+                    id: honeypot_node_id(spec),
+                    cluster: spec.cluster.clone(),
+                    instance_host: spec.instance_host.clone(),
+                    available: true,
+                    total: summary.total,
+                    last24h: summary.last24h,
+                    classified: summary.classified,
+                    unclassified: summary.unclassified,
+                    top_tags: summary.top_tags,
+                    requests_24h: timeseries.requests_24h,
+                    requests_7d: timeseries.requests_7d,
+                    refreshed_at_epoch: unix_epoch_seconds(),
+                    error: None,
+                },
+                Err(error) => {
+                    honeypot_node_error(spec, &format!("decode honeypot JSON: {}", error))
+                }
+            }
+        }
+        Err(error) => honeypot_node_error(spec, &format!("request honeypot API: {}", error)),
+    }
+}
+
+fn honeypot_api_url(spec: &ExternalNodeSpec, path: &str) -> String {
+    format!(
+        "https://{}/{}",
+        spec.instance_host,
+        path.trim_start_matches('/')
+    )
+}
+
+fn honeypot_node_id(spec: &ExternalNodeSpec) -> String {
+    if spec.id.is_empty() {
+        spec.fallback_name.clone()
+    } else {
+        spec.id.clone()
+    }
+}
+
+fn honeypot_node_error(spec: &ExternalNodeSpec, message: &str) -> HoneypotNodeStats {
+    HoneypotNodeStats {
+        id: honeypot_node_id(spec),
+        cluster: spec.cluster.clone(),
+        instance_host: spec.instance_host.clone(),
+        available: false,
+        refreshed_at_epoch: unix_epoch_seconds(),
+        error: Some(message.to_string()),
+        ..HoneypotNodeStats::default()
     }
 }
 
@@ -2588,8 +2890,73 @@ fn extract_instance_host(instance: &str) -> String {
 fn fallback_name_for_instance(instance_host: &str) -> Option<String> {
     external_node_specs()
         .iter()
-        .find(|spec| spec.instance_host == instance_host)
+        .find(|spec| {
+            spec.instance_host == instance_host
+                || spec
+                    .endpoint_ip
+                    .as_deref()
+                    .is_some_and(|endpoint| endpoint == instance_host)
+        })
         .map(|spec| spec.fallback_name.clone())
+}
+
+fn external_lookup_hosts(spec: &ExternalNodeSpec) -> Vec<String> {
+    let mut hosts = vec![spec.instance_host.clone()];
+    if let Some(endpoint_ip) = spec.endpoint_ip.as_ref() {
+        if !hosts.iter().any(|host| host == endpoint_ip) {
+            hosts.push(endpoint_ip.clone());
+        }
+    }
+    hosts
+}
+
+fn alias_external_node_metrics(
+    mut metrics: HashMap<String, NodeMetrics>,
+) -> HashMap<String, NodeMetrics> {
+    for spec in external_node_specs() {
+        let source_key = metrics
+            .keys()
+            .find(|key| {
+                key.as_str() == spec.fallback_name.as_str()
+                    || key.as_str() == spec.instance_host.as_str()
+                    || spec
+                        .endpoint_ip
+                        .as_deref()
+                        .is_some_and(|endpoint| key.as_str() == endpoint)
+                    || key.contains(&spec.fallback_name)
+                    || spec
+                        .endpoint_ip
+                        .as_deref()
+                        .is_some_and(|endpoint| key.contains(endpoint))
+            })
+            .cloned();
+
+        let Some(source_key) = source_key else {
+            continue;
+        };
+        let Some(entry) = metrics.get(&source_key).cloned() else {
+            continue;
+        };
+        metrics.insert(spec.fallback_name.clone(), entry.clone());
+        metrics.insert(spec.instance_host.clone(), entry);
+    }
+    metrics
+}
+
+fn node_has_metrics(node: &NodeStat, metrics: &HashMap<String, NodeMetrics>) -> bool {
+    if metrics.contains_key(&node.name) || metrics.contains_key(&node.ip) {
+        return true;
+    }
+
+    external_node_specs().iter().any(|spec| {
+        (spec.fallback_name == node.name || spec.instance_host == node.ip)
+            && (metrics.contains_key(&spec.fallback_name)
+                || metrics.contains_key(&spec.instance_host)
+                || spec
+                    .endpoint_ip
+                    .as_deref()
+                    .is_some_and(|endpoint| metrics.contains_key(endpoint)))
+    })
 }
 
 fn build_instance_nodename_aliases(
@@ -2617,10 +2984,22 @@ fn build_instance_nodename_aliases(
     for spec in external_node_specs() {
         nodename_to_instance
             .entry(spec.fallback_name.clone())
-            .or_insert_with(|| spec.instance_host.clone());
+            .or_insert_with(|| {
+                spec.endpoint_ip
+                    .clone()
+                    .unwrap_or_else(|| spec.instance_host.clone())
+            });
         instance_to_nodename
             .entry(spec.instance_host.clone())
             .or_insert_with(|| spec.fallback_name.clone());
+        if let Some(endpoint_ip) = spec.endpoint_ip.as_ref() {
+            instance_to_nodename
+                .entry(endpoint_ip.clone())
+                .or_insert_with(|| spec.fallback_name.clone());
+            nodename_to_instance
+                .entry(spec.fallback_name.clone())
+                .or_insert_with(|| endpoint_ip.clone());
+        }
     }
 
     (instance_to_nodename, nodename_to_instance)
@@ -3515,6 +3894,7 @@ fn unavailable_live_overview(reason: impl Into<String>) -> LiveOverview {
         services: Vec::new(),
         incidents: Vec::new(),
         metrics: unavailable_metrics_overview("prometheus metrics unavailable"),
+        honeypot: HoneypotOverview::default(),
         error: Some(reason.into()),
     }
 }

@@ -2,7 +2,22 @@
 
 ## Em andamento
 
-_(vazio)_
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-302** | qdbback — Prometheus ✅ TLS ✅ / AL2023 runbook pendente execução | 🏎️ Fase C (opcional) |
+
+## Node Fleet v2 (concluído 2026-05-25)
+
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-301** | Node Fleet v2 DNOR (hero, fleet table, shell, período, export) | ✅ PR #344 |
+| — | T-297 | _(arquivo histórico; epic fechado como T-301)_ | — |
+
+## qdbback / External Fleet (concluído 2026-05-25)
+
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-296** | qdbback EC2 honeypot + card Node Fleet (Fases 0–5c) | ✅ |
 
 ## Fase 23 — Fontes & trends
 

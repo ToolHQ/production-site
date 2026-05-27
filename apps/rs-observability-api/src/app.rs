@@ -84,34 +84,76 @@ async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
 }
 
 async fn live_overview(State(state): State<AppState>) -> Response {
-    let mut payload = match state.live_monitor {
-        Some(monitor) => monitor.cached_or_refresh().await,
-        None => unavailable_live_overview(
-            "in-cluster Kubernetes API credentials are not available in this runtime",
-        ),
+    let live_future = async {
+        match &state.live_monitor {
+            Some(monitor) => monitor.cached_or_refresh().await,
+            None => unavailable_live_overview(
+                "in-cluster Kubernetes API credentials are not available in this runtime",
+            ),
+        }
     };
+
+    let (mut payload, node_metrics, honeypot) = tokio::join!(
+        live_future,
+        state.prometheus_monitor.fetch_node_metrics(),
+        state.prometheus_monitor.fetch_honeypot_overview(),
+    );
 
     payload.metrics = state
         .prometheus_monitor
         .cached_or_refresh(&payload.services)
         .await;
+    payload.node_metrics = node_metrics;
 
-    payload.node_metrics = state.prometheus_monitor.fetch_node_metrics().await;
-
-    // Populate cluster property for existing K8s nodes
+    // Populate cluster property for existing OCI K8s nodes
     for node in &mut payload.nodes {
         node.cluster = "OCI-K8S".to_string();
     }
 
-    // Inject external physical nodes (Hetzner / SSD Nodes) with metadata from Prometheus.
+    // Inject secondary K8s cluster nodes (e.g., SSD-NODES kubeadm cluster).
+    // These are tagged with the cluster name from external_nodes.json for metric correlation.
+    let mut secondary_clusters: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
+    if let Some(secondary) = &state.secondary_live_monitor {
+        let secondary_overview =
+            match tokio::time::timeout(Duration::from_secs(8), secondary.cached_or_refresh()).await
+            {
+                Ok(overview) => overview,
+                Err(_) => {
+                    eprintln!("secondary K8s refresh slow; using stale cache if available");
+                    secondary
+                        .overview_with_refresh_budget(Duration::from_millis(1))
+                        .await
+                }
+            };
+        if secondary_overview.available {
+            for mut node in secondary_overview.nodes {
+                // Match the cluster tag from external_nodes.json so Prometheus metrics correlate
+                node.cluster = "SSD-NODES".to_string();
+                node.ready = node_has_metrics(&node, &payload.node_metrics);
+                secondary_clusters.insert(node.cluster.clone());
+                payload.nodes.push(node);
+            }
+            payload.incidents.extend(secondary_overview.incidents);
+        } else if let Some(error) = secondary_overview.error {
+            eprintln!("secondary K8s monitor unavailable: {}", error);
+        }
+    }
+
+    // Inject external physical nodes (Hetzner / SSD Nodes) — skip clusters already
+    // covered by the secondary K8s monitor to avoid duplicate node entries.
     for mut node in state.prometheus_monitor.fetch_external_node_stats().await {
-        node.ready = payload.node_metrics.contains_key(&node.name)
-            || payload.node_metrics.contains_key(&node.ip);
+        if secondary_clusters.contains(&node.cluster) {
+            continue;
+        }
+        node.ready = node_has_metrics(&node, &payload.node_metrics);
         payload.nodes.push(node);
     }
 
     // Re-sort the nodes list alphabetically by name
     payload.nodes.sort_by(|a, b| a.name.cmp(&b.name));
+
+    payload.honeypot = honeypot;
 
     Json(payload).into_response()
 }
@@ -476,6 +518,7 @@ mod tests {
         AppState {
             reports_root: Arc::new(reports_root),
             live_monitor: None,
+            secondary_live_monitor: None,
             prometheus_monitor: Arc::new(PrometheusMonitor::new()),
             coroot_client: None,
         }
