@@ -26,7 +26,6 @@
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
 | [T-312](2026/Q2/T-312-AWS-qdbback-purge-failure-e-reten-o-de-logs.md) | **AWS qdbback purge failure e retenção de logs** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-311](2026/Q2/T-311-Hetzner-BuildKit-disk-growth-guardrails.md) | **Hetzner BuildKit disk growth guardrails** | 🚨 Critical | Cursor / AI Radar | 1d |
 | [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** | 🔼 High | Cursor / AI Radar | 1d |
 | [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
@@ -46,6 +45,7 @@
 
 |                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
+| [T-311](2026/Q2/T-311-Hetzner-BuildKit-disk-growth-guardrails.md) | **Hetzner BuildKit disk growth guardrails** | 🚨 Critical | Cursor / AI Radar | 1d |
 | T-300 | **SSDNodes — DNS `s3.ssdnodes.dnor.io` + `minio.ssdnodes.dnor.io` → 104.225.218.78** _(registros A criados; Let's Encrypt READY para ambos os domínios; MinIO HTTPS funcional via Ingress)_ | 🔵 Medium | **Copilot/VSCode** | 30min |
 | T-303 | **SSDNodes — K8s Dashboard + Kubecost HTTPS** _(k8s.ssdnodes.dnor.io HTTP 200 TLS R12; cost.ssdnodes.dnor.io HTTP 200 TLS R13; chart tgz kubernetes-retired/dashboard v7.14.0; Kubecost 2.8.6 pinado; Prometheus+Grafana bundled; PR #352)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
 | T-299 | **SSDNodes K8s — Workloads base deployados** _(local-path-provisioner SC padrão; nginx-ingress DaemonSet hostNetwork 80/443; MinIO standalone 500 GiB PVC Bound; Ingresses s3/minio.ssdnodes.dnor.io; manifests em components/ssdnodes/; PR #329 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |

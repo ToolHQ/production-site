@@ -1,6 +1,6 @@
 # T-311: Hetzner BuildKit disk growth guardrails
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d
