@@ -1,6 +1,6 @@
 # T-312: AWS qdbback purge failure e retenção de logs
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h
