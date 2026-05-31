@@ -82,6 +82,11 @@ fn match_manifest_host_ids(needle: &str, manifest: &Value, compare: bool) -> Vec
             if !token.is_empty() && needle.contains(&token.to_lowercase()) {
                 push_id(if id.is_empty() { name } else { id });
             }
+            // @mention chips (T-333)
+            let at_token = format!("@{token}");
+            if !token.is_empty() && needle.contains(&at_token.to_lowercase()) {
+                push_id(if id.is_empty() { name } else { id });
+            }
         }
         if compare {
             let cluster_lc = cluster.to_lowercase();

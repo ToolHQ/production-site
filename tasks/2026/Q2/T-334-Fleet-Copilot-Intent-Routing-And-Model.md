@@ -23,7 +23,7 @@
 - [x] Override preset quando intent ≠ preset UI selecionado (server-side `resolve_intent`)
 - [ ] A/B modelo: `qwen2.5:3b` vs `gemma3:4b` (latência + qualidade pt-BR)
 - [x] Few-shot no system prompt (2–3 exemplos Q&A fleet ops)
-- [ ] Fallback: se resposta < 20 chars ou repete contexto → mensagem honesta *"modelo limitado; veja source pills"*
+- [x] Fallback: se resposta < 20 chars ou repete contexto → mensagem honesta *"modelo limitado; veja source pills"*
 
 ## Relacionado
 

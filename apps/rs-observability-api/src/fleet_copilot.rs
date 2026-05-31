@@ -414,6 +414,41 @@ Pergunte por um host específico para métricas ou compare dois hosts."
         }
         Self::reply_from_targeted_metrics(manifest, intent)
     }
+
+    /// T-334: evita respostas vazias/eco do Gemma.
+    fn sanitize_model_reply(reply: &str, sources: &[String]) -> String {
+        let trimmed = reply.trim();
+        if trimmed.len() < 20 {
+            return Self::weak_model_fallback(sources);
+        }
+        let lc = trimmed.to_lowercase();
+        if lc.contains("context json")
+            || lc.contains("\"stdout\"")
+            || lc.contains("filesystem     size")
+            || trimmed.matches('{').count() >= 4
+        {
+            return Self::weak_model_fallback(sources);
+        }
+        if (lc.contains("como assistente") || lc.contains("as an ai"))
+            && trimmed.len() < 120
+        {
+            return Self::weak_model_fallback(sources);
+        }
+        trimmed.to_string()
+    }
+
+    fn weak_model_fallback(sources: &[String]) -> String {
+        let src = if sources.is_empty() {
+            "fleet_manifest".to_string()
+        } else {
+            sources.join(", ")
+        };
+        format!(
+            "O modelo local (Gemma 3) gerou uma resposta genérica ou incompleta. \
+Confira os dados coletados nas fontes: {src}. \
+Tente reformular com um host específico (ex.: k8s-node-1) ou use uma consulta rápida na barra lateral."
+        )
+    }
 }
 
 pub async fn copilot_session(
@@ -536,10 +571,12 @@ pub async fn copilot_chat(
         .json()
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
-    let reply = parsed["reply"]
-        .as_str()
-        .unwrap_or("Sem resposta do modelo.")
-        .to_string();
+    let reply = FleetCopilotState::sanitize_model_reply(
+        parsed["reply"]
+            .as_str()
+            .unwrap_or("Sem resposta do modelo."),
+        &sources,
+    );
     let model = parsed["model"].as_str().unwrap_or("gemma3:4b").to_string();
 
     Ok(Json(ChatResponse {
@@ -691,7 +728,9 @@ pub async fn copilot_chat_stream(
         let mut got_done = false;
         let mut streamed_reply = String::new();
 
-        let mut forward_block = |event_name: &str, data: String| -> bool {
+        let sources_for_sanitize = sources.clone();
+
+        let mut forward_block = |event_name: &str, mut data: String| -> bool {
             if event_name == "token" {
                 if let Ok(val) = serde_json::from_str::<Value>(&data) {
                     if let Some(delta) = val["delta"].as_str() {
@@ -701,6 +740,27 @@ pub async fn copilot_chat_stream(
             }
             if event_name == "done" {
                 got_done = true;
+                if let Ok(mut val) = serde_json::from_str::<Value>(&data) {
+                    if let Some(obj) = val.as_object_mut() {
+                        let raw = obj
+                            .get("reply")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        let merged = if streamed_reply.len() > raw.len() {
+                            streamed_reply.as_str()
+                        } else {
+                            raw
+                        };
+                        obj.insert(
+                            "reply".into(),
+                            json!(FleetCopilotState::sanitize_model_reply(
+                                merged,
+                                &sources_for_sanitize
+                            )),
+                        );
+                    }
+                    data = val.to_string();
+                }
             }
             tx.send(Ok(Event::default().event(event_name).data(data)))
                 .now_or_never()
@@ -722,6 +782,22 @@ pub async fn copilot_chat_stream(
                     if event_name == "done" {
                         if let Ok(mut val) = serde_json::from_str::<Value>(&data) {
                             if let Some(obj) = val.as_object_mut() {
+                                let raw = obj
+                                    .get("reply")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let merged = if streamed_reply.len() > raw.len() {
+                                    streamed_reply.as_str()
+                                } else {
+                                    raw
+                                };
+                                obj.insert(
+                                    "reply".into(),
+                                    json!(FleetCopilotState::sanitize_model_reply(
+                                        merged,
+                                        &sources
+                                    )),
+                                );
                                 obj.insert("sources".into(), json!(sources));
                                 obj.insert(
                                     "latency_ms".into(),
@@ -777,10 +853,11 @@ pub async fn copilot_chat_stream(
         }
 
         if !got_done && !streamed_reply.is_empty() {
+            let reply = FleetCopilotState::sanitize_model_reply(&streamed_reply, &sources);
             let _ = send(
                 Event::default().event("done").data(
                     json!({
-                        "reply": streamed_reply,
+                        "reply": reply,
                         "partial": true,
                         "sources": sources,
                         "latency_ms": started.elapsed().as_millis() as u64,
@@ -856,6 +933,13 @@ mod tests {
             super::ChatIntent::OciNodeQuery,
         );
         assert!(reply.unwrap().contains("k8s-node-1"));
+    }
+
+    #[test]
+    fn sanitize_replaces_echo_reply() {
+        let weak = "Context JSON: {\"stdout\": \"Filesystem\"}";
+        let out = FleetCopilotState::sanitize_model_reply(&weak, &["/ops/host/disk".into()]);
+        assert!(out.contains("genérica ou incompleta"));
     }
 }
 
