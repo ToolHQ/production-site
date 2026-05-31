@@ -2408,22 +2408,65 @@
         padding: 1rem 1.25rem 2rem;
       }
 
-      /* T-325 v2: coluna única ~920px — main + nav alinhados no Copilot */
-      body.dnor-view-fleet-copilot main {
-        width: min(920px, calc(100vw - 32px));
+      /* T-325 v3: Copilot fora do shell ultrawide — coluna fixa ~920px */
+      body.dnor-view-fleet-copilot main,
+      main.main--fleet-copilot {
+        width: min(920px, calc(100vw - 32px)) !important;
+        max-width: 920px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
       }
 
       body.dnor-view-fleet-copilot .dnor-shell__inner {
+        max-width: 920px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+
+      .shell.shell--fleet-copilot {
+        width: 100%;
         max-width: 920px;
+        margin: 0 auto;
+        padding: 1rem 1.25rem 2rem;
       }
 
       @media (min-width: 1600px) {
-        body.dnor-view-fleet-copilot main {
-          width: min(880px, calc(100vw - 48px));
+        body.dnor-view-fleet-copilot main,
+        main.main--fleet-copilot {
+          width: min(880px, calc(100vw - 48px)) !important;
+          max-width: 880px !important;
         }
 
         body.dnor-view-fleet-copilot .dnor-shell__inner {
+          max-width: 880px !important;
+        }
+
+        .shell.shell--fleet-copilot {
           max-width: 880px;
+        }
+      }
+
+      @media (min-width: 1680px) {
+        body.dnor-view-fleet-copilot main,
+        main.main--fleet-copilot {
+          width: min(880px, calc(100vw - 48px)) !important;
+          max-width: 880px !important;
+        }
+      }
+
+      @media (min-width: 1880px) {
+        body.dnor-view-fleet-copilot main,
+        main.main--fleet-copilot {
+          width: min(880px, calc(100vw - 48px)) !important;
+          max-width: 880px !important;
+        }
+      }
+
+      @media (min-width: 2200px) {
+        body.dnor-view-fleet-copilot main,
+        main.main--fleet-copilot {
+          width: min(880px, calc(100vw - 48px)) !important;
+          max-width: 880px !important;
         }
       }
 
