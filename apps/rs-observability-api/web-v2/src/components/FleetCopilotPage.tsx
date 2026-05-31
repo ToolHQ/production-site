@@ -250,7 +250,9 @@ export function FleetCopilotPage() {
                     <p class="fleet-copilot-typing">
                       {loadingPhase === 'collect'
                         ? 'Coletando métricas do SSDNodes…'
-                        : 'Consultando Gemma 3 no monstro…'}
+                        : elapsedSec >= 45
+                          ? `Modelo local pensando (${elapsedSec}s — pode levar até ~3 min)…`
+                          : 'Consultando Gemma 3 no monstro…'}
                       <span class="fleet-copilot-dots" aria-hidden="true">
                         <span />
                         <span />

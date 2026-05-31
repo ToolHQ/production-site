@@ -2418,10 +2418,16 @@
         box-shadow: 0 0 0 1px color-mix(in srgb, #34d399 40%, transparent);
       }
 
+      /* T-325: legibilidade em monitores ultra-wide */
       .fleet-copilot-page {
+        --fleet-copilot-page-max: 1200px;
+        --fleet-copilot-prose-max: 42rem;
         display: flex;
         flex-direction: column;
         gap: 1.25rem;
+        width: 100%;
+        max-width: var(--fleet-copilot-page-max);
+        margin-inline: auto;
       }
 
       .fleet-copilot-hero {
@@ -2651,6 +2657,7 @@
         padding: 1rem;
         display: flex;
         flex-direction: column;
+        align-items: center;
         gap: 0.85rem;
         min-height: 360px;
         max-height: min(62vh, 640px);
@@ -2671,7 +2678,8 @@
       }
 
       .fleet-copilot-bubble {
-        max-width: min(92%, 680px);
+        width: 100%;
+        max-width: min(100%, var(--fleet-copilot-prose-max, 42rem));
         padding: 0.85rem 1rem;
         border-radius: 14px;
         animation: fleet-copilot-fade-in 0.25s ease;
@@ -2690,6 +2698,7 @@
 
       .fleet-copilot-bubble--user {
         align-self: flex-end;
+        max-width: min(100%, 36rem);
         background: color-mix(in srgb, var(--accent) 16%, transparent);
         border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
       }

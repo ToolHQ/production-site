@@ -49,6 +49,11 @@ flowchart LR
 | **T-322** | Proxy seguro rs-observability-api | 3d | [T-322-Fleet-Copilot-Proxy-Reports-API.md](T-322-Fleet-Copilot-Proxy-Reports-API.md) |
 | **T-323** | UI Fleet Copilot no reports | 2d | [T-323-Fleet-Copilot-UI-Reports.md](T-323-Fleet-Copilot-UI-Reports.md) |
 | **T-324** | Hermes Agent fase 2 (opcional) | 2d | [T-324-Hermes-Agent-Phase2-Optional.md](T-324-Hermes-Agent-Phase2-Optional.md) |
+| **T-325** | Max-width ultra-wide (#fleet-copilot) | 2h | [T-325-Fleet-Copilot-UltraWide-Max-Width.md](T-325-Fleet-Copilot-UltraWide-Max-Width.md) |
+
+### Fase 2 (backlog)
+
+Ver [T-329-Fleet-Copilot-Phase2-Backlog-Epic.md](T-329-Fleet-Copilot-Phase2-Backlog-Epic.md) — T-326, T-327, T-328, T-322e, hardening gateway.
 
 **Relacionados:**
 
@@ -58,13 +63,13 @@ flowchart LR
 
 ## MVP Definition of Done
 
-- [ ] Operador autenticado pergunta “Como está o disco no SSDNodes?” em `reports.dnor.io/#nodes`
-- [ ] Resposta cita fontes (`/ops/host/disk`, etc.) com dados reais
-- [ ] Ollama inacessível da internet (`curl 104.225.218.78:11434` falha)
-- [ ] Rate limit dispara em abuse (429)
-- [ ] Audit log registra interações
-- [ ] Feature desligável via `FLEET_COPILOT_ENABLED=false`
-- [ ] Manifests/scripts versionados em `components/ssdnodes/` + `apps/fleet-ops-gateway/`
+- [x] Operador autenticado pergunta em `reports.dnor.io/#fleet-copilot` (teaser em `#nodes`)
+- [x] Resposta cita fontes (`/ops/host/disk`, etc.) com dados reais
+- [x] Ollama inacessível da internet (`curl 104.225.218.78:11434` falha)
+- [x] Rate limit dispara em abuse (429)
+- [ ] Audit log registra interações (backlog T-322e)
+- [x] Feature desligável via `FLEET_COPILOT_ENABLED=false`
+- [x] Manifests/scripts versionados em `components/ssdnodes/` + `apps/fleet-ops-gateway/`
 
 ## Fora de escopo (MVP)
 
