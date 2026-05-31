@@ -169,10 +169,46 @@ impl FleetCopilotState {
         }
     }
 
-    async fn collect_context(&self, preset: &str) -> (Value, Vec<String>) {
+    /// Perguntas sobre escopo/inventário — não buscar df/free no gateway (T-332).
+    fn skip_ops_fetch(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "quais hosts",
+            "quais host ",
+            "quais máquinas",
+            "quais maquinas",
+            "quais servidores",
+            "quais clusters",
+            "que hosts",
+            "lista de hosts",
+            "inventário",
+            "inventario",
+            "o que você",
+            "o que voce",
+            "o que faz",
+            "o que cobre",
+            "quais nodes",
+            "which hosts",
+            "what hosts",
+        ]
+        .iter()
+        .any(|needle| m.contains(needle))
+    }
+
+    async fn collect_context(
+        &self,
+        preset: &str,
+        fleet_manifest: Value,
+        message: &str,
+    ) -> (Value, Vec<String>) {
+        let mut context = json!({ "fleet_manifest": fleet_manifest });
+        let mut sources = vec!["fleet_manifest".to_string()];
+
+        if Self::skip_ops_fetch(message) {
+            return (context, sources);
+        }
+
         let paths = Self::preset_paths(preset);
-        let mut context = json!({});
-        let mut sources = Vec::new();
         for path in paths {
             match self.fetch_ops(path).await {
                 Ok(v) => {
@@ -239,6 +275,7 @@ pub async fn copilot_logout() -> Response {
 
 pub async fn copilot_chat(
     State(fc): State<Arc<FleetCopilotState>>,
+    fleet_manifest: Value,
     headers: HeaderMap,
     Json(body): Json<ChatRequest>,
 ) -> Result<Json<ChatResponse>, StatusCode> {
@@ -267,7 +304,9 @@ pub async fn copilot_chat(
 
     let preset = body.preset.as_deref().unwrap_or("ssdnodes-health");
     let started = Instant::now();
-    let (context, sources) = fc.collect_context(preset).await;
+    let (context, sources) = fc
+        .collect_context(preset, fleet_manifest, message)
+        .await;
 
     let url = format!("{}/internal/chat", fc.gateway_url.trim_end_matches('/'));
     let chat_resp = fc
@@ -306,6 +345,7 @@ pub async fn copilot_chat(
 
 pub async fn copilot_chat_stream(
     State(fc): State<Arc<FleetCopilotState>>,
+    fleet_manifest: Value,
     headers: HeaderMap,
     Json(body): Json<ChatRequest>,
 ) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>>, StatusCode> {
@@ -355,7 +395,9 @@ pub async fn copilot_chat_stream(
         }
 
         let started = Instant::now();
-        let (context, sources) = fc.collect_context(&preset).await;
+        let (context, sources) = fc
+            .collect_context(&preset, fleet_manifest, &message)
+            .await;
 
         if !send(
             Event::default()
@@ -519,6 +561,21 @@ pub async fn copilot_chat_stream(
 
     Ok(Sse::new(ReceiverStream::new(rx))
         .keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FleetCopilotState;
+
+    #[test]
+    fn skip_ops_for_meta_questions() {
+        assert!(FleetCopilotState::skip_ops_fetch(
+            "Quais hosts você analisa?"
+        ));
+        assert!(!FleetCopilotState::skip_ops_fetch(
+            "Como está o disco no SSDNodes?"
+        ));
+    }
 }
 
 fn parse_sse_block(block: &str) -> Option<(String, String)> {

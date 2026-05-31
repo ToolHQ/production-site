@@ -93,6 +93,67 @@ struct AppState {
     fleet_copilot: Option<Arc<fleet_copilot::FleetCopilotState>>,
 }
 
+impl AppState {
+    /// T-332: inventário de hosts para o Fleet Copilot (OCI live + registry externo).
+    pub(crate) async fn build_fleet_manifest(&self) -> Value {
+        let mut hosts: Vec<Value> = Vec::new();
+
+        for spec in external_node_specs() {
+            let id = if spec.id.is_empty() {
+                spec.fallback_name.clone()
+            } else {
+                spec.id.clone()
+            };
+            hosts.push(json!({
+                "id": id,
+                "name": spec.fallback_name,
+                "cluster": spec.cluster,
+                "role": spec.role,
+                "ip": spec.instance_host,
+                "source": "external_registry",
+                "ops_via_gateway": spec.cluster == "SSD-NODES",
+            }));
+        }
+
+        let mut oci_live = json!(null);
+        if let Some(lm) = &self.live_monitor {
+            let live = lm.cached_or_refresh().await;
+            if live.available {
+                for node in &live.nodes {
+                    hosts.push(json!({
+                        "name": node.name,
+                        "cluster": node.cluster,
+                        "role": node.role,
+                        "ip": node.ip,
+                        "ready": node.ready,
+                        "source": "oci_kubernetes_live_overview",
+                    }));
+                }
+                oci_live = json!({
+                    "available": live.available,
+                    "stale": live.stale,
+                    "refreshed_at_epoch": live.refreshed_at_epoch,
+                    "node_count": live.nodes.len(),
+                });
+            }
+        }
+
+        json!({
+            "scope": {
+                "description_pt": "Assistente read-only: comandos ops (disco/memória/k8s) rodam no gateway em SSDNodes; visão live dos nós OCI-K8s vem do Cluster Pulse; hosts externos no registry.",
+                "gateway_host_id": "ssdnodes-6a12f10c9ef11",
+                "data_sources": [
+                    "fleet-ops-gateway (SSDNodes)",
+                    "api/live/overview (OCI-K8s)",
+                    "external_nodes.json"
+                ],
+            },
+            "hosts": hosts,
+            "oci_live": oci_live,
+        })
+    }
+}
+
 #[derive(Clone)]
 struct LiveMonitor {
     client: Client,

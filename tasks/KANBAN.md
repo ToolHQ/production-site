@@ -28,6 +28,9 @@
 | ID | Task Name | Priority | Est. |
 | :-: | :-------- | :------: | :--: |
 | [T-329](2026/Q2/T-329-Fleet-Copilot-Phase2-Backlog-Epic.md) | **Fleet Copilot — índice fase 2** _(T-326–328, T-322e, hardening)_ | 🔵 Medium | 1–2w |
+| [T-332](2026/Q2/T-332-Fleet-Copilot-Fleet-Context-Manifest.md) | **Fleet Copilot — manifesto de nós no contexto LLM** _(fix "quais hosts?")_ | 🔼 High | 4h |
+| [T-333](2026/Q2/T-333-Fleet-Copilot-Multi-Node-Scope.md) | **Fleet Copilot — multi-node OCI + external fleet** | 🔼 High | 1–2d |
+| [T-334](2026/Q2/T-334-Fleet-Copilot-Intent-Routing-And-Model.md) | **Fleet Copilot — intent routing + qualidade Gemma** | 🔼 High | 1d |
 | [T-327](2026/Q2/T-327-Fleet-Copilot-Inference-Loading-UX.md) | **Fleet Copilot — UX loading inferência (~3 min Gemma)** | 🔼 High | 4h |
 | [T-328](2026/Q2/T-328-Fleet-Copilot-E2E-Playwright.md) | **Fleet Copilot — smoke Playwright + mock SSE** | 🔵 Medium | 6h |
 | [T-330](2026/Q2/T-330-SSDNodes-Canonical-Hostname-Rename.md) | **SSDNodes — hostname canônico ssdnodes-6a12f10c9ef11 (UI + registry)** | 🔼 High | Cursor / AI Radar | 2h |

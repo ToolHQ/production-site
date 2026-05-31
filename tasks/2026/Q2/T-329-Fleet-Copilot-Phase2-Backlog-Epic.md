@@ -11,6 +11,9 @@
 
 | ID | Nome | Prioridade |
 |----|------|------------|
+| T-332 | Manifesto fleet no contexto LLM | High |
+| T-333 | Multi-node OCI + external fleet | High |
+| T-334 | Intent routing + qualidade modelo | High |
 | T-324 | Hermes Agent opcional | Medium |
 | T-326 | DNOR shell reading width (todas views) | Medium |
 | T-327 | Loading UX inferência lenta | High |

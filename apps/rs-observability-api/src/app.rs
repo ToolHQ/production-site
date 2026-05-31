@@ -68,7 +68,8 @@ async fn copilot_chat_route(
     body: Json<fleet_copilot::ChatRequest>,
 ) -> Result<Json<fleet_copilot::ChatResponse>, StatusCode> {
     let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    fleet_copilot::copilot_chat(State(fc), headers, body).await
+    let manifest = state.build_fleet_manifest().await;
+    fleet_copilot::copilot_chat(State(fc), manifest, headers, body).await
 }
 
 async fn copilot_chat_stream_route(
@@ -82,7 +83,8 @@ async fn copilot_chat_stream_route(
     StatusCode,
 > {
     let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    fleet_copilot::copilot_chat_stream(State(fc), headers, body).await
+    let manifest = state.build_fleet_manifest().await;
+    fleet_copilot::copilot_chat_stream(State(fc), manifest, headers, body).await
 }
 
 async fn index() -> Html<&'static str> {
