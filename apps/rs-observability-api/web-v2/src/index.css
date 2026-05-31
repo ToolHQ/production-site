@@ -2873,6 +2873,15 @@
         font-variant-numeric: tabular-nums;
       }
 
+      .fleet-copilot-bubble__model {
+        font-size: 0.65rem;
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        color: var(--accent);
+        text-transform: lowercase;
+      }
+
       .fleet-copilot-bubble__text {
         margin: 0;
         white-space: pre-wrap;

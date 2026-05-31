@@ -45,6 +45,7 @@ pub struct FleetCopilotState {
     session_token: String,
     gateway_url: String,
     gateway_token: String,
+    ollama_model: String,
     client: Client,
     rate: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
 }
@@ -75,6 +76,16 @@ pub struct ChatResponse {
     pub latency_ms: u64,
 }
 
+#[derive(Serialize)]
+pub struct StatusResponse {
+    pub authenticated: bool,
+    pub enabled: bool,
+    pub gateway_reachable: bool,
+    pub ollama_model: String,
+    pub inference_mode: &'static str,
+    pub structured_models: Vec<&'static str>,
+}
+
 impl FleetCopilotState {
     pub fn from_env() -> Option<Arc<Self>> {
         let enabled = std::env::var("FLEET_COPILOT_ENABLED")
@@ -89,6 +100,8 @@ impl FleetCopilotState {
         let gateway_url = std::env::var("FLEET_COPILOT_GATEWAY_URL")
             .unwrap_or_else(|_| "http://104.225.218.78:18443".into());
         let gateway_token = std::env::var("FLEET_COPILOT_GATEWAY_TOKEN").ok()?;
+        let ollama_model = std::env::var("FLEET_COPILOT_OLLAMA_MODEL")
+            .unwrap_or_else(|_| "gemma3:4b".into());
 
         let mut hasher = Sha256::new();
         hasher.update(session_secret.as_bytes());
@@ -109,9 +122,21 @@ impl FleetCopilotState {
             session_token,
             gateway_url,
             gateway_token,
+            ollama_model,
             client,
             rate: Arc::new(Mutex::new(HashMap::new())),
         }))
+    }
+
+    async fn gateway_reachable(&self) -> bool {
+        let url = format!("{}/health", self.gateway_url.trim_end_matches('/'));
+        self.client
+            .get(&url)
+            .header(header::AUTHORIZATION, self.auth_header())
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false)
     }
 
     fn session_cookie_value(&self) -> String {
@@ -280,6 +305,7 @@ impl FleetCopilotState {
             "o que faz",
             "o que cobre",
             "o que consegue",
+            "consegue fazer",
             "quais nodes",
             "which hosts",
             "what hosts",
@@ -623,6 +649,28 @@ pub async fn copilot_session(
     Ok(Json(SessionResponse {
         authenticated: fc.is_authenticated(&headers),
         enabled: true,
+    }))
+}
+
+pub async fn copilot_status(
+    State(fc): State<Arc<FleetCopilotState>>,
+    headers: HeaderMap,
+) -> Result<Json<StatusResponse>, StatusCode> {
+    if !fc.check_auth(&headers) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let gateway_reachable = fc.gateway_reachable().await;
+    Ok(Json(StatusResponse {
+        authenticated: true,
+        enabled: true,
+        gateway_reachable,
+        ollama_model: fc.ollama_model.clone(),
+        inference_mode: "structured-first",
+        structured_models: vec![
+            "fleet-manifest",
+            "fleet-metrics",
+            "fleet-structured",
+        ],
     }))
 }
 

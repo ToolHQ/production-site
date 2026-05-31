@@ -91,7 +91,7 @@ else
       meta_hits=$((meta_hits + 1))
     fi
   done
-  if echo "$meta_reply" | grep -qE 'fleet-manifest|fleet-metrics'; then
+  if echo "$meta_reply" | grep -qE 'fleet-manifest|fleet-metrics|fleet-structured'; then
     ok "T-332 meta reply via fleet fast path"
   elif [[ "$meta_hits" -ge 3 ]] && ! echo "$meta_lower" | grep -qE 'filesystem|/dev/|avail'; then
     ok "T-332 meta hosts reply mentions fleet ($meta_hits markers)"
@@ -129,6 +129,13 @@ else
     ok "T-335 fleet resources structured reply"
   else
     bad "T-335 resources reply weak: $(echo "$res_reply" | head -c 200)"
+  fi
+
+  status_json=$(curl -sS -b "$COOKIE_JAR" --max-time 15 "$REPORTS_URL/api/fleet/copilot/status" 2>/dev/null || true)
+  if echo "$status_json" | grep -q 'structured-first'; then
+    ok "T-327 copilot status endpoint"
+  else
+    bad "T-327 status endpoint: $(echo "$status_json" | head -c 120)"
   fi
 fi
 

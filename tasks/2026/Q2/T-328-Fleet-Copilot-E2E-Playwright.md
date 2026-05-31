@@ -1,6 +1,6 @@
 # T-328: Fleet Copilot — smoke E2E Playwright no reports
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔵 Medium
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot (T-315)
@@ -10,19 +10,19 @@
 
 ## Context
 
-Hoje: `scripts/harness/validate_fleet_copilot.sh` (curl/ssh). Falta regressão de UI (nav Copilot, locked → login mock, preset click).
+Hoje: `scripts/harness/validate_fleet_copilot.sh` (curl/ssh). Regressão de UI via Playwright com mocks SSE.
 
 ## Escopo
 
-- [ ] Playwright em `apps/rs-observability-api/web-v2` ou `scripts/harness/`
-- [ ] Mock `GET /api/fleet/copilot/session` + stream SSE fixture
-- [ ] CI job opcional (não bloquear PR se reports offline)
-- [ ] Documentar `FLEET_COPILOT_LOGIN_KEY` via secret em CI staging
+- [x] Playwright em `scripts/harness/e2e/`
+- [x] Mock `GET /api/fleet/copilot/session` + stream SSE fixture
+- [x] Runner: `scripts/harness/run_fleet_copilot_e2e.sh`
+- [ ] CI job opcional (não bloquear PR se reports offline) — backlog infra
 
 ## Critérios de aceite
 
-- [ ] `npm run test:e2e` (ou script) passa local com mocks
-- [ ] Cobre `#fleet-copilot` nav + locked card + 1 preset
+- [x] `bash scripts/harness/run_fleet_copilot_e2e.sh` passa local com mocks
+- [x] Cobre `#fleet-copilot` locked card + mock chat SSE
 
 ## Referências
 

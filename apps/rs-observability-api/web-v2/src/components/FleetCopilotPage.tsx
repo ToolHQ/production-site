@@ -259,6 +259,11 @@ export function FleetCopilotPage() {
                         {formatLatency(msg.latencyMs)}
                       </span>
                     )}
+                    {msg.model && msg.role === 'assistant' && (
+                      <span class="fleet-copilot-bubble__model" title="Motor de resposta">
+                        {msg.model === 'gemma3:4b' ? 'Gemma' : msg.model.replace('fleet-', '')}
+                      </span>
+                    )}
                   </header>
                   <p class="fleet-copilot-bubble__text">{msg.text}</p>
                   {msg.sources && msg.sources.length > 0 && (

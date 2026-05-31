@@ -23,6 +23,33 @@ TOKEN=$(ssh ssdnodes-monstro 'sudo grep FLEET_GATEWAY_TOKEN /etc/fleet-copilot/g
 curl -H "Authorization: Bearer $TOKEN" http://104.225.218.78:18443/ops/host/disk
 ```
 
+## Ollama — modelo e warm-up (T-334 / T-335)
+
+Variável no gateway (`/etc/fleet-copilot/gateway.env`):
+
+```bash
+FLEET_OLLAMA_MODEL=gemma3:4b   # default
+# A/B alternativa (menor, às vezes mais rápido em pt-BR):
+# FLEET_OLLAMA_MODEL=qwen2.5:3b
+```
+
+Após trocar: `systemctl restart fleet-ops-gateway` e `ollama pull qwen2.5:3b`.
+
+Warm-up pós-boot (evita 1º token lento):
+
+```bash
+bash components/ssdnodes/fleet-copilot/warmup_ollama.sh
+```
+
+## API Copilot
+
+| Rota | Descrição |
+|------|-----------|
+| `GET /api/fleet/copilot/status` | Gateway reachability + modelo configurado |
+| `GET /api/fleet/copilot/hosts` | Inventário para UI |
+
+Respostas **structured-first** (`fleet-manifest`, `fleet-metrics`, `fleet-structured`) não usam Ollama.
+
 ## OCI cluster (reports.dnor.io)
 
 Com túnel kubeconfig ativo:

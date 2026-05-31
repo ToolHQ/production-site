@@ -18,6 +18,7 @@ export interface FleetChatMessage {
   role: 'user' | 'assistant';
   text: string;
   sources?: string[];
+  model?: string;
   latencyMs?: number;
   at: number;
 }
@@ -138,6 +139,7 @@ export function useFleetChat() {
 
       let sources: string[] = [];
       let reply = '';
+      let model: string | undefined;
       let latencyMs: number | undefined;
       let streamError: string | null = null;
 
@@ -203,10 +205,12 @@ export function useFleetChat() {
                 }
               } else if (event === 'done') {
                 if (typeof payload.reply === 'string' && payload.reply) {
-                  // Prefer longer text (tokens podem ter mais conteúdo que reply truncado)
                   if (payload.reply.length >= reply.length) {
                     reply = payload.reply;
                   }
+                }
+                if (typeof payload.model === 'string') {
+                  model = payload.model;
                 }
                 if (Array.isArray(payload.sources)) {
                   sources = payload.sources as string[];
@@ -243,6 +247,7 @@ export function useFleetChat() {
               role: 'assistant',
               text: reply.trim(),
               sources,
+              model,
               latencyMs,
               at: Date.now(),
             },

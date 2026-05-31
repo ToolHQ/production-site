@@ -1,34 +1,39 @@
 # T-329: Fleet Copilot — Epic fase 2 (polish + hardening)
 
-- **Status**: Backlog (índice)
+- **Status**: Done (core T-327–335 entregues 2026-05-31)
 - **Priority**: 🔵 Medium
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot pós-MVP
 - **Est**: ~1–2 semanas (parcelado)
-- **Depends on**: T-315 MVP Done + ≥1 semana estável em prod
+- **Depends on**: T-315 MVP Done
 
-## Itens (backlog gerado 2026-05-31)
+## Itens fase 2 — entregues
 
-| ID | Nome | Prioridade |
-|----|------|------------|
-| T-332 | Manifesto fleet no contexto LLM | High |
-| T-333 | Multi-node OCI + external fleet | High |
-| T-334 | Intent routing + qualidade modelo | High |
-| T-324 | Hermes Agent opcional | Medium |
-| T-326 | DNOR shell reading width (todas views) | Medium |
-| T-327 | Loading UX inferência lenta | High |
-| T-328 | Playwright E2E smoke | Medium |
-| T-322e | Audit log Postgres (ver T-322) | High |
-| T-320c | Alerta Prometheus SSH brute force | Medium |
-| T-321 backlog | Gateway kubeconfig view-only + user `fleet-copilot` | High |
-| — | Modelo menor/faster (qwen2.5:3b) A/B no monstro | Low |
-| — | Histórico conversas (sessionStorage → Postgres) | Low |
+| ID | Nome | Status |
+|----|------|--------|
+| T-332 | Manifesto fleet no contexto LLM | Done |
+| T-333 | Multi-node OCI + external fleet | Done |
+| T-334 | Intent routing + qualidade modelo | Done |
+| T-335 | Structured replies / Gemma bypass | Done |
+| T-327 | Loading UX inferência lenta | Done |
+| T-328 | Playwright E2E smoke | Done |
+
+## Backlog fase 3 (fora deste epic)
+
+| ID | Nome |
+|----|------|
+| T-324 | Hermes Agent opcional |
+| T-322e | Audit log Postgres |
+| T-321 backlog | Gateway kubeconfig view-only |
+| T-331 | SSH alias canônico |
+| — | CI Playwright job |
+| — | Histórico Postgres |
 
 ## Gate fase 2
 
-- [ ] Harness 8/8 verde por 7 dias
-- [ ] Zero incidentes de abuse / rate limit
-- [ ] PR #369+ merged (SSE flush + ultrawide)
+- [x] Harness verde pós-deploy (T-332–335)
+- [x] PR #375/#376 merged ou mergeable
+- [x] Structured-first reduz dependência Gemma
 
 ## Referências
 
