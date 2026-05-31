@@ -30,7 +30,6 @@ const RATE_MAX: usize = 10;
 
 #[derive(Clone)]
 pub struct FleetCopilotState {
-    pub enabled: bool,
     login_key: String,
     session_token: String,
     gateway_url: String,
@@ -95,7 +94,6 @@ impl FleetCopilotState {
             .ok()?;
 
         Some(Arc::new(Self {
-            enabled: true,
             login_key,
             session_token,
             gateway_url,
@@ -167,7 +165,7 @@ impl FleetCopilotState {
                 "ops/k8s/warnings",
             ],
             "ssdnodes-ssh" => &["ops/host/ssh-recent"],
-            "ssdnodes-health" | _ => &["ops/host/disk", "ops/host/memory", "ops/host/load"],
+            _ => &["ops/host/disk", "ops/host/memory", "ops/host/load"],
         }
     }
 
