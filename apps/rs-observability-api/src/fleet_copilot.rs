@@ -408,26 +408,23 @@ pub async fn copilot_chat_stream(
         let mut got_done = false;
         let mut streamed_reply = String::new();
 
-        let mut forward_block =
-            |event_name: &str, data: &str| -> bool {
-                if event_name == "token" {
-                    if let Ok(val) = serde_json::from_str::<Value>(data) {
-                        if let Some(delta) = val["delta"].as_str() {
-                            streamed_reply.push_str(delta);
-                        }
+        let mut forward_block = |event_name: &str, data: &str| -> bool {
+            if event_name == "token" {
+                if let Ok(val) = serde_json::from_str::<Value>(data) {
+                    if let Some(delta) = val["delta"].as_str() {
+                        streamed_reply.push_str(delta);
                     }
                 }
-                if event_name == "done" {
-                    got_done = true;
-                }
-                tx.send(Ok(
-                    Event::default()
-                        .event(event_name)
-                        .data(data.to_string()),
-                ))
+            }
+            if event_name == "done" {
+                got_done = true;
+            }
+            tx.send(Ok(Event::default()
+                .event(event_name)
+                .data(data.to_string())))
                 .now_or_never()
                 .is_some()
-            };
+        };
 
         while let Some(chunk) = byte_stream.next().await {
             let chunk = match chunk {
