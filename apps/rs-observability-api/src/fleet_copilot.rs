@@ -195,6 +195,42 @@ impl FleetCopilotState {
         .any(|needle| m.contains(needle))
     }
 
+    /// Resposta imediata para perguntas de escopo (evita timeout do Ollama em CPU).
+    fn reply_from_manifest(manifest: &Value) -> String {
+        let scope = manifest
+            .get("scope")
+            .and_then(|s| s.get("description_pt"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("Assistente read-only da fleet.");
+        let mut lines = vec![
+            "Hosts e clusters que posso referenciar (dados read-only):".to_string(),
+        ];
+        if let Some(hosts) = manifest.get("hosts").and_then(|h| h.as_array()) {
+            for h in hosts {
+                let name = h
+                    .get("name")
+                    .or_else(|| h.get("id"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("?");
+                let cluster = h.get("cluster").and_then(|v| v.as_str()).unwrap_or("?");
+                let role = h.get("role").and_then(|v| v.as_str()).unwrap_or("");
+                let ip = h.get("ip").and_then(|v| v.as_str()).unwrap_or("");
+                let src = h.get("source").and_then(|v| v.as_str()).unwrap_or("");
+                lines.push(format!(
+                    "- {name} ({cluster}, {role}) — {ip} [{src}]"
+                ));
+            }
+        }
+        lines.push(String::new());
+        lines.push(scope.to_string());
+        lines.push(
+            "Métricas de host no SSDNodes e K8s local: via gateway. Nós OCI-K8s: Cluster Pulse (live overview). \
+Pergunte por um host específico para métricas ou compare dois hosts."
+                .into(),
+        );
+        lines.join("\n")
+    }
+
     async fn collect_context(
         &self,
         preset: &str,
@@ -304,6 +340,16 @@ pub async fn copilot_chat(
 
     let preset = body.preset.as_deref().unwrap_or("ssdnodes-health");
     let started = Instant::now();
+
+    if FleetCopilotState::skip_ops_fetch(message) {
+        return Ok(Json(ChatResponse {
+            reply: FleetCopilotState::reply_from_manifest(&fleet_manifest),
+            model: "fleet-manifest".into(),
+            sources: vec!["fleet_manifest".into()],
+            latency_ms: started.elapsed().as_millis() as u64,
+        }));
+    }
+
     let (context, sources) = fc
         .collect_context(preset, fleet_manifest, message)
         .await;
@@ -395,6 +441,33 @@ pub async fn copilot_chat_stream(
         }
 
         let started = Instant::now();
+
+        if FleetCopilotState::skip_ops_fetch(&message) {
+            let reply = FleetCopilotState::reply_from_manifest(&fleet_manifest);
+            let sources = vec!["fleet_manifest".to_string()];
+            let _ = send(
+                Event::default()
+                    .event("phase")
+                    .data(json!({ "phase": "infer", "sources": sources }).to_string()),
+            )
+            .await;
+            let _ = send(
+                Event::default()
+                    .event("done")
+                    .data(
+                        json!({
+                            "reply": reply,
+                            "model": "fleet-manifest",
+                            "sources": ["fleet_manifest"],
+                            "latency_ms": started.elapsed().as_millis() as u64,
+                        })
+                        .to_string(),
+                    ),
+            )
+            .await;
+            return;
+        }
+
         let (context, sources) = fc
             .collect_context(&preset, fleet_manifest, &message)
             .await;

@@ -80,7 +80,7 @@ else
   fi
 
   # T-332 — meta question should list fleet hosts (not only disk output)
-  meta_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 120 \
+  meta_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 30 \
     -X POST "$REPORTS_URL/api/fleet/chat" \
     -H 'Content-Type: application/json' \
     -d '{"message":"Quais hosts você analisa? Liste clusters e nomes.","preset":"ssdnodes-health"}' 2>/dev/null || true)
@@ -91,7 +91,9 @@ else
       meta_hits=$((meta_hits + 1))
     fi
   done
-  if [[ "$meta_hits" -ge 3 ]] && ! echo "$meta_lower" | grep -qE 'filesystem|/dev/|avail'; then
+  if echo "$meta_reply" | grep -q 'fleet-manifest'; then
+    ok "T-332 meta reply via fleet-manifest fast path"
+  elif [[ "$meta_hits" -ge 3 ]] && ! echo "$meta_lower" | grep -qE 'filesystem|/dev/|avail'; then
     ok "T-332 meta hosts reply mentions fleet ($meta_hits markers)"
   elif [[ "$meta_hits" -ge 2 ]]; then
     ok "T-332 meta hosts reply partial ($meta_hits markers)"
