@@ -74,6 +74,13 @@ async function consumeSse(
       idx = buffer.indexOf('\n\n');
     }
   }
+
+  // Flush SSE residual no browser
+  const tail = buffer.trim();
+  if (tail) {
+    const parsed = parseSseBlock(tail);
+    if (parsed) onEvent(parsed.event, parsed.data);
+  }
 }
 
 export function useFleetChat() {
@@ -194,13 +201,19 @@ export function useFleetChat() {
                 }
               } else if (event === 'done') {
                 if (typeof payload.reply === 'string' && payload.reply) {
-                  reply = payload.reply;
+                  // Prefer longer text (tokens podem ter mais conteúdo que reply truncado)
+                  if (payload.reply.length >= reply.length) {
+                    reply = payload.reply;
+                  }
                 }
                 if (Array.isArray(payload.sources)) {
                   sources = payload.sources as string[];
                 }
                 if (typeof payload.latency_ms === 'number') {
                   latencyMs = payload.latency_ms;
+                }
+                if (payload.partial === true && reply.trim()) {
+                  reply = `${reply.trim()}…`;
                 }
               } else if (event === 'error') {
                 const raw =

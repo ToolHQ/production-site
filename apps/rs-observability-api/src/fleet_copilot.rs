@@ -9,7 +9,7 @@ use axum::{
     },
     Json,
 };
-use futures_util::StreamExt;
+use futures_util::{FutureExt, StreamExt};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -405,6 +405,29 @@ pub async fn copilot_chat_stream(
 
         let mut byte_stream = resp.bytes_stream();
         let mut buffer = String::new();
+        let mut got_done = false;
+        let mut streamed_reply = String::new();
+
+        let mut forward_block =
+            |event_name: &str, data: &str| -> bool {
+                if event_name == "token" {
+                    if let Ok(val) = serde_json::from_str::<Value>(data) {
+                        if let Some(delta) = val["delta"].as_str() {
+                            streamed_reply.push_str(delta);
+                        }
+                    }
+                }
+                if event_name == "done" {
+                    got_done = true;
+                }
+                tx.send(Ok(
+                    Event::default()
+                        .event(event_name)
+                        .data(data.to_string()),
+                ))
+                .now_or_never()
+                .is_some()
+            };
 
         while let Some(chunk) = byte_stream.next().await {
             let chunk = match chunk {
@@ -429,18 +452,73 @@ pub async fn copilot_chat_stream(
                             }
                             data = val.to_string();
                         }
-                        let _ = tx.send(Ok(Event::default().event("done").data(data))).await;
+                        if !forward_block("done", &data) {
+                            return;
+                        }
                         return;
                     }
-                    if tx
-                        .send(Ok(Event::default().event(event_name).data(data)))
-                        .await
-                        .is_err()
-                    {
+                    if !forward_block(&event_name, &data) {
                         return;
                     }
                 }
             }
+        }
+
+        // Flush trailing SSE (evita perder `done` se o chunk fechar sem \n\n final)
+        while let Some(pos) = buffer.find("\n\n") {
+            let block = buffer[..pos].to_string();
+            buffer.drain(..pos + 2);
+            if let Some((event_name, mut data)) = parse_sse_block(&block) {
+                if event_name == "done" {
+                    if let Ok(mut val) = serde_json::from_str::<Value>(&data) {
+                        if let Some(obj) = val.as_object_mut() {
+                            obj.insert("sources".into(), json!(sources));
+                            obj.insert(
+                                "latency_ms".into(),
+                                json!(started.elapsed().as_millis() as u64),
+                            );
+                        }
+                        data = val.to_string();
+                    }
+                    let _ = forward_block("done", &data);
+                    return;
+                }
+                if !forward_block(&event_name, &data) {
+                    return;
+                }
+            }
+        }
+        if !buffer.trim().is_empty() {
+            if let Some((event_name, data)) = parse_sse_block(buffer.trim()) {
+                if event_name == "done" {
+                    let _ = forward_block("done", &data);
+                    return;
+                }
+                let _ = forward_block(&event_name, &data);
+            }
+        }
+
+        if !got_done && !streamed_reply.is_empty() {
+            let _ = send(
+                Event::default().event("done").data(
+                    json!({
+                        "reply": streamed_reply,
+                        "partial": true,
+                        "sources": sources,
+                        "latency_ms": started.elapsed().as_millis() as u64,
+                    })
+                    .to_string(),
+                ),
+            )
+            .await;
+        } else if !got_done {
+            let _ = send(
+                Event::default().event("error").data(
+                    json!({ "message": "stream encerrado antes da conclusão — tente novamente" })
+                        .to_string(),
+                ),
+            )
+            .await;
         }
     });
 
