@@ -1,6 +1,6 @@
 # T-323: Fleet Copilot — UI no reports.dnor.io (web-v2)
 
-- **Status**: Backlog
+- **Status**: Done (MVP 2026-05-31 — #fleet-copilot, presets, SSE tokens, PR #367)
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot / Node Fleet / reports.dnor.io
@@ -168,9 +168,11 @@ Arquivos relevantes:
 
 ## Evidência live (preencher na execução)
 
-- [ ] Screenshot drawer + resposta com sources
-- [ ] Screen recording preset “Disco SSDNodes”
-- [ ] `curl` session check documentado
+- [x] UI em `https://reports.dnor.io/#fleet-copilot` (nav Copilot + presets + SSE)
+- [x] Harness: `bash scripts/harness/validate_fleet_copilot.sh`
+- [x] Login: `curl -c cj "https://reports.dnor.io/fleet-copilot?key=$KEY"` → 302 + cookie
+- [x] SSE: `POST /api/fleet/chat/stream` → `event: phase` + `event: token`
+- [x] Imagem OCI: `rs-observability-api:1780193353`
 
 ## Referências visuais
 

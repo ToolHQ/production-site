@@ -1,6 +1,6 @@
 # T-315: Fleet Copilot — Epic overview (Hermes/Gemma @ SSDNodes + chat reports)
 
-- **Status**: Backlog
+- **Status**: Done (MVP 2026-05-31, PR #367)
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot

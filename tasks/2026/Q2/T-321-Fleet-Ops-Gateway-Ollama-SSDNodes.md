@@ -1,6 +1,6 @@
 # T-321: Fleet Copilot — Ops Gateway + Ollama no SSDNodes
 
-- **Status**: In Progress (gateway :18443 live + Ollama chat OK 2026-05-30)
+- **Status**: Done (MVP 2026-05-31 — Ollama + gateway :18443 + IaC; backlog: kubeconfig view-only dedicado, usuário OS)
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot / SSDNodes

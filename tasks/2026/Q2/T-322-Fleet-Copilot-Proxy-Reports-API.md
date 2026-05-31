@@ -1,6 +1,6 @@
 # T-322: Fleet Copilot — Proxy seguro no reports (rs-observability-api)
 
-- **Status**: Backlog
+- **Status**: Done (MVP 2026-05-31 — auth, chat, SSE stream, rate limit; backlog: audit Postgres T-322e)
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot / reports.dnor.io

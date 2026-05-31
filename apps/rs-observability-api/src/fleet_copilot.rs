@@ -167,11 +167,7 @@ impl FleetCopilotState {
                 "ops/k8s/warnings",
             ],
             "ssdnodes-ssh" => &["ops/host/ssh-recent"],
-            "ssdnodes-health" | _ => &[
-                "ops/host/disk",
-                "ops/host/memory",
-                "ops/host/load",
-            ],
+            "ssdnodes-health" | _ => &["ops/host/disk", "ops/host/memory", "ops/host/load"],
         }
     }
 
@@ -275,10 +271,7 @@ pub async fn copilot_chat(
     let started = Instant::now();
     let (context, sources) = fc.collect_context(preset).await;
 
-    let url = format!(
-        "{}/internal/chat",
-        fc.gateway_url.trim_end_matches('/')
-    );
+    let url = format!("{}/internal/chat", fc.gateway_url.trim_end_matches('/'));
     let chat_resp = fc
         .client
         .post(&url)
@@ -295,15 +288,15 @@ pub async fn copilot_chat(
         return Err(StatusCode::BAD_GATEWAY);
     }
 
-    let parsed: Value = chat_resp.json().await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let parsed: Value = chat_resp
+        .json()
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
     let reply = parsed["reply"]
         .as_str()
         .unwrap_or("Sem resposta do modelo.")
         .to_string();
-    let model = parsed["model"]
-        .as_str()
-        .unwrap_or("gemma3:4b")
-        .to_string();
+    let model = parsed["model"].as_str().unwrap_or("gemma3:4b").to_string();
 
     Ok(Json(ChatResponse {
         reply,
@@ -341,15 +334,17 @@ pub async fn copilot_chat_stream(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let preset = body.preset.as_deref().unwrap_or("ssdnodes-health").to_string();
+    let preset = body
+        .preset
+        .as_deref()
+        .unwrap_or("ssdnodes-health")
+        .to_string();
     let fc = fc.clone();
     let message = message.to_string();
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
     tokio::spawn(async move {
-        let send = |event: Event| async {
-            tx.send(Ok(event)).await.is_ok()
-        };
+        let send = |event: Event| async { tx.send(Ok(event)).await.is_ok() };
 
         if !send(
             Event::default()
@@ -403,11 +398,9 @@ pub async fn copilot_chat_stream(
         };
 
         if !resp.status().is_success() {
-            let _ = send(
-                Event::default()
-                    .event("error")
-                    .data(json!({ "message": format!("gateway status {}", resp.status()) }).to_string()),
-            )
+            let _ = send(Event::default().event("error").data(
+                json!({ "message": format!("gateway status {}", resp.status()) }).to_string(),
+            ))
             .await;
             return;
         }
@@ -438,9 +431,7 @@ pub async fn copilot_chat_stream(
                             }
                             data = val.to_string();
                         }
-                        let _ = tx
-                            .send(Ok(Event::default().event("done").data(data)))
-                            .await;
+                        let _ = tx.send(Ok(Event::default().event("done").data(data))).await;
                         return;
                     }
                     if tx
@@ -455,9 +446,8 @@ pub async fn copilot_chat_stream(
         }
     });
 
-    Ok(Sse::new(ReceiverStream::new(rx)).keep_alive(
-        KeepAlive::new().interval(Duration::from_secs(15)),
-    ))
+    Ok(Sse::new(ReceiverStream::new(rx))
+        .keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
 }
 
 fn parse_sse_block(block: &str) -> Option<(String, String)> {

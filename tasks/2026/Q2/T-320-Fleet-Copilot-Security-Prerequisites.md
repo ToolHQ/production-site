@@ -1,6 +1,6 @@
 # T-320: Fleet Copilot — Pré-requisitos de segurança (gate de deploy)
 
-- **Status**: In Progress (gate aplicado 2026-05-30)
+- **Status**: Done (gate 2026-05-30, validado 2026-05-31)
 - **Priority**: 🚨 Critical (bloqueador)
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot / SSDNodes / reports.dnor.io
