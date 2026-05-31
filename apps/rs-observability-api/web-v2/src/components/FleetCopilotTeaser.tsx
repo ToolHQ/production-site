@@ -5,7 +5,7 @@ export function FleetCopilotTeaser() {
   const { session } = useFleetCopilot();
   const { setView } = useDnorShell();
 
-  if (!session?.enabled) return null;
+  if (!session.enabled) return null;
 
   return (
     <aside class="fleet-copilot-teaser" aria-label="Fleet Copilot">

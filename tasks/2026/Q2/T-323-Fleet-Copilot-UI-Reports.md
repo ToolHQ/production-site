@@ -160,19 +160,20 @@ Arquivos relevantes:
 
 ## Critérios de aceite (epic T-323)
 
-- [ ] Chat visível em `https://reports.dnor.io/#nodes` após login
-- [ ] Presets cobrem casos ops principais
-- [ ] Disclaimer + sources em toda resposta
-- [ ] Zero secrets no bundle
-- [ ] Coerente visualmente com DNOR shell (T-301)
+- [x] Chat visível em `https://reports.dnor.io/#fleet-copilot` após login (+ teaser em `#nodes`)
+- [x] Presets cobrem casos ops principais (health, k8s, ssh)
+- [x] Disclaimer + sources em toda resposta
+- [x] Zero secrets no bundle
+- [x] Coerente visualmente com DNOR shell (T-301)
 
 ## Evidência live (preencher na execução)
 
 - [x] UI em `https://reports.dnor.io/#fleet-copilot` (nav Copilot + presets + SSE)
-- [x] Harness: `bash scripts/harness/validate_fleet_copilot.sh`
+- [x] Harness: `bash scripts/harness/validate_fleet_copilot.sh` (8/8)
 - [x] Login: `curl -c cj "https://reports.dnor.io/fleet-copilot?key=$KEY"` → 302 + cookie
-- [x] SSE: `POST /api/fleet/chat/stream` → `event: phase` + `event: token`
-- [x] Imagem OCI: `rs-observability-api:1780193353`
+- [x] SSE: `POST /api/fleet/chat/stream` → `event: phase` + `event: token` + `event: done`
+- [x] Gateway ollama: fallback stream + resposta pt-BR (deploy monstro 2026-05-31)
+- [x] Imagem OCI: `rs-observability-api:1780227427`+ (UI sessão/locked fix)
 
 ## Referências visuais
 

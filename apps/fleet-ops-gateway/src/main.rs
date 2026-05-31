@@ -10,10 +10,9 @@ use axum::{
     Json, Router,
 };
 use futures_util::StreamExt;
-use std::convert::Infallible;
-use tokio_stream::wrappers::ReceiverStream;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::convert::Infallible;
 use std::{
     env,
     net::SocketAddr,
@@ -22,8 +21,35 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::{process::Command, time::timeout};
+use tokio_stream::wrappers::ReceiverStream;
 
 const CMD_TIMEOUT: Duration = Duration::from_secs(15);
+const OLLAMA_TIMEOUT: Duration = Duration::from_secs(180);
+
+fn ollama_client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(OLLAMA_TIMEOUT)
+        .no_gzip()
+        .no_brotli()
+        .no_deflate()
+        .tcp_keepalive(Duration::from_secs(60))
+        .pool_idle_timeout(Duration::from_secs(90))
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+fn ollama_chat_payload(model: &str, system: &str, user: &str, stream: bool) -> Value {
+    json!({
+        "model": model,
+        "stream": stream,
+        "keep_alive": "15m",
+        "options": { "num_ctx": 8192, "temperature": 0.3 },
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ]
+    })
+}
 
 #[derive(Clone)]
 struct AppState {
@@ -61,8 +87,7 @@ async fn main() {
         eprintln!("FLEET_GATEWAY_TOKEN is required");
         std::process::exit(1);
     });
-    let ollama_model =
-        env::var("FLEET_OLLAMA_MODEL").unwrap_or_else(|_| "gemma3:4b".into());
+    let ollama_model = env::var("FLEET_OLLAMA_MODEL").unwrap_or_else(|_| "gemma3:4b".into());
 
     let state = AppState {
         gateway_token: Arc::new(token),
@@ -82,10 +107,7 @@ async fn main() {
         .route("/ops/k8s/warnings", get(ops_k8s_warnings))
         .route("/internal/chat", post(internal_chat))
         .route("/internal/chat/stream", post(internal_chat_stream))
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            require_auth,
-        ))
+        .layer(middleware::from_fn_with_state(state.clone(), require_auth))
         .with_state(state);
 
     let addr: SocketAddr = bind.parse().expect("invalid FLEET_GATEWAY_BIND");
@@ -96,11 +118,7 @@ async fn main() {
     axum::serve(listener, app).await.expect("serve");
 }
 
-async fn require_auth(
-    State(state): State<AppState>,
-    request: Request,
-    next: Next,
-) -> Response {
+async fn require_auth(State(state): State<AppState>, request: Request, next: Next) -> Response {
     if request.uri().path() == "/health" {
         return next.run(request).await;
     }
@@ -148,7 +166,16 @@ async fn ops_services_failed(State(_): State<AppState>) -> Json<OpsEnvelope> {
 async fn ops_ssh_recent(State(_): State<AppState>) -> Json<OpsEnvelope> {
     run_ops(
         "/ops/host/ssh-recent",
-        &["journalctl", "-u", "ssh", "--since", "24h", "--no-pager", "-n", "200"],
+        &[
+            "journalctl",
+            "-u",
+            "ssh",
+            "--since",
+            "24h",
+            "--no-pager",
+            "-n",
+            "200",
+        ],
     )
     .await
 }
@@ -240,15 +267,11 @@ async fn internal_chat_stream(
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
     tokio::spawn(async move {
-        let send = |event: Event| async {
-            tx.send(Ok(event)).await.is_ok()
-        };
+        let send = |event: Event| async { tx.send(Ok(event)).await.is_ok() };
 
-        if !send(
-            Event::default()
-                .event("meta")
-                .data(serde_json::to_string(&json!({ "sources": sources })).unwrap_or_else(|_| "{}".into())),
-        )
+        if !send(Event::default().event("meta").data(
+            serde_json::to_string(&json!({ "sources": sources })).unwrap_or_else(|_| "{}".into()),
+        ))
         .await
         {
             return;
@@ -257,29 +280,46 @@ async fn internal_chat_stream(
         match ollama_chat_stream(&model, &system, &user, tx.clone()).await {
             Ok(full) => {
                 let _ = send(
-                    Event::default()
-                        .event("done")
-                        .data(
-                            serde_json::to_string(&json!({ "model": model, "reply": full }))
-                                .unwrap_or_else(|_| "{}".into()),
-                        ),
+                    Event::default().event("done").data(
+                        serde_json::to_string(&json!({ "model": model, "reply": full }))
+                            .unwrap_or_else(|_| "{}".into()),
+                    ),
                 )
                 .await;
             }
             Err(err) => {
-                let _ = send(
-                    Event::default()
-                        .event("error")
-                        .data(json!({ "message": err }).to_string()),
-                )
-                .await;
+                if let Ok(full) = ollama_chat(&model, &system, &user).await {
+                    let _ = send(
+                        Event::default()
+                            .event("token")
+                            .data(json!({ "delta": full }).to_string()),
+                    )
+                    .await;
+                    let _ = send(
+                        Event::default().event("done").data(
+                            serde_json::to_string(&json!({
+                                "model": model,
+                                "reply": full,
+                                "fallback": true
+                            }))
+                            .unwrap_or_else(|_| "{}".into()),
+                        ),
+                    )
+                    .await;
+                } else {
+                    let _ = send(
+                        Event::default()
+                            .event("error")
+                            .data(json!({ "message": err }).to_string()),
+                    )
+                    .await;
+                }
             }
         }
     });
 
-    Ok(Sse::new(ReceiverStream::new(rx)).keep_alive(
-        KeepAlive::new().interval(Duration::from_secs(15)),
-    ))
+    Ok(Sse::new(ReceiverStream::new(rx))
+        .keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
 }
 
 fn prepare_chat(body: &ChatRequest) -> Result<(String, String, String, Vec<String>), StatusCode> {
@@ -295,7 +335,7 @@ fn prepare_chat(body: &ChatRequest) -> Result<(String, String, String, Vec<Strin
         .unwrap_or_default();
 
     let compact = compact_context_for_llm(&body.context);
-    let system = "You are a read-only fleet operations assistant. Answer ONLY from the JSON context provided. If data is missing, say so. Never suggest destructive commands.".to_string();
+    let system = "You are a read-only fleet operations assistant. Answer in Brazilian Portuguese, concisely, in plain text. Use ONLY the JSON context provided. If data is missing, say so. Do NOT echo or repeat the context JSON. Never suggest destructive commands.".to_string();
     let context_json = serde_json::to_string_pretty(&compact).unwrap_or_else(|_| "{}".into());
     let user = format!("Context JSON:\n{context_json}\n\nQuestion:\n{message}");
 
@@ -304,7 +344,10 @@ fn prepare_chat(body: &ChatRequest) -> Result<(String, String, String, Vec<Strin
 
 async fn run_command(cmd: &[&str]) -> Result<(i32, String, String), String> {
     let mut command = Command::new(cmd[0]);
-    command.args(&cmd[1..]).stdout(Stdio::piped()).stderr(Stdio::piped());
+    command
+        .args(&cmd[1..])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     let child = timeout(CMD_TIMEOUT, command.output())
         .await
         .map_err(|_| "command timed out".to_string())?
@@ -340,17 +383,11 @@ fn compact_context_for_llm(ctx: &Value) -> Value {
         let mut entry = value.clone();
         if let Some(map) = entry.as_object_mut() {
             if let Some(stdout) = map.get("stdout").and_then(|v| v.as_str()) {
-                map.insert(
-                    "stdout".into(),
-                    json!(truncate_field(stdout, 1_200)),
-                );
+                map.insert("stdout".into(), json!(truncate_field(stdout, 800)));
             }
             if let Some(stderr) = map.get("stderr").and_then(|v| v.as_str()) {
                 if !stderr.is_empty() {
-                    map.insert(
-                        "stderr".into(),
-                        json!(truncate_field(stderr, 300)),
-                    );
+                    map.insert("stderr".into(), json!(truncate_field(stderr, 300)));
                 }
             }
         }
@@ -360,20 +397,8 @@ fn compact_context_for_llm(ctx: &Value) -> Value {
 }
 
 async fn ollama_chat(model: &str, system: &str, user: &str) -> Result<String, String> {
-    let payload = json!({
-        "model": model,
-        "stream": false,
-        "options": { "num_ctx": 8192 },
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user}
-        ]
-    });
-
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(180))
-        .build()
-        .map_err(|e| e.to_string())?;
+    let payload = ollama_chat_payload(model, system, user, false);
+    let client = ollama_client()?;
 
     let resp = client
         .post("http://127.0.0.1:11434/api/chat")
@@ -399,20 +424,8 @@ async fn ollama_chat_stream(
     user: &str,
     tx: tokio::sync::mpsc::Sender<Result<Event, Infallible>>,
 ) -> Result<String, String> {
-    let payload = json!({
-        "model": model,
-        "stream": true,
-        "options": { "num_ctx": 8192 },
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user}
-        ]
-    });
-
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(180))
-        .build()
-        .map_err(|e| e.to_string())?;
+    let payload = ollama_chat_payload(model, system, user, true);
+    let client = ollama_client()?;
 
     let resp = client
         .post("http://127.0.0.1:11434/api/chat")
@@ -430,7 +443,15 @@ async fn ollama_chat_stream(
     let mut buffer = String::new();
 
     while let Some(chunk) = byte_stream.next().await {
-        let chunk = chunk.map_err(|e| format!("ollama stream: {e}"))?;
+        let chunk = match chunk {
+            Ok(c) => c,
+            Err(e) => {
+                if !full.is_empty() {
+                    return Ok(full);
+                }
+                return Err(format!("ollama stream: {e}"));
+            }
+        };
         buffer.push_str(&String::from_utf8_lossy(&chunk));
 
         while let Some(pos) = buffer.find('\n') {
@@ -439,7 +460,8 @@ async fn ollama_chat_stream(
             if line.is_empty() {
                 continue;
             }
-            let parsed: Value = serde_json::from_str(&line).map_err(|e| format!("ollama json: {e}"))?;
+            let parsed: Value =
+                serde_json::from_str(&line).map_err(|e| format!("ollama json: {e}"))?;
             if let Some(delta) = parsed["message"]["content"].as_str() {
                 if !delta.is_empty() {
                     full.push_str(delta);
@@ -460,6 +482,22 @@ async fn ollama_chat_stream(
         }
     }
 
+    if !buffer.trim().is_empty() {
+        if let Ok(parsed) = serde_json::from_str::<Value>(buffer.trim()) {
+            if let Some(delta) = parsed["message"]["content"].as_str() {
+                if !delta.is_empty() {
+                    full.push_str(delta);
+                }
+            }
+            if parsed["done"].as_bool() == Some(true) {
+                return Ok(full);
+            }
+        }
+    }
+
+    if full.is_empty() {
+        return Err("ollama stream: empty response".to_string());
+    }
     Ok(full)
 }
 

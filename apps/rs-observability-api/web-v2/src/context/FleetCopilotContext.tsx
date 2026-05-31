@@ -4,7 +4,7 @@ import { useCallback, useContext, useEffect, useState } from 'preact/hooks';
 import type { CopilotSession } from '../types/fleetCopilot';
 
 interface FleetCopilotState {
-  session: CopilotSession | null;
+  session: CopilotSession;
   loading: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
@@ -12,14 +12,22 @@ interface FleetCopilotState {
 
 const FleetCopilotContext = createContext<FleetCopilotState | null>(null);
 
-async function fetchSession(): Promise<CopilotSession | null> {
+async function fetchSession(): Promise<CopilotSession> {
   const res = await fetch('/api/fleet/copilot/session', { credentials: 'same-origin' });
-  if (!res.ok) return null;
+  if (res.status === 404) {
+    return { enabled: false, authenticated: false };
+  }
+  if (!res.ok) {
+    return { enabled: true, authenticated: false };
+  }
   return (await res.json()) as CopilotSession;
 }
 
 export function FleetCopilotProvider({ children }: { children: ComponentChildren }) {
-  const [session, setSession] = useState<CopilotSession | null>(null);
+  const [session, setSession] = useState<CopilotSession>({
+    enabled: true,
+    authenticated: false,
+  });
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {

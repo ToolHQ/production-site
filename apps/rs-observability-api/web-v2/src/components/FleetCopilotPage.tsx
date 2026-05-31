@@ -47,7 +47,7 @@ function sourceLabel(path: string) {
 
 export function FleetCopilotPage() {
   const { setView } = useDnorShell();
-  const { session, loading: sessionLoading, logout } = useFleetCopilot();
+  const { session, loading: sessionLoading, logout, refresh } = useFleetCopilot();
   const {
     messages,
     preset,
@@ -79,7 +79,22 @@ export function FleetCopilotPage() {
     );
   }
 
-  if (!session?.enabled) return null;
+  if (!session.enabled) {
+    return (
+      <section class="fleet-copilot-page" aria-label="Fleet Copilot">
+        <div class="fleet-copilot-locked-card">
+          <h2>Fleet Copilot indisponível</h2>
+          <p>
+            O proxy Fleet Copilot não está habilitado neste deployment (
+            <code>FLEET_COPILOT_ENABLED</code>).
+          </p>
+          <button type="button" class="fleet-copilot-secondary-btn" onClick={() => setView('nodes')}>
+            Voltar ao Node Fleet
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section class="fleet-copilot-page" aria-label="Fleet Copilot">
@@ -124,8 +139,15 @@ export function FleetCopilotPage() {
             (cookie válido por 8&nbsp;h após login).
           </p>
           <p class="fleet-copilot-locked-card__hint">
-            Após autenticar você será redirecionado para esta página automaticamente.
+            Abra o link de operador enviado pelo admin (rota{' '}
+            <code>/fleet-copilot?key=…</code>). Cookie válido por 8&nbsp;h.
           </p>
+          <p class="fleet-copilot-locked-card__hint">
+            Depois do login você volta aqui em <code>#fleet-copilot</code> automaticamente.
+          </p>
+          <button type="button" class="fleet-copilot-secondary-btn" onClick={() => void refresh()}>
+            Verificar sessão
+          </button>
           <button type="button" class="fleet-copilot-secondary-btn" onClick={() => setView('nodes')}>
             Ver Node Fleet
           </button>

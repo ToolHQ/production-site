@@ -203,10 +203,13 @@ export function useFleetChat() {
                   latencyMs = payload.latency_ms;
                 }
               } else if (event === 'error') {
-                streamError =
+                const raw =
                   typeof payload.message === 'string'
                     ? payload.message
                     : 'Falha no stream';
+                streamError = raw.includes('ollama stream')
+                  ? 'O modelo demorou ou a conexão caiu — tente de novo (a resposta pode levar até 3 min).'
+                  : raw;
               }
             } catch {
               /* ignore malformed sse payloads */
