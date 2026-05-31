@@ -28,10 +28,10 @@ Pergunta → intent (host? cluster? compare?)
 
 ## Entrega
 
-- [ ] Presets novos ou modo livre com **seletor de nó** na UI (dropdown Node Fleet)
+- [x] Presets novos ou modo livre com **seletor de nó** na UI (dropdown Node Fleet)
 - [ ] `@mention` ou autocomplete: `k8s-node-2`, `ssdnodes-6a12f10c9ef11`, …
-- [x] Proxy: mapear hostname → fonte de dados (gateway vs live API vs skip) — `targeted_oci_nodes` no manifest quando nome OCI na pergunta
-- [ ] Limites: max 3 nós por pergunta; truncar séries Prometheus
+- [x] Proxy: mapear hostname → fonte de dados (gateway vs live API vs skip) — `targeted_oci_nodes` + `targeted_external_nodes`
+- [x] Limites: max 3 nós por pergunta; truncar séries Prometheus
 - [ ] Read-only — sem kubectl remoto cross-host (só dados já expostos)
 
 ## Fora de escopo v1

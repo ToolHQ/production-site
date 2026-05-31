@@ -1,6 +1,6 @@
 # T-334: Fleet Copilot — intent routing + qualidade de resposta
 
-- **Status**: Backlog
+- **Status**: In Progress
 - **Priority**: 🔼 High
 - **Epic**: Fleet Copilot fase 2
 - **Est**: 1d
@@ -14,15 +14,15 @@
 
 ## Entrega
 
-- [ ] **Intent classifier leve** (server-side, sem LLM):
+- [x] **Intent classifier leve** (server-side, sem LLM):
   - `meta_capabilities` → resposta template + manifest (T-332)
   - `host_health` → disk/memory/load
   - `k8s_status` → pods/ingress/warnings
   - `ssh_audit` → ssh-recent
-  - `fleet_compare` → T-333
-- [ ] Override preset quando intent ≠ preset UI selecionado (ou hint na UI)
+  - `fleet_compare` → fast-path métricas multi-host (T-333)
+- [x] Override preset quando intent ≠ preset UI selecionado (server-side `resolve_intent`)
 - [ ] A/B modelo: `qwen2.5:3b` vs `gemma3:4b` (latência + qualidade pt-BR)
-- [ ] Few-shot no system prompt (2–3 exemplos Q&A fleet ops)
+- [x] Few-shot no system prompt (2–3 exemplos Q&A fleet ops)
 - [ ] Fallback: se resposta < 20 chars ou repete contexto → mensagem honesta *"modelo limitado; veja source pills"*
 
 ## Relacionado
