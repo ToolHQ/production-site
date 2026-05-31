@@ -37,7 +37,7 @@ export function DnorTopNav({ liveAvailable = false }: DnorTopNavProps) {
               {item.label}
             </button>
           ))}
-          {copilotSession?.enabled && (
+          {copilotSession.enabled && (
             <button
               type="button"
               class={`dnor-shell__nav-item dnor-shell__nav-item--copilot${view === 'fleet-copilot' ? ' dnor-shell__nav-item--active' : ''}${copilotSession.authenticated ? ' dnor-shell__nav-item--live' : ''}`}
