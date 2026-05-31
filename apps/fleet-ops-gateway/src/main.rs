@@ -43,7 +43,7 @@ fn ollama_chat_payload(model: &str, system: &str, user: &str, stream: bool) -> V
         "model": model,
         "stream": stream,
         "keep_alive": "15m",
-        "options": { "num_ctx": 8192, "temperature": 0.3 },
+        "options": { "num_ctx": 8192, "num_predict": 512, "temperature": 0.3 },
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user}
@@ -265,7 +265,7 @@ async fn internal_chat_stream(
     let (_message, system, user, sources) = prepare_chat(&body)?;
     let model = state.ollama_model.clone();
 
-    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(256);
     tokio::spawn(async move {
         let send = |event: Event| async { tx.send(Ok(event)).await.is_ok() };
 
