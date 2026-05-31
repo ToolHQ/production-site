@@ -1,6 +1,6 @@
 # T-327: Fleet Copilot — UX de carregamento da inferência (Gemma lento)
 
-- **Status**: In Progress (copy inferência 2026-05-31; falta progress bar)
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot (T-315)
@@ -17,12 +17,12 @@ Primeiro token do Gemma 3 4B no monstro pode levar **1–3 minutos**. Operadores
 - [x] Fase `infer`: copy após 45s com elapsed + hint ~3 min
 - [x] Progress bar indeterminada ou elapsed + hint após 30s / 60s
 - [x] Desabilitar double-submit no composer
-- [ ] Opcional: endpoint `GET /api/fleet/copilot/status` com queue depth (gateway)
+- [x] `GET /api/fleet/copilot/status` — gateway reachability + modelo + structured-first
 
 ## Critérios de aceite
 
-- [ ] Usuário nunca vê tela vazia >10s sem feedback textual
-- [ ] Cancelar consulta continua funcionando
+- [x] Usuário nunca vê tela vazia >10s sem feedback textual
+- [x] Cancelar consulta continua funcionando
 
 ## Referências
 

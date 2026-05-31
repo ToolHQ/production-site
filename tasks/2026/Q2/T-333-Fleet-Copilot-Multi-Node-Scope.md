@@ -1,6 +1,6 @@
 # T-333: Fleet Copilot — multi-node (OCI + external fleet)
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic**: Fleet Copilot fase 2
 - **Est**: 1–2d
@@ -23,23 +23,18 @@ Pergunta → intent (host? cluster? compare?)
             - SSDNodes gateway (host + k8s local) — já existe
             - rs-observability-api live_overview + node_metrics — OCI
             - Prometheus node_exporter (via API interna) — externos
-         → prompt compacto → Ollama
+         → prompt compacto → Ollama (só se structured não cobrir)
 ```
 
 ## Entrega
 
 - [x] Presets novos ou modo livre com **seletor de nó** na UI (dropdown Node Fleet)
 - [x] `@mention` ou autocomplete: `k8s-node-2`, `ssdnodes-6a12f10c9ef11`, … _(chips @host no composer)_
-- [x] Proxy: mapear hostname → fonte de dados (gateway vs live API vs skip) — `targeted_oci_nodes` + `targeted_external_nodes`
+- [x] Proxy: mapear hostname → fonte de dados — `targeted_oci_nodes` + `targeted_external_nodes`
 - [x] Limites: max 3 nós por pergunta; truncar séries Prometheus
-- [ ] Read-only — sem kubectl remoto cross-host (só dados já expostos)
-
-## Fora de escopo v1
-
-- SSH/exec em nós arbitrários
-- LLM escolhendo endpoints (manter allowlist server-side)
+- [x] Read-only — allowlist server-side; sem kubectl remoto cross-host
 
 ## DoD
 
-- *"Como está a memória do k8s-node-1?"* → resposta grounded com métrica live
-- *"Compare disco SSDNodes vs hetzner builder"* → resumo dos dois (se dados existirem)
+- [x] *"Como está a memória do k8s-node-1?"* → fast-path métricas live
+- [x] *"Compare disco SSDNodes vs hetzner builder"* → comparativo structured (harness)

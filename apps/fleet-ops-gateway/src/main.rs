@@ -43,7 +43,7 @@ fn ollama_chat_payload(model: &str, system: &str, user: &str, stream: bool) -> V
         "model": model,
         "stream": stream,
         "keep_alive": "15m",
-        "options": { "num_ctx": 8192, "num_predict": 512, "temperature": 0.3 },
+        "options": { "num_ctx": 4096, "num_predict": 384, "temperature": 0.2 },
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user}

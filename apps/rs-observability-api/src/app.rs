@@ -35,7 +35,8 @@ pub(super) fn build_app(state: AppState) -> Router {
             .route("/api/fleet/copilot/logout", post(copilot_logout_route))
             .route("/api/fleet/chat", post(copilot_chat_route))
             .route("/api/fleet/chat/stream", post(copilot_chat_stream_route))
-            .route("/api/fleet/copilot/hosts", get(copilot_hosts_route));
+            .route("/api/fleet/copilot/hosts", get(copilot_hosts_route))
+            .route("/api/fleet/copilot/status", get(copilot_status_route));
     }
 
     router.with_state(state)
@@ -113,6 +114,14 @@ async fn copilot_hosts_route(
             .cloned()
             .unwrap_or_else(|| json!([])),
     ))
+}
+
+async fn copilot_status_route(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Result<Json<fleet_copilot::StatusResponse>, StatusCode> {
+    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
+    fleet_copilot::copilot_status(State(fc), headers).await
 }
 
 async fn index() -> Html<&'static str> {
