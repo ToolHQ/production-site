@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useDnorShell } from '../context/DnorShellContext';
 import { useFleetCopilot } from '../context/FleetCopilotContext';
 import {
@@ -6,7 +6,7 @@ import {
   useFleetChat,
   type FleetPreset,
 } from '../hooks/useFleetChat';
-import { SSDNODES_HOSTNAME } from '../constants/fleetHosts';
+import { SSDNODES_HOSTNAME, FLEET_CHAT_HOSTS } from '../constants/fleetHosts';
 
 const PRESETS: { id: FleetPreset; icon: string; title: string; hint: string }[] = [
   {
@@ -42,6 +42,28 @@ function formatLatency(ms?: number) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function fleetLoadingMessage(
+  phase: 'collect' | 'infer' | null,
+  elapsedSec: number,
+  host: string,
+): string {
+  if (phase === 'collect') {
+    return elapsedSec >= 10
+      ? `Coletando contexto da fleet (${elapsedSec}s)…`
+      : 'Coletando métricas e contexto…';
+  }
+  if (elapsedSec >= 60) {
+    return `Modelo local inferindo (${elapsedSec}s — pode levar até ~3 min)…`;
+  }
+  if (elapsedSec >= 30) {
+    return `Gemma 3 em ${host} (${elapsedSec}s — normal levar 1–2 min)…`;
+  }
+  if (elapsedSec >= 10) {
+    return `Consultando Gemma 3 em ${host} (${elapsedSec}s)…`;
+  }
+  return `Consultando Gemma 3 em ${host}…`;
+}
+
 function sourceLabel(path: string) {
   return path.replace(/^\/?ops\//, '').replace(/ \(error\)$/, '');
 }
@@ -64,6 +86,7 @@ export function FleetCopilotPage() {
   } = useFleetChat();
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [focusHost, setFocusHost] = useState('');
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -177,6 +200,22 @@ export function FleetCopilotPage() {
                 </button>
               ))}
             </div>
+            <label class="fleet-copilot-host-select">
+              <span>Foco no nó</span>
+              <select
+                value={focusHost}
+                disabled={loading}
+                onChange={(e) => setFocusHost((e.target as HTMLSelectElement).value)}
+                aria-label="Selecionar nó da fleet"
+              >
+                <option value="">Todos / inferir da pergunta</option>
+                {FLEET_CHAT_HOSTS.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div class="fleet-copilot-sidebar__foot">
               <button
                 type="button"
@@ -248,18 +287,23 @@ export function FleetCopilotPage() {
                       <span class="fleet-copilot-caret" aria-hidden="true" />
                     </p>
                   ) : (
-                    <p class="fleet-copilot-typing">
-                      {loadingPhase === 'collect'
-                        ? 'Coletando métricas do SSDNodes…'
-                        : elapsedSec >= 45
-                          ? `Modelo local pensando (${elapsedSec}s — pode levar até ~3 min)…`
-                          : `Consultando Gemma 3 em ${SSDNODES_HOSTNAME}…`}
-                      <span class="fleet-copilot-dots" aria-hidden="true">
-                        <span />
-                        <span />
-                        <span />
-                      </span>
-                    </p>
+                    <>
+                      <div
+                        class="fleet-copilot-progress"
+                        role="progressbar"
+                        aria-valuetext={fleetLoadingMessage(loadingPhase, elapsedSec, SSDNODES_HOSTNAME)}
+                      >
+                        <div class="fleet-copilot-progress__bar" />
+                      </div>
+                      <p class="fleet-copilot-typing">
+                        {fleetLoadingMessage(loadingPhase, elapsedSec, SSDNODES_HOSTNAME)}
+                        <span class="fleet-copilot-dots" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                      </p>
+                    </>
                   )}
                   <button type="button" class="fleet-copilot-link-btn" onClick={cancel}>
                     Cancelar
@@ -271,11 +315,16 @@ export function FleetCopilotPage() {
 
             <form
               class="fleet-copilot-composer"
+              aria-busy={loading}
               onSubmit={(e) => {
                 e.preventDefault();
                 const value = inputRef.current?.value ?? '';
                 if (inputRef.current) inputRef.current.value = '';
-                void send(value, preset);
+                let msg = value.trim();
+                if (focusHost && !msg.toLowerCase().includes(focusHost.toLowerCase())) {
+                  msg = `${msg} (${focusHost})`.trim();
+                }
+                if (msg) void send(msg, preset);
               }}
             >
               <input
@@ -285,10 +334,32 @@ export function FleetCopilotPage() {
                 disabled={loading}
                 aria-label="Mensagem"
               />
-              <button type="submit" disabled={loading}>
+              <button type="submit" disabled={loading} aria-disabled={loading}>
                 Enviar
               </button>
             </form>
+            <div class="fleet-copilot-host-chips" aria-label="Inserir host na pergunta">
+              {FLEET_CHAT_HOSTS.map((h) => (
+                <button
+                  type="button"
+                  key={h.id}
+                  class="fleet-copilot-host-chip"
+                  disabled={loading}
+                  title={h.label}
+                  onClick={() => {
+                    const el = inputRef.current;
+                    if (!el) return;
+                    const prefix = `@${h.id} `;
+                    if (!el.value.includes(h.id)) {
+                      el.value = `${prefix}${el.value}`.trimStart();
+                    }
+                    el.focus();
+                  }}
+                >
+                  @{h.id.split('-')[0]}
+                </button>
+              ))}
+            </div>
 
             {error && <p class="fleet-copilot-error">{error}</p>}
           </div>

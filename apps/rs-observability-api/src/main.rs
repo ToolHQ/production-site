@@ -39,6 +39,7 @@ const PROMETHEUS_BASE_URL_DEFAULT: &str =
     "http://coroot-prometheus-server.coroot.svc.cluster.local";
 
 const EXTERNAL_NODES_JSON: &str = include_str!("../config/external_nodes.json");
+const MAX_TARGETED_HOSTS: usize = 3;
 
 fn external_node_specs() -> &'static [ExternalNodeSpec] {
     static SPECS: OnceLock<Vec<ExternalNodeSpec>> = OnceLock::new();
@@ -46,8 +47,88 @@ fn external_node_specs() -> &'static [ExternalNodeSpec] {
         .get_or_init(|| {
             serde_json::from_str(EXTERNAL_NODES_JSON)
                 .unwrap_or_else(|err| panic!("failed to parse external_nodes.json: {err}"))
-        })
-        .as_slice()
+        }    )
+    .as_slice()
+}
+
+fn is_compare_message(message: &str) -> bool {
+    let m = message.to_lowercase();
+    ["compar", " vs ", " versus ", "entre ", " x ", "contra "]
+        .iter()
+        .any(|n| m.contains(n))
+}
+
+fn match_manifest_host_ids(needle: &str, manifest: &Value, compare: bool) -> Vec<String> {
+    let Some(hosts) = manifest.get("hosts").and_then(|h| h.as_array()) else {
+        return Vec::new();
+    };
+    let mut ids: Vec<String> = Vec::new();
+    let mut push_id = |id: &str| {
+        if !ids.iter().any(|x| x == id) {
+            ids.push(id.to_string());
+        }
+    };
+
+    for h in hosts {
+        let id = h
+            .get("id")
+            .or_else(|| h.get("name"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let name = h.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let ip = h.get("ip").and_then(|v| v.as_str()).unwrap_or("");
+        let cluster = h.get("cluster").and_then(|v| v.as_str()).unwrap_or("");
+        for token in [id, name, ip] {
+            if !token.is_empty() && needle.contains(&token.to_lowercase()) {
+                push_id(if id.is_empty() { name } else { id });
+            }
+            // @mention chips (T-333)
+            let at_token = format!("@{token}");
+            if !token.is_empty() && needle.contains(&at_token.to_lowercase()) {
+                push_id(if id.is_empty() { name } else { id });
+            }
+        }
+        if compare {
+            let cluster_lc = cluster.to_lowercase();
+            if !cluster_lc.is_empty() && needle.contains(&cluster_lc) {
+                push_id(if id.is_empty() { name } else { id });
+            }
+        }
+    }
+
+    if compare {
+        for (alias, cluster) in [
+            ("hetzner", "HETZNER"),
+            ("ssdnodes", "SSD-NODES"),
+            ("6a12f10c", "SSD-NODES"),
+            ("oci", "OCI"),
+            ("k8s-node", "OCI"),
+            ("k8s-master", "OCI"),
+            ("aws", "AWS-EC2"),
+            ("honeypot", "AWS-EC2"),
+            ("172-31", "AWS-EC2"),
+        ] {
+            if !needle.contains(alias) {
+                continue;
+            }
+            for h in hosts {
+                if h.get("cluster").and_then(|v| v.as_str()) != Some(cluster) {
+                    continue;
+                }
+                let id = h
+                    .get("id")
+                    .or_else(|| h.get("name"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if !id.is_empty() {
+                    push_id(id);
+                }
+            }
+        }
+    }
+
+    ids.truncate(MAX_TARGETED_HOSTS);
+    ids
 }
 
 const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
@@ -91,6 +172,148 @@ struct AppState {
     prometheus_monitor: Arc<PrometheusMonitor>,
     coroot_client: Option<Arc<CorootClient>>,
     fleet_copilot: Option<Arc<fleet_copilot::FleetCopilotState>>,
+}
+
+impl AppState {
+    /// T-332: inventário de hosts para o Fleet Copilot (OCI live + registry externo).
+    pub(crate) async fn build_fleet_manifest(&self) -> Value {
+        let mut hosts: Vec<Value> = Vec::new();
+
+        for spec in external_node_specs() {
+            let id = if spec.id.is_empty() {
+                spec.fallback_name.clone()
+            } else {
+                spec.id.clone()
+            };
+            hosts.push(json!({
+                "id": id,
+                "name": spec.fallback_name,
+                "cluster": spec.cluster,
+                "role": spec.role,
+                "ip": spec.instance_host,
+                "source": "external_registry",
+                "ops_via_gateway": spec.cluster == "SSD-NODES",
+            }));
+        }
+
+        let mut oci_live = json!(null);
+        if let Some(lm) = &self.live_monitor {
+            let live = lm.cached_or_refresh().await;
+            if live.available {
+                for node in &live.nodes {
+                    hosts.push(json!({
+                        "name": node.name,
+                        "cluster": node.cluster,
+                        "role": node.role,
+                        "ip": node.ip,
+                        "ready": node.ready,
+                        "source": "oci_kubernetes_live_overview",
+                    }));
+                }
+                oci_live = json!({
+                    "available": live.available,
+                    "stale": live.stale,
+                    "refreshed_at_epoch": live.refreshed_at_epoch,
+                    "node_count": live.nodes.len(),
+                });
+            }
+        }
+
+        json!({
+            "scope": {
+                "description_pt": "Assistente read-only: comandos ops (disco/memória/k8s) rodam no gateway em SSDNodes; visão live dos nós OCI-K8s vem do Cluster Pulse; hosts externos no registry.",
+                "gateway_host_id": "ssdnodes-6a12f10c9ef11",
+                "data_sources": [
+                    "fleet-ops-gateway (SSDNodes)",
+                    "api/live/overview (OCI-K8s)",
+                    "external_nodes.json"
+                ],
+            },
+            "hosts": hosts,
+            "oci_live": oci_live,
+        })
+    }
+
+    /// T-333: anexa métricas live de nós mencionados (OCI + externos, max 3).
+    pub(crate) async fn enrich_manifest_for_message(
+        &self,
+        mut manifest: Value,
+        message: &str,
+    ) -> Value {
+        let needle = message.to_lowercase();
+        let compare = is_compare_message(message);
+        let matched_ids = match_manifest_host_ids(&needle, &manifest, compare);
+        if matched_ids.is_empty() {
+            return manifest;
+        }
+
+        let metrics = self.prometheus_monitor.fetch_node_metrics().await;
+        let mut targeted_oci = Vec::new();
+        let mut targeted_external = Vec::new();
+
+        if let Some(lm) = &self.live_monitor {
+            let live = lm.cached_or_refresh().await;
+            if live.available {
+                for node in &live.nodes {
+                    if !matched_ids.iter().any(|id| id == &node.name) {
+                        continue;
+                    }
+                    let m = metrics.get(&node.name).cloned().unwrap_or_default();
+                    targeted_oci.push(json!({
+                        "name": node.name,
+                        "cluster": node.cluster,
+                        "role": node.role,
+                        "ip": node.ip,
+                        "ready": node.ready,
+                        "disk_pressure": node.disk_pressure,
+                        "memory_pressure": node.memory_pressure,
+                        "metrics": m,
+                    }));
+                }
+            }
+        }
+
+        for spec in external_node_specs() {
+            let id = if spec.id.is_empty() {
+                spec.fallback_name.clone()
+            } else {
+                spec.id.clone()
+            };
+            if !matched_ids
+                .iter()
+                .any(|m| m == &id || m == &spec.fallback_name)
+            {
+                continue;
+            }
+            let m = metrics
+                .get(&spec.fallback_name)
+                .or_else(|| metrics.get(&spec.instance_host))
+                .or_else(|| spec.endpoint_ip.as_ref().and_then(|ip| metrics.get(ip)))
+                .cloned()
+                .unwrap_or_default();
+            targeted_external.push(json!({
+                "id": id,
+                "name": spec.fallback_name,
+                "cluster": spec.cluster,
+                "role": spec.role,
+                "ip": spec.instance_host,
+                "metrics": m,
+            }));
+        }
+
+        if targeted_oci.is_empty() && targeted_external.is_empty() {
+            return manifest;
+        }
+        if let Some(obj) = manifest.as_object_mut() {
+            if !targeted_oci.is_empty() {
+                obj.insert("targeted_oci_nodes".into(), json!(targeted_oci));
+            }
+            if !targeted_external.is_empty() {
+                obj.insert("targeted_external_nodes".into(), json!(targeted_external));
+            }
+        }
+        manifest
+    }
 }
 
 #[derive(Clone)]

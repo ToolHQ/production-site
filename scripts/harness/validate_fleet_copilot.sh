@@ -78,6 +78,48 @@ else
     bad "SSE stream missing phase events"
     echo "$sse_sample" | tail -10
   fi
+
+  # T-332 — meta question should list fleet hosts (not only disk output)
+  meta_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 30 \
+    -X POST "$REPORTS_URL/api/fleet/chat" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"Quais hosts você analisa? Liste clusters e nomes.","preset":"ssdnodes-health"}' 2>/dev/null || true)
+  meta_lower=$(echo "$meta_reply" | tr '[:upper:]' '[:lower:]')
+  meta_hits=0
+  for needle in hetzner ssdnodes oci aws 6a12f10c9ef11; do
+    if echo "$meta_lower" | grep -q "$needle"; then
+      meta_hits=$((meta_hits + 1))
+    fi
+  done
+  if echo "$meta_reply" | grep -qE 'fleet-manifest|fleet-metrics'; then
+    ok "T-332 meta reply via fleet fast path"
+  elif [[ "$meta_hits" -ge 3 ]] && ! echo "$meta_lower" | grep -qE 'filesystem|/dev/|avail'; then
+    ok "T-332 meta hosts reply mentions fleet ($meta_hits markers)"
+  elif [[ "$meta_hits" -ge 2 ]]; then
+    ok "T-332 meta hosts reply partial ($meta_hits markers)"
+  else
+    bad "T-332 meta hosts reply weak (hits=$meta_hits): $(echo "$meta_reply" | head -c 200)"
+  fi
+
+  oci_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 30 \
+    -X POST "$REPORTS_URL/api/fleet/chat" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"@k8s-node-1 Como está a memória?","preset":"ssdnodes-health"}' 2>/dev/null || true)
+  if echo "$oci_reply" | grep -qE 'fleet-metrics|k8s-node-1|mem'; then
+    ok "T-333 OCI node fast path (@k8s-node-1)"
+  else
+    bad "T-333 OCI node reply weak: $(echo "$oci_reply" | head -c 180)"
+  fi
+
+  cmp_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 30 \
+    -X POST "$REPORTS_URL/api/fleet/chat" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"Compare disco SSDNodes vs hetzner builder","preset":"ssdnodes-health"}' 2>/dev/null || true)
+  if echo "$cmp_reply" | grep -qiE 'comparativo|fleet-metrics|hetzner|ssdnodes'; then
+    ok "T-333 compare fast path"
+  else
+    bad "T-333 compare reply weak: $(echo "$cmp_reply" | head -c 180)"
+  fi
 fi
 
 # T-325 / UI delivery — assets live (não depende de kubectl)
@@ -93,6 +135,18 @@ if echo "$js_asset" | grep -q 'ssdnodes-monstro'; then
   bad "UI JS still contains legacy ssdnodes-monstro"
 else
   ok "UI JS free of ssdnodes-monstro"
+fi
+
+if echo "$css_asset" | grep -q 'fleet-copilot-progress'; then
+  ok "UI CSS T-327 loading progress bar"
+else
+  bad "UI CSS missing T-327 fleet-copilot-progress"
+fi
+
+if echo "$js_asset" | grep -q 'fleet-copilot-host-chip'; then
+  ok "UI JS T-333 host mention chips"
+else
+  bad "UI JS missing fleet-copilot-host-chip"
 fi
 
 if echo "$js_asset" | grep -q 'dnor-view-fleet-copilot'; then

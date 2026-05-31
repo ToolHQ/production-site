@@ -15,8 +15,8 @@ Primeiro token do Gemma 3 4B no monstro pode levar **1–3 minutos**. Operadores
 ## Escopo
 
 - [x] Fase `infer`: copy após 45s com elapsed + hint ~3 min
-- [ ] Progress bar indeterminada ou elapsed + hint após 30s / 60s
-- [ ] Desabilitar double-submit no composer
+- [x] Progress bar indeterminada ou elapsed + hint após 30s / 60s
+- [x] Desabilitar double-submit no composer
 - [ ] Opcional: endpoint `GET /api/fleet/copilot/status` com queue depth (gateway)
 
 ## Critérios de aceite

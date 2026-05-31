@@ -2754,6 +2754,25 @@
         border-top: 1px solid var(--border-subtle);
       }
 
+      .fleet-copilot-host-select {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-top: 0.75rem;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      .fleet-copilot-host-select select {
+        width: 100%;
+        padding: 0.45rem 0.55rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-subtle);
+        background: var(--panel-elevated, var(--panel));
+        color: var(--text);
+        font-size: 0.82rem;
+      }
+
       .fleet-copilot-help summary {
         cursor: pointer;
         font-size: 0.78rem;
@@ -2906,6 +2925,64 @@
         display: flex;
         align-items: center;
         gap: 0.35rem;
+      }
+
+      .fleet-copilot-progress {
+        height: 4px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 10%, var(--border-subtle));
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+      }
+
+      .fleet-copilot-progress__bar {
+        height: 100%;
+        width: 40%;
+        border-radius: inherit;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--accent),
+          transparent
+        );
+        animation: fleet-copilot-progress 1.4s ease-in-out infinite;
+      }
+
+      @keyframes fleet-copilot-progress {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(350%);
+        }
+      }
+
+      .fleet-copilot-host-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem 0.65rem;
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .fleet-copilot-host-chip {
+        font-size: 0.68rem;
+        font-family: ui-monospace, monospace;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        border: 1px solid var(--border-subtle);
+        background: var(--panel);
+        color: var(--accent);
+        cursor: pointer;
+      }
+
+      .fleet-copilot-host-chip:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .fleet-copilot-host-chip:hover:not(:disabled) {
+        border-color: var(--accent);
       }
 
       .fleet-copilot-dots span {

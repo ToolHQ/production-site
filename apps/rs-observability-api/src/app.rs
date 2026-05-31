@@ -34,7 +34,8 @@ pub(super) fn build_app(state: AppState) -> Router {
             .route("/api/fleet/copilot/session", get(copilot_session_route))
             .route("/api/fleet/copilot/logout", post(copilot_logout_route))
             .route("/api/fleet/chat", post(copilot_chat_route))
-            .route("/api/fleet/chat/stream", post(copilot_chat_stream_route));
+            .route("/api/fleet/chat/stream", post(copilot_chat_stream_route))
+            .route("/api/fleet/copilot/hosts", get(copilot_hosts_route));
     }
 
     router.with_state(state)
@@ -68,7 +69,13 @@ async fn copilot_chat_route(
     body: Json<fleet_copilot::ChatRequest>,
 ) -> Result<Json<fleet_copilot::ChatResponse>, StatusCode> {
     let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    fleet_copilot::copilot_chat(State(fc), headers, body).await
+    let manifest = state
+        .enrich_manifest_for_message(
+            state.build_fleet_manifest().await,
+            &body.message,
+        )
+        .await;
+    fleet_copilot::copilot_chat(State(fc), manifest, headers, body).await
 }
 
 async fn copilot_chat_stream_route(
@@ -82,7 +89,30 @@ async fn copilot_chat_stream_route(
     StatusCode,
 > {
     let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    fleet_copilot::copilot_chat_stream(State(fc), headers, body).await
+    let manifest = state
+        .enrich_manifest_for_message(
+            state.build_fleet_manifest().await,
+            &body.message,
+        )
+        .await;
+    fleet_copilot::copilot_chat_stream(State(fc), manifest, headers, body).await
+}
+
+async fn copilot_hosts_route(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
+    if !fc.check_auth(&headers) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let manifest = state.build_fleet_manifest().await;
+    Ok(Json(
+        manifest
+            .get("hosts")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+    ))
 }
 
 async fn index() -> Html<&'static str> {
