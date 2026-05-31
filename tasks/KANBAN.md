@@ -28,8 +28,7 @@
 | ID | Task Name | Priority | Est. |
 | :-: | :-------- | :------: | :--: |
 | [T-329](2026/Q2/T-329-Fleet-Copilot-Phase2-Backlog-Epic.md) | **Fleet Copilot — índice fase 2** _(T-326–328, T-322e, hardening)_ | 🔵 Medium | 1–2w |
-| [T-332](2026/Q2/T-332-Fleet-Copilot-Fleet-Context-Manifest.md) | **Fleet Copilot — manifesto de nós no contexto LLM** _(fix "quais hosts?")_ | 🔼 High | 4h |
-| [T-333](2026/Q2/T-333-Fleet-Copilot-Multi-Node-Scope.md) | **Fleet Copilot — multi-node OCI + external fleet** | 🔼 High | 1–2d |
+| [T-333](2026/Q2/T-333-Fleet-Copilot-Multi-Node-Scope.md) | **Fleet Copilot — multi-node OCI + external fleet** _(em progresso — targeted_oci_nodes)_ | 🔼 High | 1–2d |
 | [T-334](2026/Q2/T-334-Fleet-Copilot-Intent-Routing-And-Model.md) | **Fleet Copilot — intent routing + qualidade Gemma** | 🔼 High | 1d |
 | [T-327](2026/Q2/T-327-Fleet-Copilot-Inference-Loading-UX.md) | **Fleet Copilot — UX loading inferência (~3 min Gemma)** | 🔼 High | 4h |
 | [T-328](2026/Q2/T-328-Fleet-Copilot-E2E-Playwright.md) | **Fleet Copilot — smoke Playwright + mock SSE** | 🔵 Medium | 6h |
@@ -64,6 +63,7 @@
 | [T-322](2026/Q2/T-322-Fleet-Copilot-Proxy-Reports-API.md) | **Fleet Copilot — Proxy rs-observability-api** _(auth cookie, rate limit, /api/fleet/chat + /stream; audit Postgres backlog)_ | 🔼 High | Cursor / AI Radar | 3d |
 | [T-323](2026/Q2/T-323-Fleet-Copilot-UI-Reports.md) | **Fleet Copilot — UI reports** _(view #fleet-copilot, presets, SSE tokens, source pills; PR #367)_ | 🔼 High | Cursor / AI Radar | 2d |
 | [T-330](2026/Q2/T-330-SSDNodes-Canonical-Hostname-Rename.md) | **SSDNodes — hostname canônico (UI Copilot + registry + harness)** _(PR #374; depreca apelido monstro na UI)_ | 🔼 High | Cursor / AI Radar | 2h |
+| [T-332](2026/Q2/T-332-Fleet-Copilot-Fleet-Context-Manifest.md) | **Fleet Copilot — manifesto fleet no LLM + fast-path meta** _(PR #375; harness 14/14)_ | 🔼 High | Cursor / AI Radar | 4h |
 
 |                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
