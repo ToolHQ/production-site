@@ -54,6 +54,7 @@ export function FleetCopilotPage() {
     setPreset,
     loading,
     loadingPhase,
+    streamText,
     elapsedSec,
     error,
     send,
@@ -65,7 +66,7 @@ export function FleetCopilotPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages, loading]);
+  }, [messages, loading, streamText]);
 
   if (sessionLoading) {
     return (
@@ -211,21 +212,30 @@ export function FleetCopilotPage() {
               ))}
 
               {loading && (
-                <article class="fleet-copilot-bubble fleet-copilot-bubble--assistant fleet-copilot-bubble--pending">
+                <article
+                  class={`fleet-copilot-bubble fleet-copilot-bubble--assistant fleet-copilot-bubble--pending${streamText ? ' fleet-copilot-bubble--streaming' : ''}`}
+                >
                   <header class="fleet-copilot-bubble__head">
                     <span>Copilot</span>
                     <span class="fleet-copilot-bubble__latency">{elapsedSec}s</span>
                   </header>
-                  <p class="fleet-copilot-typing">
-                    {loadingPhase === 'collect'
-                      ? 'Coletando métricas do SSDNodes…'
-                      : 'Consultando Gemma 3 no monstro…'}
-                    <span class="fleet-copilot-dots" aria-hidden="true">
-                      <span />
-                      <span />
-                      <span />
-                    </span>
-                  </p>
+                  {streamText ? (
+                    <p class="fleet-copilot-bubble__text fleet-copilot-bubble__text--stream">
+                      {streamText}
+                      <span class="fleet-copilot-caret" aria-hidden="true" />
+                    </p>
+                  ) : (
+                    <p class="fleet-copilot-typing">
+                      {loadingPhase === 'collect'
+                        ? 'Coletando métricas do SSDNodes…'
+                        : 'Consultando Gemma 3 no monstro…'}
+                      <span class="fleet-copilot-dots" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    </p>
+                  )}
                   <button type="button" class="fleet-copilot-link-btn" onClick={cancel}>
                     Cancelar
                   </button>

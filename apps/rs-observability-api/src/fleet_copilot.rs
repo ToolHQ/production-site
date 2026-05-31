@@ -3,19 +3,25 @@
 use axum::{
     extract::{Query, State},
     http::{header, HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse, Response,
+    },
     Json,
 };
+use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
+    convert::Infallible,
     sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::sync::Mutex;
+use tokio_stream::wrappers::ReceiverStream;
 
 const COOKIE_NAME: &str = "fleet-copilot-session";
 const MAX_BODY_MSG: usize = 4000;
@@ -168,6 +174,25 @@ impl FleetCopilotState {
             ],
         }
     }
+
+    async fn collect_context(&self, preset: &str) -> (Value, Vec<String>) {
+        let paths = Self::preset_paths(preset);
+        let mut context = json!({});
+        let mut sources = Vec::new();
+        for path in paths {
+            match self.fetch_ops(path).await {
+                Ok(v) => {
+                    sources.push(format!("/{}", path));
+                    context[path] = v;
+                }
+                Err(err) => {
+                    context[path] = json!({ "error": err });
+                    sources.push(format!("/{} (error)", path));
+                }
+            }
+        }
+        (context, sources)
+    }
 }
 
 pub async fn copilot_session(
@@ -247,23 +272,8 @@ pub async fn copilot_chat(
     }
 
     let preset = body.preset.as_deref().unwrap_or("ssdnodes-health");
-    let paths = FleetCopilotState::preset_paths(preset);
     let started = Instant::now();
-
-    let mut context = json!({});
-    let mut sources = Vec::new();
-    for path in paths {
-        match fc.fetch_ops(path).await {
-            Ok(v) => {
-                sources.push(format!("/{}", path));
-                context[path] = v;
-            }
-            Err(err) => {
-                context[path] = json!({ "error": err });
-                sources.push(format!("/{} (error)", path));
-            }
-        }
-    }
+    let (context, sources) = fc.collect_context(preset).await;
 
     let url = format!(
         "{}/internal/chat",
@@ -301,4 +311,170 @@ pub async fn copilot_chat(
         sources,
         latency_ms: started.elapsed().as_millis() as u64,
     }))
+}
+
+pub async fn copilot_chat_stream(
+    State(fc): State<Arc<FleetCopilotState>>,
+    headers: HeaderMap,
+    Json(body): Json<ChatRequest>,
+) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>>, StatusCode> {
+    if !fc.is_authenticated(&headers) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let client_key = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("local")
+        .split(',')
+        .next()
+        .unwrap_or("local")
+        .trim()
+        .to_string();
+
+    if !fc.check_rate(&client_key).await {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    let message = body.message.trim();
+    if message.is_empty() || message.len() > MAX_BODY_MSG {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let preset = body.preset.as_deref().unwrap_or("ssdnodes-health").to_string();
+    let fc = fc.clone();
+    let message = message.to_string();
+
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
+    tokio::spawn(async move {
+        let send = |event: Event| async {
+            tx.send(Ok(event)).await.is_ok()
+        };
+
+        if !send(
+            Event::default()
+                .event("phase")
+                .data(json!({ "phase": "collect" }).to_string()),
+        )
+        .await
+        {
+            return;
+        }
+
+        let started = Instant::now();
+        let (context, sources) = fc.collect_context(&preset).await;
+
+        if !send(
+            Event::default()
+                .event("phase")
+                .data(json!({ "phase": "infer", "sources": sources.clone() }).to_string()),
+        )
+        .await
+        {
+            return;
+        }
+
+        let url = format!(
+            "{}/internal/chat/stream",
+            fc.gateway_url.trim_end_matches('/')
+        );
+
+        let resp = match fc
+            .client
+            .post(&url)
+            .header(header::AUTHORIZATION, fc.auth_header())
+            .json(&json!({
+                "message": message,
+                "context": context
+            }))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(_) => {
+                let _ = send(
+                    Event::default()
+                        .event("error")
+                        .data(json!({ "message": "gateway unreachable" }).to_string()),
+                )
+                .await;
+                return;
+            }
+        };
+
+        if !resp.status().is_success() {
+            let _ = send(
+                Event::default()
+                    .event("error")
+                    .data(json!({ "message": format!("gateway status {}", resp.status()) }).to_string()),
+            )
+            .await;
+            return;
+        }
+
+        let mut byte_stream = resp.bytes_stream();
+        let mut buffer = String::new();
+
+        while let Some(chunk) = byte_stream.next().await {
+            let chunk = match chunk {
+                Ok(c) => c,
+                Err(_) => break,
+            };
+            buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+            while let Some(pos) = buffer.find("\n\n") {
+                let block = buffer[..pos].to_string();
+                buffer.drain(..pos + 2);
+
+                if let Some((event_name, mut data)) = parse_sse_block(&block) {
+                    if event_name == "done" {
+                        if let Ok(mut val) = serde_json::from_str::<Value>(&data) {
+                            if let Some(obj) = val.as_object_mut() {
+                                obj.insert("sources".into(), json!(sources));
+                                obj.insert(
+                                    "latency_ms".into(),
+                                    json!(started.elapsed().as_millis() as u64),
+                                );
+                            }
+                            data = val.to_string();
+                        }
+                        let _ = tx
+                            .send(Ok(Event::default().event("done").data(data)))
+                            .await;
+                        return;
+                    }
+                    if tx
+                        .send(Ok(Event::default().event(event_name).data(data)))
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+    });
+
+    Ok(Sse::new(ReceiverStream::new(rx)).keep_alive(
+        KeepAlive::new().interval(Duration::from_secs(15)),
+    ))
+}
+
+fn parse_sse_block(block: &str) -> Option<(String, String)> {
+    let mut event_name = "message".to_string();
+    let mut data = String::new();
+    for line in block.lines() {
+        if let Some(v) = line.strip_prefix("event:") {
+            event_name = v.trim().to_string();
+        } else if let Some(v) = line.strip_prefix("data:") {
+            if !data.is_empty() {
+                data.push('\n');
+            }
+            data.push_str(v.trim());
+        }
+    }
+    if data.is_empty() {
+        return None;
+    }
+    Some((event_name, data))
 }

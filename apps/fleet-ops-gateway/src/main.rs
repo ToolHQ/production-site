@@ -2,10 +2,16 @@ use axum::{
     extract::{Request, State},
     http::{header, StatusCode},
     middleware::{self, Next},
-    response::{IntoResponse, Response},
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse, Response,
+    },
     routing::{get, post},
     Json, Router,
 };
+use futures_util::StreamExt;
+use std::convert::Infallible;
+use tokio_stream::wrappers::ReceiverStream;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -75,6 +81,7 @@ async fn main() {
         .route("/ops/k8s/ingress", get(ops_k8s_ingress))
         .route("/ops/k8s/warnings", get(ops_k8s_warnings))
         .route("/internal/chat", post(internal_chat))
+        .route("/internal/chat/stream", post(internal_chat_stream))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             require_auth,
@@ -212,6 +219,70 @@ async fn internal_chat(
     State(state): State<AppState>,
     Json(body): Json<ChatRequest>,
 ) -> Result<Json<ChatResponse>, StatusCode> {
+    let (_message, system, user, sources) = prepare_chat(&body)?;
+    let reply = ollama_chat(&state.ollama_model, &system, &user)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+
+    Ok(Json(ChatResponse {
+        reply,
+        model: state.ollama_model.clone(),
+        sources,
+    }))
+}
+
+async fn internal_chat_stream(
+    State(state): State<AppState>,
+    Json(body): Json<ChatRequest>,
+) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>>, StatusCode> {
+    let (_message, system, user, sources) = prepare_chat(&body)?;
+    let model = state.ollama_model.clone();
+
+    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
+    tokio::spawn(async move {
+        let send = |event: Event| async {
+            tx.send(Ok(event)).await.is_ok()
+        };
+
+        if !send(
+            Event::default()
+                .event("meta")
+                .data(serde_json::to_string(&json!({ "sources": sources })).unwrap_or_else(|_| "{}".into())),
+        )
+        .await
+        {
+            return;
+        }
+
+        match ollama_chat_stream(&model, &system, &user, tx.clone()).await {
+            Ok(full) => {
+                let _ = send(
+                    Event::default()
+                        .event("done")
+                        .data(
+                            serde_json::to_string(&json!({ "model": model, "reply": full }))
+                                .unwrap_or_else(|_| "{}".into()),
+                        ),
+                )
+                .await;
+            }
+            Err(err) => {
+                let _ = send(
+                    Event::default()
+                        .event("error")
+                        .data(json!({ "message": err }).to_string()),
+                )
+                .await;
+            }
+        }
+    });
+
+    Ok(Sse::new(ReceiverStream::new(rx)).keep_alive(
+        KeepAlive::new().interval(Duration::from_secs(15)),
+    ))
+}
+
+fn prepare_chat(body: &ChatRequest) -> Result<(String, String, String, Vec<String>), StatusCode> {
     let message = body.message.trim();
     if message.is_empty() || message.len() > 4000 {
         return Err(StatusCode::BAD_REQUEST);
@@ -224,20 +295,11 @@ async fn internal_chat(
         .unwrap_or_default();
 
     let compact = compact_context_for_llm(&body.context);
-    let system = "You are a read-only fleet operations assistant. Answer ONLY from the JSON context provided. If data is missing, say so. Never suggest destructive commands.";
-    let context_json =
-        serde_json::to_string_pretty(&compact).unwrap_or_else(|_| "{}".into());
+    let system = "You are a read-only fleet operations assistant. Answer ONLY from the JSON context provided. If data is missing, say so. Never suggest destructive commands.".to_string();
+    let context_json = serde_json::to_string_pretty(&compact).unwrap_or_else(|_| "{}".into());
     let user = format!("Context JSON:\n{context_json}\n\nQuestion:\n{message}");
 
-    let reply = ollama_chat(&state.ollama_model, system, &user)
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
-
-    Ok(Json(ChatResponse {
-        reply,
-        model: state.ollama_model.clone(),
-        sources,
-    }))
+    Ok((message.to_string(), system, user, sources))
 }
 
 async fn run_command(cmd: &[&str]) -> Result<(i32, String, String), String> {
@@ -329,6 +391,76 @@ async fn ollama_chat(model: &str, system: &str, user: &str) -> Result<String, St
         .as_str()
         .map(str::to_owned)
         .ok_or_else(|| "missing message.content".to_string())
+}
+
+async fn ollama_chat_stream(
+    model: &str,
+    system: &str,
+    user: &str,
+    tx: tokio::sync::mpsc::Sender<Result<Event, Infallible>>,
+) -> Result<String, String> {
+    let payload = json!({
+        "model": model,
+        "stream": true,
+        "options": { "num_ctx": 8192 },
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ]
+    });
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(180))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client
+        .post("http://127.0.0.1:11434/api/chat")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("ollama request: {e}"))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("ollama status: {}", resp.status()));
+    }
+
+    let mut full = String::new();
+    let mut byte_stream = resp.bytes_stream();
+    let mut buffer = String::new();
+
+    while let Some(chunk) = byte_stream.next().await {
+        let chunk = chunk.map_err(|e| format!("ollama stream: {e}"))?;
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+        while let Some(pos) = buffer.find('\n') {
+            let line = buffer[..pos].trim().to_string();
+            buffer.drain(..=pos);
+            if line.is_empty() {
+                continue;
+            }
+            let parsed: Value = serde_json::from_str(&line).map_err(|e| format!("ollama json: {e}"))?;
+            if let Some(delta) = parsed["message"]["content"].as_str() {
+                if !delta.is_empty() {
+                    full.push_str(delta);
+                    let payload = serde_json::to_string(&json!({ "delta": delta }))
+                        .unwrap_or_else(|_| "{}".into());
+                    if tx
+                        .send(Ok(Event::default().event("token").data(payload)))
+                        .await
+                        .is_err()
+                    {
+                        return Ok(full);
+                    }
+                }
+            }
+            if parsed["done"].as_bool() == Some(true) {
+                return Ok(full);
+            }
+        }
+    }
+
+    Ok(full)
 }
 
 fn chrono_now() -> String {

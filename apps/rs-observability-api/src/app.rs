@@ -33,7 +33,8 @@ pub(super) fn build_app(state: AppState) -> Router {
             .route("/fleet-copilot", get(copilot_login_route))
             .route("/api/fleet/copilot/session", get(copilot_session_route))
             .route("/api/fleet/copilot/logout", post(copilot_logout_route))
-            .route("/api/fleet/chat", post(copilot_chat_route));
+            .route("/api/fleet/chat", post(copilot_chat_route))
+            .route("/api/fleet/chat/stream", post(copilot_chat_stream_route));
     }
 
     router.with_state(state)
@@ -68,6 +69,18 @@ async fn copilot_chat_route(
 ) -> Result<Json<fleet_copilot::ChatResponse>, StatusCode> {
     let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
     fleet_copilot::copilot_chat(State(fc), headers, body).await
+}
+
+async fn copilot_chat_stream_route(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    body: Json<fleet_copilot::ChatRequest>,
+) -> Result<
+    axum::response::sse::Sse<impl futures_util::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>>,
+    StatusCode,
+> {
+    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
+    fleet_copilot::copilot_chat_stream(State(fc), headers, body).await
 }
 
 async fn index() -> Html<&'static str> {

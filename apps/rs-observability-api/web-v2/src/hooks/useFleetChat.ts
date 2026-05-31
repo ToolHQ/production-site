@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import type { ChatResponse } from '../types/fleetCopilot';
 
 const STORAGE_KEY = 'fleet-copilot-messages-v1';
 const MAX_MESSAGES = 20;
@@ -40,11 +39,49 @@ function newId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function parseSseBlock(block: string): { event: string; data: string } | null {
+  let event = 'message';
+  let data = '';
+  for (const line of block.split('\n')) {
+    if (line.startsWith('event:')) event = line.slice(6).trim();
+    if (line.startsWith('data:')) data += line.slice(5).trim();
+  }
+  return data ? { event, data } : null;
+}
+
+async function consumeSse(
+  res: Response,
+  onEvent: (event: string, data: string) => void,
+  signal: AbortSignal,
+) {
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('stream unavailable');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (!signal.aborted) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let idx = buffer.indexOf('\n\n');
+    while (idx !== -1) {
+      const block = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      const parsed = parseSseBlock(block);
+      if (parsed) onEvent(parsed.event, parsed.data);
+      idx = buffer.indexOf('\n\n');
+    }
+  }
+}
+
 export function useFleetChat() {
   const [messages, setMessages] = useState<FleetChatMessage[]>(loadMessages);
   const [preset, setPreset] = useState<FleetPreset>('ssdnodes-health');
   const [loading, setLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<'collect' | 'infer' | null>(null);
+  const [streamText, setStreamText] = useState('');
   const [elapsedSec, setElapsedSec] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -77,6 +114,7 @@ export function useFleetChat() {
 
       setLoading(true);
       setError(null);
+      setStreamText('');
       setElapsedSec(0);
       setLoadingPhase('collect');
       timerRef.current = setInterval(() => setElapsedSec((s) => s + 1), 1000);
@@ -89,23 +127,42 @@ export function useFleetChat() {
       };
       setMessages((m) => [...m, userMsg]);
 
-      const inferTimer = window.setTimeout(() => setLoadingPhase('infer'), 12_000);
+      let sources: string[] = [];
+      let reply = '';
+      let latencyMs: number | undefined;
+      let streamError: string | null = null;
+
+      const finish = () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        setLoading(false);
+        setLoadingPhase(null);
+        setStreamText('');
+        abortRef.current = null;
+      };
 
       try {
-        const res = await fetch('/api/fleet/chat', {
+        const res = await fetch('/api/fleet/chat/stream', {
           method: 'POST',
           credentials: 'same-origin',
           signal: controller.signal,
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+          },
           body: JSON.stringify({ message: trimmed, preset: presetId }),
         });
 
         if (res.status === 404) {
           setError('Sessão expirada — peça ao operador um novo link de acesso.');
+          finish();
           return;
         }
         if (res.status === 429) {
           setError('Limite de requisições — aguarde cerca de 1 minuto.');
+          finish();
           return;
         }
         if (!res.ok) {
@@ -114,21 +171,67 @@ export function useFleetChat() {
               ? 'Gateway ou modelo indisponível — tente novamente em instantes.'
               : `Erro HTTP ${res.status}`,
           );
+          finish();
           return;
         }
 
-        const data = (await res.json()) as ChatResponse;
-        setMessages((m) => [
-          ...m,
-          {
-            id: newId(),
-            role: 'assistant',
-            text: data.reply.trim(),
-            sources: data.sources,
-            latencyMs: data.latency_ms,
-            at: Date.now(),
+        await consumeSse(
+          res,
+          (event, data) => {
+            try {
+              const payload = JSON.parse(data) as Record<string, unknown>;
+              if (event === 'phase') {
+                setLoadingPhase(payload.phase === 'infer' ? 'infer' : 'collect');
+                if (Array.isArray(payload.sources)) {
+                  sources = payload.sources as string[];
+                }
+              } else if (event === 'token') {
+                const delta = payload.delta;
+                if (typeof delta === 'string' && delta) {
+                  reply += delta;
+                  setStreamText((prev) => prev + delta);
+                  setLoadingPhase('infer');
+                }
+              } else if (event === 'done') {
+                if (typeof payload.reply === 'string' && payload.reply) {
+                  reply = payload.reply;
+                }
+                if (Array.isArray(payload.sources)) {
+                  sources = payload.sources as string[];
+                }
+                if (typeof payload.latency_ms === 'number') {
+                  latencyMs = payload.latency_ms;
+                }
+              } else if (event === 'error') {
+                streamError =
+                  typeof payload.message === 'string'
+                    ? payload.message
+                    : 'Falha no stream';
+              }
+            } catch {
+              /* ignore malformed sse payloads */
+            }
           },
-        ]);
+          controller.signal,
+        );
+
+        if (streamError) {
+          setError(streamError);
+        } else if (reply.trim()) {
+          setMessages((m) => [
+            ...m,
+            {
+              id: newId(),
+              role: 'assistant',
+              text: reply.trim(),
+              sources,
+              latencyMs,
+              at: Date.now(),
+            },
+          ]);
+        } else {
+          setError('Resposta vazia do modelo.');
+        }
       } catch (e) {
         if (controller.signal.aborted) {
           setError('Consulta cancelada.');
@@ -136,14 +239,7 @@ export function useFleetChat() {
           setError(e instanceof Error ? e.message : 'Falha na consulta');
         }
       } finally {
-        window.clearTimeout(inferTimer);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-        setLoading(false);
-        setLoadingPhase(null);
-        abortRef.current = null;
+        finish();
       }
     },
     [loading, preset],
@@ -159,6 +255,7 @@ export function useFleetChat() {
     setPreset,
     loading,
     loadingPhase,
+    streamText,
     elapsedSec,
     error,
     send,

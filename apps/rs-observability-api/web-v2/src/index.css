@@ -2741,6 +2741,30 @@
         font-family: ui-monospace, monospace;
       }
 
+      .fleet-copilot-bubble--streaming {
+        border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+      }
+
+      .fleet-copilot-bubble__text--stream {
+        min-height: 1.5em;
+      }
+
+      .fleet-copilot-caret {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        margin-left: 2px;
+        vertical-align: text-bottom;
+        background: var(--accent);
+        animation: fleet-copilot-blink 1s step-end infinite;
+      }
+
+      @keyframes fleet-copilot-blink {
+        50% {
+          opacity: 0;
+        }
+      }
+
       .fleet-copilot-typing {
         margin: 0 0 0.5rem;
         display: flex;
