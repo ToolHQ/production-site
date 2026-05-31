@@ -199,12 +199,20 @@ function AppContent() {
 
   const errorMessage = [liveError, snapshotError].filter(Boolean).join(' | ');
   const showOverview = view === 'overview';
+  const isCopilotView = view === 'fleet-copilot';
 
   return (
     <>
       <DnorTopNav liveAvailable={Boolean(live?.available)} />
       <GlobalSearchPalette live={live} />
 
+      {isCopilotView ? (
+        <main class="main--fleet-copilot">
+          <section class="shell shell--fleet-copilot" id="dnor-fleet-copilot">
+            <FleetCopilotPage />
+          </section>
+        </main>
+      ) : (
       <main>
       <section class="shell">
         {/* ── Masthead (overview only) ── */}
@@ -241,12 +249,6 @@ function AppContent() {
           </div>
           )}
           <NodesPanel live={live} history={nodeHistory} />
-        </section>
-        )}
-
-        {view === 'fleet-copilot' && (
-        <section class="fleet-copilot-section-band" id="dnor-fleet-copilot">
-          <FleetCopilotPage />
         </section>
         )}
 
@@ -478,6 +480,7 @@ function AppContent() {
         </div>
       )}
     </main>
+      )}
     </>
   );
 }
