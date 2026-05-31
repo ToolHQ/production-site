@@ -7,6 +7,7 @@ import { useAlertThresholds } from '../hooks/useAlertThresholds';
 import { ThresholdSettings } from './ThresholdSettings';
 import { clusterBadgeClass, clusterBadgeSlug } from '../utils/clusterBadge';
 import { FleetOverviewTable } from './FleetOverviewTable';
+import { FleetCopilotTeaser } from './FleetCopilotTeaser';
 import { buildFleetOverviewRows, filterFleetRows, honeypotActivityMetrics, type FleetPeriod } from '../utils/fleetOverview';
 import { useDnorShell } from '../context/DnorShellContext';
 
@@ -1005,6 +1006,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
           </>
         ))}
       </div>
+      <FleetCopilotTeaser />
       <p class="nodes-table-footnote">
         {hasRealMetrics
           ? 'Real host utilization via Prometheus node_exporter · Hover metrics to see details and sparkline.'

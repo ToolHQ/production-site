@@ -23,9 +23,20 @@
 
 ## 📅 Backlog (To Do)
 
+### Epic: Fleet Copilot (T-315) — chat read-only reports ↔ SSDNodes
+
+| ID | Task Name | Priority | Est. |
+| :-: | :-------- | :------: | :--: |
+| [T-315](2026/Q2/T-315-Fleet-Copilot-Epic-Overview.md) | **Fleet Copilot — Epic overview (Hermes/Gemma @ SSDNodes + chat reports)** | 🔼 High | 2–3w |
+| [T-320](2026/Q2/T-320-Fleet-Copilot-Security-Prerequisites.md) | **Fleet Copilot — Pré-requisitos segurança** _(gate aplicado 2026-05-30: SSH key-only, fail2ban, UFW 9100/8443/deny11434, Dashboard view-only)_ | 🚨 Critical | 3d |
+| [T-321](2026/Q2/T-321-Fleet-Ops-Gateway-Ollama-SSDNodes.md) | **Fleet Copilot — Ops Gateway + Ollama localhost @ ssdnodes-monstro** | 🔼 High | 3d |
+| [T-322](2026/Q2/T-322-Fleet-Copilot-Proxy-Reports-API.md) | **Fleet Copilot — Proxy seguro rs-observability-api (auth + rate limit + audit)** | 🔼 High | 3d |
+| [T-323](2026/Q2/T-323-Fleet-Copilot-UI-Reports.md) | **Fleet Copilot — UI chat read-only em reports.dnor.io (web-v2)** | 🔼 High | 2d |
+| [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional, pós-MVP + pentest)** | 🔵 Medium | 2d |
+
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** | 🔼 High | Cursor / AI Radar | 1d |
+| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(overlap T-320a)_ | 🔼 High | Cursor / AI Radar | 1d |
 | [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
 | [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** | 🔼 High | Cursor / AI Radar | 1d |

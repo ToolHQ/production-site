@@ -3,8 +3,22 @@
 Workloads para o cluster K8s do servidor SSDNodes (x86_64, 12 vCPU / 60 GB RAM / 1.1 TB disk).
 
 **Kubeconfig**: `~/.kube/ssdnodes.yaml`  
-**IP público**: `104.225.218.78`  
-**Portas abertas (UFW)**: 22, 80, 443, 6443, 8472/udp, 10250-10252, 2379-2380
+**IP público**: `104.225.218.78`
+
+**UFW (posture hardened — `ufw_manager.sh --apply`):**
+
+| Porta | Exposição |
+|-------|-----------|
+| 22/tcp | Mundo (safety net) + fail2ban recomendado |
+| 80/443 | ADMIN + INGRESS IPs + Tailscale `100.64.0.0/10` |
+| 6443 | ADMIN only |
+| 9100 | IPs OCI (Prometheus scrape) |
+| 8443 | ADMIN + INGRESS + Tailscale (fleet-ops-gateway) |
+| 11434 | **Deny** (Ollama localhost only) |
+
+Portas K8s internas (8472, 10250–10252, 2379–2380) **não** são abertas externamente no posture hardened.
+
+**Fleet Copilot:** ver [FLEET-COPILOT-SECURITY-PREREQS.md](FLEET-COPILOT-SECURITY-PREREQS.md)
 
 ## Componentes
 

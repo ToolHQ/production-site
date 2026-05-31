@@ -11,6 +11,8 @@ O host SSDNodes está saudável e sem systemd failures, mas o journal mostra vá
 
 Precisamos entender se o posture está adequado, criar monitoria objetiva e decidir se há ação de hardening adicional (fail2ban, UFW/iptables, allowlist SSH, Tailscale-only SSH, alertas).
 
+**Nota:** Parte deste escopo foi expandida e integrada ao gate de segurança do Fleet Copilot — ver [T-320a](T-320-Fleet-Copilot-Security-Prerequisites.md) (epic [T-315](T-315-Fleet-Copilot-Epic-Overview.md)).
+
 ## Tasks
 
 - [ ] Quantificar tentativas SSH por origem, usuário, janela de tempo e tendência.

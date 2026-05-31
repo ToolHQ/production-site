@@ -15,6 +15,7 @@ import { useNamespaces } from './hooks/useNamespaces';
 import { DashboardHeader } from './components/DashboardHeader';
 import { SignalCard, SignalGrid } from './components/SignalCard';
 import { NodesPanel } from './components/NodesPanel';
+import { FleetCopilotPage } from './components/FleetCopilotPage';
 import { ClusterMetrics } from './components/ClusterMetrics';
 import { IncidentList, RestartHotspots } from './components/IncidentList';
 import { ServiceGrid } from './components/ServiceCard';
@@ -33,6 +34,7 @@ import { NamespacePanel } from './components/NamespacePanel';
 import { DnorTopNav } from './components/DnorTopNav';
 import { GlobalSearchPalette } from './components/GlobalSearchPalette';
 import { DnorShellProvider, useDnorShell } from './context/DnorShellContext';
+import { FleetCopilotProvider } from './context/FleetCopilotContext';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ExportMenu } from './components/ExportMenu';
 
@@ -68,7 +70,9 @@ function useWindowWidth() {
 export function App() {
   return (
     <DnorShellProvider>
-      <AppContent />
+      <FleetCopilotProvider>
+        <AppContent />
+      </FleetCopilotProvider>
     </DnorShellProvider>
   );
 }
@@ -232,6 +236,12 @@ function AppContent() {
           </div>
           )}
           <NodesPanel live={live} history={nodeHistory} />
+        </section>
+        )}
+
+        {view === 'fleet-copilot' && (
+        <section class="fleet-copilot-section-band" id="dnor-fleet-copilot">
+          <FleetCopilotPage />
         </section>
         )}
 

@@ -18,7 +18,9 @@ tokio = { version = "1.44.2", features = [
   "macros",
   "rt-multi-thread",
   "sync",
+  "time",
 ] }
+sha2 = "0.10"
 
 [dev-dependencies]
 tower = { version = "0.5.2", features = ["util"] }

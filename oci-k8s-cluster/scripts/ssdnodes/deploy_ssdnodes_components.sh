@@ -38,7 +38,7 @@ echo "Chart baixado: $(du -h /tmp/helm-charts/kubernetes-dashboard-7.14.0.tgz)"
 
 kubectl create namespace kubernetes-dashboard --dry-run=client -o yaml | kubectl apply -f -
 
-# Criar ServiceAccount admin-user para login com token
+# Criar ServiceAccount admin-user para login com token (view-only — T-320d)
 kubectl apply -f - <<SA
 apiVersion: v1
 kind: ServiceAccount
@@ -53,7 +53,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: view
 subjects:
 - kind: ServiceAccount
   name: admin-user

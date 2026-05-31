@@ -43,6 +43,17 @@ INGRESS_IPS=(
     "150.136.88.87   # OCI k8s-node-3"
 )
 
+# Prometheus node_exporter scrape (Coroot external fleet) — fonte: config/external-fleet/registry.yaml
+METRICS_IPS=(
+    "150.136.34.254  # OCI k8s-master"
+    "150.136.67.52   # OCI k8s-node-1"
+    "150.136.70.212  # OCI k8s-node-2"
+    "150.136.88.87   # OCI k8s-node-3"
+)
+
+# Tailscale CGNAT — ingress 80/443 + fleet-ops-gateway 8443 (T-320e)
+TAILSCALE_CIDR="100.64.0.0/10"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Flags
 # ─────────────────────────────────────────────────────────────────────────────
@@ -156,6 +167,53 @@ ufw allow from ${ip} to any port 80  comment "ingress-http" >/dev/null
 ufw allow from ${ip} to any port 443 comment "ingress-https" >/dev/null
 echo "  ✔  ${ip}  # ${comment}"
 HEREDOC_INGRESS
+    done
+
+    # Tailscale overlay: ingress HTTPS from tailnet (T-320e)
+    echo ""
+    echo "echo \"\""
+    echo "echo \"━━ TAILSCALE (${TAILSCALE_CIDR}) ━━━━━━━━━━━━━━━━━━━\""
+    cat <<HEREDOC_TS
+ufw allow from ${TAILSCALE_CIDR} to any port 80  comment "tailscale-ingress-http" >/dev/null
+ufw allow from ${TAILSCALE_CIDR} to any port 443 comment "tailscale-ingress-https" >/dev/null
+ufw allow from ${TAILSCALE_CIDR} to any port 18443 comment "tailscale-fleet-ops-gateway" >/dev/null
+echo "  ✔  ${TAILSCALE_CIDR} → 80/443/18443"
+HEREDOC_TS
+
+    # node_exporter :9100 — só IPs OCI (T-320b)
+    echo ""
+    echo "echo \"\""
+    echo "echo \"━━ PROMETHEUS SCRAPE (:9100) ━━━━━━━━━━━━━━━━━━━━\""
+    for entry in "${METRICS_IPS[@]}"; do
+        local ip comment
+        ip="$(_ip "$entry")"
+        comment="${entry#*#}"
+        comment="${comment## }"
+        cat <<HEREDOC_METRICS
+ufw allow from ${ip} to any port 9100 proto tcp comment "oci-prometheus-scrape" >/dev/null
+echo "  ✔  ${ip}:9100  # ${comment}"
+HEREDOC_METRICS
+    done
+
+    # Fleet Copilot: Ollama must stay localhost-only (T-321b)
+    cat <<'HEREDOC_OLLAMA'
+ufw deny 11434/tcp comment "ollama-localhost-only" >/dev/null 2>&1 || true
+echo "✔  11434/tcp: deny (Ollama localhost only)"
+HEREDOC_OLLAMA
+
+    # Fleet-ops-gateway :8443 from OCI/Hetzner ingress IPs (fallback sem Tailscale)
+    echo ""
+    echo "echo \"\""
+    echo "echo \"━━ FLEET OPS GATEWAY (:18443) ━━━━━━━━━━━━━━━━━━\""
+    for entry in "${ADMIN_IPS[@]}" "${INGRESS_IPS[@]}"; do
+        local ip comment
+        ip="$(_ip "$entry")"
+        comment="${entry#*#}"
+        comment="${comment## }"
+        cat <<HEREDOC_FLEET
+ufw allow from ${ip} to any port 18443 proto tcp comment "fleet-ops-gateway" >/dev/null
+echo "  ✔  ${ip}:18443  # ${comment}"
+HEREDOC_FLEET
     done
 
     # NOTA: porta 80 NÃO é aberta permanentemente.

@@ -1509,6 +1509,7 @@ ingress_menu() {
         echo "1. Start Ingress Tunnel (All Ports) 🚀"
         echo "2. Update /etc/hosts (Ingress + Postgres) 📝"
         echo "3. Mobile Access via Tailscale 📱"
+        echo "4. Remove local hosts overrides (restore public DNS) 🧹"
         echo "0. Back"
         echo ""
         read -p "$(t "choose_option") " choice
@@ -1678,6 +1679,10 @@ ingress_menu() {
                 
                 read -p "$(t "press_enter")"
                 ;;
+            4)
+                bash "${SCRIPT_DIR}/scripts/maintenance/clear_local_dnor_hosts.sh"
+                read -p "$(t "press_enter")"
+                ;;
             0)
                 return
                 ;;
@@ -1716,6 +1721,8 @@ update_hosts_file() {
     else
         echo -e "${YELLOW}This will add these hosts to your local /etc/hosts.${NC}"
     fi
+    echo -e "${YELLOW}Overrides point *.dnor.io to 127.0.0.1 — you MUST keep the SSH tunnel running (option 1).${NC}"
+    echo -e "${YELLOW}For direct HTTPS via public DNS (e.g. reports.dnor.io), use option 4 to remove overrides instead.${NC}"
     echo -e "${YELLOW}Root privileges (sudo/UAC) are required.${NC}"
     read -p "Do you want to proceed? (y/N) " confirm
     
@@ -4107,7 +4114,7 @@ node_maintenance_menu() {
 # --- HARDENING MENU ---
 show_hardening_menu() {
   while true; do
-    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 26 78 13 \
+    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 26 78 15 \
       "1" "Force Cleanup (All Nodes)" \
       "2" "Re-apply Log Limits (OCI: 200M cap)" \
       "2b" "Validate/Repair logrotate rsyslog (T-305)" \
@@ -4121,6 +4128,8 @@ show_hardening_menu() {
       "10" "🚀 Deploy K8s Dashboard — ssdnodes-monstro (k8s.ssdnodes.dnor.io)" \
       "11" "🚀 Deploy Kubecost — ssdnodes-monstro (cost.ssdnodes.dnor.io)" \
       "12" "📋 Status componentes ssdnodes-monstro" \
+      "13" "🔐 SSDNodes SSH harden + fail2ban (T-320a)" \
+      "14" "👁 Dashboard view-only RBAC (T-320d)" \
       "0" "Back" 3>&1 1>&2 2>&3)
     
     if [ $? != 0 ]; then return; fi
@@ -4262,6 +4271,22 @@ show_hardening_menu() {
         echo -e "${GREEN}📋 Status componentes ssdnodes-monstro${NC}"
         echo ""
         bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" status
+        read -p "Press Enter..."
+        ;;
+      13)
+        echo -e "\n${YELLOW}T-320a: SSH hardening + fail2ban em ssdnodes-monstro${NC}"
+        bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-monstro --dry-run
+        read -p "Aplicar SSH hardening? (y/N): " SSH_CONFIRM
+        if [[ "$SSH_CONFIRM" =~ ^[Yy]$ ]]; then
+          bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-monstro --apply
+        fi
+        bash "$SCRIPT_DIR/scripts/hardening/fail2ban_ssdnodes.sh" --host ssdnodes-monstro --apply
+        read -p "Press Enter..."
+        ;;
+      14)
+        echo -e "\n${YELLOW}T-320d: Dashboard view-only RBAC${NC}"
+        bash "$SCRIPT_DIR/scripts/ssdnodes/patch_dashboard_view_rbac.sh" --apply
+        bash "$SCRIPT_DIR/scripts/ssdnodes/patch_dashboard_view_rbac.sh" --verify
         read -p "Press Enter..."
         ;;
     esac
