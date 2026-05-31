@@ -2405,7 +2405,26 @@
       }
 
       .fleet-copilot-section-band {
-        padding-bottom: 2rem;
+        padding: 1rem 1.25rem 2rem;
+      }
+
+      /* T-325 v2: coluna única ~920px — main + nav alinhados no Copilot */
+      body.dnor-view-fleet-copilot main {
+        width: min(920px, calc(100vw - 32px));
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__inner {
+        max-width: 920px;
+      }
+
+      @media (min-width: 1600px) {
+        body.dnor-view-fleet-copilot main {
+          width: min(880px, calc(100vw - 48px));
+        }
+
+        body.dnor-view-fleet-copilot .dnor-shell__inner {
+          max-width: 880px;
+        }
       }
 
       .dnor-shell__nav-item--copilot {
@@ -2420,13 +2439,12 @@
 
       /* T-325: legibilidade em monitores ultra-wide */
       .fleet-copilot-page {
-        --fleet-copilot-page-max: 1200px;
-        --fleet-copilot-prose-max: 42rem;
+        --fleet-copilot-prose-max: 38rem;
         display: flex;
         flex-direction: column;
         gap: 1.25rem;
         width: 100%;
-        max-width: var(--fleet-copilot-page-max);
+        max-width: 100%;
         margin-inline: auto;
       }
 
@@ -2537,7 +2555,7 @@
 
       .fleet-copilot-layout {
         display: grid;
-        grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+        grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
         gap: 1rem;
         min-height: 520px;
       }
@@ -2818,10 +2836,12 @@
         padding: 0.85rem;
         border-top: 1px solid var(--border-subtle);
         background: color-mix(in srgb, var(--bg) 70%, var(--panel));
+        max-width: 100%;
       }
 
       .fleet-copilot-composer input {
         flex: 1;
+        min-width: 0;
         padding: 0.65rem 0.85rem;
         border-radius: 10px;
         border: 1px solid var(--border-subtle);

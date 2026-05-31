@@ -85,6 +85,11 @@ function AppContent() {
   // Initialize theme (dark mode support)
   useTheme();
 
+  useEffect(() => {
+    document.body.classList.toggle('dnor-view-fleet-copilot', view === 'fleet-copilot');
+    return () => document.body.classList.remove('dnor-view-fleet-copilot');
+  }, [view]);
+
   const { data: live, error: liveError } = useLiveOverview();
   const { summary, catalog, reports, error: snapshotError } = useSnapshot();
   const { data: corootAlerts, error: corootError, lastFetchAt: corootFetchAt } = useCorootAlerts();
