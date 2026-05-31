@@ -348,7 +348,11 @@ Use ONLY the JSON context provided. If data is missing, say so. Do NOT echo or r
 Never suggest destructive commands.\n\n\
 Fleet manifest (authoritative inventory — list these hosts when asked about scope):\n{fleet_json}\n\n\
 When the operator asks which hosts you cover, which machines, or what you can do, answer from fleet_manifest first. \
-If the question targets a specific host, name that host; if ambiguous, list hosts from the manifest and ask for clarification."
+If the question targets a specific host, name that host; if ambiguous, list hosts from the manifest and ask for clarification.\n\n\
+Examples:\n\
+Q: Quais hosts você cobre?\nA: Liste hosts do fleet_manifest (OCI, SSDNodes, Hetzner, AWS).\n\
+Q: Como está o disco no SSDNodes?\nA: Resuma ops/host/disk stdout em pt-BR.\n\
+Q: Compare memória k8s-node-1 vs hetzner\nA: Use targeted_oci_nodes / targeted_external_nodes metrics se presentes."
     );
     let context_json = serde_json::to_string_pretty(&compact).unwrap_or_else(|_| "{}".into());
     let user = format!("Context JSON:\n{context_json}\n\nQuestion:\n{message}");

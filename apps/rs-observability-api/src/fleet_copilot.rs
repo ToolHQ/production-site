@@ -28,6 +28,16 @@ const MAX_BODY_MSG: usize = 4000;
 const RATE_WINDOW: Duration = Duration::from_secs(60);
 const RATE_MAX: usize = 10;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ChatIntent {
+    MetaCapabilities,
+    HostHealth,
+    K8sStatus,
+    SshAudit,
+    FleetCompare,
+    OciNodeQuery,
+}
+
 #[derive(Clone)]
 pub struct FleetCopilotState {
     login_key: String,
@@ -107,6 +117,10 @@ impl FleetCopilotState {
         self.session_token.clone()
     }
 
+    pub fn check_auth(&self, headers: &HeaderMap) -> bool {
+        self.is_authenticated(headers)
+    }
+
     fn is_authenticated(&self, headers: &HeaderMap) -> bool {
         let Some(raw) = headers.get(header::COOKIE) else {
             return false;
@@ -169,6 +183,77 @@ impl FleetCopilotState {
         }
     }
 
+    fn is_compare_message(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "compar", " vs ", " versus ", "entre ", " x ", "contra ",
+        ]
+        .iter()
+        .any(|n| m.contains(n))
+    }
+
+    /// T-334: routing server-side — preset UI é hint, intent manda nos endpoints.
+    fn resolve_intent(message: &str, preset: &str) -> ChatIntent {
+        if Self::skip_ops_fetch(message) {
+            return ChatIntent::MetaCapabilities;
+        }
+        let m = message.to_lowercase();
+        if Self::is_compare_message(message) {
+            return ChatIntent::FleetCompare;
+        }
+        if m.contains("k8s-node") || m.contains("k8s-master") {
+            return ChatIntent::OciNodeQuery;
+        }
+        if m.contains("ssh")
+            || m.contains("fail2ban")
+            || m.contains("bruteforce")
+            || preset == "ssdnodes-ssh"
+        {
+            return ChatIntent::SshAudit;
+        }
+        if m.contains("pod")
+            || m.contains("ingress")
+            || m.contains("warning")
+            || m.contains("namespace")
+            || (preset == "ssdnodes-k8s"
+                && !m.contains("disco")
+                && !m.contains("memória")
+                && !m.contains("memoria"))
+        {
+            return ChatIntent::K8sStatus;
+        }
+        if m.contains("hetzner")
+            || m.contains("aws")
+            || m.contains("honeypot")
+            || m.contains("172-31")
+        {
+            return ChatIntent::OciNodeQuery;
+        }
+        ChatIntent::HostHealth
+    }
+
+    fn intent_ops_paths(intent: ChatIntent) -> &'static [&'static str] {
+        match intent {
+            ChatIntent::MetaCapabilities | ChatIntent::OciNodeQuery | ChatIntent::FleetCompare => {
+                &[]
+            }
+            ChatIntent::K8sStatus => Self::preset_paths("ssdnodes-k8s"),
+            ChatIntent::SshAudit => Self::preset_paths("ssdnodes-ssh"),
+            ChatIntent::HostHealth => Self::preset_paths("ssdnodes-health"),
+        }
+    }
+
+    fn intent_label(intent: ChatIntent) -> &'static str {
+        match intent {
+            ChatIntent::MetaCapabilities => "meta_capabilities",
+            ChatIntent::HostHealth => "host_health",
+            ChatIntent::K8sStatus => "k8s_status",
+            ChatIntent::SshAudit => "ssh_audit",
+            ChatIntent::FleetCompare => "fleet_compare",
+            ChatIntent::OciNodeQuery => "oci_node_query",
+        }
+    }
+
     /// Perguntas sobre escopo/inventário — não buscar df/free no gateway (T-332).
     fn skip_ops_fetch(message: &str) -> bool {
         let m = message.to_lowercase();
@@ -187,12 +272,70 @@ impl FleetCopilotState {
             "o que voce",
             "o que faz",
             "o que cobre",
+            "o que consegue",
             "quais nodes",
             "which hosts",
             "what hosts",
+            "capabilities",
         ]
         .iter()
         .any(|needle| m.contains(needle))
+    }
+
+    fn format_node_metrics_line(name: &str, cluster: &str, metrics: &Value) -> Option<String> {
+        let cpu = metrics.get("cpu_percent")?.as_f64()?;
+        let mem_pct = metrics.get("mem_percent")?.as_f64()?;
+        let disk_pct = metrics.get("disk_percent")?.as_f64()?;
+        Some(format!(
+            "- {name} ({cluster}): CPU {cpu:.0}%, mem {mem_pct:.0}%, disco {disk_pct:.0}%"
+        ))
+    }
+
+    fn targeted_nodes(manifest: &Value) -> Vec<&Value> {
+        let mut out = Vec::new();
+        for key in ["targeted_oci_nodes", "targeted_external_nodes"] {
+            if let Some(arr) = manifest.get(key).and_then(|v| v.as_array()) {
+                for n in arr {
+                    out.push(n);
+                }
+            }
+        }
+        out
+    }
+
+    fn reply_from_targeted_metrics(manifest: &Value, intent: ChatIntent) -> Option<String> {
+        let nodes = Self::targeted_nodes(manifest);
+        if nodes.is_empty() {
+            return None;
+        }
+        let mut lines = Vec::new();
+        for node in &nodes {
+            let name = node.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+            let cluster = node.get("cluster").and_then(|v| v.as_str()).unwrap_or("?");
+            let metrics = node.get("metrics")?;
+            if let Some(line) = Self::format_node_metrics_line(name, cluster, metrics) {
+                lines.push(line);
+            }
+        }
+        if lines.is_empty() {
+            return None;
+        }
+        if intent == ChatIntent::FleetCompare && lines.len() >= 2 {
+            return Some(format!(
+                "Comparativo read-only (Prometheus/node_exporter):\n{}\n\nDados podem estar ausentes em masters ou hosts sem exporter.",
+                lines.join("\n")
+            ));
+        }
+        if nodes.len() == 1 && lines.len() == 1 {
+            return Some(format!(
+                "Métricas live read-only:\n{}\n\nFonte: Cluster Pulse / Prometheus.",
+                lines[0]
+            ));
+        }
+        if lines.len() >= 2 {
+            return Some(format!("Métricas live read-only:\n{}", lines.join("\n")));
+        }
+        None
     }
 
     /// Resposta imediata para perguntas de escopo (evita timeout do Ollama em CPU).
@@ -237,14 +380,18 @@ Pergunte por um host específico para métricas ou compare dois hosts."
         fleet_manifest: Value,
         message: &str,
     ) -> (Value, Vec<String>) {
-        let mut context = json!({ "fleet_manifest": fleet_manifest });
+        let intent = Self::resolve_intent(message, preset);
+        let mut context = json!({
+            "fleet_manifest": fleet_manifest,
+            "intent": Self::intent_label(intent),
+        });
         let mut sources = vec!["fleet_manifest".to_string()];
 
-        if Self::skip_ops_fetch(message) {
+        if intent == ChatIntent::MetaCapabilities {
             return (context, sources);
         }
 
-        let paths = Self::preset_paths(preset);
+        let paths = Self::intent_ops_paths(intent);
         for path in paths {
             match self.fetch_ops(path).await {
                 Ok(v) => {
@@ -258,6 +405,14 @@ Pergunte por um host específico para métricas ou compare dois hosts."
             }
         }
         (context, sources)
+    }
+
+    fn try_fast_reply(manifest: &Value, message: &str, preset: &str) -> Option<String> {
+        let intent = Self::resolve_intent(message, preset);
+        if intent == ChatIntent::MetaCapabilities {
+            return Some(Self::reply_from_manifest(manifest));
+        }
+        Self::reply_from_targeted_metrics(manifest, intent)
     }
 }
 
@@ -341,10 +496,16 @@ pub async fn copilot_chat(
     let preset = body.preset.as_deref().unwrap_or("ssdnodes-health");
     let started = Instant::now();
 
-    if FleetCopilotState::skip_ops_fetch(message) {
+    if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, message, preset) {
+        let intent = FleetCopilotState::resolve_intent(message, preset);
+        let model = if intent == ChatIntent::MetaCapabilities {
+            "fleet-manifest"
+        } else {
+            "fleet-metrics"
+        };
         return Ok(Json(ChatResponse {
-            reply: FleetCopilotState::reply_from_manifest(&fleet_manifest),
-            model: "fleet-manifest".into(),
+            reply,
+            model: model.into(),
             sources: vec!["fleet_manifest".into()],
             latency_ms: started.elapsed().as_millis() as u64,
         }));
@@ -442,8 +603,15 @@ pub async fn copilot_chat_stream(
 
         let started = Instant::now();
 
-        if FleetCopilotState::skip_ops_fetch(&message) {
-            let reply = FleetCopilotState::reply_from_manifest(&fleet_manifest);
+        if let Some(reply) =
+            FleetCopilotState::try_fast_reply(&fleet_manifest, &message, &preset)
+        {
+            let intent = FleetCopilotState::resolve_intent(&message, &preset);
+            let model = if intent == ChatIntent::MetaCapabilities {
+                "fleet-manifest"
+            } else {
+                "fleet-metrics"
+            };
             let sources = vec!["fleet_manifest".to_string()];
             let _ = send(
                 Event::default()
@@ -457,7 +625,7 @@ pub async fn copilot_chat_stream(
                     .data(
                         json!({
                             "reply": reply,
-                            "model": "fleet-manifest",
+                            "model": model,
                             "sources": ["fleet_manifest"],
                             "latency_ms": started.elapsed().as_millis() as u64,
                         })
@@ -639,6 +807,7 @@ pub async fn copilot_chat_stream(
 #[cfg(test)]
 mod tests {
     use super::FleetCopilotState;
+    use serde_json::json;
 
     #[test]
     fn skip_ops_for_meta_questions() {
@@ -648,6 +817,45 @@ mod tests {
         assert!(!FleetCopilotState::skip_ops_fetch(
             "Como está o disco no SSDNodes?"
         ));
+    }
+
+    #[test]
+    fn intent_routes_k8s_questions() {
+        assert_eq!(
+            FleetCopilotState::resolve_intent("pods not running?", "ssdnodes-health"),
+            super::ChatIntent::K8sStatus
+        );
+        assert_eq!(
+            FleetCopilotState::resolve_intent("memória k8s-node-1", "ssdnodes-health"),
+            super::ChatIntent::OciNodeQuery
+        );
+        assert_eq!(
+            FleetCopilotState::resolve_intent(
+                "Compare disco SSDNodes vs hetzner",
+                "ssdnodes-health"
+            ),
+            super::ChatIntent::FleetCompare
+        );
+    }
+
+    #[test]
+    fn metrics_fast_reply_from_targeted_nodes() {
+        let manifest = json!({
+            "targeted_oci_nodes": [{
+                "name": "k8s-node-1",
+                "cluster": "OCI",
+                "metrics": {
+                    "cpu_percent": 12.0,
+                    "mem_percent": 45.0,
+                    "disk_percent": 60.0
+                }
+            }]
+        });
+        let reply = FleetCopilotState::reply_from_targeted_metrics(
+            &manifest,
+            super::ChatIntent::OciNodeQuery,
+        );
+        assert!(reply.unwrap().contains("k8s-node-1"));
     }
 }
 

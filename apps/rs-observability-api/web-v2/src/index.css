@@ -2754,6 +2754,25 @@
         border-top: 1px solid var(--border-subtle);
       }
 
+      .fleet-copilot-host-select {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-top: 0.75rem;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      .fleet-copilot-host-select select {
+        width: 100%;
+        padding: 0.45rem 0.55rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-subtle);
+        background: var(--panel-elevated, var(--panel));
+        color: var(--text);
+        font-size: 0.82rem;
+      }
+
       .fleet-copilot-help summary {
         cursor: pointer;
         font-size: 0.78rem;

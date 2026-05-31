@@ -91,8 +91,8 @@ else
       meta_hits=$((meta_hits + 1))
     fi
   done
-  if echo "$meta_reply" | grep -q 'fleet-manifest'; then
-    ok "T-332 meta reply via fleet-manifest fast path"
+  if echo "$meta_reply" | grep -qE 'fleet-manifest|fleet-metrics'; then
+    ok "T-332 meta reply via fleet fast path"
   elif [[ "$meta_hits" -ge 3 ]] && ! echo "$meta_lower" | grep -qE 'filesystem|/dev/|avail'; then
     ok "T-332 meta hosts reply mentions fleet ($meta_hits markers)"
   elif [[ "$meta_hits" -ge 2 ]]; then

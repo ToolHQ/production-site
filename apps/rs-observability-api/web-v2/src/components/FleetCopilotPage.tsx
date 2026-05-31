@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useDnorShell } from '../context/DnorShellContext';
 import { useFleetCopilot } from '../context/FleetCopilotContext';
 import {
@@ -6,7 +6,7 @@ import {
   useFleetChat,
   type FleetPreset,
 } from '../hooks/useFleetChat';
-import { SSDNODES_HOSTNAME } from '../constants/fleetHosts';
+import { SSDNODES_HOSTNAME, FLEET_CHAT_HOSTS } from '../constants/fleetHosts';
 
 const PRESETS: { id: FleetPreset; icon: string; title: string; hint: string }[] = [
   {
@@ -64,6 +64,7 @@ export function FleetCopilotPage() {
   } = useFleetChat();
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [focusHost, setFocusHost] = useState('');
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -177,6 +178,22 @@ export function FleetCopilotPage() {
                 </button>
               ))}
             </div>
+            <label class="fleet-copilot-host-select">
+              <span>Foco no nó</span>
+              <select
+                value={focusHost}
+                disabled={loading}
+                onChange={(e) => setFocusHost((e.target as HTMLSelectElement).value)}
+                aria-label="Selecionar nó da fleet"
+              >
+                <option value="">Todos / inferir da pergunta</option>
+                {FLEET_CHAT_HOSTS.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div class="fleet-copilot-sidebar__foot">
               <button
                 type="button"
@@ -275,7 +292,11 @@ export function FleetCopilotPage() {
                 e.preventDefault();
                 const value = inputRef.current?.value ?? '';
                 if (inputRef.current) inputRef.current.value = '';
-                void send(value, preset);
+                let msg = value.trim();
+                if (focusHost && !msg.toLowerCase().includes(focusHost.toLowerCase())) {
+                  msg = `${msg} (${focusHost})`.trim();
+                }
+                if (msg) void send(msg, preset);
               }}
             >
               <input
