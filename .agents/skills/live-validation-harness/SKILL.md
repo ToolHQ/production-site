@@ -11,7 +11,7 @@ Use este fluxo quando a task exigir **evidência real em produção** e não ape
 
 1. Carregar skill de conexão: `.agents/skills/connect-to-cluster/SKILL.md`
 2. Carregar skill de deploy: `.agents/skills/deploy-service/SKILL.md`
-3. MCP navegador habilitado em `.vscode/mcp.json` (`chromeDevtools` com `--acceptInsecureCerts`)
+3. MCP navegador habilitado em `.cursor/mcp.json` (Cursor) e `.vscode/mcp.json` (VS Code) — `chromeDevtools` com Node 22 + `--acceptInsecureCerts`
 
 ## Passo a passo canônico
 
@@ -44,7 +44,22 @@ curl -fsS https://reports.dnor.io/api/live/overview
 - Confirmar badge de cluster coerente para nós externos
 - Confirmar export CSV/JSON com os novos campos
 
-## Atalho de execução
+## Atalho Fleet Copilot (T-315 / T-323 / T-325)
+
+```bash
+source oci-k8s-cluster/scripts/setup-dev-deploy.sh
+export KUBECONFIG=~/production-site-cursor/oci-k8s-cluster/kubeconfig_tunnel.yaml
+# Opcional se kubectl secret indisponível:
+# export FLEET_COPILOT_LOGIN_KEY=...
+
+bash scripts/harness/validate_fleet_copilot.sh
+```
+
+Checks: gateway monstro, login 302, session, SSE phase, **CSS/JS T-325**, secret + imagem (skip se API down).
+
+Validação visual via MCP (`cursor-ide-browser`): abrir `/#fleet-copilot`, screenshot, CDP `getComputedStyle(main)` — largura ≤920px em viewport ≥2200px.
+
+## Atalho rs-observability (geral)
 
 Script local para simplificar o fluxo:
 
