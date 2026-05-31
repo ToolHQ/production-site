@@ -76,7 +76,9 @@ async fn copilot_chat_stream_route(
     headers: axum::http::HeaderMap,
     body: Json<fleet_copilot::ChatRequest>,
 ) -> Result<
-    axum::response::sse::Sse<impl futures_util::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>>,
+    axum::response::sse::Sse<
+        impl futures_util::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
+    >,
     StatusCode,
 > {
     let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
