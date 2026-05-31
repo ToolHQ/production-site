@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install_fleet_ops_gateway.sh — Build/deploy fleet-ops-gateway on ssdnodes-monstro (T-321c).
+# install_fleet_ops_gateway.sh — Build/deploy fleet-ops-gateway on SSDNodes (ssdnodes-6a12f10c9ef11).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"

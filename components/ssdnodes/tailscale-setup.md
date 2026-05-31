@@ -1,4 +1,4 @@
-# Tailscale — ssdnodes-monstro (T-320e)
+# Tailscale — SSDNodes / ssdnodes-6a12f10c9ef11 (T-320e)
 
 ## Estado (2026-05-30)
 
@@ -16,12 +16,12 @@
 
 ## ACL recomendada (admin console Tailscale)
 
-Restringir `:8443` no monstro a:
+Restringir `:8443` no host SSDNodes a:
 
 - Tag `tag:oci-reports` (pods rs-observability-api) **ou**
 - IPs Tailscale dos nós OCI
 
-Deny default para internet → monstro:8443.
+Deny default para internet → SSDNodes:8443.
 
 ## Instalação (referência)
 
@@ -30,7 +30,7 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up --auth-key=<KEY> --hostname=ssdnodes-6a12f10c9ef11
 ```
 
-## Teste OCI → monstro
+## Teste OCI → SSDNodes
 
 ```bash
 # De um nó OCI com Tailscale:

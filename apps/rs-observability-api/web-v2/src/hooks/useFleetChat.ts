@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 
+import { SSDNODES_HOSTNAME } from '../constants/fleetHosts';
+
 const STORAGE_KEY = 'fleet-copilot-messages-v1';
 const MAX_MESSAGES = 20;
 
 export const PRESET_PROMPTS = {
-  'ssdnodes-health': 'Como estão disco, memória e carga no SSDNodes agora?',
-  'ssdnodes-k8s': 'Há pods não Running, ingress ou warnings no cluster SSDNodes?',
-  'ssdnodes-ssh': 'Resuma tentativas SSH suspeitas nas últimas 24h no monstro.',
+  'ssdnodes-health': `Como estão disco, memória e carga no host ${SSDNODES_HOSTNAME} agora?`,
+  'ssdnodes-k8s': `Há pods não Running, ingress ou warnings no cluster K8s em ${SSDNODES_HOSTNAME}?`,
+  'ssdnodes-ssh': `Resuma tentativas SSH suspeitas nas últimas 24h em ${SSDNODES_HOSTNAME}.`,
 } as const;
 
 export type FleetPreset = keyof typeof PRESET_PROMPTS;

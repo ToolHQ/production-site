@@ -30,7 +30,8 @@
 | [T-329](2026/Q2/T-329-Fleet-Copilot-Phase2-Backlog-Epic.md) | **Fleet Copilot — índice fase 2** _(T-326–328, T-322e, hardening)_ | 🔵 Medium | 1–2w |
 | [T-327](2026/Q2/T-327-Fleet-Copilot-Inference-Loading-UX.md) | **Fleet Copilot — UX loading inferência (~3 min Gemma)** | 🔼 High | 4h |
 | [T-328](2026/Q2/T-328-Fleet-Copilot-E2E-Playwright.md) | **Fleet Copilot — smoke Playwright + mock SSE** | 🔵 Medium | 6h |
-| [T-326](2026/Q2/T-326-DNOR-Shell-Reading-Width-All-Views.md) | **DNOR shell — max-width leitura em Overview/Nodes/Intel** | 🔵 Medium | 3h |
+| [T-330](2026/Q2/T-330-SSDNodes-Canonical-Hostname-Rename.md) | **SSDNodes — hostname canônico ssdnodes-6a12f10c9ef11 (UI + registry)** | 🔼 High | Cursor / AI Radar | 2h |
+| [T-331](2026/Q2/T-331-SSDNodes-SSH-Alias-Canonical-Hostname.md) | **SSDNodes — SSH alias canônico (~/.ssh/config)** | 🔵 Medium | DevExp | 30min |
 | [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional, pós-MVP + pentest)** | 🔵 Medium | 2d |
 
 | ID  | Task Name | Priority | Epic | Est. |
@@ -59,7 +60,7 @@
 | [T-321](2026/Q2/T-321-Fleet-Ops-Gateway-Ollama-SSDNodes.md) | **Fleet Copilot — Ops Gateway + Ollama @ monstro** _(gemma3:4b localhost, gateway :18443, IaC scripts)_ | 🔼 High | Cursor / AI Radar | 3d |
 | [T-322](2026/Q2/T-322-Fleet-Copilot-Proxy-Reports-API.md) | **Fleet Copilot — Proxy rs-observability-api** _(auth cookie, rate limit, /api/fleet/chat + /stream; audit Postgres backlog)_ | 🔼 High | Cursor / AI Radar | 3d |
 | [T-323](2026/Q2/T-323-Fleet-Copilot-UI-Reports.md) | **Fleet Copilot — UI reports** _(view #fleet-copilot, presets, SSE tokens, source pills; PR #367)_ | 🔼 High | Cursor / AI Radar | 2d |
-| [T-325](2026/Q2/T-325-Fleet-Copilot-UltraWide-Max-Width.md) | **Fleet Copilot — max-width ultra-wide** _(page 1200px, bubbles 42rem; legibilidade)_ | 🔵 Medium | Cursor / AI Radar | 2h |
+| [T-330](2026/Q2/T-330-SSDNodes-Canonical-Hostname-Rename.md) | **SSDNodes — hostname canônico (UI Copilot + registry + harness)** _(PR #374; depreca apelido monstro na UI)_ | 🔼 High | Cursor / AI Radar | 2h |
 
 |                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |

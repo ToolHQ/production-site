@@ -55,7 +55,7 @@ export KUBECONFIG=~/production-site-cursor/oci-k8s-cluster/kubeconfig_tunnel.yam
 bash scripts/harness/validate_fleet_copilot.sh
 ```
 
-Checks: gateway monstro, login 302, session, SSE phase, **CSS/JS T-325**, secret + imagem (skip se API down).
+Checks: gateway SSDNodes, login 302, session, SSE phase, **CSS/JS T-325**, secret + imagem (skip se API down).
 
 Validação visual via MCP (`cursor-ide-browser`): abrir `/#fleet-copilot`, screenshot, CDP `getComputedStyle(main)` — largura ≤920px em viewport ≥2200px.
 

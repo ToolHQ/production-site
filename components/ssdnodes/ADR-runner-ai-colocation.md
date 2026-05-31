@@ -6,7 +6,7 @@
 
 ## Contexto
 
-`ssdnodes-monstro` roda simultaneamente:
+`ssdnodes-6a12f10c9ef11` (SSDNodes @ 104.225.218.78) roda simultaneamente:
 
 - Cluster K8s (MinIO 500 GiB, ingress, Dashboard, Kubecost)
 - GitHub Actions runner `ssdnodes` (CodeQL x86_64)

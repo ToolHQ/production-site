@@ -1,6 +1,8 @@
 # Fleet Copilot — Deploy runbook
 
-## SSDNodes (monstro)
+## SSDNodes (`ssdnodes-6a12f10c9ef11`)
+
+Host dedicado @ `104.225.218.78`. SSH alias ops: `ssdnodes-monstro`.
 
 ```bash
 # Ollama (localhost only)

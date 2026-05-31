@@ -40,4 +40,4 @@ kubectl auth can-i delete pods --all-namespaces \
 - SSH 7d brute force attempts: **~79k** (Invalid user / Failed password)
 - Pré-hardening: `PasswordAuthentication yes`, `PermitRootLogin yes`
 - UFW host já tinha 9100 OCI + Tailscale ingress (drift corrigido no IaC `ufw_manager.sh`)
-- Tailscale: **active** no monstro
+- Tailscale: **active** no SSDNodes

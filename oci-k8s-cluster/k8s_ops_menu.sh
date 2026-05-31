@@ -4123,11 +4123,11 @@ show_hardening_menu() {
       "5" "Re-apply Control Plane Hardening (T-192)" \
       "6" "Vacuum Old Journals (All Nodes, >7d)" \
       "7" "Vacuum Old Journals (Single Node)" \
-      "8" "🔥 Firewall UFW — ssdnodes-monstro (Status)" \
-      "9" "🔥 Firewall UFW — ssdnodes-monstro (Aplicar Regras)" \
-      "10" "🚀 Deploy K8s Dashboard — ssdnodes-monstro (k8s.ssdnodes.dnor.io)" \
-      "11" "🚀 Deploy Kubecost — ssdnodes-monstro (cost.ssdnodes.dnor.io)" \
-      "12" "📋 Status componentes ssdnodes-monstro" \
+      "8" "🔥 Firewall UFW — ssdnodes-6a12f10c9ef11 (Status)" \
+      "9" "🔥 Firewall UFW — ssdnodes-6a12f10c9ef11 (Aplicar Regras)" \
+      "10" "🚀 Deploy K8s Dashboard — SSDNodes (k8s.ssdnodes.dnor.io)" \
+      "11" "🚀 Deploy Kubecost — SSDNodes (cost.ssdnodes.dnor.io)" \
+      "12" "📋 Status componentes SSDNodes" \
       "13" "🔐 SSDNodes SSH harden + fail2ban (T-320a)" \
       "14" "👁 Dashboard view-only RBAC (T-320d)" \
       "0" "Back" 3>&1 1>&2 2>&3)
@@ -4231,7 +4231,7 @@ show_hardening_menu() {
       8)
         # Firewall UFW — ssdnodes-monstro: Status
         clear
-        bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-monstro --status
+        bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-6a12f10c9ef11 --status
         read -p "Press Enter..."
         ;;
       9)
@@ -4240,10 +4240,10 @@ show_hardening_menu() {
         echo -e "${YELLOW}⚠️  Porta 22 permanece aberta (safety net).${NC}"
         echo -e "${YELLOW}    Todas as outras conexões da internet serão bloqueadas.${NC}"
         echo ""
-        if whiptail --title "Firewall UFW — ssdnodes-monstro" \
-            --yesno "Aplicar regras UFW em ssdnodes-monstro?\n\n- Porta 22: ABERTA para qualquer IP\n- Portas 80/443: só IPs autorizados\n- Porta 6443: só admin IP\n- Todo o resto: BLOQUEADO" \
+        if whiptail --title "Firewall UFW — ssdnodes-6a12f10c9ef11" \
+            --yesno "Aplicar regras UFW em ssdnodes-6a12f10c9ef11?\n\n- Porta 22: ABERTA para qualquer IP\n- Portas 80/443: só IPs autorizados\n- Porta 6443: só admin IP\n- Todo o resto: BLOQUEADO" \
             15 65; then
-            bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-monstro --apply
+            bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-6a12f10c9ef11 --apply
         else
             echo "Cancelado."
         fi
