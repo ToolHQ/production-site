@@ -782,22 +782,6 @@ pub async fn copilot_chat_stream(
                     if event_name == "done" {
                         if let Ok(mut val) = serde_json::from_str::<Value>(&data) {
                             if let Some(obj) = val.as_object_mut() {
-                                let raw = obj
-                                    .get("reply")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("");
-                                let merged = if streamed_reply.len() > raw.len() {
-                                    streamed_reply.as_str()
-                                } else {
-                                    raw
-                                };
-                                obj.insert(
-                                    "reply".into(),
-                                    json!(FleetCopilotState::sanitize_model_reply(
-                                        merged,
-                                        &sources
-                                    )),
-                                );
                                 obj.insert("sources".into(), json!(sources));
                                 obj.insert(
                                     "latency_ms".into(),
