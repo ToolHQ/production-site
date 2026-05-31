@@ -31,6 +31,7 @@ const RATE_MAX: usize = 10;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ChatIntent {
     MetaCapabilities,
+    FleetResources,
     HostHealth,
     K8sStatus,
     SshAudit,
@@ -198,6 +199,9 @@ impl FleetCopilotState {
             return ChatIntent::MetaCapabilities;
         }
         let m = message.to_lowercase();
+        if Self::is_fleet_resources_message(message) {
+            return ChatIntent::FleetResources;
+        }
         if Self::is_compare_message(message) {
             return ChatIntent::FleetCompare;
         }
@@ -237,15 +241,18 @@ impl FleetCopilotState {
             ChatIntent::MetaCapabilities | ChatIntent::OciNodeQuery | ChatIntent::FleetCompare => {
                 &[]
             }
+            ChatIntent::FleetResources | ChatIntent::HostHealth => {
+                Self::preset_paths("ssdnodes-health")
+            }
             ChatIntent::K8sStatus => Self::preset_paths("ssdnodes-k8s"),
             ChatIntent::SshAudit => Self::preset_paths("ssdnodes-ssh"),
-            ChatIntent::HostHealth => Self::preset_paths("ssdnodes-health"),
         }
     }
 
     fn intent_label(intent: ChatIntent) -> &'static str {
         match intent {
             ChatIntent::MetaCapabilities => "meta_capabilities",
+            ChatIntent::FleetResources => "fleet_resources",
             ChatIntent::HostHealth => "host_health",
             ChatIntent::K8sStatus => "k8s_status",
             ChatIntent::SshAudit => "ssh_audit",
@@ -280,6 +287,167 @@ impl FleetCopilotState {
         ]
         .iter()
         .any(|needle| m.contains(needle))
+    }
+
+    /// Perguntas vagas sobre recursos/status — fast-path estruturado (T-335).
+    fn is_fleet_resources_message(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "como estão os recursos",
+            "como estao os recursos",
+            "como estão os recursos",
+            "status da fleet",
+            "situação da fleet",
+            "situacao da fleet",
+            "visão geral",
+            "visao geral",
+            "panorama",
+            "health geral",
+            "como está a infra",
+            "como esta a infra",
+            "como estão as máquinas",
+            "como estao as maquinas",
+        ]
+        .iter()
+        .any(|n| m.contains(n))
+            || (m.contains("recursos")
+                && !m.contains("k8s-node")
+                && !m.contains("ssdnodes-6a12f10c"))
+    }
+
+    fn ops_stdout_excerpt(context: &Value, key: &str, max_lines: usize) -> Option<String> {
+        let stdout = context
+            .get(key)?
+            .get("stdout")?
+            .as_str()?
+            .trim();
+        if stdout.is_empty() {
+            return None;
+        }
+        let lines: Vec<&str> = stdout
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .take(max_lines)
+            .collect();
+        if lines.is_empty() {
+            return None;
+        }
+        Some(lines.join("\n"))
+    }
+
+    fn metrics_lines_from_array(nodes: &[Value]) -> Vec<String> {
+        let mut lines = Vec::new();
+        for node in nodes {
+            let name = node
+                .get("name")
+                .or_else(|| node.get("id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("?");
+            let cluster = node.get("cluster").and_then(|v| v.as_str()).unwrap_or("?");
+            if let Some(metrics) = node.get("metrics") {
+                if let Some(line) = Self::format_node_metrics_line(name, cluster, metrics) {
+                    lines.push(line);
+                }
+            }
+        }
+        lines
+    }
+
+    /// Resposta determinística a partir do contexto coletado — evita Gemma (T-335).
+    fn structured_reply(
+        manifest: &Value,
+        context: &Value,
+        message: &str,
+        preset: &str,
+    ) -> Option<String> {
+        let intent = Self::resolve_intent(message, preset);
+        if intent == ChatIntent::MetaCapabilities {
+            return Some(Self::reply_from_manifest(manifest));
+        }
+        if let Some(reply) = Self::reply_from_targeted_metrics(manifest, intent) {
+            return Some(reply);
+        }
+
+        let mut parts = vec!["Resumo read-only (sem inferência LLM):".to_string()];
+
+        match intent {
+            ChatIntent::HostHealth | ChatIntent::FleetResources => {
+                for (key, label) in [
+                    ("ops/host/disk", "SSDNodes — disco"),
+                    ("ops/host/memory", "SSDNodes — memória"),
+                    ("ops/host/load", "SSDNodes — carga"),
+                ] {
+                    if let Some(excerpt) = Self::ops_stdout_excerpt(context, key, 8) {
+                        parts.push(format!("{label}:\n{excerpt}"));
+                    }
+                }
+            }
+            ChatIntent::K8sStatus => {
+                for (key, label) in [
+                    ("ops/k8s/pods-not-running", "Pods não Running"),
+                    ("ops/k8s/warnings", "Warnings"),
+                    ("ops/k8s/nodes", "Nodes"),
+                ] {
+                    if let Some(excerpt) = Self::ops_stdout_excerpt(context, key, 12) {
+                        parts.push(format!("{label}:\n{excerpt}"));
+                    }
+                }
+            }
+            ChatIntent::SshAudit => {
+                if let Some(excerpt) = Self::ops_stdout_excerpt(context, "ops/host/ssh-recent", 15)
+                {
+                    parts.push(format!("SSH recente:\n{excerpt}"));
+                }
+            }
+            _ => {}
+        }
+
+        if let Some(snapshot) = manifest
+            .get("fleet_metrics_snapshot")
+            .and_then(|v| v.as_array())
+        {
+            let metric_lines = Self::metrics_lines_from_array(snapshot);
+            if !metric_lines.is_empty() {
+                parts.push(format!(
+                    "Prometheus (node_exporter):\n{}",
+                    metric_lines.join("\n")
+                ));
+            }
+        }
+
+        if parts.len() > 1 {
+            parts.push(
+                "Para análise mais profunda, cite um host (@k8s-node-1) ou use consulta rápida na barra lateral."
+                    .into(),
+            );
+            return Some(parts.join("\n\n"));
+        }
+        None
+    }
+
+    fn finalize_reply(
+        reply: &str,
+        context: Option<&Value>,
+        manifest: &Value,
+        sources: &[String],
+        message: &str,
+        preset: &str,
+    ) -> String {
+        let trimmed = reply.trim();
+        let looks_ok = trimmed.len() >= 20
+            && !trimmed.to_lowercase().contains("context json")
+            && !trimmed.contains("Filesystem     Size")
+            && trimmed.matches('{').count() < 4;
+        if looks_ok {
+            return trimmed.to_string();
+        }
+        if let Some(ctx) = context {
+            if let Some(structured) = Self::structured_reply(manifest, ctx, message, preset) {
+                return structured;
+            }
+        }
+        Self::weak_model_fallback(sources)
     }
 
     fn format_node_metrics_line(name: &str, cluster: &str, metrics: &Value) -> Option<String> {
@@ -415,23 +583,20 @@ Pergunte por um host específico para métricas ou compare dois hosts."
         Self::reply_from_targeted_metrics(manifest, intent)
     }
 
-    /// T-334: evita respostas vazias/eco do Gemma.
-    fn sanitize_model_reply(reply: &str, sources: &[String]) -> String {
+    /// T-334: evita respostas vazias/eco do Gemma — fallback para structured se possível.
+    fn sanitize_model_reply(
+        reply: &str,
+        sources: &[String],
+        context: Option<&Value>,
+        manifest: Option<&Value>,
+        message: &str,
+        preset: &str,
+    ) -> String {
+        if let Some(m) = manifest {
+            return Self::finalize_reply(reply, context, m, sources, message, preset);
+        }
         let trimmed = reply.trim();
         if trimmed.len() < 20 {
-            return Self::weak_model_fallback(sources);
-        }
-        let lc = trimmed.to_lowercase();
-        if lc.contains("context json")
-            || lc.contains("\"stdout\"")
-            || lc.contains("filesystem     size")
-            || trimmed.matches('{').count() >= 4
-        {
-            return Self::weak_model_fallback(sources);
-        }
-        if (lc.contains("como assistente") || lc.contains("as an ai"))
-            && trimmed.len() < 120
-        {
             return Self::weak_model_fallback(sources);
         }
         trimmed.to_string()
@@ -547,8 +712,19 @@ pub async fn copilot_chat(
     }
 
     let (context, sources) = fc
-        .collect_context(preset, fleet_manifest, message)
+        .collect_context(preset, fleet_manifest.clone(), message)
         .await;
+
+    if let Some(reply) =
+        FleetCopilotState::structured_reply(&fleet_manifest, &context, message, preset)
+    {
+        return Ok(Json(ChatResponse {
+            reply,
+            model: "fleet-structured".into(),
+            sources,
+            latency_ms: started.elapsed().as_millis() as u64,
+        }));
+    }
 
     let url = format!("{}/internal/chat", fc.gateway_url.trim_end_matches('/'));
     let chat_resp = fc
@@ -576,6 +752,10 @@ pub async fn copilot_chat(
             .as_str()
             .unwrap_or("Sem resposta do modelo."),
         &sources,
+        Some(&context),
+        context.get("fleet_manifest"),
+        message,
+        preset,
     );
     let model = parsed["model"].as_str().unwrap_or("gemma3:4b").to_string();
 
@@ -623,6 +803,7 @@ pub async fn copilot_chat_stream(
         .to_string();
     let fc = fc.clone();
     let message = message.to_string();
+    let fleet_manifest_for_reply = fleet_manifest.clone();
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
     tokio::spawn(async move {
@@ -677,6 +858,35 @@ pub async fn copilot_chat_stream(
             .collect_context(&preset, fleet_manifest, &message)
             .await;
 
+        if let Some(reply) = FleetCopilotState::structured_reply(
+            &fleet_manifest_for_reply,
+            &context,
+            &message,
+            &preset,
+        ) {
+            let _ = send(
+                Event::default()
+                    .event("phase")
+                    .data(json!({ "phase": "infer", "sources": sources.clone() }).to_string()),
+            )
+            .await;
+            let _ = send(
+                Event::default()
+                    .event("done")
+                    .data(
+                        json!({
+                            "reply": reply,
+                            "model": "fleet-structured",
+                            "sources": sources,
+                            "latency_ms": started.elapsed().as_millis() as u64,
+                        })
+                        .to_string(),
+                    ),
+            )
+            .await;
+            return;
+        }
+
         if !send(
             Event::default()
                 .event("phase")
@@ -729,6 +939,9 @@ pub async fn copilot_chat_stream(
         let mut streamed_reply = String::new();
 
         let sources_for_sanitize = sources.clone();
+        let context_for_sanitize = context.clone();
+        let message_for_sanitize = message.clone();
+        let preset_for_sanitize = preset.clone();
 
         let mut forward_block = |event_name: &str, mut data: String| -> bool {
             if event_name == "token" {
@@ -755,7 +968,11 @@ pub async fn copilot_chat_stream(
                             "reply".into(),
                             json!(FleetCopilotState::sanitize_model_reply(
                                 merged,
-                                &sources_for_sanitize
+                                &sources_for_sanitize,
+                                Some(&context_for_sanitize),
+                                context_for_sanitize.get("fleet_manifest"),
+                                &message_for_sanitize,
+                                &preset_for_sanitize,
                             )),
                         );
                     }
@@ -837,7 +1054,14 @@ pub async fn copilot_chat_stream(
         }
 
         if !got_done && !streamed_reply.is_empty() {
-            let reply = FleetCopilotState::sanitize_model_reply(&streamed_reply, &sources);
+            let reply = FleetCopilotState::sanitize_model_reply(
+                &streamed_reply,
+                &sources,
+                Some(&context),
+                context.get("fleet_manifest"),
+                &message,
+                &preset,
+            );
             let _ = send(
                 Event::default().event("done").data(
                     json!({
@@ -922,8 +1146,42 @@ mod tests {
     #[test]
     fn sanitize_replaces_echo_reply() {
         let weak = "Context JSON: {\"stdout\": \"Filesystem\"}";
-        let out = FleetCopilotState::sanitize_model_reply(&weak, &["/ops/host/disk".into()]);
-        assert!(out.contains("genérica ou incompleta"));
+        let ctx = json!({
+            "ops/host/disk": { "stdout": "Filesystem      Size  Used Avail Use%\n/dev/sda1        1T  100G  900G  10% /" }
+        });
+        let manifest = json!({ "hosts": [] });
+        let out = FleetCopilotState::sanitize_model_reply(
+            weak,
+            &["/ops/host/disk".into()],
+            Some(&ctx),
+            Some(&manifest),
+            "disco?",
+            "ssdnodes-health",
+        );
+        assert!(out.contains("SSDNodes") || out.contains("/dev/"));
+    }
+
+    #[test]
+    fn fleet_resources_intent() {
+        assert_eq!(
+            FleetCopilotState::resolve_intent("Como estão os recursos?", "ssdnodes-health"),
+            super::ChatIntent::FleetResources
+        );
+    }
+
+    #[test]
+    fn structured_reply_from_ops() {
+        let ctx = json!({
+            "ops/host/memory": { "stdout": "Mem: 64Gi total, 32Gi used" }
+        });
+        let manifest = json!({ "hosts": [] });
+        let reply = FleetCopilotState::structured_reply(
+            &manifest,
+            &ctx,
+            "Como estão os recursos?",
+            "ssdnodes-health",
+        );
+        assert!(reply.unwrap().contains("memória"));
     }
 }
 

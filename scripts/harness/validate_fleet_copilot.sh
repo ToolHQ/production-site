@@ -120,6 +120,16 @@ else
   else
     bad "T-333 compare reply weak: $(echo "$cmp_reply" | head -c 180)"
   fi
+
+  res_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 45 \
+    -X POST "$REPORTS_URL/api/fleet/chat" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"Como estão os recursos?","preset":"ssdnodes-health"}' 2>/dev/null || true)
+  if echo "$res_reply" | grep -qE 'fleet-structured|SSDNodes|Prometheus|sem inferência'; then
+    ok "T-335 fleet resources structured reply"
+  else
+    bad "T-335 resources reply weak: $(echo "$res_reply" | head -c 200)"
+  fi
 fi
 
 # T-325 / UI delivery — assets live (não depende de kubectl)

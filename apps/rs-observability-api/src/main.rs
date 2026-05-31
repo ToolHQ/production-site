@@ -58,6 +58,28 @@ fn is_compare_message(message: &str) -> bool {
         .any(|n| m.contains(n))
 }
 
+fn is_fleet_wide_resources_message(message: &str) -> bool {
+    let m = message.to_lowercase();
+    [
+        "como estão os recursos",
+        "como estao os recursos",
+        "status da fleet",
+        "situação da fleet",
+        "situacao da fleet",
+        "visão geral",
+        "visao geral",
+        "panorama",
+        "health geral",
+        "como está a infra",
+        "como esta a infra",
+    ]
+    .iter()
+    .any(|n| m.contains(n))
+        || (m.contains("recursos")
+            && !m.contains("k8s-node")
+            && !m.contains("ssdnodes-6a12f10c"))
+}
+
 fn match_manifest_host_ids(needle: &str, manifest: &Value, compare: bool) -> Vec<String> {
     let Some(hosts) = manifest.get("hosts").and_then(|h| h.as_array()) else {
         return Vec::new();
@@ -241,13 +263,53 @@ impl AppState {
         message: &str,
     ) -> Value {
         let needle = message.to_lowercase();
+        let metrics = self.prometheus_monitor.fetch_node_metrics().await;
+
+        if is_fleet_wide_resources_message(message) {
+            let mut snapshot: Vec<Value> = Vec::new();
+            if let Some(lm) = &self.live_monitor {
+                let live = lm.cached_or_refresh().await;
+                if live.available {
+                    for node in &live.nodes {
+                        let m = metrics.get(&node.name).cloned().unwrap_or_default();
+                        snapshot.push(json!({
+                            "name": node.name,
+                            "cluster": node.cluster,
+                            "metrics": m,
+                        }));
+                    }
+                }
+            }
+            for spec in external_node_specs() {
+                let id = if spec.id.is_empty() {
+                    spec.fallback_name.clone()
+                } else {
+                    spec.id.clone()
+                };
+                let m = metrics
+                    .get(&spec.fallback_name)
+                    .or_else(|| metrics.get(&spec.instance_host))
+                    .or_else(|| spec.endpoint_ip.as_ref().and_then(|ip| metrics.get(ip)))
+                    .cloned()
+                    .unwrap_or_default();
+                snapshot.push(json!({
+                    "id": id,
+                    "name": spec.fallback_name,
+                    "cluster": spec.cluster,
+                    "metrics": m,
+                }));
+            }
+            if let Some(obj) = manifest.as_object_mut() {
+                obj.insert("fleet_metrics_snapshot".into(), json!(snapshot));
+            }
+        }
+
         let compare = is_compare_message(message);
         let matched_ids = match_manifest_host_ids(&needle, &manifest, compare);
         if matched_ids.is_empty() {
             return manifest;
         }
 
-        let metrics = self.prometheus_monitor.fetch_node_metrics().await;
         let mut targeted_oci = Vec::new();
         let mut targeted_external = Vec::new();
 
