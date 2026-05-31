@@ -86,8 +86,13 @@ function AppContent() {
   useTheme();
 
   useEffect(() => {
-    document.body.classList.toggle('dnor-view-fleet-copilot', view === 'fleet-copilot');
-    return () => document.body.classList.remove('dnor-view-fleet-copilot');
+    const on = view === 'fleet-copilot';
+    document.body.classList.toggle('dnor-view-fleet-copilot', on);
+    document.documentElement.classList.toggle('dnor-view-fleet-copilot', on);
+    return () => {
+      document.body.classList.remove('dnor-view-fleet-copilot');
+      document.documentElement.classList.remove('dnor-view-fleet-copilot');
+    };
   }, [view]);
 
   const { data: live, error: liveError } = useLiveOverview();

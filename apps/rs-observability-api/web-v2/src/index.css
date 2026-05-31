@@ -2409,9 +2409,11 @@
       }
 
       /* T-325 v4: Copilot = app frame único (~72rem), sem pillarbox feio */
+      html.dnor-view-fleet-copilot,
       body.dnor-view-fleet-copilot {
-        --dnor-copilot-column: min(72rem, calc(100vw - 2.5rem));
-        overflow-x: hidden;
+        --dnor-copilot-column: min(72rem, calc(100% - 2.5rem));
+        overflow-x: clip;
+        max-width: 100%;
       }
 
       body.dnor-view-fleet-copilot main,
@@ -2420,43 +2422,65 @@
         max-width: var(--dnor-copilot-column) !important;
         margin: 0 auto !important;
         padding: 0 !important;
+        box-sizing: border-box;
       }
 
       body.dnor-view-fleet-copilot .dnor-shell {
         background: transparent;
         border-bottom: none;
+        overflow: hidden;
       }
 
       body.dnor-view-fleet-copilot .dnor-shell__inner {
         width: 100%;
         max-width: var(--dnor-copilot-column) !important;
         margin: 0.75rem auto 0 !important;
-        padding: 0.65rem 1.25rem;
+        padding: 0.65rem 1rem;
         border: 1px solid var(--border-subtle);
         border-bottom: none;
         border-radius: 20px 20px 0 0;
         background: rgba(15, 23, 42, 0.94);
         backdrop-filter: blur(14px);
+        box-sizing: border-box;
+        min-width: 0;
+        overflow: hidden;
       }
 
       :root:not(.dark) body.dnor-view-fleet-copilot .dnor-shell__inner {
         background: rgba(255, 255, 255, 0.94);
       }
 
+      body.dnor-view-fleet-copilot .dnor-shell__brand {
+        flex-shrink: 0;
+      }
+
       body.dnor-view-fleet-copilot .dnor-shell__nav {
-        overflow-x: auto;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__nav::-webkit-scrollbar {
-        display: none;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__search {
+        flex: 1 1 auto;
         min-width: 0;
-        flex: 1;
-        max-width: 220px;
+        overflow-x: hidden;
+        overflow-y: hidden;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__nav-item {
+        padding: 0.4rem 0.55rem;
+        font-size: 0.78rem;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__actions {
+        flex-shrink: 0;
+        min-width: 0;
+        gap: 0.35rem;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__search--icon {
+        min-width: 0;
+        width: 2.1rem;
+        padding: 0.4rem;
+        justify-content: center;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__search--icon .dnor-shell__search-icon {
+        margin: 0;
       }
 
       main.main--fleet-copilot {
@@ -2494,14 +2518,16 @@
       }
 
       @media (min-width: 1880px) {
+        html.dnor-view-fleet-copilot,
         body.dnor-view-fleet-copilot {
-          --dnor-copilot-column: min(76rem, calc(100vw - 3rem));
+          --dnor-copilot-column: min(76rem, calc(100% - 3rem));
         }
       }
 
       @media (min-width: 2200px) {
+        html.dnor-view-fleet-copilot,
         body.dnor-view-fleet-copilot {
-          --dnor-copilot-column: min(80rem, calc(100vw - 4rem));
+          --dnor-copilot-column: min(80rem, calc(100% - 4rem));
         }
       }
 

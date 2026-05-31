@@ -49,6 +49,7 @@ export function DnorTopNav({ liveAvailable = false }: DnorTopNavProps) {
         </nav>
 
         <div class="dnor-shell__actions">
+          {view !== 'fleet-copilot' && (
           <button
             type="button"
             class="dnor-shell__search"
@@ -59,6 +60,19 @@ export function DnorTopNav({ liveAvailable = false }: DnorTopNavProps) {
             <span class="dnor-shell__search-placeholder">Search nodes, IPs, ASNs…</span>
             <kbd class="dnor-shell__kbd">⌘K</kbd>
           </button>
+          )}
+
+          {view === 'fleet-copilot' && (
+          <button
+            type="button"
+            class="dnor-shell__search dnor-shell__search--icon"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Search"
+            title="Search (⌘K)"
+          >
+            <span class="dnor-shell__search-icon">⌕</span>
+          </button>
+          )}
 
           {view === 'nodes' && (
             <select
