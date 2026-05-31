@@ -2408,65 +2408,100 @@
         padding: 1rem 1.25rem 2rem;
       }
 
-      /* T-325 v3: Copilot fora do shell ultrawide — coluna fixa ~920px */
+      /* T-325 v4: Copilot = app frame único (~72rem), sem pillarbox feio */
+      body.dnor-view-fleet-copilot {
+        --dnor-copilot-column: min(72rem, calc(100vw - 2.5rem));
+        overflow-x: hidden;
+      }
+
       body.dnor-view-fleet-copilot main,
       main.main--fleet-copilot {
-        width: min(920px, calc(100vw - 32px)) !important;
-        max-width: 920px !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+        width: 100% !important;
+        max-width: var(--dnor-copilot-column) !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell {
+        background: transparent;
+        border-bottom: none;
       }
 
       body.dnor-view-fleet-copilot .dnor-shell__inner {
-        max-width: 920px !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
+        width: 100%;
+        max-width: var(--dnor-copilot-column) !important;
+        margin: 0.75rem auto 0 !important;
+        padding: 0.65rem 1.25rem;
+        border: 1px solid var(--border-subtle);
+        border-bottom: none;
+        border-radius: 20px 20px 0 0;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(14px);
+      }
+
+      :root:not(.dark) body.dnor-view-fleet-copilot .dnor-shell__inner {
+        background: rgba(255, 255, 255, 0.94);
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__nav {
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__nav::-webkit-scrollbar {
+        display: none;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__search {
+        min-width: 0;
+        flex: 1;
+        max-width: 220px;
+      }
+
+      main.main--fleet-copilot {
+        background: rgba(18, 24, 38, 0.94);
+        border: 1px solid var(--border-subtle);
+        border-top: none;
+        border-radius: 0 0 20px 20px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      }
+
+      :root:not(.dark) main.main--fleet-copilot {
+        background: rgba(255, 251, 246, 0.94);
+        box-shadow: 0 24px 80px rgba(22, 32, 43, 0.08);
       }
 
       .shell.shell--fleet-copilot {
         width: 100%;
-        max-width: 920px;
-        margin: 0 auto;
-        padding: 1rem 1.25rem 2rem;
-      }
-
-      @media (min-width: 1600px) {
-        body.dnor-view-fleet-copilot main,
-        main.main--fleet-copilot {
-          width: min(880px, calc(100vw - 48px)) !important;
-          max-width: 880px !important;
-        }
-
-        body.dnor-view-fleet-copilot .dnor-shell__inner {
-          max-width: 880px !important;
-        }
-
-        .shell.shell--fleet-copilot {
-          max-width: 880px;
-        }
+        max-width: none;
+        margin: 0;
+        padding: 1.25rem 1.5rem 1.75rem;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+        overflow: visible;
       }
 
       @media (min-width: 1680px) {
         body.dnor-view-fleet-copilot main,
-        main.main--fleet-copilot {
-          width: min(880px, calc(100vw - 48px)) !important;
-          max-width: 880px !important;
+        main.main--fleet-copilot,
+        body.dnor-view-fleet-copilot .dnor-shell__inner {
+          max-width: var(--dnor-copilot-column) !important;
         }
       }
 
       @media (min-width: 1880px) {
-        body.dnor-view-fleet-copilot main,
-        main.main--fleet-copilot {
-          width: min(880px, calc(100vw - 48px)) !important;
-          max-width: 880px !important;
+        body.dnor-view-fleet-copilot {
+          --dnor-copilot-column: min(76rem, calc(100vw - 3rem));
         }
       }
 
       @media (min-width: 2200px) {
-        body.dnor-view-fleet-copilot main,
-        main.main--fleet-copilot {
-          width: min(880px, calc(100vw - 48px)) !important;
-          max-width: 880px !important;
+        body.dnor-view-fleet-copilot {
+          --dnor-copilot-column: min(80rem, calc(100vw - 4rem));
         }
       }
 
@@ -2496,12 +2531,12 @@
         flex-wrap: wrap;
         align-items: flex-start;
         justify-content: space-between;
-        gap: 1rem;
-        padding: 1.5rem 1.75rem;
-        border-radius: 16px;
-        border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border-subtle));
+        gap: 0.75rem 1rem;
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-subtle));
         background:
-          radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 55%),
+          radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%),
           var(--panel);
       }
 
@@ -2515,8 +2550,12 @@
 
       .fleet-copilot-hero__title {
         margin: 0;
-        font-size: clamp(1.5rem, 3vw, 2rem);
-        font-weight: 650;
+        font-family: inherit;
+        font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        max-width: none;
       }
 
       .fleet-copilot-hero__subtitle {
@@ -2598,9 +2637,9 @@
 
       .fleet-copilot-layout {
         display: grid;
-        grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+        grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
         gap: 1rem;
-        min-height: 520px;
+        min-height: min(720px, calc(100vh - 17rem));
       }
 
       @media (max-width: 900px) {
@@ -2705,7 +2744,8 @@
       .fleet-copilot-chat {
         display: flex;
         flex-direction: column;
-        min-height: 520px;
+        min-height: 0;
+        flex: 1;
         border-radius: 14px;
         border: 1px solid var(--border-subtle);
         background: var(--panel);
@@ -2720,8 +2760,8 @@
         flex-direction: column;
         align-items: center;
         gap: 0.85rem;
-        min-height: 360px;
-        max-height: min(62vh, 640px);
+        min-height: 280px;
+        max-height: none;
       }
 
       .fleet-copilot-empty {

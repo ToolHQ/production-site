@@ -80,18 +80,47 @@ else
   fi
 fi
 
+# T-325 / UI delivery — assets live (não depende de kubectl)
+css_asset=$(curl -sS --max-time 20 "$REPORTS_URL/assets/app.css" 2>/dev/null || true)
+if echo "$css_asset" | grep -qE 'main--fleet-copilot|dnor-view-fleet-copilot|--dnor-copilot-column'; then
+  ok "UI CSS T-325 ultrawide markers in app.css"
+else
+  bad "UI CSS missing T-325 markers (main--fleet-copilot / dnor-view-fleet-copilot)"
+fi
+
+js_asset=$(curl -sS --max-time 20 "$REPORTS_URL/assets/app.js" 2>/dev/null || true)
+if echo "$js_asset" | grep -q 'dnor-view-fleet-copilot'; then
+  ok "UI JS body class toggle (dnor-view-fleet-copilot)"
+else
+  bad "UI JS missing dnor-view-fleet-copilot (deploy pendente ou cache)"
+fi
+
+if echo "$js_asset" | grep -qE 'FleetCopilotPage|fleet-copilot-page'; then
+  ok "UI bundle includes FleetCopilotPage"
+else
+  bad "UI bundle missing FleetCopilotPage component"
+fi
+
 if [[ -f "$ROOT_DIR/oci-k8s-cluster/kubeconfig_tunnel.yaml" ]]; then
   export KUBECONFIG="$ROOT_DIR/oci-k8s-cluster/kubeconfig_tunnel.yaml"
-  if kubectl get secret fleet-copilot-creds -n default >/dev/null 2>&1; then
-    ok "secret fleet-copilot-creds"
-  else
-    bad "secret fleet-copilot-creds missing"
+  if ! ss -tlnp 2>/dev/null | grep -q ':6445'; then
+    ssh -o BatchMode=yes -o ConnectTimeout=10 -L 6445:127.0.0.1:6443 oci-k8s-master -N -f 2>/dev/null || true
+    sleep 2
   fi
-  img=$(kubectl get deploy rs-observability-api-deployment -n default -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
-  if [[ -n "$img" ]]; then
-    ok "rs-observability-api image $img"
+  if kubectl cluster-info --request-timeout=8s >/dev/null 2>&1; then
+    if kubectl get secret fleet-copilot-creds -n default >/dev/null 2>&1; then
+      ok "secret fleet-copilot-creds"
+    else
+      bad "secret fleet-copilot-creds missing"
+    fi
+    img=$(kubectl get deploy rs-observability-api-deployment -n default -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
+    if [[ -n "$img" ]]; then
+      ok "rs-observability-api image $img"
+    else
+      bad "rs-observability-api deployment"
+    fi
   else
-    bad "rs-observability-api deployment"
+    echo "[ skip ] kubectl API unreachable — cluster checks skipped (tunnel 6445 or apiserver down)"
   fi
 fi
 

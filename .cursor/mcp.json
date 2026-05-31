@@ -1,7 +1,6 @@
 {
-  "servers": {
+  "mcpServers": {
     "chromeDevtools": {
-      "type": "stdio",
       "command": "/bin/bash",
       "args": [
         "-lc",
@@ -9,7 +8,6 @@
       ]
     },
     "chromeDevtoolsReports": {
-      "type": "stdio",
       "command": "/bin/bash",
       "args": [
         "-lc",
