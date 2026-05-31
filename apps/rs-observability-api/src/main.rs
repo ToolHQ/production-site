@@ -22,6 +22,7 @@ use serde_json::{json, Value};
 use tokio::sync::RwLock;
 
 mod app;
+mod fleet_copilot;
 
 const INDEX_HTML: &str = include_str!("../web-v2/dist/index.html");
 const ASSET_JS: &[u8] = include_bytes!("../web-v2/dist/assets/app.js");
@@ -89,6 +90,7 @@ struct AppState {
     secondary_live_monitor: Option<Arc<LiveMonitor>>,
     prometheus_monitor: Arc<PrometheusMonitor>,
     coroot_client: Option<Arc<CorootClient>>,
+    fleet_copilot: Option<Arc<fleet_copilot::FleetCopilotState>>,
 }
 
 #[derive(Clone)]
@@ -1396,12 +1398,18 @@ async fn main() {
         }
     };
 
+    let fleet_copilot = fleet_copilot::FleetCopilotState::from_env();
+    if fleet_copilot.is_some() {
+        println!("fleet copilot enabled");
+    }
+
     let state = AppState {
         reports_root: Arc::new(reports_root),
         live_monitor,
         secondary_live_monitor,
         prometheus_monitor,
         coroot_client,
+        fleet_copilot,
     };
 
     let app = app::build_app(state);

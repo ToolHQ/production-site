@@ -91,7 +91,7 @@ fi
 RENDERED_MANIFEST=$(mktemp)
 sed "s|image: .*|image: $IMAGE_TAG|" "$MANIFEST_PATH" > "$RENDERED_MANIFEST"
 
-export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
+export KUBECONFIG="${KUBECONFIG:-$REPO_ROOT/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
 kubectl apply -f "$RENDERED_MANIFEST"
 
 IMPORT_SCRIPT="$REPO_ROOT/scripts/harness/deploy_rs_observability_import.sh"

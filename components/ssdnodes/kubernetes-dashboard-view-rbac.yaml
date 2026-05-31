@@ -1,0 +1,14 @@
+# Kubernetes Dashboard — view-only SA (T-320d)
+# Substitui cluster-admin no admin-user do Dashboard.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: admin-user
+    namespace: kubernetes-dashboard

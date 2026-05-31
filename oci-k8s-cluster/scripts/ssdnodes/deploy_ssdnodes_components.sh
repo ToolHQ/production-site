@@ -38,7 +38,7 @@ echo "Chart baixado: $(du -h /tmp/helm-charts/kubernetes-dashboard-7.14.0.tgz)"
 
 kubectl create namespace kubernetes-dashboard --dry-run=client -o yaml | kubectl apply -f -
 
-# Criar ServiceAccount admin-user para login com token
+# Criar ServiceAccount admin-user para login com token (view-only — T-320d)
 kubectl apply -f - <<SA
 apiVersion: v1
 kind: ServiceAccount
@@ -53,7 +53,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: view
 subjects:
 - kind: ServiceAccount
   name: admin-user
@@ -112,6 +112,14 @@ open_port80_for_certs() {
   fi
 }
 
+deploy_fleet_copilot() {
+  log "=== Fleet Copilot (Ollama + gateway) ==="
+  bash "$COMPONENTS_DIR/install_ollama.sh" --host "$REMOTE_HOST"
+  bash "$COMPONENTS_DIR/fleet-copilot/install_fleet_ops_gateway.sh"
+  bash "$SCRIPT_DIR/../scripts/hardening/ufw_manager.sh" --host "$REMOTE_HOST" --apply
+  log "Fleet Copilot stack atualizado ✓"
+}
+
 # ─── Status ───────────────────────────────────────────────────────────────────
 show_status() {
   log "=== Status pós-deploy ==="
@@ -132,6 +140,7 @@ upload_manifests
 case "$TARGET" in
   dashboard) deploy_dashboard; open_port80_for_certs ;;
   kubecost)  deploy_kubecost; open_port80_for_certs ;;
+  fleet-copilot) deploy_fleet_copilot ;;
   all)
     deploy_dashboard
     deploy_kubecost
@@ -139,7 +148,7 @@ case "$TARGET" in
     ;;
   status)    show_status; exit 0 ;;
   *)
-    err "Uso: $0 [dashboard|kubecost|all|status]"
+    err "Uso: $0 [dashboard|kubecost|fleet-copilot|all|status]"
     exit 1
     ;;
 esac

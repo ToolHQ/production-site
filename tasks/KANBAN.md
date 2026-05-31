@@ -23,9 +23,15 @@
 
 ## 📅 Backlog (To Do)
 
+### Epic: Fleet Copilot (T-315) — MVP entregue 2026-05-31 (PR #367)
+
+| ID | Task Name | Priority | Est. |
+| :-: | :-------- | :------: | :--: |
+| [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional, pós-MVP + pentest)** | 🔵 Medium | 2d |
+
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** | 🔼 High | Cursor / AI Radar | 1d |
+| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(overlap T-320a)_ | 🔼 High | Cursor / AI Radar | 1d |
 | [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
 | [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** | 🔼 High | Cursor / AI Radar | 1d |
@@ -41,6 +47,14 @@
 
 
 ## ✅ Done
+
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
+| [T-315](2026/Q2/T-315-Fleet-Copilot-Epic-Overview.md) | **Fleet Copilot — Epic MVP** _(T-320→323 live; chat SSE em reports.dnor.io/#fleet-copilot; PR #367)_ | 🔼 High | Cursor / AI Radar | 2–3w |
+| [T-320](2026/Q2/T-320-Fleet-Copilot-Security-Prerequisites.md) | **Fleet Copilot — Pré-requisitos segurança** _(SSH key-only, fail2ban, UFW, Dashboard view-only, Tailscale; gate 2026-05-30)_ | 🚨 Critical | Cursor / AI Radar | 3d |
+| [T-321](2026/Q2/T-321-Fleet-Ops-Gateway-Ollama-SSDNodes.md) | **Fleet Copilot — Ops Gateway + Ollama @ monstro** _(gemma3:4b localhost, gateway :18443, IaC scripts)_ | 🔼 High | Cursor / AI Radar | 3d |
+| [T-322](2026/Q2/T-322-Fleet-Copilot-Proxy-Reports-API.md) | **Fleet Copilot — Proxy rs-observability-api** _(auth cookie, rate limit, /api/fleet/chat + /stream; audit Postgres backlog)_ | 🔼 High | Cursor / AI Radar | 3d |
+| [T-323](2026/Q2/T-323-Fleet-Copilot-UI-Reports.md) | **Fleet Copilot — UI reports** _(view #fleet-copilot, presets, SSE tokens, source pills; PR #367)_ | 🔼 High | Cursor / AI Radar | 2d |
 
 |                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
