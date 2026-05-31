@@ -152,6 +152,48 @@ impl AppState {
             "oci_live": oci_live,
         })
     }
+
+    /// T-333: anexa métricas live de nós OCI mencionados na pergunta.
+    pub(crate) async fn enrich_manifest_for_message(
+        &self,
+        mut manifest: Value,
+        message: &str,
+    ) -> Value {
+        let needle = message.to_lowercase();
+        let Some(lm) = &self.live_monitor else {
+            return manifest;
+        };
+        let live = lm.cached_or_refresh().await;
+        if !live.available {
+            return manifest;
+        }
+        let metrics = self.prometheus_monitor.fetch_node_metrics().await;
+        let mut targeted = Vec::new();
+        for node in &live.nodes {
+            let name_lc = node.name.to_lowercase();
+            if !needle.contains(&name_lc) {
+                continue;
+            }
+            let m = metrics.get(&node.name).cloned().unwrap_or_default();
+            targeted.push(json!({
+                "name": node.name,
+                "cluster": node.cluster,
+                "role": node.role,
+                "ip": node.ip,
+                "ready": node.ready,
+                "disk_pressure": node.disk_pressure,
+                "memory_pressure": node.memory_pressure,
+                "metrics": m,
+            }));
+        }
+        if targeted.is_empty() {
+            return manifest;
+        }
+        if let Some(obj) = manifest.as_object_mut() {
+            obj.insert("targeted_oci_nodes".into(), json!(targeted));
+        }
+        manifest
+    }
 }
 
 #[derive(Clone)]

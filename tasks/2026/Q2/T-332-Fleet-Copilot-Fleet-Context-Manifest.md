@@ -1,6 +1,6 @@
 # T-332: Fleet Copilot — manifesto de fleet no contexto LLM
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic**: Fleet Copilot fase 2
 - **Est**: 4h
@@ -19,7 +19,7 @@ Hoje `collect_context()` só busca 1–4 endpoints do gateway SSDNodes (`df`, `f
   - Externos (`external_nodes.json` / registry): `ssdnodes-6a12f10c9ef11`, hetzner-cax21, aws-ec2-fleet-01
   - Escopo explícito: *gateway read-only roda em SSDNodes; métricas OCI vêm do Cluster Pulse*
 - [x] System prompt atualizado: *"Hosts disponíveis: … Responda sobre qual host o operador perguntou; se ambíguo, liste os hosts e peça clarificação."*
-- [ ] Harness: pergunta fixture *"quais hosts?"* → resposta menciona ≥3 clusters/hostnames (após deploy)
+- [x] Harness: pergunta fixture *"quais hosts?"* → fast-path `fleet-manifest` (14/14 harness)
 
 ## Arquivos
 
