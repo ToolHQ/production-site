@@ -408,9 +408,9 @@ pub async fn copilot_chat_stream(
         let mut got_done = false;
         let mut streamed_reply = String::new();
 
-        let mut forward_block = |event_name: &str, data: &str| -> bool {
+        let mut forward_block = |event_name: &str, data: String| -> bool {
             if event_name == "token" {
-                if let Ok(val) = serde_json::from_str::<Value>(data) {
+                if let Ok(val) = serde_json::from_str::<Value>(&data) {
                     if let Some(delta) = val["delta"].as_str() {
                         streamed_reply.push_str(delta);
                     }
@@ -419,9 +419,7 @@ pub async fn copilot_chat_stream(
             if event_name == "done" {
                 got_done = true;
             }
-            tx.send(Ok(Event::default()
-                .event(event_name)
-                .data(data.to_string())))
+            tx.send(Ok(Event::default().event(event_name).data(data)))
                 .now_or_never()
                 .is_some()
         };
@@ -449,12 +447,12 @@ pub async fn copilot_chat_stream(
                             }
                             data = val.to_string();
                         }
-                        if !forward_block("done", &data) {
+                        if !forward_block("done", data) {
                             return;
                         }
                         return;
                     }
-                    if !forward_block(&event_name, &data) {
+                    if !forward_block(&event_name, data) {
                         return;
                     }
                 }
@@ -477,10 +475,10 @@ pub async fn copilot_chat_stream(
                         }
                         data = val.to_string();
                     }
-                    let _ = forward_block("done", &data);
+                    let _ = forward_block("done", data);
                     return;
                 }
-                if !forward_block(&event_name, &data) {
+                if !forward_block(&event_name, data) {
                     return;
                 }
             }
@@ -488,10 +486,10 @@ pub async fn copilot_chat_stream(
         if !buffer.trim().is_empty() {
             if let Some((event_name, data)) = parse_sse_block(buffer.trim()) {
                 if event_name == "done" {
-                    let _ = forward_block("done", &data);
+                    let _ = forward_block("done", data);
                     return;
                 }
-                let _ = forward_block(&event_name, &data);
+                let _ = forward_block(&event_name, data);
             }
         }
 
