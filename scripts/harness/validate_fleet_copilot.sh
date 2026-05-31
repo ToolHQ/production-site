@@ -27,9 +27,9 @@ if ssh -o ConnectTimeout=10 -o BatchMode=yes ssdnodes-monstro \
   "curl -fsS --max-time 5 http://127.0.0.1:11434/api/tags >/dev/null && \
    systemctl is-active fleet-ops-gateway >/dev/null && \
    sudo ufw status | grep -q '11434.*DENY'"; then
-  ok "monstro ollama localhost + gateway + ufw deny 11434"
+  ok "SSDNodes ollama localhost + gateway + ufw deny 11434"
 else
-  bad "monstro stack check"
+  bad "SSDNodes stack check"
 fi
 
 if curl -fsS --max-time 15 "$REPORTS_URL/health" | grep -q rs-observability-api; then
@@ -89,10 +89,22 @@ else
 fi
 
 js_asset=$(curl -sS --max-time 20 "$REPORTS_URL/assets/app.js" 2>/dev/null || true)
+if echo "$js_asset" | grep -q 'ssdnodes-monstro'; then
+  bad "UI JS still contains legacy ssdnodes-monstro"
+else
+  ok "UI JS free of ssdnodes-monstro"
+fi
+
 if echo "$js_asset" | grep -q 'dnor-view-fleet-copilot'; then
   ok "UI JS body class toggle (dnor-view-fleet-copilot)"
 else
-  bad "UI JS missing dnor-view-fleet-copilot (deploy pendente ou cache)"
+  bad "UI JS missing dnor-view-fleet-copilot"
+fi
+
+if echo "$js_asset" | grep -q 'ssdnodes-6a12f10c9ef11'; then
+  ok "UI JS uses canonical SSDNodes hostname"
+else
+  bad "UI JS missing ssdnodes-6a12f10c9ef11"
 fi
 
 if echo "$js_asset" | grep -qE 'FleetCopilotPage|fleet-copilot-page'; then

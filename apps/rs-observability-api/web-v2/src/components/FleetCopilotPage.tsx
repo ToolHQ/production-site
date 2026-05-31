@@ -6,19 +6,20 @@ import {
   useFleetChat,
   type FleetPreset,
 } from '../hooks/useFleetChat';
+import { SSDNODES_HOSTNAME } from '../constants/fleetHosts';
 
 const PRESETS: { id: FleetPreset; icon: string; title: string; hint: string }[] = [
   {
     id: 'ssdnodes-health',
     icon: '💾',
     title: 'Disco & memória',
-    hint: 'Host SSDNodes — df, free, load',
+    hint: `Host ${SSDNODES_HOSTNAME} — df, free, load`,
   },
   {
     id: 'ssdnodes-k8s',
     icon: '☸️',
     title: 'Pods & ingress',
-    hint: 'Cluster local no monstro',
+    hint: `Cluster K8s local (${SSDNODES_HOSTNAME})`,
   },
   {
     id: 'ssdnodes-ssh',
@@ -103,7 +104,7 @@ export function FleetCopilotPage() {
           <p class="fleet-copilot-hero__kicker">Operations assistant</p>
           <h1 class="fleet-copilot-hero__title">Fleet Copilot</h1>
           <p class="fleet-copilot-hero__subtitle">
-            Perguntas read-only sobre <strong>ssdnodes-monstro</strong> e fleet OCI — dados
+            Perguntas read-only sobre <code>{SSDNODES_HOSTNAME}</code> e fleet OCI — dados
             coletados via gateway seguro, resposta local Gemma&nbsp;3.
           </p>
         </div>
@@ -189,7 +190,7 @@ export function FleetCopilotPage() {
                 <summary>Como funciona</summary>
                 <p>
                   Coleta read-only via gateway (:18443), contexto JSON compactado e inferência Gemma
-                  3 local no monstro. Sem execução de comandos a partir do chat.
+                  3 local em {SSDNODES_HOSTNAME}. Sem execução de comandos a partir do chat.
                 </p>
               </details>
             </div>
@@ -201,7 +202,7 @@ export function FleetCopilotPage() {
                 <div class="fleet-copilot-empty">
                   <p>Escolha uma consulta rápida ou faça uma pergunta sobre os dados coletados.</p>
                   <p class="fleet-copilot-empty__note">
-                    Respostas levam ~1–2&nbsp;min (inferência CPU no monstro).
+                    Respostas levam ~1–2&nbsp;min (inferência CPU em {SSDNODES_HOSTNAME}).
                   </p>
                 </div>
               )}
@@ -252,7 +253,7 @@ export function FleetCopilotPage() {
                         ? 'Coletando métricas do SSDNodes…'
                         : elapsedSec >= 45
                           ? `Modelo local pensando (${elapsedSec}s — pode levar até ~3 min)…`
-                          : 'Consultando Gemma 3 no monstro…'}
+                          : `Consultando Gemma 3 em ${SSDNODES_HOSTNAME}…`}
                       <span class="fleet-copilot-dots" aria-hidden="true">
                         <span />
                         <span />

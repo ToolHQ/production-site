@@ -10,7 +10,7 @@
 
 ## Context
 
-Interface operador no **Cluster Pulse** (`apps/rs-observability-api/web-v2`) para fazer perguntas read-only sobre `ssdnodes-monstro` e fleet OCI, consumindo apenas APIs same-origin autenticadas.
+Interface operador no **Cluster Pulse** (`apps/rs-observability-api/web-v2`) para fazer perguntas read-only sobre **SSDNodes** (`ssdnodes-6a12f10c9ef11`) e fleet OCI, consumindo apenas APIs same-origin autenticadas.
 
 **Princípios UX + segurança:**
 

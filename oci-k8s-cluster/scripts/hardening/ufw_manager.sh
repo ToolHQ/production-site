@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # oci-k8s-cluster/scripts/hardening/ufw_manager.sh
-# Gerenciador de firewall UFW para máquinas remotas (ssdnodes-monstro e afins).
+# Gerenciador de firewall UFW para máquinas remotas (SSDNodes / fleet externa).
 #
 # Uso:
 #   ufw_manager.sh [--host HOST] [--status|--apply|--disable]
@@ -19,7 +19,8 @@ FZF_BIN="${FZF_BIN:-/tmp/k8s_ops_fzf}"
 # Adicione/remova hosts aqui. Cada entrada é um alias SSH (de ~/.ssh/config).
 # ─────────────────────────────────────────────────────────────────────────────
 declare -A MANAGED_HOSTS=(
-    ["ssdnodes-monstro"]="104.225.218.78 | x86_64 | 12vCPU/60GB | Servidor dedicado SSDNodes"
+    ["ssdnodes-6a12f10c9ef11"]="104.225.218.78 | x86_64 | 12vCPU/60GB | SSDNodes dedicado"
+    ["ssdnodes-monstro"]="104.225.218.78 | x86_64 | 12vCPU/60GB | alias SSH legado → ssdnodes-6a12f10c9ef11"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -57,8 +58,16 @@ TAILSCALE_CIDR="100.64.0.0/10"
 # ─────────────────────────────────────────────────────────────────────────────
 # Flags
 # ─────────────────────────────────────────────────────────────────────────────
-TARGET_HOST="ssdnodes-monstro"
+TARGET_HOST="ssdnodes-6a12f10c9ef11"
 ACTION=""
+
+# Hostname canônico → alias SSH em ~/.ssh/config (legado)
+_ssh_alias_for() {
+    case "$1" in
+        ssdnodes-6a12f10c9ef11) echo "ssdnodes-monstro" ;;
+        *) echo "$1" ;;
+    esac
+}
 
 _parse_args() {
     while [[ $# -gt 0 ]]; do
@@ -81,6 +90,10 @@ _parse_args() {
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 _SSH="ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no"
+
+_ssh() {
+    $_SSH "$(_ssh_alias_for "$TARGET_HOST")" "$@"
+}
 
 _ok()   { echo -e "\033[0;32m✔\033[0m  $*"; }
 _warn() { echo -e "\033[1;33m⚠\033[0m  $*"; }
@@ -240,7 +253,7 @@ HEREDOC_ENABLE
 # ─────────────────────────────────────────────────────────────────────────────
 action_status() {
     _head "Status UFW em $TARGET_HOST"
-    $_SSH "$TARGET_HOST" "
+    _ssh "
         if command -v ufw &>/dev/null; then
             echo '--- UFW status ---'
             ufw status verbose 2>/dev/null
@@ -267,7 +280,7 @@ action_apply() {
         return 0
     fi
 
-    echo "$ufw_script" | $_SSH "$TARGET_HOST" "sudo bash" 2>/dev/null \
+    echo "$ufw_script" | $_SSH "$(_ssh_alias_for "$TARGET_HOST")" "sudo bash" 2>/dev/null \
         && _ok "Regras aplicadas com sucesso em $TARGET_HOST" \
         || { _err "Falha ao aplicar regras em $TARGET_HOST"; exit 1; }
 }
@@ -282,7 +295,7 @@ action_disable() {
     _warn "Isso abrirá TODOS os ports ao mundo. Apenas para emergência."
     read -rp "Confirmar? (sim/N): " confirm
     [[ "$confirm" != "sim" ]] && { echo "Cancelado."; return 0; }
-    $_SSH "$TARGET_HOST" "sudo ufw disable" 2>/dev/null \
+    _ssh "sudo ufw disable" 2>/dev/null \
         && _ok "UFW desabilitado em $TARGET_HOST" \
         || _err "Falha ao desabilitar UFW"
 }
@@ -305,7 +318,7 @@ action_interactive() {
     selected=$(echo "$menu_items" | "$FZF_BIN" \
         --height=40% --layout=reverse --border \
         --prompt="UFW Manager ($TARGET_HOST) > " \
-        --header="Firewall — ssdnodes-monstro (22/tcp: SEMPRE ABERTO)") || true
+        --header="Firewall — ssdnodes-6a12f10c9ef11 (22/tcp: SEMPRE ABERTO)") || true
 
     [[ -z "$selected" ]] && return 0
 

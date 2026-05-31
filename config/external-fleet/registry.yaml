@@ -30,12 +30,12 @@ nodes:
     exporter_service: hetzner-node-exporter
     bootstrap_managed: false
 
-  - id: ssdnodes-monstro
+  - id: ssdnodes-6a12f10c9ef11
     provider: ssdnodes
     instance_host: 104.225.218.78
     instance_id: null
     fallback_name: ssdnodes-6a12f10c9ef11
-    ssh_alias: ssdnodes-monstro
+    ssh_alias: ssdnodes-monstro  # legado ~/.ssh/config — preferir hostname em UI/docs
     cluster: SSD-NODES
     role: dedicated
     cpu_millicores: 12000
