@@ -20,6 +20,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+use tokio_postgres::NoTls;
 use tokio::sync::Mutex;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -48,6 +49,9 @@ pub struct FleetCopilotState {
     ollama_model: String,
     client: Client,
     rate: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
+    audit_db_url: Option<String>,
+    audit: Arc<Mutex<Option<Arc<tokio_postgres::Client>>>>,
+    audit_schema_ready: Arc<Mutex<bool>>,
 }
 
 #[derive(Deserialize)]
@@ -102,6 +106,9 @@ impl FleetCopilotState {
         let gateway_token = std::env::var("FLEET_COPILOT_GATEWAY_TOKEN").ok()?;
         let ollama_model = std::env::var("FLEET_COPILOT_OLLAMA_MODEL")
             .unwrap_or_else(|_| "gemma3:4b".into());
+        let audit_db_url = std::env::var("FLEET_COPILOT_AUDIT_DATABASE_URL")
+            .ok()
+            .or_else(|| std::env::var("DATABASE_URL").ok());
 
         let mut hasher = Sha256::new();
         hasher.update(session_secret.as_bytes());
@@ -125,6 +132,9 @@ impl FleetCopilotState {
             ollama_model,
             client,
             rate: Arc::new(Mutex::new(HashMap::new())),
+            audit_db_url,
+            audit: Arc::new(Mutex::new(None)),
+            audit_schema_ready: Arc::new(Mutex::new(false)),
         }))
     }
 
@@ -137,6 +147,109 @@ impl FleetCopilotState {
             .await
             .map(|r| r.status().is_success())
             .unwrap_or(false)
+    }
+
+    async fn audit_client(&self) -> Option<Arc<tokio_postgres::Client>> {
+        let Some(db_url) = self.audit_db_url.as_deref() else {
+            return None;
+        };
+
+        if let Some(existing) = self.audit.lock().await.as_ref().cloned() {
+            return Some(existing);
+        }
+
+        let (client, connection) = tokio_postgres::connect(db_url, NoTls).await.ok()?;
+        tokio::spawn(async move {
+            let _ = connection.await;
+        });
+
+        let client = Arc::new(client);
+        *self.audit.lock().await = Some(client.clone());
+        Some(client)
+    }
+
+    async fn ensure_audit_schema(&self, client: &tokio_postgres::Client) -> bool {
+        {
+            let ready = self.audit_schema_ready.lock().await;
+            if *ready {
+                return true;
+            }
+        }
+
+        let schema_sql = r#"
+CREATE SCHEMA IF NOT EXISTS fleet_copilot;
+CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  client_ip INET,
+  prompt_sha256 CHAR(64) NOT NULL,
+  preset TEXT,
+  intent TEXT,
+  endpoints TEXT[] NOT NULL,
+  latency_ms INT,
+  model TEXT,
+  status TEXT NOT NULL
+);
+"#;
+        if client.batch_execute(schema_sql).await.is_err() {
+            return false;
+        }
+
+        *self.audit_schema_ready.lock().await = true;
+        true
+    }
+
+    fn prompt_sha256(message: &str, preset: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(message.as_bytes());
+        hasher.update(b":");
+        hasher.update(preset.as_bytes());
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect()
+    }
+
+    async fn audit_event(
+        &self,
+        client_ip: Option<&str>,
+        message: &str,
+        preset: &str,
+        intent: &str,
+        endpoints: &[String],
+        latency_ms: u64,
+        model: &str,
+        status: &str,
+    ) {
+        let Some(client) = self.audit_client().await else {
+            return;
+        };
+        if !self.ensure_audit_schema(client.as_ref()).await {
+            return;
+        }
+
+        let prompt_sha = Self::prompt_sha256(message, preset);
+        let endpoints: Vec<&str> = endpoints.iter().map(|s| s.as_str()).collect();
+        let latency_i32 = i32::try_from(latency_ms.min(i32::MAX as u64)).unwrap_or(i32::MAX);
+
+        let _ = client
+            .execute(
+                "INSERT INTO fleet_copilot.audit_events \
+                 (client_ip, prompt_sha256, preset, intent, endpoints, latency_ms, model, status) \
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                &[
+                    &client_ip,
+                    &prompt_sha,
+                    &preset,
+                    &intent,
+                    &endpoints,
+                    &latency_i32,
+                    &model,
+                    &status,
+                ],
+            )
+            .await;
     }
 
     fn session_cookie_value(&self) -> String {
@@ -743,6 +856,11 @@ pub async fn copilot_chat(
 
     let preset = body.preset.as_deref().unwrap_or("ssdnodes-health");
     let started = Instant::now();
+    let client_ip = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|raw| raw.split(',').next())
+        .map(|s| s.trim().to_string());
 
     if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, message, preset) {
         let intent = FleetCopilotState::resolve_intent(message, preset);
@@ -751,11 +869,25 @@ pub async fn copilot_chat(
         } else {
             "fleet-metrics"
         };
+        let latency_ms = started.elapsed().as_millis() as u64;
+        let intent_label = FleetCopilotState::intent_label(intent).to_string();
+        let sources = vec!["fleet_manifest".to_string()];
+        fc.audit_event(
+            client_ip.as_deref(),
+            message,
+            preset,
+            &intent_label,
+            &sources,
+            latency_ms,
+            model,
+            "ok",
+        )
+        .await;
         return Ok(Json(ChatResponse {
             reply,
             model: model.into(),
-            sources: vec!["fleet_manifest".into()],
-            latency_ms: started.elapsed().as_millis() as u64,
+            sources,
+            latency_ms,
         }));
     }
 
@@ -766,11 +898,25 @@ pub async fn copilot_chat(
     if let Some(reply) =
         FleetCopilotState::structured_reply(&fleet_manifest, &context, message, preset)
     {
+        let latency_ms = started.elapsed().as_millis() as u64;
+        let intent = FleetCopilotState::resolve_intent(message, preset);
+        let intent_label = FleetCopilotState::intent_label(intent).to_string();
+        fc.audit_event(
+            client_ip.as_deref(),
+            message,
+            preset,
+            &intent_label,
+            &sources,
+            latency_ms,
+            "fleet-structured",
+            "ok",
+        )
+        .await;
         return Ok(Json(ChatResponse {
             reply,
             model: "fleet-structured".into(),
             sources,
-            latency_ms: started.elapsed().as_millis() as u64,
+            latency_ms,
         }));
     }
 
@@ -806,12 +952,26 @@ pub async fn copilot_chat(
         preset,
     );
     let model = parsed["model"].as_str().unwrap_or("gemma3:4b").to_string();
+    let latency_ms = started.elapsed().as_millis() as u64;
+    let intent = FleetCopilotState::resolve_intent(message, preset);
+    let intent_label = FleetCopilotState::intent_label(intent).to_string();
+    fc.audit_event(
+        client_ip.as_deref(),
+        message,
+        preset,
+        &intent_label,
+        &sources,
+        latency_ms,
+        &model,
+        "ok",
+    )
+    .await;
 
     Ok(Json(ChatResponse {
         reply,
         model,
         sources,
-        latency_ms: started.elapsed().as_millis() as u64,
+        latency_ms,
     }))
 }
 
@@ -852,6 +1012,11 @@ pub async fn copilot_chat_stream(
     let fc = fc.clone();
     let message = message.to_string();
     let fleet_manifest_for_reply = fleet_manifest.clone();
+    let client_ip = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|raw| raw.split(',').next())
+        .map(|s| s.trim().to_string());
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
     tokio::spawn(async move {
@@ -879,6 +1044,18 @@ pub async fn copilot_chat_stream(
                 "fleet-metrics"
             };
             let sources = vec!["fleet_manifest".to_string()];
+            let intent_label = FleetCopilotState::intent_label(intent).to_string();
+            fc.audit_event(
+                client_ip.as_deref(),
+                &message,
+                &preset,
+                &intent_label,
+                &sources,
+                started.elapsed().as_millis() as u64,
+                model,
+                "ok",
+            )
+            .await;
             let _ = send(
                 Event::default()
                     .event("phase")
@@ -912,6 +1089,19 @@ pub async fn copilot_chat_stream(
             &message,
             &preset,
         ) {
+            let intent = FleetCopilotState::resolve_intent(&message, &preset);
+            let intent_label = FleetCopilotState::intent_label(intent).to_string();
+            fc.audit_event(
+                client_ip.as_deref(),
+                &message,
+                &preset,
+                &intent_label,
+                &sources,
+                started.elapsed().as_millis() as u64,
+                "fleet-structured",
+                "ok",
+            )
+            .await;
             let _ = send(
                 Event::default()
                     .event("phase")
@@ -1055,6 +1245,19 @@ pub async fn copilot_chat_stream(
                             }
                             data = val.to_string();
                         }
+                        let intent = FleetCopilotState::resolve_intent(&message_for_sanitize, &preset_for_sanitize);
+                        let intent_label = FleetCopilotState::intent_label(intent).to_string();
+                        fc.audit_event(
+                            client_ip.as_deref(),
+                            &message_for_sanitize,
+                            &preset_for_sanitize,
+                            &intent_label,
+                            &sources,
+                            started.elapsed().as_millis() as u64,
+                            "ollama",
+                            "ok",
+                        )
+                        .await;
                         if !forward_block("done", data) {
                             return;
                         }
