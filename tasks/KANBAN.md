@@ -15,8 +15,6 @@
 | [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 4h |
 | [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
-| [T-313](2026/Q2/T-313-agent-meter-conversation-timeline-view.md) | **agent-meter — Conversation Timeline View** _(backend + frontend prontos; endpoint timeline e página de detalhes)_ | 🔼 High | **Copilot/VSCode** | 4h |
-
 ## 🔥 Blocker (Deploy back-end travado)
 
 | ID  | Task Name | Priority | Epic | Est. |
@@ -29,7 +27,6 @@
 | [T-316](2026/Q2/T-316-agent-meter-conversation-search-insights.md) | **agent-meter — Conversation Search & Insights** _(busca semântica em conversas + dashboard de padrões: top users/tools/models, error patterns, cost trends)_ | 🔼 High | **Copilot/VSCode** | 4h |
 | [T-315](2026/Q2/T-315-agent-meter-session-replay-ui.md) | **agent-meter — Session Replay UI** _(replay passo-a-passo de interações com destaque para erros e padrões detectados)_ | 🔼 High | **Copilot/VSCode** | 4h |
 | [T-314](2026/Q2/T-314-agent-meter-trace-export-otel.md) | **agent-meter — Trace Export (OpenTelemetry)** _(exportar traces compatíveis com Jaeger/Tempo para integração com sistemas de observabilidade)_ | 🔼 High | **Copilot/VSCode** | 2h |
-| [T-313](2026/Q2/T-313-agent-meter-conversation-timeline.md) | **agent-meter — Conversation Timeline View** _(visualização de timeline para interações de chats, agrupando tool calls por conversation_id)_ | 🔼 High | **Copilot/VSCode** | 4h |
 | [T-312](2026/Q2/T-312-AWS-qdbback-purge-failure-e-reten-o-de-logs.md) | **AWS qdbback purge failure e retenção de logs** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-311](2026/Q2/T-311-Hetzner-BuildKit-disk-growth-guardrails.md) | **Hetzner BuildKit disk growth guardrails** | 🚨 Critical | Cursor / AI Radar | 1d |
 | [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** | 🔼 High | Cursor / AI Radar | 1d |
@@ -290,6 +287,6 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 |---|---|---|---|---|
-| T-313 | **agent-meter — Conversation Timeline View** _(backend + frontend prontos; endpoint timeline e página de detalhes)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| T-313 | **agent-meter — Conversation Timeline View** _(✅ backend + frontend testados e consolidados; endpoints funcionais)_ | 🔼 High | **Copilot/VSCode** | 4h |
 
 > **Legend**: 🚨 Critical, 🔼 High/Med, 🔽 Low
