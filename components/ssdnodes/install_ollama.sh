@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# install_ollama.sh — Ollama localhost-only no SSDNodes (ssdnodes-6a12f10c9ef11; SSH alias ssdnodes-monstro).
+# install_ollama.sh — Ollama localhost-only no SSDNodes (ssdnodes-6a12f10c9ef11; SSH alias ssdnodes-6a12f10c9ef11).
 # Uso: install_ollama.sh [--host HOST] [--pull MODEL] [--status]
 
 set -euo pipefail
 
-TARGET_HOST="ssdnodes-monstro"
+TARGET_HOST="ssdnodes-6a12f10c9ef11"
 MODEL="${FLEET_COPILOT_MODEL:-gemma3:12b}"
 ACTION="install"
 

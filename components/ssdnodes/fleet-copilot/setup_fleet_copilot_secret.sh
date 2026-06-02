@@ -4,7 +4,7 @@ set -euo pipefail
 
 GATEWAY_TOKEN="${FLEET_COPILOT_GATEWAY_TOKEN:-}"
 if [[ -z "$GATEWAY_TOKEN" ]]; then
-  GATEWAY_TOKEN=$(ssh ssdnodes-monstro "sudo grep FLEET_GATEWAY_TOKEN /etc/fleet-copilot/gateway.env | cut -d= -f2")
+  GATEWAY_TOKEN=$(ssh ssdnodes-6a12f10c9ef11 "sudo grep FLEET_GATEWAY_TOKEN /etc/fleet-copilot/gateway.env | cut -d= -f2")
 fi
 
 LOGIN_KEY="${FLEET_COPILOT_LOGIN_KEY:-$(openssl rand -hex 8)}"

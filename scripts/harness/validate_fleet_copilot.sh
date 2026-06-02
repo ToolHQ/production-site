@@ -23,7 +23,7 @@ else
   bad "gateway health $GATEWAY_URL/health"
 fi
 
-if ssh -o ConnectTimeout=10 -o BatchMode=yes ssdnodes-monstro \
+if ssh -o ConnectTimeout=10 -o BatchMode=yes ssdnodes-6a12f10c9ef11 \
   "curl -fsS --max-time 5 http://127.0.0.1:11434/api/tags >/dev/null && \
    systemctl is-active fleet-ops-gateway >/dev/null && \
    sudo ufw status | grep -q '11434.*DENY'"; then
@@ -148,10 +148,10 @@ else
 fi
 
 js_asset=$(curl -sS --max-time 20 "$REPORTS_URL/assets/app.js" 2>/dev/null || true)
-if echo "$js_asset" | grep -q 'ssdnodes-monstro'; then
-  bad "UI JS still contains legacy ssdnodes-monstro"
+if echo "$js_asset" | grep -q 'ssdnodes-6a12f10c9ef11'; then
+  bad "UI JS still contains legacy ssdnodes-6a12f10c9ef11"
 else
-  ok "UI JS free of ssdnodes-monstro"
+  ok "UI JS free of ssdnodes-6a12f10c9ef11"
 fi
 
 if echo "$css_asset" | grep -q 'fleet-copilot-progress'; then

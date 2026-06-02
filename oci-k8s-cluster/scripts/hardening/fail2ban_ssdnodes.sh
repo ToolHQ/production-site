@@ -3,11 +3,11 @@
 # Parte do gate T-320a (Fleet Copilot security prerequisites).
 #
 # Uso:
-#   fail2ban_ssdnodes.sh [--host ssdnodes-monstro] [--status|--apply]
+#   fail2ban_ssdnodes.sh [--host ssdnodes-6a12f10c9ef11] [--status|--apply]
 
 set -euo pipefail
 
-TARGET_HOST="ssdnodes-monstro"
+TARGET_HOST="ssdnodes-6a12f10c9ef11"
 ACTION=""
 
 while [[ $# -gt 0 ]]; do

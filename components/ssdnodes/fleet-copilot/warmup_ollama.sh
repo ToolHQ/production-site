@@ -2,7 +2,7 @@
 # warmup_ollama.sh — Pre-load Gemma/qwen into RAM after boot (T-335).
 set -euo pipefail
 
-REMOTE_HOST="${REMOTE_HOST:-ssdnodes-monstro}"
+REMOTE_HOST="${REMOTE_HOST:-ssdnodes-6a12f10c9ef11}"
 MODEL="${FLEET_OLLAMA_MODEL:-gemma3:4b}"
 
 _SSH=(ssh -o BatchMode=yes -o ConnectTimeout=20)

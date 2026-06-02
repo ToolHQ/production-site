@@ -3,11 +3,11 @@
 # T-320a / Fleet Copilot gate. Verifica authorized_keys antes de aplicar.
 #
 # Uso:
-#   ssh_harden_ssdnodes.sh [--host ssdnodes-monstro] [--dry-run|--apply]
+#   ssh_harden_ssdnodes.sh [--host ssdnodes-6a12f10c9ef11] [--dry-run|--apply]
 
 set -euo pipefail
 
-TARGET_HOST="ssdnodes-monstro"
+TARGET_HOST="ssdnodes-6a12f10c9ef11"
 ACTION="dry-run"
 
 while [[ $# -gt 0 ]]; do

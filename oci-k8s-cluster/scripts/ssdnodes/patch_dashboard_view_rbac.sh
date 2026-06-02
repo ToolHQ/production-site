@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MANIFEST="$SCRIPT_DIR/../components/ssdnodes/kubernetes-dashboard-view-rbac.yaml"
-REMOTE_HOST="ssdnodes-monstro"
+REMOTE_HOST="ssdnodes-6a12f10c9ef11"
 ACTION="apply"
 
 while [[ $# -gt 0 ]]; do

@@ -4,7 +4,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 GATEWAY_DIR="$REPO_ROOT/apps/fleet-ops-gateway"
-REMOTE_HOST="${REMOTE_HOST:-ssdnodes-monstro}"
+REMOTE_HOST="${REMOTE_HOST:-ssdnodes-6a12f10c9ef11}"
 ENV_FILE="/etc/fleet-copilot/gateway.env"
 
 _SSH=(ssh -o BatchMode=yes -o ConnectTimeout=20)

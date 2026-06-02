@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy_ssdnodes_components.sh
-# Deploy de componentes adicionais no ssdnodes-monstro via Helm.
+# Deploy de componentes adicionais no ssdnodes-6a12f10c9ef11 via Helm.
 # Chamado pela TUI (k8s_ops_menu.sh) — não executar manualmente.
 #
 # Uso: deploy_ssdnodes_components.sh [dashboard|kubecost|all]
@@ -9,7 +9,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPONENTS_DIR="$SCRIPT_DIR/../components/ssdnodes"
-REMOTE_HOST="ssdnodes-monstro"
+REMOTE_HOST="ssdnodes-6a12f10c9ef11"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[ssdnodes]${NC} $*"; }

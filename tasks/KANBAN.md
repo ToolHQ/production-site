@@ -27,7 +27,7 @@
 
 | ID | Task Name | Priority | Est. |
 | :-: | :-------- | :------: | :--: |
-| [T-331](2026/Q2/T-331-SSDNodes-SSH-Alias-Canonical-Hostname.md) | **SSDNodes — SSH alias canônico (~/.ssh/config)** | 🔵 Medium | 30min |
+<!-- T-331 moved to Done -->
 | [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional)** | 🔵 Medium | 2d |
 
 | ID  | Task Name | Priority | Epic | Est. |
@@ -50,6 +50,7 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-331](2026/Q2/T-331-SSDNodes-SSH-Alias-Canonical-Hostname.md) | **SSDNodes — SSH alias canônico (~/.ssh/config)** _(alias legado 'monstro' purgado de todos os scripts, README atualizado)_ | 🔵 Medium | Antigravity | 30min |
 | [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(resolvido por T-320a + RUNBOOK_SSH_INCIDENT.md)_ | 🔼 High | Cursor / AI Radar | 1d |
 | [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** _(Backend Rust + Dashboard v2 + Runbook; PR #379 merged; Deploy em prod finalizado)_ | 🔼 High | Antigravity | 1d |
 | [T-315](2026/Q2/T-315-Fleet-Copilot-Epic-Overview.md) | **Fleet Copilot — Epic MVP** _(T-320→323 live; chat SSE em reports.dnor.io/#fleet-copilot; PR #367)_ | 🔼 High | Cursor / AI Radar | 2–3w |

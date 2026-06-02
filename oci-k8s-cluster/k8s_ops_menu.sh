@@ -4229,13 +4229,13 @@ show_hardening_menu() {
         read -p "Press Enter..."
         ;;
       8)
-        # Firewall UFW — ssdnodes-monstro: Status
+        # Firewall UFW — ssdnodes-6a12f10c9ef11: Status
         clear
         bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-6a12f10c9ef11 --status
         read -p "Press Enter..."
         ;;
       9)
-        # Firewall UFW — ssdnodes-monstro: Aplicar regras completas
+        # Firewall UFW — ssdnodes-6a12f10c9ef11: Aplicar regras completas
         clear
         echo -e "${YELLOW}⚠️  Porta 22 permanece aberta (safety net).${NC}"
         echo -e "${YELLOW}    Todas as outras conexões da internet serão bloqueadas.${NC}"
@@ -4250,7 +4250,7 @@ show_hardening_menu() {
         read -p "Press Enter..."
         ;;
       10)
-        # Deploy Kubernetes Dashboard no ssdnodes-monstro
+        # Deploy Kubernetes Dashboard no ssdnodes-6a12f10c9ef11
         clear
         echo -e "${GREEN}🚀 Deploy Kubernetes Dashboard → k8s.ssdnodes.dnor.io${NC}"
         echo ""
@@ -4258,7 +4258,7 @@ show_hardening_menu() {
         read -p "Press Enter..."
         ;;
       11)
-        # Deploy Kubecost no ssdnodes-monstro
+        # Deploy Kubecost no ssdnodes-6a12f10c9ef11
         clear
         echo -e "${GREEN}🚀 Deploy Kubecost Free → cost.ssdnodes.dnor.io${NC}"
         echo ""
@@ -4268,19 +4268,19 @@ show_hardening_menu() {
       12)
         # Status dos componentes ssdnodes
         clear
-        echo -e "${GREEN}📋 Status componentes ssdnodes-monstro${NC}"
+        echo -e "${GREEN}📋 Status componentes ssdnodes-6a12f10c9ef11${NC}"
         echo ""
         bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" status
         read -p "Press Enter..."
         ;;
       13)
-        echo -e "\n${YELLOW}T-320a: SSH hardening + fail2ban em ssdnodes-monstro${NC}"
-        bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-monstro --dry-run
+        echo -e "\n${YELLOW}T-320a: SSH hardening + fail2ban em ssdnodes-6a12f10c9ef11${NC}"
+        bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --dry-run
         read -p "Aplicar SSH hardening? (y/N): " SSH_CONFIRM
         if [[ "$SSH_CONFIRM" =~ ^[Yy]$ ]]; then
-          bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-monstro --apply
+          bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --apply
         fi
-        bash "$SCRIPT_DIR/scripts/hardening/fail2ban_ssdnodes.sh" --host ssdnodes-monstro --apply
+        bash "$SCRIPT_DIR/scripts/hardening/fail2ban_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --apply
         read -p "Press Enter..."
         ;;
       14)
