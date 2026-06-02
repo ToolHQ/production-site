@@ -50,7 +50,7 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** _(Backend Rust + Dashboard v2 + Runbook; implantação pendente de aplicação de RBAC devido ao SSH/MFA)_ | 🔼 High | Antigravity | 1d |
+| [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** _(Backend Rust + Dashboard v2 + Runbook; PR #379 merged; Deploy em prod finalizado)_ | 🔼 High | Antigravity | 1d |
 | [T-315](2026/Q2/T-315-Fleet-Copilot-Epic-Overview.md) | **Fleet Copilot — Epic MVP** _(T-320→323 live; chat SSE em reports.dnor.io/#fleet-copilot; PR #367)_ | 🔼 High | Cursor / AI Radar | 2–3w |
 | [T-320](2026/Q2/T-320-Fleet-Copilot-Security-Prerequisites.md) | **Fleet Copilot — Pré-requisitos segurança** _(SSH key-only, fail2ban, UFW, Dashboard view-only, Tailscale; gate 2026-05-30)_ | 🚨 Critical | Cursor / AI Radar | 3d |
 | [T-321](2026/Q2/T-321-Fleet-Ops-Gateway-Ollama-SSDNodes.md) | **Fleet Copilot — Ops Gateway + Ollama @ monstro** _(gemma3:4b localhost, gateway :18443, IaC scripts)_ | 🔼 High | Cursor / AI Radar | 3d |
