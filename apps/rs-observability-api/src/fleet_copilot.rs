@@ -42,6 +42,17 @@ enum ChatIntent {
     General,
 }
 
+struct AuditEvent<'a> {
+    client_ip: Option<&'a str>,
+    message: &'a str,
+    preset: &'a str,
+    intent: &'a str,
+    endpoints: &'a [String],
+    latency_ms: u64,
+    model: &'a str,
+    status: &'a str,
+}
+
 #[derive(Clone)]
 pub struct FleetCopilotState {
     login_key: String,
@@ -152,9 +163,7 @@ impl FleetCopilotState {
     }
 
     async fn audit_client(&self) -> Option<Arc<tokio_postgres::Client>> {
-        let Some(db_url) = self.audit_db_url.as_deref() else {
-            return None;
-        };
+        let db_url = self.audit_db_url.as_deref()?;
 
         if let Some(existing) = self.audit.lock().await.as_ref().cloned() {
             return Some(existing);
@@ -213,17 +222,7 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
             .collect()
     }
 
-    async fn audit_event(
-        &self,
-        client_ip: Option<&str>,
-        message: &str,
-        preset: &str,
-        intent: &str,
-        endpoints: &[String],
-        latency_ms: u64,
-        model: &str,
-        status: &str,
-    ) {
+    async fn audit_event(&self, event: AuditEvent<'_>) {
         let Some(client) = self.audit_client().await else {
             return;
         };
@@ -231,9 +230,9 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
             return;
         }
 
-        let prompt_sha = Self::prompt_sha256(message, preset);
-        let endpoints: Vec<&str> = endpoints.iter().map(|s| s.as_str()).collect();
-        let latency_i32 = i32::try_from(latency_ms.min(i32::MAX as u64)).unwrap_or(i32::MAX);
+        let prompt_sha = Self::prompt_sha256(event.message, event.preset);
+        let endpoints: Vec<&str> = event.endpoints.iter().map(|s| s.as_str()).collect();
+        let latency_i32 = i32::try_from(event.latency_ms.min(i32::MAX as u64)).unwrap_or(i32::MAX);
 
         let _ = client
             .execute(
@@ -241,14 +240,14 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
                  (client_ip, prompt_sha256, preset, intent, endpoints, latency_ms, model, status) \
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 &[
-                    &client_ip,
+                    &event.client_ip,
                     &prompt_sha,
-                    &preset,
-                    &intent,
+                    &event.preset,
+                    &event.intent,
                     &endpoints,
                     &latency_i32,
-                    &model,
-                    &status,
+                    &event.model,
+                    &event.status,
                 ],
             )
             .await;
@@ -961,16 +960,16 @@ pub async fn copilot_chat(
     if FleetCopilotState::is_conversational_clarification(message) {
         let latency_ms = started.elapsed().as_millis() as u64;
         let sources = vec!["fleet_manifest".to_string()];
-        fc.audit_event(
-            client_ip.as_deref(),
+        fc.audit_event(AuditEvent {
+            client_ip: client_ip.as_deref(),
             message,
             preset,
-            "clarification",
-            &sources,
+            intent: "clarification",
+            endpoints: &sources,
             latency_ms,
-            "fleet-meta",
-            "ok",
-        )
+            model: "fleet-meta",
+            status: "ok",
+        })
         .await;
         return Ok(Json(ChatResponse {
             reply: FleetCopilotState::clarification_reply(),
@@ -990,16 +989,16 @@ pub async fn copilot_chat(
         let latency_ms = started.elapsed().as_millis() as u64;
         let intent_label = FleetCopilotState::intent_label(intent).to_string();
         let sources = vec!["fleet_manifest".to_string()];
-        fc.audit_event(
-            client_ip.as_deref(),
+        fc.audit_event(AuditEvent {
+            client_ip: client_ip.as_deref(),
             message,
             preset,
-            &intent_label,
-            &sources,
+            intent: &intent_label,
+            endpoints: &sources,
             latency_ms,
             model,
-            "ok",
-        )
+            status: "ok",
+        })
         .await;
         return Ok(Json(ChatResponse {
             reply,
@@ -1019,16 +1018,16 @@ pub async fn copilot_chat(
         let latency_ms = started.elapsed().as_millis() as u64;
         let intent = FleetCopilotState::resolve_intent(message, preset);
         let intent_label = FleetCopilotState::intent_label(intent).to_string();
-        fc.audit_event(
-            client_ip.as_deref(),
+        fc.audit_event(AuditEvent {
+            client_ip: client_ip.as_deref(),
             message,
             preset,
-            &intent_label,
-            &sources,
+            intent: &intent_label,
+            endpoints: &sources,
             latency_ms,
-            "fleet-structured",
-            "ok",
-        )
+            model: "fleet-structured",
+            status: "ok",
+        })
         .await;
         return Ok(Json(ChatResponse {
             reply,
@@ -1073,16 +1072,16 @@ pub async fn copilot_chat(
     let latency_ms = started.elapsed().as_millis() as u64;
     let intent = FleetCopilotState::resolve_intent(message, preset);
     let intent_label = FleetCopilotState::intent_label(intent).to_string();
-    fc.audit_event(
-        client_ip.as_deref(),
+    fc.audit_event(AuditEvent {
+        client_ip: client_ip.as_deref(),
         message,
         preset,
-        &intent_label,
-        &sources,
+        intent: &intent_label,
+        endpoints: &sources,
         latency_ms,
-        &model,
-        "ok",
-    )
+        model: &model,
+        status: "ok",
+    })
     .await;
 
     Ok(Json(ChatResponse {
@@ -1154,16 +1153,16 @@ pub async fn copilot_chat_stream(
 
         if FleetCopilotState::is_conversational_clarification(&message) {
             let sources = vec!["fleet_manifest".to_string()];
-            fc.audit_event(
-                client_ip.as_deref(),
-                &message,
-                &preset,
-                "clarification",
-                &sources,
-                started.elapsed().as_millis() as u64,
-                "fleet-meta",
-                "ok",
-            )
+            fc.audit_event(AuditEvent {
+                client_ip: client_ip.as_deref(),
+                message: &message,
+                preset: &preset,
+                intent: "clarification",
+                endpoints: &sources,
+                latency_ms: started.elapsed().as_millis() as u64,
+                model: "fleet-meta",
+                status: "ok",
+            })
             .await;
             let _ = send(
                 Event::default().event("done").data(
@@ -1189,16 +1188,16 @@ pub async fn copilot_chat_stream(
             };
             let sources = vec!["fleet_manifest".to_string()];
             let intent_label = FleetCopilotState::intent_label(intent).to_string();
-            fc.audit_event(
-                client_ip.as_deref(),
-                &message,
-                &preset,
-                &intent_label,
-                &sources,
-                started.elapsed().as_millis() as u64,
+            fc.audit_event(AuditEvent {
+                client_ip: client_ip.as_deref(),
+                message: &message,
+                preset: &preset,
+                intent: &intent_label,
+                endpoints: &sources,
+                latency_ms: started.elapsed().as_millis() as u64,
                 model,
-                "ok",
-            )
+                status: "ok",
+            })
             .await;
             let _ = send(
                 Event::default()
@@ -1231,16 +1230,16 @@ pub async fn copilot_chat_stream(
         ) {
             let intent = FleetCopilotState::resolve_intent(&message, &preset);
             let intent_label = FleetCopilotState::intent_label(intent).to_string();
-            fc.audit_event(
-                client_ip.as_deref(),
-                &message,
-                &preset,
-                &intent_label,
-                &sources,
-                started.elapsed().as_millis() as u64,
-                "fleet-structured",
-                "ok",
-            )
+            fc.audit_event(AuditEvent {
+                client_ip: client_ip.as_deref(),
+                message: &message,
+                preset: &preset,
+                intent: &intent_label,
+                endpoints: &sources,
+                latency_ms: started.elapsed().as_millis() as u64,
+                model: "fleet-structured",
+                status: "ok",
+            })
             .await;
             let _ = send(
                 Event::default()
@@ -1385,16 +1384,16 @@ pub async fn copilot_chat_stream(
                             &preset_for_sanitize,
                         );
                         let intent_label = FleetCopilotState::intent_label(intent).to_string();
-                        fc.audit_event(
-                            client_ip.as_deref(),
-                            &message_for_sanitize,
-                            &preset_for_sanitize,
-                            &intent_label,
-                            &sources,
-                            started.elapsed().as_millis() as u64,
-                            "ollama",
-                            "ok",
-                        )
+                        fc.audit_event(AuditEvent {
+                            client_ip: client_ip.as_deref(),
+                            message: &message_for_sanitize,
+                            preset: &preset_for_sanitize,
+                            intent: &intent_label,
+                            endpoints: &sources,
+                            latency_ms: started.elapsed().as_millis() as u64,
+                            model: "ollama",
+                            status: "ok",
+                        })
                         .await;
                         if !forward_block("done", data) {
                             return;
