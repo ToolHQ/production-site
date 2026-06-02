@@ -280,6 +280,7 @@ async fn longhorn_volumes(State(state): State<AppState>) -> Response {
         None => Json(crate::LonghornResponse {
             available: false,
             volumes: vec![],
+            nodes_capacity: vec![],
             total: 0,
             healthy: 0,
             degraded: 0,
