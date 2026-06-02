@@ -1227,4 +1227,3 @@ mod tests {
         assert!(reply.unwrap().contains("memória"));
     }
 }
-
