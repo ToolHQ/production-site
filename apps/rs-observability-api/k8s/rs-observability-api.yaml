@@ -19,7 +19,7 @@ rules:
     resources: ["ingresses"]
     verbs: ["get", "list"]
   - apiGroups: ["longhorn.io"]
-    resources: ["volumes"]
+    resources: ["volumes", "nodes"]
     verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims", "persistentvolumes"]
