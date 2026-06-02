@@ -83,6 +83,7 @@ else
     --builder oci-builder \
     --platform linux/arm64 \
     --push \
+    --build-arg "CACHEBUST=${TAG_VERSION}" \
     -t $IMAGE_TAG \
     -t $IMAGE_LATEST \
     .

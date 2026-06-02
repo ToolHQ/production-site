@@ -47,8 +47,8 @@ fn external_node_specs() -> &'static [ExternalNodeSpec] {
         .get_or_init(|| {
             serde_json::from_str(EXTERNAL_NODES_JSON)
                 .unwrap_or_else(|err| panic!("failed to parse external_nodes.json: {err}"))
-        }    )
-    .as_slice()
+        })
+        .as_slice()
 }
 
 fn is_compare_message(message: &str) -> bool {
@@ -75,9 +75,7 @@ fn is_fleet_wide_resources_message(message: &str) -> bool {
     ]
     .iter()
     .any(|n| m.contains(n))
-        || (m.contains("recursos")
-            && !m.contains("k8s-node")
-            && !m.contains("ssdnodes-6a12f10c"))
+        || (m.contains("recursos") && !m.contains("k8s-node") && !m.contains("ssdnodes-6a12f10c"))
 }
 
 fn match_manifest_host_ids(needle: &str, manifest: &Value, compare: bool) -> Vec<String> {

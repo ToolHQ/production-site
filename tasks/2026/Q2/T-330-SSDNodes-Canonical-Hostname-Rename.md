@@ -17,7 +17,7 @@ O apelido **`ssdnodes-monstro`** era alias SSH ops informal e aparecia na UI do 
 - [x] Regenerar manifest Prometheus (`ssdnodes-6a12f10c9ef11-exporter.yaml`)
 - [x] Harness: fail se `ssdnodes-monstro` no bundle JS live
 - [x] `ufw_manager`: host canônico + resolução SSH → alias legado
-- [ ] **Backlog T-331**: `~/.ssh/config` — adicionar `Host ssdnodes-6a12f10c9ef11` e deprecar alias monstro
+- [x] **T-331**: `~/.ssh/config` — `Host ssdnodes-6a12f10c9ef11` + scripts sem default `ssdnodes-monstro`
 
 ## Validação
 

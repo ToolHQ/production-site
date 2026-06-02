@@ -1,0 +1,17 @@
+# SSDNodes — adicionar a ~/.ssh/config (T-331)
+# Idempotente: bash oci-k8s-cluster/scripts/ssdnodes/install_ssdnodes_ssh_config.sh
+
+Host ssdnodes-6a12f10c9ef11
+  HostName 104.225.218.78
+  User root
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking accept-new
+  LogLevel ERROR
+
+# Legado (ops antigos) — mesmo host; preferir Host acima
+Host ssdnodes-monstro
+  HostName 104.225.218.78
+  User root
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking accept-new
+  LogLevel ERROR

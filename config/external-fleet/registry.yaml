@@ -35,7 +35,7 @@ nodes:
     instance_host: 104.225.218.78
     instance_id: null
     fallback_name: ssdnodes-6a12f10c9ef11
-    ssh_alias: ssdnodes-monstro  # legado ~/.ssh/config — preferir hostname em UI/docs
+    ssh_alias: ssdnodes-6a12f10c9ef11
     cluster: SSD-NODES
     role: dedicated
     cpu_millicores: 12000

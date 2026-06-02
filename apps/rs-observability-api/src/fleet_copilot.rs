@@ -20,8 +20,8 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio_postgres::NoTls;
 use tokio::sync::Mutex;
+use tokio_postgres::NoTls;
 use tokio_stream::wrappers::ReceiverStream;
 
 const COOKIE_NAME: &str = "fleet-copilot-session";
@@ -38,6 +38,8 @@ enum ChatIntent {
     SshAudit,
     FleetCompare,
     OciNodeQuery,
+    /// Pergunta livre — contexto coletado para o LLM, sem template read-only.
+    General,
 }
 
 #[derive(Clone)]
@@ -104,8 +106,8 @@ impl FleetCopilotState {
         let gateway_url = std::env::var("FLEET_COPILOT_GATEWAY_URL")
             .unwrap_or_else(|_| "http://104.225.218.78:18443".into());
         let gateway_token = std::env::var("FLEET_COPILOT_GATEWAY_TOKEN").ok()?;
-        let ollama_model = std::env::var("FLEET_COPILOT_OLLAMA_MODEL")
-            .unwrap_or_else(|_| "gemma3:4b".into());
+        let ollama_model =
+            std::env::var("FLEET_COPILOT_OLLAMA_MODEL").unwrap_or_else(|_| "gemma3:4b".into());
         let audit_db_url = std::env::var("FLEET_COPILOT_AUDIT_DATABASE_URL")
             .ok()
             .or_else(|| std::env::var("DATABASE_URL").ok());
@@ -324,15 +326,16 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
 
     fn is_compare_message(message: &str) -> bool {
         let m = message.to_lowercase();
-        [
-            "compar", " vs ", " versus ", "entre ", " x ", "contra ",
-        ]
-        .iter()
-        .any(|n| m.contains(n))
+        ["compar", " vs ", " versus ", "entre ", " x ", "contra "]
+            .iter()
+            .any(|n| m.contains(n))
     }
 
     /// T-334: routing server-side — preset UI é hint, intent manda nos endpoints.
     fn resolve_intent(message: &str, preset: &str) -> ChatIntent {
+        if Self::is_conversational_clarification(message) {
+            return ChatIntent::General;
+        }
         if Self::skip_ops_fetch(message) {
             return ChatIntent::MetaCapabilities;
         }
@@ -371,19 +374,28 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
         {
             return ChatIntent::OciNodeQuery;
         }
-        ChatIntent::HostHealth
+        if Self::is_host_health_question(message) {
+            return ChatIntent::HostHealth;
+        }
+        ChatIntent::General
     }
 
-    fn intent_ops_paths(intent: ChatIntent) -> &'static [&'static str] {
+    fn intent_ops_paths(
+        intent: ChatIntent,
+        preset: &str,
+        message: &str,
+    ) -> &'static [&'static str] {
         match intent {
             ChatIntent::MetaCapabilities | ChatIntent::OciNodeQuery | ChatIntent::FleetCompare => {
                 &[]
             }
+            ChatIntent::General if Self::is_conversational_clarification(message) => &[],
             ChatIntent::FleetResources | ChatIntent::HostHealth => {
                 Self::preset_paths("ssdnodes-health")
             }
             ChatIntent::K8sStatus => Self::preset_paths("ssdnodes-k8s"),
             ChatIntent::SshAudit => Self::preset_paths("ssdnodes-ssh"),
+            ChatIntent::General => Self::preset_paths(preset),
         }
     }
 
@@ -396,7 +408,89 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
             ChatIntent::SshAudit => "ssh_audit",
             ChatIntent::FleetCompare => "fleet_compare",
             ChatIntent::OciNodeQuery => "oci_node_query",
+            ChatIntent::General => "general",
         }
+    }
+
+    /// Só bypass Gemma para perguntas operacionais explícitas (T-335).
+    fn should_structured_bypass(intent: ChatIntent, message: &str) -> bool {
+        match intent {
+            ChatIntent::FleetResources => true,
+            ChatIntent::HostHealth => Self::is_host_health_question(message),
+            ChatIntent::K8sStatus => Self::is_k8s_status_question(message),
+            ChatIntent::SshAudit => {
+                let m = message.to_lowercase();
+                m.contains("ssh")
+                    || m.contains("fail2ban")
+                    || m.contains("bruteforce")
+                    || m.contains("login")
+            }
+            _ => false,
+        }
+    }
+
+    fn is_host_health_question(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "disco",
+            "memória",
+            "memoria",
+            "mem ",
+            " ram",
+            "carga",
+            "load average",
+            "uptime",
+            "df ",
+            "free -",
+            "espaço",
+            "espaco",
+            "capacidade",
+            "disco cheio",
+            "disco no ssd",
+            "host/disk",
+            "host/memory",
+        ]
+        .iter()
+        .any(|n| m.contains(n))
+    }
+
+    fn is_k8s_status_question(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "pod",
+            "ingress",
+            "warning",
+            "namespace",
+            "crashloop",
+            "pending",
+            "não running",
+            "nao running",
+            "not running",
+        ]
+        .iter()
+        .any(|n| m.contains(n))
+    }
+
+    fn is_conversational_clarification(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "não foi isso",
+            "nao foi isso",
+            "não entendeu",
+            "nao entendeu",
+            "não é isso",
+            "nao e isso",
+            "perguntei",
+            "resposta errada",
+            "outra pergunta",
+            "tenta de novo",
+            "tente de novo",
+            "reformulando",
+            "não respondeu",
+            "nao respondeu",
+        ]
+        .iter()
+        .any(|n| m.contains(n))
     }
 
     /// Perguntas sobre escopo/inventário — não buscar df/free no gateway (T-332).
@@ -455,11 +549,7 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
     }
 
     fn ops_stdout_excerpt(context: &Value, key: &str, max_lines: usize) -> Option<String> {
-        let stdout = context
-            .get(key)?
-            .get("stdout")?
-            .as_str()?
-            .trim();
+        let stdout = context.get(key)?.get("stdout")?.as_str()?.trim();
         if stdout.is_empty() {
             return None;
         }
@@ -503,6 +593,9 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
         let intent = Self::resolve_intent(message, preset);
         if intent == ChatIntent::MetaCapabilities {
             return Some(Self::reply_from_manifest(manifest));
+        }
+        if !Self::should_structured_bypass(intent, message) {
+            return None;
         }
         if let Some(reply) = Self::reply_from_targeted_metrics(manifest, intent) {
             return Some(reply);
@@ -582,8 +675,11 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
             return trimmed.to_string();
         }
         if let Some(ctx) = context {
-            if let Some(structured) = Self::structured_reply(manifest, ctx, message, preset) {
-                return structured;
+            let intent = Self::resolve_intent(message, preset);
+            if Self::should_structured_bypass(intent, message) {
+                if let Some(structured) = Self::structured_reply(manifest, ctx, message, preset) {
+                    return structured;
+                }
             }
         }
         Self::weak_model_fallback(sources)
@@ -652,9 +748,8 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
             .and_then(|s| s.get("description_pt"))
             .and_then(|v| v.as_str())
             .unwrap_or("Assistente read-only da fleet.");
-        let mut lines = vec![
-            "Hosts e clusters que posso referenciar (dados read-only):".to_string(),
-        ];
+        let mut lines =
+            vec!["Hosts e clusters que posso referenciar (dados read-only):".to_string()];
         if let Some(hosts) = manifest.get("hosts").and_then(|h| h.as_array()) {
             for h in hosts {
                 let name = h
@@ -666,9 +761,7 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
                 let role = h.get("role").and_then(|v| v.as_str()).unwrap_or("");
                 let ip = h.get("ip").and_then(|v| v.as_str()).unwrap_or("");
                 let src = h.get("source").and_then(|v| v.as_str()).unwrap_or("");
-                lines.push(format!(
-                    "- {name} ({cluster}, {role}) — {ip} [{src}]"
-                ));
+                lines.push(format!("- {name} ({cluster}, {role}) — {ip} [{src}]"));
             }
         }
         lines.push(String::new());
@@ -698,7 +791,7 @@ Pergunte por um host específico para métricas ou compare dois hosts."
             return (context, sources);
         }
 
-        let paths = Self::intent_ops_paths(intent);
+        let paths = Self::intent_ops_paths(intent, preset, message);
         for path in paths {
             match self.fetch_ops(path).await {
                 Ok(v) => {
@@ -753,6 +846,13 @@ Confira os dados coletados nas fontes: {src}. \
 Tente reformular com um host específico (ex.: k8s-node-1) ou use uma consulta rápida na barra lateral."
         )
     }
+
+    fn clarification_reply() -> String {
+        "Beleza — me diga a pergunta exata (ou cole a frase anterior) e, se possível, cite um alvo: \
+`ssdnodes-6a12f10c9ef11` ou `@k8s-node-1`. \
+\n\nSe você quiser, também posso responder por consultas rápidas: **Disco & memória**, **Pods & ingress**, **SSH 24h**."
+            .to_string()
+    }
 }
 
 pub async fn copilot_session(
@@ -778,12 +878,8 @@ pub async fn copilot_status(
         enabled: true,
         gateway_reachable,
         ollama_model: fc.ollama_model.clone(),
-        inference_mode: "structured-first",
-        structured_models: vec![
-            "fleet-manifest",
-            "fleet-metrics",
-            "fleet-structured",
-        ],
+        inference_mode: "llm-default-structured-fast-path",
+        structured_models: vec!["fleet-manifest", "fleet-metrics", "fleet-structured"],
     }))
 }
 
@@ -861,6 +957,28 @@ pub async fn copilot_chat(
         .and_then(|v| v.to_str().ok())
         .and_then(|raw| raw.split(',').next())
         .map(|s| s.trim().to_string());
+
+    if FleetCopilotState::is_conversational_clarification(message) {
+        let latency_ms = started.elapsed().as_millis() as u64;
+        let sources = vec!["fleet_manifest".to_string()];
+        fc.audit_event(
+            client_ip.as_deref(),
+            message,
+            preset,
+            "clarification",
+            &sources,
+            latency_ms,
+            "fleet-meta",
+            "ok",
+        )
+        .await;
+        return Ok(Json(ChatResponse {
+            reply: FleetCopilotState::clarification_reply(),
+            model: "fleet-meta".into(),
+            sources,
+            latency_ms,
+        }));
+    }
 
     if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, message, preset) {
         let intent = FleetCopilotState::resolve_intent(message, preset);
@@ -1034,9 +1152,35 @@ pub async fn copilot_chat_stream(
 
         let started = Instant::now();
 
-        if let Some(reply) =
-            FleetCopilotState::try_fast_reply(&fleet_manifest, &message, &preset)
-        {
+        if FleetCopilotState::is_conversational_clarification(&message) {
+            let sources = vec!["fleet_manifest".to_string()];
+            fc.audit_event(
+                client_ip.as_deref(),
+                &message,
+                &preset,
+                "clarification",
+                &sources,
+                started.elapsed().as_millis() as u64,
+                "fleet-meta",
+                "ok",
+            )
+            .await;
+            let _ = send(
+                Event::default().event("done").data(
+                    json!({
+                        "reply": FleetCopilotState::clarification_reply(),
+                        "model": "fleet-meta",
+                        "sources": ["fleet_manifest"],
+                        "latency_ms": started.elapsed().as_millis() as u64,
+                    })
+                    .to_string(),
+                ),
+            )
+            .await;
+            return;
+        }
+
+        if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, &message, &preset) {
             let intent = FleetCopilotState::resolve_intent(&message, &preset);
             let model = if intent == ChatIntent::MetaCapabilities {
                 "fleet-manifest"
@@ -1063,25 +1207,21 @@ pub async fn copilot_chat_stream(
             )
             .await;
             let _ = send(
-                Event::default()
-                    .event("done")
-                    .data(
-                        json!({
-                            "reply": reply,
-                            "model": model,
-                            "sources": ["fleet_manifest"],
-                            "latency_ms": started.elapsed().as_millis() as u64,
-                        })
-                        .to_string(),
-                    ),
+                Event::default().event("done").data(
+                    json!({
+                        "reply": reply,
+                        "model": model,
+                        "sources": ["fleet_manifest"],
+                        "latency_ms": started.elapsed().as_millis() as u64,
+                    })
+                    .to_string(),
+                ),
             )
             .await;
             return;
         }
 
-        let (context, sources) = fc
-            .collect_context(&preset, fleet_manifest, &message)
-            .await;
+        let (context, sources) = fc.collect_context(&preset, fleet_manifest, &message).await;
 
         if let Some(reply) = FleetCopilotState::structured_reply(
             &fleet_manifest_for_reply,
@@ -1109,17 +1249,15 @@ pub async fn copilot_chat_stream(
             )
             .await;
             let _ = send(
-                Event::default()
-                    .event("done")
-                    .data(
-                        json!({
-                            "reply": reply,
-                            "model": "fleet-structured",
-                            "sources": sources,
-                            "latency_ms": started.elapsed().as_millis() as u64,
-                        })
-                        .to_string(),
-                    ),
+                Event::default().event("done").data(
+                    json!({
+                        "reply": reply,
+                        "model": "fleet-structured",
+                        "sources": sources,
+                        "latency_ms": started.elapsed().as_millis() as u64,
+                    })
+                    .to_string(),
+                ),
             )
             .await;
             return;
@@ -1193,10 +1331,7 @@ pub async fn copilot_chat_stream(
                 got_done = true;
                 if let Ok(mut val) = serde_json::from_str::<Value>(&data) {
                     if let Some(obj) = val.as_object_mut() {
-                        let raw = obj
-                            .get("reply")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
+                        let raw = obj.get("reply").and_then(|v| v.as_str()).unwrap_or("");
                         let merged = if streamed_reply.len() > raw.len() {
                             streamed_reply.as_str()
                         } else {
@@ -1245,7 +1380,10 @@ pub async fn copilot_chat_stream(
                             }
                             data = val.to_string();
                         }
-                        let intent = FleetCopilotState::resolve_intent(&message_for_sanitize, &preset_for_sanitize);
+                        let intent = FleetCopilotState::resolve_intent(
+                            &message_for_sanitize,
+                            &preset_for_sanitize,
+                        );
                         let intent_label = FleetCopilotState::intent_label(intent).to_string();
                         fc.audit_event(
                             client_ip.as_deref(),
@@ -1433,6 +1571,47 @@ mod tests {
             "ssdnodes-health",
         );
         assert!(reply.unwrap().contains("memória"));
+    }
+
+    #[test]
+    fn clarification_uses_llm_not_structured_template() {
+        let ctx = json!({
+            "ops/host/disk": { "stdout": "Filesystem 1T" },
+            "ops/host/memory": { "stdout": "Mem: 60Gi" },
+            "ops/host/load": { "stdout": "load 0.5" }
+        });
+        let manifest = json!({ "hosts": [] });
+        assert_eq!(
+            FleetCopilotState::resolve_intent("nao foi isso que perguntei", "ssdnodes-health"),
+            super::ChatIntent::General
+        );
+        assert!(FleetCopilotState::structured_reply(
+            &manifest,
+            &ctx,
+            "nao foi isso que perguntei",
+            "ssdnodes-health"
+        )
+        .is_none());
+        assert!(!FleetCopilotState::should_structured_bypass(
+            super::ChatIntent::General,
+            "nao foi isso que perguntei"
+        ));
+    }
+
+    #[test]
+    fn host_health_requires_explicit_topic() {
+        assert_eq!(
+            FleetCopilotState::resolve_intent("nao foi isso que perguntei", "ssdnodes-health"),
+            super::ChatIntent::General
+        );
+        assert_eq!(
+            FleetCopilotState::resolve_intent("Como está o disco no SSDNodes?", "ssdnodes-health"),
+            super::ChatIntent::HostHealth
+        );
+        assert!(FleetCopilotState::should_structured_bypass(
+            super::ChatIntent::HostHealth,
+            "Como está o disco no SSDNodes?"
+        ));
     }
 }
 

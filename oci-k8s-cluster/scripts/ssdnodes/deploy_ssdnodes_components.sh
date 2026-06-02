@@ -9,7 +9,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPONENTS_DIR="$SCRIPT_DIR/../components/ssdnodes"
-REMOTE_HOST="ssdnodes-monstro"
+REMOTE_HOST="ssdnodes-6a12f10c9ef11"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[ssdnodes]${NC} $*"; }
@@ -116,6 +116,7 @@ deploy_fleet_copilot() {
   log "=== Fleet Copilot (Ollama + gateway) ==="
   bash "$COMPONENTS_DIR/install_ollama.sh" --host "$REMOTE_HOST"
   bash "$COMPONENTS_DIR/fleet-copilot/install_fleet_ops_gateway.sh"
+  bash "$COMPONENTS_DIR/fleet-copilot/setup_fleet_gateway_kubeconfig.sh" --host "$REMOTE_HOST" --verify
   bash "$SCRIPT_DIR/../scripts/hardening/ufw_manager.sh" --host "$REMOTE_HOST" --apply
   log "Fleet Copilot stack atualizado ✓"
 }
