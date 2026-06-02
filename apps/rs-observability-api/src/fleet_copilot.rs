@@ -100,8 +100,8 @@ impl FleetCopilotState {
         let gateway_url = std::env::var("FLEET_COPILOT_GATEWAY_URL")
             .unwrap_or_else(|_| "http://104.225.218.78:18443".into());
         let gateway_token = std::env::var("FLEET_COPILOT_GATEWAY_TOKEN").ok()?;
-        let ollama_model = std::env::var("FLEET_COPILOT_OLLAMA_MODEL")
-            .unwrap_or_else(|_| "gemma3:4b".into());
+        let ollama_model =
+            std::env::var("FLEET_COPILOT_OLLAMA_MODEL").unwrap_or_else(|_| "gemma3:4b".into());
 
         let mut hasher = Sha256::new();
         hasher.update(session_secret.as_bytes());
@@ -211,11 +211,9 @@ impl FleetCopilotState {
 
     fn is_compare_message(message: &str) -> bool {
         let m = message.to_lowercase();
-        [
-            "compar", " vs ", " versus ", "entre ", " x ", "contra ",
-        ]
-        .iter()
-        .any(|n| m.contains(n))
+        ["compar", " vs ", " versus ", "entre ", " x ", "contra "]
+            .iter()
+            .any(|n| m.contains(n))
     }
 
     /// T-334: routing server-side — preset UI é hint, intent manda nos endpoints.
@@ -342,11 +340,7 @@ impl FleetCopilotState {
     }
 
     fn ops_stdout_excerpt(context: &Value, key: &str, max_lines: usize) -> Option<String> {
-        let stdout = context
-            .get(key)?
-            .get("stdout")?
-            .as_str()?
-            .trim();
+        let stdout = context.get(key)?.get("stdout")?.as_str()?.trim();
         if stdout.is_empty() {
             return None;
         }
@@ -539,9 +533,8 @@ impl FleetCopilotState {
             .and_then(|s| s.get("description_pt"))
             .and_then(|v| v.as_str())
             .unwrap_or("Assistente read-only da fleet.");
-        let mut lines = vec![
-            "Hosts e clusters que posso referenciar (dados read-only):".to_string(),
-        ];
+        let mut lines =
+            vec!["Hosts e clusters que posso referenciar (dados read-only):".to_string()];
         if let Some(hosts) = manifest.get("hosts").and_then(|h| h.as_array()) {
             for h in hosts {
                 let name = h
@@ -553,9 +546,7 @@ impl FleetCopilotState {
                 let role = h.get("role").and_then(|v| v.as_str()).unwrap_or("");
                 let ip = h.get("ip").and_then(|v| v.as_str()).unwrap_or("");
                 let src = h.get("source").and_then(|v| v.as_str()).unwrap_or("");
-                lines.push(format!(
-                    "- {name} ({cluster}, {role}) — {ip} [{src}]"
-                ));
+                lines.push(format!("- {name} ({cluster}, {role}) — {ip} [{src}]"));
             }
         }
         lines.push(String::new());
@@ -666,11 +657,7 @@ pub async fn copilot_status(
         gateway_reachable,
         ollama_model: fc.ollama_model.clone(),
         inference_mode: "structured-first",
-        structured_models: vec![
-            "fleet-manifest",
-            "fleet-metrics",
-            "fleet-structured",
-        ],
+        structured_models: vec!["fleet-manifest", "fleet-metrics", "fleet-structured"],
     }))
 }
 
@@ -869,9 +856,7 @@ pub async fn copilot_chat_stream(
 
         let started = Instant::now();
 
-        if let Some(reply) =
-            FleetCopilotState::try_fast_reply(&fleet_manifest, &message, &preset)
-        {
+        if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, &message, &preset) {
             let intent = FleetCopilotState::resolve_intent(&message, &preset);
             let model = if intent == ChatIntent::MetaCapabilities {
                 "fleet-manifest"
@@ -886,25 +871,21 @@ pub async fn copilot_chat_stream(
             )
             .await;
             let _ = send(
-                Event::default()
-                    .event("done")
-                    .data(
-                        json!({
-                            "reply": reply,
-                            "model": model,
-                            "sources": ["fleet_manifest"],
-                            "latency_ms": started.elapsed().as_millis() as u64,
-                        })
-                        .to_string(),
-                    ),
+                Event::default().event("done").data(
+                    json!({
+                        "reply": reply,
+                        "model": model,
+                        "sources": ["fleet_manifest"],
+                        "latency_ms": started.elapsed().as_millis() as u64,
+                    })
+                    .to_string(),
+                ),
             )
             .await;
             return;
         }
 
-        let (context, sources) = fc
-            .collect_context(&preset, fleet_manifest, &message)
-            .await;
+        let (context, sources) = fc.collect_context(&preset, fleet_manifest, &message).await;
 
         if let Some(reply) = FleetCopilotState::structured_reply(
             &fleet_manifest_for_reply,
@@ -919,17 +900,15 @@ pub async fn copilot_chat_stream(
             )
             .await;
             let _ = send(
-                Event::default()
-                    .event("done")
-                    .data(
-                        json!({
-                            "reply": reply,
-                            "model": "fleet-structured",
-                            "sources": sources,
-                            "latency_ms": started.elapsed().as_millis() as u64,
-                        })
-                        .to_string(),
-                    ),
+                Event::default().event("done").data(
+                    json!({
+                        "reply": reply,
+                        "model": "fleet-structured",
+                        "sources": sources,
+                        "latency_ms": started.elapsed().as_millis() as u64,
+                    })
+                    .to_string(),
+                ),
             )
             .await;
             return;
@@ -1003,10 +982,7 @@ pub async fn copilot_chat_stream(
                 got_done = true;
                 if let Ok(mut val) = serde_json::from_str::<Value>(&data) {
                     if let Some(obj) = val.as_object_mut() {
-                        let raw = obj
-                            .get("reply")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
+                        let raw = obj.get("reply").and_then(|v| v.as_str()).unwrap_or("");
                         let merged = if streamed_reply.len() > raw.len() {
                             streamed_reply.as_str()
                         } else {
@@ -1137,6 +1113,25 @@ pub async fn copilot_chat_stream(
         .keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
 }
 
+fn parse_sse_block(block: &str) -> Option<(String, String)> {
+    let mut event_name = "message".to_string();
+    let mut data = String::new();
+    for line in block.lines() {
+        if let Some(v) = line.strip_prefix("event:") {
+            event_name = v.trim().to_string();
+        } else if let Some(v) = line.strip_prefix("data:") {
+            if !data.is_empty() {
+                data.push('\n');
+            }
+            data.push_str(v.trim());
+        }
+    }
+    if data.is_empty() {
+        return None;
+    }
+    Some((event_name, data))
+}
+
 #[cfg(test)]
 mod tests {
     use super::FleetCopilotState;
@@ -1231,23 +1226,4 @@ mod tests {
         );
         assert!(reply.unwrap().contains("memória"));
     }
-}
-
-fn parse_sse_block(block: &str) -> Option<(String, String)> {
-    let mut event_name = "message".to_string();
-    let mut data = String::new();
-    for line in block.lines() {
-        if let Some(v) = line.strip_prefix("event:") {
-            event_name = v.trim().to_string();
-        } else if let Some(v) = line.strip_prefix("data:") {
-            if !data.is_empty() {
-                data.push('\n');
-            }
-            data.push_str(v.trim());
-        }
-    }
-    if data.is_empty() {
-        return None;
-    }
-    Some((event_name, data))
 }

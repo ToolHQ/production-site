@@ -71,10 +71,7 @@ async fn copilot_chat_route(
 ) -> Result<Json<fleet_copilot::ChatResponse>, StatusCode> {
     let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
     let manifest = state
-        .enrich_manifest_for_message(
-            state.build_fleet_manifest().await,
-            &body.message,
-        )
+        .enrich_manifest_for_message(state.build_fleet_manifest().await, &body.message)
         .await;
     fleet_copilot::copilot_chat(State(fc), manifest, headers, body).await
 }
@@ -91,10 +88,7 @@ async fn copilot_chat_stream_route(
 > {
     let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
     let manifest = state
-        .enrich_manifest_for_message(
-            state.build_fleet_manifest().await,
-            &body.message,
-        )
+        .enrich_manifest_for_message(state.build_fleet_manifest().await, &body.message)
         .await;
     fleet_copilot::copilot_chat_stream(State(fc), manifest, headers, body).await
 }
@@ -109,10 +103,7 @@ async fn copilot_hosts_route(
     }
     let manifest = state.build_fleet_manifest().await;
     Ok(Json(
-        manifest
-            .get("hosts")
-            .cloned()
-            .unwrap_or_else(|| json!([])),
+        manifest.get("hosts").cloned().unwrap_or_else(|| json!([])),
     ))
 }
 
@@ -289,6 +280,7 @@ async fn longhorn_volumes(State(state): State<AppState>) -> Response {
         None => Json(crate::LonghornResponse {
             available: false,
             volumes: vec![],
+            nodes_capacity: vec![],
             total: 0,
             healthy: 0,
             degraded: 0,

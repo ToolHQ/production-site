@@ -47,8 +47,8 @@ fn external_node_specs() -> &'static [ExternalNodeSpec] {
         .get_or_init(|| {
             serde_json::from_str(EXTERNAL_NODES_JSON)
                 .unwrap_or_else(|err| panic!("failed to parse external_nodes.json: {err}"))
-        }    )
-    .as_slice()
+        })
+        .as_slice()
 }
 
 fn is_compare_message(message: &str) -> bool {
@@ -75,9 +75,7 @@ fn is_fleet_wide_resources_message(message: &str) -> bool {
     ]
     .iter()
     .any(|n| m.contains(n))
-        || (m.contains("recursos")
-            && !m.contains("k8s-node")
-            && !m.contains("ssdnodes-6a12f10c"))
+        || (m.contains("recursos") && !m.contains("k8s-node") && !m.contains("ssdnodes-6a12f10c"))
 }
 
 fn match_manifest_host_ids(needle: &str, manifest: &Value, compare: bool) -> Vec<String> {
@@ -511,16 +509,65 @@ pub(crate) struct LonghornVolume {
     node: String,
 }
 
+#[derive(Serialize, Clone, Debug)]
+pub(crate) struct LonghornNodeCapacity {
+    name: String,
+    schedulable: bool,
+    storage_maximum: u64,
+    storage_scheduled: u64,
+    storage_available: u64,
+}
+
 #[derive(Serialize)]
 pub(crate) struct LonghornResponse {
     available: bool,
     volumes: Vec<LonghornVolume>,
+    nodes_capacity: Vec<LonghornNodeCapacity>,
     total: usize,
     healthy: usize,
     degraded: usize,
     faulted: usize,
     queried_at_epoch: u64,
     error: Option<String>,
+}
+
+// Deserialization structs for node.longhorn.io
+#[derive(Deserialize, Clone, Default)]
+struct LonghornNodeResource {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    spec: Option<LonghornNodeSpec>,
+    status: Option<LonghornNodeStatus>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct LonghornNodeSpec {
+    #[serde(default, rename = "allowScheduling")]
+    allow_scheduling: Option<bool>,
+    #[serde(default)]
+    disks: BTreeMap<String, LonghornDiskSpec>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct LonghornDiskSpec {
+    #[serde(default, rename = "allowScheduling")]
+    allow_scheduling: Option<bool>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct LonghornNodeStatus {
+    #[serde(default, rename = "diskStatus")]
+    disk_status: BTreeMap<String, LonghornDiskStatus>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct LonghornDiskStatus {
+    #[serde(default, rename = "storageAvailable")]
+    storage_available: u64,
+    #[serde(default, rename = "storageScheduled")]
+    storage_scheduled: u64,
+    #[serde(default, rename = "storageMaximum")]
+    storage_maximum: u64,
 }
 
 // K8s CRD deserialization helpers for Longhorn
@@ -1977,12 +2024,15 @@ impl LiveMonitor {
     pub(crate) async fn fetch_longhorn(&self) -> LonghornResponse {
         let now = unix_epoch_seconds();
 
-        // Fetch PVCs and Longhorn volumes in parallel for cross-mapping
-        let (vol_result, pvc_result) = tokio::join!(
+        // Fetch PVCs, Longhorn volumes, and Longhorn nodes in parallel for cross-mapping
+        let (vol_result, pvc_result, nodes_result) = tokio::join!(
             self.fetch_json::<KubeList<LonghornVolumeResource>>(
                 "/apis/longhorn.io/v1beta2/namespaces/longhorn-system/volumes"
             ),
-            self.fetch_json::<KubeList<PvcResource>>("/api/v1/persistentvolumeclaims")
+            self.fetch_json::<KubeList<PvcResource>>("/api/v1/persistentvolumeclaims"),
+            self.fetch_json::<KubeList<LonghornNodeResource>>(
+                "/apis/longhorn.io/v1beta2/namespaces/longhorn-system/nodes"
+            )
         );
 
         let list = match vol_result {
@@ -1991,6 +2041,7 @@ impl LiveMonitor {
                 return LonghornResponse {
                     available: false,
                     volumes: vec![],
+                    nodes_capacity: vec![],
                     total: 0,
                     healthy: 0,
                     degraded: 0,
@@ -2043,6 +2094,44 @@ impl LiveMonitor {
             })
             .collect();
 
+        let nodes_capacity: Vec<LonghornNodeCapacity> = match nodes_result {
+            Ok(nodes_list) => nodes_list
+                .items
+                .into_iter()
+                .map(|n| {
+                    let name = n.metadata.name.clone().unwrap_or_default();
+                    let spec = n.spec.unwrap_or_default();
+                    let status = n.status.unwrap_or_default();
+
+                    let mut storage_available = 0;
+                    let mut storage_scheduled = 0;
+                    let mut storage_maximum = 0;
+
+                    for disk in status.disk_status.values() {
+                        storage_available += disk.storage_available;
+                        storage_scheduled += disk.storage_scheduled;
+                        storage_maximum += disk.storage_maximum;
+                    }
+
+                    let schedulable = spec.allow_scheduling.unwrap_or(true)
+                        && (spec.disks.is_empty()
+                            || spec
+                                .disks
+                                .values()
+                                .any(|d| d.allow_scheduling.unwrap_or(true)));
+
+                    LonghornNodeCapacity {
+                        name,
+                        schedulable,
+                        storage_maximum,
+                        storage_scheduled,
+                        storage_available,
+                    }
+                })
+                .collect(),
+            Err(_) => vec![],
+        };
+
         let total = volumes.len();
         let healthy = volumes.iter().filter(|v| v.robustness == "healthy").count();
         let degraded = volumes
@@ -2053,6 +2142,7 @@ impl LiveMonitor {
         LonghornResponse {
             available: true,
             volumes,
+            nodes_capacity,
             total,
             healthy,
             degraded,
