@@ -132,26 +132,28 @@ function AppContent() {
           const cpuArr = [...next[nodeName].cpu];
           const memArr = [...next[nodeName].mem];
           const diskArr = [...next[nodeName].disk];
+          let nodeModified = false;
 
           if (cpuArr.length === 0 || cpuArr[cpuArr.length - 1].timestamp !== ts) {
             cpuArr.push({ timestamp: ts, value: metrics.cpu_percent });
             memArr.push({ timestamp: ts, value: metrics.mem_percent });
             diskArr.push({ timestamp: ts, value: metrics.disk_percent });
-            modified = true;
+            nodeModified = true;
           }
 
           if (cpuArr.length > 20) {
             cpuArr.shift();
             memArr.shift();
             diskArr.shift();
-            modified = true;
+            nodeModified = true;
           }
 
-          if (modified) {
+          if (nodeModified) {
             next[nodeName] = { cpu: cpuArr, mem: memArr, disk: diskArr };
+            modified = true;
           }
         }
-        return next;
+        return modified ? next : prev;
       });
     }
   }, [live]);

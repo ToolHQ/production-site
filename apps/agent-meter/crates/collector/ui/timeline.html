@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agent-meter — Conversation Timeline</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none'><defs><linearGradient id='am' x1='4' y1='28' x2='28' y2='4' gradientUnits='userSpaceOnUse'><stop stop-color='%236366f1'/><stop offset='.5' stop-color='%23818cf8'/><stop offset='1' stop-color='%23a5b4fc'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='%230a0a0f'/><circle cx='16' cy='17' r='11' stroke='%236366f1' stroke-width='.5' opacity='.3'/><path d='M7 19 A9 9 0 0 0 25 19' stroke='%232a2a3a' stroke-width='2.5' stroke-linecap='round'/><path d='M7 19 A9 9 0 0 0 20.1 11' stroke='url(%23am)' stroke-width='2.5' stroke-linecap='round'/><line x1='16' y1='19' x2='20.1' y2='11' stroke='%23a5b4fc' stroke-width='1.5' stroke-linecap='round'/><circle cx='16' cy='19' r='2' fill='url(%23am)'/></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-base: #0a0a0f;
+  --bg-surface: #12121a;
+  --bg-elevated: #1a1a26;
+  --bg-hover: #22222e;
+  --border: #2a2a3a;
+  --text-primary: #e4e4ed;
+  --text-secondary: #9494a8;
+  --text-muted: #646478;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --green: #22c55e;
+  --red: #ef4444;
+  --yellow: #eab308;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.bg-glow {
+  position: fixed;
+  top: -240px; left: 50%;
+  transform: translateX(-50%);
+  width: 900px; height: 600px;
+  background: radial-gradient(ellipse at center, rgba(99,102,241,0.07) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+.app { position: relative; z-index: 1; max-width: 1360px; margin: 0 auto; padding: 24px; }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.brand-icon { width: 40px; height: 40px; flex-shrink: 0; }
+.brand-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--accent), var(--accent-hover)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.back-btn { padding: 7px 14px; font-size: 13px; font-weight: 600; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.15s ease; }
+.back-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.timeline-container { display: flex; gap: 24px; margin-top: 24px; }
+.timeline-main { flex: 1; }
+.timeline-header { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px; }
+.timeline-header h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.timeline-stats { display: flex; gap: 24px; font-size: 14px; color: var(--text-secondary); }
+.timeline-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 4px; }
+.timeline-stat-value { font-size: 24px; font-weight: 700; }
+.timeline-sidebar { width: 280px; }
+.sidebar-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; }
+.sidebar-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.event-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-bottom: 1px solid var(--border); }
+.event-item:last-child { border-bottom: none; }
+.event-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.event-icon.ok { color: var(--green); }
+.event-icon.error { color: var(--red); }
+.event-content { flex: 1; font-size: 13px; }
+.event-tool { font-weight: 600; margin-bottom: 4px; }
+.event-meta { font-size: 11px; color: var(--text-muted); }
+.timeline-bar { position: relative; padding: 20px 0; }
+.timeline-bar::before { content: ''; position: absolute; left: 32px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+.event-dot { position: absolute; left: 24px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid var(--bg-base); top: 20px; }
+.event-card { margin-left: 56px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 16px; }
+.event-card-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.event-time { font-size: 11px; color: var(--text-muted); }
+.event-duration { font-size: 11px; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="app">
+  <header>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <a class="back-btn" href="/">← Back</a>
+      <a class="brand" href="/">
+        <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <defs><linearGradient id="tl-brand" x1="4" y1="28" x2="28" y2="4" gradientUnits="userSpaceOnUse"><stop stop-color="#6366f1"/><stop offset=".5" stop-color="#818cf8"/><stop offset="1" stop-color="#a5b4fc"/></linearGradient></defs>
+          <rect width="32" height="32" rx="8" fill="#0a0a0f"/>
+          <circle cx="16" cy="17" r="11" stroke="#6366f1" stroke-width=".5" opacity=".3"/>
+          <path d="M7 19 A9 9 0 0 0 25 19" stroke="#2a2a3a" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M7 19 A9 9 0 0 0 20.1 11" stroke="url(#tl-brand)" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="16" y1="19" x2="20.1" y2="11" stroke="#a5b4fc" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="16" cy="19" r="2" fill="url(#tl-brand)"/>
+        </svg>
+        <span class="brand-title">agent-meter</span>
+      </a>
+    </div>
+    <div class="health-badge" id="healthBadge"><span class="health-dot loading" id="healthDot"></span><span id="healthText">checking...</span></div>
+  </header>
+
+  <div class="timeline-container">
+    <div class="timeline-main">
+      <div class="timeline-header">
+        <h1 id="convTitle">Loading...</h1>
+        <div class="timeline-stats">
+          <div><div class="timeline-stat-label">Duration</div><div class="timeline-stat-value" id="totalDuration">—</div></div>
+          <div><div class="timeline-stat-label">Tokens In</div><div class="timeline-stat-value" id="totalTokensIn">—</div></div>
+          <div><div class="timeline-stat-label">Tokens Out</div><div class="timeline-stat-value" id="totalTokensOut">—</div></div>
+          <div><div class="timeline-stat-label">Events</div><div class="timeline-stat-value" id="eventCount">—</div></div>
+        </div>
+      </div>
+      <div class="timeline-bar" id="timelineBar"></div>
+    </div>
+    <div class="timeline-sidebar">
+      <div class="sidebar-card">
+        <h3>Filters</h3>
+        <select id="filterModel" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); margin-bottom: 12px;">
+          <option value="">All Models</option>
+        </select>
+        <button class="btn btn-primary" id="btnExportJson" style="width: 100%;">Export JSON</button>
+      </div>
+      <div class="sidebar-card">
+        <h3>Quick Actions</h3>
+        <button class="btn btn-secondary" id="btnExportCsv" style="width: 100%;">Export CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const conversationId = urlParams.get('id') || window.location.pathname.split('/').pop();
+
+async function loadTimeline() {
+  try {
+    const r = await fetch(`/api/conversations/${conversationId}/timeline`);
+    if (!r.ok) throw new Error(r.statusText);
+    const data = await r.json();
+    renderTimeline(data);
+  } catch (e) {
+    document.getElementById('convTitle').textContent = 'Error loading timeline';
+    console.error(e);
+  }
+}
+
+function renderTimeline(data) {
+  document.getElementById('convTitle').textContent = data.title;
+  document.getElementById('totalDuration').textContent = formatDuration(data.total_duration_ms);
+  document.getElementById('totalTokensIn').textContent = formatTokens(data.total_tokens_in);
+  document.getElementById('totalTokensOut').textContent = formatTokens(data.total_tokens_out);
+  document.getElementById('eventCount').textContent = data.event_count;
+
+  const bar = document.getElementById('timelineBar');
+  bar.innerHTML = '';
+
+  data.events.forEach((e, i) => {
+    const isError = !e.ok;
+    const eventDiv = document.createElement('div');
+    eventDiv.className = 'event-item';
+    eventDiv.innerHTML = `
+      <div class="event-icon ${isError ? 'error' : 'ok'}">${isError ? '✕' : '✓'}</div>
+      <div class="event-content">
+        <div class="event-tool">${e.tool_name}</div>
+        <div class="event-meta">
+          ${e.mcp_server || 'mcp'} • ${formatDuration(e.duration_ms)} • ${formatTokens(e.tokens_out || 0)} tokens
+        </div>
+      </div>
+    `;
+    bar.appendChild(eventDiv);
+  });
+}
+
+function formatDuration(ms) {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms/1000).toFixed(1)}s`;
+  return `${(ms/60000).toFixed(1)}m`;
+}
+
+function formatTokens(n) {
+  if (n >= 1000000) return `${(n/1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n/1000).toFixed(1)}K`;
+  return String(n);
+}
+
+loadTimeline();
+</script>
+</body>
+</html>

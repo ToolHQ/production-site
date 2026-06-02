@@ -4,3 +4,5 @@ pub mod events;
 pub mod reports;
 pub mod tasks;
 pub mod otlp;
+pub mod conversations;
+pub mod conversation_detail;
