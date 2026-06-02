@@ -32,7 +32,7 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(overlap T-320a)_ | 🔼 High | Cursor / AI Radar | 1d |
+<!-- T-310 moved to Done -->
 | [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** | 🔼 High | Cursor / AI Radar | 4h |
 | [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
 
@@ -50,6 +50,7 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(resolvido por T-320a + RUNBOOK_SSH_INCIDENT.md)_ | 🔼 High | Cursor / AI Radar | 1d |
 | [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** _(Backend Rust + Dashboard v2 + Runbook; PR #379 merged; Deploy em prod finalizado)_ | 🔼 High | Antigravity | 1d |
 | [T-315](2026/Q2/T-315-Fleet-Copilot-Epic-Overview.md) | **Fleet Copilot — Epic MVP** _(T-320→323 live; chat SSE em reports.dnor.io/#fleet-copilot; PR #367)_ | 🔼 High | Cursor / AI Radar | 2–3w |
 | [T-320](2026/Q2/T-320-Fleet-Copilot-Security-Prerequisites.md) | **Fleet Copilot — Pré-requisitos segurança** _(SSH key-only, fail2ban, UFW, Dashboard view-only, Tailscale; gate 2026-05-30)_ | 🚨 Critical | Cursor / AI Radar | 3d |
