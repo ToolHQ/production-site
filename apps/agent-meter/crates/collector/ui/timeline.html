@@ -132,7 +132,7 @@ const conversationId = urlParams.get('id') || window.location.pathname.split('/'
 
 async function loadTimeline() {
   try {
-    const r = await fetch(`/api/conversations/${conversationId}/timeline`);
+    const r = await fetch(`/conversations/${conversationId}/timeline`);
     if (!r.ok) throw new Error(r.statusText);
     const data = await r.json();
     renderTimeline(data);
