@@ -1113,6 +1113,25 @@ pub async fn copilot_chat_stream(
         .keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
 }
 
+fn parse_sse_block(block: &str) -> Option<(String, String)> {
+    let mut event_name = "message".to_string();
+    let mut data = String::new();
+    for line in block.lines() {
+        if let Some(v) = line.strip_prefix("event:") {
+            event_name = v.trim().to_string();
+        } else if let Some(v) = line.strip_prefix("data:") {
+            if !data.is_empty() {
+                data.push('\n');
+            }
+            data.push_str(v.trim());
+        }
+    }
+    if data.is_empty() {
+        return None;
+    }
+    Some((event_name, data))
+}
+
 #[cfg(test)]
 mod tests {
     use super::FleetCopilotState;
@@ -1209,21 +1228,3 @@ mod tests {
     }
 }
 
-fn parse_sse_block(block: &str) -> Option<(String, String)> {
-    let mut event_name = "message".to_string();
-    let mut data = String::new();
-    for line in block.lines() {
-        if let Some(v) = line.strip_prefix("event:") {
-            event_name = v.trim().to_string();
-        } else if let Some(v) = line.strip_prefix("data:") {
-            if !data.is_empty() {
-                data.push('\n');
-            }
-            data.push_str(v.trim());
-        }
-    }
-    if data.is_empty() {
-        return None;
-    }
-    Some((event_name, data))
-}
