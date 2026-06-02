@@ -4275,12 +4275,12 @@ show_hardening_menu() {
         ;;
       13)
         echo -e "\n${YELLOW}T-320a: SSH hardening + fail2ban em ssdnodes-monstro${NC}"
-        bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-monstro --dry-run
+        bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --dry-run
         read -p "Aplicar SSH hardening? (y/N): " SSH_CONFIRM
         if [[ "$SSH_CONFIRM" =~ ^[Yy]$ ]]; then
-          bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-monstro --apply
+          bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --apply
         fi
-        bash "$SCRIPT_DIR/scripts/hardening/fail2ban_ssdnodes.sh" --host ssdnodes-monstro --apply
+        bash "$SCRIPT_DIR/scripts/hardening/fail2ban_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --apply
         read -p "Press Enter..."
         ;;
       14)

@@ -21,6 +21,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::Mutex;
+use tokio_postgres::NoTls;
 use tokio_stream::wrappers::ReceiverStream;
 
 const COOKIE_NAME: &str = "fleet-copilot-session";
@@ -37,6 +38,19 @@ enum ChatIntent {
     SshAudit,
     FleetCompare,
     OciNodeQuery,
+    /// Pergunta livre — contexto coletado para o LLM, sem template read-only.
+    General,
+}
+
+struct AuditEvent<'a> {
+    client_ip: Option<&'a str>,
+    message: &'a str,
+    preset: &'a str,
+    intent: &'a str,
+    endpoints: &'a [String],
+    latency_ms: u64,
+    model: &'a str,
+    status: &'a str,
 }
 
 #[derive(Clone)]
@@ -48,6 +62,9 @@ pub struct FleetCopilotState {
     ollama_model: String,
     client: Client,
     rate: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
+    audit_db_url: Option<String>,
+    audit: Arc<Mutex<Option<Arc<tokio_postgres::Client>>>>,
+    audit_schema_ready: Arc<Mutex<bool>>,
 }
 
 #[derive(Deserialize)]
@@ -102,6 +119,9 @@ impl FleetCopilotState {
         let gateway_token = std::env::var("FLEET_COPILOT_GATEWAY_TOKEN").ok()?;
         let ollama_model =
             std::env::var("FLEET_COPILOT_OLLAMA_MODEL").unwrap_or_else(|_| "gemma3:4b".into());
+        let audit_db_url = std::env::var("FLEET_COPILOT_AUDIT_DATABASE_URL")
+            .ok()
+            .or_else(|| std::env::var("DATABASE_URL").ok());
 
         let mut hasher = Sha256::new();
         hasher.update(session_secret.as_bytes());
@@ -125,6 +145,9 @@ impl FleetCopilotState {
             ollama_model,
             client,
             rate: Arc::new(Mutex::new(HashMap::new())),
+            audit_db_url,
+            audit: Arc::new(Mutex::new(None)),
+            audit_schema_ready: Arc::new(Mutex::new(false)),
         }))
     }
 
@@ -137,6 +160,97 @@ impl FleetCopilotState {
             .await
             .map(|r| r.status().is_success())
             .unwrap_or(false)
+    }
+
+    async fn audit_client(&self) -> Option<Arc<tokio_postgres::Client>> {
+        let db_url = self.audit_db_url.as_deref()?;
+
+        if let Some(existing) = self.audit.lock().await.as_ref().cloned() {
+            return Some(existing);
+        }
+
+        let (client, connection) = tokio_postgres::connect(db_url, NoTls).await.ok()?;
+        tokio::spawn(async move {
+            let _ = connection.await;
+        });
+
+        let client = Arc::new(client);
+        *self.audit.lock().await = Some(client.clone());
+        Some(client)
+    }
+
+    async fn ensure_audit_schema(&self, client: &tokio_postgres::Client) -> bool {
+        {
+            let ready = self.audit_schema_ready.lock().await;
+            if *ready {
+                return true;
+            }
+        }
+
+        let schema_sql = r#"
+CREATE SCHEMA IF NOT EXISTS fleet_copilot;
+CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  client_ip INET,
+  prompt_sha256 CHAR(64) NOT NULL,
+  preset TEXT,
+  intent TEXT,
+  endpoints TEXT[] NOT NULL,
+  latency_ms INT,
+  model TEXT,
+  status TEXT NOT NULL
+);
+"#;
+        if client.batch_execute(schema_sql).await.is_err() {
+            return false;
+        }
+
+        *self.audit_schema_ready.lock().await = true;
+        true
+    }
+
+    fn prompt_sha256(message: &str, preset: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(message.as_bytes());
+        hasher.update(b":");
+        hasher.update(preset.as_bytes());
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect()
+    }
+
+    async fn audit_event(&self, event: AuditEvent<'_>) {
+        let Some(client) = self.audit_client().await else {
+            return;
+        };
+        if !self.ensure_audit_schema(client.as_ref()).await {
+            return;
+        }
+
+        let prompt_sha = Self::prompt_sha256(event.message, event.preset);
+        let endpoints: Vec<&str> = event.endpoints.iter().map(|s| s.as_str()).collect();
+        let latency_i32 = i32::try_from(event.latency_ms.min(i32::MAX as u64)).unwrap_or(i32::MAX);
+
+        let _ = client
+            .execute(
+                "INSERT INTO fleet_copilot.audit_events \
+                 (client_ip, prompt_sha256, preset, intent, endpoints, latency_ms, model, status) \
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                &[
+                    &event.client_ip,
+                    &prompt_sha,
+                    &event.preset,
+                    &event.intent,
+                    &endpoints,
+                    &latency_i32,
+                    &event.model,
+                    &event.status,
+                ],
+            )
+            .await;
     }
 
     fn session_cookie_value(&self) -> String {
@@ -218,6 +332,9 @@ impl FleetCopilotState {
 
     /// T-334: routing server-side — preset UI é hint, intent manda nos endpoints.
     fn resolve_intent(message: &str, preset: &str) -> ChatIntent {
+        if Self::is_conversational_clarification(message) {
+            return ChatIntent::General;
+        }
         if Self::skip_ops_fetch(message) {
             return ChatIntent::MetaCapabilities;
         }
@@ -256,19 +373,28 @@ impl FleetCopilotState {
         {
             return ChatIntent::OciNodeQuery;
         }
-        ChatIntent::HostHealth
+        if Self::is_host_health_question(message) {
+            return ChatIntent::HostHealth;
+        }
+        ChatIntent::General
     }
 
-    fn intent_ops_paths(intent: ChatIntent) -> &'static [&'static str] {
+    fn intent_ops_paths(
+        intent: ChatIntent,
+        preset: &str,
+        message: &str,
+    ) -> &'static [&'static str] {
         match intent {
             ChatIntent::MetaCapabilities | ChatIntent::OciNodeQuery | ChatIntent::FleetCompare => {
                 &[]
             }
+            ChatIntent::General if Self::is_conversational_clarification(message) => &[],
             ChatIntent::FleetResources | ChatIntent::HostHealth => {
                 Self::preset_paths("ssdnodes-health")
             }
             ChatIntent::K8sStatus => Self::preset_paths("ssdnodes-k8s"),
             ChatIntent::SshAudit => Self::preset_paths("ssdnodes-ssh"),
+            ChatIntent::General => Self::preset_paths(preset),
         }
     }
 
@@ -281,7 +407,89 @@ impl FleetCopilotState {
             ChatIntent::SshAudit => "ssh_audit",
             ChatIntent::FleetCompare => "fleet_compare",
             ChatIntent::OciNodeQuery => "oci_node_query",
+            ChatIntent::General => "general",
         }
+    }
+
+    /// Só bypass Gemma para perguntas operacionais explícitas (T-335).
+    fn should_structured_bypass(intent: ChatIntent, message: &str) -> bool {
+        match intent {
+            ChatIntent::FleetResources => true,
+            ChatIntent::HostHealth => Self::is_host_health_question(message),
+            ChatIntent::K8sStatus => Self::is_k8s_status_question(message),
+            ChatIntent::SshAudit => {
+                let m = message.to_lowercase();
+                m.contains("ssh")
+                    || m.contains("fail2ban")
+                    || m.contains("bruteforce")
+                    || m.contains("login")
+            }
+            _ => false,
+        }
+    }
+
+    fn is_host_health_question(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "disco",
+            "memória",
+            "memoria",
+            "mem ",
+            " ram",
+            "carga",
+            "load average",
+            "uptime",
+            "df ",
+            "free -",
+            "espaço",
+            "espaco",
+            "capacidade",
+            "disco cheio",
+            "disco no ssd",
+            "host/disk",
+            "host/memory",
+        ]
+        .iter()
+        .any(|n| m.contains(n))
+    }
+
+    fn is_k8s_status_question(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "pod",
+            "ingress",
+            "warning",
+            "namespace",
+            "crashloop",
+            "pending",
+            "não running",
+            "nao running",
+            "not running",
+        ]
+        .iter()
+        .any(|n| m.contains(n))
+    }
+
+    fn is_conversational_clarification(message: &str) -> bool {
+        let m = message.to_lowercase();
+        [
+            "não foi isso",
+            "nao foi isso",
+            "não entendeu",
+            "nao entendeu",
+            "não é isso",
+            "nao e isso",
+            "perguntei",
+            "resposta errada",
+            "outra pergunta",
+            "tenta de novo",
+            "tente de novo",
+            "reformulando",
+            "não respondeu",
+            "nao respondeu",
+        ]
+        .iter()
+        .any(|n| m.contains(n))
     }
 
     /// Perguntas sobre escopo/inventário — não buscar df/free no gateway (T-332).
@@ -385,6 +593,9 @@ impl FleetCopilotState {
         if intent == ChatIntent::MetaCapabilities {
             return Some(Self::reply_from_manifest(manifest));
         }
+        if !Self::should_structured_bypass(intent, message) {
+            return None;
+        }
         if let Some(reply) = Self::reply_from_targeted_metrics(manifest, intent) {
             return Some(reply);
         }
@@ -463,8 +674,11 @@ impl FleetCopilotState {
             return trimmed.to_string();
         }
         if let Some(ctx) = context {
-            if let Some(structured) = Self::structured_reply(manifest, ctx, message, preset) {
-                return structured;
+            let intent = Self::resolve_intent(message, preset);
+            if Self::should_structured_bypass(intent, message) {
+                if let Some(structured) = Self::structured_reply(manifest, ctx, message, preset) {
+                    return structured;
+                }
             }
         }
         Self::weak_model_fallback(sources)
@@ -576,7 +790,7 @@ Pergunte por um host específico para métricas ou compare dois hosts."
             return (context, sources);
         }
 
-        let paths = Self::intent_ops_paths(intent);
+        let paths = Self::intent_ops_paths(intent, preset, message);
         for path in paths {
             match self.fetch_ops(path).await {
                 Ok(v) => {
@@ -631,6 +845,13 @@ Confira os dados coletados nas fontes: {src}. \
 Tente reformular com um host específico (ex.: k8s-node-1) ou use uma consulta rápida na barra lateral."
         )
     }
+
+    fn clarification_reply() -> String {
+        "Beleza — me diga a pergunta exata (ou cole a frase anterior) e, se possível, cite um alvo: \
+`ssdnodes-6a12f10c9ef11` ou `@k8s-node-1`. \
+\n\nSe você quiser, também posso responder por consultas rápidas: **Disco & memória**, **Pods & ingress**, **SSH 24h**."
+            .to_string()
+    }
 }
 
 pub async fn copilot_session(
@@ -656,7 +877,7 @@ pub async fn copilot_status(
         enabled: true,
         gateway_reachable,
         ollama_model: fc.ollama_model.clone(),
-        inference_mode: "structured-first",
+        inference_mode: "llm-default-structured-fast-path",
         structured_models: vec!["fleet-manifest", "fleet-metrics", "fleet-structured"],
     }))
 }
@@ -730,6 +951,33 @@ pub async fn copilot_chat(
 
     let preset = body.preset.as_deref().unwrap_or("ssdnodes-health");
     let started = Instant::now();
+    let client_ip = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|raw| raw.split(',').next())
+        .map(|s| s.trim().to_string());
+
+    if FleetCopilotState::is_conversational_clarification(message) {
+        let latency_ms = started.elapsed().as_millis() as u64;
+        let sources = vec!["fleet_manifest".to_string()];
+        fc.audit_event(AuditEvent {
+            client_ip: client_ip.as_deref(),
+            message,
+            preset,
+            intent: "clarification",
+            endpoints: &sources,
+            latency_ms,
+            model: "fleet-meta",
+            status: "ok",
+        })
+        .await;
+        return Ok(Json(ChatResponse {
+            reply: FleetCopilotState::clarification_reply(),
+            model: "fleet-meta".into(),
+            sources,
+            latency_ms,
+        }));
+    }
 
     if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, message, preset) {
         let intent = FleetCopilotState::resolve_intent(message, preset);
@@ -738,11 +986,25 @@ pub async fn copilot_chat(
         } else {
             "fleet-metrics"
         };
+        let latency_ms = started.elapsed().as_millis() as u64;
+        let intent_label = FleetCopilotState::intent_label(intent).to_string();
+        let sources = vec!["fleet_manifest".to_string()];
+        fc.audit_event(AuditEvent {
+            client_ip: client_ip.as_deref(),
+            message,
+            preset,
+            intent: &intent_label,
+            endpoints: &sources,
+            latency_ms,
+            model,
+            status: "ok",
+        })
+        .await;
         return Ok(Json(ChatResponse {
             reply,
             model: model.into(),
-            sources: vec!["fleet_manifest".into()],
-            latency_ms: started.elapsed().as_millis() as u64,
+            sources,
+            latency_ms,
         }));
     }
 
@@ -753,11 +1015,25 @@ pub async fn copilot_chat(
     if let Some(reply) =
         FleetCopilotState::structured_reply(&fleet_manifest, &context, message, preset)
     {
+        let latency_ms = started.elapsed().as_millis() as u64;
+        let intent = FleetCopilotState::resolve_intent(message, preset);
+        let intent_label = FleetCopilotState::intent_label(intent).to_string();
+        fc.audit_event(AuditEvent {
+            client_ip: client_ip.as_deref(),
+            message,
+            preset,
+            intent: &intent_label,
+            endpoints: &sources,
+            latency_ms,
+            model: "fleet-structured",
+            status: "ok",
+        })
+        .await;
         return Ok(Json(ChatResponse {
             reply,
             model: "fleet-structured".into(),
             sources,
-            latency_ms: started.elapsed().as_millis() as u64,
+            latency_ms,
         }));
     }
 
@@ -793,12 +1069,26 @@ pub async fn copilot_chat(
         preset,
     );
     let model = parsed["model"].as_str().unwrap_or("gemma3:4b").to_string();
+    let latency_ms = started.elapsed().as_millis() as u64;
+    let intent = FleetCopilotState::resolve_intent(message, preset);
+    let intent_label = FleetCopilotState::intent_label(intent).to_string();
+    fc.audit_event(AuditEvent {
+        client_ip: client_ip.as_deref(),
+        message,
+        preset,
+        intent: &intent_label,
+        endpoints: &sources,
+        latency_ms,
+        model: &model,
+        status: "ok",
+    })
+    .await;
 
     Ok(Json(ChatResponse {
         reply,
         model,
         sources,
-        latency_ms: started.elapsed().as_millis() as u64,
+        latency_ms,
     }))
 }
 
@@ -839,6 +1129,11 @@ pub async fn copilot_chat_stream(
     let fc = fc.clone();
     let message = message.to_string();
     let fleet_manifest_for_reply = fleet_manifest.clone();
+    let client_ip = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|raw| raw.split(',').next())
+        .map(|s| s.trim().to_string());
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
     tokio::spawn(async move {
@@ -856,6 +1151,34 @@ pub async fn copilot_chat_stream(
 
         let started = Instant::now();
 
+        if FleetCopilotState::is_conversational_clarification(&message) {
+            let sources = vec!["fleet_manifest".to_string()];
+            fc.audit_event(AuditEvent {
+                client_ip: client_ip.as_deref(),
+                message: &message,
+                preset: &preset,
+                intent: "clarification",
+                endpoints: &sources,
+                latency_ms: started.elapsed().as_millis() as u64,
+                model: "fleet-meta",
+                status: "ok",
+            })
+            .await;
+            let _ = send(
+                Event::default().event("done").data(
+                    json!({
+                        "reply": FleetCopilotState::clarification_reply(),
+                        "model": "fleet-meta",
+                        "sources": ["fleet_manifest"],
+                        "latency_ms": started.elapsed().as_millis() as u64,
+                    })
+                    .to_string(),
+                ),
+            )
+            .await;
+            return;
+        }
+
         if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, &message, &preset) {
             let intent = FleetCopilotState::resolve_intent(&message, &preset);
             let model = if intent == ChatIntent::MetaCapabilities {
@@ -864,6 +1187,18 @@ pub async fn copilot_chat_stream(
                 "fleet-metrics"
             };
             let sources = vec!["fleet_manifest".to_string()];
+            let intent_label = FleetCopilotState::intent_label(intent).to_string();
+            fc.audit_event(AuditEvent {
+                client_ip: client_ip.as_deref(),
+                message: &message,
+                preset: &preset,
+                intent: &intent_label,
+                endpoints: &sources,
+                latency_ms: started.elapsed().as_millis() as u64,
+                model,
+                status: "ok",
+            })
+            .await;
             let _ = send(
                 Event::default()
                     .event("phase")
@@ -893,6 +1228,19 @@ pub async fn copilot_chat_stream(
             &message,
             &preset,
         ) {
+            let intent = FleetCopilotState::resolve_intent(&message, &preset);
+            let intent_label = FleetCopilotState::intent_label(intent).to_string();
+            fc.audit_event(AuditEvent {
+                client_ip: client_ip.as_deref(),
+                message: &message,
+                preset: &preset,
+                intent: &intent_label,
+                endpoints: &sources,
+                latency_ms: started.elapsed().as_millis() as u64,
+                model: "fleet-structured",
+                status: "ok",
+            })
+            .await;
             let _ = send(
                 Event::default()
                     .event("phase")
@@ -1031,6 +1379,22 @@ pub async fn copilot_chat_stream(
                             }
                             data = val.to_string();
                         }
+                        let intent = FleetCopilotState::resolve_intent(
+                            &message_for_sanitize,
+                            &preset_for_sanitize,
+                        );
+                        let intent_label = FleetCopilotState::intent_label(intent).to_string();
+                        fc.audit_event(AuditEvent {
+                            client_ip: client_ip.as_deref(),
+                            message: &message_for_sanitize,
+                            preset: &preset_for_sanitize,
+                            intent: &intent_label,
+                            endpoints: &sources,
+                            latency_ms: started.elapsed().as_millis() as u64,
+                            model: "ollama",
+                            status: "ok",
+                        })
+                        .await;
                         if !forward_block("done", data) {
                             return;
                         }
@@ -1225,5 +1589,46 @@ mod tests {
             "ssdnodes-health",
         );
         assert!(reply.unwrap().contains("memória"));
+    }
+
+    #[test]
+    fn clarification_uses_llm_not_structured_template() {
+        let ctx = json!({
+            "ops/host/disk": { "stdout": "Filesystem 1T" },
+            "ops/host/memory": { "stdout": "Mem: 60Gi" },
+            "ops/host/load": { "stdout": "load 0.5" }
+        });
+        let manifest = json!({ "hosts": [] });
+        assert_eq!(
+            FleetCopilotState::resolve_intent("nao foi isso que perguntei", "ssdnodes-health"),
+            super::ChatIntent::General
+        );
+        assert!(FleetCopilotState::structured_reply(
+            &manifest,
+            &ctx,
+            "nao foi isso que perguntei",
+            "ssdnodes-health"
+        )
+        .is_none());
+        assert!(!FleetCopilotState::should_structured_bypass(
+            super::ChatIntent::General,
+            "nao foi isso que perguntei"
+        ));
+    }
+
+    #[test]
+    fn host_health_requires_explicit_topic() {
+        assert_eq!(
+            FleetCopilotState::resolve_intent("nao foi isso que perguntei", "ssdnodes-health"),
+            super::ChatIntent::General
+        );
+        assert_eq!(
+            FleetCopilotState::resolve_intent("Como está o disco no SSDNodes?", "ssdnodes-health"),
+            super::ChatIntent::HostHealth
+        );
+        assert!(FleetCopilotState::should_structured_bypass(
+            super::ChatIntent::HostHealth,
+            "Como está o disco no SSDNodes?"
+        ));
     }
 }

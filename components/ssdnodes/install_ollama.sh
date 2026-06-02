@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-TARGET_HOST="ssdnodes-monstro"
+TARGET_HOST="ssdnodes-6a12f10c9ef11"
 MODEL="${FLEET_COPILOT_MODEL:-gemma3:12b}"
 ACTION="install"
 

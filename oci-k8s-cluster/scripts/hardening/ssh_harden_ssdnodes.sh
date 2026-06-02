@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-TARGET_HOST="ssdnodes-monstro"
+TARGET_HOST="ssdnodes-6a12f10c9ef11"
 ACTION="dry-run"
 
 while [[ $# -gt 0 ]]; do

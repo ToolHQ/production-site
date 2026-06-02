@@ -61,14 +61,6 @@ TAILSCALE_CIDR="100.64.0.0/10"
 TARGET_HOST="ssdnodes-6a12f10c9ef11"
 ACTION=""
 
-# Hostname canônico → alias SSH em ~/.ssh/config (legado)
-_ssh_alias_for() {
-    case "$1" in
-        ssdnodes-6a12f10c9ef11) echo "ssdnodes-monstro" ;;
-        *) echo "$1" ;;
-    esac
-}
-
 _parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -92,7 +84,7 @@ _parse_args() {
 _SSH="ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no"
 
 _ssh() {
-    $_SSH "$(_ssh_alias_for "$TARGET_HOST")" "$@"
+    $_SSH "$TARGET_HOST" "$@"
 }
 
 _ok()   { echo -e "\033[0;32m✔\033[0m  $*"; }

@@ -2,8 +2,18 @@
 
 Workloads para o cluster K8s do servidor SSDNodes (x86_64, 12 vCPU / 60 GB RAM / 1.1 TB disk).
 
+**Hostname canônico**: `ssdnodes-6a12f10c9ef11`  
 **Kubeconfig**: `~/.kube/ssdnodes.yaml`  
 **IP público**: `104.225.218.78`
+
+SSH (T-331):
+
+```bash
+bash oci-k8s-cluster/scripts/ssdnodes/install_ssdnodes_ssh_config.sh
+ssh ssdnodes-6a12f10c9ef11 hostname -f
+```
+
+Alias legado `ssdnodes-monstro` permanece no snippet apenas para compatibilidade.
 
 **UFW (posture hardened — `ufw_manager.sh --apply`):**
 

@@ -23,7 +23,7 @@ else
   bad "gateway health $GATEWAY_URL/health"
 fi
 
-if ssh -o ConnectTimeout=10 -o BatchMode=yes ssdnodes-monstro \
+if ssh -o ConnectTimeout=10 -o BatchMode=yes ssdnodes-6a12f10c9ef11 \
   "curl -fsS --max-time 5 http://127.0.0.1:11434/api/tags >/dev/null && \
    systemctl is-active fleet-ops-gateway >/dev/null && \
    sudo ufw status | grep -q '11434.*DENY'"; then
@@ -132,7 +132,7 @@ else
   fi
 
   status_json=$(curl -sS -b "$COOKIE_JAR" --max-time 15 "$REPORTS_URL/api/fleet/copilot/status" 2>/dev/null || true)
-  if echo "$status_json" | grep -q 'structured-first'; then
+  if echo "$status_json" | grep -qE 'structured-first|llm-default-structured-fast-path'; then
     ok "T-327 copilot status endpoint"
   else
     bad "T-327 status endpoint: $(echo "$status_json" | head -c 120)"
