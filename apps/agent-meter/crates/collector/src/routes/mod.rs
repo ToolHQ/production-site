@@ -6,3 +6,6 @@ pub mod tasks;
 pub mod otlp;
 pub mod conversations;
 pub mod conversation_detail;
+pub mod cost;
+pub mod orgs;
+pub mod alerts;

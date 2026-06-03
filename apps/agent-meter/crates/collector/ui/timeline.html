@@ -3,184 +3,477 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>agent-meter — Conversation Timeline</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none'><defs><linearGradient id='am' x1='4' y1='28' x2='28' y2='4' gradientUnits='userSpaceOnUse'><stop stop-color='%236366f1'/><stop offset='.5' stop-color='%23818cf8'/><stop offset='1' stop-color='%23a5b4fc'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='%230a0a0f'/><circle cx='16' cy='17' r='11' stroke='%236366f1' stroke-width='.5' opacity='.3'/><path d='M7 19 A9 9 0 0 0 25 19' stroke='%232a2a3a' stroke-width='2.5' stroke-linecap='round'/><path d='M7 19 A9 9 0 0 0 20.1 11' stroke='url(%23am)' stroke-width='2.5' stroke-linecap='round'/><line x1='16' y1='19' x2='20.1' y2='11' stroke='%23a5b4fc' stroke-width='1.5' stroke-linecap='round'/><circle cx='16' cy='19' r='2' fill='url(%23am)'/></svg>">
+<title>agent-meter — Timeline</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none'><rect width='32' height='32' rx='8' fill='%230a0a0f'/><circle cx='16' cy='16' r='8' stroke='%236366f1' stroke-width='2'/></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg-base: #0a0a0f;
-  --bg-surface: #12121a;
-  --bg-elevated: #1a1a26;
-  --bg-hover: #22222e;
-  --border: #2a2a3a;
-  --text-primary: #e4e4ed;
-  --text-secondary: #9494a8;
-  --text-muted: #646478;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --green: #22c55e;
-  --red: #ef4444;
-  --yellow: #eab308;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --bg-base: #0a0a0f; --bg-surface: #12121a; --bg-elevated: #1a1a26; --bg-hover: #22222e;
+  --border: #2a2a3a; --border-strong: #3a3a4f;
+  --text-primary: #e4e4ed; --text-secondary: #9494a8; --text-muted: #646478;
+  --accent: #6366f1; --accent-hover: #818cf8;
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316; --cyan: #06b6d4; --purple: #a855f7;
+  --radius: 8px; --radius-lg: 12px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  min-height: 100vh;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
-.bg-glow {
-  position: fixed;
-  top: -240px; left: 50%;
-  transform: translateX(-50%);
-  width: 900px; height: 600px;
-  background: radial-gradient(ellipse at center, rgba(99,102,241,0.07) 0%, transparent 70%);
-  pointer-events: none; z-index: 0;
-}
-.app { position: relative; z-index: 1; max-width: 1360px; margin: 0 auto; padding: 24px; }
-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
-.brand-icon { width: 40px; height: 40px; flex-shrink: 0; }
-.brand-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--accent), var(--accent-hover)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.back-btn { padding: 7px 14px; font-size: 13px; font-weight: 600; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.15s ease; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg-base); color: var(--text-primary); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.app { height: 100vh; display: flex; flex-direction: column; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg-surface); flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.brand-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--accent), var(--accent-hover)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.back-btn { padding: 6px 12px; font-size: 12px; font-weight: 600; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.15s ease; text-decoration: none; }
 .back-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
-.timeline-container { display: flex; gap: 24px; margin-top: 24px; }
-.timeline-main { flex: 1; }
-.timeline-header { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px; }
-.timeline-header h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-.timeline-stats { display: flex; gap: 24px; font-size: 14px; color: var(--text-secondary); }
-.timeline-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 4px; }
-.timeline-stat-value { font-size: 24px; font-weight: 700; }
-.timeline-sidebar { width: 280px; }
-.sidebar-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; }
-.sidebar-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
-.event-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-bottom: 1px solid var(--border); }
-.event-item:last-child { border-bottom: none; }
-.event-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
-.event-icon.ok { color: var(--green); }
-.event-icon.error { color: var(--red); }
-.event-content { flex: 1; font-size: 13px; }
-.event-tool { font-weight: 600; margin-bottom: 4px; }
-.event-meta { font-size: 11px; color: var(--text-muted); }
-.timeline-bar { position: relative; padding: 20px 0; }
-.timeline-bar::before { content: ''; position: absolute; left: 32px; top: 0; bottom: 0; width: 2px; background: var(--border); }
-.event-dot { position: absolute; left: 24px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid var(--bg-base); top: 20px; }
-.event-card { margin-left: 56px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 16px; }
-.event-card-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
-.event-time { font-size: 11px; color: var(--text-muted); }
-.event-duration { font-size: 11px; color: var(--text-secondary); }
+.summary { display: grid; grid-template-columns: 2fr repeat(5, minmax(110px, 1fr)); gap: 16px; padding: 14px 20px; background: var(--bg-surface); border-bottom: 1px solid var(--border); flex-shrink: 0; align-items: center; }
+.summary-title { font-size: 14px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.summary-title-id { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+.kpi { display: flex; flex-direction: column; gap: 2px; }
+.kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; }
+.kpi-value { font-size: 18px; font-weight: 700; color: var(--text-primary); font-feature-settings: 'tnum'; }
+.kpi-value.green { color: var(--green); }
+.kpi-value.red { color: var(--red); }
+.minimap-wrap { padding: 8px 20px; background: var(--bg-base); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.minimap { width: 100%; height: 36px; cursor: ew-resize; display: block; }
+.toolbar { display: flex; align-items: center; gap: 12px; padding: 8px 20px; background: var(--bg-base); border-bottom: 1px solid var(--border); flex-shrink: 0; font-size: 12px; flex-wrap: wrap; }
+.toolbar select, .toolbar input[type=text] { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; font-family: inherit; }
+.toolbar select:focus, .toolbar input:focus { outline: none; border-color: var(--accent); }
+.btn-icon { padding: 5px 10px; font-size: 12px; font-weight: 600; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.btn-icon:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-icon.primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-icon.primary:hover { background: var(--accent-hover); }
+.legend { display: flex; gap: 12px; margin-left: auto; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
+.legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+.waterfall-wrap { flex: 1; display: flex; min-height: 0; }
+.waterfall { flex: 1; overflow: auto; background: var(--bg-base); position: relative; }
+.wf-svg { display: block; }
+.wf-svg .row-bg { fill: transparent; }
+.wf-svg .row-bg:hover { fill: rgba(99,102,241,0.06); }
+.wf-svg .row-bg.selected { fill: rgba(99,102,241,0.15); }
+.wf-svg .grid { stroke: var(--border); stroke-width: 0.5; }
+.wf-svg .axis-label { fill: var(--text-muted); font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+.wf-svg .row-label { fill: var(--text-secondary); font-size: 11px; }
+.wf-svg .row-label.error { fill: var(--red); font-weight: 600; }
+.wf-svg .row-meta { fill: var(--text-muted); font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+.wf-svg .bar { rx: 3; cursor: pointer; }
+.wf-svg .bar:hover { filter: brightness(1.3); }
+.wf-svg .bar.error { stroke: var(--red); stroke-width: 1.5; }
+.tooltip { position: fixed; pointer-events: none; z-index: 100; background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 12px; font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.4); min-width: 220px; display: none; max-width: 360px; }
+.tooltip.visible { display: block; }
+.tooltip-title { font-weight: 600; margin-bottom: 6px; color: var(--text-primary); }
+.tooltip-row { display: flex; justify-content: space-between; gap: 16px; color: var(--text-secondary); font-size: 11px; padding: 2px 0; }
+.tooltip-row b { color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+.tooltip-row .ok { color: var(--green); }
+.tooltip-row .err { color: var(--red); }
+.drawer { width: 0; flex-shrink: 0; background: var(--bg-surface); border-left: 1px solid var(--border); overflow: hidden; transition: width 0.2s ease; }
+.drawer.open { width: 380px; }
+.drawer-inner { width: 380px; padding: 20px; overflow-y: auto; height: 100%; position: relative; }
+.drawer h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 12px; }
+.drawer h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; word-break: break-all; }
+.drawer-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace; }
+.drawer-stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.drawer-stat:last-child { border-bottom: none; }
+.drawer-stat-label { color: var(--text-muted); }
+.drawer-stat-value { color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+.drawer-stat-value.err { color: var(--red); }
+.drawer-stat-value.ok { color: var(--green); }
+.drawer-close { position: absolute; top: 14px; right: 14px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); font-size: 14px; }
+.drawer-close:hover { color: var(--text-primary); }
+.empty { padding: 40px; text-align: center; color: var(--text-muted); }
+.health-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
+.health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.health-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.health-dot.error { background: var(--red); }
 </style>
 </head>
 <body>
-<div class="bg-glow" aria-hidden="true"></div>
 <div class="app">
-  <header>
-    <div style="display: flex; align-items: center; gap: 16px;">
+  <header class="topbar">
+    <div style="display: flex; align-items: center; gap: 14px;">
       <a class="back-btn" href="/">← Back</a>
       <a class="brand" href="/">
-        <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <defs><linearGradient id="tl-brand" x1="4" y1="28" x2="28" y2="4" gradientUnits="userSpaceOnUse"><stop stop-color="#6366f1"/><stop offset=".5" stop-color="#818cf8"/><stop offset="1" stop-color="#a5b4fc"/></linearGradient></defs>
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <rect width="32" height="32" rx="8" fill="#0a0a0f"/>
-          <circle cx="16" cy="17" r="11" stroke="#6366f1" stroke-width=".5" opacity=".3"/>
-          <path d="M7 19 A9 9 0 0 0 25 19" stroke="#2a2a3a" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M7 19 A9 9 0 0 0 20.1 11" stroke="url(#tl-brand)" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="16" y1="19" x2="20.1" y2="11" stroke="#a5b4fc" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="16" cy="19" r="2" fill="url(#tl-brand)"/>
+          <circle cx="16" cy="16" r="8" stroke="#6366f1" stroke-width="2"/>
         </svg>
         <span class="brand-title">agent-meter</span>
       </a>
     </div>
-    <div class="health-badge" id="healthBadge"><span class="health-dot loading" id="healthDot"></span><span id="healthText">checking...</span></div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <a class="back-btn" href="/cost">💰 Cost</a>
+      <a class="back-btn" href="/alerts">🔔 Alerts</a>
+      <span class="health-badge"><span class="health-dot" id="healthDot"></span><span id="healthText">checking</span></span>
+    </div>
   </header>
 
-  <div class="timeline-container">
-    <div class="timeline-main">
-      <div class="timeline-header">
-        <h1 id="convTitle">Loading...</h1>
-        <div class="timeline-stats">
-          <div><div class="timeline-stat-label">Duration</div><div class="timeline-stat-value" id="totalDuration">—</div></div>
-          <div><div class="timeline-stat-label">Tokens In</div><div class="timeline-stat-value" id="totalTokensIn">—</div></div>
-          <div><div class="timeline-stat-label">Tokens Out</div><div class="timeline-stat-value" id="totalTokensOut">—</div></div>
-          <div><div class="timeline-stat-label">Events</div><div class="timeline-stat-value" id="eventCount">—</div></div>
-        </div>
-      </div>
-      <div class="timeline-bar" id="timelineBar"></div>
+  <div class="summary" id="summary">
+    <div>
+      <div class="summary-title" id="convTitle">Loading...</div>
+      <div class="summary-title-id" id="convId"></div>
     </div>
-    <div class="timeline-sidebar">
-      <div class="sidebar-card">
-        <h3>Filters</h3>
-        <select id="filterModel" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); margin-bottom: 12px;">
-          <option value="">All Models</option>
-        </select>
-        <button class="btn btn-primary" id="btnExportJson" style="width: 100%;">Export JSON</button>
-      </div>
-      <div class="sidebar-card">
-        <h3>Quick Actions</h3>
-        <button class="btn btn-secondary" id="btnExportCsv" style="width: 100%;">Export CSV</button>
-      </div>
+    <div class="kpi"><div class="kpi-label">Duration</div><div class="kpi-value" id="kpiDuration">—</div></div>
+    <div class="kpi"><div class="kpi-label">Events</div><div class="kpi-value" id="kpiEvents">—</div></div>
+    <div class="kpi"><div class="kpi-label">Tokens</div><div class="kpi-value" id="kpiTokens">—</div></div>
+    <div class="kpi"><div class="kpi-label">Cost (USD)</div><div class="kpi-value" id="kpiCost">—</div></div>
+    <div class="kpi"><div class="kpi-label">Errors</div><div class="kpi-value" id="kpiErrors">—</div></div>
+  </div>
+
+  <div class="minimap-wrap">
+    <svg class="minimap" id="minimap" preserveAspectRatio="none"></svg>
+  </div>
+
+  <div class="toolbar">
+    <label style="color: var(--text-muted);">Group:</label>
+    <select id="groupBy">
+      <option value="none">None</option>
+      <option value="tool">Tool</option>
+      <option value="model">Model</option>
+      <option value="server">MCP Server</option>
+    </select>
+    <label style="color: var(--text-muted);">Filter:</label>
+    <input type="text" id="filterText" placeholder="tool/model/server…" style="width: 200px;" />
+    <label style="color: var(--text-muted);"><input type="checkbox" id="showErrorsOnly" /> errors only</label>
+    <button class="btn-icon" id="btnZoomReset">Reset zoom</button>
+    <button class="btn-icon primary" id="btnExportJson">Export JSON</button>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background: var(--accent);"></div>llm</div>
+      <div class="legend-item"><div class="legend-swatch" style="background: var(--cyan);"></div>tool</div>
+      <div class="legend-item"><div class="legend-swatch" style="background: var(--purple);"></div>fs</div>
+      <div class="legend-item"><div class="legend-swatch" style="background: var(--orange);"></div>shell</div>
+      <div class="legend-item"><div class="legend-swatch" style="background: var(--red);"></div>error</div>
     </div>
+  </div>
+
+  <div class="waterfall-wrap">
+    <div class="waterfall" id="waterfall">
+      <svg class="wf-svg" id="wfSvg"></svg>
+    </div>
+    <aside class="drawer" id="drawer">
+      <div class="drawer-inner" id="drawerInner"></div>
+    </aside>
   </div>
 </div>
 
+<div class="tooltip" id="tooltip"></div>
+
 <script>
-const urlParams = new URLSearchParams(window.location.search);
-const conversationId = urlParams.get('id') || window.location.pathname.split('/').pop();
+const conversationId = (() => {
+  const fromQuery = new URLSearchParams(window.location.search).get('id');
+  if (fromQuery) return fromQuery;
+  const path = window.location.pathname.split('/').filter(Boolean);
+  return path[path.length - 1] || '';
+})();
+
+function categorize(ev) {
+  const tool = (ev.tool_name || '').toLowerCase();
+  const server = (ev.mcp_server || '').toLowerCase();
+  if (server.includes('openai') || server.includes('anthropic') || tool.includes('llm') || tool.includes('chat') || tool.includes('completion')) return 'llm';
+  if (tool.includes('read_file') || tool.includes('write') || tool.includes('edit') || tool.includes('grep') || tool.includes('search') || tool.includes('list_dir')) return 'fs';
+  if (tool.includes('terminal') || tool.includes('shell') || tool.includes('exec') || tool.includes('run')) return 'shell';
+  return 'tool';
+}
+const categoryColor = { llm:'#6366f1', fs:'#a855f7', shell:'#f97316', tool:'#06b6d4' };
+
+function fmtDuration(ms) {
+  if (!ms || ms < 0) ms = 0;
+  if (ms < 1000) return ms + 'ms';
+  if (ms < 60000) return (ms / 1000).toFixed(2) + 's';
+  if (ms < 3600000) return (ms / 60000).toFixed(2) + 'm';
+  return (ms / 3600000).toFixed(2) + 'h';
+}
+function fmtTokens(n) {
+  if (!n) return '0';
+  if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+function fmtUsd(v) {
+  if (!v) return '$0.00';
+  if (v < 0.01) return '$' + v.toFixed(5);
+  if (v < 1) return '$' + v.toFixed(4);
+  return '$' + v.toFixed(2);
+}
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const state = {
+  data: null, events: [], filtered: [],
+  zoom: { from: 0, to: 1 },
+  selected: null,
+  groupBy: 'none', filterText: '', errorsOnly: false,
+};
+
+async function loadHealth() {
+  try {
+    const r = await fetch('/health');
+    if (!r.ok) throw new Error();
+    document.getElementById('healthDot').classList.add('ok');
+    document.getElementById('healthText').textContent = 'live';
+  } catch {
+    document.getElementById('healthDot').classList.add('error');
+    document.getElementById('healthText').textContent = 'offline';
+  }
+}
 
 async function loadTimeline() {
   try {
-    const r = await fetch(`/conversations/${conversationId}/timeline`);
-    if (!r.ok) throw new Error(r.statusText);
+    const r = await fetch(`/conversations/${encodeURIComponent(conversationId)}/timeline`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
-    renderTimeline(data);
+    state.data = data;
+    state.events = (data.events || []).map((e, i) => ({
+      ...e, idx: i,
+      startMs: new Date(e.started_at).getTime(),
+      endMs: new Date(e.ended_at).getTime(),
+      category: categorize(e),
+    }));
+    renderSummary(data);
+    applyFilters();
   } catch (e) {
-    document.getElementById('convTitle').textContent = 'Error loading timeline';
+    document.getElementById('convTitle').textContent = 'Error loading timeline: ' + e.message;
     console.error(e);
   }
 }
 
-function renderTimeline(data) {
-  document.getElementById('convTitle').textContent = data.title;
-  document.getElementById('totalDuration').textContent = formatDuration(data.total_duration_ms);
-  document.getElementById('totalTokensIn').textContent = formatTokens(data.total_tokens_in);
-  document.getElementById('totalTokensOut').textContent = formatTokens(data.total_tokens_out);
-  document.getElementById('eventCount').textContent = data.event_count;
+function renderSummary(data) {
+  document.getElementById('convTitle').textContent = data.title || 'Conversation';
+  document.getElementById('convId').textContent = data.conversation_id;
+  document.getElementById('kpiDuration').textContent = fmtDuration(data.total_duration_ms);
+  document.getElementById('kpiEvents').textContent = data.event_count;
+  document.getElementById('kpiTokens').textContent = fmtTokens((data.total_tokens_in || 0) + (data.total_tokens_out || 0));
+  document.getElementById('kpiCost').textContent = fmtUsd(data.total_usd_cost || 0);
+  const errEl = document.getElementById('kpiErrors');
+  errEl.textContent = data.error_count;
+  errEl.className = 'kpi-value ' + (data.error_count > 0 ? 'red' : 'green');
+}
 
-  const bar = document.getElementById('timelineBar');
-  bar.innerHTML = '';
-
-  data.events.forEach((e, i) => {
-    const isError = !e.ok;
-    const eventDiv = document.createElement('div');
-    eventDiv.className = 'event-item';
-    eventDiv.innerHTML = `
-      <div class="event-icon ${isError ? 'error' : 'ok'}">${isError ? '✕' : '✓'}</div>
-      <div class="event-content">
-        <div class="event-tool">${e.tool_name}</div>
-        <div class="event-meta">
-          ${e.mcp_server || 'mcp'} • ${formatDuration(e.duration_ms)} • ${formatTokens(e.tokens_out || 0)} tokens
-        </div>
-      </div>
-    `;
-    bar.appendChild(eventDiv);
+function applyFilters() {
+  const f = state.filterText.toLowerCase();
+  state.filtered = state.events.filter(e => {
+    if (state.errorsOnly && e.ok) return false;
+    if (!f) return true;
+    return (e.tool_name || '').toLowerCase().includes(f)
+        || (e.mcp_server || '').toLowerCase().includes(f)
+        || (e.model || '').toLowerCase().includes(f);
   });
+  renderMinimap();
+  renderWaterfall();
 }
 
-function formatDuration(ms) {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms/1000).toFixed(1)}s`;
-  return `${(ms/60000).toFixed(1)}m`;
+let minimapDrag = null;
+function renderMinimap() {
+  const svg = document.getElementById('minimap');
+  if (state.events.length === 0) { svg.innerHTML = ''; return; }
+  const W = svg.clientWidth || 1000, H = 36;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const t0 = Math.min(...state.events.map(e => e.startMs));
+  const t1 = Math.max(...state.events.map(e => e.endMs));
+  const span = Math.max(1, t1 - t0);
+  const buckets = 200;
+  const counts = new Array(buckets).fill(0);
+  for (const e of state.filtered) {
+    const i = Math.min(buckets - 1, Math.floor((e.startMs - t0) / span * buckets));
+    counts[i]++;
+  }
+  const maxC = Math.max(1, ...counts);
+  let bars = '';
+  for (let i = 0; i < buckets; i++) {
+    if (counts[i] === 0) continue;
+    const x = (i / buckets) * W, w = W / buckets, h = (counts[i] / maxC) * (H - 4);
+    bars += `<rect x="${x.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${w.toFixed(2)}" height="${h.toFixed(1)}" fill="#6366f1" opacity="0.6"/>`;
+  }
+  const wx = state.zoom.from * W, ww = (state.zoom.to - state.zoom.from) * W;
+  const win = `<rect x="${wx}" y="0" width="${ww}" height="${H}" fill="#6366f1" opacity="0.15" stroke="#818cf8" stroke-width="1"/>`;
+  svg.innerHTML = `<rect x="0" y="0" width="${W}" height="${H}" fill="#0a0a0f"/>${bars}${win}`;
+
+  svg.onmousedown = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const x0 = (ev.clientX - r.left) / r.width;
+    minimapDrag = { anchorFrom: x0 };
+    state.zoom.from = Math.max(0, x0 - 0.05);
+    state.zoom.to = Math.min(1, x0 + 0.05);
+    renderMinimap(); renderWaterfall();
+  };
+  svg.onmousemove = (ev) => {
+    if (!minimapDrag) return;
+    const r = svg.getBoundingClientRect();
+    const x = (ev.clientX - r.left) / r.width;
+    const lo = Math.min(minimapDrag.anchorFrom, x), hi = Math.max(minimapDrag.anchorFrom, x);
+    state.zoom.from = Math.max(0, lo); state.zoom.to = Math.min(1, hi);
+    renderMinimap(); renderWaterfall();
+  };
+}
+window.addEventListener('mouseup', () => minimapDrag = null);
+
+const ROW_H = 22;
+const LEFT_PAD = 280;
+const RIGHT_PAD = 16;
+const TOP_PAD = 28;
+
+function renderWaterfall() {
+  const svg = document.getElementById('wfSvg');
+  const wrap = document.getElementById('waterfall');
+  if (state.events.length === 0) { svg.innerHTML = '<text x="20" y="40" fill="#646478">No events</text>'; return; }
+  const W = wrap.clientWidth;
+  const t0all = Math.min(...state.events.map(e => e.startMs));
+  const t1all = Math.max(...state.events.map(e => e.endMs));
+  const spanAll = Math.max(1, t1all - t0all);
+  const tFrom = t0all + state.zoom.from * spanAll;
+  const tTo   = t0all + state.zoom.to   * spanAll;
+  const span = Math.max(1, tTo - tFrom);
+
+  let groups = null;
+  let rows = state.filtered;
+  if (state.groupBy !== 'none') {
+    const map = new Map();
+    for (const e of state.filtered) {
+      const k = state.groupBy === 'tool' ? e.tool_name
+              : state.groupBy === 'model' ? (e.model || 'unknown')
+              : (e.mcp_server || 'unknown');
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(e);
+    }
+    groups = [...map.entries()].sort((a, b) => b[1].length - a[1].length);
+    rows = groups.flatMap(([_, evs]) => evs);
+  }
+
+  const plotW = W - LEFT_PAD - RIGHT_PAD;
+  const xOf = (ms) => LEFT_PAD + ((ms - tFrom) / span) * plotW;
+
+  let html = '';
+  for (let i = 0; i <= 6; i++) {
+    const x = LEFT_PAD + (i / 6) * plotW;
+    const t = tFrom + (i / 6) * span;
+    const rel = t - t0all;
+    html += `<line class="grid" x1="${x}" y1="${TOP_PAD - 4}" x2="${x}" y2="100%"/>`;
+    html += `<text class="axis-label" x="${x + 2}" y="${TOP_PAD - 8}">${fmtDuration(rel)}</text>`;
+  }
+
+  let yCursor = TOP_PAD;
+  if (groups) {
+    for (const [gname, evs] of groups) {
+      html += `<text class="row-meta" x="8" y="${yCursor + 14}" font-weight="600" fill="#9494a8">▾ ${escapeHtml(gname)} (${evs.length})</text>`;
+      yCursor += ROW_H;
+      for (const e of evs) { html += renderRow(e, xOf, yCursor); yCursor += ROW_H; }
+    }
+  } else {
+    rows.forEach((e, i) => { html += renderRow(e, xOf, TOP_PAD + i * ROW_H); });
+    yCursor = TOP_PAD + rows.length * ROW_H;
+  }
+
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', yCursor + 16);
+  svg.innerHTML = html;
+
+  for (const node of svg.querySelectorAll('.bar, .row-bg')) {
+    const idx = Number(node.getAttribute('data-idx'));
+    const ev = state.events[idx];
+    if (!ev) continue;
+    node.addEventListener('mousemove', (e) => showTooltip(ev, e));
+    node.addEventListener('mouseleave', hideTooltip);
+    node.addEventListener('click', () => selectEvent(ev));
+  }
 }
 
-function formatTokens(n) {
-  if (n >= 1000000) return `${(n/1000000).toFixed(1)}M`;
-  if (n >= 1000) return `${(n/1000).toFixed(1)}K`;
-  return String(n);
+function renderRow(e, xOf, y) {
+  const x1 = xOf(e.startMs), x2 = xOf(e.endMs);
+  const w = Math.max(2, x2 - x1);
+  const color = e.ok ? categoryColor[e.category] : '#ef4444';
+  const isSel = state.selected && state.selected.idx === e.idx;
+  const label = (e.tool_name || '').slice(0, 30);
+  const meta = (e.model || e.mcp_server || '').slice(0, 22);
+  const dur = fmtDuration(e.duration_ms);
+  const cost = e.usd_cost > 0 ? fmtUsd(e.usd_cost) : '';
+
+  let row = '';
+  row += `<rect class="row-bg ${isSel ? 'selected' : ''}" data-idx="${e.idx}" x="0" y="${y}" width="100%" height="${ROW_H}"/>`;
+  row += `<text class="row-label ${e.ok ? '' : 'error'}" x="12" y="${y + ROW_H / 2 + 4}">${e.ok ? '' : '⚠ '}${escapeHtml(label)}</text>`;
+  if (meta) row += `<text class="row-meta" x="160" y="${y + ROW_H / 2 + 4}">${escapeHtml(meta)}</text>`;
+  row += `<rect class="bar ${e.ok ? '' : 'error'}" data-idx="${e.idx}" x="${x1}" y="${y + 4}" width="${w}" height="${ROW_H - 8}" fill="${color}" opacity="${e.ok ? 0.85 : 0.95}"/>`;
+  if (w > 70) {
+    row += `<text class="row-meta" x="${x1 + 4}" y="${y + ROW_H / 2 + 4}" fill="white" opacity="0.9">${dur}${cost ? ' · ' + cost : ''}</text>`;
+  }
+  return row;
 }
 
+function showTooltip(e, mouse) {
+  const tt = document.getElementById('tooltip');
+  tt.innerHTML = `
+    <div class="tooltip-title">${e.ok ? '' : '⚠ '}${escapeHtml(e.tool_name)}</div>
+    <div class="tooltip-row"><span>Status</span><b class="${e.ok ? 'ok' : 'err'}">${e.ok ? 'ok' : 'error'}</b></div>
+    <div class="tooltip-row"><span>Model</span><b>${escapeHtml(e.model || '—')}</b></div>
+    <div class="tooltip-row"><span>Server</span><b>${escapeHtml(e.mcp_server || '—')}</b></div>
+    <div class="tooltip-row"><span>Duration</span><b>${fmtDuration(e.duration_ms)}</b></div>
+    <div class="tooltip-row"><span>Tokens in/out</span><b>${fmtTokens(e.tokens_in || 0)} / ${fmtTokens(e.tokens_out || 0)}</b></div>
+    <div class="tooltip-row"><span>Cost</span><b>${fmtUsd(e.usd_cost || 0)}</b></div>
+    <div class="tooltip-row"><span>Started</span><b>${new Date(e.started_at).toLocaleTimeString()}</b></div>
+  `;
+  tt.classList.add('visible');
+  const x = Math.min(mouse.clientX + 14, window.innerWidth - 280);
+  const y = Math.min(mouse.clientY + 14, window.innerHeight - 220);
+  tt.style.left = x + 'px'; tt.style.top = y + 'px';
+}
+function hideTooltip() { document.getElementById('tooltip').classList.remove('visible'); }
+
+function selectEvent(e) {
+  state.selected = e;
+  const drawer = document.getElementById('drawer');
+  drawer.classList.add('open');
+  drawer.querySelector('.drawer-inner').innerHTML = `
+    <div class="drawer-close" onclick="closeDrawer()">×</div>
+    <h3>Event #${e.order}</h3>
+    <h2>${escapeHtml(e.tool_name)}</h2>
+    <div class="drawer-meta">${escapeHtml(e.mcp_server || 'no server')}</div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Status</span><span class="drawer-stat-value ${e.ok ? 'ok' : 'err'}">${e.ok ? '✓ ok' : '✗ error'}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Model</span><span class="drawer-stat-value">${escapeHtml(e.model || '—')}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Duration</span><span class="drawer-stat-value">${fmtDuration(e.duration_ms)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Tokens in</span><span class="drawer-stat-value">${fmtTokens(e.tokens_in || 0)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Tokens out</span><span class="drawer-stat-value">${fmtTokens(e.tokens_out || 0)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">USD cost</span><span class="drawer-stat-value">${fmtUsd(e.usd_cost || 0)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Started</span><span class="drawer-stat-value">${new Date(e.started_at).toLocaleString()}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Ended</span><span class="drawer-stat-value">${new Date(e.ended_at).toLocaleString()}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Category</span><span class="drawer-stat-value">${e.category}</span></div>
+  `;
+  renderWaterfall();
+}
+window.closeDrawer = function () {
+  document.getElementById('drawer').classList.remove('open');
+  state.selected = null; renderWaterfall();
+};
+
+document.getElementById('groupBy').addEventListener('change', e => { state.groupBy = e.target.value; applyFilters(); });
+document.getElementById('filterText').addEventListener('input', e => { state.filterText = e.target.value; applyFilters(); });
+document.getElementById('showErrorsOnly').addEventListener('change', e => { state.errorsOnly = e.target.checked; applyFilters(); });
+document.getElementById('btnZoomReset').addEventListener('click', () => { state.zoom = { from: 0, to: 1 }; renderMinimap(); renderWaterfall(); });
+document.getElementById('btnExportJson').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(state.data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `timeline-${conversationId}.json`; a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('waterfall').addEventListener('wheel', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const wrap = e.currentTarget.getBoundingClientRect();
+  const xRel = (e.clientX - wrap.left - LEFT_PAD) / (wrap.width - LEFT_PAD - RIGHT_PAD);
+  const span = state.zoom.to - state.zoom.from;
+  const focus = state.zoom.from + xRel * span;
+  const factor = e.deltaY < 0 ? 0.85 : 1.15;
+  let newSpan = Math.max(0.001, Math.min(1, span * factor));
+  let newFrom = focus - (focus - state.zoom.from) * factor;
+  let newTo = newFrom + newSpan;
+  if (newFrom < 0) { newTo -= newFrom; newFrom = 0; }
+  if (newTo > 1) { newFrom -= (newTo - 1); newTo = 1; }
+  state.zoom = { from: Math.max(0, newFrom), to: Math.min(1, newTo) };
+  renderMinimap(); renderWaterfall();
+}, { passive: false });
+
+window.addEventListener('resize', () => { renderMinimap(); renderWaterfall(); });
+
+loadHealth();
 loadTimeline();
 </script>
 </body>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agent-meter — Cost</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none'><rect width='32' height='32' rx='8' fill='%230a0a0f'/><circle cx='16' cy='16' r='8' stroke='%2322c55e' stroke-width='2'/></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-base: #0a0a0f; --bg-surface: #12121a; --bg-elevated: #1a1a26; --bg-hover: #22222e;
+  --border: #2a2a3a;
+  --text-primary: #e4e4ed; --text-secondary: #9494a8; --text-muted: #646478;
+  --accent: #6366f1; --accent-hover: #818cf8;
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316; --cyan: #06b6d4;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg-base); color: var(--text-primary); min-height: 100vh; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.app { max-width: 1360px; margin: 0 auto; padding: 24px; }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.brand-title { font-size: 18px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent-hover)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.back-btn { padding: 6px 12px; font-size: 12px; font-weight: 600; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-decoration: none; }
+.back-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.toolbar { display: flex; gap: 12px; margin-bottom: 24px; align-items: center; }
+.toolbar select, .toolbar input { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 13px; font-family: inherit; }
+h1 { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.kpi-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+.kpi-card .value { font-size: 28px; font-weight: 700; font-feature-settings: 'tnum'; }
+.kpi-card .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.kpi-card.green .value { color: var(--green); }
+.kpi-card.red .value { color: var(--red); }
+.kpi-card.cyan .value { color: var(--cyan); }
+.kpi-card.yellow .value { color: var(--yellow); }
+.section { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.section h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 14px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-feature-settings: 'tnum'; }
+td.num { text-align: right; font-family: 'JetBrains Mono', monospace; }
+td.bar-wrap { width: 30%; padding-right: 16px; }
+.bar { height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); }
+.chart { width: 100%; height: 220px; display: block; }
+.error { padding: 16px; background: rgba(239,68,68,0.1); border: 1px solid var(--red); border-radius: 8px; color: var(--red); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <a class="back-btn" href="/">← Back</a>
+      <a class="brand" href="/">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#0a0a0f"/><circle cx="16" cy="16" r="8" stroke="#22c55e" stroke-width="2"/></svg>
+        <span class="brand-title">agent-meter</span>
+      </a>
+    </div>
+    <div style="display: flex; gap: 12px;">
+      <a class="back-btn" href="/cost" style="background: var(--accent); color: white; border-color: var(--accent);">💰 Cost</a>
+      <a class="back-btn" href="/alerts">🔔 Alerts</a>
+    </div>
+  </header>
+
+  <h1>💰 Cost Attribution <span style="font-size: 14px; color: var(--text-muted); font-weight: 400;">FinOps for AI agents</span></h1>
+
+  <div class="toolbar">
+    <label style="color: var(--text-muted); font-size: 13px;">Window:</label>
+    <select id="windowSel">
+      <option value="1">Last 24h</option>
+      <option value="7" selected>Last 7 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+    <button class="back-btn" id="btnRefresh">⟳ Refresh</button>
+    <span id="statusText" style="color: var(--text-muted); font-size: 12px; margin-left: auto;">loading…</span>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card green"><div class="label">Total spend</div><div class="value" id="kpiTotal">—</div><div class="sub" id="kpiTotalSub">USD over period</div></div>
+    <div class="kpi-card cyan"><div class="label">Burn rate</div><div class="value" id="kpiBurn">—</div><div class="sub">USD / hour</div></div>
+    <div class="kpi-card yellow"><div class="label">Avg / event</div><div class="value" id="kpiAvg">—</div><div class="sub" id="kpiEvents">— events</div></div>
+    <div class="kpi-card"><div class="label">Tokens (in / out)</div><div class="value" id="kpiTokens">—</div><div class="sub">total tokens</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Daily spend</h2>
+    <svg class="chart" id="chartDays"></svg>
+  </div>
+
+  <div class="section">
+    <h2>Top models by cost</h2>
+    <table>
+      <thead><tr>
+        <th>Model</th>
+        <th class="num">Events</th>
+        <th class="num">Tokens in</th>
+        <th class="num">Tokens out</th>
+        <th class="num">USD</th>
+        <th class="bar-wrap"></th>
+      </tr></thead>
+      <tbody id="byModelBody"></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Pricing reference</h2>
+    <table>
+      <thead><tr>
+        <th>Model</th>
+        <th>Match</th>
+        <th class="num">Input $/M</th>
+        <th class="num">Output $/M</th>
+        <th class="num">Cached $/M</th>
+        <th>Source</th>
+      </tr></thead>
+      <tbody id="pricingBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function fmtUsd(v) {
+  if (!v) return '$0.00';
+  if (v < 0.01) return '$' + v.toFixed(5);
+  if (v < 1) return '$' + v.toFixed(4);
+  if (v < 1000) return '$' + v.toFixed(2);
+  return '$' + (v / 1000).toFixed(2) + 'K';
+}
+function fmtNum(n) {
+  if (!n) return '0';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n);
+}
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function load() {
+  const days = parseInt(document.getElementById('windowSel').value, 10);
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 86400 * 1000);
+  document.getElementById('statusText').textContent = 'loading…';
+  try {
+    const r = await fetch(`/api/cost/summary?from=${from.toISOString()}&to=${to.toISOString()}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    renderSummary(data);
+    document.getElementById('statusText').textContent = 'updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    document.getElementById('statusText').textContent = 'error: ' + e.message;
+  }
+  loadPricing();
+}
+
+function renderSummary(data) {
+  const k = data.kpis;
+  document.getElementById('kpiTotal').textContent = fmtUsd(k.total_usd);
+  document.getElementById('kpiTotalSub').textContent = `${k.total_events} events`;
+  document.getElementById('kpiBurn').textContent = fmtUsd(k.burn_rate_usd_per_hour);
+  document.getElementById('kpiAvg').textContent = fmtUsd(k.avg_usd_per_event);
+  document.getElementById('kpiEvents').textContent = `${k.total_events} events`;
+  document.getElementById('kpiTokens').textContent = `${fmtNum(k.total_tokens_in)} / ${fmtNum(k.total_tokens_out)}`;
+
+  const max = Math.max(0.001, ...data.by_model.map(m => m.usd_cost));
+  document.getElementById('byModelBody').innerHTML = data.by_model.length === 0
+    ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px;">No data</td></tr>`
+    : data.by_model.map(m => `
+      <tr>
+        <td>${escapeHtml(m.model || '<unknown>')}</td>
+        <td class="num">${m.events}</td>
+        <td class="num">${fmtNum(m.tokens_in)}</td>
+        <td class="num">${fmtNum(m.tokens_out)}</td>
+        <td class="num">${fmtUsd(m.usd_cost)}</td>
+        <td class="bar-wrap"><div class="bar"><div class="bar-fill" style="width: ${(m.usd_cost / max * 100).toFixed(1)}%"></div></div></td>
+      </tr>
+    `).join('');
+
+  drawChart(data.by_day);
+}
+
+function drawChart(days) {
+  const svg = document.getElementById('chartDays');
+  const W = svg.clientWidth || 1200, H = 220;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  if (days.length === 0) {
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" fill="#646478" text-anchor="middle">No data</text>`;
+    return;
+  }
+  const max = Math.max(0.001, ...days.map(d => d.usd_cost));
+  const PAD_L = 56, PAD_B = 28, PAD_T = 12, PAD_R = 12;
+  const innerW = W - PAD_L - PAD_R, innerH = H - PAD_T - PAD_B;
+  const barW = Math.max(2, innerW / days.length - 4);
+  let html = '';
+  // grid horizontal
+  for (let i = 0; i <= 4; i++) {
+    const y = PAD_T + (innerH * i / 4);
+    const v = max * (1 - i / 4);
+    html += `<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="#2a2a3a" stroke-width="0.5"/>`;
+    html += `<text x="${PAD_L - 6}" y="${y + 3}" text-anchor="end" fill="#646478" font-size="10" font-family="JetBrains Mono">${fmtUsd(v)}</text>`;
+  }
+  days.forEach((d, i) => {
+    const x = PAD_L + (i / days.length) * innerW + 2;
+    const h = (d.usd_cost / max) * innerH;
+    const y = PAD_T + innerH - h;
+    html += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="#6366f1" opacity="0.85" rx="2"><title>${new Date(d.day).toLocaleDateString()}: ${fmtUsd(d.usd_cost)} (${d.events} events)</title></rect>`;
+    if (i % Math.ceil(days.length / 8) === 0 || i === days.length - 1) {
+      html += `<text x="${x + barW/2}" y="${H - 8}" text-anchor="middle" fill="#646478" font-size="10" font-family="JetBrains Mono">${new Date(d.day).toLocaleDateString(undefined, {month:'short', day:'numeric'})}</text>`;
+    }
+  });
+  svg.innerHTML = html;
+}
+
+async function loadPricing() {
+  try {
+    const r = await fetch('/api/cost/pricing');
+    if (!r.ok) return;
+    const rows = await r.json();
+    document.getElementById('pricingBody').innerHTML = rows.slice(0, 20).map(p => `
+      <tr>
+        <td>${escapeHtml(p.model)}</td>
+        <td><code style="font-size: 11px; color: var(--text-muted);">${p.match_kind}</code></td>
+        <td class="num">${p.input_per_mtok.toFixed(2)}</td>
+        <td class="num">${p.output_per_mtok.toFixed(2)}</td>
+        <td class="num">${p.cached_per_mtok.toFixed(2)}</td>
+        <td>${escapeHtml(p.source)}</td>
+      </tr>
+    `).join('');
+  } catch (e) { console.error(e); }
+}
+
+document.getElementById('windowSel').addEventListener('change', load);
+document.getElementById('btnRefresh').addEventListener('click', load);
+window.addEventListener('resize', () => state.lastData && drawChart(state.lastData.by_day));
+
+const state = { lastData: null };
+const _origRender = renderSummary;
+renderSummary = function(d) { state.lastData = d; _origRender(d); };
+
+load();
+</script>
+</body>
+</html>
