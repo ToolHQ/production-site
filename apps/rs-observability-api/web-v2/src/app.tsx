@@ -95,7 +95,7 @@ function AppContent() {
     };
   }, [view]);
 
-  const { data: live, error: liveError } = useLiveOverview();
+  const { data: live, error: liveError, lastFetchAt: liveFetchAt } = useLiveOverview();
   const { summary, catalog, reports, error: snapshotError } = useSnapshot();
   const { data: corootAlerts, error: corootError, lastFetchAt: corootFetchAt } = useCorootAlerts();
   const { data: corootIncidents, error: corootIncidentsError, lastFetchAt: corootIncidentsFetchAt } = useCorootIncidents();
@@ -203,12 +203,24 @@ function AppContent() {
     : 'Waiting for snapshot';
 
   const errorMessage = [liveError, snapshotError].filter(Boolean).join(' | ');
+  const liveConnecting = liveFetchAt === null && !liveError;
   const showOverview = view === 'overview';
   const isCopilotView = view === 'fleet-copilot';
 
   return (
     <>
-      <DnorTopNav liveAvailable={Boolean(live?.available)} />
+      <DnorTopNav
+        liveAvailable={Boolean(live?.available)}
+        liveConnecting={liveConnecting}
+      />
+      {errorMessage && (
+        <div class="dnor-alert-banner" role="alert">
+          <span class="dnor-alert-banner__icon" aria-hidden="true">
+            ⚠
+          </span>
+          <p class="dnor-alert-banner__text">{errorMessage}</p>
+        </div>
+      )}
       <GlobalSearchPalette live={live} />
 
       {isCopilotView ? (
@@ -222,7 +234,7 @@ function AppContent() {
       <section class="shell">
         {/* ── Masthead (overview only) ── */}
         {showOverview && (
-        <header class="masthead">
+        <header class="masthead masthead--compact">
           <DashboardHeader snapshot={summary} live={live} metrics={metrics} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
           <SignalCard live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
         </header>
@@ -238,8 +250,8 @@ function AppContent() {
         <section class="nodes-section-band" id="dnor-nodes">
           {view === 'nodes' ? (
             <div class="dnor-page-head">
-              <h1 class="dnor-page-head__title">Nodes</h1>
-              <p class="dnor-page-head__subtitle">Monitor and explore your infrastructure.</p>
+              <h1 class="dnor-page-head__title">Nós da fleet</h1>
+              <p class="dnor-page-head__subtitle">Saúde, pressão e capacidade por host — OCI, SSDNodes, Hetzner e AWS.</p>
             </div>
           ) : (
           <div class="section-head">
@@ -285,13 +297,23 @@ function AppContent() {
         </>
         )}
 
+        {view === 'incidents' && (
+          <div class="dnor-page-head">
+            <h1 class="dnor-page-head__title">Incidentes</h1>
+            <p class="dnor-page-head__subtitle">
+              Pods com restarts e hotspots Prometheus — priorize o que exige atenção agora.
+            </p>
+          </div>
+        )}
+
         {(showOverview || view === 'incidents') && (
         <section class="priority-grid">
           <section class="panel priority-panel">
             <div class="section-head">
               <div>
-                <div class="section-title">Immediate Action</div>
-                <p>Live kube incidents first. This block should explain why an operator needs to care now.</p>
+                <div class="section-kicker">Ação imediata</div>
+                <div class="section-title">Incidentes live</div>
+                <p>Pods com restarts ou falhas de readiness no cluster — triagem antes de escalar.</p>
               </div>
               <div class="section-tags">
                 <span class="panel-tag" id="ops-section-tag">{opsSectionTag}</span>
@@ -303,8 +325,9 @@ function AppContent() {
           <section class="panel priority-panel">
             <div class="section-head">
               <div>
-                <div class="section-title">Restart Debt</div>
-                <p>Prometheus-ranked restart hotspots over the last hour, rounded to discrete events.</p>
+                <div class="section-kicker">Dívida de estabilidade</div>
+                <div class="section-title">Hotspots de restart</div>
+                <p>Ranking Prometheus na última hora — workloads que mais reiniciaram.</p>
               </div>
               <div class="section-tags">
                 <span class="panel-tag" id="restart-section-tag">{restartSectionTag}</span>
@@ -397,6 +420,11 @@ function AppContent() {
         )}
 
         {view === 'intel' && (
+        <>
+          <div class="dnor-page-head">
+            <h1 class="dnor-page-head__title">Intel & SLO</h1>
+            <p class="dnor-page-head__subtitle">Alertas e incidentes Coroot — visão focada fora do Overview.</p>
+          </div>
         <div class="content-grid content-grid--intel">
           <aside class="rail-stack rail-stack--full">
             <CorootIncidentsPanel
@@ -411,24 +439,29 @@ function AppContent() {
             />
           </aside>
         </div>
+        </>
         )}
 
         {(showOverview || view === 'reports') && (
         <section class="catalog-zone">
+          {view === 'reports' && (
+            <div class="dnor-page-head">
+              <h1 class="dnor-page-head__title">Relatórios</h1>
+              <p class="dnor-page-head__subtitle">Catálogo de artefatos e inventário de deploy no snapshot.</p>
+            </div>
+          )}
           <div class="catalog-shell">
             <div class="catalog-head">
               <div>
-                <div class="section-kicker">{view === 'reports' ? 'Reports' : 'Secondary surface'}</div>
-                <h2>{view === 'reports' ? 'Deploy reports & catalog' : 'Catalog and deploy context'}</h2>
+                <div class="section-kicker">{view === 'reports' ? 'Inventário' : 'Contexto secundário'}</div>
+                <h2>{view === 'reports' ? 'Catálogo e biblioteca' : 'Catálogo e contexto de deploy'}</h2>
               </div>
               <div>
                 <p>
-                  Deploy paths, artifact bundle and snapshot inventory remain available without stealing
-                  first-fold attention from operations.
+                  Inventário de artefatos e paths de deploy — disponível sem competir com a triagem operacional.
                 </p>
                 <div class="section-tags">
                   <span class="panel-tag" id="catalog-zone-tag">{snapshotText}</span>
-                  <span class="panel-tag route-tag">Routes: /api/live/overview, /api/catalog, /api/reports</span>
                 </div>
               </div>
             </div>
@@ -456,8 +489,8 @@ function AppContent() {
         {view === 'settings' && (
         <section class="panel dnor-settings">
           <div class="dnor-page-head">
-            <h1 class="dnor-page-head__title">Settings</h1>
-            <p class="dnor-page-head__subtitle">Appearance and export preferences.</p>
+            <h1 class="dnor-page-head__title">Configurações</h1>
+            <p class="dnor-page-head__subtitle">Aparência, exportação e preferências do console.</p>
           </div>
           <div class="dnor-settings__grid">
             <div class="dnor-settings__card">
@@ -479,11 +512,6 @@ function AppContent() {
         )}
       </section>
 
-      {errorMessage && (
-        <div id="error-box">
-          <div class="error">{errorMessage}</div>
-        </div>
-      )}
     </main>
       )}
     </>

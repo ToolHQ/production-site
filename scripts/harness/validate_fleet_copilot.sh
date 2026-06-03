@@ -192,6 +192,18 @@ else
   bad "UI JS missing fleet-copilot-host-chip"
 fi
 
+if echo "$js_asset" | grep -q 'This block should explain'; then
+  bad "UI JS still contains placeholder copy (T-340)"
+else
+  ok "T-340 no placeholder copy in bundle"
+fi
+
+if echo "$css_asset" | grep -q 'dnor-alert-banner'; then
+  ok "T-340 sticky error banner CSS"
+else
+  bad "T-340 missing dnor-alert-banner CSS"
+fi
+
 if echo "$js_asset" | grep -q 'dnor-view-fleet-copilot'; then
   ok "UI JS body class toggle (dnor-view-fleet-copilot)"
 else
