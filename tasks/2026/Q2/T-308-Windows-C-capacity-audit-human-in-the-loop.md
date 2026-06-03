@@ -1,6 +1,6 @@
 # T-308: Windows C capacity audit human-in-the-loop
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 2h
