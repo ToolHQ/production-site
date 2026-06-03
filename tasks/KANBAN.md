@@ -6,10 +6,40 @@
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
 > Volumes rebuilding replicas. See T-102/T-103/T-104 for follow-up hardening.
 
+---
+
+## 💰 Epic: agent-meter → SaaS Revenue (Q2/Q3 2026)
+
+> **Tese de produto**: Agent Observability + FinOps para times AI-native (Cursor/Copilot/Claude Code).
+> Diferencial: **zero-code OTLP** + **FinOps em USD** + **open core**.
+> Sweet spot entre Helicone (LLM only) e Datadog (genérico).
+>
+> **Pricing draft**: Free 100k events · **Pro $19/seat** · **Team $99/mo flat (5 seats)** · Enterprise custom.
+>
+> **Critical path** (ordem de execução):
+> `T-317` (waterfall) → `T-318` (cost) → `T-319` (multi-tenant) → `T-320` (alerts) → `T-321` (Stripe) → `T-322` (hosted infra) → `T-323` (SDK + leaderboard).
+>
+> **Meta MRR Q3**: $200/mo (10 clientes Pro) → revisar pricing após.
+
+| ID    | Task                                                                                | Priority    | Est.  | Bloqueia      |
+| :---: | :----------------------------------------------------------------------------------- | :---------: | :---: | :------------ |
+| [T-317](2026/Q2/T-317-agent-meter-timeline-waterfall-apm.md)        | **Timeline Waterfall APM** _(Jaeger-style canvas, mini-mapa, drawer, zoom)_           | 🚨 Critical | 6h    | T-318, T-323  |
+| [T-318](2026/Q2/T-318-agent-meter-cost-attribution-engine.md)       | **Cost Attribution Engine** _(USD/call, model_pricing table, /cost page, FinOps)_       | 🚨 Critical | 8h    | T-320, T-321  |
+| [T-319](2026/Q2/T-319-agent-meter-multitenant-auth.md)              | **Multi-tenant + Auth** _(orgs/projects/api_keys, GitHub OAuth, RLS)_                  | 🚨 Critical | 15h   | T-321, T-322  |
+| [T-320](2026/Q2/T-320-agent-meter-alerts-budgets.md)                | **Alerts & Budgets** _(cost spike, error rate, hard cap, slack/email)_                 | 🔼 High     | 10h   | Pro+ pricing  |
+| [T-321](2026/Q2/T-321-agent-meter-landing-pricing-stripe.md)        | **Landing + Pricing + Stripe** _(agent-meter.com, checkout, webhook, customer portal)_ | 🚨 Critical | 13h   | $$ inicial    |
+| [T-322](2026/Q2/T-322-agent-meter-hosted-saas-infra.md)             | **Hosted SaaS Infra** _(isolation RLS, ingest async, backup B2, status page, ToS)_     | 🔼 High     | 14h   | Cliente ext.  |
+| [T-323](2026/Q2/T-323-agent-meter-quickstart-sdk-leaderboard.md)    | **Quickstart + SDK + Leaderboard** _(pip/npm SDK, 60s TTV, /vs page, /leaderboard)_    | 🔼 High     | 14h   | Aquisição     |
+
+**Total epic**: ~80h (~2 semanas full-time, ~1 mês a meio-tempo).
+
+---
+
 ## 🏎️ In Progress
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
+| [T-317](2026/Q2/T-317-agent-meter-timeline-waterfall-apm.md) | **agent-meter — Timeline Waterfall APM** _(Jaeger-style canvas, mini-mapa, drawer, zoom — Epic SaaS Revenue)_ | 🚨 Critical | **Copilot/VSCode** | 6h |
 | [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 1d |
 | [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 4h |
@@ -24,6 +54,12 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-323](2026/Q2/T-323-agent-meter-quickstart-sdk-leaderboard.md) | **agent-meter — Quickstart + SDK + Leaderboard** _(pip install agent-meter, npm @agent-meter/sdk, 60s time-to-first-event, página /vs e /leaderboard público — Epic SaaS Revenue)_ | 🔼 High | **Copilot/VSCode** | 14h |
+| [T-322](2026/Q2/T-322-agent-meter-hosted-saas-infra.md) | **agent-meter — Hosted SaaS Infra** _(isolamento RLS, ingest async, backup off-cluster B2, status page, ToS/Privacy, runbook — Epic SaaS Revenue)_ | 🔼 High | **Copilot/VSCode** | 14h |
+| [T-321](2026/Q2/T-321-agent-meter-landing-pricing-stripe.md) | **agent-meter — Landing + Pricing + Stripe** _(agent-meter.com, página /pricing 4 tiers, Stripe Checkout + webhook + customer portal — Epic SaaS Revenue)_ | 🚨 Critical | **Copilot/VSCode** | 13h |
+| [T-320](2026/Q2/T-320-agent-meter-alerts-budgets.md) | **agent-meter — Alerts & Budgets** _(cost spike, error rate, latency p95, hard cap, slack/email/webhook channels — Epic SaaS Revenue)_ | 🔼 High | **Copilot/VSCode** | 10h |
+| [T-319](2026/Q2/T-319-agent-meter-multitenant-auth.md) | **agent-meter — Multi-tenant + Auth** _(orgs/projects/users/api_keys, GitHub+Google OAuth, RLS Postgres, switcher UI — Epic SaaS Revenue)_ | 🚨 Critical | **Copilot/VSCode** | 15h |
+| [T-318](2026/Q2/T-318-agent-meter-cost-attribution-engine.md) | **agent-meter — Cost Attribution Engine** _(model_pricing table, USD/event view materializada, KPIs Cost Today/MTD/Burn, página /cost — Epic SaaS Revenue)_ | 🚨 Critical | **Copilot/VSCode** | 8h |
 | [T-316](2026/Q2/T-316-agent-meter-conversation-search-insights.md) | **agent-meter — Conversation Search & Insights** _(busca semântica em conversas + dashboard de padrões: top users/tools/models, error patterns, cost trends)_ | 🔼 High | **Copilot/VSCode** | 4h |
 | [T-315](2026/Q2/T-315-agent-meter-session-replay-ui.md) | **agent-meter — Session Replay UI** _(replay passo-a-passo de interações com destaque para erros e padrões detectados)_ | 🔼 High | **Copilot/VSCode** | 4h |
 | [T-314](2026/Q2/T-314-agent-meter-trace-export-otel.md) | **agent-meter — Trace Export (OpenTelemetry)** _(exportar traces compatíveis com Jaeger/Tempo para integração com sistemas de observabilidade)_ | 🔼 High | **Copilot/VSCode** | 2h |
