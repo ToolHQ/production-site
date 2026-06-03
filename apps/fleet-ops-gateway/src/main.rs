@@ -188,7 +188,12 @@ async fn ops_ssh_recent(State(_): State<AppState>) -> Json<OpsEnvelope> {
 }
 
 async fn ops_k8s_nodes(State(state): State<AppState>) -> Json<OpsEnvelope> {
-    run_ops_kubectl(&state, "/ops/k8s/nodes", &["kubectl", "get", "nodes", "-o", "json"]).await
+    run_ops_kubectl(
+        &state,
+        "/ops/k8s/nodes",
+        &["kubectl", "get", "nodes", "-o", "json"],
+    )
+    .await
 }
 
 async fn ops_k8s_pods_not_running(State(state): State<AppState>) -> Json<OpsEnvelope> {
@@ -232,7 +237,11 @@ async fn ops_k8s_warnings(State(state): State<AppState>) -> Json<OpsEnvelope> {
     .await
 }
 
-async fn run_ops_kubectl(state: &AppState, endpoint: &'static str, cmd: &[&str]) -> Json<OpsEnvelope> {
+async fn run_ops_kubectl(
+    state: &AppState,
+    endpoint: &'static str,
+    cmd: &[&str],
+) -> Json<OpsEnvelope> {
     run_ops_with_kubeconfig(endpoint, cmd, state.kubeconfig.as_ref()).await
 }
 
@@ -362,8 +371,7 @@ fn prepare_chat(body: &ChatRequest) -> Result<(String, String, String, Vec<Strin
         .get("fleet_manifest")
         .cloned()
         .unwrap_or_else(|| json!({}));
-    let fleet_json =
-        serde_json::to_string_pretty(&fleet_manifest).unwrap_or_else(|_| "{}".into());
+    let fleet_json = serde_json::to_string_pretty(&fleet_manifest).unwrap_or_else(|_| "{}".into());
     let system = format!(
         "You are a read-only fleet operations assistant. Answer in Brazilian Portuguese, concisely, in plain text. \
 Use ONLY the JSON context provided. If data is missing, say so. Do NOT echo or repeat the context JSON. \

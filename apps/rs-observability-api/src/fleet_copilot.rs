@@ -1103,11 +1103,9 @@ pub async fn copilot_chat(
     let routing = FleetCopilotState::routing_message(message, &history);
     let llm_message = FleetCopilotState::llm_message(message, &history);
 
-    if let Some(reply) = FleetCopilotState::try_fast_reply(
-        &fleet_manifest,
-        routing.as_ref(),
-        preset,
-    ) {
+    if let Some(reply) =
+        FleetCopilotState::try_fast_reply(&fleet_manifest, routing.as_ref(), preset)
+    {
         let intent = FleetCopilotState::resolve_intent(routing.as_ref(), preset);
         let model = if intent == ChatIntent::MetaCapabilities {
             "fleet-manifest"
