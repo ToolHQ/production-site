@@ -53,6 +53,7 @@
 
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
+| [T-324](2026/Q2/T-324-agent-meter-ux-overhaul-backlog.md) | **agent-meter — UX/UI Overhaul Backlog Mestre** _(43 achados auditados; 16 sub-tasks: design system, layout shell, brand, dashboard refactor, pricing comparison + ROI, alerts templates + channels, timeline polish, /tasks HTML, 404 styled, a11y/Lighthouse — Epic SaaS Revenue → Polish & Conversion)_ | 🚨 Critical | **Copilot/VSCode** | 13d |
 | [T-323](2026/Q2/T-323-agent-meter-quickstart-sdk-leaderboard.md) | **agent-meter — Quickstart + SDK + Leaderboard** _(pip install agent-meter, npm @agent-meter/sdk, 60s time-to-first-event, página /vs e /leaderboard público — Epic SaaS Revenue)_ | 🔼 High | **Copilot/VSCode** | 14h |
 | [T-322](2026/Q2/T-322-agent-meter-hosted-saas-infra.md) | **agent-meter — Hosted SaaS Infra** _(isolamento RLS, ingest async, backup off-cluster B2, status page, ToS/Privacy, runbook — Epic SaaS Revenue)_ | 🔼 High | **Copilot/VSCode** | 14h |
 | [T-316](2026/Q2/T-316-agent-meter-conversation-search-insights.md) | **agent-meter — Conversation Search & Insights** _(busca semântica em conversas + dashboard de padrões: top users/tools/models, error patterns, cost trends)_ | 🔼 High | **Copilot/VSCode** | 4h |
