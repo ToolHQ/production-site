@@ -143,6 +143,26 @@ else
   else
     bad "T-336 thread_context missing in status: $(echo "$status_json" | head -c 120)"
   fi
+
+  vague_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 45 \
+    -X POST "$REPORTS_URL/api/fleet/chat" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"como ta o servidor?","preset":"ssdnodes-health"}' 2>/dev/null || true)
+  if echo "$vague_reply" | grep -qE 'fleet-structured|SSDNodes|sem inferência'; then
+    ok "T-337 vague server question uses structured fast path"
+  else
+    bad "T-337 vague reply slow or empty: $(echo "$vague_reply" | head -c 160)"
+  fi
+
+  scope_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 15 \
+    -X POST "$REPORTS_URL/api/fleet/chat" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"qual o uptime do nginx?","preset":"ssdnodes-health"}' 2>/dev/null || true)
+  if echo "$scope_reply" | grep -qE 'fleet-meta|fora do escopo'; then
+    ok "T-337 out-of-scope nginx boundary reply"
+  else
+    bad "T-337 scope boundary weak: $(echo "$scope_reply" | head -c 160)"
+  fi
 fi
 
 # T-325 / UI delivery — assets live (não depende de kubectl)

@@ -11,6 +11,12 @@ import type { CopilotStatus } from '../types/fleetCopilot';
 
 const PRESETS: { id: FleetPreset; icon: string; title: string; hint: string }[] = [
   {
+    id: 'ssdnodes-overview',
+    icon: '📊',
+    title: 'Visão geral',
+    hint: `Resumo rápido disco/memória/carga (${SSDNODES_HOSTNAME})`,
+  },
+  {
     id: 'ssdnodes-health',
     icon: '💾',
     title: 'Disco & memória',
