@@ -11,3 +11,4 @@ pub mod orgs;
 pub mod alerts;
 pub mod auth;
 pub mod billing;
+pub mod static_assets;
