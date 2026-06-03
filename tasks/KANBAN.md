@@ -23,6 +23,12 @@
 
 ## 📅 Backlog (To Do)
 
+### Epic: Reports UI Redesign (T-340) — audit browser 2026-06-03
+
+| ID | Task Name | Priority | Est. |
+| :-: | :-------- | :------: | :--: |
+| [T-340](2026/Q2/T-340-reports-ui-redesign-backlog.md) | **reports.dnor.io — backlog UI/UX extenso (P0→P3, 60+ itens)** | 🔼 High | 3–5w |
+
 ### Epic: Fleet Copilot (T-315) — Fase 2 entregue 2026-05-31 (T-327–335)
 
 | ID | Task Name | Priority | Est. |

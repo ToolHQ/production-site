@@ -1,5 +1,4 @@
 import type { LiveOverview, MetricsData, CorootAlertsData, CorootIncidentsData } from '../types/api';
-import { ThemeToggle } from './ThemeToggle';
 import { ExportMenu } from './ExportMenu';
 import { useRefreshCountdown } from '../hooks/useRefreshCountdown';
 import {
@@ -75,19 +74,17 @@ export function DashboardHeader({ snapshot, live, metrics, corootAlerts, corootI
   const countdown = useRefreshCountdown(15_000, live?.refreshed_at_epoch ?? null);
   return (
     <div class="brand">
-      <span class="eyebrow">Operations-first observability</span>
-      <h1>Cluster pulse for triage, not just reporting.</h1>
-      <p class="subhead">
-        Live Kubernetes health and Prometheus pressure stay in the foreground.
-        Catalog and deploy context remain available, but secondary.
+      <span class="eyebrow">Observabilidade operacional</span>
+      <h1>Pulso do cluster para triagem</h1>
+      <p class="subhead subhead--compact">
+        Saúde live do Kubernetes e pressão Prometheus em primeiro plano — catálogo e deploy em segundo.
       </p>
       <div class="meta-row">
         <span class="pill" id="generated-at">{buildSnapshotPill(snapshot)}</span>
         <span class="pill" id="live-refresh">{buildLivePill(live)}</span>
         <span class="pill" id="metrics-refresh">{buildMetricsPill(metrics)}</span>
         <span class={`pill pill--coroot pill--coroot-${corootPill.tone}`} id="coroot-status">{corootPill.label}</span>
-        <span class="pill pill--countdown" title="Próximo refresh do live data">🔄 {countdown}s</span>
-        <ThemeToggle />
+        <span class="pill pill--countdown" title="Próximo refresh dos dados live">🔄 {countdown}s</span>
         <ExportMenu live={live} metrics={metrics} />
       </div>
     </div>
