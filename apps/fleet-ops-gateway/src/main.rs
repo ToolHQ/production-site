@@ -188,7 +188,12 @@ async fn ops_ssh_recent(State(_): State<AppState>) -> Json<OpsEnvelope> {
 }
 
 async fn ops_k8s_nodes(State(state): State<AppState>) -> Json<OpsEnvelope> {
-    run_ops_kubectl(&state, "/ops/k8s/nodes", &["kubectl", "get", "nodes", "-o", "json"]).await
+    run_ops_kubectl(
+        &state,
+        "/ops/k8s/nodes",
+        &["kubectl", "get", "nodes", "-o", "json"],
+    )
+    .await
 }
 
 async fn ops_k8s_pods_not_running(State(state): State<AppState>) -> Json<OpsEnvelope> {
@@ -232,7 +237,11 @@ async fn ops_k8s_warnings(State(state): State<AppState>) -> Json<OpsEnvelope> {
     .await
 }
 
-async fn run_ops_kubectl(state: &AppState, endpoint: &'static str, cmd: &[&str]) -> Json<OpsEnvelope> {
+async fn run_ops_kubectl(
+    state: &AppState,
+    endpoint: &'static str,
+    cmd: &[&str],
+) -> Json<OpsEnvelope> {
     run_ops_with_kubeconfig(endpoint, cmd, state.kubeconfig.as_ref()).await
 }
 
@@ -362,12 +371,12 @@ fn prepare_chat(body: &ChatRequest) -> Result<(String, String, String, Vec<Strin
         .get("fleet_manifest")
         .cloned()
         .unwrap_or_else(|| json!({}));
-    let fleet_json =
-        serde_json::to_string_pretty(&fleet_manifest).unwrap_or_else(|_| "{}".into());
+    let fleet_json = serde_json::to_string_pretty(&fleet_manifest).unwrap_or_else(|_| "{}".into());
     let system = format!(
         "You are a read-only fleet operations assistant. Answer in Brazilian Portuguese, concisely, in plain text. \
 Use ONLY the JSON context provided. If data is missing, say so. Do NOT echo or repeat the context JSON. \
 Never suggest destructive commands.\n\n\
+If conversation_history is present, use it to interpret corrections (e.g. operator saying the previous answer missed the point).\n\n\
 Fleet manifest (authoritative inventory — list these hosts when asked about scope):\n{fleet_json}\n\n\
 When the operator asks which hosts you cover, which machines, or what you can do, answer from fleet_manifest first. \
 If the question targets a specific host, name that host; if ambiguous, list hosts from the manifest and ask for clarification.\n\n\
@@ -377,7 +386,14 @@ Q: Como está o disco no SSDNodes?\nA: Resuma ops/host/disk stdout em pt-BR.\n\
 Q: Compare memória k8s-node-1 vs hetzner\nA: Use targeted_oci_nodes / targeted_external_nodes metrics se presentes."
     );
     let context_json = serde_json::to_string_pretty(&compact).unwrap_or_else(|_| "{}".into());
-    let user = format!("Context JSON:\n{context_json}\n\nQuestion:\n{message}");
+    let thread_block = body
+        .context
+        .get("conversation_history")
+        .and_then(|v| serde_json::to_string_pretty(v).ok())
+        .filter(|s| s.len() > 4 && s != "[]")
+        .map(|s| format!("Prior conversation (most recent last):\n{s}\n\n"))
+        .unwrap_or_default();
+    let user = format!("{thread_block}Context JSON:\n{context_json}\n\nQuestion:\n{message}");
 
     Ok((message.to_string(), system, user, sources))
 }
@@ -426,6 +442,10 @@ fn compact_context_for_llm(ctx: &Value) -> Value {
     };
     let mut out = serde_json::Map::new();
     for (key, value) in obj {
+        if key == "conversation_history" {
+            out.insert(key.clone(), value.clone());
+            continue;
+        }
         let mut entry = value.clone();
         if let Some(map) = entry.as_object_mut() {
             if let Some(stdout) = map.get("stdout").and_then(|v| v.as_str()) {

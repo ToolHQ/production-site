@@ -2754,6 +2754,13 @@
         border-top: 1px solid var(--border-subtle);
       }
 
+      .fleet-copilot-quota {
+        margin: 0;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        line-height: 1.35;
+      }
+
       .fleet-copilot-host-select {
         display: flex;
         flex-direction: column;
