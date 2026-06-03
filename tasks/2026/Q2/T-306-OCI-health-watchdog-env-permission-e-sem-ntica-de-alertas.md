@@ -1,6 +1,6 @@
 # T-306: OCI health watchdog env permission e semântica de alertas
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 6h

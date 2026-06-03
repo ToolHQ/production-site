@@ -16,7 +16,7 @@ metadata:
 type: Opaque
 data:
   MINIO_ROOT_USER: bWluaW8=
-  MINIO_ROOT_PASSWORD: bWluaW80NTY=
+  MINIO_ROOT_PASSWORD: Q0hBVkVfUkVNT1ZJREFfUE9SX1NFR1VSQU5DQQ== # Gerenciado externamente via TUI
 ---
 apiVersion: v1
 kind: PersistentVolume
