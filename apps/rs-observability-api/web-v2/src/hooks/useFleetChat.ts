@@ -17,6 +17,7 @@ function toApiHistory(messages: FleetChatMessage[]): FleetChatHistoryTurn[] {
 
 export const PRESET_PROMPTS = {
   'ssdnodes-health': `Como estão disco, memória e carga no host ${SSDNODES_HOSTNAME} agora?`,
+  'ssdnodes-overview': `Como está o servidor ${SSDNODES_HOSTNAME}? Resumo de disco, memória e carga.`,
   'ssdnodes-k8s': `Há pods não Running, ingress ou warnings no cluster K8s em ${SSDNODES_HOSTNAME}?`,
   'ssdnodes-ssh': `Resuma tentativas SSH suspeitas nas últimas 24h em ${SSDNODES_HOSTNAME}.`,
 } as const;
