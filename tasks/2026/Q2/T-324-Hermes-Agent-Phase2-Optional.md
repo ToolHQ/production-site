@@ -1,6 +1,6 @@
 # T-324: Fleet Copilot — Hermes Agent fase 2 (opcional, pós-MVP)
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔵 Medium (opcional)
 - **Owner**: Cursor / AI Radar
 - **Epic**: Fleet Copilot / Hermes / SSDNodes

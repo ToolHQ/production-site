@@ -28,8 +28,7 @@
 | ID | Task Name | Priority | Est. |
 | :-: | :-------- | :------: | :--: |
 <!-- T-331 moved to Done -->
-| [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional)** | 🔵 Medium | 2d |
-
+<!-- T-324 moved to Done -->
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
 <!-- T-310 moved to Done -->
@@ -50,6 +49,7 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional)** _(Hermes Agent instalado no SSDNodes com perfil de segurança readonly e skill customizada validada via pentest)_ | 🔵 Medium | Antigravity | 2d |
 | [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** _(Service ingress convertido para ClusterIP para mitigar pending na nuvem; deploy via hostNetwork mantido intacto)_ | 🔼 High | Antigravity | 4h |
 | [T-331](2026/Q2/T-331-SSDNodes-SSH-Alias-Canonical-Hostname.md) | **SSDNodes — SSH alias canônico (~/.ssh/config)** _(alias legado 'monstro' purgado de todos os scripts, README atualizado)_ | 🔵 Medium | Antigravity | 30min |
 | [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(resolvido por T-320a + RUNBOOK_SSH_INCIDENT.md)_ | 🔼 High | Cursor / AI Radar | 1d |
