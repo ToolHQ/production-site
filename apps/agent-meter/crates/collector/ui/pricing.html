@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — agent-meter</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230a0a0f'/><circle cx='16' cy='16' r='8' stroke='%236366f1' stroke-width='2' fill='none'/></svg>">
+<style>
+:root { --bg:#0a0a0f; --surf:#12121a; --elev:#1a1a26; --border:#2a2a3a; --txt:#e4e4ed; --sec:#9494a8; --muted:#646478; --accent:#6366f1; --green:#22c55e; --yellow:#eab308; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',system-ui,sans-serif; background:var(--bg); color:var(--txt); min-height:100vh; line-height:1.5; -webkit-font-smoothing:antialiased; }
+.app { max-width:1200px; margin:0 auto; padding:32px 24px 80px; }
+header { display:flex; align-items:center; justify-content:space-between; margin-bottom:48px; }
+.brand { display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit; font-weight:700; font-size:18px; }
+.brand-mark { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#6366f1,#818cf8); display:flex; align-items:center; justify-content:center; font-size:13px; }
+nav { display:flex; gap:8px; }
+nav a { padding:8px 14px; border-radius:6px; background:var(--elev); color:var(--sec); border:1px solid var(--border); font-size:13px; font-weight:600; text-decoration:none; }
+nav a:hover { color:var(--txt); background:#22222e; }
+.hero { text-align:center; margin-bottom:48px; }
+.hero h1 { font-size:42px; font-weight:800; letter-spacing:-0.02em; margin-bottom:12px; background:linear-gradient(135deg,#e4e4ed,#9494a8); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.hero p { color:var(--sec); font-size:16px; max-width:540px; margin:0 auto; }
+.tiers { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
+.tier { background:var(--surf); border:1px solid var(--border); border-radius:16px; padding:28px 24px; display:flex; flex-direction:column; }
+.tier.featured { border-color:var(--accent); background:linear-gradient(180deg, rgba(99,102,241,0.08), var(--surf)); position:relative; }
+.tier.featured::before { content:'POPULAR'; position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:var(--accent); color:#fff; padding:3px 10px; border-radius:99px; font-size:10px; font-weight:700; letter-spacing:0.05em; }
+.tier h3 { font-size:14px; text-transform:uppercase; letter-spacing:0.05em; color:var(--sec); margin-bottom:8px; }
+.price { font-size:34px; font-weight:800; }
+.price small { font-size:13px; color:var(--muted); font-weight:500; }
+.tagline { font-size:13px; color:var(--sec); margin:6px 0 18px; min-height:38px; }
+ul.feat { list-style:none; flex:1; margin-bottom:20px; }
+ul.feat li { padding:7px 0; font-size:13px; display:flex; align-items:flex-start; gap:8px; color:var(--txt); }
+ul.feat li::before { content:'✓'; color:var(--green); font-weight:700; flex-shrink:0; }
+.btn { width:100%; padding:11px 16px; border-radius:8px; font-size:13px; font-weight:600; border:1px solid var(--border); background:var(--elev); color:var(--txt); cursor:pointer; text-decoration:none; text-align:center; display:block; }
+.btn:hover { background:#22222e; }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn.primary:hover { background:#818cf8; }
+.faq { margin-top:64px; max-width:680px; margin-left:auto; margin-right:auto; }
+.faq h2 { font-size:24px; font-weight:700; margin-bottom:18px; text-align:center; }
+.faq-item { background:var(--surf); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:10px; }
+.faq-item h4 { font-size:14px; margin-bottom:6px; }
+.faq-item p { color:var(--sec); font-size:13px; }
+.notice { background:rgba(234,179,8,0.08); border:1px solid rgba(234,179,8,0.3); color:var(--yellow); padding:10px 14px; border-radius:8px; font-size:12px; margin-bottom:20px; text-align:center; }
+@media (max-width:900px){ .tiers { grid-template-columns:1fr 1fr; } }
+@media (max-width:600px){ .tiers { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <a class="brand" href="/"><span class="brand-mark">am</span> agent-meter</a>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/cost">Cost</a>
+      <a href="/alerts">Alerts</a>
+      <a href="/login">Sign in</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Stop guessing what your agents cost.</h1>
+    <p>Real-time USD attribution, waterfall traces, alerts &amp; budgets — all on top of OpenTelemetry. No vendor lock-in.</p>
+  </section>
+
+  <div id="notice" class="notice" style="display:none">⚠️ Stripe não configurado neste ambiente — checkout abrirá em modo stub.</div>
+
+  <div class="tiers">
+    <div class="tier">
+      <h3>Free</h3>
+      <div class="price">$0<small>/mo</small></div>
+      <p class="tagline">Forever-free for solo developers and OSS.</p>
+      <ul class="feat">
+        <li>100k events / month</li>
+        <li>7-day retention</li>
+        <li>Waterfall + cost engine</li>
+        <li>1 user, 1 project</li>
+        <li>Community support</li>
+      </ul>
+      <a class="btn" href="/login">Start free</a>
+    </div>
+
+    <div class="tier featured">
+      <h3>Pro</h3>
+      <div class="price">$19<small>/seat/mo</small></div>
+      <p class="tagline">For builders shipping agents to production.</p>
+      <ul class="feat">
+        <li>1M events / month</li>
+        <li>30-day retention</li>
+        <li>Alerts &amp; budgets</li>
+        <li>Slack/email notifications</li>
+        <li>Email support</li>
+      </ul>
+      <button class="btn primary" data-plan="pro">Upgrade to Pro</button>
+    </div>
+
+    <div class="tier">
+      <h3>Team</h3>
+      <div class="price">$99<small>/mo flat</small></div>
+      <p class="tagline">Up to 5 seats, unlimited projects.</p>
+      <ul class="feat">
+        <li>10M events / month</li>
+        <li>90-day retention</li>
+        <li>SSO (GitHub/Google)</li>
+        <li>API keys per project</li>
+        <li>Priority support</li>
+      </ul>
+      <button class="btn primary" data-plan="team">Choose Team</button>
+    </div>
+
+    <div class="tier">
+      <h3>Enterprise</h3>
+      <div class="price">Custom</div>
+      <p class="tagline">Self-hosted, SOC2, dedicated SLA.</p>
+      <ul class="feat">
+        <li>Unlimited events</li>
+        <li>Custom retention</li>
+        <li>SSO/SAML</li>
+        <li>Dedicated VPC option</li>
+        <li>SLA + onboarding</li>
+      </ul>
+      <a class="btn" href="mailto:hello@dnor.io">Contact sales</a>
+    </div>
+  </div>
+
+  <section class="faq">
+    <h2>Frequently asked</h2>
+    <div class="faq-item"><h4>What's an "event"?</h4><p>One LLM call, tool invocation or MCP message. Roughly 1:1 with a span in OpenTelemetry.</p></div>
+    <div class="faq-item"><h4>Do you have a self-hosted option?</h4><p>Yes — Enterprise tier ships a single Postgres + Rust binary. Run it on your VPC.</p></div>
+    <div class="faq-item"><h4>Can I cancel anytime?</h4><p>Yes. Your data stays for 30 days after cancellation, then is deleted.</p></div>
+    <div class="faq-item"><h4>Is there a free trial of Pro?</h4><p>Free tier already covers most solo use-cases. We don't gate basic FinOps behind a trial.</p></div>
+  </section>
+</div>
+
+<script>
+document.querySelectorAll('button[data-plan]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = '⏳ creating session…';
+    try {
+      const r = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: btn.dataset.plan }),
+      });
+      const data = await r.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('checkout error: ' + (data.error || 'unknown'));
+        btn.disabled = false; btn.textContent = btn.dataset.plan === 'pro' ? 'Upgrade to Pro' : 'Choose Team';
+      }
+    } catch (e) {
+      alert('checkout error: ' + e.message);
+      btn.disabled = false; btn.textContent = btn.dataset.plan === 'pro' ? 'Upgrade to Pro' : 'Choose Team';
+    }
+  });
+});
+// Probe stripe configuration via a no-op checkout
+fetch('/api/billing/checkout', {
+  method: 'POST', headers: { 'Content-Type':'application/json' },
+  body: JSON.stringify({ plan: '__probe__' }),
+}).catch(() => {});
+</script>
+</body>
+</html>

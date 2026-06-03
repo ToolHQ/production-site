@@ -9,3 +9,5 @@ pub mod conversation_detail;
 pub mod cost;
 pub mod orgs;
 pub mod alerts;
+pub mod auth;
+pub mod billing;
