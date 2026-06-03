@@ -92,4 +92,79 @@
     if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
     return Math.round(n).toLocaleString();
   };
+
+  // shared shell renderer — call amShell({active:'cost', title:'Cost', subtitle:'...', breadcrumb:'Cost'})
+  window.amShell = function(opts){
+    opts = opts || {};
+    const active = opts.active || '';
+    const navItems = [
+      ['dashboard', '/', 'i-dashboard', 'Dashboard'],
+      ['conversations', '/conversations', 'i-conversations', 'Conversations'],
+      ['cost', '/cost', 'i-cost', 'Cost'],
+      ['alerts', '/alerts', 'i-alerts', 'Alerts'],
+    ];
+    const accountItems = [
+      ['pricing', '/pricing', 'i-pricing', 'Pricing'],
+      ['github', 'https://github.com/ToolHQ/production-site', 'i-github', 'GitHub'],
+    ];
+    const navHtml = navItems.map(([k,h,i,l]) =>
+      `<a class="am-nav-link${k===active?' active':''}" href="${h}"><svg class="am-icon"><use href="/_static/icons.svg#${i}"/></svg><span>${l}</span></a>`
+    ).join('');
+    const accHtml = accountItems.map(([k,h,i,l]) =>
+      `<a class="am-nav-link${k===active?' active':''}" href="${h}"><svg class="am-icon"><use href="/_static/icons.svg#${i}"/></svg><span>${l}</span></a>`
+    ).join('');
+    const sidebar = document.getElementById('amSidebar');
+    if (sidebar) {
+      sidebar.innerHTML = `
+        <a href="/" class="am-sidebar-brand">
+          <span class="logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M5 21V13M12 21v-5M19 21v-9"/><circle cx="5" cy="11" r="1.5" fill="white"/><circle cx="12" cy="14" r="1.5" fill="white"/><circle cx="19" cy="10" r="1.5" fill="white"/></svg></span>
+          <span class="logo-text">agent-meter</span>
+        </a>
+        <nav class="am-sidebar-nav">
+          <div class="am-nav-section">Observability</div>
+          ${navHtml}
+          <div class="am-nav-section">Account</div>
+          ${accHtml}
+        </nav>
+        <div class="am-sidebar-footer">
+          <button class="am-btn am-btn-ghost am-btn-icon" onclick="amToggleTheme()" title="Toggle theme"><svg class="am-icon"><use href="/_static/icons.svg#i-sun"/></svg></button>
+          <span class="am-status-pill" id="amHealthPill">Live</span>
+        </div>`;
+    }
+    const topbar = document.getElementById('amTopbar');
+    if (topbar) {
+      topbar.innerHTML = `
+        <div class="am-breadcrumbs">
+          <span class="crumb">agent-meter</span>
+          <span class="sep">›</span>
+          <span class="crumb current">${opts.breadcrumb || opts.title || ''}</span>
+        </div>
+        <div class="am-search">
+          <svg class="am-icon"><use href="/_static/icons.svg#i-search"/></svg>
+          <input placeholder="Search…" disabled>
+          <span class="kbd">⌘K</span>
+        </div>
+        <div class="am-topbar-actions" id="amUserSlot">
+          <a class="am-btn am-btn-secondary am-btn-sm" href="/login">Sign in</a>
+        </div>`;
+      // re-fire user-slot fetch
+      fetch('/api/me', {credentials:'include'}).then(r => r.ok ? r.json() : null).then(me => {
+        const slot = document.getElementById('amUserSlot'); if (!slot) return;
+        if (me) {
+          const name = me.display_name || me.github_login || me.email;
+          slot.innerHTML = `<a class="am-btn am-btn-ghost am-btn-sm" href="/auth/logout" title="Sign out">${me.avatar_url ? `<img src="${me.avatar_url}" alt="" style="width:20px;height:20px;border-radius:50%">` : '<svg class="am-icon"><use href="/_static/icons.svg#i-user"/></svg>'}<span>${name}</span></a>`;
+        }
+      }).catch(()=>{});
+    }
+    const footer = document.getElementById('amFooter');
+    if (footer) {
+      footer.innerHTML = `<span>© 2026 agent-meter</span><a href="/pricing">Pricing</a><a href="https://github.com/ToolHQ/production-site">GitHub</a><span class="am-spacer" style="flex:1"></span><span id="amHealthFoot" class="am-mono am-muted" style="font-size:11px">checking…</span>`;
+      fetch('/health').then(r=>r.json()).then(r=>{
+        const p = document.getElementById('amHealthPill');
+        const f = document.getElementById('amHealthFoot');
+        if (p) p.textContent = r.status === 'ok' ? 'Live' : 'Issue';
+        if (f) f.textContent = `${r.service} · ${r.status}`;
+      }).catch(()=>{});
+    }
+  };
 })();

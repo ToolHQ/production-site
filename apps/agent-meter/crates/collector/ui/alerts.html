@@ -1,219 +1,180 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>agent-meter — Alerts</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none'><rect width='32' height='32' rx='8' fill='%230a0a0f'/><circle cx='16' cy='16' r='8' stroke='%23eab308' stroke-width='2'/></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<title>Alerts · agent-meter</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/_static/favicon.svg">
+<link rel="stylesheet" href="/_static/tokens.css">
+<link rel="stylesheet" href="/_static/app.css">
 <style>
-:root {
-  --bg-base: #0a0a0f; --bg-surface: #12121a; --bg-elevated: #1a1a26; --bg-hover: #22222e;
-  --border: #2a2a3a;
-  --text-primary: #e4e4ed; --text-secondary: #9494a8; --text-muted: #646478;
-  --accent: #6366f1; --accent-hover: #818cf8;
-  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
-}
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg-base); color: var(--text-primary); min-height: 100vh; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-.app { max-width: 1280px; margin: 0 auto; padding: 24px; }
-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
-.brand-title { font-size: 18px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent-hover)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.back-btn { padding: 6px 12px; font-size: 12px; font-weight: 600; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-decoration: none; }
-.back-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
-h1 { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
-.section { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-.section h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-.row-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; align-items: end; }
-.row-grid label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); display: block; margin-bottom: 4px; font-weight: 600; }
-input, select { width: 100%; background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; }
-input:focus, select:focus { outline: none; border-color: var(--accent); }
-.btn { padding: 9px 16px; font-size: 13px; font-weight: 600; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; }
-.btn:hover { background: var(--accent-hover); }
-.btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
-.btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid var(--red); padding: 5px 10px; font-size: 11px; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
-td.num { text-align: right; font-family: 'JetBrains Mono', monospace; }
-.pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
-.pill.warn { background: rgba(234,179,8,0.15); color: var(--yellow); }
-.pill.crit { background: rgba(239,68,68,0.15); color: var(--red); }
-.pill.info { background: rgba(99,102,241,0.15); color: var(--accent); }
-.pill.ok { background: rgba(34,197,94,0.15); color: var(--green); }
-.empty { text-align: center; color: var(--text-muted); padding: 24px; }
+  .form-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .form-grid label { display: block; font-size: 11px; color: var(--am-text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; font-weight: 600; }
+  .form-grid .span-2 { grid-column: span 2; }
+  .form-grid .span-all { grid-column: 1 / -1; }
+  @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr 1fr; } .form-grid .span-2 { grid-column: span 2; } }
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div style="display: flex; align-items: center; gap: 14px;">
-      <a class="back-btn" href="/">← Back</a>
-      <a class="brand" href="/">
-        <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#0a0a0f"/><circle cx="16" cy="16" r="8" stroke="#eab308" stroke-width="2"/></svg>
-        <span class="brand-title">agent-meter</span>
-      </a>
+<svg style="display:none"><use href="/_static/icons.svg"/></svg>
+
+<div class="am-app">
+  <aside class="am-sidebar" id="amSidebar"></aside>
+  <header class="am-topbar" id="amTopbar"></header>
+  <main class="am-main">
+    <div class="am-page-header" style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <h1 class="am-page-title">Alerts &amp; Budgets</h1>
+        <p class="am-page-subtitle">Guard rails for AI spend — define thresholds and get notified before bills explode.</p>
+      </div>
+      <button class="am-btn am-btn-secondary" id="btnEvaluate"><svg class="am-icon"><use href="/_static/icons.svg#i-zap"/></svg>Evaluate now</button>
     </div>
-    <div style="display: flex; gap: 12px;">
-      <a class="back-btn" href="/cost">💰 Cost</a>
-      <a class="back-btn" href="/alerts" style="background: var(--accent); color: white; border-color: var(--accent);">🔔 Alerts</a>
+
+    <!-- New rule -->
+    <div class="am-card" style="margin-bottom:18px">
+      <div class="am-card-header">
+        <h3 class="am-card-title"><svg class="am-icon"><use href="/_static/icons.svg#i-alerts"/></svg>New rule</h3>
+        <p class="am-card-subtitle" style="margin:0">Create a budget threshold or anomaly trigger.</p>
+      </div>
+      <form id="newRuleForm" class="form-grid">
+        <div class="span-2">
+          <label>Name</label>
+          <input class="am-input" id="f-name" type="text" placeholder="My budget alert" required>
+        </div>
+        <div>
+          <label>Type</label>
+          <select class="am-input" id="f-type">
+            <option value="cost_spike">Cost spike (USD)</option>
+            <option value="error_rate">Error rate (%)</option>
+            <option value="latency_p95">Latency p95 (ms)</option>
+            <option value="token_burn">Tokens burned</option>
+            <option value="tool_failure">Tool failures</option>
+          </select>
+        </div>
+        <div>
+          <label>Window (min)</label>
+          <input class="am-input" id="f-window" type="number" value="60" min="1">
+        </div>
+        <div>
+          <label>Threshold</label>
+          <input class="am-input" id="f-threshold" type="number" step="0.01" placeholder="10" required>
+        </div>
+        <div>
+          <label>Cooldown (min)</label>
+          <input class="am-input" id="f-cooldown" type="number" value="60" min="0">
+        </div>
+        <div class="span-all" style="text-align:right">
+          <button class="am-btn am-btn-primary" type="submit"><svg class="am-icon"><use href="/_static/icons.svg#i-check"/></svg>Create rule</button>
+        </div>
+      </form>
     </div>
-  </header>
 
-  <h1>🔔 Alerts &amp; Budgets <span style="font-size: 14px; color: var(--text-muted); font-weight: 400;">guard rails for AI spend</span></h1>
+    <!-- Active rules -->
+    <div class="am-card" style="margin-bottom:18px">
+      <div class="am-card-header">
+        <h3 class="am-card-title"><svg class="am-icon"><use href="/_static/icons.svg#i-tool"/></svg>Active rules</h3>
+      </div>
+      <table class="am-table">
+        <thead><tr><th>Name</th><th>Type</th><th>Window</th><th class="num">Threshold</th><th>Cooldown</th><th>Created</th><th></th></tr></thead>
+        <tbody id="rulesBody"><tr><td colspan="7" class="am-muted" style="padding:20px;text-align:center">Loading…</td></tr></tbody>
+      </table>
+    </div>
 
-  <div class="section">
-    <h2>New rule <button class="btn btn-secondary" id="btnEvaluate">⚡ Evaluate now</button></h2>
-    <form id="newRuleForm" class="row-grid">
-      <div style="grid-column: span 2;">
-        <label>Name</label>
-        <input id="f-name" type="text" placeholder="My budget alert" required />
+    <!-- History -->
+    <div class="am-card">
+      <div class="am-card-header">
+        <h3 class="am-card-title"><svg class="am-icon"><use href="/_static/icons.svg#i-clock"/></svg>Recent fires</h3>
       </div>
-      <div>
-        <label>Type</label>
-        <select id="f-type">
-          <option value="cost_spike">Cost spike (USD)</option>
-          <option value="error_rate">Error rate (%)</option>
-          <option value="latency_p95">Latency p95 (ms)</option>
-          <option value="token_burn">Tokens burned</option>
-          <option value="tool_failure">Tool failures</option>
-        </select>
-      </div>
-      <div>
-        <label>Window (min)</label>
-        <input id="f-window" type="number" value="60" min="1" />
-      </div>
-      <div>
-        <label>Threshold</label>
-        <input id="f-threshold" type="number" step="0.01" placeholder="10" required />
-      </div>
-      <div>
-        <label>Cooldown (min)</label>
-        <input id="f-cooldown" type="number" value="60" min="0" />
-      </div>
-      <div style="grid-column: 1/-1; text-align: right;">
-        <button class="btn" type="submit">+ Create rule</button>
-      </div>
-    </form>
-  </div>
-
-  <div class="section">
-    <h2>Active rules</h2>
-    <table>
-      <thead><tr>
-        <th>Name</th><th>Type</th><th>Window</th><th class="num">Threshold</th><th>Cooldown</th><th>Created</th><th></th>
-      </tr></thead>
-      <tbody id="rulesBody"><tr><td colspan="7" class="empty">loading…</td></tr></tbody>
-    </table>
-  </div>
-
-  <div class="section">
-    <h2>Recent fires (history)</h2>
-    <table>
-      <thead><tr>
-        <th>Fired at</th><th>Severity</th><th>Rule</th><th class="num">Observed</th><th class="num">Threshold</th><th>Notified</th>
-      </tr></thead>
-      <tbody id="historyBody"><tr><td colspan="6" class="empty">loading…</td></tr></tbody>
-    </table>
-  </div>
+      <table class="am-table">
+        <thead><tr><th>Fired at</th><th>Severity</th><th>Rule</th><th class="num">Observed</th><th class="num">Threshold</th><th>Notified</th></tr></thead>
+        <tbody id="historyBody"><tr><td colspan="6" class="am-muted" style="padding:20px;text-align:center">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+  <footer class="am-footer" id="amFooter"></footer>
 </div>
 
+<script src="/_static/app.js"></script>
 <script>
-function fmt(n) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }); }
-function fmtDate(s) { return new Date(s).toLocaleString(); }
-function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+amShell({active:'alerts', breadcrumb:'Alerts'});
+
+const TYPE_LABELS = {cost_spike:'Cost spike',error_rate:'Error rate',latency_p95:'Latency p95',token_burn:'Token burn',tool_failure:'Tool failure'};
+const SEVERITY_BADGES = {critical:'danger',warning:'warning',info:'info'};
+
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
 async function loadRules() {
+  const tbody = document.getElementById('rulesBody');
   try {
     const r = await fetch('/api/alerts/rules');
-    const rows = await r.json();
-    const tbody = document.getElementById('rulesBody');
-    if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="empty">No rules yet — create one above.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = rows.map(r => `
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rules = await r.json();
+    if (!rules.length) { tbody.innerHTML = `<tr><td colspan="7" class="am-muted" style="padding:20px;text-align:center">No rules yet — create one above.</td></tr>`; return; }
+    tbody.innerHTML = rules.map(r => `
       <tr>
-        <td>${escapeHtml(r.name)}</td>
-        <td><span class="pill info">${r.rule_type}</span></td>
-        <td>${r.window_minutes}min</td>
-        <td class="num">${r.comparator} ${fmt(r.threshold)}</td>
-        <td>${r.cooldown_minutes}min</td>
-        <td>${new Date(r.created_at).toLocaleDateString()}</td>
-        <td><button class="btn-danger" data-id="${r.id}" data-act="delete">Delete</button></td>
-      </tr>
-    `).join('');
-    tbody.querySelectorAll('button[data-act="delete"]').forEach(b => {
-      b.addEventListener('click', async () => {
-        if (!confirm('Delete this rule?')) return;
-        await fetch(`/api/alerts/rules/${b.dataset.id}`, { method: 'DELETE' });
-        loadRules();
-      });
-    });
-  } catch (e) {
-    document.getElementById('rulesBody').innerHTML = `<tr><td colspan="7" class="empty" style="color: var(--red)">error: ${escapeHtml(e.message)}</td></tr>`;
+        <td><strong>${escapeHtml(r.name)}</strong></td>
+        <td><span class="am-badge">${TYPE_LABELS[r.rule_type]||r.rule_type}</span></td>
+        <td class="am-mono">${r.window_minutes}m</td>
+        <td class="num am-mono">${r.threshold}</td>
+        <td class="am-mono">${r.cooldown_minutes}m</td>
+        <td class="am-muted am-mono" style="font-size:12px">${new Date(r.created_at).toLocaleDateString()}</td>
+        <td><button class="am-btn am-btn-ghost am-btn-sm am-btn-danger" data-del="${r.id}"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-x"/></svg></button></td>
+      </tr>`).join('');
+    tbody.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Delete rule?')) return;
+      await fetch(`/api/alerts/rules/${b.dataset.del}`, {method:'DELETE'});
+      loadRules();
+    }));
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="am-muted" style="padding:20px;text-align:center">Error: ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
 async function loadHistory() {
+  const tbody = document.getElementById('historyBody');
   try {
     const r = await fetch('/api/alerts/history?limit=50');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const rows = await r.json();
-    const tbody = document.getElementById('historyBody');
-    if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty">No fires yet.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = rows.map(h => `
-      <tr>
-        <td>${fmtDate(h.fired_at)}</td>
-        <td><span class="pill ${h.severity === 'critical' ? 'crit' : h.severity === 'warning' ? 'warn' : 'info'}">${h.severity}</span></td>
-        <td><code style="font-size: 11px;">${escapeHtml(h.rule_id)}</code></td>
-        <td class="num">${fmt(h.observed_value)}</td>
-        <td class="num">${fmt(h.threshold)}</td>
-        <td><span class="pill ${h.notified ? 'ok' : 'warn'}">${h.notified ? 'sent' : 'pending'}</span></td>
-      </tr>
-    `).join('');
-  } catch (e) {
-    document.getElementById('historyBody').innerHTML = `<tr><td colspan="6" class="empty" style="color: var(--red)">error: ${escapeHtml(e.message)}</td></tr>`;
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" class="am-muted" style="padding:20px;text-align:center">No fires yet.</td></tr>`; return; }
+    tbody.innerHTML = rows.map(h => {
+      const sev = SEVERITY_BADGES[h.severity] || 'info';
+      return `<tr>
+        <td class="am-mono" style="font-size:12px">${new Date(h.fired_at).toLocaleString()}</td>
+        <td><span class="am-badge am-badge-${sev}">${escapeHtml(h.severity)}</span></td>
+        <td>${escapeHtml(h.rule_name||'')}</td>
+        <td class="num am-mono">${h.observed}</td>
+        <td class="num am-mono">${h.threshold}</td>
+        <td class="am-muted" style="font-size:12px">${escapeHtml(h.notified_via||'—')}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="6" class="am-muted" style="padding:20px;text-align:center">Error: ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
-document.getElementById('newRuleForm').addEventListener('submit', async (ev) => {
-  ev.preventDefault();
+document.getElementById('newRuleForm').addEventListener('submit', async e => {
+  e.preventDefault();
   const body = {
     name: document.getElementById('f-name').value,
     rule_type: document.getElementById('f-type').value,
     window_minutes: parseInt(document.getElementById('f-window').value, 10),
     threshold: parseFloat(document.getElementById('f-threshold').value),
-    cooldown_minutes: parseInt(document.getElementById('f-cooldown').value, 10) || 60,
+    cooldown_minutes: parseInt(document.getElementById('f-cooldown').value, 10),
   };
-  try {
-    const r = await fetch('/api/alerts/rules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    ev.target.reset();
-    document.getElementById('f-window').value = 60;
-    document.getElementById('f-cooldown').value = 60;
-    loadRules();
-  } catch (e) { alert('error: ' + e.message); }
+  const r = await fetch('/api/alerts/rules', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if (r.ok) { e.target.reset(); loadRules(); }
+  else alert('Failed: HTTP ' + r.status);
 });
 
 document.getElementById('btnEvaluate').addEventListener('click', async () => {
-  const btn = document.getElementById('btnEvaluate');
-  btn.disabled = true; btn.textContent = '⏳ evaluating…';
-  try {
-    const r = await fetch('/api/alerts/evaluate', { method: 'POST' });
-    const data = await r.json();
-    btn.textContent = `⚡ Evaluate now`;
-    alert(`Evaluated ${data.rules_evaluated} rules. Fired: ${data.fired.length}.`);
-    loadHistory();
-  } catch (e) { alert('error: ' + e.message); }
-  btn.disabled = false;
+  const r = await fetch('/api/alerts/evaluate', {method:'POST'});
+  if (r.ok) loadHistory(); else alert('Failed: HTTP ' + r.status);
 });
 
 loadRules();
 loadHistory();
+setInterval(loadHistory, 30000);
 </script>
 </body>
 </html>
