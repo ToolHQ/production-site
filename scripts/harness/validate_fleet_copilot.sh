@@ -137,6 +137,12 @@ else
   else
     bad "T-327 status endpoint: $(echo "$status_json" | head -c 120)"
   fi
+
+  if echo "$status_json" | grep -q '"thread_context":true'; then
+    ok "T-336 thread context enabled in status"
+  else
+    bad "T-336 thread_context missing in status: $(echo "$status_json" | head -c 120)"
+  fi
 fi
 
 # T-325 / UI delivery — assets live (não depende de kubectl)

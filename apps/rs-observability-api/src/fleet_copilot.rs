@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
+    borrow::Cow,
     collections::HashMap,
     convert::Infallible,
     sync::Arc,
@@ -28,6 +29,8 @@ const COOKIE_NAME: &str = "fleet-copilot-session";
 const MAX_BODY_MSG: usize = 4000;
 const RATE_WINDOW: Duration = Duration::from_secs(60);
 const RATE_MAX: usize = 10;
+const MAX_HISTORY_TURNS: usize = 8;
+const MAX_TURN_CHARS: usize = 600;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ChatIntent {
@@ -78,11 +81,19 @@ pub struct SessionResponse {
     pub enabled: bool,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct ChatTurn {
+    pub role: String,
+    pub content: String,
+}
+
 #[derive(Deserialize)]
 pub struct ChatRequest {
     pub message: String,
     #[serde(default)]
     pub preset: Option<String>,
+    #[serde(default)]
+    pub history: Vec<ChatTurn>,
 }
 
 #[derive(Serialize)]
@@ -101,6 +112,9 @@ pub struct StatusResponse {
     pub ollama_model: String,
     pub inference_mode: &'static str,
     pub structured_models: Vec<&'static str>,
+    pub rate_limit_max: usize,
+    pub rate_limit_remaining: usize,
+    pub thread_context: bool,
 }
 
 impl FleetCopilotState {
@@ -285,6 +299,96 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
         }
         entries.push(now);
         true
+    }
+
+    async fn rate_remaining(&self, key: &str) -> usize {
+        let map = self.rate.lock().await;
+        let now = Instant::now();
+        let used = map
+            .get(key)
+            .map(|entries| {
+                entries
+                    .iter()
+                    .filter(|t| now.duration_since(**t) < RATE_WINDOW)
+                    .count()
+            })
+            .unwrap_or(0);
+        RATE_MAX.saturating_sub(used)
+    }
+
+    fn normalize_history(history: Vec<ChatTurn>) -> Vec<ChatTurn> {
+        history
+            .into_iter()
+            .filter_map(|turn| {
+                let role = turn.role.to_lowercase();
+                if role != "user" && role != "assistant" {
+                    return None;
+                }
+                let content = turn.content.trim();
+                if content.is_empty() {
+                    return None;
+                }
+                let clipped = if content.len() > MAX_TURN_CHARS {
+                    format!("{}…", &content[..MAX_TURN_CHARS])
+                } else {
+                    content.to_string()
+                };
+                Some(ChatTurn {
+                    role,
+                    content: clipped,
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .take(MAX_HISTORY_TURNS)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect()
+    }
+
+    fn last_user_content(history: &[ChatTurn]) -> Option<String> {
+        history
+            .iter()
+            .rev()
+            .find(|t| t.role == "user")
+            .map(|t| t.content.clone())
+    }
+
+    fn routing_message<'a>(message: &'a str, history: &[ChatTurn]) -> Cow<'a, str> {
+        if Self::is_conversational_clarification(message) {
+            if let Some(prev) = Self::last_user_content(history) {
+                return Cow::Owned(prev);
+            }
+        }
+        Cow::Borrowed(message)
+    }
+
+    fn llm_message(message: &str, history: &[ChatTurn]) -> String {
+        if Self::is_conversational_clarification(message) {
+            if let Some(prev) = Self::last_user_content(history) {
+                return format!(
+                    "{message}\n\n(Reavaliando com base na pergunta anterior: \"{prev}\")"
+                );
+            }
+        }
+        message.to_string()
+    }
+
+    fn attach_conversation_history(context: &mut Value, history: &[ChatTurn]) {
+        if history.is_empty() {
+            return;
+        }
+        context["conversation_history"] = json!(history);
+    }
+
+    fn should_clarification_fast_path(message: &str, history: &[ChatTurn]) -> bool {
+        Self::is_conversational_clarification(message) && history.is_empty()
+    }
+
+    fn should_skip_structured(message: &str, history: &[ChatTurn]) -> bool {
+        Self::is_conversational_clarification(message) && !history.is_empty()
     }
 
     fn auth_header(&self) -> String {
@@ -778,19 +882,22 @@ Pergunte por um host específico para métricas ou compare dois hosts."
         preset: &str,
         fleet_manifest: Value,
         message: &str,
+        history: &[ChatTurn],
     ) -> (Value, Vec<String>) {
-        let intent = Self::resolve_intent(message, preset);
+        let routing = Self::routing_message(message, history);
+        let intent = Self::resolve_intent(&routing, preset);
         let mut context = json!({
             "fleet_manifest": fleet_manifest,
             "intent": Self::intent_label(intent),
         });
         let mut sources = vec!["fleet_manifest".to_string()];
+        Self::attach_conversation_history(&mut context, history);
 
         if intent == ChatIntent::MetaCapabilities {
             return (context, sources);
         }
 
-        let paths = Self::intent_ops_paths(intent, preset, message);
+        let paths = Self::intent_ops_paths(intent, preset, &routing);
         for path in paths {
             match self.fetch_ops(path).await {
                 Ok(v) => {
@@ -871,7 +978,17 @@ pub async fn copilot_status(
     if !fc.check_auth(&headers) {
         return Err(StatusCode::NOT_FOUND);
     }
+    let client_key = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("local")
+        .split(',')
+        .next()
+        .unwrap_or("local")
+        .trim()
+        .to_string();
     let gateway_reachable = fc.gateway_reachable().await;
+    let rate_limit_remaining = fc.rate_remaining(&client_key).await;
     Ok(Json(StatusResponse {
         authenticated: true,
         enabled: true,
@@ -879,6 +996,9 @@ pub async fn copilot_status(
         ollama_model: fc.ollama_model.clone(),
         inference_mode: "llm-default-structured-fast-path",
         structured_models: vec!["fleet-manifest", "fleet-metrics", "fleet-structured"],
+        rate_limit_max: RATE_MAX,
+        rate_limit_remaining,
+        thread_context: true,
     }))
 }
 
@@ -949,6 +1069,7 @@ pub async fn copilot_chat(
         return Err(StatusCode::BAD_REQUEST);
     }
 
+    let history = FleetCopilotState::normalize_history(body.history);
     let preset = body.preset.as_deref().unwrap_or("ssdnodes-health");
     let started = Instant::now();
     let client_ip = headers
@@ -957,7 +1078,7 @@ pub async fn copilot_chat(
         .and_then(|raw| raw.split(',').next())
         .map(|s| s.trim().to_string());
 
-    if FleetCopilotState::is_conversational_clarification(message) {
+    if FleetCopilotState::should_clarification_fast_path(message, &history) {
         let latency_ms = started.elapsed().as_millis() as u64;
         let sources = vec!["fleet_manifest".to_string()];
         fc.audit_event(AuditEvent {
@@ -979,8 +1100,15 @@ pub async fn copilot_chat(
         }));
     }
 
-    if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, message, preset) {
-        let intent = FleetCopilotState::resolve_intent(message, preset);
+    let routing = FleetCopilotState::routing_message(message, &history);
+    let llm_message = FleetCopilotState::llm_message(message, &history);
+
+    if let Some(reply) = FleetCopilotState::try_fast_reply(
+        &fleet_manifest,
+        routing.as_ref(),
+        preset,
+    ) {
+        let intent = FleetCopilotState::resolve_intent(routing.as_ref(), preset);
         let model = if intent == ChatIntent::MetaCapabilities {
             "fleet-manifest"
         } else {
@@ -1009,32 +1137,34 @@ pub async fn copilot_chat(
     }
 
     let (context, sources) = fc
-        .collect_context(preset, fleet_manifest.clone(), message)
+        .collect_context(preset, fleet_manifest.clone(), message, &history)
         .await;
 
-    if let Some(reply) =
-        FleetCopilotState::structured_reply(&fleet_manifest, &context, message, preset)
-    {
-        let latency_ms = started.elapsed().as_millis() as u64;
-        let intent = FleetCopilotState::resolve_intent(message, preset);
-        let intent_label = FleetCopilotState::intent_label(intent).to_string();
-        fc.audit_event(AuditEvent {
-            client_ip: client_ip.as_deref(),
-            message,
-            preset,
-            intent: &intent_label,
-            endpoints: &sources,
-            latency_ms,
-            model: "fleet-structured",
-            status: "ok",
-        })
-        .await;
-        return Ok(Json(ChatResponse {
-            reply,
-            model: "fleet-structured".into(),
-            sources,
-            latency_ms,
-        }));
+    if !FleetCopilotState::should_skip_structured(message, &history) {
+        if let Some(reply) =
+            FleetCopilotState::structured_reply(&fleet_manifest, &context, routing.as_ref(), preset)
+        {
+            let latency_ms = started.elapsed().as_millis() as u64;
+            let intent = FleetCopilotState::resolve_intent(routing.as_ref(), preset);
+            let intent_label = FleetCopilotState::intent_label(intent).to_string();
+            fc.audit_event(AuditEvent {
+                client_ip: client_ip.as_deref(),
+                message,
+                preset,
+                intent: &intent_label,
+                endpoints: &sources,
+                latency_ms,
+                model: "fleet-structured",
+                status: "ok",
+            })
+            .await;
+            return Ok(Json(ChatResponse {
+                reply,
+                model: "fleet-structured".into(),
+                sources,
+                latency_ms,
+            }));
+        }
     }
 
     let url = format!("{}/internal/chat", fc.gateway_url.trim_end_matches('/'));
@@ -1043,7 +1173,7 @@ pub async fn copilot_chat(
         .post(&url)
         .header(header::AUTHORIZATION, fc.auth_header())
         .json(&json!({
-            "message": message,
+            "message": llm_message,
             "context": context
         }))
         .send()
@@ -1126,6 +1256,7 @@ pub async fn copilot_chat_stream(
         .as_deref()
         .unwrap_or("ssdnodes-health")
         .to_string();
+    let history = FleetCopilotState::normalize_history(body.history);
     let fc = fc.clone();
     let message = message.to_string();
     let fleet_manifest_for_reply = fleet_manifest.clone();
@@ -1150,8 +1281,10 @@ pub async fn copilot_chat_stream(
         }
 
         let started = Instant::now();
+        let routing = FleetCopilotState::routing_message(&message, &history);
+        let llm_message = FleetCopilotState::llm_message(&message, &history);
 
-        if FleetCopilotState::is_conversational_clarification(&message) {
+        if FleetCopilotState::should_clarification_fast_path(&message, &history) {
             let sources = vec!["fleet_manifest".to_string()];
             fc.audit_event(AuditEvent {
                 client_ip: client_ip.as_deref(),
@@ -1179,8 +1312,10 @@ pub async fn copilot_chat_stream(
             return;
         }
 
-        if let Some(reply) = FleetCopilotState::try_fast_reply(&fleet_manifest, &message, &preset) {
-            let intent = FleetCopilotState::resolve_intent(&message, &preset);
+        if let Some(reply) =
+            FleetCopilotState::try_fast_reply(&fleet_manifest, routing.as_ref(), &preset)
+        {
+            let intent = FleetCopilotState::resolve_intent(routing.as_ref(), &preset);
             let model = if intent == ChatIntent::MetaCapabilities {
                 "fleet-manifest"
             } else {
@@ -1220,46 +1355,50 @@ pub async fn copilot_chat_stream(
             return;
         }
 
-        let (context, sources) = fc.collect_context(&preset, fleet_manifest, &message).await;
+        let (context, sources) = fc
+            .collect_context(&preset, fleet_manifest, &message, &history)
+            .await;
 
-        if let Some(reply) = FleetCopilotState::structured_reply(
-            &fleet_manifest_for_reply,
-            &context,
-            &message,
-            &preset,
-        ) {
-            let intent = FleetCopilotState::resolve_intent(&message, &preset);
-            let intent_label = FleetCopilotState::intent_label(intent).to_string();
-            fc.audit_event(AuditEvent {
-                client_ip: client_ip.as_deref(),
-                message: &message,
-                preset: &preset,
-                intent: &intent_label,
-                endpoints: &sources,
-                latency_ms: started.elapsed().as_millis() as u64,
-                model: "fleet-structured",
-                status: "ok",
-            })
-            .await;
-            let _ = send(
-                Event::default()
-                    .event("phase")
-                    .data(json!({ "phase": "infer", "sources": sources.clone() }).to_string()),
-            )
-            .await;
-            let _ = send(
-                Event::default().event("done").data(
-                    json!({
-                        "reply": reply,
-                        "model": "fleet-structured",
-                        "sources": sources,
-                        "latency_ms": started.elapsed().as_millis() as u64,
-                    })
-                    .to_string(),
-                ),
-            )
-            .await;
-            return;
+        if !FleetCopilotState::should_skip_structured(&message, &history) {
+            if let Some(reply) = FleetCopilotState::structured_reply(
+                &fleet_manifest_for_reply,
+                &context,
+                routing.as_ref(),
+                &preset,
+            ) {
+                let intent = FleetCopilotState::resolve_intent(routing.as_ref(), &preset);
+                let intent_label = FleetCopilotState::intent_label(intent).to_string();
+                fc.audit_event(AuditEvent {
+                    client_ip: client_ip.as_deref(),
+                    message: &message,
+                    preset: &preset,
+                    intent: &intent_label,
+                    endpoints: &sources,
+                    latency_ms: started.elapsed().as_millis() as u64,
+                    model: "fleet-structured",
+                    status: "ok",
+                })
+                .await;
+                let _ = send(
+                    Event::default()
+                        .event("phase")
+                        .data(json!({ "phase": "infer", "sources": sources.clone() }).to_string()),
+                )
+                .await;
+                let _ = send(
+                    Event::default().event("done").data(
+                        json!({
+                            "reply": reply,
+                            "model": "fleet-structured",
+                            "sources": sources,
+                            "latency_ms": started.elapsed().as_millis() as u64,
+                        })
+                        .to_string(),
+                    ),
+                )
+                .await;
+                return;
+            }
         }
 
         if !send(
@@ -1282,7 +1421,7 @@ pub async fn copilot_chat_stream(
             .post(&url)
             .header(header::AUTHORIZATION, fc.auth_header())
             .json(&json!({
-                "message": message,
+                "message": llm_message,
                 "context": context
             }))
             .send()
@@ -1630,5 +1769,49 @@ mod tests {
             super::ChatIntent::HostHealth,
             "Como está o disco no SSDNodes?"
         ));
+    }
+
+    #[test]
+    fn history_normalization_caps_turns_and_roles() {
+        let raw: Vec<super::ChatTurn> = (0..12)
+            .map(|i| super::ChatTurn {
+                role: if i % 2 == 0 {
+                    "user".into()
+                } else {
+                    "assistant".into()
+                },
+                content: format!("msg-{i}"),
+            })
+            .collect();
+        let out = FleetCopilotState::normalize_history(raw);
+        assert_eq!(out.len(), 8);
+        assert_eq!(out[0].content, "msg-4");
+        assert_eq!(out[7].content, "msg-11");
+    }
+
+    #[test]
+    fn clarification_with_history_skips_structured_and_rewinds_routing() {
+        let history = vec![
+            super::ChatTurn {
+                role: "user".into(),
+                content: "Como está o disco no SSDNodes?".into(),
+            },
+            super::ChatTurn {
+                role: "assistant".into(),
+                content: "Resposta genérica errada".into(),
+            },
+        ];
+        assert!(!FleetCopilotState::should_clarification_fast_path(
+            "nao foi isso que perguntei",
+            &history
+        ));
+        assert!(FleetCopilotState::should_skip_structured(
+            "nao foi isso que perguntei",
+            &history
+        ));
+        let routing = FleetCopilotState::routing_message("nao foi isso que perguntei", &history);
+        assert!(routing.contains("disco"));
+        let llm = FleetCopilotState::llm_message("nao foi isso que perguntei", &history);
+        assert!(llm.contains("Reavaliando"));
     }
 }

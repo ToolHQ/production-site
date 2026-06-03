@@ -7,6 +7,7 @@ import {
   type FleetPreset,
 } from '../hooks/useFleetChat';
 import { SSDNODES_HOSTNAME, FLEET_CHAT_HOSTS } from '../constants/fleetHosts';
+import type { CopilotStatus } from '../types/fleetCopilot';
 
 const PRESETS: { id: FleetPreset; icon: string; title: string; hint: string }[] = [
   {
@@ -64,6 +65,16 @@ function fleetLoadingMessage(
   return `Consultando Gemma 3 em ${host}…`;
 }
 
+function copyThreadText(messages: { role: string; text: string; at: number }[]) {
+  return messages
+    .map((m) => {
+      const who = m.role === 'user' ? 'Operador' : 'Copilot';
+      const when = new Date(m.at).toLocaleString();
+      return `[${when}] ${who}:\n${m.text}`;
+    })
+    .join('\n\n');
+}
+
 function sourceLabel(path: string) {
   return path.replace(/^\/?ops\//, '').replace(/ \(error\)$/, '');
 }
@@ -87,6 +98,19 @@ export function FleetCopilotPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [focusHost, setFocusHost] = useState('');
+  const [copilotStatus, setCopilotStatus] = useState<CopilotStatus | null>(null);
+  const [copyHint, setCopyHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session.authenticated) {
+      setCopilotStatus(null);
+      return;
+    }
+    void fetch('/api/fleet/copilot/status', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setCopilotStatus(data as CopilotStatus | null))
+      .catch(() => setCopilotStatus(null));
+  }, [session.authenticated, messages.length]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -127,8 +151,8 @@ export function FleetCopilotPage() {
           <p class="fleet-copilot-hero__kicker">Operations assistant</p>
           <h1 class="fleet-copilot-hero__title">Fleet Copilot</h1>
           <p class="fleet-copilot-hero__subtitle">
-            Perguntas read-only sobre <code>{SSDNODES_HOSTNAME}</code> e fleet OCI — dados
-            coletados via gateway seguro, resposta local Gemma&nbsp;3.
+            Assistente read-only para sua fleet — respostas instantâneas em métricas conhecidas
+            ou inferência Gemma&nbsp;3 local. Contexto de conversa mantido na sessão.
           </p>
         </div>
         <div class="fleet-copilot-hero__meta">
@@ -217,6 +241,27 @@ export function FleetCopilotPage() {
               </select>
             </label>
             <div class="fleet-copilot-sidebar__foot">
+              {copilotStatus && (
+                <p class="fleet-copilot-quota" role="status">
+                  Consultas: {copilotStatus.rate_limit_remaining}/{copilotStatus.rate_limit_max}{' '}
+                  por min
+                  {!copilotStatus.gateway_reachable && ' · gateway offline'}
+                </p>
+              )}
+              <button
+                type="button"
+                class="fleet-copilot-link-btn"
+                disabled={messages.length === 0}
+                onClick={() => {
+                  const text = copyThreadText(messages);
+                  void navigator.clipboard.writeText(text).then(() => {
+                    setCopyHint('Copiado');
+                    setTimeout(() => setCopyHint(null), 2000);
+                  });
+                }}
+              >
+                {copyHint ?? 'Copiar thread'}
+              </button>
               <button
                 type="button"
                 class="fleet-copilot-link-btn"
@@ -241,7 +286,8 @@ export function FleetCopilotPage() {
                 <div class="fleet-copilot-empty">
                   <p>Escolha uma consulta rápida ou faça uma pergunta sobre os dados coletados.</p>
                   <p class="fleet-copilot-empty__note">
-                    Respostas levam ~1–2&nbsp;min (inferência CPU em {SSDNODES_HOSTNAME}).
+                    Respostas rápidas para consultas estruturadas; perguntas abertas levam ~1–2&nbsp;min
+                    (Gemma em {SSDNODES_HOSTNAME}). Você pode corrigir o Copilot na mesma thread.
                   </p>
                 </div>
               )}
