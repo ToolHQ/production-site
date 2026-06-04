@@ -34,7 +34,8 @@ import { NamespacePanel } from './components/NamespacePanel';
 import { DnorTopNav } from './components/DnorTopNav';
 import { GlobalSearchPalette } from './components/GlobalSearchPalette';
 import { DnorShellProvider, useDnorShell } from './context/DnorShellContext';
-import { FleetCopilotProvider } from './context/FleetCopilotContext';
+import { FleetCopilotProvider, useFleetCopilot } from './context/FleetCopilotContext';
+import { useCopilotStatus } from './hooks/useCopilotStatus';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ExportMenu } from './components/ExportMenu';
 import { OverviewSectionNav } from './components/OverviewSectionNav';
@@ -81,6 +82,9 @@ export function App() {
 
 function AppContent() {
   const { view } = useDnorShell();
+  const { session: copilotSession } = useFleetCopilot();
+  const isCopilotView = view === 'fleet-copilot';
+  const copilotStatus = useCopilotStatus(isCopilotView && copilotSession.authenticated);
   // Hook de resize para rerender das pills/tags responsivos
   useWindowWidth();
 
@@ -207,14 +211,33 @@ function AppContent() {
   const errorMessage = [liveError, snapshotError].filter(Boolean).join(' | ');
   const liveConnecting = liveFetchAt === null && !liveError;
   const showOverview = view === 'overview';
-  const isCopilotView = view === 'fleet-copilot';
+  const liveStale = Boolean(live?.available && live.stale);
 
   return (
     <>
       <DnorTopNav
         liveAvailable={Boolean(live?.available)}
         liveConnecting={liveConnecting}
+        copilotQuota={
+          copilotStatus
+            ? {
+                remaining: copilotStatus.rate_limit_remaining,
+                max: copilotStatus.rate_limit_max,
+              }
+            : null
+        }
       />
+      {liveStale && !errorMessage && (
+        <div class="dnor-stale-banner" role="status">
+          <span aria-hidden="true">⏱</span>
+          <p>
+            Dados live em cache stale — confirme conectividade antes de triagem crítica.
+            {live?.refreshed_at_epoch
+              ? ` Último refresh: ${formatEpoch(live.refreshed_at_epoch)}.`
+              : ''}
+          </p>
+        </div>
+      )}
       {errorMessage && (
         <div class="dnor-alert-banner" role="alert">
           <span class="dnor-alert-banner__icon" aria-hidden="true">

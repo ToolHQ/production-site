@@ -2,6 +2,11 @@ import { ThemeToggle } from './ThemeToggle';
 import { useFleetCopilot } from '../context/FleetCopilotContext';
 import { useDnorShell, type DnorView } from '../context/DnorShellContext';
 
+export interface CopilotQuotaPill {
+  remaining: number;
+  max: number;
+}
+
 const NAV_ITEMS: { id: DnorView; label: string }[] = [
   { id: 'overview', label: 'Visão geral' },
   { id: 'nodes', label: 'Nós' },
@@ -14,9 +19,14 @@ const NAV_ITEMS: { id: DnorView; label: string }[] = [
 interface DnorTopNavProps {
   liveAvailable?: boolean;
   liveConnecting?: boolean;
+  copilotQuota?: CopilotQuotaPill | null;
 }
 
-export function DnorTopNav({ liveAvailable = false, liveConnecting = false }: DnorTopNavProps) {
+export function DnorTopNav({
+  liveAvailable = false,
+  liveConnecting = false,
+  copilotQuota = null,
+}: DnorTopNavProps) {
   const { view, setView, period, setPeriod, setPaletteOpen } = useDnorShell();
   const { session: copilotSession } = useFleetCopilot();
 
@@ -44,8 +54,13 @@ export function DnorTopNav({ liveAvailable = false, liveConnecting = false }: Dn
               type="button"
               class={`dnor-shell__nav-item dnor-shell__nav-item--copilot${view === 'fleet-copilot' ? ' dnor-shell__nav-item--active' : ''}${copilotSession.authenticated ? ' dnor-shell__nav-item--live' : ''}`}
               onClick={() => setView('fleet-copilot')}
+              title="Fleet Copilot"
+              aria-label="Fleet Copilot"
             >
-              Copilot
+              <span class="dnor-shell__nav-copilot-icon" aria-hidden="true">
+                ✦
+              </span>
+              <span class="dnor-shell__nav-copilot-label">Copilot</span>
             </button>
           )}
         </nav>
@@ -88,6 +103,16 @@ export function DnorTopNav({ liveAvailable = false, liveConnecting = false }: Dn
             </select>
           )}
 
+          {copilotQuota && view === 'fleet-copilot' && (
+            <span
+              class="dnor-shell__quota-pill"
+              role="status"
+              title="Consultas Fleet Copilot por minuto"
+            >
+              {copilotQuota.remaining}/{copilotQuota.max} req
+            </span>
+          )}
+
           <ThemeToggle compact />
           <span
             class={`dnor-shell__status${
@@ -104,10 +129,15 @@ export function DnorTopNav({ liveAvailable = false, liveConnecting = false }: Dn
                   ? 'Dados live disponíveis'
                   : 'Dados live indisponíveis'
             }
+            aria-live="polite"
             aria-label={
               liveConnecting ? 'Conectando' : liveAvailable ? 'Live' : 'Offline'
             }
-          />
+          >
+            <span class="dnor-shell__status-sr">
+              {liveConnecting ? 'Conectando' : liveAvailable ? 'Live' : 'Offline'}
+            </span>
+          </span>
           <span class="dnor-shell__avatar" aria-hidden="true">D</span>
         </div>
       </div>
