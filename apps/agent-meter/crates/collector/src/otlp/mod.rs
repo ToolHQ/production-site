@@ -99,6 +99,29 @@ fn handle_trace_request_json(body: &[u8], client_ip: Option<&str>, user_agent: O
                     }
                 } else if span_name.starts_with("invoke_agent") {
                     // "invoke_agent <agent_name>" — agent session boundary, ignore for now
+                } else if span_name.starts_with("tools/call") || span_name.starts_with("tools/notify") {
+                    // MCP OTel semconv (new standard): span name = "tools/call <tool_name>"
+                    // see: opentelemetry.io/docs/specs/semconv/gen-ai/mcp/
+                    let tool_hint = span_name.strip_prefix("tools/call").map(|s| s.trim()).filter(|s| !s.is_empty());
+                    match map_tool_call_json(span, service_name.as_deref(), session_id.as_deref(), ide.as_deref(), client_ip, user_agent, tool_hint) {
+                        Ok(event) => {
+                            match tokio::task::block_in_place(|| {
+                                tokio::runtime::Handle::current().block_on(async {
+                                    event_service::insert_tool_call(pool, event).await
+                                })
+                            }) {
+                                Ok(record) => {
+                                    results.push(serde_json::json!({
+                                        "event_id": record.event_id,
+                                        "tool_name": record.tool_name,
+                                        "duration_ms": record.duration_ms,
+                                    }));
+                                }
+                                Err(e) => warn!("failed to insert JSON OTLP mcp tools/call: {e}"),
+                            }
+                        }
+                        Err(e) => warn!("failed to map JSON OTLP tools/call span: {e}"),
+                    }
                 } else {
                     warn!("unknown OTLP span name (json): {}", span_name);
                 }
@@ -164,12 +187,14 @@ fn map_tool_call_json(
     let model = json_attr_str(attrs_slice, "gen_ai.response.model")
         .or_else(|| json_attr_str(attrs_slice, "gen_ai.request.model"));
     // Conversation/thread ID from multiple possible attributes + traceId fallback
+    // mcp.session.id is the MCP OTel semconv session identifier (tools/call spans)
     let trace_id = span.get("traceId").and_then(|v| v.as_str()).map(|s| s.to_string());
     let conversation_id = json_attr_str(attrs_slice, "gen_ai.conversation.id")
         .or_else(|| json_attr_str(attrs_slice, "copilot_chat.chat_session_id"))
         .or_else(|| json_attr_str(attrs_slice, "copilot.conversation.id"))
         .or_else(|| json_attr_str(attrs_slice, "thread.id"))
         .or_else(|| json_attr_str(attrs_slice, "gen_ai.thread.id"))
+        .or_else(|| json_attr_str(attrs_slice, "mcp.session.id"))  // MCP OTel semconv
         .or_else(|| session_id.map(|s| s.to_string()))
         .or(trace_id);
     let response_bytes = json_attr_int(attrs_slice, "gen_ai.response.bytes");
@@ -183,7 +208,8 @@ fn map_tool_call_json(
         .or_else(|| json_attr_str(attrs_slice, "tool.input"))
         .and_then(|s| serde_json::from_str(&s).ok());
 
-    let tool_result: Option<String> = json_attr_str(attrs_slice, "gen_ai.tool.output")
+    let tool_result: Option<String> = json_attr_str(attrs_slice, "gen_ai.tool.call.result")  // MCP OTel semconv (new)
+        .or_else(|| json_attr_str(attrs_slice, "gen_ai.tool.output"))
         .or_else(|| json_attr_str(attrs_slice, "gen_ai.tool.result"))
         .or_else(|| json_attr_str(attrs_slice, "tool.output"))
         .map(|s| truncate_str(s, 8 * 1024));
@@ -451,20 +477,42 @@ fn truncate_str(s: String, max_bytes: usize) -> String {
 fn infer_ide(user_agent: Option<&str>, service_name: Option<&str>) -> Option<String> {
     let ua = user_agent.unwrap_or("").to_lowercase();
     let svc = service_name.unwrap_or("").to_lowercase();
+    // VS Code Copilot — official extension + GitHub Copilot CLI (new agentic CLI)
     if ua.contains("vscode") || svc.contains("copilot") || svc.contains("vscode") {
         return Some("copilot-vscode".to_string());
     }
+    // GitHub Copilot CLI (github/copilot-cli) — terminal agent
+    if ua.contains("copilot-cli") || ua.contains("copilot_cli") || svc.contains("copilot-cli") || svc.contains("copilot_cli") {
+        return Some("copilot-cli".to_string());
+    }
+    // Cursor IDE — may emit OTLP via OTEL_EXPORTER_OTLP_ENDPOINT env var
     if ua.contains("cursor") || svc.contains("cursor") {
         return Some("cursor".to_string());
     }
+    // Antigravity agent
     if ua.contains("antigravity") || svc.contains("antigravity") {
         return Some("antigravity".to_string());
     }
+    // Claude Code (Anthropic CLI) — CLAUDE_CODE_OTEL_ENDPOINT → service.name=claude or claude-code
+    if ua.contains("claude-code") || ua.contains("claude_code")
+        || svc.contains("claude-code") || svc.contains("claude_code") || svc.contains("claude") {
+        return Some("claude-code".to_string());
+    }
+    // Codex CLI (OpenAI) — OTEL_SERVICE_NAME=codex; NOT to be confused with JetBrains Rust Rover
+    if ua.contains("codex") || svc.contains("codex") || svc.contains("openai-codex") {
+        return Some("codex".to_string());
+    }
+    // OpenCode (SST open-source agent)
     if ua.contains("opencode") || svc.contains("opencode") {
         return Some("opencode".to_string());
     }
-    if ua.contains("rust-rover") || svc.contains("codex") {
-        return Some("codex".to_string());
+    // JetBrains Rust Rover IDE — separate from Codex!
+    if ua.contains("rust-rover") || ua.contains("rustrover") || svc.contains("rust-rover") || svc.contains("rustrover") {
+        return Some("rust-rover".to_string());
+    }
+    // Copilot for Eclipse — Eclipse Copilot plugin (may send eclipse or jdt in UA)
+    if ua.contains("eclipse") || svc.contains("eclipse") || ua.contains("jdt") {
+        return Some("copilot-eclipse".to_string());
     }
     None
 }
@@ -670,6 +718,28 @@ fn handle_trace_request_proto(body: &[u8], client_ip: Option<&str>, user_agent: 
                     }
                 } else if span.name.starts_with("invoke_agent") {
                     // agent session boundary — skip
+                } else if span.name.starts_with("tools/call") || span.name.starts_with("tools/notify") {
+                    // MCP OTel semconv (new standard): span name = "tools/call <tool_name>"
+                    let tool_hint = span.name.strip_prefix("tools/call").map(|s| s.trim()).filter(|s| !s.is_empty());
+                    match map_tool_call(span, resource_attrs, service_name.as_deref(), session_id.as_deref(), ide.as_deref(), client_ip, user_agent, tool_hint) {
+                        Ok(event) => {
+                            match tokio::task::block_in_place(|| {
+                                tokio::runtime::Handle::current().block_on(async {
+                                    event_service::insert_tool_call(pool, event).await
+                                })
+                            }) {
+                                Ok(record) => {
+                                    results.push(serde_json::json!({
+                                        "event_id": record.event_id,
+                                        "tool_name": record.tool_name,
+                                        "duration_ms": record.duration_ms,
+                                    }));
+                                }
+                                Err(e) => warn!("failed to insert OTLP mcp tools/call: {e}"),
+                            }
+                        }
+                        Err(e) => warn!("failed to map OTLP tools/call span: {e}"),
+                    }
                 } else {
                     warn!("unknown OTLP span name: {}", span.name);
                 }
@@ -726,6 +796,7 @@ fn map_tool_call(
         .or_else(|| get_attr_str(&span.attributes, "copilot.conversation.id"))
         .or_else(|| get_attr_str(&span.attributes, "thread.id"))
         .or_else(|| get_attr_str(&span.attributes, "gen_ai.thread.id"))
+        .or_else(|| get_attr_str(&span.attributes, "mcp.session.id"))  // MCP OTel semconv
         .or_else(|| session_id.map(|s| s.to_string()));
 
     let user_prompt = get_attr_str(&span.attributes, "copilot_chat.user_request")
@@ -747,7 +818,8 @@ fn map_tool_call(
         .or_else(|| get_attr_str(&span.attributes, "tool.input"))
         .and_then(|s| serde_json::from_str(&s).ok());
 
-    let tool_result: Option<String> = get_attr_str(&span.attributes, "gen_ai.tool.output")
+    let tool_result: Option<String> = get_attr_str(&span.attributes, "gen_ai.tool.call.result")  // MCP OTel semconv (new)
+        .or_else(|| get_attr_str(&span.attributes, "gen_ai.tool.output"))
         .or_else(|| get_attr_str(&span.attributes, "gen_ai.tool.result"))
         .or_else(|| get_attr_str(&span.attributes, "tool.output"))
         .map(|s| truncate_str(s, 8192));
