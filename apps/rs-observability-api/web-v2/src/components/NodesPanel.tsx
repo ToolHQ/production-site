@@ -724,6 +724,94 @@ function HoneypotThreatsCard({ stats, period }: HoneypotThreatsCardProps) {
 }
 
 // ────────────────────────────────────────────────────────────
+// Fail2BanCard — featured Fail2Ban stats for SSDNodes
+// ────────────────────────────────────────────────────────────
+
+function ShieldIcon() {
+  return (
+    <div class="honeypot-hero__radar" aria-hidden="true">
+      <svg viewBox="0 0 120 120" class="honeypot-hero__radar-svg">
+        <circle cx="60" cy="60" r="52" class="honeypot-hero__ring honeypot-hero__ring--3" />
+        <circle cx="60" cy="60" r="38" class="honeypot-hero__ring honeypot-hero__ring--2" />
+        <circle cx="60" cy="60" r="24" class="honeypot-hero__ring honeypot-hero__ring--1" />
+        <line x1="60" y1="8" x2="60" y2="112" class="honeypot-hero__cross" />
+        <line x1="8" y1="60" x2="112" y2="60" class="honeypot-hero__cross" />
+        <path
+          d="M60 20 L90 35 L90 65 C90 85 75 100 60 105 C45 100 30 85 30 65 L30 35 Z"
+          fill="rgba(255, 60, 60, 0.15)"
+          stroke="#ff3c3c"
+          stroke-width="2"
+        />
+        <text x="60" y="65" text-anchor="middle" font-size="28" fill="#ff3c3c">
+          🛡️
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function Fail2BanCard({ stats }: { stats: import('../types/api').Fail2BanStats }) {
+  const topTags = stats.banned_ips.slice(0, 3);
+  const sparkSeed = stats.total + stats.failed * 97;
+
+  return (
+    <article class="honeypot-hero">
+      <ShieldIcon />
+
+      <div class="honeypot-hero__body">
+        <div class="honeypot-hero__heading">
+          <h3 class="honeypot-hero__title">
+            Fail2Ban Shield
+            <span class="honeypot-hero__env-badge">SSD-NODES</span>
+          </h3>
+          <p class="honeypot-hero__desc">
+            Local protection against brute force attacks on exposed SSH ports.
+          </p>
+        </div>
+        <div class="honeypot-hero__host-row">
+          <code class="honeypot-hero__host">104.225.218.78</code>
+          <CopyHostButton value="104.225.218.78" />
+        </div>
+      </div>
+
+      <div class="honeypot-hero__metrics">
+        <div class="honeypot-hero__metric">
+          <span class="honeypot-hero__metric-label">Total Banned</span>
+          <span class="honeypot-hero__metric-value">{stats.total.toLocaleString()}</span>
+          <HoneypotBarSparkline seed={sparkSeed} color="#ff3c3c" />
+        </div>
+        <div class="honeypot-hero__metric">
+          <span class="honeypot-hero__metric-label">Currently Failed</span>
+          <span class="honeypot-hero__metric-value">{stats.failed.toLocaleString()}</span>
+          <HoneypotBarSparkline seed={sparkSeed + 17} color="#ff8888" />
+        </div>
+        <div class="honeypot-hero__metric honeypot-hero__metric--classified">
+          <span class="honeypot-hero__metric-label">Status</span>
+          <span class="honeypot-hero__classified-badge honeypot-hero__classified-badge--yes" style="background: rgba(255, 60, 60, 0.2); color: #ff8888; border-color: rgba(255, 60, 60, 0.3);">
+            Active
+          </span>
+          <span class="honeypot-hero__classified-sub">
+            Protecting port 22
+          </span>
+        </div>
+        {topTags.length > 0 && (
+          <div class="honeypot-hero__metric honeypot-hero__metric--tags">
+            <span class="honeypot-hero__metric-label">Recent Bans</span>
+            <div class="honeypot-hero__tag-list">
+              {topTags.map((ip) => (
+                <span key={ip} class="honeypot-hero__tag" style="background: rgba(255, 60, 60, 0.1); border-color: rgba(255, 60, 60, 0.2);">
+                  {ip}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
 // NodesPanel (export)
 // ────────────────────────────────────────────────────────────
 
@@ -875,11 +963,14 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
         </div>
       )}
 
-      {honeypotNodes.length > 0 && (
+      {(honeypotNodes.length > 0 || live?.fail2ban) && (
         <div class="honeypot-hero-panel">
           {honeypotNodes.map((stats) => (
             <HoneypotThreatsCard key={stats.id} stats={stats} period={period} />
           ))}
+          {live?.fail2ban && (
+            <Fail2BanCard stats={live.fail2ban} />
+          )}
         </div>
       )}
 

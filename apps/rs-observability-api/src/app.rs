@@ -199,17 +199,21 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     let mut secondary_clusters: std::collections::HashSet<String> =
         std::collections::HashSet::new();
     if let Some(secondary) = &state.secondary_live_monitor {
-        let secondary_overview =
-            match tokio::time::timeout(Duration::from_secs(8), secondary.cached_or_refresh()).await
-            {
-                Ok(overview) => overview,
-                Err(_) => {
-                    eprintln!("secondary K8s refresh slow; using stale cache if available");
-                    secondary
-                        .overview_with_refresh_budget(Duration::from_millis(1))
-                        .await
-                }
-            };
+        let (secondary_overview_res, fail2ban_res) = tokio::join!(
+            tokio::time::timeout(Duration::from_secs(8), secondary.cached_or_refresh()),
+            tokio::time::timeout(Duration::from_secs(8), secondary.fetch_fail2ban_stats())
+        );
+
+        let secondary_overview = match secondary_overview_res {
+            Ok(overview) => overview,
+            Err(_) => {
+                eprintln!("secondary K8s refresh slow; using stale cache if available");
+                secondary
+                    .overview_with_refresh_budget(Duration::from_millis(1))
+                    .await
+            }
+        };
+
         if secondary_overview.available {
             for mut node in secondary_overview.nodes {
                 // Match the cluster tag from external_nodes.json so Prometheus metrics correlate
@@ -222,6 +226,11 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         } else if let Some(error) = secondary_overview.error {
             eprintln!("secondary K8s monitor unavailable: {}", error);
         }
+
+        payload.fail2ban = fail2ban_res.unwrap_or_else(|_| {
+            eprintln!("secondary K8s fail2ban refresh timed out");
+            None
+        });
     }
 
     // Inject external physical nodes (Hetzner / SSD Nodes) — skip clusters already

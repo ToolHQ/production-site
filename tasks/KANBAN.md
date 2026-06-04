@@ -10,6 +10,7 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
+| [T-339](2026/Q2/T-339-Threat-Intel-Log-Streaming-ClickHouse.md) | **Honeypot + SSDNodes — Threat Intel Log Streaming via ClickHouse (Fase 6)** _(Vector/fluent-bit enviando logs do Fail2Ban e EC2 Honeypot para o ClickHouse)_ | 🔼 High | **Antigravity** | 2d |
 | [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
 
@@ -45,6 +46,7 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| T-340 | **Fix SSDNodes Fail2Ban Data Integration in rs-observability-api** _(Adjusted UFW rules on SSDNodes and added concurrent timeout wrapper in API app.rs to prevent timeouts when secondary is unreachable)_ | 🔼 High | **Antigravity** | 2h |
 | [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
 | [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 1d |
 | [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 4h |

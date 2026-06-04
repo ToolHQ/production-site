@@ -775,6 +775,14 @@ struct IngressResource {
 }
 
 #[derive(Deserialize, Clone, Default)]
+struct KubeConfigMap {
+    #[serde(default)]
+    metadata: ObjectMeta,
+    #[serde(default)]
+    data: std::collections::HashMap<String, String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
 struct IngressSpec {
     #[serde(default, rename = "ingressClassName")]
     ingress_class_name: Option<String>,
@@ -1217,7 +1225,18 @@ struct LiveOverview {
     metrics: MetricsOverview,
     #[serde(default)]
     honeypot: HoneypotOverview,
+    #[serde(default)]
+    fail2ban: Option<Fail2BanStats>,
     error: Option<String>,
+}
+
+#[derive(Serialize, Clone, Default, Deserialize)]
+pub(crate) struct Fail2BanStats {
+    total: u64,
+    failed: u64,
+    banned: u64,
+    banned_ips: Vec<String>,
+    timestamp: u64,
 }
 
 #[derive(Serialize, Clone, Default, Deserialize)]
@@ -1987,6 +2006,7 @@ impl LiveMonitor {
         Ok(LiveOverview {
             available: true,
             stale: false,
+            fail2ban: None,
             source: "in-cluster-api",
             refreshed_at_epoch: unix_epoch_seconds(),
             refresh_interval_seconds: LIVE_REFRESH_INTERVAL_SECONDS,
@@ -2643,6 +2663,22 @@ impl LiveMonitor {
                 }
             }
         }
+    }
+
+    pub(crate) async fn fetch_fail2ban_stats(&self) -> Option<Fail2BanStats> {
+        let cm = match self
+            .fetch_json::<KubeConfigMap>("/api/v1/namespaces/default/configmaps/fail2ban-stats")
+            .await
+        {
+            Ok(cm) => cm,
+            Err(e) => {
+                eprintln!("failed to fetch fail2ban stats: {}", e);
+                return None;
+            }
+        };
+        
+        let json_str = cm.data.get("stats.json")?;
+        serde_json::from_str(json_str).ok()
     }
 }
 
@@ -4264,6 +4300,7 @@ fn unavailable_live_overview(reason: impl Into<String>) -> LiveOverview {
     LiveOverview {
         available: false,
         stale: false,
+        fail2ban: None,
         source: "snapshot-only",
         refreshed_at_epoch: unix_epoch_seconds(),
         refresh_interval_seconds: LIVE_REFRESH_INTERVAL_SECONDS,
