@@ -246,7 +246,10 @@ function AppContent() {
         {showOverview && (
         <>
           <OverviewSectionNav />
-          <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+          <div class="dnor-signal-band">
+            <p class="dnor-signal-band__kicker">Indicadores rápidos</p>
+            <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+          </div>
         </>
         )}
 
@@ -469,6 +472,11 @@ function AppContent() {
                 </p>
                 <div class="section-tags">
                   <span class="panel-tag" id="catalog-zone-tag">{snapshotText}</span>
+                  {showOverview && (
+                    <a class="dnor-catalog-cta" href="#reports">
+                      Ver catálogo completo →
+                    </a>
+                  )}
                 </div>
               </div>
             </div>

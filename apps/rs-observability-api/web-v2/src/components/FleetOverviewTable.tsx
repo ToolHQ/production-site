@@ -1,7 +1,8 @@
+import { Fragment } from 'preact';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { MetricSparkline } from './MetricSparkline';
-import { clusterBadgeClass } from '../utils/clusterBadge';
+import { clusterBadgeClass, clusterBadgeSlug } from '../utils/clusterBadge';
 import type { FleetOverviewRow, FleetPeriod, FleetStatus } from '../utils/fleetOverview';
 import { fleetActivityMetrics } from '../utils/fleetOverview';
 
@@ -15,6 +16,8 @@ interface FleetOverviewTableProps {
 
 const DEFAULT_PAGE_SIZE = 8;
 
+const FLEET_CLUSTER_ORDER = ['OCI-K8S', 'SSD-NODES', 'HETZNER', 'AWS-EC2'];
+
 function statusLabel(status: FleetStatus): string {
   switch (status) {
     case 'honeypot':
@@ -22,10 +25,27 @@ function statusLabel(status: FleetStatus): string {
     case 'online':
       return 'Online';
     case 'degraded':
-      return 'Degraded';
+      return 'Degradado';
     case 'offline':
       return 'Offline';
   }
+}
+
+function sortFleetRows(rows: FleetOverviewRow[]): FleetOverviewRow[] {
+  return [...rows].sort((a, b) => {
+    const ai = FLEET_CLUSTER_ORDER.indexOf(a.cluster);
+    const bi = FLEET_CLUSTER_ORDER.indexOf(b.cluster);
+    const clusterCmp =
+      ai === -1 && bi === -1
+        ? a.cluster.localeCompare(b.cluster)
+        : ai === -1
+          ? 1
+          : bi === -1
+            ? -1
+            : ai - bi;
+    if (clusterCmp !== 0) return clusterCmp;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 function MetricCell({
@@ -60,12 +80,14 @@ export function FleetOverviewTable({
 }: FleetOverviewTableProps) {
   const [page, setPage] = useState(1);
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const sortedRows = useMemo(() => sortFleetRows(rows), [rows]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const pageRows = useMemo(() => {
     const start = (safePage - 1) * pageSize;
-    return rows.slice(start, start + pageSize);
-  }, [rows, safePage, pageSize]);
+    return sortedRows.slice(start, start + pageSize);
+  }, [sortedRows, safePage, pageSize]);
 
   useEffect(() => {
     setPage(1);
@@ -73,16 +95,16 @@ export function FleetOverviewTable({
 
   if (rows.length === 0) return null;
 
-  const activityHeader = period === '7d' ? 'Last 7D' : 'Last 24H';
+  const activityHeader = period === '7d' ? 'Últimos 7d' : 'Últimas 24h';
   const hl = (text: string) => (highlight ? highlight(text, query) : text);
 
   return (
     <section class="fleet-overview">
       <div class="fleet-overview__header">
         <div>
-          <h3 class="fleet-overview__title">Fleet overview</h3>
+          <h3 class="fleet-overview__title">Visão da fleet</h3>
           <p class="fleet-overview__subtitle">
-            Showing {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, rows.length)} of {rows.length} nodes
+            {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, sortedRows.length)} de {sortedRows.length} nós
           </p>
         </div>
       </div>
@@ -92,20 +114,30 @@ export function FleetOverviewTable({
           <thead>
             <tr>
               <th>Status</th>
-              <th>Node</th>
-              <th>Environment</th>
-              <th>IP</th>
-              <th>ASN</th>
-              <th>Total Requests</th>
+              <th>Nó</th>
+              <th class="fleet-table__col-env">Ambiente</th>
+              <th class="fleet-table__col-ip">IP</th>
+              <th class="fleet-table__col-asn">ASN</th>
+              <th class="fleet-table__col-req">Requisições</th>
               <th>{activityHeader}</th>
-              <th>Classified</th>
-              <th class="fleet-table__actions-col">Actions</th>
+              <th class="fleet-table__col-class">Classif.</th>
+              <th class="fleet-table__actions-col">Ações</th>
             </tr>
           </thead>
           <tbody>
-            {pageRows.map((row) => {
+            {pageRows.map((row, index) => {
               const activity = fleetActivityMetrics(row, period);
+              const prevCluster = index > 0 ? pageRows[index - 1].cluster : null;
+              const showClusterHeader = row.cluster !== prevCluster;
               return (
+              <Fragment key={row.key}>
+                {showClusterHeader && (
+                  <tr class={`fleet-cluster-header fleet-cluster-header--${clusterBadgeSlug(row.cluster)}`}>
+                    <td colspan={9}>
+                      <span class={`node-cluster-badge ${clusterBadgeClass(row.cluster)}`}>{row.cluster}</span>
+                    </td>
+                  </tr>
+                )}
               <tr
                 key={row.key}
                 class={`fleet-row fleet-row--${row.status}${row.isHoneypot ? ' fleet-row--honeypot' : ''}`}
@@ -123,40 +155,41 @@ export function FleetOverviewTable({
                     <span class="fleet-node-sub">{hl(row.subtitle)}</span>
                   )}
                 </td>
-                <td>
+                <td class="fleet-table__col-env">
                   <span class={`node-cluster-badge ${clusterBadgeClass(row.cluster)}`}>
                     {row.cluster}
                   </span>
                 </td>
-                <td class="fleet-ip-cell">
+                <td class="fleet-ip-cell fleet-table__col-ip">
                   <code>{hl(row.ip)}</code>
                 </td>
-                <td class="fleet-asn-cell">
+                <td class="fleet-asn-cell fleet-table__col-asn">
                   <span class="fleet-asn-code">{row.asn}</span>
                   <span class="fleet-asn-label">{row.asnLabel}</span>
                 </td>
-                <td>
+                <td class="fleet-table__col-req">
                   <MetricCell
                     value={row.totalRequests}
                     series={row.requests7d}
                     color="#ff9900"
                   />
                 </td>
-                <td>
+                <td class="fleet-table__col-req">
                   <MetricCell
                     value={activity.value}
                     series={activity.series}
                     color="#ffb347"
                   />
                 </td>
-                <td class="fleet-classified-cell">
+                <td class="fleet-classified-cell fleet-table__col-class">
                   {row.classified === null ? (
                     <span class="fleet-metric-empty">—</span>
                   ) : (
                     <span
                       class={`fleet-classified-badge${row.classified ? ' fleet-classified-badge--yes' : ''}`}
+                      title={row.classified ? 'Tráfego classificado detectado' : 'Sem classificação'}
                     >
-                      {row.classified ? 'Yes' : 'No'}
+                      {row.classified ? 'Sim' : 'Não'}
                     </span>
                   )}
                 </td>
@@ -176,6 +209,7 @@ export function FleetOverviewTable({
                   )}
                 </td>
               </tr>
+              </Fragment>
               );
             })}
           </tbody>
@@ -190,10 +224,10 @@ export function FleetOverviewTable({
             disabled={safePage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            ← Prev
+            ← Anterior
           </button>
           <span class="fleet-overview__page-info">
-            Page {safePage} of {totalPages}
+            Página {safePage} de {totalPages}
           </span>
           <button
             type="button"
@@ -201,7 +235,7 @@ export function FleetOverviewTable({
             disabled={safePage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
-            Next →
+            Próxima →
           </button>
         </div>
       )}

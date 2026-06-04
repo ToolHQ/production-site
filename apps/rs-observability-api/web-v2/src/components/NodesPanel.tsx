@@ -748,6 +748,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
   const search = nodeSearch;
   const setSearch = setNodeSearch;
   const [showSettings, setShowSettings] = useState(false);
+  const [includeHoneypot, setIncludeHoneypot] = useState(true);
   const { thresholds, update: updateThreshold, reset: resetThresholds } = useAlertThresholds();
 
   const filteredNodes = useMemo(() => {
@@ -806,15 +807,26 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
     () => buildFleetOverviewRows(nodes, honeypotNodes),
     [nodes, honeypotNodes],
   );
-  const filteredFleetRows = useMemo(
-    () => filterFleetRows(fleetRows, search),
-    [fleetRows, search],
-  );
+  const filteredFleetRows = useMemo(() => {
+    const rows = filterFleetRows(fleetRows, search);
+    if (includeHoneypot) return rows;
+    return rows.filter((r) => !r.isHoneypot);
+  }, [fleetRows, search, includeHoneypot]);
 
   if (!live?.available || nodes.length === 0) {
     return (
-      <div class="nodes-empty">
-        <span>Waiting for node data…</span>
+      <div class="nodes-empty nodes-empty--rich">
+        <p class="nodes-empty__title">Aguardando dados dos nós</p>
+        <p class="nodes-empty__hint">
+          {live?.error
+            ? live.error
+            : 'O endpoint live ainda não retornou nós. Verifique tunnel kubectl, API do cluster e refresh do dashboard.'}
+        </p>
+        <ul class="nodes-empty__checklist">
+          <li>Tunnel SSH na porta 6445 ativo</li>
+          <li>Pod rs-observability-api com acesso à API K8s</li>
+          <li>Prometheus/node_exporter coletando métricas</li>
+        </ul>
       </div>
     );
   }
@@ -831,7 +843,7 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
           <input
             type="search"
             class="nodes-search"
-            placeholder="Filter nodes…"
+            placeholder="Filtrar nós (nome, cluster, IP…)"
             value={search}
             onInput={(e) => setSearch(e.currentTarget.value)}
             aria-label="Filter nodes by name, role, cluster, IP, architecture, or OS"
@@ -840,13 +852,23 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
             <button class="nodes-search-clear" onClick={() => setSearch('')} aria-label="Clear search">✕</button>
           )}
         </div>
+        {honeypotNodes.length > 0 && (
+          <label class="nodes-honeypot-toggle">
+            <input
+              type="checkbox"
+              checked={includeHoneypot}
+              onChange={(e) => setIncludeHoneypot(e.currentTarget.checked)}
+            />
+            Incluir honeypot na tabela
+          </label>
+        )}
         <button
           class="nodes-settings-btn"
           onClick={() => setShowSettings(true)}
-          title="Configure alert thresholds"
-          aria-label="Configure alert thresholds"
+          title="Limites de alerta de CPU, memória e disco"
+          aria-label="Limites de alerta"
         >
-          ⚙ Thresholds
+          ⚙ Limites
         </button>
       </div>
 

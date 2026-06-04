@@ -151,7 +151,7 @@ export function SignalCard({ live, corootAlerts, corootIncidents }: SignalCardPr
       <div class="command-score" id="health-score">{board.score}</div>
       <p class="command-copy" id="health-copy">{board.copy}</p>
       <div class="next-step">
-        <strong>Next action</strong>
+        <strong>Próxima ação</strong>
         <span id="next-action">{nextAction}</span>
       </div>
     </aside>
@@ -177,28 +177,28 @@ export function SignalGrid({ live, corootAlerts, corootIncidents }: SignalGridPr
     : null;
 
   const items = [
-    { value: live ? String(totalIncidents) : '--', label: 'K8s incidents' },
-    { value: live ? String(servicesNeedingAction) : '--', label: 'Services needing action' },
+    { value: live ? String(totalIncidents) : '--', label: 'Incidentes K8s' },
+    { value: live ? String(servicesNeedingAction) : '--', label: 'Serviços em risco' },
     {
       value: live ? `${live.summary.nodes_ready ?? '--'}/${live.summary.nodes_total ?? '--'}` : '--/--',
-      label: 'Ready nodes',
+      label: 'Nós ready',
     },
     {
       value: live ? formatDiscreteCount(live.summary.restarting_pods ?? 0) : '--',
-      label: 'Restarting pods',
+      label: 'Pods reiniciando',
     },
     {
       value: firingAlerts !== null ? String(firingAlerts) : '--',
-      label: 'Coroot alerts',
+      label: 'Alertas Coroot',
     },
     {
       value: activeIncidents !== null ? String(activeIncidents) : '--',
-      label: 'SLO incidents',
+      label: 'Incidentes SLO',
     },
   ];
 
   return (
-    <section class="operator-grid" id="signal-grid">
+    <section class="operator-grid operator-grid--kpis" id="signal-grid" aria-label="Indicadores rápidos do cluster">
       {items.map((item) => (
         <div class="signal-mini" key={item.label}>
           <strong>{item.value}</strong>

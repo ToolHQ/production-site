@@ -216,6 +216,24 @@ else
   bad "T-340-B missing platform fold UI"
 fi
 
+if echo "$css_asset" | grep -q 'storage-row--pressure'; then
+  ok "T-340-C storage pressure row CSS"
+else
+  bad "T-340-C missing storage-row--pressure CSS"
+fi
+
+if echo "$css_asset" | grep -q 'dnor-catalog-cta'; then
+  ok "T-340-C catalog deep-link CTA CSS"
+else
+  bad "T-340-C missing dnor-catalog-cta CSS"
+fi
+
+if echo "$js_asset" | grep -q 'fleet-cluster-header'; then
+  ok "T-340-C fleet cluster group headers"
+else
+  bad "T-340-C missing fleet-cluster-header UI"
+fi
+
 if echo "$js_asset" | grep -q 'dnor-view-fleet-copilot'; then
   ok "UI JS body class toggle (dnor-view-fleet-copilot)"
 else
