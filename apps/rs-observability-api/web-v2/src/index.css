@@ -1304,6 +1304,18 @@
       }
 
       @media (max-width: 840px) {
+        .dnor-shell__nav-item,
+        .dnor-shell__search,
+        .fleet-copilot-host-chip,
+        .fleet-copilot-starter {
+          min-height: 44px;
+        }
+
+        .fleet-copilot-composer input,
+        .fleet-copilot-composer button {
+          min-height: 44px;
+        }
+
         main {
           width: calc(100vw - 12px);
           margin: 12px auto 26px;
@@ -2479,10 +2491,65 @@
       }
 
       .dnor-shell__status {
+        position: relative;
+        flex-shrink: 0;
         width: 9px;
         height: 9px;
         border-radius: 999px;
         background: rgb(239, 68, 68);
+      }
+
+      .dnor-shell__status-sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .dnor-shell__quota-pill {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.28rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+        color: var(--accent);
+        white-space: nowrap;
+      }
+
+      .dnor-shell__nav-copilot-icon {
+        display: none;
+        font-size: 0.95rem;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__nav-copilot-label {
+        display: none;
+      }
+
+      body.dnor-view-fleet-copilot .dnor-shell__nav-copilot-icon {
+        display: inline;
+      }
+
+      .dnor-stale-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        max-width: min(1820px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 0.55rem 1rem;
+        background: color-mix(in srgb, var(--warm) 14%, var(--panel));
+        border: 1px solid color-mix(in srgb, var(--warm) 35%, var(--line));
+        border-radius: 10px;
+        font-size: 0.82rem;
+        color: var(--text-main, var(--ink));
+      }
+
+      .dnor-stale-banner p {
+        margin: 0;
       }
 
       .dnor-shell__status--connecting {
@@ -3561,6 +3628,48 @@
       .fleet-copilot-teaser__cta:hover {
         transform: translateY(-1px);
         box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 22%, transparent);
+      }
+
+      .fleet-copilot-hero--stable {
+        margin-bottom: 0.5rem;
+      }
+
+      .fleet-copilot-layout--loading {
+        min-height: 280px;
+      }
+
+      .fleet-copilot-skeleton-sidebar {
+        min-height: 240px;
+        border-radius: 16px;
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.04) 0%,
+          rgba(255, 255, 255, 0.09) 50%,
+          rgba(255, 255, 255, 0.04) 100%
+        );
+        background-size: 200% 100%;
+        animation: fleet-copilot-shimmer 1.4s ease-in-out infinite;
+      }
+
+      .fleet-copilot-skeleton-thread {
+        flex: 1;
+        min-height: 200px;
+        border-radius: 16px;
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.03) 0%,
+          rgba(255, 255, 255, 0.08) 50%,
+          rgba(255, 255, 255, 0.03) 100%
+        );
+        background-size: 200% 100%;
+        animation: fleet-copilot-shimmer 1.4s ease-in-out infinite;
+      }
+
+      .fleet-copilot-locked-card__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
       }
 
       .fleet-copilot-page__skeleton {
