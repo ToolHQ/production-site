@@ -67,11 +67,9 @@ inputs = ["fail2ban_parse"]
 endpoint = "${CLICKHOUSE_ENDPOINT}"
 database = "default"
 table = "threat_intel_events"
-auth.strategy = "basic"
-auth.user = "default"
-auth.password = "i4FtSOCFXu"
-request.headers = { "Host" = "${CLICKHOUSE_HOST}" }
-encoding.timestamp_format = "rfc3339"
+request.headers = { "Host" = "${CLICKHOUSE_HOST}", "X-ClickHouse-User" = "default", "X-ClickHouse-Key" = "i4FtSOCFXu" }
+healthcheck.enabled = false
+encoding.timestamp_format = "unix_ms"
 EOF
 elif [ "$NODE_TYPE" == "aws-ec2" ]; then
 sudo tee -a /etc/vector/vector.toml > /dev/null <<EOF
@@ -107,11 +105,9 @@ inputs = ["honeypot_parse"]
 endpoint = "${CLICKHOUSE_ENDPOINT}"
 database = "default"
 table = "threat_intel_events"
-auth.strategy = "basic"
-auth.user = "default"
-auth.password = "i4FtSOCFXu"
-request.headers = { "Host" = "${CLICKHOUSE_HOST}" }
-encoding.timestamp_format = "rfc3339"
+request.headers = { "Host" = "${CLICKHOUSE_HOST}", "X-ClickHouse-User" = "default", "X-ClickHouse-Key" = "i4FtSOCFXu" }
+healthcheck.enabled = false
+encoding.timestamp_format = "unix_ms"
 EOF
 fi
 
