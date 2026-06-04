@@ -151,15 +151,25 @@ c<!DOCTYPE html>
         </div>
         <div id="topTasksBody"></div>
       </div>
-      <div class="am-card events-feed">
+      <div class="am-card">
         <div class="am-card-header">
-          <h3 class="am-card-title"><svg class="am-icon"><use href="/_static/icons.svg#i-activity"/></svg>Recent events</h3>
-          <a class="am-btn am-btn-ghost am-btn-sm" href="/conversations">
-            <svg class="am-icon-sm"><use href="/_static/icons.svg#i-arrow-up-right"/></svg> View all
-          </a>
+          <h3 class="am-card-title"><svg class="am-icon"><use href="/_static/icons.svg#i-tool"/></svg>By Agent / IDE</h3>
+          <span class="am-card-subtitle" style="font-size:11px;color:var(--am-muted)">All tool calls grouped by agent</span>
         </div>
-        <div id="eventsFeed"></div>
+        <div id="byIdeBody"></div>
       </div>
+    </div>
+
+    <div style="height:18px"></div>
+
+    <div class="am-card events-feed">
+      <div class="am-card-header">
+        <h3 class="am-card-title"><svg class="am-icon"><use href="/_static/icons.svg#i-activity"/></svg>Recent events</h3>
+        <a class="am-btn am-btn-ghost am-btn-sm" href="/conversations">
+          <svg class="am-icon-sm"><use href="/_static/icons.svg#i-arrow-up-right"/></svg> View all
+        </a>
+      </div>
+      <div id="eventsFeed"></div>
     </div>
   </main>
 
@@ -334,13 +344,42 @@ function renderBarTable(elId, rows, nameKey, countKey) {
   el.innerHTML = html;
 }
 
+function renderIdeBreakdown(elId, rows) {
+  const el = document.getElementById(elId);
+  if (!rows || rows.length === 0) { el.innerHTML = `<div class="am-empty am-muted" style="padding:20px">No data</div>`; return; }
+  const max = Math.max(...rows.map(r => r.calls || 0), 1);
+  const IDE_COLORS = {
+    'copilot-vscode': '#0078d4', 'cursor': '#a855f7', 'antigravity': '#f97316',
+    'claude-code': '#d97706', 'codex': '#10b981', 'copilot-cli': '#3b82f6',
+    'opencode': '#06b6d4', 'rust-rover': '#ef4444', 'copilot-eclipse': '#6366f1',
+    'unknown': '#6b7280',
+  };
+  const html = rows.map(r => {
+    const ide = r.ide || 'unknown';
+    const c = r.calls || 0;
+    const pct = (c / max) * 100;
+    const color = IDE_COLORS[ide] || '#6b7280';
+    const llmPct = c > 0 ? Math.round((r.llm_calls || 0) / c * 100) : 0;
+    const toks = r.total_estimated_tokens ? amNum(r.total_estimated_tokens) : '—';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--am-border)">
+      <div style="width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500">${ide}</div>
+      <div style="flex:1;height:6px;background:var(--am-surface-2);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color};opacity:0.8"></div></div>
+      <div style="width:50px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:600">${amNum(c)}</div>
+      <div style="width:55px;text-align:right;font-size:11px;color:var(--am-muted)">${toks} tok</div>
+      <div style="width:42px;text-align:right;font-size:11px;color:var(--am-muted)" title="${r.llm_calls||0} LLM calls">${llmPct}% LLM</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = html;
+}
+
 async function loadTops() {
   const q = `?from=${periodSince(CURRENT_PERIOD)}`;
   try {
-    const [tools, mcp, tasks] = await Promise.all([
+    const [tools, mcp, tasks, ideBreakdown] = await Promise.all([
       fetchJSON('/reports/top-tools'+q),
       fetchJSON('/reports/top-mcp-servers'+q),
       fetchJSON('/reports/top-tasks'+q),
+      fetchJSON('/reports/by-ide'+q),
     ]);
     // Merge llm_chat (and any other tool) that appears under different mcp_servers
     const toolMap = new Map();
@@ -357,6 +396,7 @@ async function loadTops() {
     renderBarTable('topToolsBody', mergedTools, 'tool_name', 'calls');
     renderBarTable('topMcpBody', mcp, 'mcp_server', 'calls');
     renderBarTable('topTasksBody', tasks, 'task_id', 'tool_calls');
+    renderIdeBreakdown('byIdeBody', ideBreakdown);
   } catch(e) { console.warn('tops', e); }
 }
 

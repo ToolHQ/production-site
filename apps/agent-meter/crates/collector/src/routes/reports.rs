@@ -111,6 +111,14 @@ async fn calls_over_time(
     Ok(Json(json!(results)))
 }
 
+async fn by_ide(
+    State(state): State<AppState>,
+    Query(params): Query<ReportParams>,
+) -> Result<Json<Value>, AppError> {
+    let results = report_service::by_ide(&state.pool, &params.into_query()).await?;
+    Ok(Json(json!(results)))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/reports", get(page))
@@ -118,6 +126,7 @@ pub fn router() -> Router<AppState> {
         .route("/reports/top-tasks", get(top_tasks))
         .route("/reports/top-mcp-servers", get(top_mcp_servers))
         .route("/reports/calls-over-time", get(calls_over_time))
+        .route("/reports/by-ide", get(by_ide))
         .route("/reports/events", get(events_feed))
 }
 
