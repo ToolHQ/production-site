@@ -619,6 +619,7 @@ mod tests {
             secondary_live_monitor: None,
             prometheus_monitor: Arc::new(PrometheusMonitor::new()),
             coroot_client: None,
+            clickhouse_client: None,
             fleet_copilot: None,
         }
     }
