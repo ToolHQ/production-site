@@ -131,6 +131,9 @@ async fn proxy_handler(
 
         let event_id = Uuid::new_v4();
 
+        // JSON-RPC id — used as tool_call_id for correlation with LLM responses
+        let tool_call_id = request_body.get("id").map(|v| v.to_string());
+
         let event = serde_json::json!({
             "event_id": event_id.to_string(),
             "task_id": env::var("AGENT_METER_TASK_ID").ok(),
@@ -151,6 +154,7 @@ async fn proxy_handler(
             "response_sha256": response_sha256,
             "tool_arguments": tool_arguments,
             "tool_result": tool_result,
+            "tool_call_id": tool_call_id,
             "metadata": {
                 "method": method,
                 "http_status": status.as_u16(),

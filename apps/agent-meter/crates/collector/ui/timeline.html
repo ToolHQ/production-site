@@ -690,20 +690,48 @@ function renderDrawerContent(e) {
   if (isStats) return renderStatsHtml(state.filtered);
   const totalMs = state.filtered.reduce((s, ev) => s + ev.duration_ms, 0) || 1;
   const pctOfTotal = Math.min(100, Math.round(e.duration_ms / totalMs * 100));
+
   const errBlock = e.error ? `
     <div class="payload-hdr"><span>Error</span></div>
     <pre class="payload-block" style="border-color:var(--am-danger);color:var(--am-danger)">${escapeHtml(e.error)}</pre>` : '';
+
   const promptBlock = e.user_prompt ? `
     <div class="payload-hdr"><span>User prompt</span><span class="payload-copy" onclick="copyText(${JSON.stringify(e.user_prompt)},this)">copy</span></div>
     <pre class="payload-block">${escapeHtml(e.user_prompt.slice(0,600))}${e.user_prompt.length>600?'…':''}</pre>` : '';
+
   const argsJson = e.tool_arguments ? JSON.stringify(e.tool_arguments, null, 2) : null;
   const argsBlock = argsJson ? `
     <div class="payload-hdr"><span>Arguments (input)</span><span class="payload-copy" onclick="copyText(${JSON.stringify(argsJson)},this)">copy</span></div>
     <pre class="payload-block">${escapeHtml(argsJson.slice(0,2000))}${argsJson.length>2000?'\n…[truncated]':''}</pre>` : '';
+
   const resultText = e.tool_result || '';
   const resultBlock = resultText ? `
     <div class="payload-hdr"><span>Result (output)</span><span class="payload-copy" onclick="copyText(${JSON.stringify(resultText)},this)">copy</span></div>
     <pre class="payload-block">${escapeHtml(resultText.slice(0,2000))}${resultText.length>2000?'\n…[truncated]':''}</pre>` : '';
+
+  // Finish reason — highlight dangerous values
+  const finishStyle = e.finish_reason === 'length' ? 'color:var(--am-warn);font-weight:600' :
+    e.finish_reason === 'content_filter' ? 'color:var(--am-danger);font-weight:600' : '';
+  const finishLabel = e.finish_reason === 'length' ? `⚠ ${e.finish_reason} (TRUNCATED)` :
+    e.finish_reason === 'content_filter' ? `⛔ ${e.finish_reason}` : e.finish_reason;
+
+  // Context utilization bar
+  const tokUsed = (e.tokens_in||0) + (e.tokens_out||0);
+  const maxTok = e.request_max_tokens;
+  const ctxPct = maxTok ? Math.min(100, Math.round(tokUsed / maxTok * 100)) : null;
+  const ctxBar = ctxPct !== null ? `<span style="display:inline-block;width:${Math.min(ctxPct,60)}px;height:3px;background:${ctxPct>90?'var(--am-warn)':'var(--am-accent)'};border-radius:2px;margin-left:6px;vertical-align:middle"></span>` : '';
+
+  // Trace/span IDs
+  const shortId = s => s ? s.slice(0,16)+'…' : '—';
+  const traceBlock = (e.trace_id || e.span_id || e.parent_span_id || e.tool_call_id) ? `
+    <div style="margin-top:12px;border-top:1px solid var(--am-border);padding-top:8px">
+      <div style="font-size:10px;color:var(--am-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Trace hierarchy</div>
+      ${e.trace_id?`<div class="drawer-stat"><span class="drawer-stat-label">Trace ID</span><span class="drawer-stat-value" style="font-family:monospace;font-size:10px" title="${escapeHtml(e.trace_id)}">${escapeHtml(shortId(e.trace_id))} <span class="payload-copy" style="font-size:9px" onclick="copyText(${JSON.stringify(e.trace_id)},this)">copy</span></span></div>`:''}
+      ${e.span_id?`<div class="drawer-stat"><span class="drawer-stat-label">Span ID</span><span class="drawer-stat-value" style="font-family:monospace;font-size:10px" title="${escapeHtml(e.span_id)}">${escapeHtml(shortId(e.span_id))} <span class="payload-copy" style="font-size:9px" onclick="copyText(${JSON.stringify(e.span_id)},this)">copy</span></span></div>`:''}
+      ${e.parent_span_id?`<div class="drawer-stat"><span class="drawer-stat-label">Parent span</span><span class="drawer-stat-value" style="font-family:monospace;font-size:10px" title="${escapeHtml(e.parent_span_id)}">${escapeHtml(shortId(e.parent_span_id))} <span class="payload-copy" style="font-size:9px" onclick="copyText(${JSON.stringify(e.parent_span_id)},this)">copy</span></span></div>`:''}
+      ${e.tool_call_id?`<div class="drawer-stat"><span class="drawer-stat-label">Tool call ID</span><span class="drawer-stat-value" style="font-family:monospace;font-size:10px" title="${escapeHtml(e.tool_call_id)}">${escapeHtml(e.tool_call_id.length>20?e.tool_call_id.slice(0,20)+'…':e.tool_call_id)} <span class="payload-copy" style="font-size:9px" onclick="copyText(${JSON.stringify(e.tool_call_id)},this)">copy</span></span></div>`:''}
+    </div>` : '';
+
   return `
     <h3>Event #${e.order}</h3>
     <h2 style="font-size:15px;margin:2px 0 8px">${escapeHtml(e.tool_name)}</h2>
@@ -716,12 +744,23 @@ function renderDrawerContent(e) {
     <div class="drawer-stat"><span class="drawer-stat-label">Duration</span><span class="drawer-stat-value">${fmtDuration(e.duration_ms)}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">% of trace</span><span class="drawer-stat-value">${pctOfTotal}%<span style="display:inline-block;width:${Math.min(pctOfTotal,60)}px;height:3px;background:var(--am-accent);border-radius:2px;margin-left:6px;vertical-align:middle"></span></span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">Model</span><span class="drawer-stat-value">${escapeHtml(e.model||'—')}</span></div>
-    <div class="drawer-stat"><span class="drawer-stat-label">Tokens in</span><span class="drawer-stat-value">${fmtTokens(e.tokens_in||0)}</span></div>
-    <div class="drawer-stat"><span class="drawer-stat-label">Tokens out</span><span class="drawer-stat-value">${fmtTokens(e.tokens_out||0)}</span></div>
-    <div class="drawer-stat"><span class="drawer-stat-label">USD cost</span><span class="drawer-stat-value">${fmtUsd(e.usd_cost||0)}</span></div>
-    <div class="drawer-stat"><span class="drawer-stat-label">Started</span><span class="drawer-stat-value">${new Date(e.started_at).toLocaleString()}</span></div>
-    <div class="drawer-stat"><span class="drawer-stat-label">Category</span><span class="drawer-stat-value">${e.category}</span></div>
-    ${errBlock}${promptBlock}${argsBlock}${resultBlock}`;
+    ${e.llm_system?`<div class="drawer-stat"><span class="drawer-stat-label">LLM system</span><span class="drawer-stat-value">${escapeHtml(e.llm_system)}</span></div>`:''}
+    <div style="margin-top:8px;border-top:1px solid var(--am-border);padding-top:8px">
+      <div style="font-size:10px;color:var(--am-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Token consumption</div>
+      <div class="drawer-stat"><span class="drawer-stat-label">Tokens in</span><span class="drawer-stat-value">${fmtTokens(e.tokens_in||0)}</span></div>
+      <div class="drawer-stat"><span class="drawer-stat-label">Tokens out</span><span class="drawer-stat-value">${fmtTokens(e.tokens_out||0)}</span></div>
+      ${(e.reasoning_tokens||0)>0?`<div class="drawer-stat"><span class="drawer-stat-label">Reasoning toks</span><span class="drawer-stat-value" style="color:var(--am-warn)">${fmtTokens(e.reasoning_tokens)} ⚡</span></div>`:''}
+      ${(e.cached_tokens||0)>0?`<div class="drawer-stat"><span class="drawer-stat-label">Cached toks</span><span class="drawer-stat-value" style="color:var(--am-success)">${fmtTokens(e.cached_tokens)} 💾</span></div>`:''}
+      <div class="drawer-stat"><span class="drawer-stat-label">USD cost</span><span class="drawer-stat-value">${fmtUsd(e.usd_cost||0)}</span></div>
+    </div>
+    ${maxTok?`<div class="drawer-stat" style="margin-top:4px"><span class="drawer-stat-label">Context used</span><span class="drawer-stat-value">${ctxPct}% of ${fmtTokens(maxTok)}${ctxBar}</span></div>`:''}
+    ${e.finish_reason?`<div class="drawer-stat"><span class="drawer-stat-label">Finish reason</span><span class="drawer-stat-value" style="${finishStyle}">${escapeHtml(finishLabel)}</span></div>`:''}
+    ${e.request_temperature!==undefined&&e.request_temperature!==null?`<div class="drawer-stat"><span class="drawer-stat-label">Temperature</span><span class="drawer-stat-value">${e.request_temperature}</span></div>`:''}
+    <div style="margin-top:8px;border-top:1px solid var(--am-border);padding-top:8px">
+      <div class="drawer-stat"><span class="drawer-stat-label">Started</span><span class="drawer-stat-value">${new Date(e.started_at).toLocaleString()}</span></div>
+      <div class="drawer-stat"><span class="drawer-stat-label">Category</span><span class="drawer-stat-value">${e.category}</span></div>
+    </div>
+    ${errBlock}${promptBlock}${argsBlock}${resultBlock}${traceBlock}`;
 }
 
 function selectEvent(e) {

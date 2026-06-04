@@ -204,6 +204,22 @@ fn map_tool_call_json(
     if let Some(sid) = session_id { metadata["session_id"] = serde_json::json!(sid); }
     if let Some(a) = &agent_name { metadata["agent"] = serde_json::json!(a); }
 
+    // T-332: deep telemetry fields for map_tool_call_json
+    let trace_id = span.get("traceId").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let span_id = span.get("spanId").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let parent_span_id = span.get("parentSpanId").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let tool_call_id = json_attr_str(attrs_slice, "gen_ai.tool.call.id");
+    let reasoning_tokens = json_attr_int(attrs_slice, "gen_ai.usage.reasoning_tokens");
+    let finish_reason: Option<String> = json_attr_str(attrs_slice, "gen_ai.response.finish_reason")
+        .or_else(|| json_attr_str(attrs_slice, "gen_ai.response.finish_reasons")
+            .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()
+                .and_then(|v| v.into_iter().next())
+                .or_else(|| serde_json::from_str::<serde_json::Value>(&s).ok()
+                    .and_then(|v| v.as_array()?.first()?.as_str().map(|s| s.to_string())))));
+    let request_max_tokens = json_attr_int(attrs_slice, "gen_ai.request.max_tokens").map(|t| t as i32);
+    let request_temperature = json_attr_float(attrs_slice, "gen_ai.request.temperature");
+    let llm_system = json_attr_str(attrs_slice, "gen_ai.system");
+
     Ok(ToolCallEvent {
         event_id: uuid::Uuid::new_v4(),
         task_id: None,
@@ -233,6 +249,15 @@ fn map_tool_call_json(
         user_prompt,
         tool_arguments,
         tool_result,
+        reasoning_tokens: reasoning_tokens.map(|t| t as i32),
+        finish_reason,
+        request_max_tokens,
+        request_temperature,
+        llm_system,
+        trace_id,
+        span_id,
+        parent_span_id,
+        tool_call_id,
     })
 }
 
@@ -316,6 +341,23 @@ fn map_chat_span_json(
     if let Some(svc) = service_name { metadata["service_name"] = serde_json::json!(svc); }
     if let Some(sid) = session_id { metadata["session_id"] = serde_json::json!(sid); }
 
+    // T-332: deep telemetry for map_chat_span_json
+    let trace_id_val = span.get("traceId").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let span_id = span.get("spanId").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let parent_span_id = span.get("parentSpanId").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let reasoning_tokens = json_attr_int(attrs_slice, "gen_ai.usage.reasoning_tokens");
+    let finish_reason: Option<String> = json_attr_str(attrs_slice, "gen_ai.response.finish_reason")
+        .or_else(|| json_attr_str(attrs_slice, "gen_ai.response.finish_reasons")
+            .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()
+                .and_then(|v| v.into_iter().next())
+                .or_else(|| serde_json::from_str::<serde_json::Value>(&s).ok()
+                    .and_then(|v| v.as_array()?.first()?.as_str().map(|s| s.to_string())))));
+    let request_max_tokens = json_attr_int(attrs_slice, "gen_ai.request.max_tokens").map(|t| t as i32);
+    let request_temperature = json_attr_float(attrs_slice, "gen_ai.request.temperature");
+    let llm_system = json_attr_str(attrs_slice, "gen_ai.system");
+    // conversation_id already falls back to trace_id above
+    let chat_trace_id = trace_id_val;
+
     Ok(ToolCallEvent {
         event_id: uuid::Uuid::new_v4(),
         task_id: None,
@@ -345,6 +387,15 @@ fn map_chat_span_json(
         user_prompt,
         tool_arguments: None,
         tool_result: None,
+        reasoning_tokens: reasoning_tokens.map(|t| t as i32),
+        finish_reason,
+        request_max_tokens,
+        request_temperature,
+        llm_system,
+        trace_id: chat_trace_id,
+        span_id,
+        parent_span_id,
+        tool_call_id: None,
     })
 }
 
@@ -550,6 +601,17 @@ fn json_attr_int(attrs: &[serde_json::Value], key: &str) -> Option<i64> {
         })
 }
 
+fn json_attr_float(attrs: &[serde_json::Value], key: &str) -> Option<f64> {
+    attrs.iter()
+        .find(|kv| kv.get("key").and_then(|k| k.as_str()) == Some(key))
+        .and_then(|kv| {
+            let v = kv.get("value")?;
+            v.get("doubleValue").and_then(|d| d.as_f64())
+                .or_else(|| v.get("intValue").and_then(|i| i.as_i64()).map(|i| i as f64))
+                .or_else(|| v.get("stringValue").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok()))
+        })
+}
+
 fn handle_trace_request_proto(body: &[u8], client_ip: Option<&str>, user_agent: Option<&str>, pool: &PgPool) -> Result<Vec<serde_json::Value>, AppError> {
     let req = ExportTraceServiceRequest::decode(body)
         .map_err(|e| AppError::Validation(format!("failed to decode OTLP protobuf: {e}")))?;
@@ -690,6 +752,20 @@ fn map_tool_call(
         .or_else(|| get_attr_str(&span.attributes, "tool.output"))
         .map(|s| truncate_str(s, 8192));
 
+    // T-332: deep telemetry for map_tool_call proto
+    let trace_id = if span.trace_id.is_empty() { None } else { Some(hex::encode(&span.trace_id)) };
+    let span_id = if span.span_id.is_empty() { None } else { Some(hex::encode(&span.span_id)) };
+    let parent_span_id = if span.parent_span_id.is_empty() { None } else { Some(hex::encode(&span.parent_span_id)) };
+    let tool_call_id = get_attr_str(&span.attributes, "gen_ai.tool.call.id");
+    let reasoning_tokens = get_attr_int(&span.attributes, "gen_ai.usage.reasoning_tokens");
+    let finish_reason = get_attr_str(&span.attributes, "gen_ai.response.finish_reason")
+        .or_else(|| get_attr_str(&span.attributes, "gen_ai.response.finish_reasons")
+            .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()
+                .and_then(|v| v.into_iter().next())));
+    let request_max_tokens = get_attr_int(&span.attributes, "gen_ai.request.max_tokens").map(|t| t as i32);
+    let request_temperature = get_attr_float(&span.attributes, "gen_ai.request.temperature");
+    let llm_system = get_attr_str(&span.attributes, "gen_ai.system");
+
     let event = ToolCallEvent {
         event_id: uuid::Uuid::new_v4(),
         task_id: None,
@@ -719,6 +795,15 @@ fn map_tool_call(
         user_agent: user_agent.map(|s| s.to_string()),
         tool_arguments,
         tool_result,
+        reasoning_tokens: reasoning_tokens.map(|t| t as i32),
+        finish_reason,
+        request_max_tokens,
+        request_temperature,
+        llm_system,
+        trace_id,
+        span_id,
+        parent_span_id,
+        tool_call_id,
     };
 
     Ok(event)
@@ -778,6 +863,19 @@ fn map_chat_span_proto(
     if let Some(svc) = service_name { metadata["service_name"] = serde_json::json!(svc); }
     if let Some(sid) = session_id { metadata["session_id"] = serde_json::json!(sid); }
 
+    // T-332: deep telemetry for map_chat_span_proto
+    let trace_id = if span.trace_id.is_empty() { None } else { Some(hex::encode(&span.trace_id)) };
+    let span_id_val = if span.span_id.is_empty() { None } else { Some(hex::encode(&span.span_id)) };
+    let parent_span_id = if span.parent_span_id.is_empty() { None } else { Some(hex::encode(&span.parent_span_id)) };
+    let reasoning_tokens = get_attr_int(&span.attributes, "gen_ai.usage.reasoning_tokens");
+    let finish_reason = get_attr_str(&span.attributes, "gen_ai.response.finish_reason")
+        .or_else(|| get_attr_str(&span.attributes, "gen_ai.response.finish_reasons")
+            .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok()
+                .and_then(|v| v.into_iter().next())));
+    let request_max_tokens = get_attr_int(&span.attributes, "gen_ai.request.max_tokens").map(|t| t as i32);
+    let request_temperature = get_attr_float(&span.attributes, "gen_ai.request.temperature");
+    let llm_system = get_attr_str(&span.attributes, "gen_ai.system");
+
     Ok(ToolCallEvent {
         event_id: uuid::Uuid::new_v4(),
         task_id: None, repo: None, branch: None,
@@ -797,6 +895,15 @@ fn map_chat_span_proto(
         user_prompt,
         tool_arguments: None,
         tool_result: None,
+        reasoning_tokens: reasoning_tokens.map(|t| t as i32),
+        finish_reason,
+        request_max_tokens,
+        request_temperature,
+        llm_system,
+        trace_id,
+        span_id: span_id_val,
+        parent_span_id,
+        tool_call_id: None,
     })
 }
 
@@ -816,6 +923,18 @@ fn get_attr_int(attrs: &[KeyValue], key: &str) -> Option<i64> {
         .and_then(|kv| kv.value.as_ref())
         .and_then(|v| match &v.value {
             Some(any_value::Value::IntValue(n)) => Some(*n),
+            _ => None,
+        })
+}
+
+fn get_attr_float(attrs: &[KeyValue], key: &str) -> Option<f64> {
+    attrs.iter()
+        .find(|kv| kv.key == key)
+        .and_then(|kv| kv.value.as_ref())
+        .and_then(|v| match &v.value {
+            Some(any_value::Value::DoubleValue(d)) => Some(*d),
+            Some(any_value::Value::IntValue(i)) => Some(*i as f64),
+            Some(any_value::Value::StringValue(s)) => s.parse::<f64>().ok(),
             _ => None,
         })
 }

@@ -75,6 +75,15 @@ struct TimelineRow {
     error: Option<String>,
     tool_arguments: Option<serde_json::Value>,
     tool_result: Option<String>,
+    reasoning_tokens: Option<i32>,
+    finish_reason: Option<String>,
+    request_max_tokens: Option<i32>,
+    request_temperature: Option<f64>,
+    llm_system: Option<String>,
+    trace_id: Option<String>,
+    span_id: Option<String>,
+    parent_span_id: Option<String>,
+    tool_call_id: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -156,7 +165,16 @@ pub async fn get_conversation_timeline(
             LEFT(user_prompt, 600) AS user_prompt,
             error,
             tool_arguments,
-            tool_result
+            tool_result,
+            reasoning_tokens,
+            finish_reason,
+            request_max_tokens,
+            request_temperature,
+            llm_system,
+            trace_id,
+            span_id,
+            parent_span_id,
+            tool_call_id
         FROM agent_tool_calls
         WHERE conversation_id = $1
         ORDER BY started_at ASC
@@ -198,6 +216,15 @@ pub async fn get_conversation_timeline(
             error: row.error,
             tool_arguments: row.tool_arguments,
             tool_result: row.tool_result,
+            reasoning_tokens: row.reasoning_tokens,
+            finish_reason: row.finish_reason,
+            request_max_tokens: row.request_max_tokens,
+            request_temperature: row.request_temperature,
+            llm_system: row.llm_system,
+            trace_id: row.trace_id,
+            span_id: row.span_id,
+            parent_span_id: row.parent_span_id,
+            tool_call_id: row.tool_call_id,
         })
         .collect();
 
