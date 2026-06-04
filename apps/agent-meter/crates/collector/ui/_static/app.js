@@ -99,6 +99,7 @@
     const active = opts.active || '';
     const navItems = [
       ['dashboard', '/', 'i-dashboard', 'Dashboard'],
+      ['conversations', '/conversations', 'i-conversations', 'Conversations'],
       ['cost', '/cost', 'i-cost', 'Cost'],
       ['alerts', '/alerts', 'i-alerts', 'Alerts'],
       ['tasks', '/tasks', 'i-tasks', 'Tasks'],

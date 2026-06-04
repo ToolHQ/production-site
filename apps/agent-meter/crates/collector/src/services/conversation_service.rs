@@ -1,8 +1,58 @@
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 use sqlx::PgPool;
 
 use crate::errors::AppError;
 use crate::models::timeline::{ConversationTimeline, TimelineEvent};
+
+// ── Conversation list ──────────────────────────────────────────────────────────
+
+#[derive(sqlx::FromRow, Serialize)]
+pub struct ConversationRow {
+    pub conversation_id: String,
+    pub title: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub ended_at: Option<DateTime<Utc>>,
+    pub total_duration_ms: i64,
+    pub event_count: i64,
+    pub error_count: i64,
+    pub total_usd_cost: f64,
+    pub agent: Option<String>,
+    pub ide: Option<String>,
+}
+
+pub async fn list_conversations(
+    pool: &PgPool,
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<ConversationRow>, AppError> {
+    let rows: Vec<ConversationRow> = sqlx::query_as(
+        r#"
+        SELECT
+            conversation_id,
+            MAX(user_prompt)                                                          AS title,
+            MIN(started_at)                                                           AS started_at,
+            MAX(ended_at)                                                             AS ended_at,
+            COALESCE(SUM(duration_ms), 0)::bigint                                     AS total_duration_ms,
+            COUNT(*)::bigint                                                          AS event_count,
+            COUNT(*) FILTER (WHERE NOT ok)::bigint                                    AS error_count,
+            COALESCE(SUM(compute_event_usd(model, estimated_input_tokens,
+                         estimated_output_tokens, cached_tokens)), 0)::float8         AS total_usd_cost,
+            MODE() WITHIN GROUP (ORDER BY agent)                                      AS agent,
+            MODE() WITHIN GROUP (ORDER BY ide)                                        AS ide
+        FROM agent_tool_calls
+        WHERE conversation_id IS NOT NULL AND conversation_id <> ''
+        GROUP BY conversation_id
+        ORDER BY MIN(started_at) DESC
+        LIMIT $1 OFFSET $2
+        "#,
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
 
 #[derive(sqlx::FromRow)]
 struct TimelineRow {
