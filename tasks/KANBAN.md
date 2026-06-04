@@ -10,9 +10,6 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
-| [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 1d |
-| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas** | 🔼 High | Cursor / AI Radar | 6h |
-| [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 4h |
 | [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
 
@@ -23,24 +20,16 @@
 
 ## 📅 Backlog (To Do)
 
-### Epic: Reports UI Redesign (T-340) — audit browser 2026-06-03
-
-| ID | Task Name | Priority | Est. |
-| :-: | :-------- | :------: | :--: |
-| [T-340](2026/Q2/T-340-reports-ui-redesign-backlog.md) | **reports.dnor.io — backlog UI/UX extenso (P0→P3, 60+ itens)** | 🔼 High | 3–5w |
-
 ### Epic: Fleet Copilot (T-315) — Fase 2 entregue 2026-05-31 (T-327–335)
 
 | ID | Task Name | Priority | Est. |
 | :-: | :-------- | :------: | :--: |
-| [T-331](2026/Q2/T-331-SSDNodes-SSH-Alias-Canonical-Hostname.md) | **SSDNodes — SSH alias canônico (~/.ssh/config)** | 🔵 Medium | 30min |
-| [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional)** | 🔵 Medium | 2d |
-
+<!-- T-331 moved to Done -->
+<!-- T-324 moved to Done -->
 | ID  | Task Name | Priority | Epic | Est. |
 | :-: | :-------- | :------: | :--- | :--: |
-| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(overlap T-320a)_ | 🔼 High | Cursor / AI Radar | 1d |
-| [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
+<!-- T-310 moved to Done -->
+<!-- T-309 moved to Done -->
 
 | [T-285](2026/Q2/T-285-Rust-3D-Game-Mes-1.md) | **Rust 3D Game — Mês 1: Setup da Engine, Mecânicas Core & Prototipagem 3D** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-286](2026/Q2/T-286-Rust-3D-Game-Mes-2.md) | **Rust 3D Game — Mês 2: Level Design, HUD/UI & Integração com Steamworks SDK** | 🔵 Medium | Rust 3D Steam Game | 4w |
@@ -56,7 +45,17 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** _(Backend Rust + Dashboard v2 + Runbook; implantação pendente de aplicação de RBAC devido ao SSH/MFA)_ | 🔼 High | Antigravity | 1d |
+| [T-339](2026/Q2/T-339-Threat-Intel-Log-Streaming-ClickHouse.md) | **Honeypot + SSDNodes — Threat Intel Log Streaming via ClickHouse (Fase 6)** _(Vector logs no ClickHouse, rs-observability-api ClickHouseClient impl)_ | 🔼 High | **Antigravity** | 2d |
+| T-340 | **Fix SSDNodes Fail2Ban Data Integration in rs-observability-api** _(Adjusted UFW rules on SSDNodes and added concurrent timeout wrapper in API app.rs to prevent timeouts when secondary is unreachable)_ | 🔼 High | **Antigravity** | 2h |
+| [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
+| [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 1d |
+| [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 4h |
+| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas** | 🔼 High | Cursor / AI Radar | 6h |
+| [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional)** _(Hermes Agent instalado no SSDNodes com perfil de segurança readonly e skill customizada validada via pentest)_ | 🔵 Medium | Antigravity | 2d |
+| [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** _(Service ingress convertido para ClusterIP para mitigar pending na nuvem; deploy via hostNetwork mantido intacto)_ | 🔼 High | Antigravity | 4h |
+| [T-331](2026/Q2/T-331-SSDNodes-SSH-Alias-Canonical-Hostname.md) | **SSDNodes — SSH alias canônico (~/.ssh/config)** _(alias legado 'monstro' purgado de todos os scripts, README atualizado)_ | 🔵 Medium | Antigravity | 30min |
+| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(resolvido por T-320a + RUNBOOK_SSH_INCIDENT.md)_ | 🔼 High | Cursor / AI Radar | 1d |
+| [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** _(Backend Rust + Dashboard v2 + Runbook; PR #379 merged; Deploy em prod finalizado)_ | 🔼 High | Antigravity | 1d |
 | [T-315](2026/Q2/T-315-Fleet-Copilot-Epic-Overview.md) | **Fleet Copilot — Epic MVP** _(T-320→323 live; chat SSE em reports.dnor.io/#fleet-copilot; PR #367)_ | 🔼 High | Cursor / AI Radar | 2–3w |
 | [T-320](2026/Q2/T-320-Fleet-Copilot-Security-Prerequisites.md) | **Fleet Copilot — Pré-requisitos segurança** _(SSH key-only, fail2ban, UFW, Dashboard view-only, Tailscale; gate 2026-05-30)_ | 🚨 Critical | Cursor / AI Radar | 3d |
 | [T-321](2026/Q2/T-321-Fleet-Ops-Gateway-Ollama-SSDNodes.md) | **Fleet Copilot — Ops Gateway + Ollama @ monstro** _(gemma3:4b localhost, gateway :18443, IaC scripts)_ | 🔼 High | Cursor / AI Radar | 3d |

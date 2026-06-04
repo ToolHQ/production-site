@@ -177,10 +177,19 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         }
     };
 
-    let (mut payload, node_metrics, honeypot) = tokio::join!(
+    let clickhouse_future = async {
+        if let Some(ch) = &state.clickhouse_client {
+            ch.fetch_fail2ban_stats().await
+        } else {
+            None
+        }
+    };
+
+    let (mut payload, node_metrics, honeypot, fail2ban_res) = tokio::join!(
         live_future,
         state.prometheus_monitor.fetch_node_metrics(),
         state.prometheus_monitor.fetch_honeypot_overview(),
+        tokio::time::timeout(Duration::from_secs(8), clickhouse_future),
     );
 
     payload.metrics = state
@@ -210,6 +219,7 @@ async fn live_overview(State(state): State<AppState>) -> Response {
                         .await
                 }
             };
+
         if secondary_overview.available {
             for mut node in secondary_overview.nodes {
                 // Match the cluster tag from external_nodes.json so Prometheus metrics correlate
@@ -219,10 +229,13 @@ async fn live_overview(State(state): State<AppState>) -> Response {
                 payload.nodes.push(node);
             }
             payload.incidents.extend(secondary_overview.incidents);
-        } else if let Some(error) = secondary_overview.error {
-            eprintln!("secondary K8s monitor unavailable: {}", error);
         }
     }
+
+    payload.fail2ban = fail2ban_res.unwrap_or_else(|_| {
+        eprintln!("ClickHouse fail2ban refresh timed out");
+        None
+    });
 
     // Inject external physical nodes (Hetzner / SSD Nodes) — skip clusters already
     // covered by the secondary K8s monitor to avoid duplicate node entries.
@@ -606,6 +619,7 @@ mod tests {
             secondary_live_monitor: None,
             prometheus_monitor: Arc::new(PrometheusMonitor::new()),
             coroot_client: None,
+            clickhouse_client: None,
             fleet_copilot: None,
         }
     }
