@@ -73,6 +73,8 @@ struct TimelineRow {
     ended_at: DateTime<Utc>,
     user_prompt: Option<String>,
     error: Option<String>,
+    tool_arguments: Option<serde_json::Value>,
+    tool_result: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -152,7 +154,9 @@ pub async fn get_conversation_timeline(
             started_at,
             ended_at,
             LEFT(user_prompt, 600) AS user_prompt,
-            error
+            error,
+            tool_arguments,
+            tool_result
         FROM agent_tool_calls
         WHERE conversation_id = $1
         ORDER BY started_at ASC
@@ -192,6 +196,8 @@ pub async fn get_conversation_timeline(
             ended_at: row.ended_at,
             user_prompt: row.user_prompt,
             error: row.error,
+            tool_arguments: row.tool_arguments,
+            tool_result: row.tool_result,
         })
         .collect();
 

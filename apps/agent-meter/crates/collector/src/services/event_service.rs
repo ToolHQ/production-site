@@ -54,11 +54,13 @@ pub async fn insert_tool_call(
             ok, error, request_bytes, response_bytes,
             estimated_input_tokens, estimated_output_tokens, estimated_total_tokens,
             request_sha256, response_sha256, metadata,
-            model, cached_tokens, conversation_id, client_ip, user_agent, user_prompt
+            model, cached_tokens, conversation_id, client_ip, user_agent, user_prompt,
+            tool_arguments, tool_result
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
             $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-            $23, $24, $25, $26, $27, $28
+            $23, $24, $25, $26, $27, $28,
+            $29, $30
         )
         RETURNING *
         "#,
@@ -91,6 +93,8 @@ pub async fn insert_tool_call(
     .bind(&event.client_ip)
     .bind(&event.user_agent)
     .bind(&event.user_prompt)
+    .bind(&event.tool_arguments)
+    .bind(&event.tool_result)
     .fetch_one(pool)
     .await?;
 

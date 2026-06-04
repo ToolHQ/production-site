@@ -18,6 +18,10 @@ pub struct TimelineEvent {
     pub user_prompt: Option<String>,
     /// Error message from span status if !ok
     pub error: Option<String>,
+    /// JSON arguments passed to the tool (input)
+    pub tool_arguments: Option<serde_json::Value>,
+    /// Tool result/output content, truncated at 8 KB
+    pub tool_result: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

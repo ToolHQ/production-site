@@ -696,6 +696,14 @@ function renderDrawerContent(e) {
   const promptBlock = e.user_prompt ? `
     <div class="payload-hdr"><span>User prompt</span><span class="payload-copy" onclick="copyText(${JSON.stringify(e.user_prompt)},this)">copy</span></div>
     <pre class="payload-block">${escapeHtml(e.user_prompt.slice(0,600))}${e.user_prompt.length>600?'…':''}</pre>` : '';
+  const argsJson = e.tool_arguments ? JSON.stringify(e.tool_arguments, null, 2) : null;
+  const argsBlock = argsJson ? `
+    <div class="payload-hdr"><span>Arguments (input)</span><span class="payload-copy" onclick="copyText(${JSON.stringify(argsJson)},this)">copy</span></div>
+    <pre class="payload-block">${escapeHtml(argsJson.slice(0,2000))}${argsJson.length>2000?'\n…[truncated]':''}</pre>` : '';
+  const resultText = e.tool_result || '';
+  const resultBlock = resultText ? `
+    <div class="payload-hdr"><span>Result (output)</span><span class="payload-copy" onclick="copyText(${JSON.stringify(resultText)},this)">copy</span></div>
+    <pre class="payload-block">${escapeHtml(resultText.slice(0,2000))}${resultText.length>2000?'\n…[truncated]':''}</pre>` : '';
   return `
     <h3>Event #${e.order}</h3>
     <h2 style="font-size:15px;margin:2px 0 8px">${escapeHtml(e.tool_name)}</h2>
@@ -713,7 +721,7 @@ function renderDrawerContent(e) {
     <div class="drawer-stat"><span class="drawer-stat-label">USD cost</span><span class="drawer-stat-value">${fmtUsd(e.usd_cost||0)}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">Started</span><span class="drawer-stat-value">${new Date(e.started_at).toLocaleString()}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">Category</span><span class="drawer-stat-value">${e.category}</span></div>
-    ${errBlock}${promptBlock}`;
+    ${errBlock}${promptBlock}${argsBlock}${resultBlock}`;
 }
 
 function selectEvent(e) {

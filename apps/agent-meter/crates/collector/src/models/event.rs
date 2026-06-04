@@ -32,6 +32,10 @@ pub struct ToolCallEvent {
     pub client_ip: Option<String>,
     pub user_agent: Option<String>,
     pub user_prompt: Option<String>,
+    /// JSON arguments passed to the tool (from mcp-wrapper or OTLP)
+    pub tool_arguments: Option<serde_json::Value>,
+    /// Tool output/result content, truncated at 8 KB (from mcp-wrapper)
+    pub tool_result: Option<String>,
 }
 
 fn default_uuid() -> Uuid {

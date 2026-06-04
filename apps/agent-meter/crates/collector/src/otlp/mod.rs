@@ -131,7 +131,8 @@ fn map_tool_call_json(
         .or_else(|| service_name.map(|s| s.to_string()));
 
     let mcp_server = json_attr_str(attrs_slice, "mcp.server.name")
-        .or_else(|| json_attr_str(attrs_slice, "mcp.server"));
+        .or_else(|| json_attr_str(attrs_slice, "mcp.server"))
+        .or_else(|| infer_mcp_server_from_tool(&tool_name));
 
     let start_ns: i64 = span.get("startTimeUnixNano")
         .and_then(|v| v.as_str().and_then(|s| s.parse::<i64>().ok()).or_else(|| v.as_i64()))
@@ -173,6 +174,19 @@ fn map_tool_call_json(
         .or(trace_id);
     let response_bytes = json_attr_int(attrs_slice, "gen_ai.response.bytes");
     let request_bytes = json_attr_int(attrs_slice, "gen_ai.request.bytes");
+
+    // Tool arguments (input) and result (output) — sent by some agents/IDEs
+    // GenAI semantic convention draft: gen_ai.tool.call.id, gen_ai.tool.output
+    // Also check copilot-specific and generic keys
+    let tool_arguments: Option<serde_json::Value> = json_attr_str(attrs_slice, "gen_ai.tool.call.arguments")
+        .or_else(|| json_attr_str(attrs_slice, "gen_ai.tool.input"))
+        .or_else(|| json_attr_str(attrs_slice, "tool.input"))
+        .and_then(|s| serde_json::from_str(&s).ok());
+
+    let tool_result: Option<String> = json_attr_str(attrs_slice, "gen_ai.tool.output")
+        .or_else(|| json_attr_str(attrs_slice, "gen_ai.tool.result"))
+        .or_else(|| json_attr_str(attrs_slice, "tool.output"))
+        .map(|s| truncate_str(s, 8 * 1024));
 
     // User prompt: VS Code Copilot sends it as copilot_chat.user_request;
     // fall back to GenAI semantic-convention keys if other IDEs are used.
@@ -217,6 +231,8 @@ fn map_tool_call_json(
         client_ip: client_ip.map(|s| s.to_string()),
         user_agent: user_agent.map(|s| s.to_string()),
         user_prompt,
+        tool_arguments,
+        tool_result,
     })
 }
 
@@ -327,7 +343,57 @@ fn map_chat_span_json(
         client_ip: client_ip.map(|s| s.to_string()),
         user_agent: user_agent.map(|s| s.to_string()),
         user_prompt,
+        tool_arguments: None,
+        tool_result: None,
     })
+}
+
+/// Infer `mcp_server` from VS Code built-in tool name patterns.
+/// VS Code doesn't send `mcp.server.name` in execute_tool spans.
+fn infer_mcp_server_from_tool(tool_name: &str) -> Option<String> {
+    // MCP servers that prefix their tools with "mcp_<server>_"
+    if let Some(rest) = tool_name.strip_prefix("mcp_") {
+        let server = rest.split('_').next().unwrap_or(rest);
+        // Normalize known names
+        let normalized = match server {
+            "chromedevtool" | "chromedevtools" | "chrome" => "chromeDevtools",
+            "gitkraken" => "gitkraken",
+            "playwright" => "playwright",
+            "filesystem" => "filesystem",
+            _ => server,
+        };
+        return Some(normalized.to_string());
+    }
+    // VS Code built-in tools
+    let builtin = [
+        "run_in_terminal", "read_file", "replace_string_in_file", "create_file",
+        "grep_search", "file_search", "list_dir", "semantic_search", "get_errors",
+        "manage_todo_list", "view_image", "run_in_terminal", "get_terminal_output",
+        "kill_terminal", "send_to_terminal", "vscode_askQuestions", "vscode_listCodeUsages",
+        "vscode_renameSymbol", "multi_replace_string_in_file", "tool_search", "runSubagent",
+        "open_browser_page", "click_element", "hover_element", "navigate_page",
+        "screenshot_page", "read_page",
+    ];
+    if builtin.contains(&tool_name) {
+        return Some("vscode-builtin".to_string());
+    }
+    // Memory / session tools
+    if tool_name == "memory" || tool_name.starts_with("memory_") {
+        return Some("copilot-memory".to_string());
+    }
+    // fetch/web tools
+    if tool_name == "fetch_webpage" || tool_name.starts_with("fetch_") {
+        return Some("fetch".to_string());
+    }
+    None
+}
+
+/// Truncate a string at max_bytes on a valid UTF-8 boundary.
+fn truncate_str(s: String, max_bytes: usize) -> String {
+    if s.len() <= max_bytes { return s; }
+    let mut end = max_bytes;
+    while !s.is_char_boundary(end) { end -= 1; }
+    format!("{}…[truncated]", &s[..end])
 }
 
 /// Infer IDE name from HTTP User-Agent and/or service.name
@@ -569,6 +635,10 @@ fn map_tool_call(
     let agent_name = get_attr_str(&span.attributes, "gen_ai.agent.name")
         .or_else(|| service_name.map(|s| s.to_string()));
 
+    let mcp_server = get_attr_str(&span.attributes, "mcp.server.name")
+        .or_else(|| get_attr_str(&span.attributes, "mcp.server"))
+        .or_else(|| infer_mcp_server_from_tool(&tool_name));
+
     let start = chrono::DateTime::from_timestamp_nanos(span.start_time_unix_nano as i64);
     let end = chrono::DateTime::from_timestamp_nanos(span.end_time_unix_nano as i64);
 
@@ -610,6 +680,16 @@ fn map_tool_call(
     if let Some(sid) = session_id { metadata["session_id"] = serde_json::json!(sid); }
     if let Some(agent) = &agent_name { metadata["agent"] = serde_json::json!(agent); }
 
+    let tool_arguments: Option<serde_json::Value> = get_attr_str(&span.attributes, "gen_ai.tool.call.arguments")
+        .or_else(|| get_attr_str(&span.attributes, "gen_ai.tool.input"))
+        .or_else(|| get_attr_str(&span.attributes, "tool.input"))
+        .and_then(|s| serde_json::from_str(&s).ok());
+
+    let tool_result: Option<String> = get_attr_str(&span.attributes, "gen_ai.tool.output")
+        .or_else(|| get_attr_str(&span.attributes, "gen_ai.tool.result"))
+        .or_else(|| get_attr_str(&span.attributes, "tool.output"))
+        .map(|s| truncate_str(s, 8192));
+
     let event = ToolCallEvent {
         event_id: uuid::Uuid::new_v4(),
         task_id: None,
@@ -618,7 +698,7 @@ fn map_tool_call(
         ide: ide.map(|s| s.to_string()).or_else(|| Some("copilot-vscode".into())),
         agent: agent_name,
         skill: None,
-        mcp_server: None,
+        mcp_server,
         tool_name,
         started_at: start,
         ended_at: end,
@@ -637,6 +717,8 @@ fn map_tool_call(
         client_ip: client_ip.map(|s| s.to_string()),
         user_prompt,
         user_agent: user_agent.map(|s| s.to_string()),
+        tool_arguments,
+        tool_result,
     };
 
     Ok(event)
@@ -713,6 +795,8 @@ fn map_chat_span_proto(
         client_ip: client_ip.map(|s| s.to_string()),
         user_agent: user_agent.map(|s| s.to_string()),
         user_prompt,
+        tool_arguments: None,
+        tool_result: None,
     })
 }
 

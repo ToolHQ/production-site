@@ -36,6 +36,9 @@ pub struct AgentToolCall {
     pub client_ip: Option<String>,
     pub user_agent: Option<String>,
     pub user_prompt: Option<String>,
+    // T-331: full agentic payload
+    pub tool_arguments: Option<serde_json::Value>,
+    pub tool_result: Option<String>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -70,6 +73,8 @@ pub struct EventFeedRow {
     pub conversation_id: Option<String>,
     pub client_ip: Option<String>,
     pub user_prompt: Option<String>,
+    pub tool_arguments: Option<serde_json::Value>,
+    pub tool_result: Option<String>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
