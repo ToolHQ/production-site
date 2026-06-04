@@ -236,9 +236,18 @@ impl ClickHouseClient {
             countIf(status = 'failed') as failed, \
             countIf(status = 'banned') as banned \
             FROM threat_intel_events \
-            WHERE service = 'fail2ban' AND timestamp >= now() - INTERVAL 1 DAY FORMAT JSON";
-            
-        let stats_resp = match self.http.get(&self.base_url).query(&[("query", query)]).send().await {
+<<<<<<< HEAD
+            WHERE service IN ('fail2ban', 'sshd') AND timestamp >= now() - INTERVAL 1 DAY FORMAT JSON";
+
+        let stats_resp = match self
+            .http
+            .get(&self.base_url)
+            .query(&[("query", query)])
+            .header("X-ClickHouse-User", "default")
+            .header("X-ClickHouse-Key", "i4FtSOCFXu")
+            .send()
+            .await
+        {
             Ok(resp) => resp,
             Err(e) => {
                 eprintln!("ClickHouse fetch_fail2ban_stats error: {}", e);
@@ -258,8 +267,16 @@ impl ClickHouseClient {
             FROM threat_intel_events \
             WHERE service = 'fail2ban' AND status = 'banned' AND timestamp >= now() - INTERVAL 1 DAY \
             GROUP BY ip ORDER BY count() DESC LIMIT 10 FORMAT JSON";
-            
-        let ips_resp = self.http.get(&self.base_url).query(&[("query", ips_query)]).send().await.ok()?;
+
+        let ips_resp = self
+            .http
+            .get(&self.base_url)
+            .query(&[("query", ips_query)])
+            .header("X-ClickHouse-User", "default")
+            .header("X-ClickHouse-Key", "i4FtSOCFXu")
+            .send()
+            .await
+            .ok()?;
         let ips_data = ips_resp.json::<ChResponse<ChBannedIpRow>>().await.ok()?;
 
         Some(Fail2BanStats {
