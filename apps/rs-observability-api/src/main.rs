@@ -239,6 +239,8 @@ impl ClickHouseClient {
             .http
             .get(&self.base_url)
             .query(&[("query", query)])
+            .header("X-ClickHouse-User", "default")
+            .header("X-ClickHouse-Key", "i4FtSOCFXu")
             .send()
             .await
         {
@@ -272,6 +274,8 @@ impl ClickHouseClient {
             .http
             .get(&self.base_url)
             .query(&[("query", ips_query)])
+            .header("X-ClickHouse-User", "default")
+            .header("X-ClickHouse-Key", "i4FtSOCFXu")
             .send()
             .await
             .ok()?;
