@@ -17,6 +17,8 @@ pub struct CostKpis {
     pub total_tokens_out: i64,
     pub avg_usd_per_event: f64,
     pub burn_rate_usd_per_hour: f64,
+    pub avg_duration_ms: f64,
+    pub error_rate: f64,
     pub from: DateTime<Utc>,
     pub to: DateTime<Utc>,
 }
@@ -55,6 +57,8 @@ pub async fn cost_summary(
         total_events: Option<i64>,
         total_tokens_in: Option<i64>,
         total_tokens_out: Option<i64>,
+        avg_duration_ms: Option<f64>,
+        error_rate: Option<f64>,
     }
 
     let kpi: KpiRow = sqlx::query_as(
@@ -63,7 +67,9 @@ pub async fn cost_summary(
             COALESCE(SUM(compute_event_usd(model, estimated_input_tokens, estimated_output_tokens, cached_tokens)), 0)::float8 AS total_usd,
             COUNT(*)::bigint AS total_events,
             SUM(estimated_input_tokens)::bigint AS total_tokens_in,
-            SUM(estimated_output_tokens)::bigint AS total_tokens_out
+            SUM(estimated_output_tokens)::bigint AS total_tokens_out,
+            AVG(duration_ms)::float8 AS avg_duration_ms,
+            (COUNT(*) FILTER (WHERE NOT ok))::float8 / NULLIF(COUNT(*)::float8, 0) AS error_rate
         FROM agent_tool_calls
         WHERE started_at >= $1 AND started_at < $2
         "#,
@@ -161,6 +167,8 @@ pub async fn cost_summary(
             total_tokens_out: kpi.total_tokens_out.unwrap_or(0),
             avg_usd_per_event: avg,
             burn_rate_usd_per_hour: burn_rate,
+            avg_duration_ms: kpi.avg_duration_ms.unwrap_or(0.0),
+            error_rate: kpi.error_rate.unwrap_or(0.0),
             from,
             to,
         },

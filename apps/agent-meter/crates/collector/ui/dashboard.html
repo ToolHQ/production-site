@@ -103,7 +103,7 @@ c<!DOCTYPE html>
       <div class="am-kpi" style="--accent:var(--am-chart-3)">
         <div class="am-kpi-label"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-clock"/></svg>Avg latency</div>
         <div class="am-kpi-value" id="kpiLat">—</div>
-        <div class="am-kpi-meta"><span class="am-muted">p50 / p95 / p99</span></div>
+        <div class="am-kpi-meta"><span class="am-muted">avg duration</span></div>
       </div>
       <div class="am-kpi" style="--accent:var(--am-chart-5)">
         <div class="am-kpi-label"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-error"/></svg>Error rate</div>
@@ -233,6 +233,23 @@ async function loadKPIs() {
       document.getElementById('kpiEventsDelta').innerHTML = amDelta(k.total_events, pk.total_events);
       document.getElementById('kpiCostDelta').innerHTML = amDelta(k.total_usd, pk.total_usd);
       document.getElementById('kpiEventsRate').textContent = `· ${(k.total_events / Math.max(1,((Date.now() - new Date(since).getTime())/3600e3))).toFixed(1)}/h`;
+      // Latency KPI
+      if (k.avg_duration_ms > 0) {
+        const latMs = k.avg_duration_ms;
+        document.getElementById('kpiLat').textContent = latMs < 1000
+          ? Math.round(latMs) + 'ms'
+          : (latMs / 1000).toFixed(2) + 's';
+      }
+      // Error rate KPI
+      const errRate = k.error_rate || 0;
+      document.getElementById('kpiErr').textContent = (errRate * 100).toFixed(1) + '%';
+      const errCount = Math.round((k.total_events || 0) * errRate);
+      document.getElementById('kpiErrCount').textContent = errCount > 0 ? `${errCount} errors` : 'clean';
+      // Cost sparkline from daily buckets
+      if (cur.by_day && cur.by_day.length > 1) {
+        const costVals = cur.by_day.map(d => d.usd_cost);
+        document.getElementById('kpiCostSpark').innerHTML = amSpark(costVals, 90, 28, 'var(--am-chart-2)');
+      }
     }
   } catch(e) { console.warn('kpi', e); }
 }

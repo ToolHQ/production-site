@@ -30,7 +30,11 @@ pub async fn list_conversations(
         r#"
         SELECT
             conversation_id,
-            MAX(user_prompt)                                                          AS title,
+            MIN(user_prompt) FILTER (
+                WHERE user_prompt IS NOT NULL
+                  AND LENGTH(user_prompt) BETWEEN 4 AND 200
+                  AND user_prompt NOT ILIKE 'Summarize the following%'
+            )                                                                         AS title,
             MIN(started_at)                                                           AS started_at,
             MAX(ended_at)                                                             AS ended_at,
             COALESCE(SUM(duration_ms), 0)::bigint                                     AS total_duration_ms,
