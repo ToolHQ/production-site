@@ -342,7 +342,19 @@ async function loadTops() {
       fetchJSON('/reports/top-mcp-servers'+q),
       fetchJSON('/reports/top-tasks'+q),
     ]);
-    renderBarTable('topToolsBody', tools, 'tool_name', 'calls');
+    // Merge llm_chat (and any other tool) that appears under different mcp_servers
+    const toolMap = new Map();
+    for (const t of tools) {
+      const key = t.tool_name;
+      if (toolMap.has(key)) {
+        const ex = toolMap.get(key);
+        ex.calls += t.calls || 0;
+      } else {
+        toolMap.set(key, {...t});
+      }
+    }
+    const mergedTools = [...toolMap.values()].sort((a, b) => (b.calls||0) - (a.calls||0));
+    renderBarTable('topToolsBody', mergedTools, 'tool_name', 'calls');
     renderBarTable('topMcpBody', mcp, 'mcp_server', 'calls');
     renderBarTable('topTasksBody', tasks, 'task_id', 'tool_calls');
   } catch(e) { console.warn('tops', e); }

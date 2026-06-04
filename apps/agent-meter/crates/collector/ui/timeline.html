@@ -734,8 +734,9 @@ function renderDrawerContent(e) {
 
   return `
     <h3>Event #${e.order}</h3>
-    <h2 style="font-size:15px;margin:2px 0 8px">${escapeHtml(e.tool_name)}</h2>
-    <div class="drawer-meta" style="margin-bottom:10px">${escapeHtml(e.mcp_server||'')}</div>
+    <h2 style="font-size:15px;margin:2px 0 4px">${escapeHtml(e.tool_name)}</h2>
+    ${e.mcp_server?`<div class="drawer-meta" style="margin-bottom:6px"><span style="font-size:10px;background:var(--am-surface-2);padding:2px 6px;border-radius:4px;font-family:monospace">${escapeHtml(e.mcp_server)}</span></div>`:''}
+    ${e.llm_system&&e.llm_system!==e.mcp_server?`<div class="drawer-meta" style="margin-bottom:10px"><span style="font-size:10px;color:var(--am-muted)">via ${escapeHtml(e.llm_system)}</span></div>`:'<div style="margin-bottom:10px"></div>'}
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
       <button class="am-btn am-btn-ghost am-btn-xs" onclick="copyText(JSON.stringify(state.selected,null,2),this)">⎘ JSON</button>
       <a class="am-btn am-btn-ghost am-btn-xs" href="?span=${e.order}">🔗 link</a>
@@ -744,18 +745,17 @@ function renderDrawerContent(e) {
     <div class="drawer-stat"><span class="drawer-stat-label">Duration</span><span class="drawer-stat-value">${fmtDuration(e.duration_ms)}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">% of trace</span><span class="drawer-stat-value">${pctOfTotal}%<span style="display:inline-block;width:${Math.min(pctOfTotal,60)}px;height:3px;background:var(--am-accent);border-radius:2px;margin-left:6px;vertical-align:middle"></span></span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">Model</span><span class="drawer-stat-value">${escapeHtml(e.model||'—')}</span></div>
-    ${e.llm_system?`<div class="drawer-stat"><span class="drawer-stat-label">LLM system</span><span class="drawer-stat-value">${escapeHtml(e.llm_system)}</span></div>`:''}
     <div style="margin-top:8px;border-top:1px solid var(--am-border);padding-top:8px">
       <div style="font-size:10px;color:var(--am-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Token consumption</div>
       <div class="drawer-stat"><span class="drawer-stat-label">Tokens in</span><span class="drawer-stat-value">${fmtTokens(e.tokens_in||0)}</span></div>
       <div class="drawer-stat"><span class="drawer-stat-label">Tokens out</span><span class="drawer-stat-value">${fmtTokens(e.tokens_out||0)}</span></div>
-      ${(e.reasoning_tokens||0)>0?`<div class="drawer-stat"><span class="drawer-stat-label">Reasoning toks</span><span class="drawer-stat-value" style="color:var(--am-warn)">${fmtTokens(e.reasoning_tokens)} ⚡</span></div>`:''}
+      ${(e.reasoning_tokens||0)>0?`<div class="drawer-stat"><span class="drawer-stat-label">Reasoning toks</span><span class="drawer-stat-value" style="color:var(--am-warn)">${fmtTokens(e.reasoning_tokens)} ⚡ billed separately</span></div>`:''}
       ${(e.cached_tokens||0)>0?`<div class="drawer-stat"><span class="drawer-stat-label">Cached toks</span><span class="drawer-stat-value" style="color:var(--am-success)">${fmtTokens(e.cached_tokens)} 💾</span></div>`:''}
       <div class="drawer-stat"><span class="drawer-stat-label">USD cost</span><span class="drawer-stat-value">${fmtUsd(e.usd_cost||0)}</span></div>
     </div>
-    ${maxTok?`<div class="drawer-stat" style="margin-top:4px"><span class="drawer-stat-label">Context used</span><span class="drawer-stat-value">${ctxPct}% of ${fmtTokens(maxTok)}${ctxBar}</span></div>`:''}
+    ${maxTok?`<div class="drawer-stat" style="margin-top:4px"><span class="drawer-stat-label">Context used</span><span class="drawer-stat-value">${ctxPct}% of ${fmtTokens(maxTok)} max${ctxBar}</span></div>`:''}
     ${e.finish_reason?`<div class="drawer-stat"><span class="drawer-stat-label">Finish reason</span><span class="drawer-stat-value" style="${finishStyle}">${escapeHtml(finishLabel)}</span></div>`:''}
-    ${e.request_temperature!==undefined&&e.request_temperature!==null?`<div class="drawer-stat"><span class="drawer-stat-label">Temperature</span><span class="drawer-stat-value">${e.request_temperature}</span></div>`:''}
+    ${e.request_temperature!=null?`<div class="drawer-stat"><span class="drawer-stat-label">Temperature</span><span class="drawer-stat-value">${e.request_temperature}</span></div>`:''}
     <div style="margin-top:8px;border-top:1px solid var(--am-border);padding-top:8px">
       <div class="drawer-stat"><span class="drawer-stat-label">Started</span><span class="drawer-stat-value">${new Date(e.started_at).toLocaleString()}</span></div>
       <div class="drawer-stat"><span class="drawer-stat-label">Category</span><span class="drawer-stat-value">${e.category}</span></div>
