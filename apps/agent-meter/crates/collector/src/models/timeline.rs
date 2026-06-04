@@ -14,6 +14,10 @@ pub struct TimelineEvent {
     pub ok: bool,
     pub started_at: DateTime<Utc>,
     pub ended_at: DateTime<Utc>,
+    /// First 600 chars of the user prompt associated with the tool call (if any)
+    pub user_prompt: Option<String>,
+    /// Error message from span status if !ok
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

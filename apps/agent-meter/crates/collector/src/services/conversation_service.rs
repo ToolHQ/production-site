@@ -71,6 +71,8 @@ struct TimelineRow {
     ok: bool,
     started_at: DateTime<Utc>,
     ended_at: DateTime<Utc>,
+    user_prompt: Option<String>,
+    error: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -94,7 +96,12 @@ pub async fn get_conversation_timeline(
     let summary: Option<SummaryRow> = sqlx::query_as(
         r#"
         SELECT
-            user_prompt,
+            (SELECT user_prompt FROM agent_tool_calls
+             WHERE conversation_id = $1
+               AND user_prompt IS NOT NULL
+               AND LENGTH(user_prompt) BETWEEN 4 AND 500
+               AND user_prompt NOT ILIKE 'Summarize the following%'
+             ORDER BY started_at ASC LIMIT 1) AS user_prompt,
             MIN(started_at) AS started_at,
             MAX(ended_at) AS ended_at,
             SUM(duration_ms)::bigint AS total_duration_ms,
@@ -105,7 +112,6 @@ pub async fn get_conversation_timeline(
             COUNT(*) FILTER (WHERE NOT ok)::bigint AS error_count
         FROM agent_tool_calls
         WHERE conversation_id = $1
-        GROUP BY user_prompt
         "#,
     )
     .bind(conversation_id)
@@ -144,7 +150,9 @@ pub async fn get_conversation_timeline(
             compute_event_usd(model, estimated_input_tokens, estimated_output_tokens, cached_tokens)::float8 AS usd_cost,
             ok,
             started_at,
-            ended_at
+            ended_at,
+            LEFT(user_prompt, 600) AS user_prompt,
+            error
         FROM agent_tool_calls
         WHERE conversation_id = $1
         ORDER BY started_at ASC
@@ -182,6 +190,8 @@ pub async fn get_conversation_timeline(
             ok: row.ok,
             started_at: row.started_at,
             ended_at: row.ended_at,
+            user_prompt: row.user_prompt,
+            error: row.error,
         })
         .collect();
 

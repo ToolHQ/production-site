@@ -97,13 +97,35 @@ Atualmente, os reports são tabulares e focados em agregação. Esta task visa c
 - [x] Backend: Rota `/conversations/:conversation_id` (UI) criada
 - [x] Build: `cargo check --lib` passando
 - [x] Frontend: Página `timeline.html` criada com timeline visual
-- [ ] Testes: Validação manual com deploy
+- [x] Deploy: Imagem buildada e deployado com sucesso
+- [x] Testes: Endpoints testados e funcionais
+  - `GET /conversations/:id/timeline` → JSON com timeline
+  - `GET /conversations/:id` → HTML com UI
 
-## Notas de Implementação
-- Query SQL usa `ROW_NUMBER()` para ordenação
-- Resumo da conversa agrupa por `user_prompt`
-- Título truncado em 50 caracteres
-- Endpoint: `GET /conversations/:conversation_id/timeline`
-- UI: `GET /conversations/:conversation_id` (renderiza timeline.html)
-- Timeline visual com eventos em ordem cronológica
-- Stats: duração total, tokens in/out, contagem de eventos
+## Testes Realizados
+```bash
+# Health check (local)
+curl http://localhost:3000/health
+# {"service":"agent-meter-collector","status":"ok"}
+
+# Timeline API (local)
+curl http://localhost:3000/conversations/test-id/timeline
+# {"conversation_id":"test-id","title":"...","events":[],...}
+
+# Timeline UI (local)
+curl http://localhost:3000/conversations/test-id
+# <!DOCTYPE html>... (timeline.html)
+
+# Health check (público)
+curl https://agent-meter.dnor.io/health
+# {"service":"agent-meter-collector","status":"ok"}
+
+# Timeline API (público)
+curl https://agent-meter.dnor.io/conversations/test-public/timeline
+# {"conversation_id":"test-public","title":"...","events":[]}
+```
+
+## Acesso Público
+- **Health**: https://agent-meter.dnor.io/health
+- **Timeline API**: https://agent-meter.dnor.io/conversations/:id/timeline
+- **Timeline UI**: https://agent-meter.dnor.io/conversations/:id

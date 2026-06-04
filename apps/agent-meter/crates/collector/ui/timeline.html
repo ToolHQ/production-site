@@ -62,6 +62,28 @@
   .tooltip-row b.ok { color: var(--am-success); }
   .tooltip-row b.err { color: var(--am-danger); }
 
+  .gap-bar { fill: var(--am-text-muted); opacity: 0.18; }
+  .critical-bar { stroke-width: 2; stroke: var(--am-accent); paint-order: stroke fill; }
+  .critical-label { fill: var(--am-accent); font-size: 10px; font-weight: 700; font-family: var(--am-font-mono); }
+  .stats-bar { display:flex; gap:20px; flex-wrap:wrap; font-size:12px; color:var(--am-text-muted); padding:8px 18px; background:var(--am-surface); border:1px solid var(--am-border); border-radius:8px; margin-bottom:12px; }
+  .stats-bar b { color:var(--am-text); font-family:var(--am-font-mono); }
+  .drawer-tabs { display:flex; gap:0; margin-bottom:14px; border-bottom:1px solid var(--am-border); }
+  .drawer-tab { padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; color:var(--am-text-muted); transition:all .12s; }
+  .drawer-tab.active { color:var(--am-accent); border-bottom-color:var(--am-accent); }
+  .payload-block { background:var(--am-bg); border:1px solid var(--am-border); border-radius:6px; padding:10px; font-family:var(--am-font-mono); font-size:11px; white-space:pre-wrap; word-break:break-all; max-height:160px; overflow-y:auto; margin-bottom:8px; color:var(--am-text); }
+  .payload-hdr { display:flex; justify-content:space-between; align-items:center; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--am-text-muted); margin-bottom:4px; }
+  .payload-copy { cursor:pointer; color:var(--am-accent); font-weight:600; }
+  .payload-copy:hover { opacity:.7; }
+  .live-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--am-success); font-weight:600; }
+  .live-badge::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--am-success); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .flame-container { background:var(--am-surface); border:1px solid var(--am-border); border-radius:10px; overflow:auto; padding:12px; }
+  .flame-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; font-size:12px; }
+  .flame-label { min-width:80px; color:var(--am-text-muted); text-align:right; }
+  .flame-bar-wrap { flex:1; height:20px; background:var(--am-border); border-radius:3px; overflow:hidden; position:relative; }
+  .flame-bar { height:100%; border-radius:3px; transition:width .3s; }
+  .flame-pct { position:absolute; right:6px; top:2px; font-size:11px; font-family:var(--am-font-mono); color:white; font-weight:600; text-shadow:0 1px 2px rgba(0,0,0,.6); }
+  .flame-meta { min-width:100px; font-family:var(--am-font-mono); font-size:11px; color:var(--am-text-muted); }
   @media (max-width: 1100px) { .waterfall-wrap { grid-template-columns: 1fr; } .drawer { position: static; max-height: 400px; } }
 </style>
 </head>
@@ -78,7 +100,7 @@
         <p class="am-page-subtitle">Waterfall view — drag minimap to zoom, ctrl+wheel to scale, click bars for details.</p>
       </div>
       <div style="display:flex;gap:8px">
-        <a class="am-btn am-btn-ghost am-btn-sm" href="/"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-dashboard"/></svg>Dashboard</a>
+        <a class="am-btn am-btn-ghost am-btn-sm" href="/conversations"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-chevron-left"/></svg>Conversations</a>
       </div>
     </div>
 
@@ -94,7 +116,8 @@
       <div class="skpi"><div class="skpi-label">Errors</div><div class="skpi-value" id="kpiErrors">—</div></div>
     </div>
 
-    <div class="minimap-wrap"><svg class="minimap" id="minimap" preserveAspectRatio="none"></svg></div>
+    <div class="stats-bar" id="statsBar" style="display:none"></div>
+    <div class="minimap-wrap" id="minimapWrap"><svg class="minimap" id="minimap" preserveAspectRatio="none"></svg></div>
 
     <div class="toolbar">
       <label>Group:</label>
@@ -103,8 +126,18 @@
       </select>
       <input class="am-input" id="filterText" placeholder="Filter tool/model/server…" style="max-width:240px">
       <label><input type="checkbox" id="showErrorsOnly"> errors only</label>
-      <button class="am-btn am-btn-ghost am-btn-sm" id="btnZoomReset">Reset zoom</button>
-      <button class="am-btn am-btn-secondary am-btn-sm" id="btnExportJson"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-external"/></svg>Export JSON</button>
+      <label><input type="checkbox" id="showGaps"> idle gaps</label>
+      <label><input type="checkbox" id="showCritical"> critical path</label>
+      <label class="live-badge" id="liveTailLabel" style="display:none"><input type="checkbox" id="liveTail"> live</label>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <div class="am-btn-group">
+          <button class="am-btn am-btn-ghost am-btn-sm active" id="btnViewWaterfall">⫶ Waterfall</button>
+          <button class="am-btn am-btn-ghost am-btn-sm" id="btnViewFlame">▦ Flame</button>
+          <button class="am-btn am-btn-ghost am-btn-sm" id="btnViewStats">📊 Stats</button>
+        </div>
+        <button class="am-btn am-btn-ghost am-btn-sm" id="btnZoomReset">Reset zoom</button>
+        <button class="am-btn am-btn-secondary am-btn-sm" id="btnExportJson"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-external"/></svg>Export JSON</button>
+      </div>
       <div class="legend">
         <span><span class="legend-swatch" style="background:var(--am-chart-1)"></span>llm</span>
         <span><span class="legend-swatch" style="background:var(--am-chart-2)"></span>tool</span>
@@ -171,7 +204,265 @@ function fmtUsd(v) {
 }
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-const state = { data:null, events:[], filtered:[], zoom:{from:0,to:1}, selected:null, groupBy:'none', filterText:'', errorsOnly:false };
+const state = { data:null, events:[], filtered:[], zoom:{from:0,to:1}, selected:null, groupBy:'none', filterText:'', errorsOnly:false, showGaps:false, showCritical:false, criticalPath:new Set(), gaps:[], viewMode:'waterfall', drawerTab:'event' };
+
+let liveTailTimer = null;
+
+// ── Compute helpers ────────────────────────────────────────────────────────────
+
+function computeGaps(events) {
+  const gaps = [];
+  const sorted = [...events].sort((a,b) => a.startMs - b.startMs);
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i].startMs - sorted[i-1].endMs;
+    if (gap > 80) gaps.push({ startMs: sorted[i-1].endMs, endMs: sorted[i].startMs, durationMs: gap });
+  }
+  return gaps;
+}
+
+function computeCriticalPath(events) {
+  if (!events.length) return new Set();
+  const sorted = [...events].sort((a,b) => a.startMs - b.startMs);
+  const dp = sorted.map(e => ({ totalMs: e.duration_ms, prev: -1 }));
+  for (let i = 1; i < sorted.length; i++) {
+    for (let j = 0; j < i; j++) {
+      if (sorted[j].endMs <= sorted[i].startMs + 20) {
+        const cand = dp[j].totalMs + sorted[i].duration_ms;
+        if (cand > dp[i].totalMs) dp[i] = { totalMs: cand, prev: j };
+      }
+    }
+  }
+  let best = 0;
+  for (let i = 1; i < dp.length; i++) if (dp[i].totalMs > dp[best].totalMs) best = i;
+  const path = new Set();
+  let cur = best;
+  while (cur >= 0) { path.add(sorted[cur].idx); cur = dp[cur].prev; }
+  return path;
+}
+
+function computeStats(events) {
+  if (!events.length) return null;
+  const durs = [...events].map(e => e.duration_ms).sort((a,b) => a-b);
+  const n = durs.length;
+  const pct = p => durs[Math.max(0, Math.min(n-1, Math.floor(n*p)))];
+  const byCategory = {};
+  let tokIn = 0, tokOut = 0, totalCost = 0, totalMs = 0;
+  for (const e of events) {
+    const c = e.category;
+    if (!byCategory[c]) byCategory[c] = { count:0, durationMs:0, cost:0 };
+    byCategory[c].count++;
+    byCategory[c].durationMs += e.duration_ms;
+    byCategory[c].cost += e.usd_cost||0;
+    tokIn += e.tokens_in||0;
+    tokOut += e.tokens_out||0;
+    totalCost += e.usd_cost||0;
+    totalMs += e.duration_ms;
+  }
+  return { p50:pct(.5), p95:pct(.95), p99:pct(.99), max:durs[n-1],
+           avg:Math.round(durs.reduce((s,v)=>s+v,0)/n),
+           byCategory, totalMs, tokIn, tokOut, totalCost, n };
+}
+
+function renderStatsHtml(events) {
+  const s = computeStats(events);
+  if (!s) return '<div class="am-empty" style="padding:20px">No events</div>';
+  const catOrder = ['llm','tool','shell','fs'];
+  const catRows = catOrder.filter(c => s.byCategory[c]).map(c => {
+    const cat = s.byCategory[c];
+    const pct = s.totalMs > 0 ? Math.round(cat.durationMs/s.totalMs*100) : 0;
+    const color = categoryColor[c];
+    return `<div class="drawer-stat" style="flex-direction:column;align-items:stretch;gap:4px;border-bottom:1px solid var(--am-border);padding:6px 0">
+      <div style="display:flex;justify-content:space-between">
+        <span class="drawer-stat-label" style="text-transform:capitalize">${c}</span>
+        <span class="drawer-stat-value">${pct}% · ${fmtDuration(cat.durationMs)}${cat.cost>0?' · '+fmtUsd(cat.cost):''}</span>
+      </div>
+      <div style="height:4px;border-radius:2px;background:var(--am-border);overflow:hidden">
+        <div style="height:4px;border-radius:2px;width:${pct}%;background:${color}"></div>
+      </div>
+    </div>`;
+  }).join('');
+  const ratio = s.tokOut > 0 ? (s.tokIn/s.tokOut).toFixed(1)+':1' : '—';
+  const costPer1k = (s.tokIn+s.tokOut) > 0 ? fmtUsd(s.totalCost/((s.tokIn+s.tokOut)/1000)) : '—';
+  // Histogram — log scale
+  const H=48, B=16;
+  const logMax = Math.log(s.max+1)||1;
+  const hist = new Array(B).fill(0);
+  for (const e of events) { const i=Math.min(B-1,Math.floor(Math.log(e.duration_ms+1)/logMax*B)); hist[i]++; }
+  const hMax = Math.max(1,...hist);
+  const histBars = hist.map((c,i)=>{
+    const h=(c/hMax)*H, x=(i/B*100).toFixed(1), w=(100/B-.5).toFixed(1);
+    return `<rect x="${x}%" y="${(H-h).toFixed(1)}" width="${w}%" height="${h.toFixed(1)}" fill="var(--am-chart-1)" opacity="0.7" rx="1"/>`;
+  }).join('');
+  return `
+    <h3>Latency (n=${s.n})</h3>
+    <div class="drawer-stat"><span class="drawer-stat-label">P50</span><span class="drawer-stat-value">${fmtDuration(s.p50)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">P95</span><span class="drawer-stat-value">${fmtDuration(s.p95)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">P99</span><span class="drawer-stat-value">${fmtDuration(s.p99)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Max</span><span class="drawer-stat-value">${fmtDuration(s.max)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Avg</span><span class="drawer-stat-value">${fmtDuration(s.avg)}</span></div>
+    <h3 style="margin-top:14px">By category</h3>${catRows}
+    <h3 style="margin-top:14px">Token efficiency</h3>
+    <div class="drawer-stat"><span class="drawer-stat-label">In</span><span class="drawer-stat-value">${fmtTokens(s.tokIn)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Out</span><span class="drawer-stat-value">${fmtTokens(s.tokOut)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Ratio in:out</span><span class="drawer-stat-value">${ratio}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Cost/1K tok</span><span class="drawer-stat-value">${costPer1k}</span></div>
+    <h3 style="margin-top:14px">Distribution</h3>
+    <svg width="100%" height="${H}" viewBox="0 0 100 ${H}" preserveAspectRatio="none" style="display:block;margin-top:6px">${histBars}</svg>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--am-text-muted);margin-top:2px"><span>0</span><span>${fmtDuration(s.max)}</span></div>`;
+}
+
+function updateStatsBar() {
+  const s = computeStats(state.filtered);
+  const bar = document.getElementById('statsBar');
+  if (!s || !state.events.length) { bar.style.display='none'; return; }
+  bar.style.display='flex';
+  const cp = state.criticalPath;
+  const cpMs = [...state.filtered].filter(e=>cp.has(e.idx)).reduce((sum,e)=>sum+e.duration_ms,0);
+  const cpPct = s.totalMs > 0 ? Math.round(cpMs/s.totalMs*100) : 0;
+  bar.innerHTML = `<span>P95 <b>${fmtDuration(s.p95)}</b></span><span>P50 <b>${fmtDuration(s.p50)}</b></span><span>Avg <b>${fmtDuration(s.avg)}</b></span>${cpMs>0?`<span>Critical path <b>${fmtDuration(cpMs)} (${cpPct}%)</b></span>`:''}`;
+}
+
+// ── Flame graph ────────────────────────────────────────────────────────────────
+
+function renderFlame() {
+  const container = document.querySelector('.waterfall-wrap');
+  // clear waterfall, show flame
+  const wf = document.getElementById('waterfall');
+  wf.style.display = 'none';
+  document.getElementById('minimapWrap').style.display = 'none';
+  let flame = document.getElementById('flameContainer');
+  if (!flame) {
+    flame = document.createElement('div');
+    flame.id = 'flameContainer';
+    flame.className = 'flame-container';
+    container.style.display = 'block';
+    container.appendChild(flame);
+  }
+  flame.style.display = 'block';
+  if (!state.filtered.length) { flame.innerHTML='<div class="am-empty">No events</div>'; return; }
+  const totalMs = state.filtered.reduce((s,e)=>s+e.duration_ms,0)||1;
+  const totalCost = state.filtered.reduce((s,e)=>s+(e.usd_cost||0),0);
+  const catOrder = ['llm','tool','shell','fs'];
+  const byCategory = {};
+  for (const e of state.filtered) {
+    const c = e.category;
+    if (!byCategory[c]) byCategory[c] = { events:[], durationMs:0, cost:0 };
+    byCategory[c].events.push(e);
+    byCategory[c].durationMs += e.duration_ms;
+    byCategory[c].cost += e.usd_cost||0;
+  }
+  let html = `<div style="font-size:13px;font-weight:700;color:var(--am-text);margin-bottom:14px">Flame Graph — ${state.filtered.length} events · ${fmtDuration(totalMs)} · ${fmtUsd(totalCost)}</div>`;
+  for (const cat of catOrder) {
+    const g = byCategory[cat]; if (!g) continue;
+    const pct = Math.round(g.durationMs/totalMs*100);
+    const color = categoryColor[cat];
+    html += `<div class="flame-row">
+      <div class="flame-label" style="text-transform:capitalize">${cat}</div>
+      <div class="flame-bar-wrap">
+        <div class="flame-bar" style="width:${pct}%;background:${color}"></div>
+        <div class="flame-pct">${pct}%</div>
+      </div>
+      <div class="flame-meta">${fmtDuration(g.durationMs)} · ${g.cost>0?fmtUsd(g.cost):'—'}</div>
+    </div>`;
+    // Top 5 tools inside category
+    const byTool = {};
+    for (const e of g.events) {
+      const k = e.tool_name||'unknown';
+      if (!byTool[k]) byTool[k] = { durationMs:0, count:0 };
+      byTool[k].durationMs += e.duration_ms;
+      byTool[k].count++;
+    }
+    const topTools = Object.entries(byTool).sort((a,b)=>b[1].durationMs-a[1].durationMs).slice(0,5);
+    for (const [tool, data] of topTools) {
+      const tPct = Math.round(data.durationMs/totalMs*100);
+      html += `<div class="flame-row" style="padding-left:16px">
+        <div class="flame-label" style="font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(tool)}">${escapeHtml(tool.slice(0,14))}</div>
+        <div class="flame-bar-wrap" style="height:14px">
+          <div class="flame-bar" style="width:${tPct}%;background:${color};opacity:.6"></div>
+          <div class="flame-pct" style="font-size:10px">${tPct}%</div>
+        </div>
+        <div class="flame-meta" style="font-size:10px">${fmtDuration(data.durationMs)} · ${data.count}×</div>
+      </div>`;
+    }
+  }
+  flame.innerHTML = html;
+}
+
+function hideFlame() {
+  const flame = document.getElementById('flameContainer');
+  if (flame) flame.style.display = 'none';
+  document.getElementById('waterfall').style.display = '';
+  document.getElementById('minimapWrap').style.display = '';
+  document.querySelector('.waterfall-wrap').style.display = '';
+}
+
+function setViewMode(mode) {
+  state.viewMode = mode;
+  document.getElementById('btnViewWaterfall').classList.toggle('active', mode==='waterfall');
+  document.getElementById('btnViewFlame').classList.toggle('active', mode==='flame');
+  document.getElementById('btnViewStats').classList.toggle('active', mode==='stats');
+  if (mode === 'waterfall') { hideFlame(); renderMinimap(); renderWaterfall(); }
+  else if (mode === 'flame') { hideFlame(); renderFlame(); }
+  else if (mode === 'stats') {
+    hideFlame();
+    document.getElementById('waterfall').style.display='none';
+    document.getElementById('minimapWrap').style.display='none';
+    let sc = document.getElementById('statsFullPanel');
+    if (!sc) {
+      sc = document.createElement('div');
+      sc.id = 'statsFullPanel';
+      sc.style.cssText = 'background:var(--am-surface);border:1px solid var(--am-border);border-radius:10px;padding:18px;max-width:540px';
+      document.querySelector('.waterfall-wrap').style.display='block';
+      document.querySelector('.waterfall-wrap').appendChild(sc);
+    }
+    sc.style.display='block';
+    sc.innerHTML = renderStatsHtml(state.filtered);
+  }
+  // hide full stats panel when leaving stats view
+  if (mode !== 'stats') {
+    const sc = document.getElementById('statsFullPanel');
+    if (sc) sc.style.display='none';
+  }
+}
+
+// ── Live tail ──────────────────────────────────────────────────────────────────
+
+function startLiveTail() {
+  stopLiveTail();
+  liveTailTimer = setInterval(async () => {
+    const prevCount = state.data ? state.data.event_count : 0;
+    try {
+      const r = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}/timeline`);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.event_count !== prevCount) {
+        state.data = data;
+        state.events = (data.events||[]).map((e,i)=>({...e,idx:i,startMs:new Date(e.started_at).getTime(),endMs:new Date(e.ended_at).getTime(),category:categorize(e)}));
+        renderSummary(data);
+        applyFilters();
+      }
+      // auto-stop if conversation ended > 90s ago
+      const ended = data.ended_at ? new Date(data.ended_at).getTime() : 0;
+      if (ended && Date.now() - ended > 90000) stopLiveTail();
+    } catch(_) {}
+  }, 5000);
+}
+
+function stopLiveTail() {
+  clearInterval(liveTailTimer);
+  liveTailTimer = null;
+  const cb = document.getElementById('liveTail');
+  if (cb) cb.checked = false;
+}
+
+// ── Copy helpers ───────────────────────────────────────────────────────────────
+
+window.copyText = function(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent; btn.textContent = 'Copied ✓';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
+};
 
 async function loadTimeline() {
   try {
@@ -180,8 +471,26 @@ async function loadTimeline() {
     const data = await r.json();
     state.data = data;
     state.events = (data.events || []).map((e,i) => ({...e, idx:i, startMs:new Date(e.started_at).getTime(), endMs:new Date(e.ended_at).getTime(), category:categorize(e)}));
+    document.title = `${data.event_count} events · ${data.title||conversationId} · agent-meter`;
     renderSummary(data);
     applyFilters();
+    // Deep link: auto-open span from URL
+    const spanParam = new URLSearchParams(location.search).get('span');
+    if (spanParam) {
+      const ev = state.events.find(e => String(e.order) === spanParam);
+      if (ev) setTimeout(() => selectEvent(ev), 50);
+    }
+    // Auto live-tail if conversation started < 5 min ago and not ended
+    const startedMs = new Date(data.started_at).getTime();
+    const endedMs = data.ended_at ? new Date(data.ended_at).getTime() : 0;
+    if (!endedMs || (Date.now() - endedMs < 60000)) {
+      const liveLbl = document.getElementById('liveTailLabel');
+      if (liveLbl) liveLbl.style.display = '';
+      if (Date.now() - startedMs < 5 * 60 * 1000) {
+        document.getElementById('liveTail').checked = true;
+        startLiveTail();
+      }
+    }
   } catch(e) {
     document.getElementById('convTitle').textContent = 'Error loading timeline: ' + e.message;
     console.error(e);
@@ -209,7 +518,15 @@ function applyFilters() {
         || (e.mcp_server||'').toLowerCase().includes(f)
         || (e.model||'').toLowerCase().includes(f);
   });
-  renderMinimap(); renderWaterfall();
+  state.gaps = computeGaps(state.filtered);
+  state.criticalPath = computeCriticalPath(state.filtered);
+  updateStatsBar();
+  if (state.viewMode === 'waterfall') { renderMinimap(); renderWaterfall(); }
+  else if (state.viewMode === 'flame') renderFlame();
+  else if (state.viewMode === 'stats') {
+    const sc = document.getElementById('statsFullPanel');
+    if (sc) sc.innerHTML = renderStatsHtml(state.filtered);
+  }
 }
 
 let minimapDrag = null;
@@ -306,6 +623,17 @@ function renderWaterfall() {
     yCursor = TOP_PAD + rows.length*ROW_H;
   }
 
+  // Gap bars (idle time) — rendered on top of row backgrounds
+  if (state.showGaps) {
+    for (const g of state.gaps) {
+      const x1 = xOf(g.startMs), x2 = xOf(g.endMs);
+      if (x2 <= LEFT_PAD || x1 >= W - RIGHT_PAD) continue;
+      const gx = Math.max(LEFT_PAD, x1), gw = Math.max(1, Math.min(x2, W-RIGHT_PAD) - gx);
+      html += `<rect class="gap-bar" x="${gx}" y="${TOP_PAD}" width="${gw}" height="${yCursor - TOP_PAD}"/>`;
+      if (gw > 30) html += `<text class="axis-label" x="${gx+3}" y="${TOP_PAD+12}" fill="var(--am-text-muted)" opacity="0.7">⏸${fmtDuration(g.durationMs)}</text>`;
+    }
+  }
+
   svg.setAttribute('width', W);
   svg.setAttribute('height', yCursor + 16);
   svg.innerHTML = html;
@@ -322,6 +650,7 @@ function renderWaterfall() {
 function renderRow(e, xOf, y) {
   const x1 = xOf(e.startMs), x2 = xOf(e.endMs);
   const w = Math.max(2, x2-x1);
+  const isCritical = state.showCritical && state.criticalPath.has(e.idx);
   const color = e.ok ? categoryColor[e.category] : 'var(--am-danger)';
   const isSel = state.selected && state.selected.idx === e.idx;
   const label = (e.tool_name||'').slice(0, 30);
@@ -332,7 +661,9 @@ function renderRow(e, xOf, y) {
   row += `<rect class="row-bg ${isSel?'selected':''}" data-idx="${e.idx}" x="0" y="${y}" width="100%" height="${ROW_H}"/>`;
   row += `<text class="row-label ${e.ok?'':'error'}" x="12" y="${y + ROW_H/2 + 4}">${e.ok?'':'⚠ '}${escapeHtml(label)}</text>`;
   if (meta) row += `<text class="row-meta" x="160" y="${y + ROW_H/2 + 4}">${escapeHtml(meta)}</text>`;
-  row += `<rect class="bar" data-idx="${e.idx}" x="${x1}" y="${y+4}" width="${w}" height="${ROW_H-8}" fill="${color}" opacity="${e.ok?0.85:0.95}"/>`;
+  const barClass = isCritical ? 'bar critical-bar' : 'bar';
+  row += `<rect class="${barClass}" data-idx="${e.idx}" x="${x1}" y="${y+4}" width="${w}" height="${ROW_H-8}" fill="${color}" opacity="${e.ok?0.85:0.95}"/>`;
+  if (isCritical) row += `<text class="critical-label" x="${x1+w+3}" y="${y + ROW_H/2 + 4}">●</text>`;
   if (w > 70) row += `<text class="row-meta" x="${x1+4}" y="${y + ROW_H/2 + 4}" fill="white" opacity="0.92">${dur}${cost?' · '+cost:''}</text>`;
   return row;
 }
@@ -354,31 +685,69 @@ function showTooltip(e, mouse) {
 }
 function hideTooltip() { document.getElementById('tooltip').classList.remove('visible'); }
 
-function selectEvent(e) {
-  state.selected = e;
-  const drawer = document.getElementById('drawer');
-  drawer.classList.add('open');
-  document.getElementById('drawerInner').innerHTML = `
-    <div class="drawer-close" onclick="closeDrawer()">×</div>
+function renderDrawerContent(e) {
+  const isStats = state.drawerTab === 'stats';
+  if (isStats) return renderStatsHtml(state.filtered);
+  const totalMs = state.filtered.reduce((s, ev) => s + ev.duration_ms, 0) || 1;
+  const pctOfTotal = Math.min(100, Math.round(e.duration_ms / totalMs * 100));
+  const errBlock = e.error ? `
+    <div class="payload-hdr"><span>Error</span></div>
+    <pre class="payload-block" style="border-color:var(--am-danger);color:var(--am-danger)">${escapeHtml(e.error)}</pre>` : '';
+  const promptBlock = e.user_prompt ? `
+    <div class="payload-hdr"><span>User prompt</span><span class="payload-copy" onclick="copyText(${JSON.stringify(e.user_prompt)},this)">copy</span></div>
+    <pre class="payload-block">${escapeHtml(e.user_prompt.slice(0,600))}${e.user_prompt.length>600?'…':''}</pre>` : '';
+  return `
     <h3>Event #${e.order}</h3>
-    <h2>${escapeHtml(e.tool_name)}</h2>
-    <div class="drawer-meta">${escapeHtml(e.mcp_server || 'no server')}</div>
+    <h2 style="font-size:15px;margin:2px 0 8px">${escapeHtml(e.tool_name)}</h2>
+    <div class="drawer-meta" style="margin-bottom:10px">${escapeHtml(e.mcp_server||'')}</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="am-btn am-btn-ghost am-btn-xs" onclick="copyText(JSON.stringify(state.selected,null,2),this)">⎘ JSON</button>
+      <a class="am-btn am-btn-ghost am-btn-xs" href="?span=${e.order}">🔗 link</a>
+    </div>
     <div class="drawer-stat"><span class="drawer-stat-label">Status</span><span class="drawer-stat-value ${e.ok?'ok':'err'}">${e.ok?'✓ ok':'✗ error'}</span></div>
-    <div class="drawer-stat"><span class="drawer-stat-label">Model</span><span class="drawer-stat-value">${escapeHtml(e.model||'—')}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">Duration</span><span class="drawer-stat-value">${fmtDuration(e.duration_ms)}</span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">% of trace</span><span class="drawer-stat-value">${pctOfTotal}%<span style="display:inline-block;width:${Math.min(pctOfTotal,60)}px;height:3px;background:var(--am-accent);border-radius:2px;margin-left:6px;vertical-align:middle"></span></span></div>
+    <div class="drawer-stat"><span class="drawer-stat-label">Model</span><span class="drawer-stat-value">${escapeHtml(e.model||'—')}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">Tokens in</span><span class="drawer-stat-value">${fmtTokens(e.tokens_in||0)}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">Tokens out</span><span class="drawer-stat-value">${fmtTokens(e.tokens_out||0)}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">USD cost</span><span class="drawer-stat-value">${fmtUsd(e.usd_cost||0)}</span></div>
     <div class="drawer-stat"><span class="drawer-stat-label">Started</span><span class="drawer-stat-value">${new Date(e.started_at).toLocaleString()}</span></div>
-    <div class="drawer-stat"><span class="drawer-stat-label">Ended</span><span class="drawer-stat-value">${new Date(e.ended_at).toLocaleString()}</span></div>
-    <div class="drawer-stat"><span class="drawer-stat-label">Category</span><span class="drawer-stat-value">${e.category}</span></div>`;
+    <div class="drawer-stat"><span class="drawer-stat-label">Category</span><span class="drawer-stat-value">${e.category}</span></div>
+    ${errBlock}${promptBlock}`;
+}
+
+function selectEvent(e) {
+  state.selected = e;
+  history.replaceState({}, '', `?span=${e.order}`);
+  const drawer = document.getElementById('drawer');
+  drawer.classList.add('open');
+  const tabs = `<div class="drawer-tabs"><span class="drawer-tab ${state.drawerTab==='event'?'active':''}" onclick="setDrawerTab('event')">Event</span><span class="drawer-tab ${state.drawerTab==='stats'?'active':''}" onclick="setDrawerTab('stats')">Stats</span></div>`;
+  document.getElementById('drawerInner').innerHTML = `<div class="drawer-close" onclick="closeDrawer()">×</div>${tabs}${renderDrawerContent(e)}`;
   renderWaterfall();
 }
-window.closeDrawer = function() { document.getElementById('drawer').classList.remove('open'); state.selected = null; renderWaterfall(); };
+
+window.setDrawerTab = function(tab) {
+  state.drawerTab = tab;
+  if (state.selected) selectEvent(state.selected);
+};
+
+window.state = state;
+window.closeDrawer = function() {
+  document.getElementById('drawer').classList.remove('open');
+  state.selected = null;
+  history.replaceState({}, '', window.location.pathname);
+  if (state.viewMode === 'waterfall') renderWaterfall();
+};
 
 document.getElementById('groupBy').addEventListener('change', e => { state.groupBy = e.target.value; applyFilters(); });
 document.getElementById('filterText').addEventListener('input', e => { state.filterText = e.target.value; applyFilters(); });
 document.getElementById('showErrorsOnly').addEventListener('change', e => { state.errorsOnly = e.target.checked; applyFilters(); });
+document.getElementById('showGaps').addEventListener('change', e => { state.showGaps = e.target.checked; renderWaterfall(); });
+document.getElementById('showCritical').addEventListener('change', e => { state.showCritical = e.target.checked; updateStatsBar(); renderWaterfall(); });
+document.getElementById('liveTail').addEventListener('change', e => { if(e.target.checked) startLiveTail(); else stopLiveTail(); });
+document.getElementById('btnViewWaterfall').addEventListener('click', () => setViewMode('waterfall'));
+document.getElementById('btnViewFlame').addEventListener('click', () => setViewMode('flame'));
+document.getElementById('btnViewStats').addEventListener('click', () => setViewMode('stats'));
 document.getElementById('btnZoomReset').addEventListener('click', () => { state.zoom = {from:0,to:1}; renderMinimap(); renderWaterfall(); });
 document.getElementById('btnExportJson').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(state.data, null, 2)], {type:'application/json'});
@@ -403,6 +772,23 @@ document.getElementById('waterfall').addEventListener('wheel', (e) => {
   renderMinimap(); renderWaterfall();
 }, { passive: false });
 window.addEventListener('resize', () => { renderMinimap(); renderWaterfall(); });
+
+// Keyboard navigation — j/k to traverse spans, Esc to close drawer
+document.addEventListener('keydown', (ev) => {
+  if (['INPUT','SELECT','TEXTAREA'].includes(ev.target.tagName)) return;
+  const cur = state.selected ? state.filtered.findIndex(e => e.idx === state.selected.idx) : -1;
+  if (ev.key === 'j' || ev.key === 'ArrowDown') {
+    ev.preventDefault();
+    const next = state.filtered[Math.min(cur + 1, state.filtered.length - 1)];
+    if (next && next.idx !== state.selected?.idx) selectEvent(next);
+  } else if (ev.key === 'k' || ev.key === 'ArrowUp') {
+    ev.preventDefault();
+    const prev = state.filtered[Math.max(cur - 1, 0)];
+    if (prev) selectEvent(prev);
+  } else if (ev.key === 'Escape') {
+    closeDrawer();
+  }
+});
 
 loadTimeline();
 </script>
