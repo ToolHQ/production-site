@@ -224,10 +224,7 @@ impl ClickHouseClient {
             .timeout(Duration::from_secs(8))
             .build()
             .expect("clickhouse http client");
-        ClickHouseClient {
-            http,
-            base_url,
-        }
+        ClickHouseClient { http, base_url }
     }
 
     async fn fetch_fail2ban_stats(&self) -> Option<Fail2BanStats> {
@@ -237,8 +234,14 @@ impl ClickHouseClient {
             countIf(status = 'banned') as banned \
             FROM threat_intel_events \
             WHERE service = 'fail2ban' AND timestamp >= now() - INTERVAL 1 DAY FORMAT JSON";
-            
-        let stats_resp = match self.http.get(&self.base_url).query(&[("query", query)]).send().await {
+
+        let stats_resp = match self
+            .http
+            .get(&self.base_url)
+            .query(&[("query", query)])
+            .send()
+            .await
+        {
             Ok(resp) => resp,
             Err(e) => {
                 eprintln!("ClickHouse fetch_fail2ban_stats error: {}", e);
@@ -247,19 +250,31 @@ impl ClickHouseClient {
         };
 
         if !stats_resp.status().is_success() {
-            eprintln!("ClickHouse fetch_fail2ban_stats failed: HTTP {}", stats_resp.status());
+            eprintln!(
+                "ClickHouse fetch_fail2ban_stats failed: HTTP {}",
+                stats_resp.status()
+            );
             return None;
         }
 
-        let stats_data = stats_resp.json::<ChResponse<ChFail2BanStatRow>>().await.ok()?;
+        let stats_data = stats_resp
+            .json::<ChResponse<ChFail2BanStatRow>>()
+            .await
+            .ok()?;
         let stat_row = stats_data.data.first()?;
 
         let ips_query = "SELECT ip \
             FROM threat_intel_events \
             WHERE service = 'fail2ban' AND status = 'banned' AND timestamp >= now() - INTERVAL 1 DAY \
             GROUP BY ip ORDER BY count() DESC LIMIT 10 FORMAT JSON";
-            
-        let ips_resp = self.http.get(&self.base_url).query(&[("query", ips_query)]).send().await.ok()?;
+
+        let ips_resp = self
+            .http
+            .get(&self.base_url)
+            .query(&[("query", ips_query)])
+            .send()
+            .await
+            .ok()?;
         let ips_data = ips_resp.json::<ChResponse<ChBannedIpRow>>().await.ok()?;
 
         Some(Fail2BanStats {
@@ -277,9 +292,7 @@ async fn build_coroot_client() -> Option<CorootClient> {
         .unwrap_or_else(|_| "http://coroot.coroot.svc.cluster.local:8080".to_string());
     let project_id = env::var("COROOT_PROJECT_ID").unwrap_or_else(|_| "p3m78dle".to_string());
     match (env::var("COROOT_EMAIL"), env::var("COROOT_PASSWORD")) {
-        (Ok(email), Ok(password)) => Some(CorootClient::new(
-            base_url, email, password, project_id,
-        )),
+        (Ok(email), Ok(password)) => Some(CorootClient::new(base_url, email, password, project_id)),
         _ => {
             eprintln!("[warn] COROOT_EMAIL/COROOT_PASSWORD not set — coroot alerts disabled");
             None
@@ -1820,7 +1833,7 @@ async fn main() {
     let prometheus_monitor = Arc::new(PrometheusMonitor::new());
 
     let coroot_client = build_coroot_client().await;
-    
+
     let clickhouse_client = env::var("CLICKHOUSE_URL")
         .ok()
         .or_else(|| Some("http://coroot-clickhouse.coroot.svc.cluster.local:8123".to_string()))
@@ -2742,7 +2755,6 @@ impl LiveMonitor {
             }
         }
     }
-
 }
 
 impl PrometheusMonitor {
