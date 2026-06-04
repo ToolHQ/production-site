@@ -2349,6 +2349,110 @@
         margin: 0;
       }
 
+      .dnor-overview-nav {
+        position: sticky;
+        top: 3.2rem;
+        z-index: 40;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        padding: 0.55rem 1.25rem;
+        margin: 0 -1px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 251, 246, 0.92);
+        backdrop-filter: blur(10px);
+      }
+
+      :root.dark .dnor-overview-nav {
+        background: rgba(18, 24, 38, 0.92);
+      }
+
+      .dnor-overview-nav__link {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+      }
+
+      .dnor-overview-nav__link:hover {
+        color: var(--accent);
+        border-color: var(--accent-soft);
+        background: var(--accent-soft);
+      }
+
+      .dnor-platform-fold {
+        margin: 0 0 1.5rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.35);
+        overflow: hidden;
+      }
+
+      :root.dark .dnor-platform-fold {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .dnor-platform-fold__summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.65rem 1rem;
+        padding: 0.85rem 1.1rem;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+      }
+
+      .dnor-platform-fold__summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .dnor-platform-fold__summary::before {
+        content: '▸';
+        color: var(--accent);
+        font-size: 0.85rem;
+        transition: transform 0.15s ease;
+      }
+
+      .dnor-platform-fold[open] .dnor-platform-fold__summary::before {
+        transform: rotate(90deg);
+      }
+
+      .dnor-platform-fold__title {
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .dnor-platform-fold__hint {
+        flex: 1;
+        min-width: 12rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .dnor-platform-fold__tag {
+        margin-left: auto;
+      }
+
+      .dnor-platform-fold__body {
+        padding: 0 0.5rem 0.75rem;
+        border-top: 1px solid var(--line);
+      }
+
+      .tabular-nums,
+      .signal-mini strong,
+      .hotspot-value,
+      .command-card strong,
+      .storage-cell--pct {
+        font-variant-numeric: tabular-nums;
+      }
+
       .dnor-shell__avatar {
         width: 28px;
         height: 28px;
@@ -2369,8 +2473,10 @@
 
       .dnor-page-head__title {
         margin: 0;
+        font-family: "Inter", "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
         font-size: 1.45rem;
         font-weight: 700;
+        letter-spacing: -0.02em;
       }
 
       .dnor-page-head__subtitle {

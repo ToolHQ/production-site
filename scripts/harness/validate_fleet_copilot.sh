@@ -204,6 +204,18 @@ else
   bad "T-340 missing dnor-alert-banner CSS"
 fi
 
+if echo "$css_asset" | grep -q 'dnor-overview-nav'; then
+  ok "T-340-B overview section nav CSS"
+else
+  bad "T-340-B missing dnor-overview-nav CSS"
+fi
+
+if echo "$js_asset" | grep -q 'dnor-platform-fold'; then
+  ok "T-340-B platform accordion in bundle"
+else
+  bad "T-340-B missing platform fold UI"
+fi
+
 if echo "$js_asset" | grep -q 'dnor-view-fleet-copilot'; then
   ok "UI JS body class toggle (dnor-view-fleet-copilot)"
 else

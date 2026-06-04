@@ -37,6 +37,8 @@ import { DnorShellProvider, useDnorShell } from './context/DnorShellContext';
 import { FleetCopilotProvider } from './context/FleetCopilotContext';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ExportMenu } from './components/ExportMenu';
+import { OverviewSectionNav } from './components/OverviewSectionNav';
+import { PlatformFold } from './components/PlatformFold';
 
 import {
   formatEpoch,
@@ -242,7 +244,10 @@ function AppContent() {
 
         {/* ── Signal mini counters ── */}
         {showOverview && (
-        <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+        <>
+          <OverviewSectionNav />
+          <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+        </>
         )}
 
         {/* ── Node Fleet ── */}
@@ -256,12 +261,12 @@ function AppContent() {
           ) : (
           <div class="section-head">
             <div>
-              <div class="section-kicker">Infrastructure</div>
-              <div class="section-title">Node Fleet</div>
-              <p>Node health, pressure conditions and capacity per node. DiskPressure causes cascading failures across services.</p>
+              <div class="section-kicker">Infraestrutura</div>
+              <div class="section-title">Nós da fleet</div>
+              <p>Saúde, pressão de disco e capacidade por nó — DiskPressure derruba serviços em cascata.</p>
             </div>
             <div class="section-tags">
-              <span class="panel-tag">{live?.available ? `Live · ${(live.nodes ?? []).length} nós` : 'Waiting for live data'}</span>
+              <span class="panel-tag">{live?.available ? `Live · ${(live.nodes ?? []).length} nós` : 'Aguardando dados live'}</span>
             </div>
           </div>
           )}
@@ -271,12 +276,12 @@ function AppContent() {
 
         {/* ── Cluster Pressure ── */}
         {(showOverview || view === 'intel') && (
-        <section class="metric-band">
+        <section class="metric-band" id="dnor-metrics">
           <div class="section-head">
             <div>
-              <div class="section-kicker">Core load</div>
-              <div class="section-title">Cluster Pressure</div>
-              <p>Prometheus-backed CPU, memory and restart pressure over the current dashboard window.</p>
+              <div class="section-kicker">Carga do cluster</div>
+              <div class="section-title">Pressão Prometheus</div>
+              <p>CPU, memória e restarts agregados na janela do dashboard.</p>
             </div>
             <div class="section-tags">
               <span class="panel-tag" id="metrics-section-tag">{metricsSectionTag}</span>
@@ -287,14 +292,14 @@ function AppContent() {
         )}
 
         {showOverview && (
-        <>
-        <StoragePanel data={longhornData} error={longhornError} />
-        <CronJobPanel data={cronJobsData} error={cronJobsError} />
-        <CertExpiryPanel data={certsData} error={certsError} />
-        <IngressPanel data={ingressesData} error={ingressesError} />
-        <WorkloadPanel data={workloadsData} error={workloadsError} />
-        <NamespacePanel data={namespacesData} error={namespacesError} />
-        </>
+        <PlatformFold panelCount={6}>
+          <StoragePanel data={longhornData} error={longhornError} />
+          <CronJobPanel data={cronJobsData} error={cronJobsError} />
+          <CertExpiryPanel data={certsData} error={certsError} />
+          <IngressPanel data={ingressesData} error={ingressesError} />
+          <WorkloadPanel data={workloadsData} error={workloadsError} />
+          <NamespacePanel data={namespacesData} error={namespacesError} />
+        </PlatformFold>
         )}
 
         {view === 'incidents' && (
@@ -306,8 +311,8 @@ function AppContent() {
           </div>
         )}
 
-        {(showOverview || view === 'incidents') && (
-        <section class="priority-grid">
+        {(showOverview || view === 'incidents' || view === 'intel') && (
+        <section class="priority-grid" id="dnor-incidents">
           <section class="panel priority-panel">
             <div class="section-head">
               <div>
@@ -339,13 +344,14 @@ function AppContent() {
         )}
 
         {showOverview && (
-        <div class="content-grid">
+        <div class="content-grid" id="dnor-services">
           <section class="main-stack">
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Critical Services</div>
-                  <p>Live kube health, readiness, restart count and serving routes for the tracked surface.</p>
+                  <div class="section-kicker">Serviços críticos</div>
+                  <div class="section-title">Saúde live</div>
+                  <p>Readiness, restarts e rotas dos workloads monitorados.</p>
                 </div>
                 <div class="section-tags">
                   <span class="panel-tag" id="services-section-tag">{servicesSectionTag}</span>
@@ -357,8 +363,9 @@ function AppContent() {
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Service Telemetry</div>
-                  <p>Prometheus time-series stay close to service health so the board reads like an action surface.</p>
+                  <div class="section-kicker">Telemetria</div>
+                  <div class="section-title">Séries Prometheus</div>
+                  <p>Métricas alinhadas à saúde dos serviços — leitura operacional.</p>
                 </div>
                 <div class="section-tags">
                   <span class="panel-tag" id="telemetry-section-tag">{telemetrySectionTag}</span>
@@ -443,7 +450,7 @@ function AppContent() {
         )}
 
         {(showOverview || view === 'reports') && (
-        <section class="catalog-zone">
+        <section class="catalog-zone" id="dnor-catalog">
           {view === 'reports' && (
             <div class="dnor-page-head">
               <h1 class="dnor-page-head__title">Relatórios</h1>
