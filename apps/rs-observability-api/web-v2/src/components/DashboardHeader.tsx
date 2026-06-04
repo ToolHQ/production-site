@@ -20,7 +20,7 @@ interface HeaderProps {
 }
 
 function buildSnapshotPill(snapshot: SnapshotSummary | null): string {
-  if (!snapshot?.generated_at) return 'Snapshot unavailable';
+  if (!snapshot?.generated_at) return 'Snapshot indisponível';
   const compact = isCompactViewport();
   const condensed = isCondensedViewport();
   if (compact) return `Snapshot · ${formatCompactRelativeTime(snapshot.generated_at)}`;
@@ -29,19 +29,19 @@ function buildSnapshotPill(snapshot: SnapshotSummary | null): string {
 }
 
 function buildLivePill(live: LiveOverview | null): string {
-  if (!live) return 'Connecting to live cluster API...';
+  if (!live) return 'Conectando API live…';
   const condensed = isCondensedViewport();
   return live.available
     ? `${condensed ? 'Live' : 'Live kube'} ${formatShortClock(live.refreshed_at_epoch)}${live.stale ? ' · stale' : ''}`
-    : 'Live unavailable';
+    : 'Live indisponível';
 }
 
 function buildMetricsPill(metrics: MetricsData | null): string {
-  if (!metrics) return 'Connecting to Prometheus...';
+  if (!metrics) return 'Conectando Prometheus…';
   const condensed = isCondensedViewport();
   return metrics.available
     ? `${condensed ? 'Prom' : 'Prometheus'} ${formatShortClock(metrics.refreshed_at_epoch)}${metrics.stale ? ' · stale' : ''}`
-    : 'Prometheus unavailable';
+    : 'Prometheus indisponível';
 }
 
 type CorootPillTone = 'healthy' | 'warning' | 'critical' | 'offline';

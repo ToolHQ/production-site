@@ -236,21 +236,14 @@ function AppContent() {
       <section class="shell">
         {/* ── Masthead (overview only) ── */}
         {showOverview && (
-        <header class="masthead masthead--compact">
-          <DashboardHeader snapshot={summary} live={live} metrics={metrics} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
-          <SignalCard live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
-        </header>
-        )}
-
-        {/* ── Signal mini counters ── */}
-        {showOverview && (
-        <>
-          <OverviewSectionNav />
-          <div class="dnor-signal-band">
-            <p class="dnor-signal-band__kicker">Indicadores rápidos</p>
-            <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+        <header class="masthead masthead--compact masthead--overview">
+          <div class="masthead__hero">
+            <DashboardHeader snapshot={summary} live={live} metrics={metrics} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+            <SignalCard live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
           </div>
-        </>
+          <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+          <OverviewSectionNav />
+        </header>
         )}
 
         {/* ── Node Fleet ── */}
@@ -393,8 +386,8 @@ function AppContent() {
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Runtime Summary</div>
-                  <p>Operational rollup only. This panel should not depend on snapshot interpretation.</p>
+                  <div class="section-title">Resumo operacional</div>
+                  <p>Rollup live do cluster — independente do snapshot de deploy.</p>
                 </div>
                 <div class="section-tags">
                   <span class="panel-tag" id="summary-section-tag">{summarySectionTag}</span>
@@ -406,8 +399,8 @@ function AppContent() {
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Catalog Snapshot</div>
-                  <p>Snapshot-derived counts stay visible, but secondary to live operations.</p>
+                  <div class="section-title">Snapshot do catálogo</div>
+                  <p>Contagens do inventário no bundle — contexto secundário à triagem live.</p>
                 </div>
                 <div class="section-tags">
                   <span class="panel-tag" id="catalog-summary-tag">{snapshotText}</span>
@@ -419,8 +412,8 @@ function AppContent() {
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Language Mix</div>
-                  <p>Repo composition is still useful context when deciding where to intervene.</p>
+                  <div class="section-title">Mix de linguagens</div>
+                  <p>Composição do repositório no snapshot — útil para priorizar intervenções.</p>
                 </div>
               </div>
               <LanguageBars summary={summary} />
@@ -489,8 +482,8 @@ function AppContent() {
                 <section>
                   <div class="section-head">
                     <div>
-                      <div class="section-title">Artifact Library</div>
-                      <p>Static report bundle served from the image snapshot.</p>
+                      <div class="section-title">Biblioteca de artefatos</div>
+                      <p>Relatórios estáticos servidos do bundle da imagem em execução.</p>
                     </div>
                   </div>
                   <ArtifactList reports={reports} />
@@ -509,18 +502,18 @@ function AppContent() {
           </div>
           <div class="dnor-settings__grid">
             <div class="dnor-settings__card">
-              <h3>Theme</h3>
-              <p>Cycle light, dark or system auto.</p>
+              <h3>Aparência</h3>
+              <p>Claro, escuro ou automático (preferência do sistema).</p>
               <ThemeToggle />
             </div>
             <div class="dnor-settings__card">
-              <h3>Export</h3>
-              <p>Download live overview data.</p>
+              <h3>Exportação</h3>
+              <p>Baixar overview live e métricas em JSON/CSV.</p>
               <ExportMenu live={live} metrics={metrics} />
             </div>
             <div class="dnor-settings__card">
-              <h3>Node thresholds</h3>
-              <p>Configure CPU, memory and disk alert thresholds in the Nodes view.</p>
+              <h3>Limites dos nós</h3>
+              <p>CPU, memória e disco — ajuste na view Nós (ícone de engrenagem).</p>
             </div>
           </div>
         </section>

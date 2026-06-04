@@ -274,6 +274,77 @@
         max-width: 20ch;
       }
 
+      .masthead--overview {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .masthead--overview .masthead__hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+        gap: 14px;
+        padding: 14px 22px 10px;
+      }
+
+      .masthead--overview .command-card {
+        padding: 14px 16px;
+        gap: 10px;
+        border-radius: 18px;
+      }
+
+      .masthead--overview .command-score {
+        font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+      }
+
+      .masthead--overview .operator-grid--kpis {
+        padding: 8px 22px 10px;
+        border-bottom: 1px solid var(--line);
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .masthead--overview .signal-mini {
+        padding: 10px 12px;
+        border-radius: 14px;
+      }
+
+      .masthead--overview .signal-mini strong {
+        font-size: 1.1rem;
+      }
+
+      .masthead--overview .dnor-overview-nav {
+        padding: 6px 22px 10px;
+        border-bottom: none;
+      }
+
+      @media (max-width: 1400px) {
+        .masthead--overview .subhead--compact {
+          display: none;
+        }
+
+        .masthead--compact h1 {
+          font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+        }
+      }
+
+      @media (max-width: 1160px) {
+        .masthead--overview .masthead__hero {
+          grid-template-columns: 1fr;
+        }
+
+        .masthead--overview .operator-grid--kpis {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .masthead--overview .operator-grid--kpis {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
       .subhead--compact {
         font-size: 0.95rem;
         line-height: 1.45;
@@ -2326,6 +2397,36 @@
       .dnor-shell__nav-item--active {
         color: rgb(255, 170, 60);
         border-bottom-color: rgb(255, 153, 0);
+      }
+
+      .dnor-shell__nav-item:focus-visible,
+      .dnor-shell__search:focus-visible,
+      .dnor-shell__period:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      @media (max-width: 1280px) {
+        .dnor-shell__search-placeholder,
+        .dnor-shell__kbd {
+          display: none;
+        }
+
+        .dnor-shell__search {
+          min-width: 2.25rem;
+          padding: 0.4rem 0.5rem;
+        }
+      }
+
+      @media (max-width: 1080px) {
+        .dnor-shell__inner {
+          gap: 0.5rem;
+        }
+
+        .dnor-shell__nav-item {
+          font-size: 0.76rem;
+          padding: 0.4rem 0.45rem;
+        }
       }
 
       .dnor-shell__actions {

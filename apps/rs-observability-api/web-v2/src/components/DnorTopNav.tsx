@@ -59,7 +59,7 @@ export function DnorTopNav({ liveAvailable = false, liveConnecting = false }: Dn
             aria-label="Search nodes, IPs, ASNs"
           >
             <span class="dnor-shell__search-icon">⌕</span>
-            <span class="dnor-shell__search-placeholder">Search nodes, IPs, ASNs…</span>
+            <span class="dnor-shell__search-placeholder">Buscar nós, IPs, ASNs…</span>
             <kbd class="dnor-shell__kbd">⌘K</kbd>
           </button>
           )}
@@ -83,8 +83,8 @@ export function DnorTopNav({ liveAvailable = false, liveConnecting = false }: Dn
               onChange={(e) => setPeriod(e.currentTarget.value as '24h' | '7d')}
               aria-label="Time range"
             >
-              <option value="24h">Last 24h</option>
-              <option value="7d">Last 7d</option>
+              <option value="24h">Últimas 24h</option>
+              <option value="7d">Últimos 7d</option>
             </select>
           )}
 
