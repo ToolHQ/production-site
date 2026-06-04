@@ -245,7 +245,7 @@ async function loadChart() {
     renderChart(data);
     // also feed sparkline
     if (data.length) {
-      const vals = data.map(d => d.count);
+      const vals = data.map(d => d.calls);
       document.getElementById('kpiEventsSpark').innerHTML = amSpark(vals, 90, 28, 'var(--am-chart-1)');
     }
   } catch(e) { renderChart([]); }
@@ -262,9 +262,9 @@ function renderChart(data) {
   const PAD = {top:16, right:16, bottom:32, left:48};
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
-  const max = Math.max(...data.map(d => d.count), 1);
+  const max = Math.max(...data.map(d => d.calls), 1);
   const xStep = innerW / Math.max(data.length - 1, 1);
-  const pts = data.map((d,i) => `${PAD.left + i*xStep},${PAD.top + innerH - (d.count/max)*innerH}`).join(' ');
+  const pts = data.map((d,i) => `${PAD.left + i*xStep},${PAD.top + innerH - (d.calls/max)*innerH}`).join(' ');
   const area = `M ${PAD.left},${PAD.top + innerH} L ${pts.replace(/,/g, ' ').replace(/  /g,' ')} L ${PAD.left + (data.length-1)*xStep},${PAD.top + innerH} Z`;
   // grid lines
   let grid = '';
@@ -283,8 +283,8 @@ function renderChart(data) {
   // points + invisible hover
   const points = data.map((d,i) => {
     const x = PAD.left + i*xStep;
-    const y = PAD.top + innerH - (d.count/max)*innerH;
-    return `<g><title>${fmt(d.bucket)}: ${d.count} calls</title><circle cx="${x}" cy="${y}" r="3" fill="var(--am-chart-1)" opacity="0"/><rect x="${x-xStep/2}" y="${PAD.top}" width="${xStep}" height="${innerH}" fill="transparent" onmouseover="this.previousElementSibling.setAttribute('opacity','1')" onmouseout="this.previousElementSibling.setAttribute('opacity','0')"/></g>`;
+    const y = PAD.top + innerH - (d.calls/max)*innerH;
+    return `<g><title>${fmt(d.bucket)}: ${d.calls} calls</title><circle cx="${x}" cy="${y}" r="3" fill="var(--am-chart-1)" opacity="0"/><rect x="${x-xStep/2}" y="${PAD.top}" width="${xStep}" height="${innerH}" fill="transparent" onmouseover="this.previousElementSibling.setAttribute('opacity','1')" onmouseout="this.previousElementSibling.setAttribute('opacity','0')"/></g>`;
   }).join('');
 
   c.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
@@ -325,9 +325,9 @@ async function loadTops() {
       fetchJSON('/reports/top-mcp-servers'+q),
       fetchJSON('/reports/top-tasks'+q),
     ]);
-    renderBarTable('topToolsBody', tools, 'tool_name', 'count');
-    renderBarTable('topMcpBody', mcp, 'mcp_server', 'count');
-    renderBarTable('topTasksBody', tasks, 'task_id', 'count');
+    renderBarTable('topToolsBody', tools, 'tool_name', 'calls');
+    renderBarTable('topMcpBody', mcp, 'mcp_server', 'calls');
+    renderBarTable('topTasksBody', tasks, 'task_id', 'tool_calls');
   } catch(e) { console.warn('tops', e); }
 }
 

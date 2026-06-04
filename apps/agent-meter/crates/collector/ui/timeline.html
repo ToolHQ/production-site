@@ -175,7 +175,7 @@ const state = { data:null, events:[], filtered:[], zoom:{from:0,to:1}, selected:
 
 async function loadTimeline() {
   try {
-    const r = await fetch(`/conversations/${encodeURIComponent(conversationId)}/timeline`);
+    const r = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}/timeline`);
     if (!r.ok) throw new Error('HTTP '+r.status);
     const data = await r.json();
     state.data = data;

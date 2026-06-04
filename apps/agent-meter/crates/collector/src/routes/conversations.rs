@@ -59,5 +59,5 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/conversations", get(page))
         .route("/api/conversations", get(list))
-        .route("/conversations/:conversation_id/timeline", get(get_timeline))
+        .route("/api/conversations/:conversation_id/timeline", get(get_timeline))
 }

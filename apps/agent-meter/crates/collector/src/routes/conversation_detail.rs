@@ -7,5 +7,5 @@ async fn handler(Path(_conversation_id): Path<String>) -> Html<&'static str> {
 }
 
 pub fn router() -> Router<crate::app::AppState> {
-    Router::new().route("/conversations/:conversation_id", get(handler))
+    Router::new().route("/conversations/:conversation_id/timeline", get(handler))
 }
