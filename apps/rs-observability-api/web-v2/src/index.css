@@ -1819,6 +1819,37 @@
       :root.dark .storage-use--warn     { color: #fbbf24; }
       :root.dark .storage-use--critical { color: #f87171; }
 
+      .storage-row--pressure {
+        background: color-mix(in srgb, #dc2626 6%, transparent);
+      }
+
+      .storage-row--pressure .storage-use-bar {
+        background: #dc2626 !important;
+      }
+
+      :root.dark .storage-row--pressure {
+        background: color-mix(in srgb, #f87171 8%, transparent);
+      }
+
+      .storage-pressure-banner {
+        margin: 0 0 0.75rem;
+        padding: 0.55rem 0.85rem;
+        border-radius: 8px;
+        border: 1px solid color-mix(in srgb, #dc2626 35%, var(--line));
+        background: color-mix(in srgb, #dc2626 8%, var(--surface));
+        font-size: 0.82rem;
+        color: var(--text-main, var(--ink));
+      }
+
+      .storage-pressure-banner strong {
+        font-variant-numeric: tabular-nums;
+        color: #dc2626;
+      }
+
+      :root.dark .storage-pressure-banner strong {
+        color: #f87171;
+      }
+
       .storage-cell--replicas,
       .storage-cell--node {
         color: var(--muted);
@@ -2443,6 +2474,37 @@
       .dnor-platform-fold__body {
         padding: 0 0.5rem 0.75rem;
         border-top: 1px solid var(--line);
+      }
+
+      .dnor-signal-band {
+        margin-bottom: 0.5rem;
+      }
+
+      .dnor-signal-band__kicker {
+        margin: 0 0 0.35rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .dnor-catalog-cta {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 0.5rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--accent);
+        text-decoration: none;
+        border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+
+      .dnor-catalog-cta:hover {
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
       }
 
       .tabular-nums,

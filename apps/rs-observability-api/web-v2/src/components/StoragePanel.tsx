@@ -26,16 +26,23 @@ function stateLabel(s: string): string {
   return s;
 }
 
+function volumeUsePct(vol: LonghornVolume): number {
+  if (vol.size_bytes <= 0) return 0;
+  return Math.round((vol.actual_size_bytes / vol.size_bytes) * 100);
+}
+
 function VolumeRow({ vol }: { vol: LonghornVolume }) {
-  const usePct =
-    vol.size_bytes > 0 ? Math.round((vol.actual_size_bytes / vol.size_bytes) * 100) : 0;
+  const usePct = volumeUsePct(vol);
   const usePctCapped = Math.min(usePct, 100);
+  const isPressure = usePct >= 95 || vol.robustness === 'faulted' || vol.robustness === 'degraded';
   const useClass =
-    usePct > 90 ? 'storage-use storage-use--critical'
-    : usePct > 75 ? 'storage-use storage-use--warn'
-    : 'storage-use';
+    usePct >= 95 || vol.robustness === 'faulted'
+      ? 'storage-use storage-use--critical'
+      : usePct > 75 || vol.robustness === 'degraded'
+        ? 'storage-use storage-use--warn'
+        : 'storage-use';
   return (
-    <tr class="storage-row">
+    <tr class={`storage-row${isPressure ? ' storage-row--pressure' : ''}`}>
       <td class="storage-cell storage-cell--name" title={vol.name}>
         <span class="storage-pvc">{vol.pvc_name}</span>
         <span class="storage-ns">{vol.namespace}</span>
@@ -158,18 +165,25 @@ export function StoragePanel({ data, error }: StoragePanelProps) {
     const order = { faulted: 0, degraded: 1, healthy: 2 };
     const ao = order[a.robustness as keyof typeof order] ?? 3;
     const bo = order[b.robustness as keyof typeof order] ?? 3;
-    return ao !== bo ? ao - bo : a.pvc_name.localeCompare(b.pvc_name);
+    if (ao !== bo) return ao - bo;
+    const pctDiff = volumeUsePct(b) - volumeUsePct(a);
+    if (pctDiff !== 0) return pctDiff;
+    return a.pvc_name.localeCompare(b.pvc_name);
   });
+
+  const pressureVolumes = sorted.filter(
+    (v) => volumeUsePct(v) >= 95 || v.robustness === 'faulted' || v.robustness === 'degraded',
+  ).length;
 
   return (
     <section class="storage-panel">
       <div class="storage-header">
         <h2 class="storage-panel-title">💾 Storage — Longhorn</h2>
         <div class={`storage-summary ${summaryTone}`}>
-          <span class="storage-summary-item storage-summary--ok">{data.healthy} healthy</span>
+          <span class="storage-summary-item storage-summary--ok">{data.healthy} saudáveis</span>
           {data.degraded > 0 && (
             <span class="storage-summary-item storage-summary--warn">
-              {data.degraded} degraded
+              {data.degraded} degradados
             </span>
           )}
           {data.faulted > 0 && (
@@ -178,6 +192,11 @@ export function StoragePanel({ data, error }: StoragePanelProps) {
           <span class="storage-summary-total">{data.total} volumes</span>
         </div>
       </div>
+      {pressureVolumes > 0 && (
+        <div class="storage-pressure-banner" role="status">
+          <strong>{pressureVolumes}</strong> volume{pressureVolumes === 1 ? '' : 's'} com uso ≥95% ou robustness degradada — priorize expansão ou limpeza.
+        </div>
+      )}
       <div class="storage-table-wrap">
         <table class="storage-table">
           <thead>
