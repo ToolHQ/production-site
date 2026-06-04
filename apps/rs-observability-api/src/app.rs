@@ -177,10 +177,19 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         }
     };
 
-    let (mut payload, node_metrics, honeypot) = tokio::join!(
+    let clickhouse_future = async {
+        if let Some(ch) = &state.clickhouse_client {
+            ch.fetch_fail2ban_stats().await
+        } else {
+            None
+        }
+    };
+
+    let (mut payload, node_metrics, honeypot, fail2ban_res) = tokio::join!(
         live_future,
         state.prometheus_monitor.fetch_node_metrics(),
         state.prometheus_monitor.fetch_honeypot_overview(),
+        tokio::time::timeout(Duration::from_secs(8), clickhouse_future),
     );
 
     payload.metrics = state
@@ -199,12 +208,7 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     let mut secondary_clusters: std::collections::HashSet<String> =
         std::collections::HashSet::new();
     if let Some(secondary) = &state.secondary_live_monitor {
-        let (secondary_overview_res, fail2ban_res) = tokio::join!(
-            tokio::time::timeout(Duration::from_secs(8), secondary.cached_or_refresh()),
-            tokio::time::timeout(Duration::from_secs(8), secondary.fetch_fail2ban_stats())
-        );
-
-        let secondary_overview = match secondary_overview_res {
+        let secondary_overview = match tokio::time::timeout(Duration::from_secs(8), secondary.cached_or_refresh()).await {
             Ok(overview) => overview,
             Err(_) => {
                 eprintln!("secondary K8s refresh slow; using stale cache if available");
@@ -223,15 +227,13 @@ async fn live_overview(State(state): State<AppState>) -> Response {
                 payload.nodes.push(node);
             }
             payload.incidents.extend(secondary_overview.incidents);
-        } else if let Some(error) = secondary_overview.error {
-            eprintln!("secondary K8s monitor unavailable: {}", error);
         }
-
-        payload.fail2ban = fail2ban_res.unwrap_or_else(|_| {
-            eprintln!("secondary K8s fail2ban refresh timed out");
-            None
-        });
     }
+
+    payload.fail2ban = fail2ban_res.unwrap_or_else(|_| {
+        eprintln!("ClickHouse fail2ban refresh timed out");
+        None
+    });
 
     // Inject external physical nodes (Hetzner / SSD Nodes) — skip clusters already
     // covered by the secondary K8s monitor to avoid duplicate node entries.
