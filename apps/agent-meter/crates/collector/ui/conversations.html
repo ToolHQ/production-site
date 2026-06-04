@@ -8,24 +8,29 @@
 <link rel="stylesheet" href="/_static/tokens.css">
 <link rel="stylesheet" href="/_static/app.css">
 <style>
-  .conv-row { display:grid; grid-template-columns:1fr 90px 72px 72px 80px 80px 90px; gap:0; align-items:center; padding:0 18px; height:52px; border-bottom:1px solid var(--am-border); cursor:pointer; text-decoration:none; color:inherit; transition:background .12s; }
+  /* col layout: title | duration | events | errors | cost | agent | started */
+  .conv-cols { grid-template-columns: 1fr 80px 60px 70px 90px 130px 100px; }
+  .conv-row { display:grid; gap:0; align-items:center; padding:0 18px; height:52px; border-bottom:1px solid var(--am-border); cursor:pointer; text-decoration:none; color:inherit; transition:background .12s; }
+  .conv-row { grid-template-columns: 1fr 80px 60px 70px 90px 130px 100px; }
   .conv-row:hover { background:var(--am-surface-hover); }
   .conv-row:last-child { border-bottom:none; }
-  .conv-head { display:grid; grid-template-columns:1fr 90px 72px 72px 80px 80px 90px; gap:0; padding:0 18px; height:36px; align-items:center; border-bottom:1px solid var(--am-border); background:var(--am-surface-2); }
+  .conv-head { display:grid; grid-template-columns: 1fr 80px 60px 70px 90px 130px 100px; gap:0; padding:0 18px; height:36px; align-items:center; border-bottom:1px solid var(--am-border); background:var(--am-surface-2); }
   .conv-head span { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--am-text-muted); }
-  .col-title { min-width:0; }
-  .conv-title { font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .col-title { min-width:0; overflow:hidden; }
+  .conv-title { font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .conv-id { font-family:var(--am-font-mono); font-size:11px; color:var(--am-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .col-num { font-family:var(--am-font-mono); font-size:13px; text-align:right; }
+  .col-num { font-family:var(--am-font-mono); font-size:13px; text-align:right; white-space:nowrap; }
+  .col-err { display:flex; justify-content:center; align-items:center; }
+  .col-agent { min-width:0; overflow:hidden; }
   .col-date { font-size:12px; color:var(--am-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .chip { display:inline-flex; align-items:center; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:600; background:var(--am-surface-2); color:var(--am-text-muted); }
+  .chip { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; background:var(--am-surface-2); color:var(--am-text-muted); max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   .chip.ok { background:color-mix(in srgb,var(--am-success) 12%,transparent); color:var(--am-success); }
   .chip.err { background:color-mix(in srgb,var(--am-danger) 12%,transparent); color:var(--am-danger); }
   .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
   .pager { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:16px; font-size:13px; color:var(--am-text-muted); }
-  @media (max-width:900px) {
-    .conv-row, .conv-head { grid-template-columns:1fr 72px 80px 90px; }
-    /* hide: duration(2), errors(4), agent(6) — keep: conversation(1), events(3), cost(5), date(7) */
+  @media (max-width:960px) {
+    /* hide: duration(2), errors(4), agent(6) — keep: title(1), events(3), cost(5), date(7) */
+    .conv-row, .conv-head { grid-template-columns: 1fr 60px 90px 100px; }
     .conv-row > *:nth-child(2), .conv-row > *:nth-child(4), .conv-row > *:nth-child(6),
     .conv-head > *:nth-child(2), .conv-head > *:nth-child(4), .conv-head > *:nth-child(6) { display:none; }
   }
@@ -56,7 +61,7 @@
         <span>Conversation</span>
         <span style="text-align:right">Duration</span>
         <span style="text-align:right">Events</span>
-        <span style="text-align:right">Errors</span>
+        <span style="text-align:center">Errors</span>
         <span style="text-align:right">Cost</span>
         <span>Agent</span>
         <span>Started</span>
@@ -133,20 +138,21 @@ function render() {
 
   document.getElementById('convList').innerHTML = rows.map(c => {
     const id = c.conversation_id;
-    const shortId = id.length > 12 ? id.slice(0,8)+'…'+id.slice(-4) : id;
-    const title = c.title ? c.title.replace(/</g,'&lt;').slice(0,80) : '';
+    const shortId = id.length > 13 ? id.slice(0,8)+'…'+id.slice(-4) : id;
+    const title = c.title ? c.title.replace(/</g,'&lt;') : '';
     const hasErr = c.error_count > 0;
-    const agent = c.agent ? `<span class="chip">${c.agent.slice(0,12)}</span>` : '—';
-    return `<a class="conv-row" href="/conversations/${encodeURIComponent(id)}/timeline">
+    const agent = c.agent || '';
+    const agentChip = agent ? `<span class="chip" title="${agent.replace(/"/g,'&quot;')}">${agent.replace(/</g,'&lt;')}</span>` : '<span style="color:var(--am-text-muted);font-size:12px">—</span>';
+    return `<a class="conv-row" href="/conversations/${encodeURIComponent(id)}/timeline" title="${title || id}">
       <div class="col-title">
         <div class="conv-title">${title || shortId}</div>
         <div class="conv-id">${shortId}</div>
       </div>
       <div class="col-num">${fmtDur(c.total_duration_ms)}</div>
       <div class="col-num">${c.event_count}</div>
-      <div class="col-num"><span class="chip ${hasErr?'err':'ok'}">${c.error_count}</span></div>
+      <div class="col-err"><span class="chip ${hasErr?'err':'ok'}">${c.error_count}</span></div>
       <div class="col-num">${fmtUsd(c.total_usd_cost)}</div>
-      <div>${agent}</div>
+      <div class="col-agent">${agentChip}</div>
       <div class="col-date">${fmtDate(c.started_at)}</div>
     </a>`;
   }).join('');
