@@ -230,10 +230,10 @@ impl ClickHouseClient {
     async fn fetch_fail2ban_stats(&self) -> Option<Fail2BanStats> {
         let query = "SELECT \
             count() as total, \
-            countIf(status = 'failed') as failed, \
-            countIf(status = 'banned') as banned \
+            countIf(status IN ('failed', 'found')) as failed, \
+            countIf(status IN ('banned', 'ban')) as banned \
             FROM threat_intel_events \
-            WHERE service = 'fail2ban' AND timestamp >= now() - INTERVAL 1 DAY FORMAT JSON";
+            WHERE service IN ('fail2ban', 'sshd') AND timestamp >= now() - INTERVAL 1 DAY FORMAT JSON";
 
         let stats_resp = match self
             .http
@@ -265,7 +265,7 @@ impl ClickHouseClient {
 
         let ips_query = "SELECT ip \
             FROM threat_intel_events \
-            WHERE service = 'fail2ban' AND status = 'banned' AND timestamp >= now() - INTERVAL 1 DAY \
+            WHERE service IN ('fail2ban', 'sshd') AND status IN ('banned', 'ban') AND timestamp >= now() - INTERVAL 1 DAY \
             GROUP BY ip ORDER BY count() DESC LIMIT 10 FORMAT JSON";
 
         let ips_resp = self
