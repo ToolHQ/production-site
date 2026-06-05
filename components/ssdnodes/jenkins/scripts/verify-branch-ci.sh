@@ -28,6 +28,9 @@ fi
 echo "[verify-branch-ci] ${#paths[@]} path(s) vs ${BASE}:"
 printf '  %s\n' "${paths[@]}"
 
+# Jenkins agent não tem kubectl/SSH ao cluster — BATS fica para harness local/TUI
+export HARNESS_SKIP_BATS=1
+
 extra=()
 [[ "${VERIFY_ALLOW_UNMAPPED:-0}" == "1" ]] && extra+=(--allow-unmapped)
 

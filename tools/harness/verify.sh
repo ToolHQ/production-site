@@ -461,7 +461,12 @@ verify_changed() {
 	fi
 
 	if [[ $bats_needed -eq 1 ]]; then
-		timed_gate "bats" run_cluster_bats_gate
+		if [[ "${HARNESS_SKIP_BATS:-0}" == "1" ]]; then
+			HARNESS_RESULTS+=("bats|SKIP|-")
+			info "BATS gate skipped (HARNESS_SKIP_BATS=1 — CI sem acesso ao cluster)"
+		else
+			timed_gate "bats" run_cluster_bats_gate
+		fi
 	else
 		HARNESS_RESULTS+=("bats|SKIP|-")
 		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
