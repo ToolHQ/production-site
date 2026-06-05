@@ -236,7 +236,6 @@ impl ClickHouseClient {
             countIf(status = 'failed') as failed, \
             countIf(status = 'banned') as banned \
             FROM threat_intel_events \
-<<<<<<< HEAD
             WHERE service IN ('fail2ban', 'sshd') AND timestamp >= now() - INTERVAL 1 DAY FORMAT JSON";
 
         let stats_resp = match self
