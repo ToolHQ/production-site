@@ -86,7 +86,7 @@ bash components/ssdnodes/jenkins/agent-setup.sh
                 ? "${citools} next --json --after '${after}' --pipeline '${pipelinePath}'"
                 : "${citools} next --json --pipeline '${pipelinePath}'"
               def raw = sh(returnStdout: true, script: nextCmd).trim()
-              def step = readJSON text: raw
+              def step = new groovy.json.JsonSlurper().parseText(raw)
 
               if (step.done) {
                 echo 'citools next: pipeline concluído'

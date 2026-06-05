@@ -45,12 +45,12 @@ stages:
 
 ### Jenkins (genérico — readJSON + stage dinâmico)
 
-Groovy **não** conhece os stages. Loop:
+Groovy **não** conhece os stages. Loop (JsonSlurper — sem plugin readJSON):
 
 ```groovy
 def after = ''
 while (true) {
-  def step = readJSON text: sh(returnStdout: true, script: "citools next --json ${after ? "--after ${after}" : ''}").trim()
+  def step = new groovy.json.JsonSlurper().parseText(sh(returnStdout: true, script: 'citools next --json ...').trim())
   if (step.done) break
   stage(step.stageName) {
     sh "citools run '${step.id}'"
