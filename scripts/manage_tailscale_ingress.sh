@@ -2,7 +2,7 @@
 # manage_tailscale_ingress.sh — Create, update, list, and validate Tailscale-restricted Ingress resources
 #
 # Usage:
-#   ./scripts/manage_tailscale_ingress.sh create <subdomain> <service-name> <service-port> [--namespace NAMESPACE]
+#   ./scripts/manage_tailscale_ingress.sh create <subdomain> <service-name> <service-port> [--namespace NAMESPACE] [--tls]
 #   ./scripts/manage_tailscale_ingress.sh delete <subdomain>
 #   ./scripts/manage_tailscale_ingress.sh list
 #   ./scripts/manage_tailscale_ingress.sh validate <subdomain>
@@ -10,6 +10,7 @@
 #
 # Examples:
 #   ./scripts/manage_tailscale_ingress.sh create grafana grafana-service 3000 --namespace monitoring
+#   ./scripts/manage_tailscale_ingress.sh create clickhouse coroot-clickhouse 8123 --namespace coroot --tls
 #   ./scripts/manage_tailscale_ingress.sh delete grafana
 #   ./scripts/manage_tailscale_ingress.sh list
 #   ./scripts/manage_tailscale_ingress.sh validate clickhouse
@@ -27,6 +28,7 @@ TAILSCALE_CIDR="100.64.0.0/10"
 INGRESS_CLASS="nginx"
 COMPONENTS_DIR="$ROOT_DIR/components/observability"
 REGISTRY_FILE="$ROOT_DIR/config/external-fleet/registry.yaml"
+CLUSTER_ISSUER="letsencrypt-dns01"
 
 # Colors
 GREEN='\033[0;32m'
@@ -46,14 +48,15 @@ usage() {
 Manage Tailscale-restricted Ingress resources.
 
 Commands:
-  create <subdomain> <svc-name> <svc-port> [--namespace NS]   Create ingress + manifest
-  delete <subdomain>                                          Delete ingress + manifest
-  list                                                        List all Tailscale-restricted ingresses
-  validate <subdomain>                                        Validate ingress connectivity via Tailscale
-  dns <subdomain> <target-ip> [--dry-run]                     Show GoDaddy DNS command
+  create <subdomain> <svc-name> <svc-port> [--namespace NS] [--tls]  Create ingress + manifest
+  delete <subdomain>                                                 Delete ingress + manifest
+  list                                                               List all Tailscale-restricted ingresses
+  validate <subdomain>                                               Validate ingress connectivity via Tailscale
+  dns <subdomain> <target-ip> [--dry-run]                            Show GoDaddy DNS command
 
 Options:
   --namespace NS   Kubernetes namespace (default: default)
+  --tls            Enable TLS via cert-manager (letsencrypt-dns01)
   --dry-run        Show command without executing
   -h, --help       Show this help
 EOF
@@ -67,9 +70,11 @@ cmd_create() {
   shift 3
 
   local namespace="default"
+  local enable_tls=false
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --namespace) namespace="$2"; shift 2 ;;
+      --tls) enable_tls=true; shift ;;
       *) fail "Unknown option: $1" ;;
     esac
   done
@@ -84,6 +89,18 @@ cmd_create() {
   fi
 
   info "Creating ingress manifest: $manifest"
+
+  local tls_annotation=""
+  local tls_spec=""
+  if [[ "$enable_tls" == true ]]; then
+    tls_annotation="    cert-manager.io/cluster-issuer: ${CLUSTER_ISSUER}"
+    tls_spec="
+  tls:
+  - hosts:
+    - ${host}
+    secretName: ${subdomain}-tls"
+  fi
+
   cat > "$manifest" <<INGRESS_EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -92,8 +109,10 @@ metadata:
   namespace: ${namespace}
   annotations:
     nginx.ingress.kubernetes.io/whitelist-source-range: "${TAILSCALE_CIDR}" # Tailscale IPs only
+${tls_annotation}
 spec:
   ingressClassName: ${INGRESS_CLASS}
+${tls_spec}
   rules:
   - host: ${host}
     http:
@@ -113,16 +132,18 @@ INGRESS_EOF
   kubectl apply -f "$manifest"
   ok "Ingress applied: ${subdomain}-ingress in namespace ${namespace}"
 
-  info "Waiting for ingress address..."
-  for i in $(seq 1 30); do
-    local addr
-    addr=$(kubectl get ingress -n "$namespace" "${subdomain}-ingress" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-    if [[ -n "$addr" ]]; then
-      ok "Ingress address: $addr"
-      break
-    fi
-    sleep 2
-  done
+  if [[ "$enable_tls" == true ]]; then
+    info "TLS enabled — waiting for cert-manager to provision certificate..."
+    for i in $(seq 1 60); do
+      local cert_ready
+      cert_ready=$(kubectl get secret -n "$namespace" "${subdomain}-tls" -o jsonpath='{.metadata.name}' 2>/dev/null || true)
+      if [[ -n "$cert_ready" ]]; then
+        ok "TLS certificate ready: ${subdomain}-tls"
+        break
+      fi
+      sleep 3
+    done
+  fi
 
   echo ""
   echo -e "${GRAY}────────────────────────────────────────${NC}"
@@ -167,15 +188,15 @@ cmd_list() {
   for manifest in "$COMPONENTS_DIR"/*-ingress.yaml; do
     [[ -f "$manifest" ]] || continue
     if grep -q "whitelist-source-range" "$manifest" 2>/dev/null; then
-      local name namespace host svc svc_port
+      local name namespace host svc svc_port tls
       name=$(kubectl get -f "$manifest" -o jsonpath='{.metadata.name}' 2>/dev/null || basename "$manifest" .yaml)
       namespace=$(kubectl get -f "$manifest" -o jsonpath='{.metadata.namespace}' 2>/dev/null || echo "unknown")
       host=$(kubectl get -f "$manifest" -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "unknown")
       svc=$(kubectl get -f "$manifest" -o jsonpath='{.spec.rules[0].http.paths[0].backend.service.name}' 2>/dev/null || echo "unknown")
       svc_port=$(kubectl get -f "$manifest" -o jsonpath='{.spec.rules[0].http.paths[0].backend.service.port.number}' 2>/dev/null || echo "unknown")
-      addr=$(kubectl get -f "$manifest" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+      tls=$(kubectl get -f "$manifest" -o jsonpath='{.metadata.annotations.cert-manager\.io/cluster-issuer}' 2>/dev/null || echo "none")
 
-      printf "  %-25s ns=%-15s svc=%-20s port=%-6s addr=%s\n" "$host" "$namespace" "$svc" "$svc_port" "$addr"
+      printf "  %-25s ns=%-15s svc=%-20s port=%-6s tls=%s\n" "$host" "$namespace" "$svc" "$svc_port" "$tls"
       found=$((found + 1))
     fi
   done
@@ -204,6 +225,22 @@ cmd_validate() {
 
   ok "Ingress exists in cluster: $exists"
 
+  # Get TLS status
+  local tls_status
+  tls_status=$(kubectl get ingress -A -o jsonpath="{.items[?(@.spec.rules[0].host=='${host}')].metadata.annotations.cert-manager\.io/cluster-issuer}" 2>/dev/null || true)
+  if [[ -n "$tls_status" ]]; then
+    ok "TLS enabled: $tls_status"
+    local cert_exists
+    cert_exists=$(kubectl get secret -A -o jsonpath="{.items[?(@.metadata.name=='${subdomain}-tls')].metadata.name}" 2>/dev/null || true)
+    if [[ -n "$cert_exists" ]]; then
+      ok "TLS certificate provisioned: ${subdomain}-tls"
+    else
+      warn "TLS certificate not yet provisioned"
+    fi
+  else
+    info "TLS: disabled (HTTP only)"
+  fi
+
   # Get Tailscale IP
   local ts_ip
   ts_ip=$(ip -4 addr show tailscale0 2>/dev/null | grep -oP 'inet \K[0-9.]+' || true)
@@ -218,23 +255,40 @@ cmd_validate() {
 
   info "Tailscale IP: $ts_ip"
 
-  # Get ingress address (node IP)
-  local ingress_addr
-  ingress_addr=$(kubectl get ingress -A -o jsonpath="{.items[?(@.spec.rules[0].host=='${host}')].status.loadBalancer.ingress[0].ip}" 2>/dev/null || true)
+  # Get ingress-nginx node IPs (DaemonSet — round-robin across nodes)
+  local node_ips
+  node_ips=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx -o jsonpath='{range .items[*]}{.status.hostIP}{"\n"}{end}' 2>/dev/null | sort -u)
 
-  if [[ -n "$ingress_addr" ]]; then
-    info "Testing HTTP via Tailscale node ($ingress_addr)..."
+  if [[ -z "$node_ips" ]]; then
+    warn "No ingress-nginx pods found."
+    return 1
+  fi
+
+  info "Testing HTTP/HTTPS via ingress-nginx nodes (round-robin):"
+  local all_pass=true
+  while IFS= read -r node_ip; do
+    [[ -z "$node_ip" ]] && continue
+    local port=80
+    local scheme="http"
+    if [[ -n "$tls_status" ]]; then
+      port=443
+      scheme="https"
+    fi
+
     local http_code
-    http_code=$(curl -s -o /dev/null -w "%{http_code}" "http://${ingress_addr}:80/" -H "Host: ${host}" 2>/dev/null || echo "000")
+    if [[ "$scheme" == "https" ]]; then
+      http_code=$(curl -sk -o /dev/null -w "%{http_code}" "${scheme}://${node_ip}:${port}/" -H "Host: ${host}" 2>/dev/null || echo "000")
+    else
+      http_code=$(curl -s -o /dev/null -w "%{http_code}" "${scheme}://${node_ip}:${port}/" -H "Host: ${host}" 2>/dev/null || echo "000")
+    fi
 
     if [[ "$http_code" == "200" || "$http_code" == "301" || "$http_code" == "302" || "$http_code" == "403" ]]; then
-      ok "HTTP response: $http_code (accessible via Tailscale)"
+      ok "  ${node_ip}:${port} → HTTP $http_code ✅"
     else
-      warn "HTTP response: $http_code (may need service to be ready)"
+      warn "  ${node_ip}:${port} → HTTP $http_code ❌"
+      all_pass=false
     fi
-  else
-    warn "Ingress address not yet assigned."
-  fi
+  done <<< "$node_ips"
 
   # Check whitelist annotation
   local whitelist
@@ -246,7 +300,11 @@ cmd_validate() {
   fi
 
   echo ""
-  ok "Validation completed for $host"
+  if [[ "$all_pass" == true ]]; then
+    ok "Validation PASSED for $host"
+  else
+    warn "Validation completed with warnings for $host"
+  fi
 }
 
 # ─── DNS ───────────────────────────────────────────────────────────────────────
@@ -321,7 +379,7 @@ shift
 
 case "$command" in
   create)
-    [[ $# -ge 3 ]] || fail "Usage: $0 create <subdomain> <svc-name> <svc-port> [--namespace NS]"
+    [[ $# -ge 3 ]] || fail "Usage: $0 create <subdomain> <svc-name> <svc-port> [--namespace NS] [--tls]"
     cmd_create "$@"
     ;;
   delete)

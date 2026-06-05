@@ -734,8 +734,11 @@ $(t "prefs_back")"
             read -p "Service port (e.g., 3000): " svc_port
             read -p "Namespace (default: default): " namespace
             namespace="${namespace:-default}"
+            read -p "Enable TLS via cert-manager? (y/N): " enable_tls
             echo ""
-            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" create "$subdomain" "$svc_name" "$svc_port" --namespace "$namespace"
+            local tls_flag=""
+            [[ "$enable_tls" =~ ^[Yy]$ ]] && tls_flag="--tls"
+            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" create "$subdomain" "$svc_name" "$svc_port" --namespace "$namespace" $tls_flag
             read -p "$(t "press_enter")"
             ;;
           3)
