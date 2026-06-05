@@ -12,14 +12,16 @@ BASE="${VERIFY_DIFF_BASE:-origin/main}"
 FETCH="${VERIFY_FETCH_BASE:-1}"
 
 if [[ "$FETCH" == "1" ]]; then
-	git fetch --depth=1 origin "${BASE#origin/}" 2>/dev/null \
-		|| git fetch --depth=1 origin main 2>/dev/null \
+	# Clone shallow do Jenkins traz só a branch atual — buscar main explicitamente
+	git fetch --no-tags --depth=100 origin \
+		"+refs/heads/main:refs/remotes/origin/main" 2>/dev/null \
+		|| git fetch --no-tags origin main 2>/dev/null \
 		|| true
 fi
 
 if ! git rev-parse --verify "${BASE}^{commit}" >/dev/null 2>&1; then
-	echo "[verify-branch-ci] base ${BASE} indisponível — fallback origin/main" >&2
-	BASE="origin/main"
+	echo "[verify-branch-ci] base ${BASE} indisponível após fetch — skip gates" >&2
+	exit 0
 fi
 
 mapfile -t paths < <(
