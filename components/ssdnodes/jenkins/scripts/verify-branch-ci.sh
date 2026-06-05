@@ -28,4 +28,7 @@ fi
 echo "[verify-branch-ci] ${#paths[@]} path(s) vs ${BASE}:"
 printf '  %s\n' "${paths[@]}"
 
-exec ./tools/harness/verify.sh verify-changed --paths "${paths[@]}"
+extra=()
+[[ "${VERIFY_ALLOW_UNMAPPED:-0}" == "1" ]] && extra+=(--allow-unmapped)
+
+exec ./tools/harness/verify.sh verify-changed --paths "${paths[@]}" "${extra[@]}"

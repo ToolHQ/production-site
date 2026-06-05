@@ -33,6 +33,13 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 	apt-get install -y -qq --no-install-recommends shellcheck ca-certificates git
 fi
 
+if ! command -v yamllint >/dev/null 2>&1; then
+	log "instalando yamllint (pip)"
+	python3 -m pip install -q --break-system-packages yamllint 2>/dev/null \
+		|| python3 -m pip install -q --user yamllint
+	export PATH="${HOME}/.local/bin:${PATH}"
+fi
+
 # --- citools ---
 log "compilando citools (release)"
 cd "${REPO_ROOT}/tools/citools"

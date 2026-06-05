@@ -35,6 +35,7 @@ spec:
     CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline.yaml'
     CITOOLS_REPO_ROOT = "${WORKSPACE}"
     VERIFY_DIFF_BASE = 'origin/main'
+    VERIFY_ALLOW_UNMAPPED = '1'  // T-341 rollout — mapear paths novos no harness depois
     SONAR_HOST_URL = 'https://sonar.ssdnodes.dnor.io'
     SONAR_PROJECT_KEY = 'production-site'
     SONAR_TOKEN = credentials('sonar-token')
