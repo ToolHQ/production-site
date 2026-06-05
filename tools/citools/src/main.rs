@@ -138,10 +138,12 @@ fn stage_enabled(stage: &Stage) -> bool {
 fn run_stage(stage: &Stage, repo_root: &PathBuf) -> Result<()> {
     eprintln!("→  {} — {}", stage.id, stage.run);
     let start = Instant::now();
+    // bash -c (not -lc): login shell reseta PATH e quebra stages que invocam citools
     let status = Command::new("bash")
-        .arg("-lc")
+        .arg("-c")
         .arg(&stage.run)
         .current_dir(repo_root)
+        .envs(std::env::vars())
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())

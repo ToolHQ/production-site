@@ -37,7 +37,9 @@ fi
 log "compilando citools (release)"
 cd "${REPO_ROOT}/tools/citools"
 cargo build --release --locked 2>/dev/null || cargo build --release
-export PATH="${REPO_ROOT}/tools/citools/target/release:${PATH}"
+CITOOLS_BIN="${CARGO_TARGET_DIR}/release/citools"
+export PATH="${CARGO_TARGET_DIR}/release:${PATH}"
+install -m 0755 "${CITOOLS_BIN}" /usr/local/bin/citools 2>/dev/null || true
 
 command -v citools >/dev/null
 citools --version 2>/dev/null || true
