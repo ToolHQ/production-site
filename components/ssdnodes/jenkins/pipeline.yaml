@@ -1,6 +1,6 @@
 # pipeline.yaml — fonte de verdade dos stages CI (citools)
 #
-# Jenkins: citools next --json → readJSON → stage(stageName) { citools run <id> }
+# Jenkins: citools next --json → JsonSlurper → stage(stageName) { citools run <id> }
 # Local:   citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
 #
 # Campos:

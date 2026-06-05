@@ -16,11 +16,11 @@ if ! command -v sonar-scanner >/dev/null 2>&1; then
 fi
 
 if [[ ! -f sonar-project.properties ]]; then
-  echo "sonar-project.properties ausente — skip sonar-scan até configurar escopo do monorepo" >&2
+  echo "sonar-project.properties ausente na raiz do repo — skip sonar-scan" >&2
   exit 0
 fi
 
 sonar-scanner \
   -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
   -Dsonar.host.url="$SONAR_HOST_URL" \
-  -Dsonar.login="$SONAR_TOKEN"
+  -Dsonar.token="$SONAR_TOKEN"

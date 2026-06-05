@@ -46,7 +46,6 @@ spec:
     CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline.yaml'
     CITOOLS_REPO_ROOT = "${WORKSPACE}"
     VERIFY_DIFF_BASE = 'origin/main'
-    VERIFY_ALLOW_UNMAPPED = '1'
     SONAR_HOST_URL = 'https://sonar.ssdnodes.dnor.io'
     SONAR_PROJECT_KEY = 'production-site'
     SONAR_TOKEN = credentials('sonar-token')
@@ -88,6 +87,9 @@ bash components/ssdnodes/jenkins/agent-setup.sh
             def citools = "${WORKSPACE}/tools/citools/target/release/citools"
             def pipelinePath = env.CITOOLS_PIPELINE
             def after = ''
+
+            def planJson = sh(returnStdout: true, script: "${citools} export-json --pipeline '${pipelinePath}'").trim()
+            echo "citools plan: ${planJson}"
 
             while (true) {
               def nextCmd = after

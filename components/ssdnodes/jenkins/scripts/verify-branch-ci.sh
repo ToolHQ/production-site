@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 # verify-branch-ci.sh — harness path-aware vs base branch (CI Jenkins)
-#
-# Local: verify-changed usa working tree (staged/unstaged).
-# CI:   diff limpo checkout → compara HEAD vs origin/main (fetch feito no Jenkinsfile).
 set -euo pipefail
 
 REPO_ROOT="${CITOOLS_REPO_ROOT:-$(cd "$(dirname "$0")/../../../.." && pwd)}"
@@ -28,11 +25,7 @@ fi
 echo "[verify-branch-ci] ${#paths[@]} path(s) vs ${BASE}:"
 printf '  %s\n' "${paths[@]}"
 
-# Jenkins agent: sem cluster (BATS) e yamllint full-tree é caro demais no CI path-aware
+# Agent Jenkins não tem kubectl/SSH — BATS fica no harness local/TUI
 export HARNESS_SKIP_BATS=1
-export HARNESS_SKIP_YAML=1
 
-extra=()
-[[ "${VERIFY_ALLOW_UNMAPPED:-0}" == "1" ]] && extra+=(--allow-unmapped)
-
-exec ./tools/harness/verify.sh verify-changed --paths "${paths[@]}" "${extra[@]}"
+exec ./tools/harness/verify.sh verify-changed --paths "${paths[@]}"
