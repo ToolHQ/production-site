@@ -63,7 +63,6 @@
 | T-336 | **agent-meter — Copilot for Eclipse: detecção UA + guia** _(pesquisar user-agent real do Eclipse Copilot plugin; adicionar em `infer_ide`; fixture se possível; `docs/setup/copilot-eclipse.md`)_ | 🟢 Low | **Copilot/VSCode** | 1h |
 | T-339 | **agent-meter — MCP wrapper: guia configuração multi-agent** _(docs `cursor-mcp-wrapper.md`, `opencode-mcp-wrapper.md`, `copilot-cli-mcp-wrapper.md`, `mcp-wrapper-generic.md`; templates `.cursor/mcp.json` e `~/.opencode/config.json`; seção no README do mcp-wrapper)_ | 🔵 Medium | **Copilot/VSCode** | 3h |
 | T-340 | **agent-meter — MCP wrapper: identificação de IDE por env/header** _(aceitar `AGENT_METER_IDE` env e `X-Agent-IDE` header; incluir `ide` no evento postado ao collector; atualizar guias de setup)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
-| T-342 | **agent-meter — Live validation harness por ferramenta** _(scripts `validate_claude_code.sh`, `validate_codex_cli.sh`, `validate_mcp_semconv.sh`, `validate_all_agents.sh`; exit 0 / 1 com output descritivo; integração CI GitHub Actions)_ | 🔵 Medium | **Copilot/VSCode** | 4h |
 | [T-323](2026/Q2/T-323-agent-meter-quickstart-sdk-leaderboard.md) | **agent-meter — Quickstart + SDK + Leaderboard** _(pip install agent-meter, npm @agent-meter/sdk, 60s time-to-first-event, página /vs e /leaderboard público — Epic SaaS Revenue)_ | 🔼 High | **Copilot/VSCode** | 14h |
 | [T-322](2026/Q2/T-322-agent-meter-hosted-saas-infra.md) | **agent-meter — Hosted SaaS Infra** _(isolamento RLS, ingest async, backup off-cluster B2, status page, ToS/Privacy, runbook — Epic SaaS Revenue)_ | 🔼 High | **Copilot/VSCode** | 14h |
 | [T-316](2026/Q2/T-316-agent-meter-conversation-search-insights.md) | **agent-meter — Conversation Search & Insights** _(busca semântica em conversas + dashboard de padrões: top users/tools/models, error patterns, cost trends)_ | 🔼 High | **Copilot/VSCode** | 4h |
@@ -331,6 +330,7 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 |---|---|---|---|---|
+| T-342 | **agent-meter — Live validation harness por ferramenta** _(✅ scripts `validate_claude_code.sh`, `validate_codex_cli.sh`, `validate_mcp_semconv.sh`, `validate_all_agents.sh`; workflow `.github/workflows/agent-meter-validation.yml`; CI com Postgres service + migrações SQL)_ | 🔵 Medium | **Copilot/VSCode** | 4h |
 | T-338 | **agent-meter — `infer_ide` refactor + unit tests** _(✅ extraído para `otlp/ide.rs`; tabela de regras por prioridade `(ua_pattern, svc_pattern) → ide`; 15 testes unitários cobrindo copilot/cursor/antigravity/claude/codex/opencode/rust-rover/eclipse; regressão de prioridade `copilot-cli` validada)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
 | T-337 | **agent-meter — Regression test harness + fixtures OTLP** _(✅ 6 fixtures JSON: vscode-copilot, cursor, claude-code, codex-cli, mcp-semconv; `tests/otlp_regression.rs` com 8 testes; cargo test passa; commit `5fe7047`)_ | 🔼 High | **Copilot/VSCode** | 5h |
 | T-341 | **agent-meter — Dashboard: breakdown "By IDE/Agent"** _(✅ `IdeBreakdown` struct; `GET /reports/by-ide` SQL GROUP BY ide; card "By Agent / IDE" no dashboard com barra colorida + % LLM + tokens; commit `49debed`)_ | 🔵 Medium | **Copilot/VSCode** | 3h |
