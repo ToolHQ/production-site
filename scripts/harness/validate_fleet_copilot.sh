@@ -132,10 +132,36 @@ else
   fi
 
   status_json=$(curl -sS -b "$COOKIE_JAR" --max-time 15 "$REPORTS_URL/api/fleet/copilot/status" 2>/dev/null || true)
-  if echo "$status_json" | grep -q 'structured-first'; then
+  if echo "$status_json" | grep -qE 'structured-first|llm-default-structured-fast-path'; then
     ok "T-327 copilot status endpoint"
   else
     bad "T-327 status endpoint: $(echo "$status_json" | head -c 120)"
+  fi
+
+  if echo "$status_json" | grep -q '"thread_context":true'; then
+    ok "T-336 thread context enabled in status"
+  else
+    bad "T-336 thread_context missing in status: $(echo "$status_json" | head -c 120)"
+  fi
+
+  vague_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 45 \
+    -X POST "$REPORTS_URL/api/fleet/chat" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"como ta o servidor?","preset":"ssdnodes-health"}' 2>/dev/null || true)
+  if echo "$vague_reply" | grep -qE 'fleet-structured|SSDNodes|sem inferência'; then
+    ok "T-337 vague server question uses structured fast path"
+  else
+    bad "T-337 vague reply slow or empty: $(echo "$vague_reply" | head -c 160)"
+  fi
+
+  scope_reply=$(curl -sS -b "$COOKIE_JAR" --max-time 15 \
+    -X POST "$REPORTS_URL/api/fleet/chat" \
+    -H 'Content-Type: application/json' \
+    -d '{"message":"qual o uptime do nginx?","preset":"ssdnodes-health"}' 2>/dev/null || true)
+  if echo "$scope_reply" | grep -qE 'fleet-meta|fora do escopo'; then
+    ok "T-337 out-of-scope nginx boundary reply"
+  else
+    bad "T-337 scope boundary weak: $(echo "$scope_reply" | head -c 160)"
   fi
 fi
 
@@ -164,6 +190,48 @@ if echo "$js_asset" | grep -q 'fleet-copilot-host-chip'; then
   ok "UI JS T-333 host mention chips"
 else
   bad "UI JS missing fleet-copilot-host-chip"
+fi
+
+if echo "$js_asset" | grep -q 'This block should explain'; then
+  bad "UI JS still contains placeholder copy (T-340)"
+else
+  ok "T-340 no placeholder copy in bundle"
+fi
+
+if echo "$css_asset" | grep -q 'dnor-alert-banner'; then
+  ok "T-340 sticky error banner CSS"
+else
+  bad "T-340 missing dnor-alert-banner CSS"
+fi
+
+if echo "$css_asset" | grep -q 'dnor-overview-nav'; then
+  ok "T-340-B overview section nav CSS"
+else
+  bad "T-340-B missing dnor-overview-nav CSS"
+fi
+
+if echo "$js_asset" | grep -q 'dnor-platform-fold'; then
+  ok "T-340-B platform accordion in bundle"
+else
+  bad "T-340-B missing platform fold UI"
+fi
+
+if echo "$css_asset" | grep -q 'storage-row--pressure'; then
+  ok "T-340-C storage pressure row CSS"
+else
+  bad "T-340-C missing storage-row--pressure CSS"
+fi
+
+if echo "$css_asset" | grep -q 'dnor-catalog-cta'; then
+  ok "T-340-C catalog deep-link CTA CSS"
+else
+  bad "T-340-C missing dnor-catalog-cta CSS"
+fi
+
+if echo "$js_asset" | grep -q 'fleet-cluster-header'; then
+  ok "T-340-C fleet cluster group headers"
+else
+  bad "T-340-C missing fleet-cluster-header UI"
 fi
 
 if echo "$js_asset" | grep -q 'dnor-view-fleet-copilot'; then

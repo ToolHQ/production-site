@@ -130,7 +130,7 @@ HTTP API com comandos **fixos** — zero concatenação de input do usuário/LLM
 - [x] Crate `apps/fleet-ops-gateway/` (Axum, 10 endpoints + `/internal/chat`)
 - [x] Deploy systemd `fleet-ops-gateway.service` — porta **18443** (8443 ocupada pelo nginx-ingress)
 - [x] Auth Bearer + 404 sem token
-- [ ] Kubeconfig Role `view` dedicado (usa kubectl do host root hoje — backlog hardening)
+- [x] Kubeconfig Role `view` dedicado — `rbac.yaml` + `setup_fleet_gateway_kubeconfig.sh` + `FLEET_KUBECONFIG`
   ```json
   {
     "endpoint": "/ops/k8s/nodes",
@@ -140,7 +140,7 @@ HTTP API com comandos **fixos** — zero concatenação de input do usuário/LLM
     "stderr": ""
   }
   ```
-- [ ] Usuário OS dedicado `fleet-copilot` (sem sudo)
+- [x] Usuário OS dedicado `fleet-copilot` (sem sudo; grupo `systemd-journal` para `journalctl`)
 - [ ] Bind: `127.0.0.1:8080` **ou** Tailscale IP `:8443` (TLS terminado por reverse proxy local)
 
 ### Fase 1.1 (backlog neste arquivo, não v1)
@@ -167,7 +167,7 @@ curl -s -H "Authorization: Bearer $GATEWAY_TOKEN" \
 ### DoD
 
 - 10 endpoints respondendo JSON
-- kubeconfig view-only aplicado e testado
+- [x] kubeconfig view-only aplicado e testado (`setup_fleet_gateway_kubeconfig.sh --verify`)
 
 ---
 

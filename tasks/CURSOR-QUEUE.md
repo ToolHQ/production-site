@@ -4,7 +4,8 @@
 
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
-| 1 | **T-302** | qdbback — Prometheus ✅ TLS ✅ / AL2023 runbook pendente execução | 🏎️ Fase C (opcional) |
+| 1 | **T-340** | Reports UI — Fase D Copilot + stale/mobile (PR em aberto) | 🏎️ |
+| 2 | **T-302** | qdbback — Prometheus ✅ TLS ✅ / AL2023 runbook pendente execução | 🏎️ Fase C (opcional) |
 
 ## Node Fleet v2 (concluído 2026-05-25)
 

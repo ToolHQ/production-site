@@ -24,7 +24,7 @@
 |----|------|
 | T-324 | Hermes Agent opcional |
 | T-322e | Audit log Postgres |
-| T-321 backlog | Gateway kubeconfig view-only |
+| T-321 backlog | ~~Gateway kubeconfig view-only~~ Done 2026-06-01 |
 | T-331 | SSH alias canônico |
 | — | CI Playwright job |
 | — | Histórico Postgres |

@@ -34,9 +34,12 @@ import { NamespacePanel } from './components/NamespacePanel';
 import { DnorTopNav } from './components/DnorTopNav';
 import { GlobalSearchPalette } from './components/GlobalSearchPalette';
 import { DnorShellProvider, useDnorShell } from './context/DnorShellContext';
-import { FleetCopilotProvider } from './context/FleetCopilotContext';
+import { FleetCopilotProvider, useFleetCopilot } from './context/FleetCopilotContext';
+import { useCopilotStatus } from './hooks/useCopilotStatus';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ExportMenu } from './components/ExportMenu';
+import { OverviewSectionNav } from './components/OverviewSectionNav';
+import { PlatformFold } from './components/PlatformFold';
 
 import {
   formatEpoch,
@@ -79,6 +82,9 @@ export function App() {
 
 function AppContent() {
   const { view } = useDnorShell();
+  const { session: copilotSession } = useFleetCopilot();
+  const isCopilotView = view === 'fleet-copilot';
+  const copilotStatus = useCopilotStatus(isCopilotView && copilotSession.authenticated);
   // Hook de resize para rerender das pills/tags responsivos
   useWindowWidth();
 
@@ -95,7 +101,7 @@ function AppContent() {
     };
   }, [view]);
 
-  const { data: live, error: liveError } = useLiveOverview();
+  const { data: live, error: liveError, lastFetchAt: liveFetchAt } = useLiveOverview();
   const { summary, catalog, reports, error: snapshotError } = useSnapshot();
   const { data: corootAlerts, error: corootError, lastFetchAt: corootFetchAt } = useCorootAlerts();
   const { data: corootIncidents, error: corootIncidentsError, lastFetchAt: corootIncidentsFetchAt } = useCorootIncidents();
@@ -203,12 +209,43 @@ function AppContent() {
     : 'Waiting for snapshot';
 
   const errorMessage = [liveError, snapshotError].filter(Boolean).join(' | ');
+  const liveConnecting = liveFetchAt === null && !liveError;
   const showOverview = view === 'overview';
-  const isCopilotView = view === 'fleet-copilot';
+  const liveStale = Boolean(live?.available && live.stale);
 
   return (
     <>
-      <DnorTopNav liveAvailable={Boolean(live?.available)} />
+      <DnorTopNav
+        liveAvailable={Boolean(live?.available)}
+        liveConnecting={liveConnecting}
+        copilotQuota={
+          copilotStatus
+            ? {
+                remaining: copilotStatus.rate_limit_remaining,
+                max: copilotStatus.rate_limit_max,
+              }
+            : null
+        }
+      />
+      {liveStale && !errorMessage && (
+        <div class="dnor-stale-banner" role="status">
+          <span aria-hidden="true">⏱</span>
+          <p>
+            Dados live em cache stale — confirme conectividade antes de triagem crítica.
+            {live?.refreshed_at_epoch
+              ? ` Último refresh: ${formatEpoch(live.refreshed_at_epoch)}.`
+              : ''}
+          </p>
+        </div>
+      )}
+      {errorMessage && (
+        <div class="dnor-alert-banner" role="alert">
+          <span class="dnor-alert-banner__icon" aria-hidden="true">
+            ⚠
+          </span>
+          <p class="dnor-alert-banner__text">{errorMessage}</p>
+        </div>
+      )}
       <GlobalSearchPalette live={live} />
 
       {isCopilotView ? (
@@ -222,15 +259,14 @@ function AppContent() {
       <section class="shell">
         {/* ── Masthead (overview only) ── */}
         {showOverview && (
-        <header class="masthead">
-          <DashboardHeader snapshot={summary} live={live} metrics={metrics} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
-          <SignalCard live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+        <header class="masthead masthead--compact masthead--overview">
+          <div class="masthead__hero">
+            <DashboardHeader snapshot={summary} live={live} metrics={metrics} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+            <SignalCard live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+          </div>
+          <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
+          <OverviewSectionNav />
         </header>
-        )}
-
-        {/* ── Signal mini counters ── */}
-        {showOverview && (
-        <SignalGrid live={live} corootAlerts={corootAlerts} corootIncidents={corootIncidents} />
         )}
 
         {/* ── Node Fleet ── */}
@@ -238,18 +274,18 @@ function AppContent() {
         <section class="nodes-section-band" id="dnor-nodes">
           {view === 'nodes' ? (
             <div class="dnor-page-head">
-              <h1 class="dnor-page-head__title">Nodes</h1>
-              <p class="dnor-page-head__subtitle">Monitor and explore your infrastructure.</p>
+              <h1 class="dnor-page-head__title">Nós da fleet</h1>
+              <p class="dnor-page-head__subtitle">Saúde, pressão e capacidade por host — OCI, SSDNodes, Hetzner e AWS.</p>
             </div>
           ) : (
           <div class="section-head">
             <div>
-              <div class="section-kicker">Infrastructure</div>
-              <div class="section-title">Node Fleet</div>
-              <p>Node health, pressure conditions and capacity per node. DiskPressure causes cascading failures across services.</p>
+              <div class="section-kicker">Infraestrutura</div>
+              <div class="section-title">Nós da fleet</div>
+              <p>Saúde, pressão de disco e capacidade por nó — DiskPressure derruba serviços em cascata.</p>
             </div>
             <div class="section-tags">
-              <span class="panel-tag">{live?.available ? `Live · ${(live.nodes ?? []).length} nós` : 'Waiting for live data'}</span>
+              <span class="panel-tag">{live?.available ? `Live · ${(live.nodes ?? []).length} nós` : 'Aguardando dados live'}</span>
             </div>
           </div>
           )}
@@ -259,12 +295,12 @@ function AppContent() {
 
         {/* ── Cluster Pressure ── */}
         {(showOverview || view === 'intel') && (
-        <section class="metric-band">
+        <section class="metric-band" id="dnor-metrics">
           <div class="section-head">
             <div>
-              <div class="section-kicker">Core load</div>
-              <div class="section-title">Cluster Pressure</div>
-              <p>Prometheus-backed CPU, memory and restart pressure over the current dashboard window.</p>
+              <div class="section-kicker">Carga do cluster</div>
+              <div class="section-title">Pressão Prometheus</div>
+              <p>CPU, memória e restarts agregados na janela do dashboard.</p>
             </div>
             <div class="section-tags">
               <span class="panel-tag" id="metrics-section-tag">{metricsSectionTag}</span>
@@ -275,23 +311,33 @@ function AppContent() {
         )}
 
         {showOverview && (
-        <>
-        <StoragePanel data={longhornData} error={longhornError} />
-        <CronJobPanel data={cronJobsData} error={cronJobsError} />
-        <CertExpiryPanel data={certsData} error={certsError} />
-        <IngressPanel data={ingressesData} error={ingressesError} />
-        <WorkloadPanel data={workloadsData} error={workloadsError} />
-        <NamespacePanel data={namespacesData} error={namespacesError} />
-        </>
+        <PlatformFold panelCount={6}>
+          <StoragePanel data={longhornData} error={longhornError} />
+          <CronJobPanel data={cronJobsData} error={cronJobsError} />
+          <CertExpiryPanel data={certsData} error={certsError} />
+          <IngressPanel data={ingressesData} error={ingressesError} />
+          <WorkloadPanel data={workloadsData} error={workloadsError} />
+          <NamespacePanel data={namespacesData} error={namespacesError} />
+        </PlatformFold>
         )}
 
-        {(showOverview || view === 'incidents') && (
-        <section class="priority-grid">
+        {view === 'incidents' && (
+          <div class="dnor-page-head">
+            <h1 class="dnor-page-head__title">Incidentes</h1>
+            <p class="dnor-page-head__subtitle">
+              Pods com restarts e hotspots Prometheus — priorize o que exige atenção agora.
+            </p>
+          </div>
+        )}
+
+        {(showOverview || view === 'incidents' || view === 'intel') && (
+        <section class="priority-grid" id="dnor-incidents">
           <section class="panel priority-panel">
             <div class="section-head">
               <div>
-                <div class="section-title">Immediate Action</div>
-                <p>Live kube incidents first. This block should explain why an operator needs to care now.</p>
+                <div class="section-kicker">Ação imediata</div>
+                <div class="section-title">Incidentes live</div>
+                <p>Pods com restarts ou falhas de readiness no cluster — triagem antes de escalar.</p>
               </div>
               <div class="section-tags">
                 <span class="panel-tag" id="ops-section-tag">{opsSectionTag}</span>
@@ -303,8 +349,9 @@ function AppContent() {
           <section class="panel priority-panel">
             <div class="section-head">
               <div>
-                <div class="section-title">Restart Debt</div>
-                <p>Prometheus-ranked restart hotspots over the last hour, rounded to discrete events.</p>
+                <div class="section-kicker">Dívida de estabilidade</div>
+                <div class="section-title">Hotspots de restart</div>
+                <p>Ranking Prometheus na última hora — workloads que mais reiniciaram.</p>
               </div>
               <div class="section-tags">
                 <span class="panel-tag" id="restart-section-tag">{restartSectionTag}</span>
@@ -316,13 +363,14 @@ function AppContent() {
         )}
 
         {showOverview && (
-        <div class="content-grid">
+        <div class="content-grid" id="dnor-services">
           <section class="main-stack">
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Critical Services</div>
-                  <p>Live kube health, readiness, restart count and serving routes for the tracked surface.</p>
+                  <div class="section-kicker">Serviços críticos</div>
+                  <div class="section-title">Saúde live</div>
+                  <p>Readiness, restarts e rotas dos workloads monitorados.</p>
                 </div>
                 <div class="section-tags">
                   <span class="panel-tag" id="services-section-tag">{servicesSectionTag}</span>
@@ -334,8 +382,9 @@ function AppContent() {
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Service Telemetry</div>
-                  <p>Prometheus time-series stay close to service health so the board reads like an action surface.</p>
+                  <div class="section-kicker">Telemetria</div>
+                  <div class="section-title">Séries Prometheus</div>
+                  <p>Métricas alinhadas à saúde dos serviços — leitura operacional.</p>
                 </div>
                 <div class="section-tags">
                   <span class="panel-tag" id="telemetry-section-tag">{telemetrySectionTag}</span>
@@ -360,8 +409,8 @@ function AppContent() {
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Runtime Summary</div>
-                  <p>Operational rollup only. This panel should not depend on snapshot interpretation.</p>
+                  <div class="section-title">Resumo operacional</div>
+                  <p>Rollup live do cluster — independente do snapshot de deploy.</p>
                 </div>
                 <div class="section-tags">
                   <span class="panel-tag" id="summary-section-tag">{summarySectionTag}</span>
@@ -373,8 +422,8 @@ function AppContent() {
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Catalog Snapshot</div>
-                  <p>Snapshot-derived counts stay visible, but secondary to live operations.</p>
+                  <div class="section-title">Snapshot do catálogo</div>
+                  <p>Contagens do inventário no bundle — contexto secundário à triagem live.</p>
                 </div>
                 <div class="section-tags">
                   <span class="panel-tag" id="catalog-summary-tag">{snapshotText}</span>
@@ -386,8 +435,8 @@ function AppContent() {
             <section class="panel">
               <div class="section-head">
                 <div>
-                  <div class="section-title">Language Mix</div>
-                  <p>Repo composition is still useful context when deciding where to intervene.</p>
+                  <div class="section-title">Mix de linguagens</div>
+                  <p>Composição do repositório no snapshot — útil para priorizar intervenções.</p>
                 </div>
               </div>
               <LanguageBars summary={summary} />
@@ -397,6 +446,11 @@ function AppContent() {
         )}
 
         {view === 'intel' && (
+        <>
+          <div class="dnor-page-head">
+            <h1 class="dnor-page-head__title">Intel & SLO</h1>
+            <p class="dnor-page-head__subtitle">Alertas e incidentes Coroot — visão focada fora do Overview.</p>
+          </div>
         <div class="content-grid content-grid--intel">
           <aside class="rail-stack rail-stack--full">
             <CorootIncidentsPanel
@@ -411,24 +465,34 @@ function AppContent() {
             />
           </aside>
         </div>
+        </>
         )}
 
         {(showOverview || view === 'reports') && (
-        <section class="catalog-zone">
+        <section class="catalog-zone" id="dnor-catalog">
+          {view === 'reports' && (
+            <div class="dnor-page-head">
+              <h1 class="dnor-page-head__title">Relatórios</h1>
+              <p class="dnor-page-head__subtitle">Catálogo de artefatos e inventário de deploy no snapshot.</p>
+            </div>
+          )}
           <div class="catalog-shell">
             <div class="catalog-head">
               <div>
-                <div class="section-kicker">{view === 'reports' ? 'Reports' : 'Secondary surface'}</div>
-                <h2>{view === 'reports' ? 'Deploy reports & catalog' : 'Catalog and deploy context'}</h2>
+                <div class="section-kicker">{view === 'reports' ? 'Inventário' : 'Contexto secundário'}</div>
+                <h2>{view === 'reports' ? 'Catálogo e biblioteca' : 'Catálogo e contexto de deploy'}</h2>
               </div>
               <div>
                 <p>
-                  Deploy paths, artifact bundle and snapshot inventory remain available without stealing
-                  first-fold attention from operations.
+                  Inventário de artefatos e paths de deploy — disponível sem competir com a triagem operacional.
                 </p>
                 <div class="section-tags">
                   <span class="panel-tag" id="catalog-zone-tag">{snapshotText}</span>
-                  <span class="panel-tag route-tag">Routes: /api/live/overview, /api/catalog, /api/reports</span>
+                  {showOverview && (
+                    <a class="dnor-catalog-cta" href="#reports">
+                      Ver catálogo completo →
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -441,8 +505,8 @@ function AppContent() {
                 <section>
                   <div class="section-head">
                     <div>
-                      <div class="section-title">Artifact Library</div>
-                      <p>Static report bundle served from the image snapshot.</p>
+                      <div class="section-title">Biblioteca de artefatos</div>
+                      <p>Relatórios estáticos servidos do bundle da imagem em execução.</p>
                     </div>
                   </div>
                   <ArtifactList reports={reports} />
@@ -456,34 +520,29 @@ function AppContent() {
         {view === 'settings' && (
         <section class="panel dnor-settings">
           <div class="dnor-page-head">
-            <h1 class="dnor-page-head__title">Settings</h1>
-            <p class="dnor-page-head__subtitle">Appearance and export preferences.</p>
+            <h1 class="dnor-page-head__title">Configurações</h1>
+            <p class="dnor-page-head__subtitle">Aparência, exportação e preferências do console.</p>
           </div>
           <div class="dnor-settings__grid">
             <div class="dnor-settings__card">
-              <h3>Theme</h3>
-              <p>Cycle light, dark or system auto.</p>
+              <h3>Aparência</h3>
+              <p>Claro, escuro ou automático (preferência do sistema).</p>
               <ThemeToggle />
             </div>
             <div class="dnor-settings__card">
-              <h3>Export</h3>
-              <p>Download live overview data.</p>
+              <h3>Exportação</h3>
+              <p>Baixar overview live e métricas em JSON/CSV.</p>
               <ExportMenu live={live} metrics={metrics} />
             </div>
             <div class="dnor-settings__card">
-              <h3>Node thresholds</h3>
-              <p>Configure CPU, memory and disk alert thresholds in the Nodes view.</p>
+              <h3>Limites dos nós</h3>
+              <p>CPU, memória e disco — ajuste na view Nós (ícone de engrenagem).</p>
             </div>
           </div>
         </section>
         )}
       </section>
 
-      {errorMessage && (
-        <div id="error-box">
-          <div class="error">{errorMessage}</div>
-        </div>
-      )}
     </main>
       )}
     </>

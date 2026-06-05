@@ -61,8 +61,6 @@ TAILSCALE_CIDR="100.64.0.0/10"
 TARGET_HOST="ssdnodes-6a12f10c9ef11"
 ACTION=""
 
-
-
 _parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -274,7 +272,7 @@ action_apply() {
         return 0
     fi
 
-    echo "$ufw_script" | $_SSH "$TARGET_HOST" "sudo bash" 2>/dev/null \
+    echo "$ufw_script" | $_SSH "$(_ssh_alias_for "$TARGET_HOST")" "sudo bash" 2>/dev/null \
         && _ok "Regras aplicadas com sucesso em $TARGET_HOST" \
         || { _err "Falha ao aplicar regras em $TARGET_HOST"; exit 1; }
 }

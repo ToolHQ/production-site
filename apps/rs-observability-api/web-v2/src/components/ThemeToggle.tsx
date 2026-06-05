@@ -1,7 +1,7 @@
 import { useTheme } from '../hooks/useTheme';
 import styles from './ThemeToggle.module.css';
 
-export function ThemeToggle() {
+export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const { theme, setThemePreference } = useTheme();
 
   const handleToggle = () => {
@@ -38,13 +38,13 @@ export function ThemeToggle() {
 
   return (
     <button
-      class={styles.themeToggle}
+      class={`${styles.themeToggle}${compact ? ` ${styles.themeToggleCompact}` : ''}`}
       onClick={handleToggle}
-      title={`Theme: ${getLabel()} (click to cycle)`}
-      aria-label={`Toggle theme. Current: ${getLabel()}`}
+      title={`Tema: ${getLabel()} (clique para alternar)`}
+      aria-label={`Alternar tema. Atual: ${getLabel()}`}
     >
       <span class={styles.icon}>{getIcon()}</span>
-      <span class={styles.label}>{getLabel()}</span>
+      {!compact && <span class={styles.label}>{getLabel()}</span>}
     </button>
   );
 }

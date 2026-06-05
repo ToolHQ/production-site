@@ -1,0 +1,49 @@
+# Fleet Ops Gateway — read-only RBAC (T-321 hardening)
+# Least privilege for fixed kubectl endpoints (not full cluster "view" — K3s view omits nodes).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fleet-copilot
+  labels:
+    app.kubernetes.io/name: fleet-copilot
+    app.kubernetes.io/component: gateway
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fleet-gateway
+  namespace: fleet-copilot
+  labels:
+    app.kubernetes.io/name: fleet-gateway
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fleet-gateway-read
+  labels:
+    app.kubernetes.io/name: fleet-gateway
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fleet-gateway-read
+  labels:
+    app.kubernetes.io/name: fleet-gateway
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fleet-gateway-read
+subjects:
+  - kind: ServiceAccount
+    name: fleet-gateway
+    namespace: fleet-copilot

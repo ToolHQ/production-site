@@ -7,8 +7,16 @@ import {
   type FleetPreset,
 } from '../hooks/useFleetChat';
 import { SSDNODES_HOSTNAME, FLEET_CHAT_HOSTS } from '../constants/fleetHosts';
+import { useCopilotStatus } from '../hooks/useCopilotStatus';
+import { fleetModelLabel } from '../utils/fleetModelLabel';
 
 const PRESETS: { id: FleetPreset; icon: string; title: string; hint: string }[] = [
+  {
+    id: 'ssdnodes-overview',
+    icon: '📊',
+    title: 'Visão geral',
+    hint: `Resumo rápido disco/memória/carga (${SSDNODES_HOSTNAME})`,
+  },
   {
     id: 'ssdnodes-health',
     icon: '💾',
@@ -64,6 +72,16 @@ function fleetLoadingMessage(
   return `Consultando Gemma 3 em ${host}…`;
 }
 
+function copyThreadText(messages: { role: string; text: string; at: number }[]) {
+  return messages
+    .map((m) => {
+      const who = m.role === 'user' ? 'Operador' : 'Copilot';
+      const when = new Date(m.at).toLocaleString();
+      return `[${when}] ${who}:\n${m.text}`;
+    })
+    .join('\n\n');
+}
+
 function sourceLabel(path: string) {
   return path.replace(/^\/?ops\//, '').replace(/ \(error\)$/, '');
 }
@@ -87,6 +105,9 @@ export function FleetCopilotPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [focusHost, setFocusHost] = useState('');
+  const copilotStatus = useCopilotStatus(session.authenticated, messages.length);
+  const [copyHint, setCopyHint] = useState<string | null>(null);
+  const [loginCopyHint, setLoginCopyHint] = useState<string | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -94,10 +115,18 @@ export function FleetCopilotPage() {
 
   if (sessionLoading) {
     return (
-      <section class="fleet-copilot-page">
-        <div class="fleet-copilot-page__skeleton">
-          <div class="fleet-copilot-skeleton fleet-copilot-skeleton--head" />
-          <div class="fleet-copilot-skeleton fleet-copilot-skeleton--chat" />
+      <section class="fleet-copilot-page" aria-busy="true" aria-label="Fleet Copilot">
+        <header class="fleet-copilot-hero fleet-copilot-hero--stable">
+          <div class="fleet-copilot-hero__copy">
+            <p class="fleet-copilot-hero__kicker">Assistente de operações</p>
+            <h1 class="fleet-copilot-hero__title">Fleet Copilot</h1>
+          </div>
+        </header>
+        <div class="fleet-copilot-layout fleet-copilot-layout--loading">
+          <aside class="fleet-copilot-sidebar fleet-copilot-skeleton-sidebar" aria-hidden="true" />
+          <div class="fleet-copilot-chat">
+            <div class="fleet-copilot-thread fleet-copilot-skeleton-thread" aria-hidden="true" />
+          </div>
         </div>
       </section>
     );
@@ -124,11 +153,11 @@ export function FleetCopilotPage() {
     <section class="fleet-copilot-page" aria-label="Fleet Copilot">
       <header class="fleet-copilot-hero">
         <div class="fleet-copilot-hero__copy">
-          <p class="fleet-copilot-hero__kicker">Operations assistant</p>
+          <p class="fleet-copilot-hero__kicker">Assistente de operações</p>
           <h1 class="fleet-copilot-hero__title">Fleet Copilot</h1>
           <p class="fleet-copilot-hero__subtitle">
-            Perguntas read-only sobre <code>{SSDNODES_HOSTNAME}</code> e fleet OCI — dados
-            coletados via gateway seguro, resposta local Gemma&nbsp;3.
+            Assistente read-only para sua fleet — respostas instantâneas em métricas conhecidas
+            ou inferência Gemma&nbsp;3 local. Contexto de conversa mantido na sessão.
           </p>
         </div>
         <div class="fleet-copilot-hero__meta">
@@ -169,12 +198,27 @@ export function FleetCopilotPage() {
           <p class="fleet-copilot-locked-card__hint">
             Depois do login você volta aqui em <code>#fleet-copilot</code> automaticamente.
           </p>
-          <button type="button" class="fleet-copilot-secondary-btn" onClick={() => void refresh()}>
-            Verificar sessão
-          </button>
-          <button type="button" class="fleet-copilot-secondary-btn" onClick={() => setView('nodes')}>
-            Ver Node Fleet
-          </button>
+          <div class="fleet-copilot-locked-card__actions">
+            <button
+              type="button"
+              class="fleet-copilot-secondary-btn"
+              onClick={() => {
+                const url = `${window.location.origin}/#fleet-copilot`;
+                void navigator.clipboard.writeText(url).then(() => {
+                  setLoginCopyHint('Link copiado');
+                  setTimeout(() => setLoginCopyHint(null), 2500);
+                });
+              }}
+            >
+              {loginCopyHint ?? 'Copiar link desta view'}
+            </button>
+            <button type="button" class="fleet-copilot-secondary-btn" onClick={() => void refresh()}>
+              Verificar sessão
+            </button>
+            <button type="button" class="fleet-copilot-secondary-btn" onClick={() => setView('nodes')}>
+              Ver Node Fleet
+            </button>
+          </div>
         </div>
       ) : (
         <div class="fleet-copilot-layout">
@@ -217,6 +261,27 @@ export function FleetCopilotPage() {
               </select>
             </label>
             <div class="fleet-copilot-sidebar__foot">
+              {copilotStatus && (
+                <p class="fleet-copilot-quota" role="status">
+                  Consultas: {copilotStatus.rate_limit_remaining}/{copilotStatus.rate_limit_max}{' '}
+                  por min
+                  {!copilotStatus.gateway_reachable && ' · gateway offline'}
+                </p>
+              )}
+              <button
+                type="button"
+                class="fleet-copilot-link-btn"
+                disabled={messages.length === 0}
+                onClick={() => {
+                  const text = copyThreadText(messages);
+                  void navigator.clipboard.writeText(text).then(() => {
+                    setCopyHint('Copiado');
+                    setTimeout(() => setCopyHint(null), 2000);
+                  });
+                }}
+              >
+                {copyHint ?? 'Copiar thread'}
+              </button>
               <button
                 type="button"
                 class="fleet-copilot-link-btn"
@@ -241,7 +306,8 @@ export function FleetCopilotPage() {
                 <div class="fleet-copilot-empty">
                   <p>Escolha uma consulta rápida ou faça uma pergunta sobre os dados coletados.</p>
                   <p class="fleet-copilot-empty__note">
-                    Respostas levam ~1–2&nbsp;min (inferência CPU em {SSDNODES_HOSTNAME}).
+                    Respostas rápidas para consultas estruturadas; perguntas abertas levam ~1–2&nbsp;min
+                    (Gemma em {SSDNODES_HOSTNAME}). Você pode corrigir o Copilot na mesma thread.
                   </p>
                 </div>
               )}
@@ -260,8 +326,8 @@ export function FleetCopilotPage() {
                       </span>
                     )}
                     {msg.model && msg.role === 'assistant' && (
-                      <span class="fleet-copilot-bubble__model" title="Motor de resposta">
-                        {msg.model === 'gemma3:4b' ? 'Gemma' : msg.model.replace('fleet-', '')}
+                      <span class="fleet-copilot-bubble__model" title={`Motor: ${msg.model}`}>
+                        {fleetModelLabel(msg.model)}
                       </span>
                     )}
                   </header>

@@ -4,9 +4,20 @@ import { SSDNODES_HOSTNAME } from '../constants/fleetHosts';
 
 const STORAGE_KEY = 'fleet-copilot-messages-v1';
 const MAX_MESSAGES = 20;
+const MAX_HISTORY_TURNS = 8;
+
+export type FleetChatHistoryTurn = { role: 'user' | 'assistant'; content: string };
+
+function toApiHistory(messages: FleetChatMessage[]): FleetChatHistoryTurn[] {
+  return messages.slice(-MAX_HISTORY_TURNS).map((m) => ({
+    role: m.role,
+    content: m.text.slice(0, 600),
+  }));
+}
 
 export const PRESET_PROMPTS = {
   'ssdnodes-health': `Como estão disco, memória e carga no host ${SSDNODES_HOSTNAME} agora?`,
+  'ssdnodes-overview': `Como está o servidor ${SSDNODES_HOSTNAME}? Resumo de disco, memória e carga.`,
   'ssdnodes-k8s': `Há pods não Running, ingress ou warnings no cluster K8s em ${SSDNODES_HOSTNAME}?`,
   'ssdnodes-ssh': `Resuma tentativas SSH suspeitas nas últimas 24h em ${SSDNODES_HOSTNAME}.`,
 } as const;
@@ -135,6 +146,7 @@ export function useFleetChat() {
         text: trimmed,
         at: Date.now(),
       };
+      const historyForApi = toApiHistory(messages);
       setMessages((m) => [...m, userMsg]);
 
       let sources: string[] = [];
@@ -163,7 +175,7 @@ export function useFleetChat() {
             'Content-Type': 'application/json',
             Accept: 'text/event-stream',
           },
-          body: JSON.stringify({ message: trimmed, preset: presetId }),
+          body: JSON.stringify({ message: trimmed, preset: presetId, history: historyForApi }),
         });
 
         if (res.status === 404) {

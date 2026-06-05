@@ -116,6 +116,7 @@ deploy_fleet_copilot() {
   log "=== Fleet Copilot (Ollama + gateway) ==="
   bash "$COMPONENTS_DIR/install_ollama.sh" --host "$REMOTE_HOST"
   bash "$COMPONENTS_DIR/fleet-copilot/install_fleet_ops_gateway.sh"
+  bash "$COMPONENTS_DIR/fleet-copilot/setup_fleet_gateway_kubeconfig.sh" --host "$REMOTE_HOST" --verify
   bash "$SCRIPT_DIR/../scripts/hardening/ufw_manager.sh" --host "$REMOTE_HOST" --apply
   log "Fleet Copilot stack atualizado ✓"
 }

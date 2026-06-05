@@ -204,7 +204,8 @@
 /* ── Nodes Toolbar (search + settings) ── */
 .nodes-toolbar {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
   margin-bottom: 1rem;
   align-items: center;
 }
@@ -632,6 +633,22 @@ mark.search-highlight {
   overflow-x: auto;
 }
 
+.fleet-cluster-header td {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.45rem 0.65rem;
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.76rem;
+}
+
+.fleet-cluster-header--oci td { border-left: 3px solid rgb(13, 148, 136); }
+.fleet-cluster-header--hetzner td { border-left: 3px solid rgb(234, 88, 12); }
+.fleet-cluster-header--ssd-nodes td { border-left: 3px solid rgb(139, 92, 246); }
+.fleet-cluster-header--aws-ec2 td { border-left: 3px solid rgb(251, 191, 36); }
+
 .fleet-table {
   width: 100%;
   border-collapse: collapse;
@@ -643,25 +660,55 @@ mark.search-highlight {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
+  color: var(--text-muted, var(--muted));
   font-weight: 600;
   padding: 0.55rem 0.65rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
 
 .fleet-table tbody td {
   padding: 0.65rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--line);
   vertical-align: middle;
+  color: var(--text-main, var(--ink));
 }
 
 .fleet-row {
   transition: background 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
   }
+}
+
+:root.dark .fleet-overview__title,
+:root.dark .fleet-overview__subtitle {
+  color: var(--text-muted);
+}
+
+:root.dark .fleet-overview__title {
+  color: var(--text-main);
+}
+
+:root.dark .fleet-cluster-header td {
+  background: color-mix(in srgb, var(--surface-2) 95%, transparent);
+}
+
+:root.dark .cluster-group-header td {
+  background: color-mix(in srgb, var(--surface-2) 95%, transparent);
+}
+
+:root.dark .nodes-search {
+  background: var(--surface-3);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+:root.dark .nodes-settings-btn {
+  background: var(--surface-3);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
 }
 
 .fleet-row--honeypot {
@@ -801,16 +848,23 @@ mark.search-highlight {
 
 @media (max-width: 960px) {
   .fleet-table__actions-col,
+  .fleet-table__col-asn,
   .fleet-asn-cell {
     display: none;
   }
 }
 
 @media (max-width: 720px) {
+  .fleet-table__col-req,
   .fleet-table thead th:nth-child(6),
   .fleet-table thead th:nth-child(7),
   .fleet-table tbody td:nth-child(6),
   .fleet-table tbody td:nth-child(7) {
+    display: none;
+  }
+
+  .fleet-table__col-class,
+  .fleet-table__col-ip {
     display: none;
   }
 }
@@ -1087,8 +1141,12 @@ mark.search-highlight {
 /* ── Cluster group header rows (desktop table) ── */
 .cluster-group-header {
   td {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     padding: 10px 14px 8px;
-    background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+    background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+    backdrop-filter: blur(6px);
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
     font-size: 0.78rem;
@@ -1220,6 +1278,47 @@ mark.search-highlight {
   font-size: 0.95rem;
   padding: 1.5rem 0;
   text-align: center;
+}
+
+.nodes-empty--rich {
+  text-align: left;
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 40%, transparent);
+}
+
+.nodes-empty__title {
+  margin: 0 0 0.35rem;
+  font-weight: 650;
+  color: var(--text-main, var(--ink));
+}
+
+.nodes-empty__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.nodes-empty__checklist {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.nodes-honeypot-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
 }
 
 /* ── Tooltips interativos de células de nós ──────────────── */
