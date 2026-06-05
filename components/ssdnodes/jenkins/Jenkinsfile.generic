@@ -53,12 +53,16 @@ spec:
     stage('Checkout') {
       steps {
         checkout scm
-        sh '''#!/usr/bin/env bash
+        withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+          sh '''#!/usr/bin/env bash
 set -euo pipefail
-# Multibranch shallow: traz só a branch do build — main necessário para verify-branch
-git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+# Multibranch shallow: main não vem no clone — fetch autenticado para verify-branch
+git fetch --no-tags \
+  "https://${GIT_USER}:${GIT_PASS}@github.com/ToolHQ/production-site.git" \
+  +refs/heads/main:refs/remotes/origin/main
 git rev-parse --verify origin/main^{commit}
 '''
+        }
       }
     }
 
