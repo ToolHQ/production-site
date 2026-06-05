@@ -1,12 +1,20 @@
 /**
  * Jenkinsfile genérico — ZERO lógica de negócio.
  *
- * Contrato:
- *   1. citools next --json  → { done, stageName, id, ... }
- *   2. readJSON → stage(step.stageName) { citools run <id> }
- *
- * Stages, when/env e comandos vivem em pipeline.yaml — não editar Groovy por app.
+ * Contrato: citools next --json → JsonSlurper → stage(stageName) { citools run id }
+ * Stages vivem em pipeline.yaml.
  */
+
+@NonCPS
+Map citoolsParseNext(String raw) {
+  def json = new groovy.json.JsonSlurper().parseText(raw)
+  return [
+    done: json.done == true,
+    stageName: json.stageName?.toString() ?: '',
+    id: json.id?.toString() ?: '',
+  ]
+}
+
 pipeline {
   agent {
     kubernetes {
@@ -86,22 +94,22 @@ bash components/ssdnodes/jenkins/agent-setup.sh
                 ? "${citools} next --json --after '${after}' --pipeline '${pipelinePath}'"
                 : "${citools} next --json --pipeline '${pipelinePath}'"
               def raw = sh(returnStdout: true, script: nextCmd).trim()
-              def step = new groovy.json.JsonSlurper().parseText(raw)
+              def next = citoolsParseNext(raw)
 
-              if (step.done) {
+              if (next.done) {
                 echo 'citools next: pipeline concluído'
                 break
               }
 
-              stage(step.stageName) {
+              stage(next.stageName) {
                 sh """#!/usr/bin/env bash
 set -euo pipefail
 export PATH="${WORKSPACE}/tools/citools/target/release:${WORKSPACE}/.sonar-scanner/bin:\${PATH}"
 export CITOOLS_REPO_ROOT="${WORKSPACE}"
-${citools} run '${step.id}' --pipeline '${pipelinePath}'
+${citools} run '${next.id}' --pipeline '${pipelinePath}'
 """
               }
-              after = step.id
+              after = next.id
             }
           }
         }
