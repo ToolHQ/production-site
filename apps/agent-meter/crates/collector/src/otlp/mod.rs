@@ -1,6 +1,10 @@
 use prost::Message;
 use sqlx::PgPool;
-use tracing::{info, warn};
+use tracing::warn;
+
+mod ide;
+
+use self::ide::infer_ide;
 
 use crate::errors::AppError;
 use crate::models::event::ToolCallEvent;
@@ -471,50 +475,6 @@ fn truncate_str(s: String, max_bytes: usize) -> String {
     let mut end = max_bytes;
     while !s.is_char_boundary(end) { end -= 1; }
     format!("{}…[truncated]", &s[..end])
-}
-
-/// Infer IDE name from HTTP User-Agent and/or service.name
-fn infer_ide(user_agent: Option<&str>, service_name: Option<&str>) -> Option<String> {
-    let ua = user_agent.unwrap_or("").to_lowercase();
-    let svc = service_name.unwrap_or("").to_lowercase();
-    // VS Code Copilot — official extension + GitHub Copilot CLI (new agentic CLI)
-    if ua.contains("vscode") || svc.contains("copilot") || svc.contains("vscode") {
-        return Some("copilot-vscode".to_string());
-    }
-    // GitHub Copilot CLI (github/copilot-cli) — terminal agent
-    if ua.contains("copilot-cli") || ua.contains("copilot_cli") || svc.contains("copilot-cli") || svc.contains("copilot_cli") {
-        return Some("copilot-cli".to_string());
-    }
-    // Cursor IDE — may emit OTLP via OTEL_EXPORTER_OTLP_ENDPOINT env var
-    if ua.contains("cursor") || svc.contains("cursor") {
-        return Some("cursor".to_string());
-    }
-    // Antigravity agent
-    if ua.contains("antigravity") || svc.contains("antigravity") {
-        return Some("antigravity".to_string());
-    }
-    // Claude Code (Anthropic CLI) — CLAUDE_CODE_OTEL_ENDPOINT → service.name=claude or claude-code
-    if ua.contains("claude-code") || ua.contains("claude_code")
-        || svc.contains("claude-code") || svc.contains("claude_code") || svc.contains("claude") {
-        return Some("claude-code".to_string());
-    }
-    // Codex CLI (OpenAI) — OTEL_SERVICE_NAME=codex; NOT to be confused with JetBrains Rust Rover
-    if ua.contains("codex") || svc.contains("codex") || svc.contains("openai-codex") {
-        return Some("codex".to_string());
-    }
-    // OpenCode (SST open-source agent)
-    if ua.contains("opencode") || svc.contains("opencode") {
-        return Some("opencode".to_string());
-    }
-    // JetBrains Rust Rover IDE — separate from Codex!
-    if ua.contains("rust-rover") || ua.contains("rustrover") || svc.contains("rust-rover") || svc.contains("rustrover") {
-        return Some("rust-rover".to_string());
-    }
-    // Copilot for Eclipse — Eclipse Copilot plugin (may send eclipse or jdt in UA)
-    if ua.contains("eclipse") || svc.contains("eclipse") || ua.contains("jdt") {
-        return Some("copilot-eclipse".to_string());
-    }
-    None
 }
 
 fn json_attr_str(attrs: &[serde_json::Value], key: &str) -> Option<String> {
