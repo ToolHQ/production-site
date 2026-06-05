@@ -5,6 +5,10 @@ set -euo pipefail
 SONAR_HOST_URL="${SONAR_HOST_URL:-https://sonar.ssdnodes.dnor.io}"
 SONAR_PROJECT_KEY="${SONAR_PROJECT_KEY:-production-site}"
 
+# shellcheck source=/dev/null
+[[ -f .citools-agent.env ]] && source .citools-agent.env
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+
 [[ -n "${SONAR_TOKEN:-}" ]] || {
 	echo "SONAR_TOKEN não definido — skip sonar-scan" >&2
 	exit 0

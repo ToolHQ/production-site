@@ -53,4 +53,15 @@ install -m 0755 "${CITOOLS_BIN}" /usr/local/bin/citools 2>/dev/null || true
 
 command -v citools >/dev/null
 citools --version 2>/dev/null || true
-log "agent pronto — citools + shellcheck + sonar-scanner"
+
+# Env file — stages dinâmicos (citools run) rodam em sh novo sem herdar PATH do setup
+JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+if [[ ! -d "$JAVA_HOME" ]] && command -v java >/dev/null 2>&1; then
+	JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+fi
+cat >"${REPO_ROOT}/.citools-agent.env" <<EOF
+export JAVA_HOME="${JAVA_HOME}"
+export PATH="${SONAR_SCANNER_HOME}/bin:/usr/local/cargo/bin:${CARGO_TARGET_DIR}/release:/usr/bin:\${PATH}"
+EOF
+
+log "agent pronto — citools + shellcheck + sonar-scanner + java"
