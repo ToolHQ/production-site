@@ -25,19 +25,16 @@ if [[ ! -x "${SONAR_SCANNER_HOME}/bin/sonar-scanner" ]]; then
 fi
 export PATH="${SONAR_SCANNER_HOME}/bin:${PATH}"
 
-# --- shellcheck (gate harness) ---
-if ! command -v shellcheck >/dev/null 2>&1; then
-	log "instalando shellcheck (apt)"
+# --- deps harness (shellcheck, yamllint, git) ---
+need_apt=0
+for cmd in shellcheck yamllint git; do
+	command -v "$cmd" >/dev/null 2>&1 || need_apt=1
+done
+if [[ "$need_apt" == "1" ]]; then
+	log "instalando shellcheck, yamllint, git (apt)"
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update -qq
-	apt-get install -y -qq --no-install-recommends shellcheck ca-certificates git
-fi
-
-if ! command -v yamllint >/dev/null 2>&1; then
-	log "instalando yamllint (pip)"
-	python3 -m pip install -q --break-system-packages yamllint 2>/dev/null \
-		|| python3 -m pip install -q --user yamllint
-	export PATH="${HOME}/.local/bin:${PATH}"
+	apt-get install -y -qq --no-install-recommends shellcheck yamllint git ca-certificates
 fi
 
 # --- citools ---
