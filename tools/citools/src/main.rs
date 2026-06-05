@@ -53,9 +53,7 @@ enum Commands {
         after: Option<String>,
     },
     /// Run a single stage by id
-    Run {
-        stage_id: String,
-    },
+    Run { stage_id: String },
     /// Run all stages sequentially (fail-fast)
     RunAll {
         /// Continue after stage failure
@@ -204,7 +202,11 @@ fn cmd_run_all(p: &Pipeline, repo_root: &PathBuf, keep_going: bool) -> Result<()
     let mut failed = Vec::new();
     for stage in &p.stages {
         if !stage_enabled(stage) {
-            eprintln!("⏭  skip {} (when={})", stage.id, stage.when.as_deref().unwrap_or("-"));
+            eprintln!(
+                "⏭  skip {} (when={})",
+                stage.id,
+                stage.when.as_deref().unwrap_or("-")
+            );
             continue;
         }
         match run_stage(stage, repo_root) {
