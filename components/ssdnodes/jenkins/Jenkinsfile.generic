@@ -1,7 +1,7 @@
 /**
  * Jenkinsfile genérico — production-site (T-341 / citools)
  *
- * Orquestrador mínimo: agent-setup.sh + citools run-all.
+ * Orquestrador mínimo: checkout + agent-setup.sh + citools run-all.
  * Stages e gates vivem em pipeline.yaml — não duplicar lógica aqui.
  */
 pipeline {
@@ -35,7 +35,6 @@ spec:
     CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline.yaml'
     CITOOLS_REPO_ROOT = "${WORKSPACE}"
     VERIFY_DIFF_BASE = 'origin/main'
-    VERIFY_FETCH_BASE = '1'
     SONAR_HOST_URL = 'https://sonar.ssdnodes.dnor.io'
     SONAR_PROJECT_KEY = 'production-site'
     SONAR_TOKEN = credentials('sonar-token')
@@ -50,25 +49,24 @@ spec:
   }
 
   stages {
-    stage('Checkout') {
+    stage('CI — citools') {
       steps {
-        checkout scm
-        withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
-          sh '''#!/usr/bin/env bash
+        container('rust') {
+          checkout scm
+          withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            sh '''#!/usr/bin/env bash
 set -euo pipefail
-# Multibranch shallow: main não vem no clone — fetch autenticado para verify-branch
+export DEBIAN_FRONTEND=noninteractive
+if ! command -v git >/dev/null 2>&1; then
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends git ca-certificates
+fi
 git fetch --no-tags \
   "https://${GIT_USER}:${GIT_PASS}@github.com/ToolHQ/production-site.git" \
   +refs/heads/main:refs/remotes/origin/main
 git rev-parse --verify origin/main^{commit}
 '''
-        }
-      }
-    }
-
-    stage('CI — citools') {
-      steps {
-        container('rust') {
+          }
           sh '''#!/usr/bin/env bash
 set -euo pipefail
 export CITOOLS_REPO_ROOT="${WORKSPACE}"
@@ -86,7 +84,7 @@ citools run-all --pipeline "${CITOOLS_PIPELINE}"
       echo "✓ Pipeline citools OK — stages em ${env.CITOOLS_PIPELINE}"
     }
     failure {
-      echo "✗ Falha citools — ver stage com ✗ no log (citools run-all)"
+      echo "✗ Falha citools — ver log do stage que falhou"
     }
     always {
       script {

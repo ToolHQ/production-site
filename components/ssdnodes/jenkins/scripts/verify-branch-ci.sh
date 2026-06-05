@@ -2,25 +2,17 @@
 # verify-branch-ci.sh — harness path-aware vs base branch (CI Jenkins)
 #
 # Local: verify-changed usa working tree (staged/unstaged).
-# CI:   diff limpo checkout → compara HEAD vs origin/main (ou VERIFY_DIFF_BASE).
+# CI:   diff limpo checkout → compara HEAD vs origin/main (fetch feito no Jenkinsfile).
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
+REPO_ROOT="${CITOOLS_REPO_ROOT:-$(cd "$(dirname "$0")/../../../.." && pwd)}"
 cd "$REPO_ROOT"
 
 BASE="${VERIFY_DIFF_BASE:-origin/main}"
-FETCH="${VERIFY_FETCH_BASE:-1}"
-
-if [[ "$FETCH" == "1" ]]; then
-	# Clone shallow do Jenkins traz só a branch atual — buscar main explicitamente
-	git fetch --no-tags --depth=100 origin \
-		"+refs/heads/main:refs/remotes/origin/main" 2>/dev/null \
-		|| git fetch --no-tags origin main 2>/dev/null \
-		|| true
-fi
 
 if ! git rev-parse --verify "${BASE}^{commit}" >/dev/null 2>&1; then
-	echo "[verify-branch-ci] ERRO: base ${BASE} indisponível — rode git fetch origin main no checkout" >&2
+	echo "[verify-branch-ci] ERRO: ${BASE} indisponível — confira fetch no Jenkinsfile" >&2
+	git branch -a >&2 || true
 	exit 1
 fi
 
