@@ -20,8 +20,8 @@ if [[ "$FETCH" == "1" ]]; then
 fi
 
 if ! git rev-parse --verify "${BASE}^{commit}" >/dev/null 2>&1; then
-	echo "[verify-branch-ci] base ${BASE} indisponível após fetch — skip gates" >&2
-	exit 0
+	echo "[verify-branch-ci] ERRO: base ${BASE} indisponível — rode git fetch origin main no checkout" >&2
+	exit 1
 fi
 
 mapfile -t paths < <(
