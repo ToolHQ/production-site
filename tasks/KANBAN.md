@@ -45,6 +45,7 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
+| [T-341](2026/Q2/T-341-Tailscale-Ingress-Manager.md) | **Tailscale Ingress Manager — script + TUI + GoDaddy DNS automation** _(create/delete/list/validate ingresses com whitelist Tailscale)_ | 🔼 High | **Antigravity** | 4h |
 | [T-339](2026/Q2/T-339-Threat-Intel-Log-Streaming-ClickHouse.md) | **Honeypot + SSDNodes — Threat Intel Log Streaming via ClickHouse (Fase 6)** _(Vector logs no ClickHouse, rs-observability-api ClickHouseClient impl)_ | 🔼 High | **Antigravity** | 2d |
 | T-340 | **Fix SSDNodes Fail2Ban Data Integration in rs-observability-api** _(Adjusted UFW rules on SSDNodes and added concurrent timeout wrapper in API app.rs to prevent timeouts when secondary is unreachable)_ | 🔼 High | **Antigravity** | 2h |
 | [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
