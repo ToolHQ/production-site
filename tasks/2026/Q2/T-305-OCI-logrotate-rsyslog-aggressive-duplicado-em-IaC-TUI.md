@@ -1,6 +1,6 @@
 # T-305: OCI logrotate rsyslog-aggressive duplicado em IaC/TUI
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h

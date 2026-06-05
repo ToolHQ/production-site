@@ -1,0 +1,41 @@
+approvals:
+  mode: manual
+  cron_mode: deny
+
+terminal:
+  backend: local
+  docker_forward_env: []
+  container_persistent: false
+  container_memory: 4096
+
+tools:
+  terminal:
+    enabled: false
+  file:
+    enabled: false
+  browser:
+    enabled: false
+  web:
+    enabled: false
+  search:
+    enabled: false
+  x_search:
+    enabled: false
+  delegation:
+    enabled: false
+  cronjob:
+    enabled: false
+  messaging:
+    enabled: false
+  discord_admin:
+    enabled: false
+  skills:
+    enabled: false
+  code_execution:
+    enabled: false
+
+provider:
+  type: openai # Ollama usa o schema da OpenAI localmente
+  base_url: http://127.0.0.1:11434/v1
+  api_key: no-key
+  model: gemma3:4b # Modelo padrão instalado no SSDNodes

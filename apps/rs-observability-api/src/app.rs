@@ -208,6 +208,17 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     let mut secondary_clusters: std::collections::HashSet<String> =
         std::collections::HashSet::new();
     if let Some(secondary) = &state.secondary_live_monitor {
+<<<<<<< HEAD
+        let secondary_overview = match tokio::time::timeout(Duration::from_secs(8), secondary.cached_or_refresh()).await {
+            Ok(overview) => overview,
+            Err(_) => {
+                eprintln!("secondary K8s refresh slow; using stale cache if available");
+                secondary
+                    .overview_with_refresh_budget(Duration::from_millis(1))
+                    .await
+            }
+        };
+=======
         let secondary_overview =
             match tokio::time::timeout(Duration::from_secs(8), secondary.cached_or_refresh()).await
             {
@@ -219,6 +230,7 @@ async fn live_overview(State(state): State<AppState>) -> Response {
                         .await
                 }
             };
+>>>>>>> origin/main
 
         if secondary_overview.available {
             for mut node in secondary_overview.nodes {

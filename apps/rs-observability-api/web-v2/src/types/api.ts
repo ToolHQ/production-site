@@ -143,6 +143,14 @@ export interface HoneypotOverview {
   nodes: HoneypotNodeStats[];
 }
 
+export interface Fail2BanStats {
+  total: number;
+  failed: number;
+  banned: number;
+  banned_ips: string[];
+  timestamp: number;
+}
+
 export interface LiveOverview {
   available: boolean;
   stale: boolean;
@@ -157,6 +165,7 @@ export interface LiveOverview {
   incidents: Incident[];
   metrics: MetricsData;
   honeypot?: HoneypotOverview;
+  fail2ban?: Fail2BanStats;
 }
 
 // Tipos para /api/catalog/summary e /api/catalog
