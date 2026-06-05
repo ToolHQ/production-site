@@ -68,6 +68,7 @@ fn infer_ua_from_fixture(fixture: &str) -> &'static str {
     match fixture {
         f if f.starts_with("vscode") => "vscode/1.100.0 (darwin arm64)",
         f if f.starts_with("cursor") => "cursor/0.48.0 (darwin arm64)",
+        f if f.starts_with("eclipse") => "eclipse/2026-03 jdt-language-server",
         f if f.starts_with("claude") => "claude-code/1.0.0 (linux arm64)",
         f if f.starts_with("codex")  => "codex/0.1.0 (linux amd64)",
         f if f.starts_with("mcp")    => "my-agent/1.0.0",
@@ -95,6 +96,20 @@ async fn test_otlp_vscode_copilot_chat() {
     assert_eq!(events.len(), 1, "expected 1 event from VS Code chat fixture");
     let e = &events[0];
     assert_eq!(e["tool_name"], "llm_chat", "chat spans should produce tool_name=llm_chat");
+}
+
+#[tokio::test]
+async fn test_otlp_eclipse_copilot_execute_tool_and_chat() {
+    let (base_url, client) = setup().await;
+    // fixture has 1 execute_tool + 1 chat span
+    let events = post_otlp(&base_url, &client, "eclipse_copilot_execute_tool.json").await;
+    assert_eq!(events.len(), 2, "eclipse fixture should produce 2 events (tool + chat)");
+
+    let tool_event = events.iter().find(|e| e["tool_name"] != "llm_chat");
+    let chat_event = events.iter().find(|e| e["tool_name"] == "llm_chat");
+    assert!(tool_event.is_some(), "should have a tool event");
+    assert!(chat_event.is_some(), "should have a chat/llm_chat event");
+    assert_eq!(tool_event.unwrap()["tool_name"], "read_file");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
