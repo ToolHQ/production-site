@@ -25,7 +25,7 @@ fi
 echo "[verify-branch-ci] ${#paths[@]} path(s) vs ${BASE}:"
 printf '  %s\n' "${paths[@]}"
 
-# Agent Jenkins não tem kubectl/SSH — BATS fica no harness local/TUI
-export HARNESS_SKIP_BATS=1
+# Agent Jenkins: PATH enxuto no stage citools — preservar toolchain Rust
+export PATH="/usr/local/cargo/bin:${PATH}"
 
 exec ./tools/harness/verify.sh verify-changed --paths "${paths[@]}"

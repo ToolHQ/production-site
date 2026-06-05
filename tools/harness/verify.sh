@@ -394,9 +394,10 @@ run_yamllint_all_manifests() {
 
 run_citools_gate() {
 	local dir="$REPO_ROOT/tools/citools"
-	run_checked "rust fmt: citools" bash -lc "cd '$dir' && cargo fmt --check"
-	run_checked "rust clippy: citools" bash -lc "cd '$dir' && cargo clippy --all-targets -- -D warnings"
-	run_checked "rust test: citools" bash -lc "cd '$dir' && cargo test"
+	# bash -c (não -lc): login shell no agent Jenkins zera PATH e perde cargo
+	run_checked "rust fmt: citools" bash -c "cd '$dir' && cargo fmt --check"
+	run_checked "rust clippy: citools" bash -c "cd '$dir' && cargo clippy --all-targets -- -D warnings"
+	run_checked "rust test: citools" bash -c "cd '$dir' && cargo test"
 }
 
 run_rust_observability_gate() {
