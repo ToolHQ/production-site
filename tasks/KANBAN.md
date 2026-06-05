@@ -11,6 +11,7 @@
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
 | [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
+| [T-341](2026/Q2/T-341-SSDNodes-Jenkins-SonarQube-Platform.md) | **SSDNodes — Jenkins + SonarQube CE (IaC/TUI/DNS)** _(ADR + manifests + deploy_ssdnodes ci-platform; DNS/deploy live pendente)_ | 🔼 High | **Cursor / AI Radar** | 3–5d |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
@@ -19,6 +20,12 @@
 | :-: | :-------- | :------: | :--- | :--: |
 
 ## 📅 Backlog (To Do)
+
+### Epic: SSDNodes CI Platform (T-341) — Jenkins + SonarQube CE
+
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
+| [T-341](2026/Q2/T-341-SSDNodes-Jenkins-SonarQube-Platform.md) | **SSDNodes — Jenkins + SonarQube CE no K8s** _(zero custo; `*.ssdnodes.dnor.io`; IaC + TUI 15–17)_ | 🔼 High | **Cursor / AI Radar** | 3–5d |
 
 ### Epic: Fleet Copilot (T-315) — Fase 2 entregue 2026-05-31 (T-327–335)
 

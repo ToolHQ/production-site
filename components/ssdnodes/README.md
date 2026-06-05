@@ -77,3 +77,35 @@ Para usar os Ingresses, apontar subdomínios para `104.225.218.78`:
 
 - `minio.ssdnodes.dnor.io` → console MinIO
 - `s3.ssdnodes.dnor.io` → API S3 MinIO
+- `k8s.ssdnodes.dnor.io` → Kubernetes Dashboard
+- `cost.ssdnodes.dnor.io` → Kubecost
+- `sonar.ssdnodes.dnor.io` → SonarQube CE (T-341)
+- `jenkins.ssdnodes.dnor.io` → Jenkins LTS (T-341)
+
+## CI Platform (T-341)
+
+ADR: [ADR-jenkins-sonarqube-colocation.md](ADR-jenkins-sonarqube-colocation.md)
+
+**Zero custo variável** — SonarQube Community + Jenkins self-hosted; PostgreSQL interno (ClusterIP).
+
+### Pré-requisitos
+
+1. DNS `sonar` + `jenkins` → `104.225.218.78`
+2. Secrets (nunca no Git):
+
+```bash
+bash oci-k8s-cluster/scripts/ssdnodes/create_sonar_ci_secrets.sh \
+  --postgres-password "$(openssl rand -base64 24)" \
+  | ssh ssdnodes-6a12f10c9ef11 kubectl apply -f -
+```
+
+### Deploy
+
+```bash
+# TUI: Node Hardening → 15/16/17
+bash oci-k8s-cluster/scripts/ssdnodes/deploy_ssdnodes_components.sh ci-platform
+bash oci-k8s-cluster/scripts/ssdnodes/deploy_ssdnodes_components.sh ci-status
+bash scripts/harness/validate_ssdnodes_ci.sh
+```
+
+**Não** usar `oci-k8s-cluster/deploy_components.sh` para `ssdnodes` — guardrail T-341 bloqueia deploy no master OCI.

@@ -1,0 +1,39 @@
+# SonarQube Community Edition (T-341) — chart SonarSource/sonarqube
+# JDBC → PostgreSQL em sonarqube-db.svc.cluster.local
+
+community:
+  enabled: true
+
+image:
+  tag: 10.7.0-community
+
+postgresql:
+  enabled: false
+
+jdbcOverwrite:
+  enable: true
+  jdbcUrl: "jdbc:postgresql://sonarqube-db-postgresql.sonarqube-db.svc.cluster.local:5432/sonar"
+  jdbcUsername: sonar
+  jdbcSecretName: sonarqube-db-credentials
+  jdbcSecretPasswordKey: password
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 10Gi
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+sonarProperties:
+  sonar.forceAuthentication: "true"
+
+ingress:
+  enabled: false
+
+# monitoringPasscode: aplicar Secret sonarqube-monitoring-passcode (create_sonar_ci_secrets.sh)

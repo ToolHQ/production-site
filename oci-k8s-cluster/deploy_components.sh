@@ -374,6 +374,13 @@ deploy_component() {
   local ingress_backends=""
   local nodeports=""
 
+  if [[ "$component" == "ssdnodes" ]]; then
+    echo "❌ components/ssdnodes é exclusivo do cluster SSDNodes (ssdnodes-6a12f10c9ef11)." >&2
+    echo "   Use: bash oci-k8s-cluster/scripts/ssdnodes/deploy_ssdnodes_components.sh ci-platform" >&2
+    echo "   Ou TUI → Node Hardening → SSDNodes CI (T-341)" >&2
+    return 1
+  fi
+
   log_node "$MASTER_NODE" "🚀 Syncing tools to master node"
   run_remote_stream "$MASTER_NODE" "bash -eu -o pipefail" <<RMT
 mkdir -p '/home/ubuntu/tools'

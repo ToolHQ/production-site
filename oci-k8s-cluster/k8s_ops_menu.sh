@@ -4114,7 +4114,7 @@ node_maintenance_menu() {
 # --- HARDENING MENU ---
 show_hardening_menu() {
   while true; do
-    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 26 78 15 \
+    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 28 78 18 \
       "1" "Force Cleanup (All Nodes)" \
       "2" "Re-apply Log Limits (OCI: 200M cap)" \
       "2b" "Validate/Repair logrotate rsyslog (T-305)" \
@@ -4130,6 +4130,9 @@ show_hardening_menu() {
       "12" "📋 Status componentes SSDNodes" \
       "13" "🔐 SSDNodes SSH harden + fail2ban (T-320a)" \
       "14" "👁 Dashboard view-only RBAC (T-320d)" \
+      "15" "🔬 Deploy SonarQube CE — SSDNodes (T-341)" \
+      "16" "⚙️ Deploy Jenkins — SSDNodes (T-341)" \
+      "17" "🚀 Deploy CI Platform — Sonar+Jenkins (T-341)" \
       "0" "Back" 3>&1 1>&2 2>&3)
     
     if [ $? != 0 ]; then return; fi
@@ -4287,6 +4290,25 @@ show_hardening_menu() {
         echo -e "\n${YELLOW}T-320d: Dashboard view-only RBAC${NC}"
         bash "$SCRIPT_DIR/scripts/ssdnodes/patch_dashboard_view_rbac.sh" --apply
         bash "$SCRIPT_DIR/scripts/ssdnodes/patch_dashboard_view_rbac.sh" --verify
+        read -p "Press Enter..."
+        ;;
+      15)
+        clear
+        echo -e "${GREEN}🔬 Deploy SonarQube CE → sonar.ssdnodes.dnor.io (T-341)${NC}"
+        echo -e "${YELLOW}Pré-requisito: Secret sonarqube-db-credentials (create_sonar_ci_secrets.sh)${NC}"
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" sonarqube
+        read -p "Press Enter..."
+        ;;
+      16)
+        clear
+        echo -e "${GREEN}⚙️ Deploy Jenkins → jenkins.ssdnodes.dnor.io (T-341)${NC}"
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" jenkins
+        read -p "Press Enter..."
+        ;;
+      17)
+        clear
+        echo -e "${GREEN}🚀 Deploy CI Platform (Sonar + Jenkins) — T-341${NC}"
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" ci-platform
         read -p "Press Enter..."
         ;;
     esac
