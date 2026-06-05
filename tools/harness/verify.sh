@@ -502,7 +502,12 @@ verify_changed() {
 	fi
 
 	if [[ $yaml_needed -eq 1 ]]; then
-		timed_gate "yaml" run_yamllint_gate
+		if [[ "${HARNESS_SKIP_YAML:-0}" == "1" ]]; then
+			HARNESS_RESULTS+=("yaml|SKIP|-")
+			info "YAML gate skipped (HARNESS_SKIP_YAML=1 — lint path-scoped pendente no CI)"
+		else
+			timed_gate "yaml" run_yamllint_gate
+		fi
 	else
 		HARNESS_RESULTS+=("yaml|SKIP|-")
 		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
