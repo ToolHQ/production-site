@@ -11,9 +11,9 @@ stages:
     description: Dry-run — imprime plano de execução
     run: citools plan --pipeline components/ssdnodes/jenkins/pipeline.yaml
 
-  - id: verify-changed
-    description: Harness path-aware (shell gates — T-141)
-    run: ./tools/harness/verify.sh verify-changed
+  - id: verify-branch
+    description: Harness path-aware vs origin/main (CI — T-341)
+    run: ./components/ssdnodes/jenkins/scripts/verify-branch-ci.sh
 
   - id: validate-ssdnodes-ci
     description: Smoke TLS Sonar/Jenkins no SSDNodes

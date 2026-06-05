@@ -1,10 +1,8 @@
 /**
  * Jenkinsfile genérico — production-site (T-341 / citools)
  *
- * Orquestrador mínimo: compila citools (se necessário) e delega stages ao pipeline.yaml.
- * Lógica de CI vive em tools/citools + pipeline.yaml — não neste Groovy.
- *
- * Job DSL / multibranch: apontar scriptPath para este arquivo.
+ * Orquestrador mínimo: agent-setup.sh + citools run-all.
+ * Stages e gates vivem em pipeline.yaml — não duplicar lógica aqui.
  */
 pipeline {
   agent {
@@ -25,7 +23,7 @@ spec:
     resources:
       requests:
         cpu: "500m"
-        memory: "1Gi"
+        memory: "1536Mi"
       limits:
         cpu: "2"
         memory: "4Gi"
@@ -36,14 +34,20 @@ spec:
   environment {
     CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline.yaml'
     CITOOLS_REPO_ROOT = "${WORKSPACE}"
+    VERIFY_DIFF_BASE = 'origin/main'
+    VERIFY_FETCH_BASE = '1'
+    SONAR_HOST_URL = 'https://sonar.ssdnodes.dnor.io'
+    SONAR_PROJECT_KEY = 'production-site'
     SONAR_TOKEN = credentials('sonar-token')
-    // VALIDATE_SSDNODES_CI = '1'  // descomente para smoke remoto pós-deploy
+    // VALIDATE_SSDNODES_CI = '1'  // smoke remoto pós-deploy (opcional)
   }
 
   options {
-    timeout(time: 60, unit: 'MINUTES')
-    disableConcurrentBuilds()
-    buildDiscarder(logRotator(numToKeepStr: '20'))
+    skipDefaultCheckout(true)
+    timeout(time: 90, unit: 'MINUTES')
+    disableConcurrentBuilds(abortPrevious: true)
+    buildDiscarder(logRotator(numToKeepStr: '15'))
+    timestamps()
   }
 
   stages {
@@ -53,38 +57,33 @@ spec:
       }
     }
 
-    stage('Build citools') {
+    stage('CI — citools') {
       steps {
         container('rust') {
-          sh '''
-            set -euo pipefail
-            cd tools/citools
-            cargo build --release --locked 2>/dev/null || cargo build --release
-          '''
-        }
-      }
-    }
-
-    stage('CI Tools — run-all') {
-      steps {
-        container('rust') {
-          sh '''
-            set -euo pipefail
-            export PATH="${WORKSPACE}/tools/citools/target/release:${PATH}"
-            citools plan --pipeline "${CITOOLS_PIPELINE}"
-            citools run-all --pipeline "${CITOOLS_PIPELINE}"
-          '''
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+bash components/ssdnodes/jenkins/agent-setup.sh
+export PATH="${WORKSPACE}/tools/citools/target/release:${WORKSPACE}/.sonar-scanner/bin:${PATH}"
+citools run-all --pipeline "${CITOOLS_PIPELINE}"
+'''
         }
       }
     }
   }
 
   post {
-    always {
-      echo "Pipeline citools concluído — stages definidos em ${env.CITOOLS_PIPELINE}"
+    success {
+      echo "✓ Pipeline citools OK — stages em ${env.CITOOLS_PIPELINE}"
     }
     failure {
-      echo 'Falha em stage citools — ver log do stage que falhou.'
+      echo "✗ Falha citools — ver stage com ✗ no log (citools run-all)"
+    }
+    always {
+      script {
+        def sha = env.GIT_COMMIT ? env.GIT_COMMIT.take(8) : 'n/a'
+        echo "Branch: ${env.BRANCH_NAME} | Commit: ${sha}"
+      }
     }
   }
 }

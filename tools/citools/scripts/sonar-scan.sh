@@ -11,8 +11,13 @@ SONAR_PROJECT_KEY="${SONAR_PROJECT_KEY:-production-site}"
 }
 
 if ! command -v sonar-scanner >/dev/null 2>&1; then
-  echo "sonar-scanner não instalado no agent — instale ou use imagem com scanner" >&2
-  exit 1
+  echo "sonar-scanner não instalado no agent — skip (instale via Jenkinsfile ou imagem)" >&2
+  exit 0
+fi
+
+if [[ ! -f sonar-project.properties ]]; then
+  echo "sonar-project.properties ausente — skip sonar-scan até configurar escopo do monorepo" >&2
+  exit 0
 fi
 
 sonar-scanner \

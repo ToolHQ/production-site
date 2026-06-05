@@ -6,8 +6,10 @@ Orquestrador mínimo para o monorepo. **Stages vivem em `pipeline.yaml`**, não 
 
 | Arquivo | Função |
 |---------|--------|
-| [Jenkinsfile.generic](Jenkinsfile.generic) | Pipeline declarativo único — compila `citools` e roda `run-all` |
-| [pipeline.yaml](pipeline.yaml) | Stages CI (verify-changed, sonar-scan, …) |
+| [Jenkinsfile.generic](Jenkinsfile.generic) | Pipeline declarativo — checkout + `agent-setup.sh` + `citools run-all` |
+| [agent-setup.sh](agent-setup.sh) | Deps do agent (shellcheck, sonar-scanner, build citools) |
+| [scripts/verify-branch-ci.sh](scripts/verify-branch-ci.sh) | Harness vs `origin/main` (CI) |
+| [pipeline.yaml](pipeline.yaml) | Stages CI (verify-branch, sonar-scan, …) |
 | [jcasc-ci-snippet.yaml](jcasc-ci-snippet.yaml) | Referência JCasC (Sonar server URL); credenciais via setup script |
 
 ## Setup inicial (uma vez)
@@ -68,8 +70,11 @@ citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
 
 | Sintoma | Ação |
 |---------|------|
+| `set: Illegal option -o pipefail` | Blocos `sh` precisam `#!/usr/bin/env bash` (dash não suporta pipefail) |
+| URL `feat%252Ft-341` | Encoding duplo de `/` no nome da branch — normal no multibranch |
+| verify-changed “No changed paths” | CI usa `verify-branch-ci.sh` (diff vs `origin/main`), não working tree |
 | Branch indexing 0 branches | Verificar `github-pat`; repo private precisa PAT com `repo` |
-| `sonar-scanner` not found | Instalar no agent ou trocar imagem do pod no Jenkinsfile |
+| `sonar-scanner` not found | `agent-setup.sh` baixa scanner; sonar-scan skip se sem `sonar-project.properties` |
 | Plugin GitSCMSource error | `kubectl logs jenkins-0 -n jenkins -c jenkins` |
 | Re-run setup | Idempotente — sobrescreve creds e re-scan job |
 
