@@ -27,5 +27,6 @@ printf '  %s\n' "${paths[@]}"
 
 # Agent Jenkins: PATH enxuto no stage citools — preservar toolchain Rust
 export PATH="/usr/local/cargo/bin:${PATH}"
+export HARNESS_SKIP_BATS=1
 
 exec ./tools/harness/verify.sh verify-changed --paths "${paths[@]}"
