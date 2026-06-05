@@ -43,12 +43,29 @@ stages:
     run: ./tools/citools/scripts/sonar-scan.sh
 ```
 
-## Jenkins (genérico)
+### Jenkins (genérico — readJSON + stage dinâmico)
+
+Groovy **não** conhece os stages. Loop:
 
 ```groovy
-// components/ssdnodes/jenkins/Jenkinsfile.generic
-sh 'citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml'
+def after = ''
+while (true) {
+  def step = readJSON text: sh(returnStdout: true, script: "citools next --json ${after ? "--after ${after}" : ''}").trim()
+  if (step.done) break
+  stage(step.stageName) {
+    sh "citools run '${step.id}'"
+  }
+  after = step.id
+}
 ```
+
+Manifesto completo (preview / debug):
+
+```bash
+citools export-json | jq .
+```
+
+Ver [components/ssdnodes/jenkins/Jenkinsfile.generic](../../components/ssdnodes/jenkins/Jenkinsfile.generic).
 
 ## Roadmap
 

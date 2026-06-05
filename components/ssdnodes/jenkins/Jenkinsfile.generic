@@ -1,8 +1,11 @@
 /**
- * Jenkinsfile genérico — production-site (T-341 / citools)
+ * Jenkinsfile genérico — ZERO lógica de negócio.
  *
- * Orquestrador mínimo: checkout + agent-setup.sh + citools run-all.
- * Stages e gates vivem em pipeline.yaml — não duplicar lógica aqui.
+ * Contrato:
+ *   1. citools next --json  → { done, stageName, id, ... }
+ *   2. readJSON → stage(step.stageName) { citools run <id> }
+ *
+ * Stages, when/env e comandos vivem em pipeline.yaml — não editar Groovy por app.
  */
 pipeline {
   agent {
@@ -35,11 +38,10 @@ spec:
     CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline.yaml'
     CITOOLS_REPO_ROOT = "${WORKSPACE}"
     VERIFY_DIFF_BASE = 'origin/main'
-    VERIFY_ALLOW_UNMAPPED = '1'  // T-341 rollout — mapear paths novos no harness depois
+    VERIFY_ALLOW_UNMAPPED = '1'
     SONAR_HOST_URL = 'https://sonar.ssdnodes.dnor.io'
     SONAR_PROJECT_KEY = 'production-site'
     SONAR_TOKEN = credentials('sonar-token')
-    // VALIDATE_SSDNODES_CI = '1'  // smoke remoto pós-deploy (opcional)
   }
 
   options {
@@ -50,7 +52,7 @@ spec:
   }
 
   stages {
-    stage('CI — citools') {
+    stage('Prepare') {
       steps {
         container('rust') {
           checkout scm
@@ -58,24 +60,50 @@ spec:
             sh '''#!/usr/bin/env bash
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-if ! command -v git >/dev/null 2>&1; then
-  apt-get update -qq
-  apt-get install -y -qq --no-install-recommends git ca-certificates
-fi
-git config --global --add safe.directory "${WORKSPACE}"
-git fetch --no-tags \
-  "https://${GIT_USER}:${GIT_PASS}@github.com/ToolHQ/production-site.git" \
-  +refs/heads/main:refs/remotes/origin/main
-git rev-parse --verify origin/main^{commit}
+command -v git >/dev/null || { apt-get update -qq && apt-get install -y -qq --no-install-recommends git ca-certificates; }
+bash components/ssdnodes/jenkins/jenkins-prepare.sh
 '''
           }
           sh '''#!/usr/bin/env bash
 set -euo pipefail
 export CITOOLS_REPO_ROOT="${WORKSPACE}"
 bash components/ssdnodes/jenkins/agent-setup.sh
-export PATH="${WORKSPACE}/tools/citools/target/release:${WORKSPACE}/.sonar-scanner/bin:${PATH}"
-citools run-all --pipeline "${CITOOLS_PIPELINE}"
 '''
+        }
+      }
+    }
+
+    stage('Pipeline') {
+      steps {
+        script {
+          container('rust') {
+            def citools = "${WORKSPACE}/tools/citools/target/release/citools"
+            def pipelinePath = env.CITOOLS_PIPELINE
+            def after = ''
+
+            while (true) {
+              def nextCmd = after
+                ? "${citools} next --json --after '${after}' --pipeline '${pipelinePath}'"
+                : "${citools} next --json --pipeline '${pipelinePath}'"
+              def raw = sh(returnStdout: true, script: nextCmd).trim()
+              def step = readJSON text: raw
+
+              if (step.done) {
+                echo 'citools next: pipeline concluído'
+                break
+              }
+
+              stage(step.stageName) {
+                sh """#!/usr/bin/env bash
+set -euo pipefail
+export PATH="${WORKSPACE}/tools/citools/target/release:${WORKSPACE}/.sonar-scanner/bin:\${PATH}"
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+${citools} run '${step.id}' --pipeline '${pipelinePath}'
+"""
+              }
+              after = step.id
+            }
+          }
         }
       }
     }
@@ -83,10 +111,10 @@ citools run-all --pipeline "${CITOOLS_PIPELINE}"
 
   post {
     success {
-      echo "✓ Pipeline citools OK — stages em ${env.CITOOLS_PIPELINE}"
+      echo "✓ citools pipeline OK (${env.CITOOLS_PIPELINE})"
     }
     failure {
-      echo "✗ Falha citools — ver log do stage que falhou"
+      echo '✗ Falha — ver stage vermelho no Blue Ocean'
     }
     always {
       script {

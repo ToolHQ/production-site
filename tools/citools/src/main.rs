@@ -1,18 +1,21 @@
+mod jenkins;
 mod pipeline;
 
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
+use jenkins::{export_stage, next_done, next_stage, ExportManifest};
 use pipeline::{load_pipeline, Pipeline, Stage};
 
 #[derive(Parser)]
 #[command(
     name = "citools",
     about = "CI stage runner — pipeline YAML, agnostic to Jenkins/GHA",
-    long_about = "Define stages in pipeline.yaml; Jenkins/GHA/shell only orchestrate `citools run-all`."
+    long_about = "Stages in pipeline.yaml. Jenkins: `citools next --json` + readJSON + stage(stageName)."
 )]
 struct Cli {
     /// Path to pipeline.yaml (or CITOOLS_PIPELINE env)
@@ -36,8 +39,19 @@ struct Cli {
 enum Commands {
     /// List stages defined in pipeline.yaml
     List,
-    /// Print execution plan (dry-run)
+    /// Print execution plan (dry-run, human text)
     Plan,
+    /// Manifest JSON — todos os stages habilitados (readJSON / preview)
+    ExportJson,
+    /// Próximo stage habilitado — um JSON por chamada (loop Groovy)
+    Next {
+        /// Emitir JSON (stdout). Sem flag: texto humano.
+        #[arg(long)]
+        json: bool,
+        /// Retomar após este stage id (exclusive)
+        #[arg(long)]
+        after: Option<String>,
+    },
     /// Run a single stage by id
     Run {
         stage_id: String,
@@ -60,9 +74,23 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::List => cmd_list(&pipeline),
         Commands::Plan => cmd_plan(&pipeline),
+        Commands::ExportJson => cmd_export_json(&pipeline),
+        Commands::Next { json, after } => cmd_next(&pipeline, json, after.as_deref()),
         Commands::Run { stage_id } => cmd_run(&pipeline, &repo_root, &stage_id),
         Commands::RunAll { keep_going } => cmd_run_all(&pipeline, &repo_root, keep_going),
     }
+}
+
+fn jenkins_stages(p: &Pipeline) -> Vec<&Stage> {
+    p.stages.iter().filter(|s| s.jenkins).collect()
+}
+
+fn enabled_stages<'a>(stages: &[&'a Stage]) -> Vec<&'a Stage> {
+    stages
+        .iter()
+        .copied()
+        .filter(|s| stage_enabled(s))
+        .collect()
 }
 
 fn cmd_list(p: &Pipeline) -> Result<()> {
@@ -73,7 +101,14 @@ fn cmd_list(p: &Pipeline) -> Result<()> {
             .as_deref()
             .map(|w| format!(" when={w}"))
             .unwrap_or_default();
-        println!("  - {}: {}{}", s.id, s.description.as_deref().unwrap_or(""), when);
+        let jenkins = if s.jenkins { "" } else { " jenkins=false" };
+        println!(
+            "  - {}: {}{}{}",
+            s.id,
+            s.description.as_deref().unwrap_or(""),
+            when,
+            jenkins
+        );
     }
     Ok(())
 }
@@ -81,11 +116,77 @@ fn cmd_list(p: &Pipeline) -> Result<()> {
 fn cmd_plan(p: &Pipeline) -> Result<()> {
     println!("# citools plan — {}", p.name);
     for (i, s) in p.stages.iter().enumerate() {
+        if !stage_enabled(s) {
+            println!(
+                "{}. [{}] (skip when={})",
+                i + 1,
+                s.id,
+                s.when.as_deref().unwrap_or("-")
+            );
+            continue;
+        }
         println!("{}. [{}] {}", i + 1, s.id, s.run);
         if let Some(w) = &s.when {
             println!("   when: {w}");
         }
     }
+    Ok(())
+}
+
+fn cmd_export_json(p: &Pipeline) -> Result<()> {
+    let candidates = jenkins_stages(p);
+    let enabled = enabled_stages(&candidates);
+    let stages: Vec<_> = enabled
+        .iter()
+        .enumerate()
+        .map(|(i, s)| export_stage(s, i + 1))
+        .collect();
+    let manifest = ExportManifest {
+        pipeline: p.name.clone(),
+        version: p.version,
+        stages,
+    };
+    emit_json(&manifest)
+}
+
+fn cmd_next(p: &Pipeline, json: bool, after: Option<&str>) -> Result<()> {
+    let candidates = jenkins_stages(p);
+    let enabled = enabled_stages(&candidates);
+    let total = enabled.len();
+
+    let mut past_cursor = after.is_none();
+    for (idx, stage) in enabled.iter().enumerate() {
+        if !past_cursor {
+            if Some(stage.id.as_str()) == after {
+                past_cursor = true;
+            }
+            continue;
+        }
+        let response = next_stage(stage, idx + 1, total);
+        if json {
+            return emit_json(&response);
+        }
+        println!(
+            "next: [{}] {} ({}/{})",
+            stage.id,
+            jenkins::stage_display_name(stage),
+            idx + 1,
+            total
+        );
+        return Ok(());
+    }
+
+    if json {
+        return emit_json(&next_done());
+    }
+    println!("next: done");
+    Ok(())
+}
+
+fn emit_json<T: serde::Serialize>(value: &T) -> Result<()> {
+    let mut stdout = io::stdout().lock();
+    serde_json::to_writer(&mut stdout, value)?;
+    stdout.write_all(b"\n")?;
     Ok(())
 }
 
@@ -138,7 +239,6 @@ fn stage_enabled(stage: &Stage) -> bool {
 fn run_stage(stage: &Stage, repo_root: &PathBuf) -> Result<()> {
     eprintln!("→  {} — {}", stage.id, stage.run);
     let start = Instant::now();
-    // bash -c (not -lc): login shell reseta PATH e quebra stages que invocam citools
     let status = Command::new("bash")
         .arg("-c")
         .arg(&stage.run)

@@ -1,26 +1,36 @@
-# pipeline.yaml — stages CI production-site (citools)
-# Jenkins/GHA/local: citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
+# pipeline.yaml — fonte de verdade dos stages CI (citools)
 #
-# Evolução: cada stage pode migrar de `run: shell` para subcomando nativo citools.
+# Jenkins: citools next --json → readJSON → stage(stageName) { citools run <id> }
+# Local:   citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
+#
+# Campos:
+#   stageName  — rótulo no Blue Ocean (opcional; default: humanize do id)
+#   when       — env:VAR (condicional; citools filtra em next/export-json)
+#   jenkins    — false = só run-all local, não aparece no Jenkins
 
 version: 1
 name: production-site-default
 
 stages:
-  - id: plan
-    description: Dry-run — imprime plano de execução
-    run: citools plan --pipeline components/ssdnodes/jenkins/pipeline.yaml
-
   - id: verify-branch
-    description: Harness path-aware vs origin/main (CI — T-341)
+    stageName: Verify branch
+    description: Harness path-aware vs origin/main (CI)
     run: ./components/ssdnodes/jenkins/scripts/verify-branch-ci.sh
 
   - id: validate-ssdnodes-ci
+    stageName: Validate SSDNodes CI
     description: Smoke TLS Sonar/Jenkins no SSDNodes
     when: env:VALIDATE_SSDNODES_CI
     run: ./scripts/harness/validate_ssdnodes_ci.sh
 
   - id: sonar-scan
-    description: SonarQube scanner (requer SONAR_TOKEN + sonar-scanner no agent)
+    stageName: Sonar scan
+    description: SonarQube scanner
     when: env:SONAR_TOKEN
     run: ./tools/citools/scripts/sonar-scan.sh
+
+  - id: plan
+    stageName: Plan (local)
+    description: Dry-run — imprime plano (só dev/local)
+    jenkins: false
+    run: citools plan --pipeline components/ssdnodes/jenkins/pipeline.yaml

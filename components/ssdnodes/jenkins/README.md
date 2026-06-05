@@ -1,15 +1,32 @@
 # Jenkins CI — production-site (citools)
 
-Orquestrador mínimo para o monorepo. **Stages vivem em `pipeline.yaml`**, não neste diretório Groovy.
+Orquestrador **genérico**: Groovy só faz `readJSON` + `stage(stageName)`. Negócio em `pipeline.yaml` + `citools`.
+
+## Contrato Jenkins ↔ citools
+
+```
+pipeline.yaml
+     │
+     ▼
+citools next --json  ──►  { "done": false, "stageName": "Verify branch", "id": "verify-branch", ... }
+     │                              │
+     │                              ▼
+     │                     readJSON + stage(step.stageName) { citools run id }
+     │
+     └── (done: true) → fim do loop
+```
+
+Preview de todos os stages habilitados: `citools export-json | jq .`
 
 ## Arquivos
 
 | Arquivo | Função |
 |---------|--------|
-| [Jenkinsfile.generic](Jenkinsfile.generic) | Pipeline declarativo — checkout + `agent-setup.sh` + `citools run-all` |
+| [Jenkinsfile.generic](Jenkinsfile.generic) | Prepare + loop `citools next --json` → stages dinâmicos |
+| [pipeline.yaml](pipeline.yaml) | **Fonte de verdade** — id, stageName, when, run |
 | [agent-setup.sh](agent-setup.sh) | Deps do agent (shellcheck, sonar-scanner, build citools) |
+| [jenkins-prepare.sh](jenkins-prepare.sh) | Fetch autenticado `origin/main` pós-checkout |
 | [scripts/verify-branch-ci.sh](scripts/verify-branch-ci.sh) | Harness vs `origin/main` (CI) |
-| [pipeline.yaml](pipeline.yaml) | Stages CI (verify-branch, sonar-scan, …) |
 | [jcasc-ci-snippet.yaml](jcasc-ci-snippet.yaml) | Referência JCasC (Sonar server URL); credenciais via setup script |
 
 ## Setup inicial (uma vez)
@@ -55,14 +72,19 @@ Edite [pipeline.yaml](pipeline.yaml) — **não** o Jenkinsfile:
 
 ```yaml
   - id: meu-gate
-    run: ./tools/harness/verify.sh verify-changed
+    stageName: Meu gate
+    when: env:MINHA_FLAG   # opcional — citools filtra em next --json
+    run: ./scripts/meu-gate.sh
 ```
+
+Campos úteis: `stageName` (Blue Ocean), `when: env:VAR`, `jenkins: false` (só local/run-all).
 
 Teste local:
 
 ```bash
 cd tools/citools && cargo build --release
-citools plan --pipeline components/ssdnodes/jenkins/pipeline.yaml
+citools export-json --pipeline components/ssdnodes/jenkins/pipeline.yaml | jq .
+citools next --json
 citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
 ```
 

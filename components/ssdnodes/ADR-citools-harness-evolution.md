@@ -19,14 +19,14 @@ Duplicar lógica entre GHA, shell e Jenkins aumenta drift. Queremos **um contrat
 Introduzir **`citools`** (CLI Rust) + **`pipeline.yaml`** declarativo:
 
 ```
-pipeline.yaml  →  citools run-all  ←  Jenkinsfile.generic (1 stage Groovy)
+pipeline.yaml  →  citools next --json  →  Jenkins readJSON + stage(stageName)
                               ↑
-                              └──  GHA / local dev / futuro Drone
+                              └──  citools run-all (local) / GHA
 ```
 
 ### Princípios
 
-1. **Agnóstico** — Jenkins não conhece clippy/eslint/harness; só chama `citools`.
+1. **Agnóstico** — Groovy zero negócio: só `readJSON`, `stage(stageName)`, `citools run`.
 2. **Gradual** — stages começam delegando ao shell existente; migram para Rust nativo quando estável.
 3. **Reprodutível** — mesmo comando local e no agent Jenkins.
 4. **Zero custo** — binário estático no agent; Sonar CE self-hosted.
@@ -37,16 +37,18 @@ pipeline.yaml  →  citools run-all  ←  Jenkinsfile.generic (1 stage Groovy)
 version: 1
 name: production-site-default
 stages:
-  - id: verify-changed
-    run: ./tools/harness/verify.sh verify-changed
+  - id: verify-branch
+    stageName: Verify branch
+    run: ./components/ssdnodes/jenkins/scripts/verify-branch-ci.sh
   - id: sonar-scan
+    stageName: Sonar scan
     when: env:SONAR_TOKEN
     run: ./tools/citools/scripts/sonar-scan.sh
 ```
 
 ### Jenkinsfile genérico
 
-Ver `components/ssdnodes/jenkins/Jenkinsfile.generic` — único job multibranch; stages não são editados em Groovy.
+`citools next --json` → `readJSON` → `stage(step.stageName) { citools run id }`. Ver [Jenkinsfile.generic](jenkins/Jenkinsfile.generic).
 
 ## Consequências
 

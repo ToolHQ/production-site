@@ -15,9 +15,19 @@ pub struct Stage {
     pub id: String,
     #[serde(default)]
     pub description: Option<String>,
+    /// Nome exibido no Jenkins Blue Ocean (`stage(stageName)`).
+    #[serde(default, rename = "stageName")]
+    pub stage_name: Option<String>,
     pub run: String,
     #[serde(default)]
     pub when: Option<String>,
+    /// false = só run-all local; não entra em export-json / next (Jenkins).
+    #[serde(default = "default_jenkins")]
+    pub jenkins: bool,
+}
+
+fn default_jenkins() -> bool {
+    true
 }
 
 pub fn load_pipeline(path: &Path) -> Result<Pipeline> {
