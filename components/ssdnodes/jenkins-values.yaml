@@ -1,5 +1,6 @@
 # Jenkins LTS — SSDNodes CI (T-341)
 # Ingress externo: jenkins-ingress.yaml | TLS via cert-manager
+# initScript: {{BOOTSTRAP_GROOVY}} substituído por setup_jenkins_ci_jobs.sh no deploy remoto
 
 controller:
   componentName: jenkins-controller
@@ -25,8 +26,36 @@ controller:
     - workflow-aggregator
     - configuration-as-code
     - sonar
+  additionalExistingSecrets:
+    - name: jenkins-ci-credentials
+      keyName: sonar-token
+    - name: jenkins-ci-credentials
+      keyName: github-pat
   JCasC:
     defaultConfig: true
+    configScripts:
+      ci-platform: |
+        credentials:
+          system:
+            domainCredentials:
+              - credentials:
+                  - string:
+                      scope: GLOBAL
+                      id: sonar-token
+                      description: SonarQube CI (citools)
+                      secret: ${jenkins-ci-credentials-sonar-token}
+                  - string:
+                      scope: GLOBAL
+                      id: github-pat
+                      description: GitHub PAT (repo read)
+                      secret: ${jenkins-ci-credentials-github-pat}
+        unclassified:
+          sonarGlobalConfiguration:
+            buildWrapperEnabled: false
+            installations:
+              - name: SonarQube SSDNodes
+                serverUrl: https://sonar.ssdnodes.dnor.io
+                credentialsId: sonar-token
     securityRealm: |-
       local:
         allowsSignup: false

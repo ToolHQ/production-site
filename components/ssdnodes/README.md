@@ -112,6 +112,14 @@ bash oci-k8s-cluster/scripts/ssdnodes/export_ci_credentials.sh
 # → ~/ssdnodes-ci-platform-credentials.txt (chmod 600)
 ```
 
+4. Job Jenkins multibranch + tokens:
+
+```bash
+bash oci-k8s-cluster/scripts/ssdnodes/setup_jenkins_ci_jobs.sh --update-home-creds
+```
+
+Documentação scripts: [oci-k8s-cluster/scripts/ssdnodes/README.md](../../oci-k8s-cluster/scripts/ssdnodes/README.md)
+
 ### Deploy
 
 ```bash

@@ -132,8 +132,8 @@ flowchart TB
 - [x] Plugins mínimos: kubernetes, git, workflow-aggregator, configuration-as-code, sonar
 - [x] Ingress principal UI (`jenkins-ingress.yaml`); **sem** NodePort legado
 - [x] Pod template agent x86 com `containerCap: 2`
-- [ ] Integração Sonar: credencial `sonar-token` + server URL em JCasC
-- [x] Validar: login, agent pod sobe (pipeline hello-world → citools MVP)
+- [x] Integração Sonar: credencial `sonar-token` + server URL em JCasC
+- [x] Validar: login, agent pod sobe, multibranch `production-site` (citools)
 
 ### T-341-3 — Segurança e exposição
 
@@ -155,7 +155,7 @@ flowchart TB
 ### T-341-5 — Integração monorepo (opcional / fase 2)
 
 - [x] **citools MVP** (`tools/citools`) + `pipeline.yaml` + `Jenkinsfile.generic` (ADR citools)
-- [ ] Job multibranch Jenkins apontando para repo
+- [x] Job multibranch Jenkins `production-site` (`setup_jenkins_ci_jobs.sh` + `seed_jenkins_ci_job.sh`)
 - [ ] Badge/link Sonar quality gate no README ou reports (opcional)
 - [ ] Avaliar migrar CodeQL runner para Hetzner (libera RAM — ADR T-320c opção A)
 

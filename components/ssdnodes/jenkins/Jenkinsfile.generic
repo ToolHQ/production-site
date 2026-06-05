@@ -36,8 +36,8 @@ spec:
   environment {
     CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline.yaml'
     CITOOLS_REPO_ROOT = "${WORKSPACE}"
+    SONAR_TOKEN = credentials('sonar-token')
     // VALIDATE_SSDNODES_CI = '1'  // descomente para smoke remoto pós-deploy
-    // SONAR_TOKEN = credentials('sonar-token')
   }
 
   options {
@@ -60,7 +60,6 @@ spec:
             set -euo pipefail
             cd tools/citools
             cargo build --release --locked 2>/dev/null || cargo build --release
-            echo "${WORKSPACE}/tools/citools/target/release" >> "${PATH}"
           '''
         }
       }

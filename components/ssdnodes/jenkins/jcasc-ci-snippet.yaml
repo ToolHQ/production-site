@@ -1,0 +1,17 @@
+# Snippet JCasC — CI Platform (referência)
+# Credenciais sensíveis: setup_jenkins_ci_jobs.sh (Script Console), não commitar tokens.
+#
+# Para merge no Helm chart, adicionar em jenkins-values.yaml → controller.JCasC.configScripts:
+
+jenkins:
+  controller:
+    JCasC:
+      configScripts:
+        ci-platform: |
+          unclassified:
+            sonarGlobalConfiguration:
+              buildWrapperEnabled: false
+              installations:
+                - name: "SonarQube SSDNodes"
+                  serverUrl: "https://sonar.ssdnodes.dnor.io"
+                  # serverAuthenticationToken: via setup_jenkins_ci_jobs.sh
