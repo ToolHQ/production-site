@@ -104,12 +104,14 @@ bash components/ssdnodes/jenkins/agent-setup.sh
               }
 
               stage(next.stageName) {
-                sh """#!/usr/bin/env bash
+                container('rust') {
+                  sh """#!/usr/bin/env bash
 set -euo pipefail
 source "${WORKSPACE}/.citools-agent.env"
 export CITOOLS_REPO_ROOT="${WORKSPACE}"
 ${citools} run '${next.id}' --pipeline '${pipelinePath}'
 """
+                }
               }
               after = next.id
             }
