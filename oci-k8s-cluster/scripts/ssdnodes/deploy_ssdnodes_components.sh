@@ -93,25 +93,85 @@ REMOTE
 }
 
 # ─── Abrir porta 80 para emissão inicial de certs ────────────────────────────
+# Args opcionais: namespace/certname (ex.: sonarqube/sonarqube-tls)
+# Default (sem args): kubernetes-dashboard + kubecost
+wait_certs_ready() {
+	local max_wait="$1"
+	shift
+	local -a specs=("$@")
+	local elapsed=0 all_ready spec ns name status
+	while [[ "$elapsed" -lt "$max_wait" ]]; do
+		all_ready=true
+		for spec in "${specs[@]}"; do
+			ns="${spec%%/*}"
+			name="${spec#*/}"
+			status=$(ssh "$REMOTE_HOST" "kubectl get cert '$name' -n '$ns' -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null || echo 'False'")
+			log "  cert $ns/$name → $status"
+			[[ "$status" == "True" ]] || all_ready=false
+		done
+		$all_ready && return 0
+		sleep 10
+		elapsed=$((elapsed + 10))
+	done
+	return 1
+}
+
+reset_stale_cert() {
+	local ns="$1" name="$2"
+	warn "Reset cert $name (namespace $ns) — order ACME stale"
+	ssh "$REMOTE_HOST" bash -s "$ns" "$name" <<'REMOTE'
+set -euo pipefail
+ns="$1" name="$2"
+kubectl delete cert "$name" -n "$ns" --ignore-not-found
+kubectl delete certificaterequest -n "$ns" --all --ignore-not-found 2>/dev/null || true
+kubectl delete order -n "$ns" --all --ignore-not-found 2>/dev/null || true
+kubectl delete challenge -n "$ns" --all --ignore-not-found 2>/dev/null || true
+REMOTE
+}
+
 open_port80_for_certs() {
-  warn "Abrindo porta 80 temporariamente para HTTP-01 (Let's Encrypt)..."
-  ssh "$REMOTE_HOST" "ufw allow 80/tcp comment 'cert-issue-temp'" 2>/dev/null || true
-  log "Aguardando 90s para emissão dos certificados..."
-  sleep 90
-  local k8s_ready cost_ready sonar_ready jenkins_ready
-  k8s_ready=$(ssh "$REMOTE_HOST" "kubectl get cert -n kubernetes-dashboard kubernetes-dashboard-tls -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null || echo 'False'")
-  cost_ready=$(ssh "$REMOTE_HOST" "kubectl get cert -n kubecost kubecost-tls -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null || echo 'False'")
-  sonar_ready=$(ssh "$REMOTE_HOST" "kubectl get cert -n sonarqube sonarqube-tls -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null || echo 'na'")
-  jenkins_ready=$(ssh "$REMOTE_HOST" "kubectl get cert -n jenkins jenkins-tls -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null || echo 'na'")
-  log "Certs — dashboard: $k8s_ready | kubecost: $cost_ready | sonar: $sonar_ready | jenkins: $jenkins_ready"
-  if [[ "$k8s_ready" == "True" && "$cost_ready" == "True" ]]; then
-    log "Ambos os certs emitidos — fechando porta 80."
-    ssh "$REMOTE_HOST" "ufw delete allow 80/tcp" 2>/dev/null || true
-  else
-    warn "Certs ainda pendentes. A cert-renew-ufw.timer vai finalizar nas próximas 24h."
-    warn "Porta 80 aberta — feche manualmente quando os certs estiverem READY:"
-    warn "  ssh $REMOTE_HOST 'ufw delete allow 80/tcp'"
-  fi
+	local -a specs=("$@")
+	if [[ ${#specs[@]} -eq 0 ]]; then
+		specs=(
+			"kubernetes-dashboard/kubernetes-dashboard-tls"
+			"kubecost/kubecost-tls"
+		)
+	fi
+
+	warn "Abrindo porta 80 temporariamente para HTTP-01 (Let's Encrypt)..."
+	ssh "$REMOTE_HOST" "ufw allow 80/tcp comment 'cert-issue-temp'" 2>/dev/null || true
+
+	# Reaplicar ingress CI se existir (recria Certificate após reset)
+	ssh "$REMOTE_HOST" bash <<'REMOTE'
+set -euo pipefail
+for f in sonarqube-ingress.yaml jenkins-ingress.yaml kubernetes-dashboard-ingress.yaml kubecost-ingress.yaml; do
+  [[ -f "/tmp/ssdnodes-components/$f" ]] && kubectl apply -f "/tmp/ssdnodes-components/$f" || true
+done
+REMOTE
+
+	if ! wait_certs_ready 300 "${specs[@]}"; then
+		# Retry sonar se presente na lista e ainda falhou
+		local spec ns name st
+		for spec in "${specs[@]}"; do
+			[[ "$spec" == "sonarqube/sonarqube-tls" ]] || continue
+			ns="${spec%%/*}"; name="${spec#*/}"
+			st=$(ssh "$REMOTE_HOST" "kubectl get cert '$name' -n '$ns' -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}' 2>/dev/null || echo False")
+			if [[ "$st" != "True" ]]; then
+				reset_stale_cert "$ns" "$name"
+				ssh "$REMOTE_HOST" "kubectl apply -f /tmp/ssdnodes-components/sonarqube-ingress.yaml" 2>/dev/null || true
+				wait_certs_ready 120 "${specs[@]}" || warn "Alguns certs ainda pendentes"
+			fi
+		done
+	fi
+
+	if wait_certs_ready 5 "${specs[@]}"; then
+		log "Certs emitidos — fechando porta 80 global."
+		ssh "$REMOTE_HOST" "ufw delete allow 80/tcp" 2>/dev/null || true
+	else
+		warn "Certs ainda pendentes. cert-renew-ufw.timer finaliza nas próximas 24h."
+		warn "Porta 80 global aberta — feche quando READY:"
+		warn "  ssh $REMOTE_HOST 'ufw delete allow 80/tcp'"
+	fi
 }
 
 # ─── SonarQube CE + PostgreSQL (T-341) ───────────────────────────────────────
@@ -122,7 +182,7 @@ set -euo pipefail
 if ! kubectl get secret sonarqube-db-credentials -n sonarqube-db >/dev/null 2>&1; then
   echo "[sonar] ❌ Secret sonarqube-db-credentials ausente em sonarqube-db."
   echo "        Rode localmente:"
-  echo "        bash oci-k8s-cluster/scripts/ssdnodes/create_sonar_ci_secrets.sh --postgres-password '...' | ssh ssdnodes-6a12f10c9ef11 kubectl apply -f -"
+  echo "        bash oci-k8s-cluster/scripts/ssdnodes/create_sonar_ci_secrets.sh --postgres-password \"\$(openssl rand -base64 24)\" | ssh ssdnodes-6a12f10c9ef11 kubectl apply -f -"
   exit 1
 fi
 
@@ -133,11 +193,19 @@ helm repo update
 kubectl create namespace sonarqube-db --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace sonarqube --dry-run=client -o yaml | kubectl apply -f -
 
+# JDBC secret deve existir também no namespace sonarqube (secrets são por namespace)
+if ! kubectl get secret sonarqube-db-credentials -n sonarqube >/dev/null 2>&1; then
+  kubectl get secret sonarqube-db-credentials -n sonarqube-db -o yaml | \
+    sed 's/namespace: sonarqube-db/namespace: sonarqube/' | \
+    grep -v 'resourceVersion:\|uid:\|creationTimestamp:' | \
+    kubectl apply -f -
+fi
+
 helm upgrade --install sonarqube-db bitnami/postgresql \
   --namespace sonarqube-db \
   --version 15.5.38 \
   --values /tmp/ssdnodes-components/sonarqube-postgresql-values.yaml \
-  --wait --timeout 10m
+  --wait --timeout 15m
 
 helm upgrade --install sonarqube sonarqube/sonarqube \
   --namespace sonarqube \
@@ -177,7 +245,7 @@ REMOTE
 deploy_ci_platform() {
   deploy_sonarqube
   deploy_jenkins
-  open_port80_for_certs
+  open_port80_for_certs sonarqube/sonarqube-tls jenkins/jenkins-tls
 }
 
 deploy_fleet_copilot() {
@@ -224,8 +292,8 @@ upload_manifests
 case "$TARGET" in
   dashboard) deploy_dashboard; open_port80_for_certs ;;
   kubecost)  deploy_kubecost; open_port80_for_certs ;;
-  sonarqube) deploy_sonarqube; open_port80_for_certs ;;
-  jenkins)   deploy_jenkins; open_port80_for_certs ;;
+  sonarqube) deploy_sonarqube; open_port80_for_certs sonarqube/sonarqube-tls ;;
+  jenkins)   deploy_jenkins; open_port80_for_certs jenkins/jenkins-tls ;;
   ci-platform) deploy_ci_platform ;;
   fleet-copilot) deploy_fleet_copilot ;;
   all)

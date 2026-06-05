@@ -90,13 +90,26 @@ ADR: [ADR-jenkins-sonarqube-colocation.md](ADR-jenkins-sonarqube-colocation.md)
 
 ### Pré-requisitos
 
-1. DNS `sonar` + `jenkins` → `104.225.218.78`
+1. DNS `sonar` + `jenkins` → `104.225.218.78` (GoDaddy API):
+
+```bash
+source .env.godaddy
+bash oci-k8s-cluster/scripts/ssdnodes/configure_ssdnodes_ci_dns_godaddy.sh
+```
+
 2. Secrets (nunca no Git):
 
 ```bash
 bash oci-k8s-cluster/scripts/ssdnodes/create_sonar_ci_secrets.sh \
   --postgres-password "$(openssl rand -base64 24)" \
   | ssh ssdnodes-6a12f10c9ef11 kubectl apply -f -
+```
+
+3. Credenciais locais (após deploy):
+
+```bash
+bash oci-k8s-cluster/scripts/ssdnodes/export_ci_credentials.sh
+# → ~/ssdnodes-ci-platform-credentials.txt (chmod 600)
 ```
 
 ### Deploy
@@ -107,5 +120,19 @@ bash oci-k8s-cluster/scripts/ssdnodes/deploy_ssdnodes_components.sh ci-platform
 bash oci-k8s-cluster/scripts/ssdnodes/deploy_ssdnodes_components.sh ci-status
 bash scripts/harness/validate_ssdnodes_ci.sh
 ```
+
+### citools + Jenkins genérico (T-341 fase 2)
+
+ADR: [ADR-citools-harness-evolution.md](ADR-citools-harness-evolution.md)
+
+Jenkins **não** codifica stages em Groovy — delega ao CLI Rust:
+
+```bash
+cd tools/citools && cargo build --release
+citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
+```
+
+- Pipeline declarativo: [jenkins/pipeline.yaml](jenkins/pipeline.yaml)
+- Jenkinsfile genérico: [jenkins/Jenkinsfile.generic](jenkins/Jenkinsfile.generic)
 
 **Não** usar `oci-k8s-cluster/deploy_components.sh` para `ssdnodes` — guardrail T-341 bloqueia deploy no master OCI.

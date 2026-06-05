@@ -36,4 +36,5 @@ sonarProperties:
 ingress:
   enabled: false
 
-# monitoringPasscode: aplicar Secret sonarqube-monitoring-passcode (create_sonar_ci_secrets.sh)
+monitoringPasscodeSecretName: sonarqube-monitoring-passcode
+monitoringPasscodeSecretKey: SONAR_WEB_SYSTEMPASSCODE

@@ -5,6 +5,8 @@ controller:
   componentName: jenkins-controller
   numExecutors: 0
   executorMode: "NORMAL"
+  image:
+    tag: "2.504.1-jdk17"
   admin:
     createSecret: true
     username: admin
@@ -18,12 +20,11 @@ controller:
   serviceType: ClusterIP
   agentListenerServiceType: ClusterIP
   installPlugins:
-    - kubernetes:4353.v066292d33409
-    - workflow-aggregator:600.vb_57cdd26fdd7
-    - git:5.7.0
-    - configuration-as-code:1932.v75cb_b_f1b_698d
-    - sonar:2.18
-    - credentials-binding:687.v619cb_15e923f
+    - kubernetes
+    - git
+    - workflow-aggregator
+    - configuration-as-code
+    - sonar
   JCasC:
     defaultConfig: true
     securityRealm: |-

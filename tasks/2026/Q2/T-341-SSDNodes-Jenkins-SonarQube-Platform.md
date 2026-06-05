@@ -117,23 +117,23 @@ flowchart TB
 
 ### T-341-1 — PostgreSQL + SonarQube CE
 
-- [ ] DNS `sonar.ssdnodes.dnor.io` → A record
+- [x] DNS `sonar.ssdnodes.dnor.io` → A record (GoDaddy API)
 - [x] Namespace `sonarqube`; Helm Bitnami PostgreSQL (`sonarqube-postgresql-values.yaml`)
 - [x] Helm SonarQube CE (SonarSource chart) com JDBC → Postgres interno
 - [x] Ingress + TLS (`sonarqube-ingress.yaml`)
 - [x] Secret helper (`create_sonar_ci_secrets.sh` — imprime apply YAML)
 - [x] NetworkPolicy (`ci-network-policies.yaml`)
-- [ ] Validar: `https://sonar.ssdnodes.dnor.io` login + `/api/system/status`
+- [x] Validar: `https://sonar.ssdnodes.dnor.io` login + `/api/system/status`
 
 ### T-341-2 — Jenkins LTS + K8s agents
 
-- [ ] DNS `jenkins.ssdnodes.dnor.io` → A record
+- [x] DNS `jenkins.ssdnodes.dnor.io` → A record
 - [x] Namespace `jenkins`; Helm `jenkinsci/jenkins` (`jenkins-values.yaml` — ClusterIP, persistence 20Gi)
 - [x] Plugins mínimos: kubernetes, git, workflow-aggregator, configuration-as-code, sonar
 - [x] Ingress principal UI (`jenkins-ingress.yaml`); **sem** NodePort legado
 - [x] Pod template agent x86 com `containerCap: 2`
 - [ ] Integração Sonar: credencial `sonar-token` + server URL em JCasC
-- [ ] Validar: login, agent pod sobe, pipeline hello-world
+- [x] Validar: login, agent pod sobe (pipeline hello-world → citools MVP)
 
 ### T-341-3 — Segurança e exposição
 
@@ -146,6 +146,7 @@ flowchart TB
 ### T-341-4 — TUI + deploy script + docs
 
 - [x] `deploy_ssdnodes_components.sh`: targets `sonarqube`, `jenkins`, `ci-platform`, `ci-status`
+- [x] `configure_ssdnodes_ci_dns_godaddy.sh` + `export_ci_credentials.sh`
 - [x] `k8s_ops_menu.sh`: Hardening 15–17 (Sonar, Jenkins, CI Platform)
 - [x] Harness: `scripts/harness/validate_ssdnodes_ci.sh`
 - [x] README seção “CI Platform” + links domínios
@@ -153,7 +154,8 @@ flowchart TB
 
 ### T-341-5 — Integração monorepo (opcional / fase 2)
 
-- [ ] Job multibranch ou pipeline `production-site` → `verify-changed` + Sonar scan paths alterados
+- [x] **citools MVP** (`tools/citools`) + `pipeline.yaml` + `Jenkinsfile.generic` (ADR citools)
+- [ ] Job multibranch Jenkins apontando para repo
 - [ ] Badge/link Sonar quality gate no README ou reports (opcional)
 - [ ] Avaliar migrar CodeQL runner para Hetzner (libera RAM — ADR T-320c opção A)
 

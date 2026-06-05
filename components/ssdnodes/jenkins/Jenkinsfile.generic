@@ -1,0 +1,91 @@
+/**
+ * Jenkinsfile genérico — production-site (T-341 / citools)
+ *
+ * Orquestrador mínimo: compila citools (se necessário) e delega stages ao pipeline.yaml.
+ * Lógica de CI vive em tools/citools + pipeline.yaml — não neste Groovy.
+ *
+ * Job DSL / multibranch: apontar scriptPath para este arquivo.
+ */
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: citools-agent
+spec:
+  containers:
+  - name: rust
+    image: rust:1.88-bookworm
+    command: ["sleep"]
+    args: ["infinity"]
+    tty: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+'''
+    }
+  }
+
+  environment {
+    CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline.yaml'
+    CITOOLS_REPO_ROOT = "${WORKSPACE}"
+    // VALIDATE_SSDNODES_CI = '1'  // descomente para smoke remoto pós-deploy
+    // SONAR_TOKEN = credentials('sonar-token')
+  }
+
+  options {
+    timeout(time: 60, unit: 'MINUTES')
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build citools') {
+      steps {
+        container('rust') {
+          sh '''
+            set -euo pipefail
+            cd tools/citools
+            cargo build --release --locked 2>/dev/null || cargo build --release
+            echo "${WORKSPACE}/tools/citools/target/release" >> "${PATH}"
+          '''
+        }
+      }
+    }
+
+    stage('CI Tools — run-all') {
+      steps {
+        container('rust') {
+          sh '''
+            set -euo pipefail
+            export PATH="${WORKSPACE}/tools/citools/target/release:${PATH}"
+            citools plan --pipeline "${CITOOLS_PIPELINE}"
+            citools run-all --pipeline "${CITOOLS_PIPELINE}"
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "Pipeline citools concluído — stages definidos em ${env.CITOOLS_PIPELINE}"
+    }
+    failure {
+      echo 'Falha em stage citools — ver log do stage que falhou.'
+    }
+  }
+}

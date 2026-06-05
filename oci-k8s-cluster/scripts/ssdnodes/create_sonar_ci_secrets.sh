@@ -51,6 +51,15 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
+  name: sonarqube-db-credentials
+  namespace: sonarqube
+type: Opaque
+stringData:
+  password: ${PG_PASS}
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: sonarqube-monitoring-passcode
   namespace: sonarqube
 type: Opaque

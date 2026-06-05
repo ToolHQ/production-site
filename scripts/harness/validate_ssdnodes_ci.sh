@@ -13,7 +13,7 @@ FAIL=0
 
 echo "=== validate_ssdnodes_ci (T-341) ==="
 
-if curl -fsSI --max-time 15 "$SONAR_URL/api/system/status" >/dev/null 2>&1; then
+if curl -fsS --max-time 15 "$SONAR_URL/api/system/status" >/dev/null 2>&1; then
   ok "Sonar HTTPS + /api/system/status ($SONAR_URL)"
 else
   bad "Sonar indisponível ($SONAR_URL) — DNS/deploy pendente?"
