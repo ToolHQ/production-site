@@ -23,6 +23,8 @@ if [[ ! -x "${SONAR_SCANNER_HOME}/bin/sonar-scanner" ]]; then
 	python3 -m zipfile -e /tmp/sonar-scanner.zip "${REPO_ROOT}"
 	mv "${REPO_ROOT}/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-x64" "${SONAR_SCANNER_HOME}"
 fi
+chmod -R a+rx "${SONAR_SCANNER_HOME}/bin" 2>/dev/null || true
+find "${SONAR_SCANNER_HOME}" -type f \( -name 'sonar-scanner' -o -name 'sonar-scanner-debug' \) -exec chmod +x {} + 2>/dev/null || true
 export PATH="${SONAR_SCANNER_HOME}/bin:${PATH}"
 
 # --- deps harness (shellcheck, yamllint, git) ---
@@ -38,6 +40,9 @@ if [[ "$need_apt" == "1" ]]; then
 fi
 
 # --- citools ---
+log "rustup components (rustfmt, clippy)"
+rustup component add rustfmt clippy >/dev/null 2>&1 || true
+
 log "compilando citools (release)"
 cd "${REPO_ROOT}/tools/citools"
 cargo build --release --locked 2>/dev/null || cargo build --release
