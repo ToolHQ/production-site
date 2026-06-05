@@ -461,11 +461,16 @@ check_ssh_allowed_from_ip() {
 whitelist_my_ip() {
     local instance_id="$1"
     
-    # 1. Get IP
-    local my_ip=$(curl -s --connect-timeout 2 ifconfig.me)
+    # 1. Get IP — prefer IPv4; ifconfig.me may return IPv6 on dual-stack hosts
+    local my_ip=$(curl -s --connect-timeout 2 -4 ifconfig.me 2>/dev/null)
+    if [[ -z "$my_ip" ]]; then
+        my_ip=$(curl -s --connect-timeout 2 ifconfig.me)
+    fi
     if [[ -z "$my_ip" ]]; then echo "Error: No IP"; return 1; fi
-    # Add CIDR suffix
-    local cidr="${my_ip}/32"
+    # Add CIDR suffix — /128 for IPv6, /32 for IPv4
+    local cidr_prefix=32
+    if [[ "$my_ip" == *:* ]]; then cidr_prefix=128; fi
+    local cidr="${my_ip}/${cidr_prefix}"
     
     echo "Whitelisting $cidr..."
     
