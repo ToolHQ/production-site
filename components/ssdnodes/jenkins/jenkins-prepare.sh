@@ -6,4 +6,4 @@ git config --global --add safe.directory "${WORKSPACE}"
 git fetch --no-tags \
 	"https://${GIT_USER}:${GIT_PASS}@github.com/ToolHQ/production-site.git" \
 	+refs/heads/main:refs/remotes/origin/main
-git rev-parse --verify origin/main^{commit}
+git rev-parse --verify 'origin/main^{commit}'

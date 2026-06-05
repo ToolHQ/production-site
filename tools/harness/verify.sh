@@ -124,17 +124,15 @@ print_summary() {
 
 path_requires_shell_syntax() {
 	case "$1" in
-	tools/*.sh | tools/*.bash | tools/*/*.sh | tools/*/*/*.sh \
-		| apps/*/deploy.sh \
-		| oci-k8s-cluster/*.sh | oci-k8s-cluster/*.bash | oci-k8s-cluster/*/*.sh | oci-k8s-cluster/*/*/*.sh \
-		| components/ssdnodes/jenkins/*.sh | components/ssdnodes/jenkins/scripts/*.sh \
-		| scripts/harness/*.sh)
-		return 0
-		;;
-	*)
-		return 1
+	*.sh | *.bash)
+		case "$1" in
+		tools/* | apps/*/deploy.sh | oci-k8s-cluster/* | components/ssdnodes/jenkins/* | scripts/harness/*)
+			return 0
+			;;
+		esac
 		;;
 	esac
+	return 1
 }
 
 path_supports_shell_quality_gate() {
@@ -169,9 +167,14 @@ path_supports_shell_quality_gate() {
 
 path_is_non_blocking_meta() {
 	case "$1" in
-	README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | docs/* | tasks/* | .github/* \
-		| components/ssdnodes/ADR-*.md | components/ssdnodes/*.md \
-		| sonar-project.properties | CHANGELOG.md)
+	.gitignore | CHANGELOG.md | sonar-project.properties | \
+		README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | \
+		docs/* | tasks/* | .github/* | \
+		components/ssdnodes/ADR-*.md | components/ssdnodes/README.md | \
+		components/ssdnodes/jenkins/Jenkinsfile.generic | \
+		components/ssdnodes/jenkins/bootstrap-ci-job.groovy | \
+		components/ssdnodes/jenkins/README.md | \
+		tools/citools/README.md | tools/citools/Cargo.lock)
 		return 0
 		;;
 	*)
