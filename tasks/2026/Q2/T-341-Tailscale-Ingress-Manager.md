@@ -2,7 +2,7 @@
 
 **Epic:** Observability & Resilience (Q2 2026)
 **Owner:** Antigravity
-**Status:** IN PROGRESS
+**Status:** DONE
 
 ## Contexto
 Múltiplos serviços internos (ClickHouse, Grafana, etc.) precisam ser expostos via ingress com restrição Tailscale. O processo manual de criar manifests, aplicar no cluster e configurar DNS no GoDaddy é repetitivo e propenso a erros.
