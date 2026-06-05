@@ -29,14 +29,15 @@ export PATH="${SONAR_SCANNER_HOME}/bin:${PATH}"
 
 # --- deps harness (shellcheck, yamllint, git) ---
 need_apt=0
-for cmd in shellcheck yamllint git; do
+for cmd in shellcheck yamllint git java; do
 	command -v "$cmd" >/dev/null 2>&1 || need_apt=1
 done
 if [[ "$need_apt" == "1" ]]; then
-	log "instalando shellcheck, yamllint, git (apt)"
+	log "instalando shellcheck, yamllint, git, openjdk (apt)"
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update -qq
-	apt-get install -y -qq --no-install-recommends shellcheck yamllint git ca-certificates
+	apt-get install -y -qq --no-install-recommends \
+		shellcheck yamllint git ca-certificates openjdk-17-jre-headless
 fi
 
 # --- citools ---
