@@ -603,6 +603,7 @@ $(t "maint_network")
 8. Prune Disk Space (Images/Logs)
 9. Generate Storage Dossier (App-Level)
 10. Pre-Pull Internal Images on All Nodes
+11. Manage Tailscale Ingress 🔒
 $(t "prefs_back")"
 
     local selected_action
@@ -704,6 +705,75 @@ $(t "prefs_back")"
         echo ""
         echo -e "${GREEN}Pre-pull complete. Images are now cached on all worker nodes.${NC}"
         read -p "$(t "press_enter")"
+        ;;
+      11)
+        clear
+        echo -e "${BLUE}🔒 Tailscale Ingress Manager${NC}"
+        echo -e "${GRAY}Manage Tailscale-restricted ingress resources${NC}"
+        echo ""
+        echo "1. List Tailscale Ingresses 📋"
+        echo "2. Create New Ingress ➕"
+        echo "3. Delete Ingress 🗑️"
+        echo "4. Validate Ingress ✅"
+        echo "5. Configure DNS (GoDaddy) 🌐"
+        echo "0. Back"
+        echo ""
+        read -p "Choose option: " ts_choice
+        case "$ts_choice" in
+          1)
+            clear
+            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" list
+            read -p "$(t "press_enter")"
+            ;;
+          2)
+            clear
+            echo -e "${YELLOW}Create new Tailscale-restricted ingress${NC}"
+            echo ""
+            read -p "Subdomain (e.g., grafana): " subdomain
+            read -p "Service name (e.g., grafana-service): " svc_name
+            read -p "Service port (e.g., 3000): " svc_port
+            read -p "Namespace (default: default): " namespace
+            namespace="${namespace:-default}"
+            echo ""
+            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" create "$subdomain" "$svc_name" "$svc_port" --namespace "$namespace"
+            read -p "$(t "press_enter")"
+            ;;
+          3)
+            clear
+            echo -e "${YELLOW}Delete Tailscale-restricted ingress${NC}"
+            echo ""
+            read -p "Subdomain to delete: " subdomain
+            echo ""
+            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" delete "$subdomain"
+            read -p "$(t "press_enter")"
+            ;;
+          4)
+            clear
+            echo -e "${YELLOW}Validate Tailscale ingress connectivity${NC}"
+            echo ""
+            read -p "Subdomain to validate: " subdomain
+            echo ""
+            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" validate "$subdomain"
+            read -p "$(t "press_enter")"
+            ;;
+          5)
+            clear
+            echo -e "${YELLOW}Configure DNS record via GoDaddy API${NC}"
+            echo ""
+            read -p "Subdomain (e.g., grafana): " subdomain
+            read -p "Target IP (OCI node public IP): " target_ip
+            echo ""
+            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" dns "$subdomain" "$target_ip" --dry-run
+            echo ""
+            read -p "Execute DNS update? (y/N): " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+              "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" dns "$subdomain" "$target_ip"
+            fi
+            read -p "$(t "press_enter")"
+            ;;
+          *)
+            ;;
+        esac
         ;;
       *)
         return
