@@ -1402,6 +1402,10 @@ struct HoneypotRequest {
     remote_ip: Option<String>,
     country: Option<String>,
     classification: Option<String>,
+    #[serde(rename = "timeElapsed")]
+    time_elapsed: Option<f64>,
+    #[serde(rename = "userAgent")]
+    user_agent: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -1410,12 +1414,20 @@ struct HoneypotRequestsResponse {
     rows: Vec<HoneypotRequest>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 struct HoneypotRequestsQuery {
     #[serde(default)]
     limit: Option<u64>,
     #[serde(default)]
     offset: Option<u64>,
+    #[serde(default)]
+    method: Option<String>,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    ip: Option<String>,
+    #[serde(default)]
+    classification: Option<String>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -3340,8 +3352,7 @@ impl PrometheusMonitor {
 
     pub(crate) async fn fetch_honeypot_requests(
         &self,
-        limit: Option<u64>,
-        offset: Option<u64>,
+        query: &HoneypotRequestsQuery,
     ) -> HoneypotRequestsResponse {
         let specs: Vec<&ExternalNodeSpec> = external_node_specs()
             .iter()
@@ -3358,14 +3369,10 @@ impl PrometheusMonitor {
                 Err(_) => return HoneypotRequestsResponse::default(),
             };
 
-            let path = format!(
-                "/internal/threats-all?limit={}&offset={}",
-                limit.unwrap_or(50),
-                offset.unwrap_or(0)
-            );
-            let url = honeypot_api_url(spec, &path);
+            let path = "/internal/threats-all";
+            let url = honeypot_api_url(spec, path);
 
-            if let Ok(response) = client.get(&url).send().await {
+            if let Ok(response) = client.get(&url).query(query).send().await {
                 if response.status().is_success() {
                     return response
                         .json::<HoneypotRequestsResponse>()
