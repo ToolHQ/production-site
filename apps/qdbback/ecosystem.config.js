@@ -1,18 +1,26 @@
 module.exports = {
-  apps : [{
-    script: 'server/index.js',
-   // watch: '.'
-  }],
-  deploy : {
-    production : {
-      user : 'SSH_USERNAME',
-      host : 'SSH_HOSTMACHINE',
-      ref  : 'origin/master',
-      repo : 'GIT_REPOSITORY',
-      path : 'DESTINATION_PATH',
-      'pre-deploy-local': '',
-      'post-deploy' : 'npm install && pm2 reload ecosystem.config.js --env production',
-      'pre-setup': ''
+  apps: [
+    {
+      name: 'qdbback-api',
+      script: 'index.js',
+    },
+    {
+      name: 'clickhouse-shipper',
+      script: 'scripts/clickhouse-shipper.js',
+      env: {
+        NODE_ENV: 'production',
+        QDBBACK_DB_PATH: '/home/ubuntu/qdbback/database.sqlite'
+      }
+    },
+    {
+      name: 'purge-old-data',
+      script: 'scripts/purge-old-data.js',
+      cron_restart: '0 4 * * *',
+      autorestart: false,
+      env: {
+        QDBBACK_REQUESTS_KEEP_DAYS: '7',
+        QDBBACK_DB_PATH: '/home/ubuntu/qdbback/database.sqlite'
+      }
     }
-  }
+  ]
 };
