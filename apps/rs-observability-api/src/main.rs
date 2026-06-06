@@ -298,13 +298,24 @@ impl ClickHouseClient {
             total: stat_row.total.parse().unwrap_or(0),
             failed: stat_row.failed.parse().unwrap_or(0),
             banned: stat_row.banned.parse().unwrap_or(0),
-            banned_ip_details: ips_data.data.into_iter().map(|r| BannedIpDetail {
-                ip: r.ip,
-                hits: r.hits.as_u64().unwrap_or_else(|| r.hits.as_str().unwrap_or("0").parse().unwrap_or(0)),
-                first_seen: r.first_seen.as_u64().unwrap_or_else(|| r.first_seen.as_str().unwrap_or("0").parse().unwrap_or(0)),
-                last_seen: r.last_seen.as_u64().unwrap_or_else(|| r.last_seen.as_str().unwrap_or("0").parse().unwrap_or(0)),
-                statuses: r.statuses,
-            }).collect(),
+            banned_ip_details: ips_data
+                .data
+                .into_iter()
+                .map(|r| BannedIpDetail {
+                    ip: r.ip,
+                    hits: r
+                        .hits
+                        .as_u64()
+                        .unwrap_or_else(|| r.hits.as_str().unwrap_or("0").parse().unwrap_or(0)),
+                    first_seen: r.first_seen.as_u64().unwrap_or_else(|| {
+                        r.first_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    last_seen: r.last_seen.as_u64().unwrap_or_else(|| {
+                        r.last_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    statuses: r.statuses,
+                })
+                .collect(),
             timestamp: unix_epoch_seconds(),
         })
     }
@@ -2821,7 +2832,6 @@ impl LiveMonitor {
             }
         }
     }
-
 }
 
 impl PrometheusMonitor {
@@ -3364,7 +3374,7 @@ impl PrometheusMonitor {
                 }
             }
         }
-        
+
         HoneypotRequestsResponse::default()
     }
 }

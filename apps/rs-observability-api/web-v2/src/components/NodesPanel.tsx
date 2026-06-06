@@ -719,6 +719,49 @@ function HoneypotThreatsCard({ stats, period }: HoneypotThreatsCardProps) {
       ) : (
         <p class="honeypot-hero__error">{stats.error ?? 'Honeypot metrics unavailable'}</p>
       )}
+
+      {stats.recent_requests && stats.recent_requests.length > 0 && (
+        <div class="honeypot-hero__threat-table-wrapper" style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 179, 71, 0.15)', paddingTop: '1rem', marginLeft: '5rem' }}>
+          <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ffb347', marginBottom: '0.75rem', letterSpacing: '0.05em', fontWeight: 600 }}>Recent Intercepts</h4>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ color: 'rgba(255, 255, 255, 0.5)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Time</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>IP Address</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Method / Path</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Tag</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>User-Agent</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.recent_requests.map((req, idx) => (
+                <tr key={`${req.ip}-${idx}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                  <td style={{ padding: '0.5rem 0', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                    {new Date(req.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </td>
+                  <td style={{ padding: '0.5rem 0', fontFamily: 'var(--font-mono)', color: '#e2e8f0' }}>{req.ip}</td>
+                  <td style={{ padding: '0.5rem 0', color: '#e2e8f0' }}>
+                    <span style={{ color: '#ffb347', marginRight: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>{req.method}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', color: '#94a3b8' }}>{req.path.length > 25 ? req.path.substring(0, 25) + '...' : req.path}</span>
+                  </td>
+                  <td style={{ padding: '0.5rem 0' }}>
+                    {req.tag ? (
+                      <span class="honeypot-hero__tag" style={{ background: 'rgba(255, 179, 71, 0.1)', borderColor: 'rgba(255, 179, 71, 0.2)', color: '#ffb347' }}>
+                        {req.tag}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic' }}>none</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '0.5rem 0', color: '#64748b', fontSize: '0.75rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.userAgent}>
+                    {req.userAgent || 'Unknown'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </article>
   );
 }
@@ -810,9 +853,9 @@ function Fail2BanCard({ stats }: { stats: import('../types/api').Fail2BanStats }
             </thead>
             <tbody>
               {topIps.map(ip => {
-                const durationMins = Math.round((ip.last_seen - ip.first_seen) / 60);
-                const isAggressive = ip.hits > 10;
-                const isBanned = ip.statuses.includes('banned') || ip.statuses.includes('ban');
+                const durationMins = Math.round(((ip.last_seen || 0) - (ip.first_seen || 0)) / 60);
+                const isAggressive = (ip.hits || 0) > 10;
+                const isBanned = Array.isArray(ip.statuses) && (ip.statuses.includes('banned') || ip.statuses.includes('ban'));
                 return (
                   <tr key={ip.ip} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
                     <td style={{ padding: '0.5rem 0', fontFamily: 'var(--font-mono)', color: '#e2e8f0' }}>{ip.ip}</td>
