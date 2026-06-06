@@ -18,23 +18,23 @@ sem nenhuma mudança de schema ou backend.
 ## 1. Navegação por teclado
 
 ```javascript
-document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT') return; // não interceptar search
-  
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return; // não interceptar search
+
   const cur = state.selected ? state.filtered.indexOf(state.selected) : -1;
-  
-  if (e.key === 'j' || e.key === 'ArrowDown') {
+
+  if (e.key === "j" || e.key === "ArrowDown") {
     e.preventDefault();
     selectEvent(state.filtered[Math.min(cur + 1, state.filtered.length - 1)]);
     scrollSpanIntoView();
   }
-  if (e.key === 'k' || e.key === 'ArrowUp') {
+  if (e.key === "k" || e.key === "ArrowUp") {
     e.preventDefault();
     selectEvent(state.filtered[Math.max(cur - 1, 0)]);
     scrollSpanIntoView();
   }
-  if (e.key === 'Escape') closeDrawer();
-  if (e.key === 'e' && state.selected) exportSelectedSpan();
+  if (e.key === "Escape") closeDrawer();
+  if (e.key === "e" && state.selected) exportSelectedSpan();
 });
 ```
 
@@ -44,15 +44,18 @@ URL: `/conversations/:id/timeline?span=42`
 
 ```javascript
 // Na carga da página, após loadTimeline():
-const spanParam = new URLSearchParams(location.search).get('span');
+const spanParam = new URLSearchParams(location.search).get("span");
 if (spanParam) {
-  const ev = state.events.find(e => e.order == spanParam);
-  if (ev) { selectEvent(ev); scrollSpanIntoView(); }
+  const ev = state.events.find((e) => e.order == spanParam);
+  if (ev) {
+    selectEvent(ev);
+    scrollSpanIntoView();
+  }
 }
 
 // Ao selecionar span, atualizar URL sem reload:
 function selectEvent(e) {
-  history.replaceState({}, '', `?span=${e.order}`);
+  history.replaceState({}, "", `?span=${e.order}`);
   // ... resto do código atual
 }
 ```
@@ -63,7 +66,7 @@ Botão no header do drawer:
 
 ```html
 <button class="am-btn am-btn-ghost am-btn-xs" onclick="copySpanJson()">
-  <svg class="am-icon-sm"><use href="/_static/icons.svg#i-copy"/></svg>
+  <svg class="am-icon-sm"><use href="/_static/icons.svg#i-copy" /></svg>
   Copy JSON
 </button>
 ```
@@ -97,8 +100,9 @@ function startLiveTail() {
 ```
 
 Toggle no toolbar:
+
 ```html
-<label><input type="checkbox" id="liveTail"> Live tail</label>
+<label><input type="checkbox" id="liveTail" /> Live tail</label>
 ```
 
 Auto-ativar se `conversação iniciada < 5min && ainda chegando eventos`.
@@ -116,6 +120,7 @@ document.title = `${data.event_count} events · ${data.title} · agent-meter`;
   ← All conversations
 </a>
 ```
+
 (substituir o botão "Dashboard" atual que é confuso)
 
 ## Acceptance Criteria

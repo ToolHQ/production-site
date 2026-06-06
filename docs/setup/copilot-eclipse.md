@@ -120,6 +120,7 @@ Sinal de sucesso:
 ### 4.1 Correção guiada (se aparecer erro de JUnit ou JavaSE-1.8)
 
 Se você estiver vendo erros como:
+
 - Test cannot be resolved to a type
 - The import org.junit.Test cannot be resolved
 - Build path specifies execution environment JavaSE-1.8
@@ -130,7 +131,7 @@ Passo 1: Ajustar o pom.xml para Java 21 + JUnit 5
 
 Substitua o conteúdo do pom.xml por este modelo mínimo:
 
-~~~xml
+```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -165,16 +166,16 @@ Substitua o conteúdo do pom.xml por este modelo mínimo:
     </plugins>
   </build>
 </project>
-~~~
+```
 
 Passo 2: Garantir import correto no AppTest.java
 
 Use estes imports (JUnit 5):
 
-~~~java
+```java
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
-~~~
+```
 
 Se existir org.junit.Test ou org.junit.Assert, troque para o formato acima.
 
@@ -208,6 +209,7 @@ Passo 6: Limpar build
 3. Execute o clean.
 
 Resultado esperado:
+
 - Os erros de org.junit e Test somem.
 - O AppTest roda pelo JUnit sem falha de dependência.
 
@@ -234,6 +236,7 @@ start-eclipse-otel.bat
 3. Use esse atalho para abrir o Eclipse (sempre).
 
 O que ele faz:
+
 - Define todas as variáveis OTEL no ambiente.
 - Abre o Eclipse com essas variáveis ativas.
 - O plugin Copilot herda automaticamente e emite traces para o agent-meter.
@@ -245,19 +248,20 @@ Se preferir não usar o .bat, defina nas variáveis de ambiente do Windows:
 1. Tecla Windows > pesquise "Variáveis de Ambiente" > abra.
 2. Em "Variáveis do sistema", clique em "Novo" para cada uma:
 
-| Variável | Valor |
-|----------|-------|
-| OTEL_EXPORTER_OTLP_ENDPOINT | https://agent-meter.dnor.io |
-| OTEL_EXPORTER_OTLP_PROTOCOL | http/protobuf |
-| OTEL_TRACES_EXPORTER | otlp |
-| OTEL_SERVICE_NAME | eclipse-copilot |
-| OTEL_RESOURCE_ATTRIBUTES | deployment.environment=dev,service.namespace=ide,service.version=1.0.0 |
+| Variável                    | Valor                                                                  |
+| --------------------------- | ---------------------------------------------------------------------- |
+| OTEL_EXPORTER_OTLP_ENDPOINT | https://agent-meter.dnor.io                                            |
+| OTEL_EXPORTER_OTLP_PROTOCOL | http/protobuf                                                          |
+| OTEL_TRACES_EXPORTER        | otlp                                                                   |
+| OTEL_SERVICE_NAME           | eclipse-copilot                                                        |
+| OTEL_RESOURCE_ATTRIBUTES    | deployment.environment=dev,service.namespace=ide,service.version=1.0.0 |
 
 3. Feche e reabra o Eclipse.
 
 ### 5.3 Verificar que funcionou
 
 Após abrir o Eclipse com as variáveis ativas:
+
 1. Abra qualquer arquivo Java.
 2. Use o Copilot (sugestão inline ou chat).
 3. Aguarde 30 segundos.
@@ -265,6 +269,7 @@ Após abrir o Eclipse com as variáveis ativas:
 5. Confirme que `copilot-eclipse` aparece na lista By Agent/IDE.
 
 Sinal de sucesso:
+
 - A linha `copilot-eclipse` existe no relatório com pelo menos 1 call.
 
 ---
@@ -355,13 +360,16 @@ Verifique:
 ### 9.4 Erro de JUnit e JavaSE-1.8 ao mesmo tempo
 
 Sintoma típico:
+
 - 6 erros no AppTest.java com import org.junit não resolvido.
 - Warnings sobre JavaSE-1.8 e compiler compliance 1.8.
 
 Causa:
+
 - Projeto criado em modo legado (JUnit 4/Java 1.8) sem dependências compatíveis.
 
 Solução:
+
 - Execute a seção 4.1 completa deste guia, sem pular etapas.
 
 ---

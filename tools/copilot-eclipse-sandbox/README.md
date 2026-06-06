@@ -19,6 +19,7 @@ bash setup.sh
 ```
 
 Isso vai:
+
 - Baixar o OpenTelemetry Java Agent para `lib/`
 - Validar Java 17+ e Maven
 - Compilar o projeto e baixar dependências
@@ -32,6 +33,7 @@ Isso vai:
 ### 3. Rodar
 
 Duas Run Configurations já estão incluídas:
+
 - **copilot-eclipse-sandbox** — roda `App.main()` com OTEL ativo
 - **copilot-eclipse-sandbox-tests** — roda todos os JUnit 5 com OTEL ativo
 
@@ -60,10 +62,10 @@ setup.sh                — Setup automático (Bash)
 
 ## Variáveis OTEL pré-configuradas nos .launch
 
-| Variável | Valor |
-|----------|-------|
-| OTEL_EXPORTER_OTLP_ENDPOINT | https://agent-meter.dnor.io |
-| OTEL_EXPORTER_OTLP_PROTOCOL | http/protobuf |
-| OTEL_TRACES_EXPORTER | otlp |
-| OTEL_SERVICE_NAME | eclipse-copilot |
-| OTEL_RESOURCE_ATTRIBUTES | deployment.environment=dev,service.namespace=ide,service.version=1.0.0 |
+| Variável                    | Valor                                                                  |
+| --------------------------- | ---------------------------------------------------------------------- |
+| OTEL_EXPORTER_OTLP_ENDPOINT | https://agent-meter.dnor.io                                            |
+| OTEL_EXPORTER_OTLP_PROTOCOL | http/protobuf                                                          |
+| OTEL_TRACES_EXPORTER        | otlp                                                                   |
+| OTEL_SERVICE_NAME           | eclipse-copilot                                                        |
+| OTEL_RESOURCE_ATTRIBUTES    | deployment.environment=dev,service.namespace=ide,service.version=1.0.0 |

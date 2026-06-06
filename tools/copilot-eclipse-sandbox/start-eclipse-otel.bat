@@ -18,7 +18,7 @@ REM   C:\Users\dnorio\eclipse\jee-2024-12\eclipse\eclipse.exe
 REM   C:\eclipse\eclipse.exe
 REM   C:\Program Files\Eclipse\eclipse.exe
 
-set ECLIPSE_PATH=C:\Users\dnorio\eclipse\jee-2024-12\eclipse\eclipse.exe
+set ECLIPSE_PATH=C:\Users\dnorio\AppData\Local\eclipse\eclipse.exe
 
 REM --- Verificar se existe ---
 if not exist "%ECLIPSE_PATH%" (

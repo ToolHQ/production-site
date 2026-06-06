@@ -53,10 +53,10 @@ O drawer lateral ganha duas abas: **Event** (detalhe do span selecionado, atual)
 
 ```javascript
 function computeStats(events) {
-  const durations = events.map(e => e.duration_ms).sort((a, b) => a - b);
+  const durations = events.map((e) => e.duration_ms).sort((a, b) => a - b);
   const n = durations.length;
   return {
-    p50: durations[Math.floor(n * 0.50)],
+    p50: durations[Math.floor(n * 0.5)],
     p95: durations[Math.floor(n * 0.95)],
     p99: durations[Math.floor(n * 0.99)],
     max: durations[n - 1],
@@ -71,6 +71,7 @@ function computeStats(events) {
 ## Histograma SVG
 
 Mini histograma de 20 barras mostrando distribuição de duração:
+
 - Eixo X: range de ms (log scale para spans com outliers)
 - Eixo Y: contagem
 - Hover: "X eventos entre Yms–Zms"

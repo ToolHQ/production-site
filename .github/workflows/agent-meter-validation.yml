@@ -4,13 +4,13 @@ on:
   push:
     branches: [main, feat/ingress-nginx-daemonset-t304]
     paths:
-      - 'apps/agent-meter/**'
-      - '.github/workflows/agent-meter-validation.yml'
+      - "apps/agent-meter/**"
+      - ".github/workflows/agent-meter-validation.yml"
   pull_request:
     branches: [main]
     paths:
-      - 'apps/agent-meter/**'
-      - '.github/workflows/agent-meter-validation.yml'
+      - "apps/agent-meter/**"
+      - ".github/workflows/agent-meter-validation.yml"
   workflow_dispatch:
 
 permissions:

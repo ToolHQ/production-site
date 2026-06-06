@@ -1,10 +1,13 @@
 # T-313: agent-meter — Conversation Timeline View
 
 ## Objetivo
+
 Criar uma visualização de timeline para interações de chats/sessões, agrupando tool calls por `conversation_id` e exibindo de forma clara a sequência de ações e seu impacto.
 
 ## Contexto
+
 O agent-meter coleta eventos de tool calls com metadados como:
+
 - `conversation_id` (agrupa interações relacionadas)
 - `tool_name`, `mcp_server`, `duration`, `tokens_in/out`, `ok`, `started_at`, `ended_at`
 
@@ -13,8 +16,10 @@ Atualmente, os reports são tabulares e focados em agregação. Esta task visa c
 ## Especificações
 
 ### 1. Backend API
+
 - **Endpoint**: `GET /api/conversations/:conversation_id/timeline`
 - **Response**:
+
 ```json
 {
   "conversation_id": "uuid",
@@ -41,6 +46,7 @@ Atualmente, os reports são tabulares e focados em agregação. Esta task visa c
 ```
 
 ### 2. Frontend UI
+
 - **Nova página**: `/conversations/:id`
 - **Componentes**:
   - Header: título da conversa, duração total, custo estimado
@@ -52,28 +58,33 @@ Atualmente, os reports são tabulares e focados em agregação. Esta task visa c
   - Sidebar: resumo estatístico (total tools, erros, models usados)
 
 ### 3. Filtros
+
 - Por data (range)
 - Por modelo (se disponível)
 - Por cliente IP
 - Por IDE/Agente
 
 ### 4. Exportação
+
 - Botão "Export JSON" para baixar timeline completa
 - Botão "Export CSV" para análise externa
 
 ## Implementação
 
 ### Backend (Rust - collector crate)
+
 1. Adicionar endpoint `/conversations/:id/timeline`
 2. Query SQL otimizada para buscar events ordenados por `started_at`
 3. Calcular agregados (duração total, tokens, custo)
 
 ### Frontend (React/TypeScript)
+
 1. Criar página `ConversationTimeline`
 2. Componente `TimelineView` com virtualização (se muitos events)
 3. Integração com API existente
 
 ## Critérios de Aceitação
+
 - [ ] Endpoint `/api/conversations/:id/timeline` retorna dados corretos
 - [ ] Página `/conversations/:id` carrega sem erros
 - [ ] Timeline exibe events em ordem cronológica
@@ -82,15 +93,18 @@ Atualmente, os reports são tabulares e focados em agregação. Esta task visa c
 - [ ] Testes unitários para cálculo de agregados
 
 ## Estimativas
+
 - Backend: 2h
 - Frontend: 2h
 - Testes: 30min
 - **Total**: ~4h
 
 ## Owner
+
 **Copilot/VSCode**
 
 ## Status
+
 - [x] Backend: Modelo `timeline.rs` criado
 - [x] Backend: Service `conversation_service.rs` com queries SQL
 - [x] Backend: Rota `/conversations/:conversation_id/timeline` registrada
@@ -103,6 +117,7 @@ Atualmente, os reports são tabulares e focados em agregação. Esta task visa c
   - `GET /conversations/:id` → HTML com UI
 
 ## Testes Realizados
+
 ```bash
 # Health check (local)
 curl http://localhost:3000/health
@@ -126,6 +141,7 @@ curl https://agent-meter.dnor.io/conversations/test-public/timeline
 ```
 
 ## Acesso Público
+
 - **Health**: https://agent-meter.dnor.io/health
 - **Timeline API**: https://agent-meter.dnor.io/conversations/:id/timeline
 - **Timeline UI**: https://agent-meter.dnor.io/conversations/:id

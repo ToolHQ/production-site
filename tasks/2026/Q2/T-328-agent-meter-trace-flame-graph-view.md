@@ -12,6 +12,7 @@
 
 O flame graph é o modo de visualização mais usado para profiling em Brendan Gregg style,
 Perfetto, Chrome DevTools e Datadog. Mostra blocos proporcionais onde:
+
 - Largura = % do tempo total
 - Empilhamento = hierarquia de chamadas (ou agrupamento por categoria)
 - Cores = categoria (llm/fs/shell/tool)
@@ -23,6 +24,7 @@ Perfetto, Chrome DevTools e Datadog. Mostra blocos proporcionais onde:
 ## Toggle de View
 
 No toolbar do timeline, adicionar toggle:
+
 ```html
 <div class="am-btn-group">
   <button class="am-btn am-btn-ghost am-btn-sm active" id="btnViewWaterfall">
@@ -75,9 +77,9 @@ Row 2 (depth 2):
 function renderFlame(events, totalMs) {
   const W = container.clientWidth;
   const ROW_H = 28;
-  
+
   // Group by category first
-  const byCategory = groupBy(events, e => e.category);
+  const byCategory = groupBy(events, (e) => e.category);
   let y = 0;
   for (const [cat, evs] of Object.entries(byCategory)) {
     const pct = evs.reduce((s, e) => s + e.duration_ms, 0) / totalMs;

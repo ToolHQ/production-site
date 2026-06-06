@@ -126,8 +126,57 @@ fn handle_trace_request_json(body: &[u8], client_ip: Option<&str>, user_agent: O
                         }
                         Err(e) => warn!("failed to map JSON OTLP tools/call span: {e}"),
                     }
+                } else if is_copilot_http_span(span, span_name) {
+                    // HTTP spans from javaagent (approach 3: eclipse.ini instrumentation)
+                    // These are HTTP client calls to GitHub Copilot API endpoints
+                    let (tool_name, is_chat) = classify_copilot_http_span(span);
+                    if is_chat {
+                        match map_chat_span_json(span, service_name.as_deref(), session_id.as_deref(), ide.as_deref(), client_ip, user_agent, None) {
+                            Ok(mut event) => {
+                                event.tool_name = tool_name;
+                                match tokio::task::block_in_place(|| {
+                                    tokio::runtime::Handle::current().block_on(async {
+                                        event_service::insert_tool_call(pool, event).await
+                                    })
+                                }) {
+                                    Ok(record) => {
+                                        results.push(serde_json::json!({
+                                            "event_id": record.event_id,
+                                            "tool_name": record.tool_name,
+                                            "duration_ms": record.duration_ms,
+                                        }));
+                                    }
+                                    Err(e) => warn!("failed to insert copilot HTTP chat span: {e}"),
+                                }
+                            }
+                            Err(e) => warn!("failed to map copilot HTTP chat span: {e}"),
+                        }
+                    } else {
+                        match map_tool_call_json(span, service_name.as_deref(), session_id.as_deref(), ide.as_deref(), client_ip, user_agent, Some(&tool_name)) {
+                            Ok(event) => {
+                                match tokio::task::block_in_place(|| {
+                                    tokio::runtime::Handle::current().block_on(async {
+                                        event_service::insert_tool_call(pool, event).await
+                                    })
+                                }) {
+                                    Ok(record) => {
+                                        results.push(serde_json::json!({
+                                            "event_id": record.event_id,
+                                            "tool_name": record.tool_name,
+                                            "duration_ms": record.duration_ms,
+                                        }));
+                                    }
+                                    Err(e) => warn!("failed to insert copilot HTTP tool span: {e}"),
+                                }
+                            }
+                            Err(e) => warn!("failed to map copilot HTTP tool span: {e}"),
+                        }
+                    }
                 } else {
-                    warn!("unknown OTLP span name (json): {}", span_name);
+                    // truly unknown span — skip silently for non-copilot services
+                    if service_name.as_deref().map(|s| s.contains("copilot") || s.contains("eclipse")).unwrap_or(false) {
+                        warn!("unknown OTLP span name from copilot service (json): {}", span_name);
+                    }
                 }
             }
         }
@@ -388,6 +437,9 @@ fn map_chat_span_json(
     // conversation_id already falls back to trace_id above
     let chat_trace_id = trace_id_val;
 
+    // LLM response text: extract from output messages or completion attributes
+    let response_text = extract_response_text(attrs_slice);
+
     Ok(ToolCallEvent {
         event_id: uuid::Uuid::new_v4(),
         task_id: None,
@@ -416,7 +468,7 @@ fn map_chat_span_json(
         user_agent: user_agent.map(|s| s.to_string()),
         user_prompt,
         tool_arguments: None,
-        tool_result: None,
+        tool_result: response_text,
         reasoning_tokens: reasoning_tokens.map(|t| t as i32),
         finish_reason,
         request_max_tokens,
@@ -599,13 +651,86 @@ fn extract_first_human_text(attrs: &[serde_json::Value]) -> Option<String> {
     parse_first_human_text(&raw)
 }
 
+/// Extracts LLM response text from output/completion attributes.
+/// Checks: gen_ai.output.messages (JSON array), gen_ai.completion.0.content,
+/// gen_ai.response.text, copilot_chat.response (VS Code specific).
+fn extract_response_text(attrs: &[serde_json::Value]) -> Option<String> {
+    // 1. VS Code specific response attribute
+    if let Some(text) = json_attr_str(attrs, "copilot_chat.response") {
+        if !text.is_empty() {
+            return Some(truncate_str(text, 8 * 1024));
+        }
+    }
+    // 2. gen_ai.output.messages (JSON array of messages)
+    if let Some(raw) = json_attr_str(attrs, "gen_ai.output.messages") {
+        if let Ok(msgs) = serde_json::from_str::<serde_json::Value>(&raw) {
+            if let Some(arr) = msgs.as_array() {
+                for msg in arr {
+                    let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("");
+                    if role == "assistant" || role == "model" {
+                        // Plain string content
+                        if let Some(text) = msg.get("content").and_then(|c| c.as_str()) {
+                            if !text.is_empty() {
+                                return Some(truncate_str(text.to_string(), 8 * 1024));
+                            }
+                        }
+                        // Block array content (Anthropic)
+                        if let Some(blocks) = msg.get("content").and_then(|c| c.as_array()) {
+                            for block in blocks {
+                                if block.get("type").and_then(|t| t.as_str()) == Some("text") {
+                                    if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
+                                        if !text.is_empty() {
+                                            return Some(truncate_str(text.to_string(), 8 * 1024));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Gemini parts format
+                        if let Some(parts) = msg.get("parts").and_then(|p| p.as_array()) {
+                            for part in parts {
+                                if let Some(text) = part.get("content").and_then(|c| c.as_str())
+                                    .or_else(|| part.get("text").and_then(|t| t.as_str())) {
+                                    if !text.is_empty() {
+                                        return Some(truncate_str(text.to_string(), 8 * 1024));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 3. Indexed completion attributes (gen_ai.completion.0.content)
+    for i in 0..4usize {
+        let key = format!("gen_ai.completion.{i}.content");
+        if let Some(text) = json_attr_str(attrs, &key) {
+            if !text.is_empty() {
+                return Some(truncate_str(text, 8 * 1024));
+            }
+        }
+    }
+    // 4. gen_ai.response.text (generic)
+    if let Some(text) = json_attr_str(attrs, "gen_ai.response.text") {
+        if !text.is_empty() {
+            return Some(truncate_str(text, 8 * 1024));
+        }
+    }
+    None
+}
+
 fn json_attr_int(attrs: &[serde_json::Value], key: &str) -> Option<i64> {
     attrs.iter()
         .find(|kv| kv.get("key").and_then(|k| k.as_str()) == Some(key))
         .and_then(|kv| {
             let v = kv.get("value")?;
-            v.get("intValue").and_then(|i| i.as_i64())
+            v.get("intValue").and_then(|i| {
+                // OTLP JSON spec: int64 is serialized as string in protobuf3 JSON mapping
+                i.as_i64().or_else(|| i.as_str().and_then(|s| s.parse::<i64>().ok()))
+            })
                 .or_else(|| v.get("doubleValue").and_then(|d| d.as_f64()).map(|f| f as i64))
+                .or_else(|| v.get("stringValue").and_then(|s| s.as_str()).and_then(|s| s.parse::<i64>().ok()))
         })
 }
 
@@ -700,8 +825,58 @@ fn handle_trace_request_proto(body: &[u8], client_ip: Option<&str>, user_agent: 
                         }
                         Err(e) => warn!("failed to map OTLP tools/call span: {e}"),
                     }
+                } else if is_copilot_http_span_proto(span) || is_eclipse_service_http_span(span, service_name.as_deref()) {
+                    // HTTP spans from javaagent (approach 3: eclipse.ini instrumentation)
+                    // Accept both: copilot-URL spans AND any HTTP span from eclipse service
+                    let (tool_name, is_chat) = classify_copilot_http_span_proto(span);
+                    if is_chat {
+                        match map_chat_span_proto(span, resource_attrs, service_name.as_deref(), session_id.as_deref(), ide.as_deref(), client_ip, user_agent, None) {
+                            Ok(mut event) => {
+                                event.tool_name = tool_name;
+                                match tokio::task::block_in_place(|| {
+                                    tokio::runtime::Handle::current().block_on(async {
+                                        event_service::insert_tool_call(pool, event).await
+                                    })
+                                }) {
+                                    Ok(record) => {
+                                        results.push(serde_json::json!({
+                                            "event_id": record.event_id,
+                                            "tool_name": record.tool_name,
+                                            "duration_ms": record.duration_ms,
+                                        }));
+                                    }
+                                    Err(e) => warn!("failed to insert copilot HTTP chat span (proto): {e}"),
+                                }
+                            }
+                            Err(e) => warn!("failed to map copilot HTTP chat span (proto): {e}"),
+                        }
+                    } else {
+                        match map_tool_call(span, resource_attrs, service_name.as_deref(), session_id.as_deref(), ide.as_deref(), client_ip, user_agent, Some(&tool_name)) {
+                            Ok(event) => {
+                                match tokio::task::block_in_place(|| {
+                                    tokio::runtime::Handle::current().block_on(async {
+                                        event_service::insert_tool_call(pool, event).await
+                                    })
+                                }) {
+                                    Ok(record) => {
+                                        results.push(serde_json::json!({
+                                            "event_id": record.event_id,
+                                            "tool_name": record.tool_name,
+                                            "duration_ms": record.duration_ms,
+                                        }));
+                                    }
+                                    Err(e) => warn!("failed to insert copilot HTTP tool span (proto): {e}"),
+                                }
+                            }
+                            Err(e) => warn!("failed to map copilot HTTP tool span (proto): {e}"),
+                        }
+                    }
                 } else {
-                    warn!("unknown OTLP span name: {}", span.name);
+                    // truly unknown span — only warn if it looks relevant
+                    let svc = service_name.as_deref().unwrap_or("");
+                    if (svc.contains("copilot") || svc.contains("eclipse")) && !is_generic_http_method(&span.name) {
+                        warn!("unknown OTLP span name from copilot service (proto): {}", span.name);
+                    }
                 }
             }
         }
@@ -969,6 +1144,164 @@ fn get_attr_float(attrs: &[KeyValue], key: &str) -> Option<f64> {
             Some(any_value::Value::StringValue(s)) => s.parse::<f64>().ok(),
             _ => None,
         })
+}
+
+// ─── HTTP span detection for javaagent-instrumented Eclipse ────────────────
+
+/// Checks if a span is an HTTP client span targeting Copilot/GitHub API.
+/// The OTEL javaagent produces spans like "GET", "POST", "HTTP GET" etc.
+/// with attributes: http.url, url.full, http.method, server.address
+fn is_copilot_http_span(span: &serde_json::Value, span_name: &str) -> bool {
+    // Quick check: span name should look like HTTP method
+    let is_http_name = matches!(
+        span_name.to_uppercase().as_str(),
+        "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HTTP GET" | "HTTP POST" | "HTTP PUT"
+    );
+    if !is_http_name {
+        return false;
+    }
+
+    // Check attributes for copilot-related URLs
+    let attrs = span.get("attributes").and_then(|v| v.as_array());
+    let Some(attrs) = attrs else { return false };
+
+    for attr in attrs {
+        let key = attr.get("key").and_then(|k| k.as_str()).unwrap_or("");
+        if matches!(key, "http.url" | "url.full" | "server.address" | "http.target") {
+            let val = attr.get("value")
+                .and_then(|v| v.get("stringValue"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let lower = val.to_lowercase();
+            if lower.contains("copilot") || lower.contains("githubcopilot")
+                || lower.contains("api.github.com/copilot")
+                || lower.contains("copilot-proxy")
+                || lower.contains("default.exp-tas.com") // Copilot experiment service
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Classifies a Copilot HTTP span into a tool_name and whether it's a chat span.
+/// Returns (tool_name, is_chat).
+fn classify_copilot_http_span(span: &serde_json::Value) -> (String, bool) {
+    let attrs = span.get("attributes").and_then(|v| v.as_array());
+    let url = attrs.and_then(|a| {
+        a.iter().find_map(|attr| {
+            let key = attr.get("key").and_then(|k| k.as_str()).unwrap_or("");
+            if matches!(key, "http.url" | "url.full" | "http.target") {
+                attr.get("value")
+                    .and_then(|v| v.get("stringValue"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            } else {
+                None
+            }
+        })
+    }).unwrap_or_default();
+
+    let lower = url.to_lowercase();
+
+    if lower.contains("/chat/completions") || lower.contains("/conversation") || lower.contains("/responses") {
+        ("llm_chat".to_string(), true)
+    } else if lower.contains("/completions") {
+        ("copilot_completions".to_string(), false)
+    } else if lower.contains("/telemetry") {
+        ("copilot_telemetry".to_string(), false)
+    } else if lower.contains("/models") {
+        ("copilot_models".to_string(), false)
+    } else if lower.contains("/token") || lower.contains("/oauth") {
+        ("copilot_auth".to_string(), false)
+    } else {
+        ("copilot_api".to_string(), false)
+    }
+}
+
+// ─── Eclipse service-level HTTP span detection ─────────────────────────────
+
+/// Returns true if the span is an HTTP method AND the service_name contains "eclipse" or "copilot".
+/// This catches ALL HTTP activity from the javaagent even when URLs aren't copilot-specific.
+fn is_eclipse_service_http_span(span: &Span, service_name: Option<&str>) -> bool {
+    let svc = service_name.unwrap_or("").to_lowercase();
+    if !svc.contains("eclipse") && !svc.contains("copilot") {
+        return false;
+    }
+    is_generic_http_method(&span.name)
+}
+
+fn is_generic_http_method(name: &str) -> bool {
+    let upper = name.to_uppercase();
+    matches!(
+        upper.as_str(),
+        "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS"
+            | "HTTP GET" | "HTTP POST" | "HTTP PUT" | "HTTP DELETE"
+    )
+}
+
+// ─── Protobuf equivalents for HTTP span detection ──────────────────────────
+
+/// Proto version: checks if a protobuf Span is an HTTP client span targeting Copilot API.
+fn is_copilot_http_span_proto(span: &Span) -> bool {
+    let upper = span.name.to_uppercase();
+    let is_http = matches!(
+        upper.as_str(),
+        "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HTTP GET" | "HTTP POST" | "HTTP PUT"
+    );
+    if !is_http {
+        return false;
+    }
+
+    for kv in &span.attributes {
+        if matches!(kv.key.as_str(), "http.url" | "url.full" | "server.address" | "http.target") {
+            if let Some(val) = kv.value.as_ref().and_then(|v| match &v.value {
+                Some(any_value::Value::StringValue(s)) => Some(s.as_str()),
+                _ => None,
+            }) {
+                let lower = val.to_lowercase();
+                if lower.contains("copilot") || lower.contains("githubcopilot")
+                    || lower.contains("api.github.com/copilot")
+                    || lower.contains("copilot-proxy")
+                    || lower.contains("default.exp-tas.com")
+                {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Proto version: classifies Copilot HTTP span.
+fn classify_copilot_http_span_proto(span: &Span) -> (String, bool) {
+    let url = span.attributes.iter().find_map(|kv| {
+        if matches!(kv.key.as_str(), "http.url" | "url.full" | "http.target") {
+            kv.value.as_ref().and_then(|v| match &v.value {
+                Some(any_value::Value::StringValue(s)) => Some(s.clone()),
+                _ => None,
+            })
+        } else {
+            None
+        }
+    }).unwrap_or_default();
+
+    let lower = url.to_lowercase();
+
+    if lower.contains("/chat/completions") || lower.contains("/conversation") || lower.contains("/responses") {
+        ("llm_chat".to_string(), true)
+    } else if lower.contains("/completions") {
+        ("copilot_completions".to_string(), false)
+    } else if lower.contains("/telemetry") {
+        ("copilot_telemetry".to_string(), false)
+    } else if lower.contains("/models") {
+        ("copilot_models".to_string(), false)
+    } else if lower.contains("/token") || lower.contains("/oauth") {
+        ("copilot_auth".to_string(), false)
+    } else {
+        ("copilot_api".to_string(), false)
+    }
 }
 
 include!("proto.rs");

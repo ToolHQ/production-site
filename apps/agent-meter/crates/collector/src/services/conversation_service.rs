@@ -11,6 +11,8 @@ use crate::models::timeline::{ConversationTimeline, TimelineEvent};
 pub struct ConversationRow {
     pub conversation_id: String,
     pub title: Option<String>,
+    pub initial_prompt: Option<String>,
+    pub response_preview: Option<String>,
     pub started_at: DateTime<Utc>,
     pub ended_at: Option<DateTime<Utc>>,
     pub total_duration_ms: i64,
@@ -19,12 +21,16 @@ pub struct ConversationRow {
     pub total_usd_cost: f64,
     pub agent: Option<String>,
     pub ide: Option<String>,
+    pub model: Option<String>,
+    pub total_tokens_in: Option<i64>,
+    pub total_tokens_out: Option<i64>,
 }
 
 pub async fn list_conversations(
     pool: &PgPool,
     limit: i64,
     offset: i64,
+    ide_filter: Option<&str>,
 ) -> Result<Vec<ConversationRow>, AppError> {
     let rows: Vec<ConversationRow> = sqlx::query_as(
         r#"
@@ -32,9 +38,30 @@ pub async fn list_conversations(
             conversation_id,
             MIN(user_prompt) FILTER (
                 WHERE user_prompt IS NOT NULL
-                  AND LENGTH(user_prompt) BETWEEN 4 AND 200
+                  AND LENGTH(user_prompt) BETWEEN 4 AND 500
                   AND user_prompt NOT ILIKE 'Summarize the following%'
+                  AND user_prompt NOT ILIKE 'Please write a brief title%'
+                  AND user_prompt NOT LIKE '<%'
+                  AND user_prompt NOT LIKE '{%'
+                  AND user_prompt NOT LIKE 'The current date%'
+                  AND user_prompt NOT LIKE 'Terminals:%'
+                  AND user_prompt NOT LIKE '[{%'
             )                                                                         AS title,
+            LEFT(MIN(user_prompt) FILTER (
+                WHERE user_prompt IS NOT NULL
+                  AND LENGTH(user_prompt) BETWEEN 4 AND 500
+                  AND user_prompt NOT ILIKE 'Summarize the following%'
+                  AND user_prompt NOT ILIKE 'Please write a brief title%'
+                  AND user_prompt NOT LIKE '<%'
+                  AND user_prompt NOT LIKE '{%'
+                  AND user_prompt NOT LIKE 'The current date%'
+                  AND user_prompt NOT LIKE '[{%'
+            ), 300)                                                                   AS initial_prompt,
+            LEFT(MAX(tool_result) FILTER (
+                WHERE tool_result IS NOT NULL
+                  AND LENGTH(tool_result) >= 10
+                  AND tool_name = 'llm_chat'
+            ), 300)                                                                   AS response_preview,
             MIN(started_at)                                                           AS started_at,
             MAX(ended_at)                                                             AS ended_at,
             COALESCE(SUM(duration_ms), 0)::bigint                                     AS total_duration_ms,
@@ -43,16 +70,33 @@ pub async fn list_conversations(
             COALESCE(SUM(compute_event_usd(model, estimated_input_tokens,
                          estimated_output_tokens, cached_tokens)), 0)::float8         AS total_usd_cost,
             MODE() WITHIN GROUP (ORDER BY agent)                                      AS agent,
-            MODE() WITHIN GROUP (ORDER BY ide)                                        AS ide
+            MODE() WITHIN GROUP (ORDER BY ide)                                        AS ide,
+            MODE() WITHIN GROUP (ORDER BY model)                                      AS model,
+            SUM(estimated_input_tokens)::bigint                                       AS total_tokens_in,
+            SUM(estimated_output_tokens)::bigint                                      AS total_tokens_out
         FROM agent_tool_calls
         WHERE conversation_id IS NOT NULL AND conversation_id <> ''
+          AND ($3::text IS NULL OR ide = $3)
         GROUP BY conversation_id
+        -- Exclude synthetic/noise single-event conversations:
+        -- 1. VS Code title/summary generation (copilotLanguageModelWrapper, title, summarize agents)
+        -- 2. Inline completions with no model and no prompt (Eclipse ghost text)
+        HAVING NOT (
+            COUNT(*) = 1
+            AND (
+                MAX(agent) IN ('copilotLanguageModelWrapper', 'title', 'summarizeConversationHistory')
+                OR BOOL_OR(COALESCE(user_prompt,'') ILIKE 'Please write a brief title%')
+                OR BOOL_OR(COALESCE(user_prompt,'') ILIKE 'Summarize the following content%')
+                OR (MAX(model) IS NULL AND MAX(user_prompt) IS NULL)
+            )
+        )
         ORDER BY MIN(started_at) DESC
         LIMIT $1 OFFSET $2
         "#,
     )
     .bind(limit)
     .bind(offset)
+    .bind(ide_filter)
     .fetch_all(pool)
     .await?;
     Ok(rows)
@@ -162,7 +206,7 @@ pub async fn get_conversation_timeline(
             ok,
             started_at,
             ended_at,
-            LEFT(user_prompt, 600) AS user_prompt,
+            user_prompt,
             error,
             tool_arguments,
             tool_result,

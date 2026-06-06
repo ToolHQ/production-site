@@ -11,9 +11,9 @@ RUN rm -rf crates
 ARG BUILD_HASH=unknown
 COPY apps/agent-meter/crates ./crates
 RUN touch crates/collector/src/main.rs crates/mcp-wrapper/src/main.rs \
-          crates/collector/src/routes/conversation_detail.rs \
-          crates/collector/src/routes/dashboard.rs \
-          crates/collector/src/routes/conversations.rs && \
+    crates/collector/src/routes/conversation_detail.rs \
+    crates/collector/src/routes/dashboard.rs \
+    crates/collector/src/routes/conversations.rs && \
     cargo build --release -p agent-meter-collector -p agent-meter-mcp-wrapper
 
 FROM debian:bookworm-slim

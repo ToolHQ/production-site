@@ -457,12 +457,48 @@ function stopLiveTail() {
 
 // ── Copy helpers ───────────────────────────────────────────────────────────────
 
-window.copyText = function(text, btn) {
-  navigator.clipboard.writeText(text).then(() => {
+// Registry for copy targets (avoids inline JSON in onclick attributes)
+window._copyData = {};
+window._copyIdx = 0;
+window.registerCopy = function(text) {
+  const idx = ++window._copyIdx;
+  window._copyData[idx] = text;
+  return idx;
+};
+window.copyText = function(textOrIdx, btn) {
+  const text = typeof textOrIdx === 'number' ? (window._copyData[textOrIdx] || '') : textOrIdx;
+  if (!text) return;
+  const doFeedback = () => {
     const orig = btn.textContent; btn.textContent = 'Copied ✓';
     setTimeout(() => { btn.textContent = orig; }, 1500);
-  });
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(doFeedback).catch(() => {
+      // Fallback for non-secure contexts
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      doFeedback();
+    });
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    doFeedback();
+  }
 };
+// Strip Copilot XML attachment wrappers from titles
+function cleanTitle(text) {
+  if (!text) return '';
+  return text
+    .replace(/<attachments>[\s\S]*?<\/attachments>\s*/g, '')
+    .replace(/<attachment\b[^>]*>[\s\S]*?(?:<\/attachment>|$)/g, '')
+    .replace(/<\/?(?:context|references|instructions|response)\b[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 async function loadTimeline() {
   try {
@@ -471,7 +507,7 @@ async function loadTimeline() {
     const data = await r.json();
     state.data = data;
     state.events = (data.events || []).map((e,i) => ({...e, idx:i, startMs:new Date(e.started_at).getTime(), endMs:new Date(e.ended_at).getTime(), category:categorize(e)}));
-    document.title = `${data.event_count} events · ${data.title||conversationId} · agent-meter`;
+    document.title = `${data.event_count} events · ${cleanTitle(data.title)||conversationId} · agent-meter`;
     renderSummary(data);
     applyFilters();
     // Deep link: auto-open span from URL
@@ -498,7 +534,7 @@ async function loadTimeline() {
 }
 
 function renderSummary(data) {
-  document.getElementById('convTitle').textContent = data.title || 'Conversation';
+  document.getElementById('convTitle').textContent = cleanTitle(data.title) || 'Conversation';
   document.getElementById('convId').textContent = data.conversation_id;
   document.getElementById('kpiDuration').textContent = fmtDuration(data.total_duration_ms);
   document.getElementById('kpiEvents').textContent = data.event_count;
@@ -695,19 +731,22 @@ function renderDrawerContent(e) {
     <div class="payload-hdr"><span>Error</span></div>
     <pre class="payload-block" style="border-color:var(--am-danger);color:var(--am-danger)">${escapeHtml(e.error)}</pre>` : '';
 
+  const _promptCopyId = e.user_prompt ? registerCopy(e.user_prompt) : 0;
   const promptBlock = e.user_prompt ? `
-    <div class="payload-hdr"><span>User prompt</span><span class="payload-copy" onclick="copyText(${JSON.stringify(e.user_prompt)},this)">copy</span></div>
-    <pre class="payload-block">${escapeHtml(e.user_prompt.slice(0,600))}${e.user_prompt.length>600?'…':''}</pre>` : '';
+    <div class="payload-hdr"><span>User prompt</span><span class="payload-copy" onclick="copyText(${_promptCopyId},this)">copy</span></div>
+    <pre class="payload-block" style="max-height:400px;overflow-y:auto">${escapeHtml(e.user_prompt)}</pre>` : '';
 
   const argsJson = e.tool_arguments ? JSON.stringify(e.tool_arguments, null, 2) : null;
+  const _argsCopyId = argsJson ? registerCopy(argsJson) : 0;
   const argsBlock = argsJson ? `
-    <div class="payload-hdr"><span>Arguments (input)</span><span class="payload-copy" onclick="copyText(${JSON.stringify(argsJson)},this)">copy</span></div>
-    <pre class="payload-block">${escapeHtml(argsJson.slice(0,2000))}${argsJson.length>2000?'\n…[truncated]':''}</pre>` : '';
+    <div class="payload-hdr"><span>Arguments (input)</span><span class="payload-copy" onclick="copyText(${_argsCopyId},this)">copy</span></div>
+    <pre class="payload-block" style="max-height:400px;overflow-y:auto">${escapeHtml(argsJson)}</pre>` : '';
 
   const resultText = e.tool_result || '';
+  const _resultCopyId = resultText ? registerCopy(resultText) : 0;
   const resultBlock = resultText ? `
-    <div class="payload-hdr"><span>Result (output)</span><span class="payload-copy" onclick="copyText(${JSON.stringify(resultText)},this)">copy</span></div>
-    <pre class="payload-block">${escapeHtml(resultText.slice(0,2000))}${resultText.length>2000?'\n…[truncated]':''}</pre>` : '';
+    <div class="payload-hdr"><span>Result (output)</span><span class="payload-copy" onclick="copyText(${_resultCopyId},this)">copy</span></div>
+    <pre class="payload-block" style="max-height:400px;overflow-y:auto">${escapeHtml(resultText)}</pre>` : '';
 
   // Finish reason — highlight dangerous values
   const finishStyle = e.finish_reason === 'length' ? 'color:var(--am-warn);font-weight:600' :

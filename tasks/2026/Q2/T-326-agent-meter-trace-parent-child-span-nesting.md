@@ -16,8 +16,9 @@ eventos flat, sem hierarquia — não é possível ver "quais tools foram invoca
 esse llm_chat específico".
 
 O aninhamento correto exige:
-1. `parent_call_id` no schema (FK para `agent_tool_calls.id`)  
-2. Lógica no ingest para detectar pai (W3C traceparent ou heurística temporal)  
+
+1. `parent_call_id` no schema (FK para `agent_tool_calls.id`)
+2. Lógica no ingest para detectar pai (W3C traceparent ou heurística temporal)
 3. Renderização com indent + expand/collapse no waterfall
 
 ---
@@ -36,6 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_parent_id ON agent_tool_calls(parent_i
 ## Heurística de nesting (fallback sem W3C traceparent)
 
 Para spans sem `parent_id` explícito, detectar pai por janela temporal:
+
 - Um span A é pai de B se: `A.started_at <= B.started_at` AND `B.ended_at <= A.ended_at`
 - Preferir o pai mais próximo (menor `ended_at - started_at`)
 - Profundidade máxima: 5 níveis (evitar recursão infinita)

@@ -26,6 +26,7 @@ async fn page() -> impl IntoResponse {
 struct ListQuery {
     limit: Option<i64>,
     offset: Option<i64>,
+    ide: Option<String>,
 }
 
 async fn list(
@@ -36,6 +37,7 @@ async fn list(
         &state.pool,
         q.limit.unwrap_or(50).min(200),
         q.offset.unwrap_or(0),
+        q.ide.as_deref(),
     )
     .await?;
     Ok(Json(rows))
