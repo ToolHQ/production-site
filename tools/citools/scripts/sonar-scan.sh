@@ -19,7 +19,8 @@ if ! command -v java >/dev/null 2>&1; then
 fi
 
 JAVA_BIN="$(command -v java)"
-export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")"
+JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")"
+export JAVA_HOME
 export PATH="${JAVA_HOME}/bin:${PATH}"
 echo "[sonar-scan] java: ${JAVA_BIN} (JAVA_HOME=${JAVA_HOME})" >&2
 
