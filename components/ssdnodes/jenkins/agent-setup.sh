@@ -23,6 +23,10 @@ if [[ ! -x "${SONAR_SCANNER_HOME}/bin/sonar-scanner" ]]; then
 	python3 -m zipfile -e /tmp/sonar-scanner.zip "${REPO_ROOT}"
 	mv "${REPO_ROOT}/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-x64" "${SONAR_SCANNER_HOME}"
 fi
+# Linux zip não inclui JRE embarcado; o script default aponta JAVA_HOME para jre/ inexistente.
+if [[ -f "${SONAR_SCANNER_HOME}/bin/sonar-scanner" ]]; then
+	sed -i 's/use_embedded_jre=true/use_embedded_jre=false/' "${SONAR_SCANNER_HOME}/bin/sonar-scanner"
+fi
 chmod -R a+rx "${SONAR_SCANNER_HOME}/bin" 2>/dev/null || true
 find "${SONAR_SCANNER_HOME}" -type f \( -name 'sonar-scanner' -o -name 'sonar-scanner-debug' \) -exec chmod +x {} + 2>/dev/null || true
 export PATH="${SONAR_SCANNER_HOME}/bin:${PATH}"
