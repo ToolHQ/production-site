@@ -2,18 +2,30 @@
   "servers": {
     "chromeDevtools": {
       "type": "stdio",
-      "command": "/bin/bash",
+      "command": "npx",
       "args": [
-        "-lc",
-        "export PATH=\"/home/dnorio/.nvm/versions/node/v22.22.2/bin:$PATH\" && exec npx -y chrome-devtools-mcp@0.21.0 --headless --isolated --executablePath /usr/bin/google-chrome --acceptInsecureCerts --no-usage-statistics"
+        "-y",
+        "chrome-devtools-mcp@0.21.0",
+        "--headless",
+        "--isolated",
+        "--executablePath",
+        "/usr/bin/google-chrome",
+        "--acceptInsecureCerts",
+        "--no-usage-statistics"
       ]
     },
     "chromeDevtoolsReports": {
       "type": "stdio",
-      "command": "/bin/bash",
+      "command": "npx",
       "args": [
-        "-lc",
-        "export PATH=\"/home/dnorio/.nvm/versions/node/v22.22.2/bin:$PATH\" && exec npx -y chrome-devtools-mcp@0.21.0 --headless --isolated --executablePath /usr/bin/google-chrome --acceptInsecureCerts --no-usage-statistics"
+        "-y",
+        "chrome-devtools-mcp@0.21.0",
+        "--headless",
+        "--isolated",
+        "--executablePath",
+        "/usr/bin/google-chrome",
+        "--acceptInsecureCerts",
+        "--no-usage-statistics"
       ]
     }
   }

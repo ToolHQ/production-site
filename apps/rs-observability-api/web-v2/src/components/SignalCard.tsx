@@ -29,9 +29,9 @@ export function boardLabel(
   if (!live?.available) {
     return {
       tone: 'critical',
-      mode: 'Fallback snapshot',
-      score: 'Live indisponível',
-      copy: live?.error || 'API Kubernetes in-cluster inacessível neste runtime.',
+      mode: 'Snapshot fallback',
+      score: 'Live unavailable',
+      copy: live?.error || 'The in-cluster Kubernetes API is not reachable from this runtime.',
     };
   }
 
@@ -61,31 +61,31 @@ export function boardLabel(
     (corootAlertCount > 20 ? 1 : 0);
 
   if (criticalWatch > 0) {
-    const corootNote = corootCritical > 0 ? ` · ${corootCritical} SLO Coroot crítico` : '';
+    const corootNote = corootCritical > 0 ? ` · ${corootCritical} Coroot SLO critical` : '';
     return {
       tone: 'critical',
-      mode: live.stale || metrics?.stale ? 'Atenção imediata · sinal stale' : 'Atenção imediata',
-      score: `${criticalWatch} bloqueio${criticalWatch === 1 ? '' : 's'}`,
-      copy: `${criticalIncidents} incidente${criticalIncidents === 1 ? '' : 's'} crítico${criticalIncidents === 1 ? '' : 's'} K8s, ${downServices} serviço${downServices === 1 ? '' : 's'} down${corootNote}.`,
+      mode: live.stale || metrics?.stale ? 'Immediate attention · stale signal' : 'Immediate attention',
+      score: `${criticalWatch} blocker${criticalWatch === 1 ? '' : 's'}`,
+      copy: `${criticalIncidents} K8s critical incident${criticalIncidents === 1 ? '' : 's'}, ${downServices} service${downServices === 1 ? '' : 's'} down${corootNote}.`,
     };
   }
 
   if (warningWatch > 0 || live.stale || metrics?.stale) {
-    const corootNote = corootWarning > 0 ? ` · ${corootWarning} SLO Coroot em alerta` : (corootAlertCount > 20 ? ` · ${corootAlertCount} alertas Coroot` : '');
+    const corootNote = corootWarning > 0 ? ` · ${corootWarning} Coroot SLO warning` : (corootAlertCount > 20 ? ` · ${corootAlertCount} Coroot alerts` : '');
     return {
       tone: 'warning',
-      mode: live.stale || metrics?.stale ? 'Operação cautelosa · cache stale' : 'Operação cautelosa',
-      score: `${warningWatch || 1} ponto${warningWatch === 1 ? '' : 's'} de atenção`,
-      copy: `Sem outage duro, mas serviços degradados, incidentes ou dívida de restart exigem follow-up${corootNote}.`,
+      mode: live.stale || metrics?.stale ? 'Guarded operation · stale cache' : 'Guarded operation',
+      score: `${warningWatch || 1} watchpoint${warningWatch === 1 ? '' : 's'}`,
+      copy: `No hard outage, but degraded services, warning incidents or restart debt still require follow-up${corootNote}.`,
     };
   }
 
-  const allQuiet = corootAlertCount === 0 ? '' : ` ${corootAlertCount} alertas Coroot abaixo do limiar crítico.`;
+  const allQuiet = corootAlertCount === 0 ? '' : ` ${corootAlertCount} Coroot alerts firing (below threshold).`;
   return {
     tone: 'healthy',
-    mode: 'Live em verde',
-    score: '0 bloqueios',
-    copy: `Sem incidente crítico, serviço down ou hotspot de restart.${allQuiet}`,
+    mode: 'Live watch green',
+    score: '0 blockers',
+    copy: `No critical incident, no down service and no restart hotspot.${allQuiet}`,
   };
 }
 
@@ -95,7 +95,7 @@ export function nextActionText(
   corootAlerts?: CorootAlertsData | null,
   corootIncidents?: CorootIncidentsData | null,
 ): string {
-  if (!live?.available) return 'Restaure o acesso à API Kubernetes in-cluster antes de confiar no painel.';
+  if (!live?.available) return 'Restore in-cluster Kubernetes API reachability before trusting the board.';
 
   const criticalIncident = live.incidents?.find((i: Incident) => i.severity === 'critical');
   const warningIncident = live.incidents?.find((i: Incident) => i.severity === 'warning');
@@ -107,34 +107,16 @@ export function nextActionText(
   const firstCorootCritical = activeCorootIncidents.find((i) => i.severity === 'critical');
   const firstCorootWarning = activeCorootIncidents.find((i) => i.severity === 'warning');
 
-  if (criticalIncident) {
-    return `Inspecionar ${criticalIncident.resource} em ${criticalIncident.namespace}; ${criticalIncident.message}`;
-  }
-  if (firstCorootCritical) {
-    return `SLO Coroot crítico: ${firstCorootCritical.application_id} — abrir coroot.dnor.io para detalhes.`;
-  }
-  if ((live.summary.down_services || 0) > 0) {
-    return 'Abrir a grade de serviços críticos e recuperar o primeiro marcado como down.';
-  }
-  if (hotspots.length) {
-    return `Inspecionar ${hotspots[0].pod} em ${hotspots[0].namespace}; maior dívida de restart na janela.`;
-  }
-  if ((live.summary.degraded_services || 0) > 0) {
-    return 'Revisar serviços degradados antes do painel ficar vermelho.';
-  }
-  if (warningIncident) {
-    return `Revisar ${warningIncident.resource} em ${warningIncident.namespace} antes de escalar.`;
-  }
-  if (firstCorootWarning) {
-    return `SLO Coroot em alerta: ${firstCorootWarning.application_id} — monitorar tendência no Coroot.`;
-  }
-  if ((corootAlerts?.total ?? 0) > 20) {
-    return `${corootAlerts!.total} alertas Coroot ativos — revisar regras de maior frequência.`;
-  }
-  if (live.stale || metrics?.stale) {
-    return 'Dados stale; confirme o caminho live antes de tratar como estado estável.';
-  }
-  return 'Sem bloqueio imediato. Mantenha telemetria e observe novos hotspots de restart.';
+  if (criticalIncident) return `Inspect ${criticalIncident.resource} in ${criticalIncident.namespace}; ${criticalIncident.message}`;
+  if (firstCorootCritical) return `Coroot SLO incident crítico: ${firstCorootCritical.application_id} — abrir coroot.dnor.io para detalhes.`;
+  if ((live.summary.down_services || 0) > 0) return 'Open the critical service board and recover the first service marked down.';
+  if (hotspots.length) return `Inspect ${hotspots[0].pod} in ${hotspots[0].namespace}; it carries the highest restart debt in the current window.`;
+  if ((live.summary.degraded_services || 0) > 0) return 'Review degraded services before the board turns red.';
+  if (warningIncident) return `Review ${warningIncident.resource} in ${warningIncident.namespace} before it escalates.`;
+  if (firstCorootWarning) return `Coroot SLO incident warning: ${firstCorootWarning.application_id} — monitorar tendência no Coroot.`;
+  if ((corootAlerts?.total ?? 0) > 20) return `${corootAlerts!.total} alertas Coroot ativos — revisar regras de maior frequência no Coroot.`;
+  if (live.stale || metrics?.stale) return 'Fresh data is degraded; confirm the live data path before treating this as steady state.';
+  return 'No immediate blocker. Stay on telemetry and watch for new restart hotspots.';
 }
 
 // ────────────────────────────────────────────────────────────
@@ -162,14 +144,14 @@ export function SignalCard({ live, corootAlerts, corootIncidents }: SignalCardPr
         </div>
         <span id="auto-refresh">
           {live
-            ? `Kube ${live.refresh_interval_seconds ?? '--'}s · Métricas ${metricsInterval}s`
-            : 'Aguardando auto-refresh'}
+            ? `Kube ${live.refresh_interval_seconds ?? '--'}s · Metrics ${metricsInterval}s`
+            : 'Auto-refresh pending'}
         </span>
       </div>
       <div class="command-score" id="health-score">{board.score}</div>
       <p class="command-copy" id="health-copy">{board.copy}</p>
       <div class="next-step">
-        <strong>Próxima ação</strong>
+        <strong>Next action</strong>
         <span id="next-action">{nextAction}</span>
       </div>
     </aside>
@@ -195,28 +177,28 @@ export function SignalGrid({ live, corootAlerts, corootIncidents }: SignalGridPr
     : null;
 
   const items = [
-    { value: live ? String(totalIncidents) : '--', label: 'Incidentes K8s' },
-    { value: live ? String(servicesNeedingAction) : '--', label: 'Serviços em risco' },
+    { value: live ? String(totalIncidents) : '--', label: 'K8s incidents' },
+    { value: live ? String(servicesNeedingAction) : '--', label: 'Services needing action' },
     {
       value: live ? `${live.summary.nodes_ready ?? '--'}/${live.summary.nodes_total ?? '--'}` : '--/--',
-      label: 'Nós ready',
+      label: 'Ready nodes',
     },
     {
       value: live ? formatDiscreteCount(live.summary.restarting_pods ?? 0) : '--',
-      label: 'Pods reiniciando',
+      label: 'Restarting pods',
     },
     {
       value: firingAlerts !== null ? String(firingAlerts) : '--',
-      label: 'Alertas Coroot',
+      label: 'Coroot alerts',
     },
     {
       value: activeIncidents !== null ? String(activeIncidents) : '--',
-      label: 'Incidentes SLO',
+      label: 'SLO incidents',
     },
   ];
 
   return (
-    <section class="operator-grid operator-grid--kpis" id="signal-grid" aria-label="Indicadores rápidos do cluster">
+    <section class="operator-grid" id="signal-grid">
       {items.map((item) => (
         <div class="signal-mini" key={item.label}>
           <strong>{item.value}</strong>
