@@ -47,19 +47,23 @@ log() { echo "[setup-jenkins-ci] $*"; }
 kubectl_ssh() { ssh -o ConnectTimeout=15 "$REMOTE_HOST" kubectl "$@"; }
 
 if [[ -z "${SONAR_ADMIN_PASSWORD:-}" && -f "$CREDS_FILE" ]]; then
-  SONAR_ADMIN_PASSWORD=$(awk '/SonarQube CE/,/PostgreSQL/' "$CREDS_FILE" \
-    | grep 'Senha' | head -1 | sed 's/^[[:space:]]*Senha[[:space:]]*:[[:space:]]*//' || true)
+  SONAR_ADMIN_PASSWORD=$(awk '/^  SonarQube$/,/^  PostgreSQL/' "$CREDS_FILE" \
+    | awk -F: '/^  Senha/ {gsub(/^[[:space:]]+/, "", $2); print $2; exit}' || true)
 fi
 
-if [[ -z "${SONAR_TOKEN:-}" ]]; then
+if [[ -z "${SONAR_TOKEN:-}" ]] || [[ ${#SONAR_TOKEN} -lt 20 ]]; then
   [[ -n "${SONAR_ADMIN_PASSWORD:-}" ]] || {
-    echo "❌ SONAR_ADMIN_PASSWORD ou senha em $CREDS_FILE" >&2
+    echo "❌ SONAR_ADMIN_PASSWORD ou senha Sonar em $CREDS_FILE" >&2
     exit 2
   }
   TOKEN_NAME="jenkins-citools-$(date +%Y%m%d-%H%M)"
   log "Gerando token Sonar ($TOKEN_NAME)..."
   SONAR_TOKEN=$(curl -fsS -u "${SONAR_USER}:${SONAR_ADMIN_PASSWORD}" -X POST \
     "${SONAR_URL}/api/user_tokens/generate?name=${TOKEN_NAME}" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+  [[ ${#SONAR_TOKEN} -ge 20 ]] || {
+    echo "❌ token Sonar inválido (len=${#SONAR_TOKEN}) — verifique SONAR_ADMIN_PASSWORD" >&2
+    exit 2
+  }
 fi
 
 if [[ -z "${GITHUB_TOKEN:-}" ]]; then
