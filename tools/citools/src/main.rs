@@ -234,7 +234,9 @@ fn stage_enabled(stage: &Stage) -> bool {
             let key = expr.trim_start_matches("env:");
             std::env::var(key).is_ok_and(|v| !v.is_empty() && v != "0" && v != "false")
         }
-        Some(expr) if expr.starts_with("branch:") => branch_matches(expr.trim_start_matches("branch:")),
+        Some(expr) if expr.starts_with("branch:") => {
+            branch_matches(expr.trim_start_matches("branch:"))
+        }
         Some(_) => true,
     }
 }
@@ -248,25 +250,6 @@ fn branch_matches(want: &str) -> bool {
         branch != want.trim_start_matches('!')
     } else {
         branch == want || branch.ends_with(&format!("/{want}"))
-    }
-}
-
-#[cfg(test)]
-mod branch_tests {
-    use super::*;
-
-    #[test]
-    fn branch_main_exact() {
-        std::env::set_var("CITOOLS_BRANCH", "main");
-        assert!(branch_matches("main"));
-        std::env::remove_var("CITOOLS_BRANCH");
-    }
-
-    #[test]
-    fn branch_not_main() {
-        std::env::set_var("CITOOLS_BRANCH", "feat/foo");
-        assert!(branch_matches("!main"));
-        std::env::remove_var("CITOOLS_BRANCH");
     }
 }
 
@@ -293,5 +276,24 @@ fn run_stage(stage: &Stage, repo_root: &PathBuf) -> Result<()> {
             status.code(),
             elapsed.as_secs_f64()
         )
+    }
+}
+
+#[cfg(test)]
+mod branch_tests {
+    use super::*;
+
+    #[test]
+    fn branch_main_exact() {
+        std::env::set_var("CITOOLS_BRANCH", "main");
+        assert!(branch_matches("main"));
+        std::env::remove_var("CITOOLS_BRANCH");
+    }
+
+    #[test]
+    fn branch_not_main() {
+        std::env::set_var("CITOOLS_BRANCH", "feat/foo");
+        assert!(branch_matches("!main"));
+        std::env::remove_var("CITOOLS_BRANCH");
     }
 }
