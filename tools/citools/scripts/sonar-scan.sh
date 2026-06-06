@@ -8,6 +8,10 @@ SONAR_PROJECT_KEY="${SONAR_PROJECT_KEY:-production-site}"
 # shellcheck source=/dev/null
 [[ -f .citools-agent.env ]] && source .citools-agent.env
 
+if [[ -n "${JAVA_HOME:-}" && ! -x "${JAVA_HOME}/bin/java" ]]; then
+	unset JAVA_HOME
+fi
+
 if ! command -v java >/dev/null 2>&1; then
 	echo "[sonar-scan] java ausente — instalando openjdk-17-jre-headless" >&2
 	export DEBIAN_FRONTEND=noninteractive
@@ -15,12 +19,10 @@ if ! command -v java >/dev/null 2>&1; then
 	apt-get install -y -qq --no-install-recommends openjdk-17-jre-headless ca-certificates
 fi
 
-export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+JAVA_BIN="$(command -v java)"
+export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$JAVA_BIN")")")"
 export PATH="${JAVA_HOME}/bin:${PATH}"
-command -v java >/dev/null || {
-	echo "java indisponível após setup" >&2
-	exit 1
-}
+echo "[sonar-scan] java: $JAVA_BIN (JAVA_HOME=$JAVA_HOME)" >&2
 
 [[ -n "${SONAR_TOKEN:-}" ]] || {
 	echo "SONAR_TOKEN não definido — skip sonar-scan" >&2
