@@ -170,6 +170,7 @@ path_is_non_blocking_meta() {
 	.gitignore | CHANGELOG.md | sonar-project.properties | \
 		README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | \
 		docs/* | tasks/* | .github/* | \
+		docs/ci-jenkins-migration.md | \
 		components/ssdnodes/ADR-*.md | components/ssdnodes/README.md | \
 		components/ssdnodes/jenkins/Jenkinsfile.generic | \
 		components/ssdnodes/jenkins/bootstrap-ci-job.groovy | \
@@ -539,7 +540,12 @@ verify_changed() {
 	fi
 
 	if [[ $js_backend_needed -eq 1 ]]; then
-		timed_gate "js-back-end" run_js_back_end_gate
+		if [[ "${HARNESS_SKIP_JS_BACKEND:-0}" == "1" ]]; then
+			HARNESS_RESULTS+=("js-back-end|SKIP|-")
+			info "JS back-end gate skipped (HARNESS_SKIP_JS_BACKEND=1 — registry inacessível)"
+		else
+			timed_gate "js-back-end" run_js_back_end_gate
+		fi
 	else
 		HARNESS_RESULTS+=("js-back-end|SKIP|-")
 		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then

@@ -25,8 +25,8 @@ fi
 echo "[verify-branch-ci] ${#paths[@]} path(s) vs ${BASE}:"
 printf '  %s\n' "${paths[@]}"
 
-# Agent Jenkins: PATH enxuto no stage citools — preservar toolchain Rust
-export PATH="/usr/local/cargo/bin:${PATH}"
-export HARNESS_SKIP_BATS=1
+export PATH="/usr/local/cargo/bin:/usr/local/bin:${PATH}"
+
+bash components/ssdnodes/jenkins/scripts/ci-prep.sh "${paths[@]}"
 
 exec ./tools/harness/verify.sh verify-changed --paths "${paths[@]}"

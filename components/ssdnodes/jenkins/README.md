@@ -18,6 +18,17 @@ citools next --json  ──►  { "done": false, "stageName": "Verify branch", "
 
 Preview de todos os stages habilitados: `citools export-json | jq .`
 
+## Stages CI (substituem GitHub Actions)
+
+| Stage | Substitui | Script |
+|-------|-----------|--------|
+| Verify branch | quality-gates.yml | [verify-branch-ci.sh](scripts/verify-branch-ci.sh) + [ci-prep.sh](scripts/ci-prep.sh) |
+| CodeQL | codeql.yml | [codeql-scan.sh](../../../tools/citools/scripts/codeql-scan.sh) |
+| Sonar scan | — | [sonar-scan.sh](../../../tools/citools/scripts/sonar-scan.sh) |
+| Update CHANGELOG | auto-docs.yml (main) | [changelog-update.sh](../../../tools/citools/scripts/changelog-update.sh) |
+
+Ver [docs/ci-jenkins-migration.md](../../../docs/ci-jenkins-migration.md).
+
 ## Arquivos
 
 | Arquivo | Função |

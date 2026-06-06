@@ -2,7 +2,7 @@
  * Jenkinsfile genérico — ZERO lógica de negócio.
  *
  * Contrato: citools next --json → JsonSlurper → stage(stageName) { citools run id }
- * Stages vivem em pipeline.yaml.
+ * Stages vivem em pipeline.yaml (substitui GitHub Actions).
  */
 
 @NonCPS
@@ -34,10 +34,10 @@ spec:
     resources:
       requests:
         cpu: "500m"
-        memory: "1536Mi"
+        memory: "2Gi"
       limits:
-        cpu: "2"
-        memory: "4Gi"
+        cpu: "4"
+        memory: "8Gi"
 '''
     }
   }
@@ -49,13 +49,15 @@ spec:
     SONAR_HOST_URL = 'https://sonar.ssdnodes.dnor.io'
     SONAR_PROJECT_KEY = 'production-site'
     SONAR_TOKEN = credentials('sonar-token')
+    GITHUB_REPOSITORY = 'ToolHQ/production-site'
+    GITHUB_SERVER_URL = 'https://github.com'
   }
 
   options {
     skipDefaultCheckout(true)
-    timeout(time: 90, unit: 'MINUTES')
+    timeout(time: 120, unit: 'MINUTES')
     disableConcurrentBuilds(abortPrevious: true)
-    buildDiscarder(logRotator(numToKeepStr: '15'))
+    buildDiscarder(logRotator(numToKeepStr: '20'))
   }
 
   stages {
@@ -63,6 +65,17 @@ spec:
       steps {
         container('rust') {
           checkout scm
+          script {
+            env.CITOOLS_BRANCH = env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: 'unknown'
+            if (env.CHANGE_ID) {
+              env.CODEQL_REF = "refs/pull/${env.CHANGE_ID}/head"
+            } else if (env.BRANCH_NAME == 'main') {
+              env.CODEQL_REF = 'refs/heads/main'
+            } else {
+              env.CODEQL_REF = "refs/heads/${env.BRANCH_NAME}"
+            }
+            env.CODEQL_SHA = env.GIT_COMMIT ?: 'HEAD'
+          }
           withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
             sh '''#!/usr/bin/env bash
 set -euo pipefail
@@ -84,36 +97,42 @@ bash components/ssdnodes/jenkins/agent-setup.sh
       steps {
         script {
           container('rust') {
-            def citools = "${WORKSPACE}/tools/citools/target/release/citools"
-            def pipelinePath = env.CITOOLS_PIPELINE
-            def after = ''
+            withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+              def citools = "${WORKSPACE}/tools/citools/target/release/citools"
+              def pipelinePath = env.CITOOLS_PIPELINE
+              def after = ''
 
-            def planJson = sh(returnStdout: true, script: "${citools} export-json --pipeline '${pipelinePath}'").trim()
-            echo "citools plan: ${planJson}"
+              def planJson = sh(returnStdout: true, script: "${citools} export-json --pipeline '${pipelinePath}'").trim()
+              echo "citools plan: ${planJson}"
 
-            while (true) {
-              def nextCmd = after
-                ? "${citools} next --json --after '${after}' --pipeline '${pipelinePath}'"
-                : "${citools} next --json --pipeline '${pipelinePath}'"
-              def raw = sh(returnStdout: true, script: nextCmd).trim()
-              def next = citoolsParseNext(raw)
+              while (true) {
+                def nextCmd = after
+                  ? "${citools} next --json --after '${after}' --pipeline '${pipelinePath}'"
+                  : "${citools} next --json --pipeline '${pipelinePath}'"
+                def raw = sh(returnStdout: true, script: nextCmd).trim()
+                def next = citoolsParseNext(raw)
 
-              if (next.done) {
-                echo 'citools next: pipeline concluído'
-                break
-              }
+                if (next.done) {
+                  echo 'citools next: pipeline concluído'
+                  break
+                }
 
-              stage(next.stageName) {
-                container('rust') {
-                  sh """#!/usr/bin/env bash
+                stage(next.stageName) {
+                  container('rust') {
+                    sh """#!/usr/bin/env bash
 set -euo pipefail
 source "${WORKSPACE}/.citools-agent.env"
 export CITOOLS_REPO_ROOT="${WORKSPACE}"
+export CITOOLS_BRANCH="${env.CITOOLS_BRANCH}"
+export CODEQL_REF="${env.CODEQL_REF}"
+export CODEQL_SHA="${env.CODEQL_SHA}"
+export GITHUB_TOKEN="${env.GITHUB_TOKEN}"
 ${citools} run '${next.id}' --pipeline '${pipelinePath}'
 """
+                  }
                 }
+                after = next.id
               }
-              after = next.id
             }
           }
         }
@@ -131,7 +150,7 @@ ${citools} run '${next.id}' --pipeline '${pipelinePath}'
     always {
       script {
         def sha = env.GIT_COMMIT ? env.GIT_COMMIT.take(8) : 'n/a'
-        echo "Branch: ${env.BRANCH_NAME} | Commit: ${sha}"
+        echo "Branch: ${env.CITOOLS_BRANCH} | Commit: ${sha}"
       }
     }
   }

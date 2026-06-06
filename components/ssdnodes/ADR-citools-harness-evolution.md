@@ -67,7 +67,7 @@ stages:
 | **1** | Job multibranch Jenkins apontando para repo |
 | **2** | `citools verify-changed` nativo (port do harness bash) |
 | **3** | Relatório JSON + quality gate Sonar |
-| **4** | GHA chama `citools run-all` no runner ssdnodes (substituir duplicação) |
+| **4** | ~~GHA chama citools~~ → **Jenkins SSDNodes substitui GHA** (quality-gates, codeql, auto-docs) |
 
 ## Referências
 

@@ -31,17 +31,47 @@ chmod -R a+rx "${SONAR_SCANNER_HOME}/bin" 2>/dev/null || true
 find "${SONAR_SCANNER_HOME}" -type f \( -name 'sonar-scanner' -o -name 'sonar-scanner-debug' \) -exec chmod +x {} + 2>/dev/null || true
 export PATH="${SONAR_SCANNER_HOME}/bin:${PATH}"
 
-# --- deps harness (shellcheck, yamllint, git) ---
+# --- deps harness (shellcheck, yamllint, git, shfmt, node) ---
 need_apt=0
-for cmd in shellcheck yamllint git java; do
+for cmd in shellcheck yamllint git java curl; do
 	command -v "$cmd" >/dev/null 2>&1 || need_apt=1
 done
 if [[ "$need_apt" == "1" ]]; then
-	log "instalando shellcheck, yamllint, git, openjdk (apt)"
+	log "instalando shellcheck, yamllint, git, openjdk, curl (apt)"
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update -qq
 	apt-get install -y -qq --no-install-recommends \
-		shellcheck yamllint git ca-certificates openjdk-17-jre-headless
+		shellcheck yamllint git ca-certificates openjdk-17-jre-headless curl gnupg
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+	need_node=1
+else
+	need_node=0
+	ver="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+	[[ "$ver" -lt 20 ]] && need_node=1
+fi
+if [[ "$need_node" == "1" ]]; then
+	log "instalando Node.js 20 (nodesource)"
+	curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+	apt-get install -y -qq nodejs
+fi
+
+if ! command -v shfmt >/dev/null 2>&1; then
+	SHFMT_VERSION=v3.8.0
+	log "instalando shfmt ${SHFMT_VERSION}"
+	curl -fsSL "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" \
+		-o /usr/local/bin/shfmt
+	chmod +x /usr/local/bin/shfmt
+fi
+
+if ! command -v git-cliff >/dev/null 2>&1; then
+	GIT_CLIFF_VERSION=2.6.1
+	log "instalando git-cliff ${GIT_CLIFF_VERSION}"
+	curl -fsSL \
+		"https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+		| tar -xz -C /tmp
+	install -m 0755 "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" /usr/local/bin/git-cliff
 fi
 
 # --- citools ---
@@ -65,7 +95,7 @@ if [[ ! -d "$JAVA_HOME" ]] && command -v java >/dev/null 2>&1; then
 fi
 cat >"${REPO_ROOT}/.citools-agent.env" <<EOF
 export JAVA_HOME="${JAVA_HOME}"
-export PATH="${SONAR_SCANNER_HOME}/bin:/usr/local/cargo/bin:${CARGO_TARGET_DIR}/release:/usr/bin:\${PATH}"
+export PATH="${SONAR_SCANNER_HOME}/bin:/usr/local/bin:/usr/local/cargo/bin:${CARGO_TARGET_DIR}/release:/usr/bin:\${PATH}"
 EOF
 
-log "agent pronto — citools + shellcheck + sonar-scanner + java"
+log "agent pronto — citools + node + shellcheck + sonar-scanner"
