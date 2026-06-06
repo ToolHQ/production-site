@@ -122,6 +122,15 @@ export interface HoneypotTagCount {
   count: number;
 }
 
+export interface HoneypotRecentRequest {
+  timestamp: string;
+  method: string;
+  path: string;
+  ip: string;
+  userAgent: string;
+  tag: string;
+}
+
 export interface HoneypotNodeStats {
   id: string;
   cluster: string;
@@ -134,6 +143,7 @@ export interface HoneypotNodeStats {
   top_tags: HoneypotTagCount[];
   requests_24h?: TimeSeriesPoint[];
   requests_7d?: TimeSeriesPoint[];
+  recent_requests?: HoneypotRecentRequest[];
   refreshed_at_epoch: number;
   error?: string;
 }

@@ -298,13 +298,24 @@ impl ClickHouseClient {
             total: stat_row.total.parse().unwrap_or(0),
             failed: stat_row.failed.parse().unwrap_or(0),
             banned: stat_row.banned.parse().unwrap_or(0),
-            banned_ip_details: ips_data.data.into_iter().map(|r| BannedIpDetail {
-                ip: r.ip,
-                hits: r.hits.as_u64().unwrap_or_else(|| r.hits.as_str().unwrap_or("0").parse().unwrap_or(0)),
-                first_seen: r.first_seen.as_u64().unwrap_or_else(|| r.first_seen.as_str().unwrap_or("0").parse().unwrap_or(0)),
-                last_seen: r.last_seen.as_u64().unwrap_or_else(|| r.last_seen.as_str().unwrap_or("0").parse().unwrap_or(0)),
-                statuses: r.statuses,
-            }).collect(),
+            banned_ip_details: ips_data
+                .data
+                .into_iter()
+                .map(|r| BannedIpDetail {
+                    ip: r.ip,
+                    hits: r
+                        .hits
+                        .as_u64()
+                        .unwrap_or_else(|| r.hits.as_str().unwrap_or("0").parse().unwrap_or(0)),
+                    first_seen: r.first_seen.as_u64().unwrap_or_else(|| {
+                        r.first_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    last_seen: r.last_seen.as_u64().unwrap_or_else(|| {
+                        r.last_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    statuses: r.statuses,
+                })
+                .collect(),
             timestamp: unix_epoch_seconds(),
         })
     }
@@ -1366,6 +1377,47 @@ struct HoneypotTagCount {
     count: u64,
 }
 
+#[derive(Deserialize, Serialize, Clone, Default)]
+struct HoneypotRecentRequest {
+    timestamp: String,
+    method: String,
+    path: String,
+    ip: String,
+    #[serde(rename = "userAgent")]
+    user_agent: String,
+    tag: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct HoneypotRequest {
+    id: u64,
+    timestamp: String,
+    method: String,
+    path: String,
+    #[serde(rename = "statusCode")]
+    status_code: u16,
+    #[serde(rename = "remoteHostname")]
+    remote_hostname: Option<String>,
+    #[serde(rename = "remoteIp")]
+    remote_ip: Option<String>,
+    country: Option<String>,
+    classification: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct HoneypotRequestsResponse {
+    total: u64,
+    rows: Vec<HoneypotRequest>,
+}
+
+#[derive(Deserialize, Clone)]
+struct HoneypotRequestsQuery {
+    #[serde(default)]
+    limit: Option<u64>,
+    #[serde(default)]
+    offset: Option<u64>,
+}
+
 #[derive(Serialize, Clone, Default)]
 struct HoneypotNodeStats {
     id: String,
@@ -1381,6 +1433,8 @@ struct HoneypotNodeStats {
     requests_24h: Vec<MetricPoint>,
     #[serde(default)]
     requests_7d: Vec<MetricPoint>,
+    #[serde(default)]
+    recent_requests: Vec<HoneypotRecentRequest>,
     refreshed_at_epoch: u64,
     error: Option<String>,
 }
@@ -2778,7 +2832,6 @@ impl LiveMonitor {
             }
         }
     }
-
 }
 
 impl PrometheusMonitor {
@@ -3284,6 +3337,46 @@ impl PrometheusMonitor {
             nodes,
         }
     }
+
+    pub(crate) async fn fetch_honeypot_requests(
+        &self,
+        limit: Option<u64>,
+        offset: Option<u64>,
+    ) -> HoneypotRequestsResponse {
+        let specs: Vec<&ExternalNodeSpec> = external_node_specs()
+            .iter()
+            .filter(|spec| spec.honeypot)
+            .collect();
+
+        if let Some(spec) = specs.first() {
+            let client = match Client::builder()
+                .timeout(Duration::from_secs(8))
+                .danger_accept_invalid_certs(true)
+                .build()
+            {
+                Ok(client) => client,
+                Err(_) => return HoneypotRequestsResponse::default(),
+            };
+
+            let path = format!(
+                "/internal/threats-all?limit={}&offset={}",
+                limit.unwrap_or(50),
+                offset.unwrap_or(0)
+            );
+            let url = honeypot_api_url(spec, &path);
+
+            if let Ok(response) = client.get(&url).send().await {
+                if response.status().is_success() {
+                    return response
+                        .json::<HoneypotRequestsResponse>()
+                        .await
+                        .unwrap_or_default();
+                }
+            }
+        }
+
+        HoneypotRequestsResponse::default()
+    }
 }
 
 async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> HoneypotNodeStats {
@@ -3299,10 +3392,12 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
         .unwrap_or("/internal/threats-timeseries");
     let summary_url = honeypot_api_url(spec, summary_path);
     let timeseries_url = honeypot_api_url(spec, timeseries_path);
+    let recent_url = honeypot_api_url(spec, "/internal/threats-recent");
 
-    let (summary_result, timeseries_result) = tokio::join!(
+    let (summary_result, timeseries_result, recent_result) = tokio::join!(
         client.get(&summary_url).send(),
         client.get(&timeseries_url).send(),
+        client.get(&recent_url).send(),
     );
 
     let timeseries = match timeseries_result {
@@ -3311,6 +3406,14 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
             .await
             .unwrap_or_default(),
         _ => QdbbackThreatTimeseries::default(),
+    };
+
+    let recent_requests = match recent_result {
+        Ok(response) if response.status().is_success() => response
+            .json::<Vec<HoneypotRecentRequest>>()
+            .await
+            .unwrap_or_default(),
+        _ => vec![],
     };
 
     match summary_result {
@@ -3335,6 +3438,7 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
                     top_tags: summary.top_tags,
                     requests_24h: timeseries.requests_24h,
                     requests_7d: timeseries.requests_7d,
+                    recent_requests,
                     refreshed_at_epoch: unix_epoch_seconds(),
                     error: None,
                 },
