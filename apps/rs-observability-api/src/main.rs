@@ -201,11 +201,25 @@ struct ClickHouseClient {
     base_url: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 struct ChFail2BanStatRow {
     total: String,
     failed: String,
     banned: String,
+}
+
+#[derive(Deserialize, Default, Clone)]
+struct ChHoneypotStatRow {
+    total: String,
+    last24h: String,
+    classified: String,
+    unclassified: String,
+}
+
+#[derive(Deserialize, Default, Clone)]
+struct ChHoneypotTagRow {
+    tag: String,
+    count: String,
 }
 
 #[derive(Deserialize, Clone)]
@@ -226,7 +240,7 @@ pub(crate) struct BannedIpDetail {
     pub statuses: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 struct ChResponse<T> {
     data: Vec<T>,
 }
@@ -318,6 +332,97 @@ impl ClickHouseClient {
                 .collect(),
             timestamp: unix_epoch_seconds(),
         })
+    }
+
+    pub(crate) async fn fetch_honeypot_overview(&self) -> HoneypotOverview {
+        let stats_query = "SELECT count() as total, countIf(timestamp >= now() - INTERVAL 1 DAY) as last24h, countIf(classification != 'unknown') as classified, countIf(classification == 'unknown') as unclassified FROM threat_intel_events WHERE service = 'honeypot' FORMAT JSON";
+        
+        let stats_resp = match self.http.get(&self.base_url).query(&[("query", stats_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await {
+            Ok(resp) => resp,
+            Err(_) => return HoneypotOverview::default(),
+        };
+        
+        let stats_data = stats_resp.json::<ChResponse<ChHoneypotStatRow>>().await.unwrap_or_default();
+        let stat_row = stats_data.data.first().cloned().unwrap_or_default();
+        
+        let top_tags_query = "SELECT classification as tag, count() as count FROM threat_intel_events WHERE service = 'honeypot' AND classification != 'unknown' GROUP BY tag ORDER BY count DESC LIMIT 10 FORMAT JSON";
+        let tags_resp = self.http.get(&self.base_url).query(&[("query", top_tags_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let top_tags = if let Some(resp) = tags_resp {
+            let tags_data = resp.json::<ChResponse<ChHoneypotTagRow>>().await.unwrap_or_default();
+            tags_data.data.into_iter().map(|r| HoneypotTagCount { tag: r.tag, count: r.count.parse().unwrap_or(0) }).collect()
+        } else {
+            vec![]
+        };
+
+        let recent_query = "SELECT timestamp, method, path, ip, user_agent as userAgent, classification as tag FROM threat_intel_events WHERE service = 'honeypot' ORDER BY timestamp DESC LIMIT 15 FORMAT JSON";
+        let recent_resp = self.http.get(&self.base_url).query(&[("query", recent_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let recent_requests = if let Some(resp) = recent_resp {
+            let recent_data = resp.json::<ChResponse<HoneypotRecentRequest>>().await.unwrap_or_default();
+            recent_data.data
+        } else {
+            vec![]
+        };
+
+        let mut node = HoneypotNodeStats::default();
+        node.id = "AWS-EC2".to_string();
+        node.cluster = "AWS-EC2".to_string();
+        node.instance_host = "ec2.dnor.io".to_string();
+        node.available = true;
+        node.total = stat_row.total.parse().unwrap_or(0);
+        node.last24h = stat_row.last24h.parse().unwrap_or(0);
+        node.classified = stat_row.classified.parse().unwrap_or(0);
+        node.unclassified = stat_row.unclassified.parse().unwrap_or(0);
+        node.top_tags = top_tags;
+        node.recent_requests = recent_requests;
+        node.refreshed_at_epoch = unix_epoch_seconds();
+
+        HoneypotOverview {
+            available: true,
+            nodes: vec![node],
+        }
+    }
+
+    pub(crate) async fn fetch_honeypot_requests(&self, query: &HoneypotRequestsQuery) -> HoneypotRequestsResponse {
+        let mut filters = vec!["service = 'honeypot'".to_string()];
+        
+        if let Some(m) = &query.method {
+            filters.push(format!("method = '{}'", m.replace('\'', "''")));
+        }
+        if let Some(p) = &query.path {
+            filters.push(format!("path ILIKE '%{}%'", p.replace('\'', "''")));
+        }
+        if let Some(ip) = &query.ip {
+            filters.push(format!("ip = '{}'", ip.replace('\'', "''")));
+        }
+        if let Some(c) = &query.classification {
+            filters.push(format!("classification = '{}'", c.replace('\'', "''")));
+        }
+        
+        let where_clause = filters.join(" AND ");
+        
+        let count_query = format!("SELECT count() as total FROM threat_intel_events WHERE {} FORMAT JSON", where_clause);
+        let count_resp = self.http.get(&self.base_url).query(&[("query", &count_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let total = if let Some(resp) = count_resp {
+            let data = resp.json::<ChResponse<ChFail2BanStatRow>>().await.unwrap_or_default();
+            data.data.first().map(|r| r.total.parse().unwrap_or(0)).unwrap_or(0)
+        } else {
+            0
+        };
+        
+        let limit = query.limit.unwrap_or(50).clamp(1, 100);
+        let offset = query.offset.unwrap_or(0);
+        
+        let rows_query = format!("SELECT toUnixTimestamp(timestamp) as id, timestamp, method, path, toUInt16OrZero(status) as statusCode, ip as remoteIp, ip as remoteHostname, country, classification, time_elapsed as timeElapsed, user_agent as userAgent FROM threat_intel_events WHERE {} ORDER BY timestamp DESC LIMIT {} OFFSET {} FORMAT JSON", where_clause, limit, offset);
+        
+        let rows_resp = self.http.get(&self.base_url).query(&[("query", &rows_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let rows = if let Some(resp) = rows_resp {
+            let data = resp.json::<ChResponse<HoneypotRequest>>().await.unwrap_or_default();
+            data.data
+        } else {
+            vec![]
+        };
+        
+        HoneypotRequestsResponse { total, rows }
     }
 }
 

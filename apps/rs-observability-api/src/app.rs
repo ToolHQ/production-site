@@ -186,10 +186,18 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         }
     };
 
+    let honeypot_future = async {
+        if let Some(ch) = &state.clickhouse_client {
+            ch.fetch_honeypot_overview().await
+        } else {
+            HoneypotOverview::default()
+        }
+    };
+
     let (mut payload, node_metrics, honeypot, fail2ban_res) = tokio::join!(
         live_future,
         state.prometheus_monitor.fetch_node_metrics(),
-        state.prometheus_monitor.fetch_honeypot_overview(),
+        honeypot_future,
         tokio::time::timeout(Duration::from_secs(8), clickhouse_future),
     );
 
@@ -260,10 +268,11 @@ async fn honeypot_requests(
     State(state): State<AppState>,
     axum::extract::Query(query): axum::extract::Query<crate::HoneypotRequestsQuery>,
 ) -> Response {
-    let response = state
-        .prometheus_monitor
-        .fetch_honeypot_requests(&query)
-        .await;
+    let response = if let Some(ch) = &state.clickhouse_client {
+        ch.fetch_honeypot_requests(&query).await
+    } else {
+        HoneypotRequestsResponse::default()
+    };
 
     Json(response).into_response()
 }
