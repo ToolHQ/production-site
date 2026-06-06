@@ -1,12 +1,18 @@
 # Cursor Queue — AI Radar & cluster ops
 
-## Próximo (prioridade sobre T-344 deploy)
+## Próximo (prioridade)
 
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
-| 1 | **T-349** | Jenkins Blue Ocean + Stage View — UX pipelines | 📋 **próximo** |
+| 1 | **T-345** | GitHub webhook + branch protection — fechar PR #394 green | 🏎️ **próximo** |
 
-## Epic citools Deploy (T-344) — após T-349
+## Concluído neste sprint
+
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-349** | Jenkins Blue Ocean + Stage View — UX pipelines | ✅ |
+
+## Epic citools Deploy (T-344) — após T-345 / merge PR #394
 
 Ver [CITOOLS-DEPLOY-BACKLOG.md](CITOOLS-DEPLOY-BACKLOG.md)
 

@@ -39,7 +39,6 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
-| [T-349](2026/Q2/T-349-Jenkins-Blue-Ocean-pipeline-stage-view-UX.md) | **Jenkins Blue Ocean + pipeline stage view UX** | 🚨 Critical | **Cursor / AI Radar** | 2d |
 | [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** | 🚨 Critical | **Cursor / AI Radar** | 1d |
 | [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | **Cursor / AI Radar** | 4h |
 | [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy-apps job parametrizado** | 🔼 High | **Cursor / AI Radar** | 1w |
@@ -104,6 +103,7 @@
 
 | T-341 | **agent-meter — Eclipse proxy 100% coverage** _(request_bytes, response_bytes, max_tokens, temperature, llm_system, parent_span_id, cached_tokens, reasoning_tokens, finish_reason, response_text, tool_result cross-request correlation; doc: docs/agent-meter-telemetry-coverage.md)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | T-342 | **agent-meter — VS Code OTLP 100% coverage** _(captureContent=true habilitado; port-forward 4318 ativo; 24/27 campos preenchidos, 3 impossíveis sem env vars)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
+| [T-349](2026/Q2/T-349-Jenkins-Blue-Ocean-pipeline-stage-view-UX.md) | **Jenkins Blue Ocean + pipeline stage view UX** | 🚨 Critical | **Cursor / AI Radar** | 2d |
 | T-343 | **agent-meter — Copilot CLI interceptor validado** _(mesmo copilot_interceptor.py via HTTPS_PROXY; gpt-5.4 interceptado; 5 tool calls + results capturados; copilot-cli-metered.sh wrapper criado)_ | 🚨 Critical | **Copilot/VSCode** | 2h |
 | T-321 | **agent-meter — T-321 Landing + Pricing + Stripe Checkout** _(página `/pricing` 4 tiers Free/Pro \$19/Team \$99/Enterprise + FAQ; `/api/billing/checkout` (live ou stub), `/api/billing/portal`, `/api/billing/webhook` HMAC-SHA256, state machine de billing_events; ENV-driven (STRIPE_SECRET_KEY/WEBHOOK_SECRET/PRICE_PRO/TEAM); validado em prod: /pricing 200, checkout retorna stub URL)_ | 🚨 Critical | **Copilot/VSCode** | 13h |
 | T-319.1 | **agent-meter — T-319.1 GitHub OAuth + Sessions + Middleware** _(migration sessions/billing_events; auth_service: exchange_code, fetch_user, upsert (org slug=user-{login}, role=owner), HMAC state CSRF; routes /login, /auth/github, /auth/github/callback, /auth/logout, /api/me; cookie am_session HttpOnly Secure SameSite=Lax 30d; ui/login.html; validado em prod: /login 200, /api/me 401, /auth/github 503 (env unset))_ | 🚨 Critical | **Copilot/VSCode** | 6h |

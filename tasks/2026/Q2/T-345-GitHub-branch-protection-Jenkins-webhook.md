@@ -28,13 +28,15 @@ Webhook ingress: `components/ssdnodes/jenkins-github-webhook-ingress.yaml` (draf
 
 ## Tasks
 
-- [ ] Documentar runbook em `docs/ci-jenkins-migration.md` (gh api + UI)
-- [ ] Script idempotente `scripts/harness/configure_github_ci_protection.sh`
-- [ ] Aplicar branch protection: required check `jenkins/citools`, 1 approval opcional
-- [ ] Criar GitHub webhook secret K8s + ingress allowlist (T-341-3)
-- [ ] Configurar webhook repo `ToolHQ/production-site` → `https://jenkins.ssdnodes.dnor.io/github-webhook/`
-- [ ] Validar: push branch → build automático &lt; 2 min
-- [ ] Validar: PR #394 mostra check `jenkins/citools` required
+- [x] Documentar runbook em `docs/ci-jenkins-migration.md` (gh api + UI)
+- [x] Script idempotente `scripts/harness/configure_github_ci_protection.sh`
+- [x] Aplicar branch protection: required check `jenkins/citools`, 1 approval opcional
+- [x] GitHub webhook IP allowlist UFW (`github-webhook-ip-ranges.txt` + `ufw_manager.sh`)
+- [x] Ingress `jenkins-github-webhook-ingress.yaml` (defense in depth)
+- [x] Configurar webhook repo `ToolHQ/production-site` → `https://jenkins.ssdnodes.dnor.io/github-webhook/`
+- [x] Validar: webhook ping GitHub → HTTP 200 (2026-06-06)
+- [ ] Validar: push branch → build automático &lt; 2 min (aguardando PR-394 build #8)
+- [ ] Validar: PR #394 mostra check `jenkins/citools` required green
 - [ ] Remover checks legados `Quality Gates/*` se ainda listados
 
 ## Validação

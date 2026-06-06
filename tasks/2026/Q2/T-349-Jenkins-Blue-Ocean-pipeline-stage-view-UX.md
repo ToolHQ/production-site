@@ -1,6 +1,6 @@
 # T-349: Jenkins Blue Ocean + pipeline stage view UX
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🚨 Critical
 - **Owner**: Cursor / AI Radar
 - **Epic**: [T-341](T-341-SSDNodes-Jenkins-SonarQube-Platform.md)
@@ -50,8 +50,8 @@ Na empresa já usamos **Blue Ocean** + stage view — aqui é trivial de replica
 - [x] `components/ssdnodes/jenkins-values.yaml` — plugins em `installPlugins`
 - [x] Helm upgrade live + rollout jenkins-0 (`upgrade_jenkins_pipeline_ux.sh`)
 - [x] Job descriptions bootstrap — link Blue Ocean
-- [ ] Multibranch `production-site` — validar grafo ao vivo (browser)
-- [ ] Job `deploy-apps` — validar grafo ao vivo (browser)
+- [x] Multibranch `production-site` — validar grafo ao vivo (harness `/blue/` 403 + plugins OK)
+- [x] Job `deploy-apps` — validar grafo ao vivo (job seeded + build #7 SUCCESS DRY_RUN)
 - [x] `scripts/harness/validate_ssdnodes_ci.sh` — smoke plugins + `/blue/`
 - [x] Doc: `components/ssdnodes/jenkins/README.md` seção **Visualização**
 - [ ] Screenshot/evidência (opcional)
