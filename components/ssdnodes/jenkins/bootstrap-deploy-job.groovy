@@ -19,7 +19,7 @@ job.setDescription('Deploy pontual — parâmetros APP + TARGET. Ver T-348 / dep
 
 def scm = new GitSCM(
   [new UserRemoteConfig('https://github.com/ToolHQ/production-site.git', 'origin', '+refs/heads/*:refs/remotes/origin/*', 'github-pat')],
-  [new BranchSpec('*/feat/t-341-ssdnodes-ci-platform'), new BranchSpec('*/main')],
+  [new BranchSpec('origin/feat/t-341-ssdnodes-ci-platform')],
   null,
   null,
   null
