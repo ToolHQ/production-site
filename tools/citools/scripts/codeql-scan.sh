@@ -28,11 +28,12 @@ fi
 CODEQL="${CODEQL_HOME}/codeql/codeql"
 export PATH="${CODEQL_HOME}/codeql:${PATH}"
 
-REF="${CODEQL_REF:-${CHANGE_BRANCH:-${BRANCH_NAME:-refs/heads/main}}}"
-SHA="${CODEQL_SHA:-${GIT_COMMIT:-HEAD}}"
+REF="${CODEQL_REF:-${CHANGE_BRANCH:-${BRANCH_NAME:-main}}}"
+SHA="${CODEQL_SHA:-${GIT_COMMIT:-$(git rev-parse HEAD 2>/dev/null || echo HEAD)}}"
 if [[ "$REF" != refs/* ]]; then
 	REF="refs/heads/${REF}"
 fi
+REPO="${GITHUB_REPOSITORY:-ToolHQ/production-site}"
 
 run_lang() {
 	local lang=$1 src_root=$2
@@ -49,13 +50,13 @@ run_lang() {
 		--output="${REPO_ROOT}/codeql-${lang}.sarif" \
 		--sarif-category="/language:${lang}"
 	log "upload sarif (${lang})"
-	"$CODEQL" github upload-results \
+	export GITHUB_TOKEN
+	printf '%s' "$GITHUB_TOKEN" | "$CODEQL" github upload-results \
 		--sarif="${REPO_ROOT}/codeql-${lang}.sarif" \
 		--ref="$REF" \
 		--commit="$SHA" \
-		--github-auth="$GITHUB_TOKEN" \
-		--github-url="${GITHUB_SERVER_URL:-https://github.com}" \
-		--repository="${GITHUB_REPOSITORY:-ToolHQ/production-site}"
+		--repository="$REPO" \
+		--github-auth-stdin
 }
 
 run_lang javascript .
