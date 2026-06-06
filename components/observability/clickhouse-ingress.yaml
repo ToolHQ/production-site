@@ -6,7 +6,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/whitelist-source-range: "100.64.0.0/10, 189.62.149.233/32" # Tailscale IPs + user public IP
+    nginx.ingress.kubernetes.io/whitelist-source-range: "100.64.0.0/10, 189.62.149.233/32, 2602:ff16:1:125a::1/128"
     cert-manager.io/cluster-issuer: letsencrypt-dns01
 spec:
   ingressClassName: nginx
