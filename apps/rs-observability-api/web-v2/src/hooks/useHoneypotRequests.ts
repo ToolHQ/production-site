@@ -24,6 +24,7 @@ export interface HoneypotFilters {
   path?: string;
   ip?: string;
   classification?: string;
+  exclude_internal?: boolean;
 }
 
 export interface UseHoneypotRequestsResult {
@@ -56,6 +57,7 @@ export function useHoneypotRequests(limit: number, offset: number, filters?: Hon
         if (filters?.path) params.append('path', filters.path);
         if (filters?.ip) params.append('ip', filters.ip);
         if (filters?.classification) params.append('classification', filters.classification);
+        if (filters?.exclude_internal) params.append('exclude_internal', 'true');
 
         const response = await fetch(`/api/live/honeypot-requests?${params.toString()}`, { cache: 'no-store' });
         if (!response.ok) throw new Error(`API returned HTTP ${response.status}`);

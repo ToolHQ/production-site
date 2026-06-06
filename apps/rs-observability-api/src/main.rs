@@ -397,6 +397,9 @@ impl ClickHouseClient {
         if let Some(c) = &query.classification {
             filters.push(format!("classification = '{}'", c.replace('\'', "''")));
         }
+        if query.exclude_internal.unwrap_or(false) {
+            filters.push("path NOT ILIKE '/internal/%'".to_string());
+        }
         
         let where_clause = filters.join(" AND ");
         
@@ -1533,6 +1536,8 @@ struct HoneypotRequestsQuery {
     ip: Option<String>,
     #[serde(default)]
     classification: Option<String>,
+    #[serde(default)]
+    exclude_internal: Option<bool>,
 }
 
 #[derive(Serialize, Clone, Default)]
