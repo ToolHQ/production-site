@@ -170,7 +170,6 @@ path_is_non_blocking_meta() {
 	.gitignore | CHANGELOG.md | sonar-project.properties | \
 		README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | \
 		docs/* | tasks/* | .github/* | \
-		docs/ci-jenkins-migration.md | \
 		components/ssdnodes/ADR-*.md | components/ssdnodes/README.md | \
 		components/ssdnodes/jenkins/Jenkinsfile.generic | \
 		components/ssdnodes/jenkins/bootstrap-ci-job.groovy | \
