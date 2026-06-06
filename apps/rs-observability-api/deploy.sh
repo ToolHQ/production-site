@@ -44,15 +44,15 @@ cd "$APP_DIR"
 
 # oci-builder --push é o padrão (Nexus pull instável com docker push via tunnel Hetzner).
 # Opt-in explícito: USE_HETZNER=1 ./deploy.sh
-USE_HETZNER=false
 HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
+USE_HETZNER_FLAG=false
 if [ "${USE_HETZNER:-0}" = "1" ] && [ -f "$HETZNER_SETUP" ]; then
   if "$HETZNER_SETUP" --silent; then
-    USE_HETZNER=true
+    USE_HETZNER_FLAG=true
   fi
 fi
 
-if [ "$USE_HETZNER" = "true" ]; then
+if [ "$USE_HETZNER_FLAG" = "true" ]; then
   echo "🚀 Usando builder Hetzner remoto de alta performance..."
   docker buildx build \
     --builder hetzner-builder \
