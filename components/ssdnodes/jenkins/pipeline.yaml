@@ -5,7 +5,8 @@
 #
 # Campos:
 #   stageName  — rótulo no Blue Ocean
-#   when       — env:VAR | branch:main | branch:!main | never
+#   when       — env:VAR | branch:main | never
+#   whenPaths  — globs (AND com when) vs .citools-changed-paths
 #   jenkins    — false = só run-all local
 
 version: 1
@@ -21,12 +22,14 @@ stages:
     stageName: CodeQL
     description: Análise estática JS/TS + Python → GitHub Security
     when: env:GITHUB_TOKEN
+    whenPaths: apps/**,components/**,tools/**,oci-k8s-cluster/**
     run: ./tools/citools/scripts/codeql-scan.sh
 
   - id: sonar-scan
     stageName: Sonar scan
     description: SonarQube scanner
     when: env:SONAR_TOKEN
+    whenPaths: tools/citools/**,components/ssdnodes/**,oci-k8s-cluster/scripts/ssdnodes/**,sonar-project.properties
     run: ./tools/citools/scripts/sonar-scan.sh
 
   - id: changelog

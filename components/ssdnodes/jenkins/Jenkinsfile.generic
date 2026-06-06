@@ -100,6 +100,17 @@ bash components/ssdnodes/jenkins/agent-setup.sh
         script {
           container('rust') {
             withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+              sh """#!/usr/bin/env bash
+set -euo pipefail
+source "${WORKSPACE}/.citools-agent.env"
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+export CITOOLS_BRANCH="${env.CITOOLS_BRANCH}"
+export CODEQL_REF="${env.CODEQL_REF}"
+export CODEQL_SHA="${env.CODEQL_SHA}"
+export GITHUB_TOKEN="${env.GITHUB_TOKEN}"
+export BUILD_URL="${env.BUILD_URL}"
+bash tools/citools/scripts/github-status.sh pending 'citools pipeline running' '${env.BUILD_URL}' || true
+"""
               def citools = "${WORKSPACE}/tools/citools/target/release/citools"
               def pipelinePath = env.CITOOLS_PIPELINE
               def after = ''
@@ -151,8 +162,21 @@ ${citools} run '${next.id}' --pipeline '${pipelinePath}'
     }
     always {
       script {
-        def sha = env.GIT_COMMIT ? env.GIT_COMMIT.take(8) : 'n/a'
+        def sha = env.CODEQL_SHA ? env.CODEQL_SHA.take(8) : 'n/a'
         echo "Branch: ${env.CITOOLS_BRANCH} | Commit: ${sha}"
+        def state = currentBuild.currentResult == 'SUCCESS' ? 'success' : 'failure'
+        def desc = "Build #${env.BUILD_NUMBER} ${currentBuild.currentResult}"
+        withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+          sh """#!/usr/bin/env bash
+set -euo pipefail
+source "${WORKSPACE}/.citools-agent.env" 2>/dev/null || true
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+export CODEQL_SHA="${env.CODEQL_SHA}"
+export BUILD_URL="${env.BUILD_URL}"
+export GITHUB_TOKEN="${env.GITHUB_TOKEN}"
+bash tools/citools/scripts/github-status.sh '${state}' '${desc}' '${env.BUILD_URL}' || true
+"""
+        }
       }
     }
   }

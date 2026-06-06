@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# github-status.sh — commit status no GitHub (branch protection / PR checks)
+set -euo pipefail
+
+REPO_ROOT="${CITOOLS_REPO_ROOT:-$(pwd)}"
+cd "$REPO_ROOT"
+
+log() { printf '[github-status] %s\n' "$*"; }
+
+STATE="${1:-}"
+DESCRIPTION="${2:-citools pipeline}"
+TARGET_URL="${3:-${BUILD_URL:-https://jenkins.ssdnodes.dnor.io/job/production-site/}}"
+CONTEXT="${GITHUB_STATUS_CONTEXT:-jenkins/citools}"
+REPO="${GITHUB_REPOSITORY:-ToolHQ/production-site}"
+SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+[[ ${#SHA} -eq 40 ]] || SHA="${CODEQL_SHA:-${GIT_COMMIT:-}}"
+
+[[ -n "${STATE}" ]] || {
+	log "usage: github-status.sh <success|failure|pending|error> [description] [target_url]"
+	exit 2
+}
+
+[[ -n "${GITHUB_TOKEN:-}" ]] || {
+	log "GITHUB_TOKEN ausente — skip status"
+	exit 0
+}
+
+[[ ${#SHA} -eq 40 ]] || {
+	log "SHA indisponível — skip status"
+	exit 0
+}
+
+export STATE CONTEXT DESC="$DESCRIPTION" TARGET="$TARGET_URL"
+payload=$(STATE="$STATE" CONTEXT="$CONTEXT" DESC="$DESCRIPTION" TARGET="$TARGET_URL" python3 - <<'PY'
+import json, os
+print(json.dumps({
+    "state": os.environ["STATE"],
+    "context": os.environ["CONTEXT"],
+    "description": os.environ["DESC"][:140],
+    "target_url": os.environ["TARGET"],
+}))
+PY
+)
+
+http_code=$(curl -s -o /tmp/gh-status.json -w '%{http_code}' \
+	-X POST \
+	-H "Authorization: Bearer ${GITHUB_TOKEN}" \
+	-H "Accept: application/vnd.github+json" \
+	"https://api.github.com/repos/${REPO}/statuses/${SHA}" \
+	-d "$payload")
+
+if [[ "$http_code" =~ ^20 ]]; then
+	log "${STATE} → ${CONTEXT} (${SHA:0:8})"
+else
+	log "falha HTTP ${http_code}: $(head -c 200 /tmp/gh-status.json 2>/dev/null)"
+	exit 1
+fi

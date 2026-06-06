@@ -21,7 +21,9 @@ Editar [`components/ssdnodes/jenkins/pipeline.yaml`](../components/ssdnodes/jenk
 
 ## Branch protection (GitHub)
 
-Trocar required checks de `Quality Gates / …` para status do Jenkins multibranch (`production-site/…`).
+Adicionar required check: **`jenkins/citools`** (commit status enviado pelo Jenkins em cada build).
+
+Remover checks legados `Quality Gates / *` após validar o status no PR.
 
 ## Local (paridade com CI)
 

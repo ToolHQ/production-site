@@ -5,10 +5,6 @@ set -euo pipefail
 REPO_ROOT="${CITOOLS_REPO_ROOT:-$(pwd)}"
 cd "$REPO_ROOT"
 
-CODEQL_HOME="${REPO_ROOT}/.codeql"
-CODEQL_VERSION="${CODEQL_VERSION:-2.20.5}"
-CODEQL_BUNDLE="codeql-bundle-linux64.tar.gz"
-
 log() { printf '[codeql-scan] %s\n' "$*"; }
 
 [[ -n "${GITHUB_TOKEN:-}" ]] || {
@@ -16,23 +12,17 @@ log() { printf '[codeql-scan] %s\n' "$*"; }
 	exit 0
 }
 
-if [[ ! -x "${CODEQL_HOME}/codeql/codeql" ]]; then
-	log "baixando CodeQL bundle ${CODEQL_VERSION}"
-	mkdir -p "${CODEQL_HOME}"
-	curl -fsSL \
-		"https://github.com/github/codeql-action/releases/download/codeql-bundle-v${CODEQL_VERSION}/${CODEQL_BUNDLE}" \
-		-o "/tmp/${CODEQL_BUNDLE}"
-	tar -xzf "/tmp/${CODEQL_BUNDLE}" -C "${CODEQL_HOME}"
-fi
-
-CODEQL="${CODEQL_HOME}/codeql/codeql"
-export PATH="${CODEQL_HOME}/codeql:${PATH}"
+CODEQL="${CODEQL_BIN:-$(command -v codeql 2>/dev/null || true)}"
+[[ -x "$CODEQL" ]] || {
+	log "codeql CLI ausente — skip (agent-setup deveria instalar)"
+	exit 0
+}
 
 REF="${CODEQL_REF:-${CHANGE_BRANCH:-${BRANCH_NAME:-main}}}"
 SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 [[ ${#SHA} -eq 40 ]] || SHA="${GIT_COMMIT:-${CODEQL_SHA:-}}"
 [[ ${#SHA} -eq 40 ]] || {
-	log "commit SHA indisponível (got: ${SHA:-empty}) — skip codeql upload"
+	log "commit SHA indisponível — skip codeql upload"
 	exit 0
 }
 if [[ "$REF" != refs/* ]]; then
@@ -63,7 +53,13 @@ run_lang() {
 		--repository="$REPO"
 }
 
-run_lang javascript .
-run_lang python .
+ec=0
+run_lang javascript . &
+pid_js=$!
+run_lang python . &
+pid_py=$!
+wait "$pid_js" || ec=1
+wait "$pid_py" || ec=1
+[[ "$ec" -eq 0 ]] || exit "$ec"
 
 log "CodeQL OK"

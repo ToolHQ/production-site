@@ -21,6 +21,9 @@ pub struct Stage {
     pub run: String,
     #[serde(default)]
     pub when: Option<String>,
+    /// Filtro path-aware (AND com `when`) — globs separados por vírgula.
+    #[serde(default, rename = "whenPaths")]
+    pub when_paths: Option<String>,
     /// false = só run-all local; não entra em export-json / next (Jenkins).
     #[serde(default = "default_jenkins")]
     pub jenkins: bool,

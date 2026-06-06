@@ -88,6 +88,19 @@ install -m 0755 "${CITOOLS_BIN}" /usr/local/bin/citools 2>/dev/null || true
 command -v citools >/dev/null
 citools --version 2>/dev/null || true
 
+# --- CodeQL bundle (cache no workspace) ---
+CODEQL_HOME="${REPO_ROOT}/.codeql"
+CODEQL_VERSION="${CODEQL_VERSION:-2.20.5}"
+if [[ ! -x "${CODEQL_HOME}/codeql/codeql" ]]; then
+	log "baixando CodeQL bundle ${CODEQL_VERSION}"
+	mkdir -p "${CODEQL_HOME}"
+	curl -fsSL \
+		"https://github.com/github/codeql-action/releases/download/codeql-bundle-v${CODEQL_VERSION}/codeql-bundle-linux64.tar.gz" \
+		-o /tmp/codeql-bundle-linux64.tar.gz
+	tar -xzf /tmp/codeql-bundle-linux64.tar.gz -C "${CODEQL_HOME}"
+fi
+CODEQL_BIN="${CODEQL_HOME}/codeql/codeql"
+
 # Env file — stages dinâmicos (citools run) rodam em sh novo sem herdar PATH do setup
 JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
 if [[ ! -d "$JAVA_HOME" ]] && command -v java >/dev/null 2>&1; then
@@ -95,7 +108,8 @@ if [[ ! -d "$JAVA_HOME" ]] && command -v java >/dev/null 2>&1; then
 fi
 cat >"${REPO_ROOT}/.citools-agent.env" <<EOF
 export JAVA_HOME="${JAVA_HOME}"
-export PATH="${SONAR_SCANNER_HOME}/bin:/usr/local/bin:/usr/local/cargo/bin:${CARGO_TARGET_DIR}/release:/usr/bin:\${PATH}"
+export CODEQL_BIN="${CODEQL_BIN}"
+export PATH="${CODEQL_HOME}/codeql:${SONAR_SCANNER_HOME}/bin:/usr/local/bin:/usr/local/cargo/bin:${CARGO_TARGET_DIR}/release:/usr/bin:\${PATH}"
 EOF
 
 log "agent pronto — citools + node + shellcheck + sonar-scanner"

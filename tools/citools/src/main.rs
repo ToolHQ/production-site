@@ -1,8 +1,9 @@
 mod jenkins;
+mod paths;
 mod pipeline;
 
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
@@ -70,10 +71,10 @@ fn main() -> Result<()> {
     let pipeline = load_pipeline(&cli.pipeline)?;
 
     match cli.command {
-        Commands::List => cmd_list(&pipeline),
-        Commands::Plan => cmd_plan(&pipeline),
-        Commands::ExportJson => cmd_export_json(&pipeline),
-        Commands::Next { json, after } => cmd_next(&pipeline, json, after.as_deref()),
+        Commands::List => cmd_list(&pipeline, &repo_root),
+        Commands::Plan => cmd_plan(&pipeline, &repo_root),
+        Commands::ExportJson => cmd_export_json(&pipeline, &repo_root),
+        Commands::Next { json, after } => cmd_next(&pipeline, &repo_root, json, after.as_deref()),
         Commands::Run { stage_id } => cmd_run(&pipeline, &repo_root, &stage_id),
         Commands::RunAll { keep_going } => cmd_run_all(&pipeline, &repo_root, keep_going),
     }
@@ -83,15 +84,15 @@ fn jenkins_stages(p: &Pipeline) -> Vec<&Stage> {
     p.stages.iter().filter(|s| s.jenkins).collect()
 }
 
-fn enabled_stages<'a>(stages: &[&'a Stage]) -> Vec<&'a Stage> {
+fn enabled_stages<'a>(stages: &[&'a Stage], repo_root: &Path) -> Vec<&'a Stage> {
     stages
         .iter()
         .copied()
-        .filter(|s| stage_enabled(s))
+        .filter(|s| stage_enabled(s, repo_root))
         .collect()
 }
 
-fn cmd_list(p: &Pipeline) -> Result<()> {
+fn cmd_list(p: &Pipeline, _repo_root: &Path) -> Result<()> {
     println!("pipeline: {} ({} stages)", p.name, p.stages.len());
     for s in &p.stages {
         let when = s
@@ -111,10 +112,10 @@ fn cmd_list(p: &Pipeline) -> Result<()> {
     Ok(())
 }
 
-fn cmd_plan(p: &Pipeline) -> Result<()> {
+fn cmd_plan(p: &Pipeline, repo_root: &Path) -> Result<()> {
     println!("# citools plan — {}", p.name);
     for (i, s) in p.stages.iter().enumerate() {
-        if !stage_enabled(s) {
+        if !stage_enabled(s, repo_root) {
             println!(
                 "{}. [{}] (skip when={})",
                 i + 1,
@@ -131,9 +132,9 @@ fn cmd_plan(p: &Pipeline) -> Result<()> {
     Ok(())
 }
 
-fn cmd_export_json(p: &Pipeline) -> Result<()> {
+fn cmd_export_json(p: &Pipeline, repo_root: &Path) -> Result<()> {
     let candidates = jenkins_stages(p);
-    let enabled = enabled_stages(&candidates);
+    let enabled = enabled_stages(&candidates, repo_root);
     let stages: Vec<_> = enabled
         .iter()
         .enumerate()
@@ -147,9 +148,9 @@ fn cmd_export_json(p: &Pipeline) -> Result<()> {
     emit_json(&manifest)
 }
 
-fn cmd_next(p: &Pipeline, json: bool, after: Option<&str>) -> Result<()> {
+fn cmd_next(p: &Pipeline, repo_root: &Path, json: bool, after: Option<&str>) -> Result<()> {
     let candidates = jenkins_stages(p);
-    let enabled = enabled_stages(&candidates);
+    let enabled = enabled_stages(&candidates, repo_root);
     let total = enabled.len();
 
     let mut past_cursor = after.is_none();
@@ -201,7 +202,7 @@ fn cmd_run(p: &Pipeline, repo_root: &PathBuf, stage_id: &str) -> Result<()> {
 fn cmd_run_all(p: &Pipeline, repo_root: &PathBuf, keep_going: bool) -> Result<()> {
     let mut failed = Vec::new();
     for stage in &p.stages {
-        if !stage_enabled(stage) {
+        if !stage_enabled(stage, repo_root) {
             eprintln!(
                 "⏭  skip {} (when={})",
                 stage.id,
@@ -226,17 +227,26 @@ fn cmd_run_all(p: &Pipeline, repo_root: &PathBuf, keep_going: bool) -> Result<()
     Ok(())
 }
 
-fn stage_enabled(stage: &Stage) -> bool {
-    match stage.when.as_deref() {
+fn stage_enabled(stage: &Stage, repo_root: &Path) -> bool {
+    if !matches_when_expr(stage.when.as_deref(), repo_root) {
+        return false;
+    }
+    if let Some(ref paths) = stage.when_paths {
+        return paths::paths_when_enabled(&format!("paths:{paths}"), repo_root);
+    }
+    true
+}
+
+fn matches_when_expr(expr: Option<&str>, repo_root: &Path) -> bool {
+    match expr {
         None | Some("") | Some("always") => true,
         Some("never") => false,
-        Some(expr) if expr.starts_with("env:") => {
-            let key = expr.trim_start_matches("env:");
+        Some(e) if e.starts_with("env:") => {
+            let key = e.trim_start_matches("env:");
             std::env::var(key).is_ok_and(|v| !v.is_empty() && v != "0" && v != "false")
         }
-        Some(expr) if expr.starts_with("branch:") => {
-            branch_matches(expr.trim_start_matches("branch:"))
-        }
+        Some(e) if e.starts_with("branch:") => branch_matches(e.trim_start_matches("branch:")),
+        Some(e) if e.starts_with("paths:") => paths::paths_when_enabled(e, repo_root),
         Some(_) => true,
     }
 }
