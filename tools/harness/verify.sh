@@ -177,6 +177,8 @@ path_is_non_blocking_meta() {
 		components/ssdnodes/jenkins/bootstrap-deploy-job.groovy | \
 		components/ssdnodes/jenkins/pipeline-deploy.yaml | \
 		components/ssdnodes/jenkins/README.md | \
+		components/ssdnodes/github-webhook-ip-ranges.txt | \
+		components/ssdnodes/jenkins-github-webhook-ingress.yaml | \
 		tools/citools/README.md | tools/citools/Cargo.lock)
 		return 0
 		;;
