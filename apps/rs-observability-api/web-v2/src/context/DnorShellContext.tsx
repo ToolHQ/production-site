@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { createContext } from 'preact';
 import { useContext, useEffect, useState, useCallback } from 'preact/hooks';
 
-export type DnorView = 'overview' | 'nodes' | 'incidents' | 'reports' | 'intel' | 'settings';
+export type DnorView = 'overview' | 'nodes' | 'incidents' | 'reports' | 'intel' | 'settings' | 'fleet-copilot';
 export type DnorPeriod = '24h' | '7d';
 
 export interface DnorSearchHit {
@@ -31,6 +31,7 @@ const VALID_VIEWS = new Set<DnorView>([
   'reports',
   'intel',
   'settings',
+  'fleet-copilot',
 ]);
 
 function viewFromHash(): DnorView {
