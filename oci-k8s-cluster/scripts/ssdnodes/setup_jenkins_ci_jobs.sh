@@ -74,6 +74,11 @@ if [[ -z "${GITHUB_TOKEN:-}" ]]; then
   }
 fi
 
+if [[ -z "${GITHUB_WEBHOOK_SECRET:-}" ]]; then
+  GITHUB_WEBHOOK_SECRET=$(openssl rand -hex 32)
+  log "Gerado GITHUB_WEBHOOK_SECRET (salve após configure_github_ci_protection.sh se usar secret externo)"
+fi
+
 [[ "$DRY_RUN" == true ]] && { log "[dry-run] OK"; exit 0; }
 
 curl -fsS -u "${SONAR_USER}:${SONAR_ADMIN_PASSWORD}" -X POST \
@@ -85,18 +90,19 @@ kubectl_ssh create namespace jenkins --dry-run=client -o yaml | kubectl_ssh appl
 kubectl_ssh create secret generic "$SECRET_NAME" -n jenkins \
   --from-literal=sonar-token="$SONAR_TOKEN" \
   --from-literal=github-pat="$GITHUB_TOKEN" \
+  --from-literal=github-webhook-secret="$GITHUB_WEBHOOK_SECRET" \
   --dry-run=client -o yaml | kubectl_ssh apply -f -
 
 log "Helm upgrade jenkins..."
 scp -q "$COMPONENTS_DIR/jenkins-values.yaml" "$REMOTE_HOST:/tmp/ssdnodes-components/jenkins-values.yaml"
-ssh "$REMOTE_HOST" bash <<'REMOTE'
+ssh "$REMOTE_HOST" bash <<REMOTE
 set -euo pipefail
+JENKINS_HELM_CHART_VERSION="${JENKINS_HELM_CHART_VERSION:-5.9.22}"
 helm repo add jenkins https://charts.jenkins.io 2>/dev/null || true
 helm repo update
-JENKINS_HELM_CHART_VERSION="${JENKINS_HELM_CHART_VERSION:-5.9.22}"
 helm upgrade --install jenkins jenkins/jenkins \
   --namespace jenkins \
-  --version "${JENKINS_HELM_CHART_VERSION}" \
+  --version "\${JENKINS_HELM_CHART_VERSION}" \
   --values /tmp/ssdnodes-components/jenkins-values.yaml \
   --wait --timeout 20m
 kubectl rollout status statefulset/jenkins -n jenkins --timeout=600s

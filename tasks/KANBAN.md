@@ -10,6 +10,7 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
+| [T-345](2026/Q2/T-345-GitHub-branch-protection-Jenkins-webhook.md) | **GitHub branch protection + Jenkins webhook** | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-343](2026/Q2/T-343-SSDNodes-Jenkins-reverse-proxy-security-hardening.md) | **SSDNodes Jenkins — reverse proxy + security hardening** | 🔼 High | Cursor / AI Radar (T-341) | 1d |
 | [T-342](2026/Q2/T-342-SSDNodes-CI-bump-Sonar-26-6-Jenkins-2-567-JDK25.md) | **SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25** | 🔼 High | Cursor / AI Radar (T-341) | 4h |
 | [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
@@ -28,7 +29,6 @@
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-344](2026/Q2/T-344-Program-citools-deploy-CI-closure-epic.md) | **Program — citools deploy + CI closure** _(epic; deploy.sh intacto)_ | 🔼 High | **Cursor / AI Radar** | 3w |
-| [T-345](2026/Q2/T-345-GitHub-branch-protection-Jenkins-webhook.md) | **GitHub branch protection + Jenkins webhook** | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** | 🔼 High | **Cursor / AI Radar** | 1w |
 | [T-347](2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) | **Deploy workers Hetzner / OCI / SSDNodes** | 🔼 High | **Cursor / AI Radar** | 1w |
 | [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy-apps job parametrizado** | 🔼 High | **Cursor / AI Radar** | 1w |

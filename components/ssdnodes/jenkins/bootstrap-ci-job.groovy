@@ -1,4 +1,4 @@
-// bootstrap-ci-job.groovy — multibranch production-site (executar via seed_jenkins_ci_job.sh)
+// bootstrap-ci-job.groovy — multibranch production-site (GitHubSCMSource + webhook T-345)
 
 import jenkins.model.Jenkins
 import com.cloudbees.plugins.credentials.*
@@ -6,15 +6,15 @@ import com.cloudbees.plugins.credentials.domains.*
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
 import hudson.util.Secret
 import jenkins.branch.*
-import jenkins.plugins.git.*
-import jenkins.plugins.git.traits.*
 import org.jenkinsci.plugins.workflow.multibranch.*
+import org.jenkinsci.plugins.github_branch_source.GitHubSCMSource
+import org.jenkinsci.plugins.github_branch_source.BranchDiscoveryTrait
+import org.jenkinsci.plugins.github_branch_source.OriginPullRequestDiscoveryTrait
 
 def jenkins = Jenkins.getInstance()
 def sonarToken = System.getenv('SONAR_TOKEN') ?: ''
 def githubToken = System.getenv('GITHUB_TOKEN') ?: ''
 
-// Credenciais já injetadas via JCasC; reforço se env presente
 if (githubToken) {
   def domain = Domain.global()
   def store = jenkins.getExtensionList('com.cloudbees.plugins.credentials.SystemCredentialsProvider')[0].getStore()
@@ -39,10 +39,16 @@ if (job == null) {
 }
 job.setDisplayName('production-site (citools)')
 
-def gitSource = new GitSCMSource('production-site-git', 'https://github.com/ToolHQ/production-site.git', 'github-pat', '*', '', false)
-gitSource.setTraits([new BranchDiscoveryTrait()])
+// manageHooks=false — webhook via configure_github_ci_protection.sh
+def ghSource = new GitHubSCMSource('ToolHQ', 'production-site')
+ghSource.setId('production-site-gh')
+ghSource.setCredentialsId('github-pat')
+ghSource.setTraits([
+  new BranchDiscoveryTrait(1),
+  new OriginPullRequestDiscoveryTrait(1),
+])
 
-def branchSource = new BranchSource(gitSource)
+def branchSource = new BranchSource(ghSource)
 job.getSourcesList().clear()
 job.getSourcesList().add(branchSource)
 
@@ -51,4 +57,4 @@ factory.setScriptPath('components/ssdnodes/jenkins/Jenkinsfile.generic')
 job.setProjectFactory(factory)
 job.save()
 job.scheduleBuild2(0)
-println('[seed] multibranch production-site OK')
+println('[seed] multibranch production-site OK (GitHubSCMSource)')

@@ -1,3 +1,4 @@
+mod deploy;
 mod jenkins;
 mod paths;
 mod pipeline;
@@ -9,6 +10,7 @@ use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
+use deploy::{find_app, load_catalog, DeployCatalog};
 use jenkins::{export_stage, next_done, next_stage, ExportManifest};
 use pipeline::{load_pipeline, Pipeline, Stage};
 
@@ -27,6 +29,14 @@ struct Cli {
         default_value = "components/ssdnodes/jenkins/pipeline.yaml"
     )]
     pipeline: PathBuf,
+
+    /// Path to deploy-catalog.yaml (deploy subcommand)
+    #[arg(
+        long,
+        env = "CITOOLS_DEPLOY_CATALOG",
+        default_value = "tools/citools/deploy-catalog.yaml"
+    )]
+    deploy_catalog: PathBuf,
 
     /// Repo root for relative commands
     #[arg(long, global = true, env = "CITOOLS_REPO_ROOT")]
@@ -61,6 +71,33 @@ enum Commands {
         #[arg(long)]
         keep_going: bool,
     },
+    /// App deploy catalog (T-346)
+    Deploy {
+        #[command(subcommand)]
+        action: DeployCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum DeployCommands {
+    /// List apps in deploy-catalog.yaml
+    List,
+    /// JSON plan for build + deploy
+    Plan {
+        #[arg(long)]
+        app: String,
+        #[arg(long, default_value = "oci")]
+        target: String,
+    },
+    /// Run deploy.sh for app (wraps existing script)
+    Run {
+        #[arg(long)]
+        app: String,
+        #[arg(long, default_value = "oci")]
+        target: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -68,6 +105,20 @@ fn main() -> Result<()> {
     let repo_root = cli
         .repo_root
         .unwrap_or_else(|| std::env::current_dir().expect("cwd"));
+
+    if let Commands::Deploy { action } = cli.command {
+        let catalog = load_catalog(&cli.deploy_catalog)?;
+        return match action {
+            DeployCommands::List => cmd_deploy_list(&catalog),
+            DeployCommands::Plan { app, target } => cmd_deploy_plan(&catalog, &app, &target),
+            DeployCommands::Run {
+                app,
+                target,
+                dry_run,
+            } => cmd_deploy_run(&catalog, &repo_root, &app, &target, dry_run),
+        };
+    }
+
     let pipeline = load_pipeline(&cli.pipeline)?;
 
     match cli.command {
@@ -77,6 +128,7 @@ fn main() -> Result<()> {
         Commands::Next { json, after } => cmd_next(&pipeline, &repo_root, json, after.as_deref()),
         Commands::Run { stage_id } => cmd_run(&pipeline, &repo_root, &stage_id),
         Commands::RunAll { keep_going } => cmd_run_all(&pipeline, &repo_root, keep_going),
+        Commands::Deploy { .. } => unreachable!(),
     }
 }
 
@@ -110,6 +162,76 @@ fn cmd_list(p: &Pipeline, _repo_root: &Path) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn cmd_deploy_list(catalog: &DeployCatalog) -> Result<()> {
+    println!("deploy catalog ({} apps)", catalog.apps.len());
+    for app in &catalog.apps {
+        let build = app.effective_build(&catalog.defaults);
+        let deploy = app.effective_deploy(&catalog.defaults);
+        println!(
+            "  - {} worker={} platform={} target={} script={}",
+            app.id, build.worker, build.platform, deploy.target, app.script
+        );
+    }
+    Ok(())
+}
+
+fn cmd_deploy_plan(catalog: &DeployCatalog, app_id: &str, target: &str) -> Result<()> {
+    let app = find_app(catalog, app_id)?;
+    let build = app.effective_build(&catalog.defaults);
+    let mut deploy = app.effective_deploy(&catalog.defaults);
+    deploy.target = target.to_string();
+    let plan = serde_json::json!({
+        "app": app.id,
+        "path": app.path,
+        "script": app.script,
+        "build": { "worker": build.worker, "platform": build.platform },
+        "deploy": { "target": deploy.target, "kubeconfig_env": deploy.kubeconfig_env },
+        "steps": [
+            format!("build via {} ({})", build.worker, build.platform),
+            "push registry (deploy.sh / deploy-buildx.sh)",
+            format!("kubectl apply target={}", deploy.target),
+        ],
+    });
+    emit_json(&plan)
+}
+
+fn cmd_deploy_run(
+    catalog: &DeployCatalog,
+    repo_root: &PathBuf,
+    app_id: &str,
+    target: &str,
+    dry_run: bool,
+) -> Result<()> {
+    let app = find_app(catalog, app_id)?;
+    let build = app.effective_build(&catalog.defaults);
+    eprintln!(
+        "→ deploy {} target={} worker={} script={}",
+        app.id, target, build.worker, app.script
+    );
+    if dry_run {
+        eprintln!("   (dry-run — não executa deploy.sh)");
+        return Ok(());
+    }
+    let status = Command::new("bash")
+        .arg("-c")
+        .arg(&app.script)
+        .current_dir(repo_root)
+        .env("CITOOLS_DEPLOY_APP", &app.id)
+        .env("CITOOLS_BUILD_WORKER", &build.worker)
+        .env("CITOOLS_DEPLOY_TARGET", target)
+        .envs(std::env::vars())
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .with_context(|| format!("failed to run deploy script for {}", app.id))?;
+    if status.success() {
+        Ok(())
+    } else {
+        bail!("deploy {} exit {:?}", app.id, status.code());
+    }
 }
 
 fn cmd_plan(p: &Pipeline, repo_root: &Path) -> Result<()> {
