@@ -722,7 +722,10 @@ function HoneypotThreatsCard({ stats, period }: HoneypotThreatsCardProps) {
 
       {stats.recent_requests && stats.recent_requests.length > 0 && (
         <div class="honeypot-hero__threat-table-wrapper" style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 179, 71, 0.15)', paddingTop: '1rem', marginLeft: '5rem' }}>
-          <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ffb347', marginBottom: '0.75rem', letterSpacing: '0.05em', fontWeight: 600 }}>Recent Intercepts</h4>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ffb347', letterSpacing: '0.05em', fontWeight: 600, margin: 0 }}>Recent Intercepts</h4>
+            <a href="#threats" style={{ fontSize: '0.75rem', color: '#ffb347', textDecoration: 'none', border: '1px solid rgba(255, 179, 71, 0.3)', padding: '0.25rem 0.75rem', borderRadius: '4px', background: 'rgba(255, 179, 71, 0.05)', fontWeight: 500 }}>Ver Todas as Ameaças →</a>
+          </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
             <thead>
               <tr style={{ color: 'rgba(255, 255, 255, 0.5)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
