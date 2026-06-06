@@ -15,9 +15,7 @@ controller:
   disableRememberMe: true
   enableRawHtmlMarkupFormatter: false
   markupFormatter: plainText
-  initScripts:
-    security-csp: |-
-      System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;");
+  # CSP: usar nativo Jenkins 2.567 (Report-Only) — NÃO setar DirectoryBrowserSupport.CSP (banner admin)
   admin:
     createSecret: true
     username: admin
