@@ -65,6 +65,10 @@ spec:
       steps {
         container('rust') {
           checkout scm
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+git config --global --add safe.directory "${WORKSPACE}"
+'''
           withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
             script {
               env.CITOOLS_BRANCH = env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: 'unknown'
@@ -72,6 +76,7 @@ spec:
                 env.CODEQL_REF = "refs/pull/${env.CHANGE_ID}/head"
                 env.CODEQL_SHA = sh(returnStdout: true, script: '''#!/usr/bin/env bash
 set -euo pipefail
+git config --global --add safe.directory "${WORKSPACE}"
 git fetch --no-tags "https://${GIT_USER}:${GIT_PASS}@github.com/ToolHQ/production-site.git" \
   "pull/${CHANGE_ID}/head:refs/remotes/origin/pr-head-${CHANGE_ID}" 2>/dev/null || true
 git rev-parse "refs/remotes/origin/pr-head-${CHANGE_ID}" 2>/dev/null || git rev-parse HEAD
