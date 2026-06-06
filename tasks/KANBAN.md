@@ -23,8 +23,23 @@
 
 ## 📅 Backlog (To Do)
 
+### Epic: citools Deploy + CI Closure (T-344)
+
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
+| [T-344](2026/Q2/T-344-Program-citools-deploy-CI-closure-epic.md) | **Program — citools deploy + CI closure** _(epic; deploy.sh intacto)_ | 🔼 High | **Cursor / AI Radar** | 3w |
+| [T-345](2026/Q2/T-345-GitHub-branch-protection-Jenkins-webhook.md) | **GitHub branch protection + Jenkins webhook** | 🔼 High | **Cursor / AI Radar** | 1d |
+| [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** | 🔼 High | **Cursor / AI Radar** | 1w |
+| [T-347](2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) | **Deploy workers Hetzner / OCI / SSDNodes** | 🔼 High | **Cursor / AI Radar** | 1w |
+| [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy-apps job parametrizado** | 🔼 High | **Cursor / AI Radar** | 1w |
+
 ### Epic: SSDNodes CI Platform (T-341) — Jenkins + SonarQube CE
 
+| [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy jobs apps pontuais** | 🔼 High | Cursor / AI Radar (T-344) | 1w |
+| [T-347](2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) | **Deploy workers Hetzner OCI SSDNodes** | 🔼 High | Cursor / AI Radar (T-344) | 1w |
+| [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI list plan run** | 🔼 High | Cursor / AI Radar (T-344) | 1w |
+| [T-345](2026/Q2/T-345-GitHub-branch-protection-Jenkins-webhook.md) | **GitHub branch protection + Jenkins webhook** | 🔼 High | Cursor / AI Radar (T-344) | 1d |
+| [T-344](2026/Q2/T-344-Program-citools-deploy-CI-closure-epic.md) | **Program — citools deploy + CI closure (epic)** | 🔼 High | Cursor / AI Radar (T-341) | 3w |
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-341](2026/Q2/T-341-SSDNodes-Jenkins-SonarQube-Platform.md) | **SSDNodes — Jenkins + SonarQube CE no K8s** _(zero custo; `*.ssdnodes.dnor.io`; IaC + TUI 15–17)_ | 🔼 High | **Cursor / AI Radar** | 3–5d |

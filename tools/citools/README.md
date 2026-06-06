@@ -69,7 +69,19 @@ Ver [components/ssdnodes/jenkins/Jenkinsfile.generic](../../components/ssdnodes/
 
 ## Roadmap
 
+### Quality (T-341 — feito / em PR)
+- [x] `pipeline.yaml` + Jenkinsfile.generic
+- [x] Migração GHA quality/codeql/auto-docs
+
+### Deploy program (T-344 — backlog)
+- [ ] `deploy-catalog.yaml` + `citools deploy list|plan|run`
+- [ ] Workers: Hetzner buildx, target OCI, target SSDNodes
+- [ ] Jenkins job `deploy-apps` (param APP + TARGET)
+- [ ] Branch protection `jenkins/citools` + webhook
+
+Ver [tasks/CITOOLS-DEPLOY-BACKLOG.md](../../tasks/CITOOLS-DEPLOY-BACKLOG.md) e [ADR deploy workers](../../components/ssdnodes/ADR-citools-deploy-workers.md).
+
+### Quality (futuro)
 - [ ] `citools run verify-changed` nativo (sem delegar ao bash)
-- [ ] Relatório JSON (`--report /tmp/citools-report.json`) para Sonar/Jenkins
+- [ ] Relatório JSON (`--report /tmp/citools-report.json`)
 - [ ] Cache de artefactos entre stages
-- [ ] Integração Sonar scanner como stage built-in

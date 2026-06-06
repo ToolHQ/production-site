@@ -49,6 +49,17 @@ citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
 bash scripts/harness/validate_ssdnodes_ci.sh
 ```
 
+## Próximo backlog (T-344)
+
+| Fase | ID | Entrega |
+|------|-----|---------|
+| 1 | T-345 | Branch protection + webhook |
+| 2 | T-346 | `deploy-catalog.yaml` + CLI |
+| 3 | T-347 | Workers Hetzner/OCI/SSDNodes |
+| 4 | T-348 | Jenkins `deploy-apps` job |
+
+Ver [tasks/CITOOLS-DEPLOY-BACKLOG.md](../../tasks/CITOOLS-DEPLOY-BACKLOG.md).
+
 ## O que NÃO migrou para Jenkins
 
 | Workflow GHA | Motivo |
