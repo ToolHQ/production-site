@@ -1,4 +1,4 @@
-# Kubecost Free Tier — SSDNodes (ssdnodes-6a12f10c9ef11)
+# Kubecost Free Tier — ssdnodes-monstro
 # Free tier: sem persistência de longo prazo, dados em memória/15 dias.
 # UI exposta via ingress nginx em cost.ssdnodes.dnor.io
 

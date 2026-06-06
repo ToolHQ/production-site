@@ -603,7 +603,6 @@ $(t "maint_network")
 8. Prune Disk Space (Images/Logs)
 9. Generate Storage Dossier (App-Level)
 10. Pre-Pull Internal Images on All Nodes
-11. Manage Tailscale Ingress 🔒
 $(t "prefs_back")"
 
     local selected_action
@@ -705,78 +704,6 @@ $(t "prefs_back")"
         echo ""
         echo -e "${GREEN}Pre-pull complete. Images are now cached on all worker nodes.${NC}"
         read -p "$(t "press_enter")"
-        ;;
-      11)
-        clear
-        echo -e "${BLUE}🔒 Tailscale Ingress Manager${NC}"
-        echo -e "${GRAY}Manage Tailscale-restricted ingress resources${NC}"
-        echo ""
-        echo "1. List Tailscale Ingresses 📋"
-        echo "2. Create New Ingress ➕"
-        echo "3. Delete Ingress 🗑️"
-        echo "4. Validate Ingress ✅"
-        echo "5. Configure DNS (GoDaddy) 🌐"
-        echo "0. Back"
-        echo ""
-        read -p "Choose option: " ts_choice
-        case "$ts_choice" in
-          1)
-            clear
-            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" list
-            read -p "$(t "press_enter")"
-            ;;
-          2)
-            clear
-            echo -e "${YELLOW}Create new Tailscale-restricted ingress${NC}"
-            echo ""
-            read -p "Subdomain (e.g., grafana): " subdomain
-            read -p "Service name (e.g., grafana-service): " svc_name
-            read -p "Service port (e.g., 3000): " svc_port
-            read -p "Namespace (default: default): " namespace
-            namespace="${namespace:-default}"
-            read -p "Enable TLS via cert-manager? (y/N): " enable_tls
-            echo ""
-            local tls_flag=""
-            [[ "$enable_tls" =~ ^[Yy]$ ]] && tls_flag="--tls"
-            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" create "$subdomain" "$svc_name" "$svc_port" --namespace "$namespace" $tls_flag
-            read -p "$(t "press_enter")"
-            ;;
-          3)
-            clear
-            echo -e "${YELLOW}Delete Tailscale-restricted ingress${NC}"
-            echo ""
-            read -p "Subdomain to delete: " subdomain
-            echo ""
-            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" delete "$subdomain"
-            read -p "$(t "press_enter")"
-            ;;
-          4)
-            clear
-            echo -e "${YELLOW}Validate Tailscale ingress connectivity${NC}"
-            echo ""
-            read -p "Subdomain to validate: " subdomain
-            echo ""
-            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" validate "$subdomain"
-            read -p "$(t "press_enter")"
-            ;;
-          5)
-            clear
-            echo -e "${YELLOW}Configure DNS record via GoDaddy API${NC}"
-            echo ""
-            read -p "Subdomain (e.g., grafana): " subdomain
-            read -p "Target IP (OCI node public IP): " target_ip
-            echo ""
-            "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" dns "$subdomain" "$target_ip" --dry-run
-            echo ""
-            read -p "Execute DNS update? (y/N): " confirm
-            if [[ "$confirm" =~ ^[Yy]$ ]]; then
-              "$SCRIPT_DIR/../scripts/manage_tailscale_ingress.sh" dns "$subdomain" "$target_ip"
-            fi
-            read -p "$(t "press_enter")"
-            ;;
-          *)
-            ;;
-        esac
         ;;
       *)
         return
@@ -1582,7 +1509,6 @@ ingress_menu() {
         echo "1. Start Ingress Tunnel (All Ports) 🚀"
         echo "2. Update /etc/hosts (Ingress + Postgres) 📝"
         echo "3. Mobile Access via Tailscale 📱"
-        echo "4. Remove local hosts overrides (restore public DNS) 🧹"
         echo "0. Back"
         echo ""
         read -p "$(t "choose_option") " choice
@@ -1752,10 +1678,6 @@ ingress_menu() {
                 
                 read -p "$(t "press_enter")"
                 ;;
-            4)
-                bash "${SCRIPT_DIR}/scripts/maintenance/clear_local_dnor_hosts.sh"
-                read -p "$(t "press_enter")"
-                ;;
             0)
                 return
                 ;;
@@ -1794,8 +1716,6 @@ update_hosts_file() {
     else
         echo -e "${YELLOW}This will add these hosts to your local /etc/hosts.${NC}"
     fi
-    echo -e "${YELLOW}Overrides point *.dnor.io to 127.0.0.1 — you MUST keep the SSH tunnel running (option 1).${NC}"
-    echo -e "${YELLOW}For direct HTTPS via public DNS (e.g. reports.dnor.io), use option 4 to remove overrides instead.${NC}"
     echo -e "${YELLOW}Root privileges (sudo/UAC) are required.${NC}"
     read -p "Do you want to proceed? (y/N) " confirm
     
@@ -4187,7 +4107,7 @@ node_maintenance_menu() {
 # --- HARDENING MENU ---
 show_hardening_menu() {
   while true; do
-    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 26 78 15 \
+    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 26 78 13 \
       "1" "Force Cleanup (All Nodes)" \
       "2" "Re-apply Log Limits (OCI: 200M cap)" \
       "2b" "Validate/Repair logrotate rsyslog (T-305)" \
@@ -4196,13 +4116,11 @@ show_hardening_menu() {
       "5" "Re-apply Control Plane Hardening (T-192)" \
       "6" "Vacuum Old Journals (All Nodes, >7d)" \
       "7" "Vacuum Old Journals (Single Node)" \
-      "8" "🔥 Firewall UFW — ssdnodes-6a12f10c9ef11 (Status)" \
-      "9" "🔥 Firewall UFW — ssdnodes-6a12f10c9ef11 (Aplicar Regras)" \
-      "10" "🚀 Deploy K8s Dashboard — SSDNodes (k8s.ssdnodes.dnor.io)" \
-      "11" "🚀 Deploy Kubecost — SSDNodes (cost.ssdnodes.dnor.io)" \
-      "12" "📋 Status componentes SSDNodes" \
-      "13" "🔐 SSDNodes SSH harden + fail2ban (T-320a)" \
-      "14" "👁 Dashboard view-only RBAC (T-320d)" \
+      "8" "🔥 Firewall UFW — ssdnodes-monstro (Status)" \
+      "9" "🔥 Firewall UFW — ssdnodes-monstro (Aplicar Regras)" \
+      "10" "🚀 Deploy K8s Dashboard — ssdnodes-monstro (k8s.ssdnodes.dnor.io)" \
+      "11" "🚀 Deploy Kubecost — ssdnodes-monstro (cost.ssdnodes.dnor.io)" \
+      "12" "📋 Status componentes ssdnodes-monstro" \
       "0" "Back" 3>&1 1>&2 2>&3)
     
     if [ $? != 0 ]; then return; fi
@@ -4304,7 +4222,7 @@ show_hardening_menu() {
       8)
         # Firewall UFW — ssdnodes-monstro: Status
         clear
-        bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-6a12f10c9ef11 --status
+        bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-monstro --status
         read -p "Press Enter..."
         ;;
       9)
@@ -4313,10 +4231,10 @@ show_hardening_menu() {
         echo -e "${YELLOW}⚠️  Porta 22 permanece aberta (safety net).${NC}"
         echo -e "${YELLOW}    Todas as outras conexões da internet serão bloqueadas.${NC}"
         echo ""
-        if whiptail --title "Firewall UFW — ssdnodes-6a12f10c9ef11" \
-            --yesno "Aplicar regras UFW em ssdnodes-6a12f10c9ef11?\n\n- Porta 22: ABERTA para qualquer IP\n- Portas 80/443: só IPs autorizados\n- Porta 6443: só admin IP\n- Todo o resto: BLOQUEADO" \
+        if whiptail --title "Firewall UFW — ssdnodes-monstro" \
+            --yesno "Aplicar regras UFW em ssdnodes-monstro?\n\n- Porta 22: ABERTA para qualquer IP\n- Portas 80/443: só IPs autorizados\n- Porta 6443: só admin IP\n- Todo o resto: BLOQUEADO" \
             15 65; then
-            bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-6a12f10c9ef11 --apply
+            bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-monstro --apply
         else
             echo "Cancelado."
         fi
@@ -4344,22 +4262,6 @@ show_hardening_menu() {
         echo -e "${GREEN}📋 Status componentes ssdnodes-monstro${NC}"
         echo ""
         bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" status
-        read -p "Press Enter..."
-        ;;
-      13)
-        echo -e "\n${YELLOW}T-320a: SSH hardening + fail2ban em ssdnodes-monstro${NC}"
-        bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --dry-run
-        read -p "Aplicar SSH hardening? (y/N): " SSH_CONFIRM
-        if [[ "$SSH_CONFIRM" =~ ^[Yy]$ ]]; then
-          bash "$SCRIPT_DIR/scripts/hardening/ssh_harden_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --apply
-        fi
-        bash "$SCRIPT_DIR/scripts/hardening/fail2ban_ssdnodes.sh" --host ssdnodes-6a12f10c9ef11 --apply
-        read -p "Press Enter..."
-        ;;
-      14)
-        echo -e "\n${YELLOW}T-320d: Dashboard view-only RBAC${NC}"
-        bash "$SCRIPT_DIR/scripts/ssdnodes/patch_dashboard_view_rbac.sh" --apply
-        bash "$SCRIPT_DIR/scripts/ssdnodes/patch_dashboard_view_rbac.sh" --verify
         read -p "Press Enter..."
         ;;
     esac

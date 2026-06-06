@@ -3,18 +3,17 @@ use axum::{
     extract::{Path as AxumPath, State},
     http::{header, HeaderValue, StatusCode},
     response::{Html, IntoResponse, Response},
-    routing::{get, post},
+    routing::get,
     Json, Router,
 };
 
 pub(super) fn build_app(state: AppState) -> Router {
-    let mut router = Router::new()
+    Router::new()
         .route("/", get(index))
         .route("/health", get(health))
         .route("/api/catalog", get(catalog))
         .route("/api/catalog/summary", get(catalog_summary))
         .route("/api/live/overview", get(live_overview))
-        .route("/api/live/honeypot-requests", get(honeypot_requests))
         .route("/api/coroot-alerts", get(coroot_alerts))
         .route("/api/coroot-incidents", get(coroot_incidents))
         .route("/api/longhorn", get(longhorn_volumes))
@@ -25,95 +24,11 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/namespaces", get(namespaces))
         .route("/api/reports", get(report_index))
         .route("/artifacts/*path", get(artifact))
+        // Assets estáticos do Vite — embutidos no binário via include_bytes!
         .route("/assets/app.js", get(asset_js))
         .route("/assets/app.css", get(asset_css))
-        .route("/favicon.svg", get(favicon));
-
-    if state.fleet_copilot.is_some() {
-        router = router
-            .route("/fleet-copilot", get(copilot_login_route))
-            .route("/api/fleet/copilot/session", get(copilot_session_route))
-            .route("/api/fleet/copilot/logout", post(copilot_logout_route))
-            .route("/api/fleet/chat", post(copilot_chat_route))
-            .route("/api/fleet/chat/stream", post(copilot_chat_stream_route))
-            .route("/api/fleet/copilot/hosts", get(copilot_hosts_route))
-            .route("/api/fleet/copilot/status", get(copilot_status_route));
-    }
-
-    router.with_state(state)
-}
-
-async fn copilot_login_route(
-    State(state): State<AppState>,
-    query: axum::extract::Query<fleet_copilot::LoginQuery>,
-) -> Response {
-    let Some(fc) = state.fleet_copilot.clone() else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    fleet_copilot::copilot_login(State(fc), query).await
-}
-
-async fn copilot_session_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<fleet_copilot::SessionResponse>, StatusCode> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    fleet_copilot::copilot_session(State(fc), headers).await
-}
-
-async fn copilot_logout_route() -> Response {
-    fleet_copilot::copilot_logout().await
-}
-
-async fn copilot_chat_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-    body: Json<fleet_copilot::ChatRequest>,
-) -> Result<Json<fleet_copilot::ChatResponse>, StatusCode> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    let manifest = state
-        .enrich_manifest_for_message(state.build_fleet_manifest().await, &body.message)
-        .await;
-    fleet_copilot::copilot_chat(State(fc), manifest, headers, body).await
-}
-
-async fn copilot_chat_stream_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-    body: Json<fleet_copilot::ChatRequest>,
-) -> Result<
-    axum::response::sse::Sse<
-        impl futures_util::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
-    >,
-    StatusCode,
-> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    let manifest = state
-        .enrich_manifest_for_message(state.build_fleet_manifest().await, &body.message)
-        .await;
-    fleet_copilot::copilot_chat_stream(State(fc), manifest, headers, body).await
-}
-
-async fn copilot_hosts_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<Value>, StatusCode> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    if !fc.check_auth(&headers) {
-        return Err(StatusCode::NOT_FOUND);
-    }
-    let manifest = state.build_fleet_manifest().await;
-    Ok(Json(
-        manifest.get("hosts").cloned().unwrap_or_else(|| json!([])),
-    ))
-}
-
-async fn copilot_status_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<fleet_copilot::StatusResponse>, StatusCode> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    fleet_copilot::copilot_status(State(fc), headers).await
+        .route("/favicon.svg", get(favicon))
+        .with_state(state)
 }
 
 async fn index() -> Html<&'static str> {
@@ -178,27 +93,10 @@ async fn live_overview(State(state): State<AppState>) -> Response {
         }
     };
 
-    let clickhouse_future = async {
-        if let Some(ch) = &state.clickhouse_client {
-            ch.fetch_fail2ban_stats().await
-        } else {
-            None
-        }
-    };
-
-    let honeypot_future = async {
-        if let Some(ch) = &state.clickhouse_client {
-            ch.fetch_honeypot_overview().await
-        } else {
-            HoneypotOverview::default()
-        }
-    };
-
-    let (mut payload, node_metrics, honeypot, fail2ban_res) = tokio::join!(
+    let (mut payload, node_metrics, honeypot) = tokio::join!(
         live_future,
         state.prometheus_monitor.fetch_node_metrics(),
-        honeypot_future,
-        tokio::time::timeout(Duration::from_secs(8), clickhouse_future),
+        state.prometheus_monitor.fetch_honeypot_overview(),
     );
 
     payload.metrics = state
@@ -228,7 +126,6 @@ async fn live_overview(State(state): State<AppState>) -> Response {
                         .await
                 }
             };
-
         if secondary_overview.available {
             for mut node in secondary_overview.nodes {
                 // Match the cluster tag from external_nodes.json so Prometheus metrics correlate
@@ -238,13 +135,10 @@ async fn live_overview(State(state): State<AppState>) -> Response {
                 payload.nodes.push(node);
             }
             payload.incidents.extend(secondary_overview.incidents);
+        } else if let Some(error) = secondary_overview.error {
+            eprintln!("secondary K8s monitor unavailable: {}", error);
         }
     }
-
-    payload.fail2ban = fail2ban_res.unwrap_or_else(|_| {
-        eprintln!("ClickHouse fail2ban refresh timed out");
-        None
-    });
 
     // Inject external physical nodes (Hetzner / SSD Nodes) — skip clusters already
     // covered by the secondary K8s monitor to avoid duplicate node entries.
@@ -262,19 +156,6 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     payload.honeypot = honeypot;
 
     Json(payload).into_response()
-}
-
-async fn honeypot_requests(
-    State(state): State<AppState>,
-    axum::extract::Query(query): axum::extract::Query<crate::HoneypotRequestsQuery>,
-) -> Response {
-    let response = if let Some(ch) = &state.clickhouse_client {
-        ch.fetch_honeypot_requests(&query).await
-    } else {
-        HoneypotRequestsResponse::default()
-    };
-
-    Json(response).into_response()
 }
 
 async fn coroot_incidents(State(state): State<AppState>) -> Response {
@@ -315,7 +196,6 @@ async fn longhorn_volumes(State(state): State<AppState>) -> Response {
         None => Json(crate::LonghornResponse {
             available: false,
             volumes: vec![],
-            nodes_capacity: vec![],
             total: 0,
             healthy: 0,
             degraded: 0,
@@ -641,8 +521,6 @@ mod tests {
             secondary_live_monitor: None,
             prometheus_monitor: Arc::new(PrometheusMonitor::new()),
             coroot_client: None,
-            clickhouse_client: None,
-            fleet_copilot: None,
         }
     }
 

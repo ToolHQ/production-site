@@ -14,9 +14,7 @@ COPY src ./src
 COPY config/external_nodes.json ./config/external_nodes.json
 # web-v2/dist é embutido no binário Rust via include_str!/include_bytes! (compile-time)
 COPY --from=frontend-builder /app/web-v2/dist ./web-v2/dist
-# CACHEBUST invalidates remote buildkit layer when deploy passes --build-arg CACHEBUST=<ts>
-ARG CACHEBUST=0
-RUN echo "cachebust=${CACHEBUST}" && cargo build --release --bin rs-observability-api
+RUN cargo build --release --bin rs-observability-api
 
 # Estágio 3: Imagem final mínima
 FROM debian:bookworm-slim

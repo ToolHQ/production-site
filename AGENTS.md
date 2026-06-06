@@ -113,7 +113,7 @@ Reinaldinho, briefing de [DATA]:
 | **Operate K8s TUI**         | `.agents/skills/operate-k8s-tui/SKILL.md`               | Usar o `k8s_ops_menu.sh`                                                      |
 | **Dev worktrees**           | [docs/dev-worktrees.md](docs/dev-worktrees.md)          | Trabalho paralelo (várias branches) sem compartilhar o mesmo diretório        |
 | **Full Stability Check**    | `.agents/skills/full-stability-check/SKILL.md`          | Verificação completa de todos os componentes do cluster (8 blocos, ordem de dependência) |
-| **Live Validation Harness** | `.agents/skills/live-validation-harness/SKILL.md`       | Deploy + validação ao vivo (rollout, API e UI via MCP) para tarefas de observabilidade/report |
+| **Live Validation Harness** | `.agents/skills/live-validation-harness/SKILL.md`       | Deploy + validação ao vivo (rollout, API e **browser via MCP — obrigatório**) para qualquer serviço com UI/API |
 | **Copilot Loop**            | `.agents/workflows/copilot_loop.md`                     | Loop de execução do Copilot/VSCode (sessões interativas, isolado de Cursor/Antigravity) |
 | **Cursor Loop**             | `.agents/workflows/cursor_loop.md`                      | Loop Cursor — owner AI Radar; worktree `production-site-cursor` |
 | **Codex Loop**              | `.agents/workflows/codex_loop.md`                       | Loop Codex/Rust Rover — coordenação, infra/tooling, autopilot assistido |
@@ -124,13 +124,19 @@ Reinaldinho, briefing de [DATA]:
 
 ## 🧪 Harness de Validação Ao Vivo (obrigatório)
 
-Para tasks de UI/API com impacto em produção (ex.: Node Fleet, reports, export), o fechamento obrigatório é:
+Para tasks de UI/API com impacto em produção (ex.: Node Fleet, reports, export, agent-meter), o fechamento obrigatório é:
 
 1. Executar `source oci-k8s-cluster/scripts/setup-dev-deploy.sh`
 2. Rodar deploy do serviço (`./deploy.sh`)
 3. Validar rollout com `kubectl rollout status`
-4. Validar payload real (ex.: `curl https://reports.dnor.io/api/live/overview`)
-5. Validar visual via MCP browser (`chromeDevtools`)
+4. Validar payload real via curl (ex.: `curl https://reports.dnor.io/api/live/overview`)
+5. **OBRIGATÓRIO — Validação no browser via MCP:**
+   - `mcp_chromedevtool_new_page(url=...)` — abrir a URL da feature
+   - `mcp_chromedevtool_list_console_messages()` — zero `[error]`
+   - `mcp_chromedevtool_list_network_requests(resourceTypes=["fetch","xhr"])` — todos `2xx`
+   - `mcp_chromedevtool_take_screenshot()` — capturar evidência
+   - Navegar o fluxo completo (não apenas homepage)
+6. Task só pode ser marcada `✅ Done` após todos os critérios acima
 
 Referências operacionais:
 

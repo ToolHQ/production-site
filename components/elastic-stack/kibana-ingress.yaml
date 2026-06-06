@@ -4,7 +4,7 @@ metadata:
   name: elastic-stack-ingress
   namespace: elastic-system
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "letsencrypt-dns01"
     # Upload limits for large log queries/bulk imports
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     # SSL Passthrough not strictly needed if we terminate here, but Kibana/ES communicate in HTTPS backend

@@ -408,11 +408,11 @@ while IFS=$'\t' read -r node schedulable avail; do
     [[ -z "$node" ]] && continue
     avail_gb=$(( avail / 1024 / 1024 / 1024 ))
     if [[ "$schedulable" != "true" ]]; then
-        report_crit "Longhorn disk on $node: schedulable=false (no new replicas can be placed). Runbook: docs/RUNBOOK_STORAGE_HEADROOM.md"
+        report_crit "Longhorn disk on $node: schedulable=false (no new replicas can be placed)"
     elif (( avail < DISK_CRIT_BYTES )); then
-        report_crit "Longhorn disk on $node: ${avail_gb} GB available (<10 GB critical). Runbook: docs/RUNBOOK_STORAGE_HEADROOM.md"
+        report_crit "Longhorn disk on $node: ${avail_gb} GB available (<10 GB critical)"
     elif (( avail < DISK_WARN_BYTES )); then
-        report_warn "Longhorn disk on $node: ${avail_gb} GB available (<15 GB warning). Runbook: docs/RUNBOOK_STORAGE_HEADROOM.md"
+        report_warn "Longhorn disk on $node: ${avail_gb} GB available (<15 GB warning)"
     else
         report_ok "Longhorn disk on $node: ${avail_gb} GB available"
     fi
