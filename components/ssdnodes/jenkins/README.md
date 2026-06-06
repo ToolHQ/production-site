@@ -122,6 +122,23 @@ URL: https://jenkins.ssdnodes.dnor.io/job/deploy-apps/
 
 Workers: [T-347](../../../tasks/2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) — `deploy-run.sh` + `deploy-target-env.sh`
 
+## Visualização de pipelines (T-349)
+
+Plugins: **Blue Ocean**, **Pipeline Stage View**, **Pipeline Graph View** (`jenkins-values.yaml`).
+
+| UI | URL |
+|----|-----|
+| Blue Ocean (home) | https://jenkins.ssdnodes.dnor.io/blue/ |
+| production-site | https://jenkins.ssdnodes.dnor.io/blue/organizations/jenkins/production-site/activity |
+| deploy-apps | https://jenkins.ssdnodes.dnor.io/blue/organizations/jenkins/deploy-apps/activity |
+| Stage View (clássico) | Job → aba **Pipeline** (colunas por stage) |
+
+Stages vêm do `stageName` em `pipeline.yaml` / `pipeline-deploy.yaml` (citools `next --json`).
+
+```bash
+bash scripts/harness/validate_ssdnodes_ci.sh   # inclui smoke /blue/ + plugins
+```
+
 ## Troubleshooting
 
 | Sintoma | Ação |

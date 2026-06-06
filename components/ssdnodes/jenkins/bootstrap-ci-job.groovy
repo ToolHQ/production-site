@@ -38,6 +38,7 @@ if (job == null) {
   job = jenkins.createProject(WorkflowMultiBranchProject, jobName)
 }
 job.setDisplayName('production-site (citools)')
+job.setDescription('Multibranch CI citools. Blue Ocean: /blue/organizations/jenkins/production-site/activity')
 
 // manageHooks=false — webhook via configure_github_ci_protection.sh
 def ghSource = new GitHubSCMSource('ToolHQ', 'production-site')

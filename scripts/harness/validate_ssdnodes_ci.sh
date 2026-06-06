@@ -15,7 +15,7 @@ bad() { echo "✗ $*"; FAIL=1; }
 
 FAIL=0
 
-echo "=== validate_ssdnodes_ci (T-341 / T-343) ==="
+echo "=== validate_ssdnodes_ci (T-341 / T-343 / T-349) ==="
 
 # ─── Sonar ───────────────────────────────────────────────────────────────────
 if sonar_json=$(curl -fsS --max-time 15 "$SONAR_URL/api/system/status" 2>/dev/null); then
@@ -78,6 +78,31 @@ if ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE_HOST" \
   ok "Jenkins job deploy-apps presente"
 else
   bad "Jenkins job deploy-apps ausente — rode seed_jenkins_deploy_job.sh"
+fi
+
+# ─── Pipeline UX plugins (T-349) ─────────────────────────────────────────────
+if blue_code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$JENKINS_URL/blue/" 2>/dev/null); then
+  if [[ "$blue_code" =~ ^(200|302|303|403)$ ]]; then
+    ok "Jenkins Blue Ocean /blue/ ($blue_code — auth required OK)"
+  else
+    bad "Jenkins /blue/ HTTP $blue_code — instalar plugin blueocean (T-349)"
+  fi
+else
+  bad "Jenkins /blue/ indisponível"
+fi
+
+if ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE_HOST" \
+  "kubectl exec -n jenkins jenkins-0 -c jenkins -- test -d /var/jenkins_home/plugins/blueocean" 2>/dev/null; then
+  ok "Plugin blueocean instalado"
+else
+  bad "Plugin blueocean ausente — helm upgrade jenkins-values.yaml"
+fi
+
+if ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE_HOST" \
+  "kubectl exec -n jenkins jenkins-0 -c jenkins -- test -d /var/jenkins_home/plugins/pipeline-stage-view" 2>/dev/null; then
+  ok "Plugin pipeline-stage-view instalado"
+else
+  bad "Plugin pipeline-stage-view ausente"
 fi
 
 if [[ "$FAIL" -eq 0 ]]; then

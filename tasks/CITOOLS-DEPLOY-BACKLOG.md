@@ -6,6 +6,7 @@ Epic master: [T-344-Program-citools-deploy-CI-closure-epic.md](2026/Q2/T-344-Pro
 
 | # | ID | Fase | Entrega |
 | -: | :- | :--- | :------ |
+| **0** | **T-349** | **UX Jenkins** | Blue Ocean + Pipeline Stage View |
 | 1 | **T-345** | CI closure | Branch protection `jenkins/citools` + webhook |
 | 2 | **T-346** | Catálogo | `deploy-catalog.yaml` + `citools deploy list/plan/run` |
 | 3 | **T-347** | Workers | Hetzner buildx + targets OCI/SSDNodes |

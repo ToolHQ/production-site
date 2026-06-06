@@ -1,5 +1,15 @@
 # Cursor Queue — AI Radar & cluster ops
 
+## Próximo (prioridade sobre T-344 deploy)
+
+| # | ID | Tarefa | Status |
+| -: | :- | :----- | :----- |
+| 1 | **T-349** | Jenkins Blue Ocean + Stage View — UX pipelines | 📋 **próximo** |
+
+## Epic citools Deploy (T-344) — após T-349
+
+Ver [CITOOLS-DEPLOY-BACKLOG.md](CITOOLS-DEPLOY-BACKLOG.md)
+
 ## Em andamento
 
 | # | ID | Tarefa | Status |

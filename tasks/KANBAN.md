@@ -10,6 +10,9 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
+| [T-349](2026/Q2/T-349-Jenkins-Blue-Ocean-pipeline-stage-view-UX.md) | **Jenkins Blue Ocean + pipeline stage view UX** | 🚨 Critical | **Cursor / AI Radar** | 2d |
+| [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy-apps job parametrizado** | 🔼 High | **Cursor / AI Radar** | 1w |
+| [T-347](2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) | **Deploy workers Hetzner / OCI / SSDNodes** | 🔼 High | **Cursor / AI Radar** | 1w |
 | [T-345](2026/Q2/T-345-GitHub-branch-protection-Jenkins-webhook.md) | **GitHub branch protection + Jenkins webhook** | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-343](2026/Q2/T-343-SSDNodes-Jenkins-reverse-proxy-security-hardening.md) | **SSDNodes Jenkins — reverse proxy + security hardening** | 🔼 High | Cursor / AI Radar (T-341) | 1d |
 | [T-342](2026/Q2/T-342-SSDNodes-CI-bump-Sonar-26-6-Jenkins-2-567-JDK25.md) | **SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25** | 🔼 High | Cursor / AI Radar (T-341) | 4h |
@@ -24,14 +27,17 @@
 
 ## 📅 Backlog (To Do)
 
+### 🚨 Prioridade imediata — Jenkins UX (T-341)
+
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
+
 ### Epic: citools Deploy + CI Closure (T-344)
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
 | [T-344](2026/Q2/T-344-Program-citools-deploy-CI-closure-epic.md) | **Program — citools deploy + CI closure** _(epic; deploy.sh intacto)_ | 🔼 High | **Cursor / AI Radar** | 3w |
 | [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** | 🔼 High | **Cursor / AI Radar** | 1w |
-| [T-347](2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) | **Deploy workers Hetzner / OCI / SSDNodes** | 🔼 High | **Cursor / AI Radar** | 1w |
-| [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy-apps job parametrizado** | 🔼 High | **Cursor / AI Radar** | 1w |
 
 ### Epic: SSDNodes CI Platform (T-341) — Jenkins + SonarQube CE
 

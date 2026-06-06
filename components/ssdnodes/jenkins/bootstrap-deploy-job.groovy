@@ -15,7 +15,7 @@ if (job == null) {
   job = jenkins.createProject(WorkflowJob, jobName)
 }
 job.setDisplayName('deploy-apps (citools)')
-job.setDescription('Deploy pontual — parâmetros APP + TARGET. Ver T-348 / deploy-catalog.yaml')
+job.setDescription('Deploy pontual — APP + TARGET + DRY_RUN. Blue Ocean: /blue/organizations/jenkins/deploy-apps/activity')
 
 def scm = new GitSCM(
   [new UserRemoteConfig('https://github.com/ToolHQ/production-site.git', 'origin', '+refs/heads/*:refs/remotes/origin/*', 'github-pat')],
