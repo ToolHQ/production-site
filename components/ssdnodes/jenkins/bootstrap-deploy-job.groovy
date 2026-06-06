@@ -6,8 +6,6 @@ import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
 import hudson.plugins.git.BranchSpec
 import hudson.plugins.git.GitSCM
 import hudson.plugins.git.UserRemoteConfig
-import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials
-import com.cloudbees.plugins.credentials.CredentialsProvider
 
 def jenkins = Jenkins.getInstance()
 def jobName = 'deploy-apps'
@@ -19,14 +17,9 @@ if (job == null) {
 job.setDisplayName('deploy-apps (citools)')
 job.setDescription('Deploy pontual — parâmetros APP + TARGET. Ver T-348 / deploy-catalog.yaml')
 
-def creds = CredentialsProvider.lookupCredentials(
-  StandardUsernameCredentials.class, jenkins, null, null)
-def gitCred = creds.find { it.id == 'github-pat' }
-def credId = gitCred != null ? gitCred.id : 'github-pat'
-
 def scm = new GitSCM(
-  [new UserRemoteConfig('https://github.com/ToolHQ/production-site.git', null, credId, null)],
-  [new BranchSpec('*/feat/t-341-ssdnodes-ci-platform'), new BranchSpec('*/main')],
+  [new UserRemoteConfig('https://github.com/ToolHQ/production-site.git', 'github-pat', 'origin', '+refs/heads/*:refs/remotes/origin/*')],
+  [new BranchSpec('refs/remotes/origin/feat/t-341-ssdnodes-ci-platform'), new BranchSpec('refs/remotes/origin/main')],
   null,
   null,
   null

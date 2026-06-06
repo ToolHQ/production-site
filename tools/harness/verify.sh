@@ -172,7 +172,10 @@ path_is_non_blocking_meta() {
 		docs/* | tasks/* | .github/* | \
 		components/ssdnodes/ADR-*.md | components/ssdnodes/README.md | \
 		components/ssdnodes/jenkins/Jenkinsfile.generic | \
+		components/ssdnodes/jenkins/Jenkinsfile.deploy | \
 		components/ssdnodes/jenkins/bootstrap-ci-job.groovy | \
+		components/ssdnodes/jenkins/bootstrap-deploy-job.groovy | \
+		components/ssdnodes/jenkins/pipeline-deploy.yaml | \
 		components/ssdnodes/jenkins/README.md | \
 		tools/citools/README.md | tools/citools/Cargo.lock)
 		return 0

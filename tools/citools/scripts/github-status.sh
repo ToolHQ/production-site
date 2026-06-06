@@ -31,16 +31,8 @@ SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 }
 
 export STATE CONTEXT DESC="$DESCRIPTION" TARGET="$TARGET_URL"
-payload=$(STATE="$STATE" CONTEXT="$CONTEXT" DESC="$DESCRIPTION" TARGET="$TARGET_URL" python3 - <<'PY'
-import json, os
-print(json.dumps({
-    "state": os.environ["STATE"],
-    "context": os.environ["CONTEXT"],
-    "description": os.environ["DESC"][:140],
-    "target_url": os.environ["TARGET"],
-}))
-PY
-)
+desc_escaped=$(printf '%s' "$DESCRIPTION" | head -c 140 | sed 's/\\/\\\\/g; s/"/\\"/g')
+payload="{\"state\":\"${STATE}\",\"context\":\"${CONTEXT}\",\"description\":\"${desc_escaped}\",\"target_url\":\"${TARGET_URL}\"}"
 
 http_code=$(curl -s -o /tmp/gh-status.json -w '%{http_code}' \
 	-X POST \
