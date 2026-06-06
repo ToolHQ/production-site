@@ -110,6 +110,8 @@ citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
 | `sonar-scanner` not found | `agent-setup.sh` baixa scanner; sonar-scan skip se sem `sonar-project.properties` |
 | Plugin GitSCMSource error | `kubectl logs jenkins-0 -n jenkins -c jenkins` |
 | Re-run setup | Idempotente — sobrescreve creds e re-scan job |
+| Reverse proxy broken | `controller.jenkinsUrl` + JCasC `location.url` (T-343); redeploy `jenkins-values.yaml` |
+| CSP banner | `javaOpts` DirectoryBrowserSupport.CSP em `jenkins-values.yaml` (T-343) |
 
 ## Referências
 

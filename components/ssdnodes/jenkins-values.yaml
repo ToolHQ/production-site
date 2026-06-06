@@ -1,6 +1,8 @@
-# Jenkins — SSDNodes CI (T-341 / T-342)
+# Jenkins — SSDNodes CI (T-341 / T-342 / T-343)
 # Ingress externo: jenkins-ingress.yaml | TLS via cert-manager
 # Helm chart pin: 5.9.22 | imagem 2.567-slim-jdk25
+#
+# T-343: jenkinsUrl obrigatório quando ingress.enabled=false (reverse proxy test)
 
 controller:
   componentName: jenkins-controller
@@ -8,6 +10,14 @@ controller:
   executorMode: "NORMAL"
   image:
     tag: "2.567-slim-jdk25"
+  jenkinsUrl: "https://jenkins.ssdnodes.dnor.io/"
+  jenkinsAdminEmail: "ci@dnor.io"
+  disableRememberMe: true
+  enableRawHtmlMarkupFormatter: false
+  markupFormatter: plainText
+  initScripts:
+    security-csp: |-
+      System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;");
   admin:
     createSecret: true
     username: admin
@@ -35,6 +45,13 @@ controller:
     defaultConfig: true
     configScripts:
       ci-platform: |
+        unclassified:
+          sonarGlobalConfiguration:
+            buildWrapperEnabled: false
+            installations:
+              - name: SonarQube SSDNodes
+                serverUrl: https://sonar.ssdnodes.dnor.io
+                credentialsId: sonar-token
         credentials:
           system:
             domainCredentials:
@@ -50,13 +67,6 @@ controller:
                       description: GitHub PAT (repo read)
                       username: git
                       password: ${jenkins-ci-credentials-github-pat}
-        unclassified:
-          sonarGlobalConfiguration:
-            buildWrapperEnabled: false
-            installations:
-              - name: SonarQube SSDNodes
-                serverUrl: https://sonar.ssdnodes.dnor.io
-                credentialsId: sonar-token
     securityRealm: |-
       local:
         allowsSignup: false

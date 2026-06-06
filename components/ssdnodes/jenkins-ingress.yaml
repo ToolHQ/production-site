@@ -6,8 +6,15 @@ metadata:
   namespace: jenkins
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    # Snippet desabilitado no cluster — jenkinsUrl + use-forwarded-headers (nginx-ingress-values) bastam (T-343)
+    nginx.ingress.kubernetes.io/proxy-redirect-from: "http://$host:$server_port"
+    nginx.ingress.kubernetes.io/proxy-redirect-to: "https://$host"
 spec:
   ingressClassName: nginx
   tls:
