@@ -12,8 +12,8 @@ DESCRIPTION="${2:-citools pipeline}"
 TARGET_URL="${3:-${BUILD_URL:-https://jenkins.ssdnodes.dnor.io/job/production-site/}}"
 CONTEXT="${GITHUB_STATUS_CONTEXT:-jenkins/citools}"
 REPO="${GITHUB_REPOSITORY:-ToolHQ/production-site}"
-SHA="$(git rev-parse HEAD 2>/dev/null || true)"
-[[ ${#SHA} -eq 40 ]] || SHA="${CODEQL_SHA:-${GIT_COMMIT:-}}"
+SHA="${CODEQL_SHA:-${GIT_COMMIT:-}}"
+[[ ${#SHA} -eq 40 ]] || SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 
 [[ -n "${STATE}" ]] || {
 	log "usage: github-status.sh <success|failure|pending|error> [description] [target_url]"

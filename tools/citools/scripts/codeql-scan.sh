@@ -19,8 +19,8 @@ CODEQL="${CODEQL_BIN:-$(command -v codeql 2>/dev/null || true)}"
 }
 
 REF="${CODEQL_REF:-${CHANGE_BRANCH:-${BRANCH_NAME:-main}}}"
-SHA="$(git rev-parse HEAD 2>/dev/null || true)"
-[[ ${#SHA} -eq 40 ]] || SHA="${GIT_COMMIT:-${CODEQL_SHA:-}}"
+SHA="${CODEQL_SHA:-${GIT_COMMIT:-}}"
+[[ ${#SHA} -eq 40 ]] || SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 [[ ${#SHA} -eq 40 ]] || {
 	log "commit SHA indisponível — skip codeql upload"
 	exit 0

@@ -65,17 +65,25 @@ spec:
       steps {
         container('rust') {
           checkout scm
-          script {
-            env.CITOOLS_BRANCH = env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: 'unknown'
-            if (env.CHANGE_ID) {
-              env.CODEQL_REF = "refs/pull/${env.CHANGE_ID}/head"
-            } else if (env.BRANCH_NAME == 'main') {
-              env.CODEQL_REF = 'refs/heads/main'
-            } else {
-              env.CODEQL_REF = "refs/heads/${env.BRANCH_NAME}"
-            }
-          }
           withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            script {
+              env.CITOOLS_BRANCH = env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: 'unknown'
+              if (env.CHANGE_ID) {
+                env.CODEQL_REF = "refs/pull/${env.CHANGE_ID}/head"
+                env.CODEQL_SHA = sh(returnStdout: true, script: '''#!/usr/bin/env bash
+set -euo pipefail
+git fetch --no-tags "https://${GIT_USER}:${GIT_PASS}@github.com/ToolHQ/production-site.git" \
+  "pull/${CHANGE_ID}/head:refs/remotes/origin/pr-head-${CHANGE_ID}" 2>/dev/null || true
+git rev-parse "refs/remotes/origin/pr-head-${CHANGE_ID}" 2>/dev/null || git rev-parse HEAD
+''').trim()
+              } else if (env.BRANCH_NAME == 'main') {
+                env.CODEQL_REF = 'refs/heads/main'
+                env.CODEQL_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+              } else {
+                env.CODEQL_REF = "refs/heads/${env.BRANCH_NAME}"
+                env.CODEQL_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+              }
+            }
             sh '''#!/usr/bin/env bash
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -84,7 +92,9 @@ bash components/ssdnodes/jenkins/jenkins-prepare.sh
 '''
           }
           script {
-            env.CODEQL_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+            if (!env.CODEQL_SHA?.trim()) {
+              env.CODEQL_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+            }
           }
           sh '''#!/usr/bin/env bash
 set -euo pipefail
