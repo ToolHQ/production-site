@@ -181,6 +181,13 @@ fn cmd_deploy_plan(catalog: &DeployCatalog, app_id: &str, target: &str) -> Resul
     let app = find_app(catalog, app_id)?;
     let build = app.effective_build(&catalog.defaults);
     let mut deploy = app.effective_deploy(&catalog.defaults);
+    if !deploy.targets.iter().any(|t| t == target) {
+        bail!(
+            "target {target} não permitido para {} (targets: {:?})",
+            app.id,
+            deploy.targets
+        );
+    }
     deploy.target = target.to_string();
     let plan = serde_json::json!({
         "app": app.id,
@@ -206,6 +213,14 @@ fn cmd_deploy_run(
 ) -> Result<()> {
     let app = find_app(catalog, app_id)?;
     let build = app.effective_build(&catalog.defaults);
+    let deploy = app.effective_deploy(&catalog.defaults);
+    if !deploy.targets.iter().any(|t| t == target) {
+        bail!(
+            "target {target} não permitido para {} (targets: {:?})",
+            app.id,
+            deploy.targets
+        );
+    }
     eprintln!(
         "→ deploy {} target={} worker={} script={}",
         app.id, target, build.worker, app.script
@@ -214,10 +229,12 @@ fn cmd_deploy_run(
         eprintln!("   (dry-run — não executa deploy.sh)");
         return Ok(());
     }
+    let wrapper = repo_root.join("tools/citools/scripts/deploy-run.sh");
     let status = Command::new("bash")
-        .arg("-c")
+        .arg(&wrapper)
         .arg(&app.script)
         .current_dir(repo_root)
+        .env("CITOOLS_REPO_ROOT", repo_root)
         .env("CITOOLS_DEPLOY_APP", &app.id)
         .env("CITOOLS_BUILD_WORKER", &build.worker)
         .env("CITOOLS_DEPLOY_TARGET", target)
@@ -226,7 +243,7 @@ fn cmd_deploy_run(
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
-        .with_context(|| format!("failed to run deploy script for {}", app.id))?;
+        .with_context(|| format!("failed to run deploy wrapper for {}", app.id))?;
     if status.success() {
         Ok(())
     } else {

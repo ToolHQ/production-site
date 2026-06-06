@@ -109,6 +109,7 @@ kubectl rollout status statefulset/jenkins -n jenkins --timeout=600s
 REMOTE
 
 bash "$SCRIPT_DIR/seed_jenkins_ci_job.sh"
+bash "$SCRIPT_DIR/seed_jenkins_deploy_job.sh"
 
 for _ in $(seq 1 36); do
   curl -fsSI --max-time 10 "${JENKINS_URL}/login" >/dev/null 2>&1 && break

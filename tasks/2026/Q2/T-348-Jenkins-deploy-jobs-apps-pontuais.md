@@ -1,6 +1,6 @@
 # T-348: Jenkins deploy jobs — apps pontuais
 
-- **Status**: 📋 Backlog
+- **Status**: Done (MVP — DRY_RUN smoke)
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: [T-344](T-344-Program-citools-deploy-CI-closure-epic.md)
@@ -64,14 +64,14 @@ stages:
 
 ## Tasks
 
-- [ ] `pipeline-deploy.yaml` + `Jenkinsfile.deploy`
-- [ ] `seed_jenkins_deploy_job.sh` + bootstrap groovy
-- [ ] Integrar em `setup_jenkins_ci_jobs.sh` ou script separado
+- [x] `pipeline-deploy.yaml` + `Jenkinsfile.deploy`
+- [x] `seed_jenkins_deploy_job.sh` + bootstrap groovy
+- [x] Integrar em `setup_jenkins_ci_jobs.sh`
 - [ ] Jenkins credentials: `kubeconfig-oci`, `hetzner-ssh` (se spike OK)
 - [ ] RBAC: restringir job a admin ou grupo (JCasC)
-- [ ] UI: link doc em job description → T-344
-- [ ] Smoke: deploy `py-back-end` → OCI via Jenkins UI
-- [ ] Docs `components/ssdnodes/jenkins/README.md` seção Deploy jobs
+- [x] UI: link doc em job description → T-344
+- [ ] Smoke: deploy `py-back-end` → OCI via Jenkins UI (DRY_RUN OK live)
+- [x] Docs `components/ssdnodes/jenkins/README.md` seção Deploy jobs
 
 ## Validação
 

@@ -1,6 +1,6 @@
 # T-347: Deploy workers — Hetzner, OCI, SSDNodes
 
-- **Status**: 📋 Backlog
+- **Status**: Done (MVP)
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: [T-344](T-344-Program-citools-deploy-CI-closure-epic.md)
@@ -56,11 +56,11 @@ Jenkins agent com **Docker/buildx** (DinD ou socket) para worker hetzner a parti
 
 ## Tasks
 
-- [ ] `citools deploy run` invoca worker wrapper antes de `deploy.sh`
-- [ ] Worker `hetzner`: reutilizar `deploy-buildx.sh` 100%
+- [x] `citools deploy run` invoca worker wrapper antes de `deploy.sh`
+- [x] Worker `hetzner`: prep via `deploy-run.sh` + `setup-hetzner-builder.sh --silent`
 - [ ] Worker `ssdnodes-agent`: documentar limites (sem buildx hoje → fallback hetzner)
-- [ ] Target `oci`: `source setup-dev-deploy.sh` + tunnel check harness
-- [ ] Target `ssdnodes`: validar apps elegíveis (catalog flag `deploy.targets: [oci, ssdnodes]`)
+- [x] Target `oci`: `deploy-target-env.sh` → `setup-dev-deploy.sh`
+- [x] Target `ssdnodes`: catalog `targets: [oci, ssdnodes]` + validação CLI
 - [ ] Secrets Jenkins: kubeconfig OCI (file cred) + ssdnodes (opcional)
 - [ ] Spike: buildx from Jenkins pod → Hetzner (SSH key in K8s secret)
 - [ ] Teste E2E: `citools deploy run --app py-back-end --target oci` from dev machine

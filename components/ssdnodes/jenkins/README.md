@@ -99,6 +99,29 @@ citools next --json
 citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
 ```
 
+## Deploy pontual (T-348)
+
+Job **deploy-apps** — Pipeline parametrizado (não multibranch):
+
+| Param | Descrição |
+|-------|-----------|
+| `APP` | App do `deploy-catalog.yaml` |
+| `TARGET` | `oci` \| `ssdnodes` |
+| `DRY_RUN` | `true` = só plan; `false` = executa `deploy.sh` via worker wrapper |
+
+```bash
+# Seed idempotente
+bash oci-k8s-cluster/scripts/ssdnodes/seed_jenkins_deploy_job.sh
+
+# Local
+APP=py-back-end TARGET=oci citools deploy plan --app "$APP" --target "$TARGET"
+APP=py-back-end TARGET=oci citools deploy run --app "$APP" --target "$TARGET" --dry-run
+```
+
+URL: https://jenkins.ssdnodes.dnor.io/job/deploy-apps/
+
+Workers: [T-347](../../../tasks/2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) — `deploy-run.sh` + `deploy-target-env.sh`
+
 ## Troubleshooting
 
 | Sintoma | Ação |

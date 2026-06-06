@@ -46,6 +46,13 @@ pub struct DeploySpec {
     pub target: String,
     #[serde(default = "default_kubeconfig_env")]
     pub kubeconfig_env: String,
+    /// Targets permitidos (default: oci, ssdnodes)
+    #[serde(default = "default_targets")]
+    pub targets: Vec<String>,
+}
+
+fn default_targets() -> Vec<String> {
+    vec!["oci".into(), "ssdnodes".into()]
 }
 
 fn default_worker() -> String {

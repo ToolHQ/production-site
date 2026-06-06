@@ -72,6 +72,14 @@ if jenkins_img=$(ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE_HOST" \
   fi
 fi
 
+# ─── deploy-apps job (T-348) ─────────────────────────────────────────────────
+if ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE_HOST" \
+  "kubectl exec -n jenkins jenkins-0 -c jenkins -- test -f /var/jenkins_home/jobs/deploy-apps/config.xml" 2>/dev/null; then
+  ok "Jenkins job deploy-apps presente"
+else
+  bad "Jenkins job deploy-apps ausente — rode seed_jenkins_deploy_job.sh"
+fi
+
 if [[ "$FAIL" -eq 0 ]]; then
   echo "PASS validate_ssdnodes_ci"
   exit 0
