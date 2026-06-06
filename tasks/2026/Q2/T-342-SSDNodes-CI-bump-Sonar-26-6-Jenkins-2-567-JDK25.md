@@ -20,7 +20,14 @@ O deploy inicial da plataforma CI (T-341) pinou versões **desatualizadas**:
 
 Sem o bump, builds verdes não refletem stack atual — impossível avaliar citools/CodeQL/Sonar no caminho certo.
 
-**Migração Sonar 10.7 → 26.x:** primeiro startup após upgrade executa migração PostgreSQL (pode levar 5–15 min). PVC Elasticsearch em `/opt/sonarqube/data` é preservado; backup do PG recomendado antes do helm upgrade em prod.
+**Migração Sonar 10.x → 26.x:** salto direto não é suportado pelo Sonar (exige 24.12 → 25.12 → 26.x). Se a instância legada falhar após bump, usar fresh install (CI sem histórico):
+
+```bash
+bash oci-k8s-cluster/scripts/ssdnodes/deploy_ssdnodes_components.sh sonarqube  # upload manifests
+bash oci-k8s-cluster/scripts/ssdnodes/upgrade_sonar_stepwise.sh --fresh       # drop DB+PVC → 26.6
+# ou preservar histórico (lento):
+bash oci-k8s-cluster/scripts/ssdnodes/upgrade_sonar_stepwise.sh --stepwise
+```
 
 **Jenkins JDK25:** controller slim; agents K8s continuam `rust:1.88-bookworm` (build toolchain independente do JDK do controller).
 

@@ -6,6 +6,7 @@ community:
   enabled: true
   buildNumber: "26.6.0.123539"
 
+# tag explícito alinhado ao buildNumber (override helm); vazio = resolve via community.*
 image:
   tag: 26.6.0.123539-community
 
