@@ -18,6 +18,10 @@ err()  { echo -e "${RED}[ssdnodes]${NC} $*" >&2; }
 
 TARGET="${1:-all}"
 
+# CI platform chart pins (T-342) — manter alinhado a components/ssdnodes/*-values.yaml
+SONARQUBE_HELM_CHART_VERSION="${SONARQUBE_HELM_CHART_VERSION:-2026.3.1}"
+JENKINS_HELM_CHART_VERSION="${JENKINS_HELM_CHART_VERSION:-5.9.22}"
+
 # ─── Copia manifests para o host remoto ──────────────────────────────────────
 upload_manifests() {
   log "Enviando manifests para $REMOTE_HOST:/tmp/ssdnodes-components/ ..."
@@ -177,8 +181,9 @@ REMOTE
 # ─── SonarQube CE + PostgreSQL (T-341) ───────────────────────────────────────
 deploy_sonarqube() {
   log "=== SonarQube CE + PostgreSQL (T-341) ==="
-  ssh "$REMOTE_HOST" bash << 'REMOTE'
+  ssh "$REMOTE_HOST" bash << REMOTE
 set -euo pipefail
+SONARQUBE_HELM_CHART_VERSION="${SONARQUBE_HELM_CHART_VERSION}"
 if ! kubectl get secret sonarqube-db-credentials -n sonarqube-db >/dev/null 2>&1; then
   echo "[sonar] ❌ Secret sonarqube-db-credentials ausente em sonarqube-db."
   echo "        Rode localmente:"
@@ -209,8 +214,9 @@ helm upgrade --install sonarqube-db bitnami/postgresql \
 
 helm upgrade --install sonarqube sonarqube/sonarqube \
   --namespace sonarqube \
+  --version "\${SONARQUBE_HELM_CHART_VERSION}" \
   --values /tmp/ssdnodes-components/sonarqube-values.yaml \
-  --wait --timeout 15m
+  --wait --timeout 20m
 
 kubectl apply -f /tmp/ssdnodes-components/sonarqube-ingress.yaml
 kubectl apply -f /tmp/ssdnodes-components/ci-network-policies.yaml
@@ -222,8 +228,9 @@ REMOTE
 # ─── Jenkins LTS (T-341) ─────────────────────────────────────────────────────
 deploy_jenkins() {
   log "=== Jenkins LTS (T-341) ==="
-  ssh "$REMOTE_HOST" bash << 'REMOTE'
+  ssh "$REMOTE_HOST" bash << REMOTE
 set -euo pipefail
+JENKINS_HELM_CHART_VERSION="${JENKINS_HELM_CHART_VERSION}"
 helm repo add jenkins https://charts.jenkins.io 2>/dev/null || true
 helm repo update
 
@@ -231,9 +238,9 @@ kubectl create namespace jenkins --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade --install jenkins jenkins/jenkins \
   --namespace jenkins \
-  --version 5.7.10 \
+  --version "\${JENKINS_HELM_CHART_VERSION}" \
   --values /tmp/ssdnodes-components/jenkins-values.yaml \
-  --wait --timeout 15m
+  --wait --timeout 20m
 
 kubectl apply -f /tmp/ssdnodes-components/jenkins-ingress.yaml
 kubectl apply -f /tmp/ssdnodes-components/ci-network-policies.yaml

@@ -1,11 +1,13 @@
-# SonarQube Community Edition (T-341) — chart SonarSource/sonarqube
+# SonarQube Community Build (T-341 / T-342) — chart SonarSource/sonarqube
 # JDBC → PostgreSQL em sonarqube-db.svc.cluster.local
+# Helm chart pin: 2026.3.1 (deploy_ssdnodes_components.sh)
 
 community:
   enabled: true
+  buildNumber: "26.6.0.123539"
 
 image:
-  tag: 10.7.0-community
+  tag: 26.6.0.123539-community
 
 postgresql:
   enabled: false

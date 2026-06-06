@@ -93,9 +93,10 @@ ssh "$REMOTE_HOST" bash <<'REMOTE'
 set -euo pipefail
 helm repo add jenkins https://charts.jenkins.io 2>/dev/null || true
 helm repo update
+JENKINS_HELM_CHART_VERSION="${JENKINS_HELM_CHART_VERSION:-5.9.22}"
 helm upgrade --install jenkins jenkins/jenkins \
   --namespace jenkins \
-  --version 5.7.10 \
+  --version "${JENKINS_HELM_CHART_VERSION}" \
   --values /tmp/ssdnodes-components/jenkins-values.yaml \
   --wait --timeout 20m
 kubectl rollout status statefulset/jenkins -n jenkins --timeout=600s

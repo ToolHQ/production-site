@@ -1,13 +1,13 @@
-# Jenkins LTS — SSDNodes CI (T-341)
+# Jenkins — SSDNodes CI (T-341 / T-342)
 # Ingress externo: jenkins-ingress.yaml | TLS via cert-manager
-# initScript: {{BOOTSTRAP_GROOVY}} substituído por setup_jenkins_ci_jobs.sh no deploy remoto
+# Helm chart pin: 5.9.22 | imagem 2.567-slim-jdk25
 
 controller:
   componentName: jenkins-controller
   numExecutors: 0
   executorMode: "NORMAL"
   image:
-    tag: "2.504.1-jdk17"
+    tag: "2.567-slim-jdk25"
   admin:
     createSecret: true
     username: admin

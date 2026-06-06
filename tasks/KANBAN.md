@@ -10,6 +10,7 @@
 
 |  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
 | :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
+| [T-342](2026/Q2/T-342-SSDNodes-CI-bump-Sonar-26-6-Jenkins-2-567-JDK25.md) | **SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25** | 🔼 High | Cursor / AI Radar (T-341) | 4h |
 | [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
 | [T-341](2026/Q2/T-341-SSDNodes-Jenkins-SonarQube-Platform.md) | **SSDNodes — Jenkins + SonarQube CE (IaC/TUI/DNS)** _(ADR + manifests + deploy_ssdnodes ci-platform; DNS/deploy live pendente)_ | 🔼 High | **Cursor / AI Radar** | 3–5d |
 | T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |

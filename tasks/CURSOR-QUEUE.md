@@ -5,7 +5,9 @@
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
 | 1 | **T-340** | Reports UI — Fase D Copilot + stale/mobile (PR em aberto) | 🏎️ |
-| 2 | **T-302** | qdbback — Prometheus ✅ TLS ✅ / AL2023 runbook pendente execução | 🏎️ Fase C (opcional) |
+| 2 | **T-341** | SSDNodes CI — Jenkins + SonarQube + citools (PR #394) | 🏎️ |
+| 3 | **T-342** | Bump Sonar 26.6 + Jenkins 2.567 JDK25 | 🏎️ |
+| 4 | **T-302** | qdbback — Prometheus ✅ TLS ✅ / AL2023 runbook pendente execução | 🏎️ Fase C (opcional) |
 
 ## Node Fleet v2 (concluído 2026-05-25)
 
