@@ -208,9 +208,22 @@ struct ChFail2BanStatRow {
     banned: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct ChBannedIpRow {
     ip: String,
+    hits: serde_json::Value,
+    first_seen: serde_json::Value,
+    last_seen: serde_json::Value,
+    statuses: Vec<String>,
+}
+
+#[derive(Serialize, Clone, Default, Deserialize)]
+pub(crate) struct BannedIpDetail {
+    pub ip: String,
+    pub hits: u64,
+    pub first_seen: u64,
+    pub last_seen: u64,
+    pub statuses: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -224,26 +237,14 @@ impl ClickHouseClient {
             .timeout(Duration::from_secs(8))
             .build()
             .expect("clickhouse http client");
-<<<<<<< HEAD
-        ClickHouseClient {
-            http,
-            base_url,
-        }
-=======
         ClickHouseClient { http, base_url }
->>>>>>> origin/main
     }
 
     async fn fetch_fail2ban_stats(&self) -> Option<Fail2BanStats> {
         let query = "SELECT \
             count() as total, \
-<<<<<<< HEAD
-            countIf(status = 'failed') as failed, \
-            countIf(status = 'banned') as banned \
-=======
             countIf(status IN ('failed', 'found')) as failed, \
             countIf(status IN ('banned', 'ban')) as banned \
->>>>>>> origin/main
             FROM threat_intel_events \
             WHERE service IN ('fail2ban', 'sshd') AND timestamp >= now() - INTERVAL 1 DAY FORMAT JSON";
 
@@ -264,13 +265,6 @@ impl ClickHouseClient {
         };
 
         if !stats_resp.status().is_success() {
-<<<<<<< HEAD
-            eprintln!("ClickHouse fetch_fail2ban_stats failed: HTTP {}", stats_resp.status());
-            return None;
-        }
-
-        let stats_data = stats_resp.json::<ChResponse<ChFail2BanStatRow>>().await.ok()?;
-=======
             eprintln!(
                 "ClickHouse fetch_fail2ban_stats failed: HTTP {}",
                 stats_resp.status()
@@ -282,17 +276,12 @@ impl ClickHouseClient {
             .json::<ChResponse<ChFail2BanStatRow>>()
             .await
             .ok()?;
->>>>>>> origin/main
         let stat_row = stats_data.data.first()?;
 
-        let ips_query = "SELECT ip \
+        let ips_query = "SELECT ip, count() as hits, toUnixTimestamp(min(timestamp)) as first_seen, toUnixTimestamp(max(timestamp)) as last_seen, groupArray(status) as statuses \
             FROM threat_intel_events \
-<<<<<<< HEAD
-            WHERE service = 'fail2ban' AND status = 'banned' AND timestamp >= now() - INTERVAL 1 DAY \
-=======
-            WHERE service IN ('fail2ban', 'sshd') AND status IN ('banned', 'ban') AND timestamp >= now() - INTERVAL 1 DAY \
->>>>>>> origin/main
-            GROUP BY ip ORDER BY count() DESC LIMIT 10 FORMAT JSON";
+            WHERE service IN ('fail2ban', 'sshd') AND status IN ('banned', 'ban') AND timestamp >= now() - INTERVAL 7 DAY \
+            GROUP BY ip ORDER BY hits DESC LIMIT 20 FORMAT JSON";
 
         let ips_resp = self
             .http
@@ -309,7 +298,13 @@ impl ClickHouseClient {
             total: stat_row.total.parse().unwrap_or(0),
             failed: stat_row.failed.parse().unwrap_or(0),
             banned: stat_row.banned.parse().unwrap_or(0),
-            banned_ips: ips_data.data.into_iter().map(|r| r.ip).collect(),
+            banned_ip_details: ips_data.data.into_iter().map(|r| BannedIpDetail {
+                ip: r.ip,
+                hits: r.hits.as_u64().unwrap_or_else(|| r.hits.as_str().unwrap_or("0").parse().unwrap_or(0)),
+                first_seen: r.first_seen.as_u64().unwrap_or_else(|| r.first_seen.as_str().unwrap_or("0").parse().unwrap_or(0)),
+                last_seen: r.last_seen.as_u64().unwrap_or_else(|| r.last_seen.as_str().unwrap_or("0").parse().unwrap_or(0)),
+                statuses: r.statuses,
+            }).collect(),
             timestamp: unix_epoch_seconds(),
         })
     }
@@ -320,13 +315,7 @@ async fn build_coroot_client() -> Option<CorootClient> {
         .unwrap_or_else(|_| "http://coroot.coroot.svc.cluster.local:8080".to_string());
     let project_id = env::var("COROOT_PROJECT_ID").unwrap_or_else(|_| "p3m78dle".to_string());
     match (env::var("COROOT_EMAIL"), env::var("COROOT_PASSWORD")) {
-<<<<<<< HEAD
-        (Ok(email), Ok(password)) => Some(CorootClient::new(
-            base_url, email, password, project_id,
-        )),
-=======
         (Ok(email), Ok(password)) => Some(CorootClient::new(base_url, email, password, project_id)),
->>>>>>> origin/main
         _ => {
             eprintln!("[warn] COROOT_EMAIL/COROOT_PASSWORD not set — coroot alerts disabled");
             None
@@ -1367,7 +1356,7 @@ pub(crate) struct Fail2BanStats {
     total: u64,
     failed: u64,
     banned: u64,
-    banned_ips: Vec<String>,
+    banned_ip_details: Vec<BannedIpDetail>,
     timestamp: u64,
 }
 
@@ -1867,11 +1856,7 @@ async fn main() {
     let prometheus_monitor = Arc::new(PrometheusMonitor::new());
 
     let coroot_client = build_coroot_client().await;
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> origin/main
     let clickhouse_client = env::var("CLICKHOUSE_URL")
         .ok()
         .or_else(|| Some("http://coroot-clickhouse.coroot.svc.cluster.local:8123".to_string()))

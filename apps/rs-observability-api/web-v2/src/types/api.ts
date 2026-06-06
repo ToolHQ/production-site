@@ -143,11 +143,19 @@ export interface HoneypotOverview {
   nodes: HoneypotNodeStats[];
 }
 
+export interface BannedIpDetail {
+  ip: string;
+  hits: number;
+  first_seen: number;
+  last_seen: number;
+  statuses: string[];
+}
+
 export interface Fail2BanStats {
   total: number;
   failed: number;
   banned: number;
-  banned_ips: string[];
+  banned_ip_details: BannedIpDetail[];
   timestamp: number;
 }
 

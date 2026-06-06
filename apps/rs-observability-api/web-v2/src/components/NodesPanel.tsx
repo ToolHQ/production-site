@@ -751,7 +751,7 @@ function ShieldIcon() {
 }
 
 function Fail2BanCard({ stats }: { stats: import('../types/api').Fail2BanStats }) {
-  const topTags = stats.banned_ips.slice(0, 3);
+  const topIps = stats.banned_ip_details?.slice(0, 5) || [];
   const sparkSeed = stats.total + stats.failed * 97;
 
   return (
@@ -794,19 +794,42 @@ function Fail2BanCard({ stats }: { stats: import('../types/api').Fail2BanStats }
             Protecting port 22
           </span>
         </div>
-        {topTags.length > 0 && (
-          <div class="honeypot-hero__metric honeypot-hero__metric--tags">
-            <span class="honeypot-hero__metric-label">Recent Bans</span>
-            <div class="honeypot-hero__tag-list">
-              {topTags.map((ip) => (
-                <span key={ip} class="honeypot-hero__tag" style="background: rgba(255, 60, 60, 0.1); border-color: rgba(255, 60, 60, 0.2);">
-                  {ip}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
+
+      {topIps.length > 0 && (
+        <div class="honeypot-hero__threat-table-wrapper" style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 60, 60, 0.15)', paddingTop: '1rem', marginLeft: '5rem' }}>
+          <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ff8888', marginBottom: '0.75rem', letterSpacing: '0.05em', fontWeight: 600 }}>Recent Threat Actors</h4>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ color: 'rgba(255, 255, 255, 0.5)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>IP Address</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Hits</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Duration</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topIps.map(ip => {
+                const durationMins = Math.round((ip.last_seen - ip.first_seen) / 60);
+                const isAggressive = ip.hits > 10;
+                const isBanned = ip.statuses.includes('banned') || ip.statuses.includes('ban');
+                return (
+                  <tr key={ip.ip} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                    <td style={{ padding: '0.5rem 0', fontFamily: 'var(--font-mono)', color: '#e2e8f0' }}>{ip.ip}</td>
+                    <td style={{ padding: '0.5rem 0', color: isAggressive ? '#ff3c3c' : '#ff8888', fontWeight: isAggressive ? 600 : 400 }}>{ip.hits}</td>
+                    <td style={{ padding: '0.5rem 0', color: '#94a3b8' }}>{durationMins > 0 ? `${durationMins}m` : '<1m'}</td>
+                    <td style={{ padding: '0.5rem 0' }}>
+                      <span class="honeypot-hero__tag" style={{ background: isBanned ? 'rgba(255, 60, 60, 0.15)' : 'rgba(255, 136, 136, 0.1)', borderColor: isBanned ? 'rgba(255, 60, 60, 0.3)' : 'rgba(255, 60, 60, 0.15)', color: isBanned ? '#ff8888' : '#e2e8f0' }}>
+                        {isBanned ? 'Banned' : 'Failed'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </article>
   );
 }
