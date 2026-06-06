@@ -29,7 +29,12 @@ CODEQL="${CODEQL_HOME}/codeql/codeql"
 export PATH="${CODEQL_HOME}/codeql:${PATH}"
 
 REF="${CODEQL_REF:-${CHANGE_BRANCH:-${BRANCH_NAME:-main}}}"
-SHA="${CODEQL_SHA:-${GIT_COMMIT:-$(git rev-parse HEAD 2>/dev/null || echo HEAD)}}"
+SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+[[ ${#SHA} -eq 40 ]] || SHA="${GIT_COMMIT:-${CODEQL_SHA:-}}"
+[[ ${#SHA} -eq 40 ]] || {
+	log "commit SHA indisponível (got: ${SHA:-empty}) — skip codeql upload"
+	exit 0
+}
 if [[ "$REF" != refs/* ]]; then
 	REF="refs/heads/${REF}"
 fi
@@ -51,12 +56,11 @@ run_lang() {
 		--sarif-category="/language:${lang}"
 	log "upload sarif (${lang})"
 	export GITHUB_TOKEN
-	printf '%s' "$GITHUB_TOKEN" | "$CODEQL" github upload-results \
+	"$CODEQL" github upload-results \
 		--sarif="${REPO_ROOT}/codeql-${lang}.sarif" \
 		--ref="$REF" \
 		--commit="$SHA" \
-		--repository="$REPO" \
-		--github-auth-stdin
+		--repository="$REPO"
 }
 
 run_lang javascript .
