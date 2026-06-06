@@ -18,8 +18,8 @@ job.setDisplayName('deploy-apps (citools)')
 job.setDescription('Deploy pontual — parâmetros APP + TARGET. Ver T-348 / deploy-catalog.yaml')
 
 def scm = new GitSCM(
-  [new UserRemoteConfig('https://github.com/ToolHQ/production-site.git', 'github-pat', 'origin', '+refs/heads/*:refs/remotes/origin/*')],
-  [new BranchSpec('refs/remotes/origin/feat/t-341-ssdnodes-ci-platform'), new BranchSpec('refs/remotes/origin/main')],
+  [new UserRemoteConfig('https://github.com/ToolHQ/production-site.git', 'origin', '+refs/heads/*:refs/remotes/origin/*', 'github-pat')],
+  [new BranchSpec('*/feat/t-341-ssdnodes-ci-platform'), new BranchSpec('*/main')],
   null,
   null,
   null

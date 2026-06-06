@@ -69,8 +69,8 @@ if ! command -v git-cliff >/dev/null 2>&1; then
 	GIT_CLIFF_VERSION=2.6.1
 	log "instalando git-cliff ${GIT_CLIFF_VERSION}"
 	curl -fsSL \
-		"https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
-		| tar -xz -C /tmp
+		"https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz" |
+		tar -xz -C /tmp
 	install -m 0755 "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" /usr/local/bin/git-cliff
 fi
 

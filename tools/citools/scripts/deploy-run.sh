@@ -19,28 +19,28 @@ source "$REPO_ROOT/tools/citools/scripts/deploy-target-env.sh"
 
 case "$WORKER" in
 hetzner)
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "❌ docker ausente — worker hetzner exige docker+buildx no executor" >&2
-    echo "   Rode localmente ou configure agent Jenkins com docker (T-347)" >&2
-    exit 1
-  fi
-  SETUP_HETZ="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
-  if [[ -x "$SETUP_HETZ" ]] && ! "$SETUP_HETZ" --silent 2>/dev/null; then
-    echo "❌ hetzner-builder indisponível — rode: $SETUP_HETZ" >&2
-    exit 1
-  fi
-  export USE_HETZNER=true
-  ;;
+	if ! command -v docker >/dev/null 2>&1; then
+		echo "❌ docker ausente — worker hetzner exige docker+buildx no executor" >&2
+		echo "   Rode localmente ou configure agent Jenkins com docker (T-347)" >&2
+		exit 1
+	fi
+	SETUP_HETZ="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
+	if [[ -x "$SETUP_HETZ" ]] && ! "$SETUP_HETZ" --silent 2>/dev/null; then
+		echo "❌ hetzner-builder indisponível — rode: $SETUP_HETZ" >&2
+		exit 1
+	fi
+	export USE_HETZNER=true
+	;;
 ssdnodes-agent)
-  echo "⚠️  ssdnodes-agent: build x86 no agent (sem buildx remoto) — fase 2" >&2
-  ;;
+	echo "⚠️  ssdnodes-agent: build x86 no agent (sem buildx remoto) — fase 2" >&2
+	;;
 local)
-  echo "[deploy-run] worker=local (sem prep extra)" >&2
-  ;;
+	echo "[deploy-run] worker=local (sem prep extra)" >&2
+	;;
 *)
-  echo "❌ worker desconhecido: $WORKER" >&2
-  exit 2
-  ;;
+	echo "❌ worker desconhecido: $WORKER" >&2
+	exit 2
+	;;
 esac
 
 exec bash "$SCRIPT"

@@ -29,6 +29,7 @@ pub struct DeployApp {
     #[serde(default)]
     pub deploy: Option<DeploySpec>,
     #[serde(default, rename = "whenPaths")]
+    #[allow(dead_code)]
     pub when_paths: Option<String>,
 }
 
@@ -74,7 +75,9 @@ impl DeployApp {
     }
 
     pub fn effective_deploy<'a>(&'a self, defaults: &'a DeployDefaults) -> DeploySpec {
-        self.deploy.clone().unwrap_or_else(|| defaults.deploy.clone())
+        self.deploy
+            .clone()
+            .unwrap_or_else(|| defaults.deploy.clone())
     }
 }
 

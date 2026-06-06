@@ -7,17 +7,17 @@ TARGET="${CITOOLS_DEPLOY_TARGET:-oci}"
 
 case "$TARGET" in
 oci)
-  # shellcheck source=/dev/null
-  source "$REPO_ROOT/oci-k8s-cluster/scripts/setup-dev-deploy.sh" 2>/dev/null || true
-  export KUBECONFIG="${KUBECONFIG:-$REPO_ROOT/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
-  ;;
+	# shellcheck source=/dev/null
+	source "$REPO_ROOT/oci-k8s-cluster/scripts/setup-dev-deploy.sh" 2>/dev/null || true
+	export KUBECONFIG="${KUBECONFIG:-$REPO_ROOT/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
+	;;
 ssdnodes)
-  export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/ssdnodes.yaml}"
-  ;;
+	export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/ssdnodes.yaml}"
+	;;
 *)
-  echo "❌ target desconhecido: $TARGET (oci|ssdnodes)" >&2
-  exit 2
-  ;;
+	echo "❌ target desconhecido: $TARGET (oci|ssdnodes)" >&2
+	exit 2
+	;;
 esac
 
 echo "[deploy-target] KUBECONFIG=$KUBECONFIG target=$TARGET" >&2

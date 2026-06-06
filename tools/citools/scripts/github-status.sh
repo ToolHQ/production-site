@@ -43,6 +43,9 @@ http_code=$(curl -s -o /tmp/gh-status.json -w '%{http_code}' \
 
 if [[ "$http_code" =~ ^20 ]]; then
 	log "${STATE} → ${CONTEXT} (${SHA:0:8})"
+elif [[ "$http_code" == "422" ]]; then
+	log "skip status HTTP 422 (SHA ${SHA:0:8} não encontrado no GitHub — merge ref PR?)"
+	exit 0
 else
 	log "falha HTTP ${http_code}: $(head -c 200 /tmp/gh-status.json 2>/dev/null)"
 	exit 1
