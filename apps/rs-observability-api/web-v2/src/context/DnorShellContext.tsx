@@ -9,7 +9,8 @@ export type DnorView =
   | 'incidents'
   | 'reports'
   | 'intel'
-  | 'settings';
+  | 'settings'
+  | 'threats';
 export type DnorPeriod = '24h' | '7d';
 
 export interface DnorSearchHit {
@@ -39,6 +40,7 @@ const VALID_VIEWS = new Set<DnorView>([
   'reports',
   'intel',
   'settings',
+  'threats',
 ]);
 
 function viewFromHash(): DnorView {
