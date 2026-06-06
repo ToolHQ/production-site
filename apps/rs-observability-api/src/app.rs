@@ -14,6 +14,7 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/catalog", get(catalog))
         .route("/api/catalog/summary", get(catalog_summary))
         .route("/api/live/overview", get(live_overview))
+        .route("/api/live/honeypot-requests", get(honeypot_requests))
         .route("/api/coroot-alerts", get(coroot_alerts))
         .route("/api/coroot-incidents", get(coroot_incidents))
         .route("/api/longhorn", get(longhorn_volumes))
@@ -253,6 +254,18 @@ async fn live_overview(State(state): State<AppState>) -> Response {
     payload.honeypot = honeypot;
 
     Json(payload).into_response()
+}
+
+async fn honeypot_requests(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<crate::HoneypotRequestsQuery>,
+) -> Response {
+    let response = state
+        .prometheus_monitor
+        .fetch_honeypot_requests(&query)
+        .await;
+
+    Json(response).into_response()
 }
 
 async fn coroot_incidents(State(state): State<AppState>) -> Response {

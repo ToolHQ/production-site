@@ -122,6 +122,15 @@ export interface HoneypotTagCount {
   count: number;
 }
 
+export interface HoneypotRecentRequest {
+  timestamp: string;
+  method: string;
+  path: string;
+  ip: string;
+  userAgent: string;
+  tag: string;
+}
+
 export interface HoneypotNodeStats {
   id: string;
   cluster: string;
@@ -134,6 +143,7 @@ export interface HoneypotNodeStats {
   top_tags: HoneypotTagCount[];
   requests_24h?: TimeSeriesPoint[];
   requests_7d?: TimeSeriesPoint[];
+  recent_requests?: HoneypotRecentRequest[];
   refreshed_at_epoch: number;
   error?: string;
 }
@@ -141,6 +151,22 @@ export interface HoneypotNodeStats {
 export interface HoneypotOverview {
   available: boolean;
   nodes: HoneypotNodeStats[];
+}
+
+export interface BannedIpDetail {
+  ip: string;
+  hits: number;
+  first_seen: number;
+  last_seen: number;
+  statuses: string[];
+}
+
+export interface Fail2BanStats {
+  total: number;
+  failed: number;
+  banned: number;
+  banned_ip_details: BannedIpDetail[];
+  timestamp: number;
 }
 
 export interface LiveOverview {
@@ -157,6 +183,7 @@ export interface LiveOverview {
   incidents: Incident[];
   metrics: MetricsData;
   honeypot?: HoneypotOverview;
+  fail2ban?: Fail2BanStats;
 }
 
 // Tipos para /api/catalog/summary e /api/catalog

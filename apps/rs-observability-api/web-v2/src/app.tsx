@@ -31,6 +31,7 @@ import { IngressPanel } from './components/IngressPanel';
 import { CertExpiryPanel } from './components/CertExpiryPanel';
 import { WorkloadPanel } from './components/WorkloadPanel';
 import { NamespacePanel } from './components/NamespacePanel';
+import { ThreatsPanel } from './components/ThreatsPanel';
 import { DnorTopNav } from './components/DnorTopNav';
 import { GlobalSearchPalette } from './components/GlobalSearchPalette';
 import { DnorShellProvider, useDnorShell } from './context/DnorShellContext';
@@ -514,6 +515,16 @@ function AppContent() {
               </aside>
             </div>
           </div>
+        </section>
+        )}
+
+        {view === 'threats' && (
+        <section class="nodes-section-band" id="dnor-threats">
+          <div class="dnor-page-head">
+            <h1 class="dnor-page-head__title">Ameaças</h1>
+            <p class="dnor-page-head__subtitle">Log detalhado de tráfego anômalo capturado pelo Honeypot.</p>
+          </div>
+          <ThreatsPanel />
         </section>
         )}
 

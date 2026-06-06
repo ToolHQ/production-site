@@ -208,9 +208,22 @@ struct ChFail2BanStatRow {
     banned: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct ChBannedIpRow {
     ip: String,
+    hits: serde_json::Value,
+    first_seen: serde_json::Value,
+    last_seen: serde_json::Value,
+    statuses: Vec<String>,
+}
+
+#[derive(Serialize, Clone, Default, Deserialize)]
+pub(crate) struct BannedIpDetail {
+    pub ip: String,
+    pub hits: u64,
+    pub first_seen: u64,
+    pub last_seen: u64,
+    pub statuses: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -265,10 +278,10 @@ impl ClickHouseClient {
             .ok()?;
         let stat_row = stats_data.data.first()?;
 
-        let ips_query = "SELECT ip \
+        let ips_query = "SELECT ip, count() as hits, toUnixTimestamp(min(timestamp)) as first_seen, toUnixTimestamp(max(timestamp)) as last_seen, groupArray(status) as statuses \
             FROM threat_intel_events \
-            WHERE service IN ('fail2ban', 'sshd') AND status IN ('banned', 'ban') AND timestamp >= now() - INTERVAL 1 DAY \
-            GROUP BY ip ORDER BY count() DESC LIMIT 10 FORMAT JSON";
+            WHERE service IN ('fail2ban', 'sshd') AND status IN ('banned', 'ban') AND timestamp >= now() - INTERVAL 7 DAY \
+            GROUP BY ip ORDER BY hits DESC LIMIT 20 FORMAT JSON";
 
         let ips_resp = self
             .http
@@ -285,7 +298,24 @@ impl ClickHouseClient {
             total: stat_row.total.parse().unwrap_or(0),
             failed: stat_row.failed.parse().unwrap_or(0),
             banned: stat_row.banned.parse().unwrap_or(0),
-            banned_ips: ips_data.data.into_iter().map(|r| r.ip).collect(),
+            banned_ip_details: ips_data
+                .data
+                .into_iter()
+                .map(|r| BannedIpDetail {
+                    ip: r.ip,
+                    hits: r
+                        .hits
+                        .as_u64()
+                        .unwrap_or_else(|| r.hits.as_str().unwrap_or("0").parse().unwrap_or(0)),
+                    first_seen: r.first_seen.as_u64().unwrap_or_else(|| {
+                        r.first_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    last_seen: r.last_seen.as_u64().unwrap_or_else(|| {
+                        r.last_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    statuses: r.statuses,
+                })
+                .collect(),
             timestamp: unix_epoch_seconds(),
         })
     }
@@ -1337,7 +1367,7 @@ pub(crate) struct Fail2BanStats {
     total: u64,
     failed: u64,
     banned: u64,
-    banned_ips: Vec<String>,
+    banned_ip_details: Vec<BannedIpDetail>,
     timestamp: u64,
 }
 
@@ -1345,6 +1375,59 @@ pub(crate) struct Fail2BanStats {
 struct HoneypotTagCount {
     tag: String,
     count: u64,
+}
+
+#[derive(Deserialize, Serialize, Clone, Default)]
+struct HoneypotRecentRequest {
+    timestamp: String,
+    method: String,
+    path: String,
+    ip: String,
+    #[serde(rename = "userAgent")]
+    user_agent: String,
+    tag: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct HoneypotRequest {
+    id: u64,
+    timestamp: String,
+    method: String,
+    path: String,
+    #[serde(rename = "statusCode")]
+    status_code: u16,
+    #[serde(rename = "remoteHostname")]
+    remote_hostname: Option<String>,
+    #[serde(rename = "remoteIp")]
+    remote_ip: Option<String>,
+    country: Option<String>,
+    classification: Option<String>,
+    #[serde(rename = "timeElapsed")]
+    time_elapsed: Option<f64>,
+    #[serde(rename = "userAgent")]
+    user_agent: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+struct HoneypotRequestsResponse {
+    total: u64,
+    rows: Vec<HoneypotRequest>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct HoneypotRequestsQuery {
+    #[serde(default)]
+    limit: Option<u64>,
+    #[serde(default)]
+    offset: Option<u64>,
+    #[serde(default)]
+    method: Option<String>,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    ip: Option<String>,
+    #[serde(default)]
+    classification: Option<String>,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -1362,6 +1445,8 @@ struct HoneypotNodeStats {
     requests_24h: Vec<MetricPoint>,
     #[serde(default)]
     requests_7d: Vec<MetricPoint>,
+    #[serde(default)]
+    recent_requests: Vec<HoneypotRecentRequest>,
     refreshed_at_epoch: u64,
     error: Option<String>,
 }
@@ -3264,6 +3349,41 @@ impl PrometheusMonitor {
             nodes,
         }
     }
+
+    pub(crate) async fn fetch_honeypot_requests(
+        &self,
+        query: &HoneypotRequestsQuery,
+    ) -> HoneypotRequestsResponse {
+        let specs: Vec<&ExternalNodeSpec> = external_node_specs()
+            .iter()
+            .filter(|spec| spec.honeypot)
+            .collect();
+
+        if let Some(spec) = specs.first() {
+            let client = match Client::builder()
+                .timeout(Duration::from_secs(8))
+                .danger_accept_invalid_certs(true)
+                .build()
+            {
+                Ok(client) => client,
+                Err(_) => return HoneypotRequestsResponse::default(),
+            };
+
+            let path = "/internal/threats-all";
+            let url = honeypot_api_url(spec, path);
+
+            if let Ok(response) = client.get(&url).query(query).send().await {
+                if response.status().is_success() {
+                    return response
+                        .json::<HoneypotRequestsResponse>()
+                        .await
+                        .unwrap_or_default();
+                }
+            }
+        }
+
+        HoneypotRequestsResponse::default()
+    }
 }
 
 async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> HoneypotNodeStats {
@@ -3279,10 +3399,12 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
         .unwrap_or("/internal/threats-timeseries");
     let summary_url = honeypot_api_url(spec, summary_path);
     let timeseries_url = honeypot_api_url(spec, timeseries_path);
+    let recent_url = honeypot_api_url(spec, "/internal/threats-recent");
 
-    let (summary_result, timeseries_result) = tokio::join!(
+    let (summary_result, timeseries_result, recent_result) = tokio::join!(
         client.get(&summary_url).send(),
         client.get(&timeseries_url).send(),
+        client.get(&recent_url).send(),
     );
 
     let timeseries = match timeseries_result {
@@ -3291,6 +3413,14 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
             .await
             .unwrap_or_default(),
         _ => QdbbackThreatTimeseries::default(),
+    };
+
+    let recent_requests = match recent_result {
+        Ok(response) if response.status().is_success() => response
+            .json::<Vec<HoneypotRecentRequest>>()
+            .await
+            .unwrap_or_default(),
+        _ => vec![],
     };
 
     match summary_result {
@@ -3315,6 +3445,7 @@ async fn fetch_honeypot_node(client: &Client, spec: &ExternalNodeSpec) -> Honeyp
                     top_tags: summary.top_tags,
                     requests_24h: timeseries.requests_24h,
                     requests_7d: timeseries.requests_7d,
+                    recent_requests,
                     refreshed_at_epoch: unix_epoch_seconds(),
                     error: None,
                 },

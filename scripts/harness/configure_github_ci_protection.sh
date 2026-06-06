@@ -100,6 +100,8 @@ else
 fi
 
 log "✓ Branch protection + webhook configurados"
+log "⚠️  UFW SSDNodes: aplicar allowlist GitHub hooks (T-345):"
+log "   bash oci-k8s-cluster/scripts/hardening/ufw_manager.sh --host ssdnodes-6a12f10c9ef11 --apply"
 log "⚠️  Salve GITHUB_WEBHOOK_SECRET no Jenkins Secret (github-webhook-secret):"
 log "   export GITHUB_WEBHOOK_SECRET='${WEBHOOK_SECRET}'"
 log "   bash oci-k8s-cluster/scripts/ssdnodes/setup_jenkins_ci_jobs.sh --update-home-creds"

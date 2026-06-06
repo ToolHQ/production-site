@@ -4,7 +4,8 @@ Workloads para o cluster K8s do servidor SSDNodes (x86_64, 12 vCPU / 60 GB RAM /
 
 **Hostname canônico**: `ssdnodes-6a12f10c9ef11`  
 **Kubeconfig**: `~/.kube/ssdnodes.yaml`  
-**IP público**: `104.225.218.78`
+**IP público**: `104.225.218.78`  
+**Hostname Canônico (SSH)**: `ssdnodes-6a12f10c9ef11` (alias configurado em `~/.ssh/config`)
 
 SSH (T-331):
 
@@ -21,6 +22,7 @@ Alias legado `ssdnodes-monstro` permanece no snippet apenas para compatibilidade
 |-------|-----------|
 | 22/tcp | Mundo (safety net) + fail2ban recomendado |
 | 80/443 | ADMIN + INGRESS IPs + Tailscale `100.64.0.0/10` |
+| 443 | GitHub webhook CIDRs (`github-webhook-ip-ranges.txt`) → Jenkins `/github-webhook/` (T-345) |
 | 6443 | ADMIN only |
 | 9100 | IPs OCI (Prometheus scrape) |
 | 8443 | ADMIN + INGRESS + Tailscale (fleet-ops-gateway) |

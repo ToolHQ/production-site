@@ -105,6 +105,17 @@ else
   bad "Plugin pipeline-stage-view ausente"
 fi
 
+# ─── GitHub webhook endpoint (T-345) ─────────────────────────────────────────
+if wh_code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 -X POST "$JENKINS_URL/github-webhook/" 2>/dev/null); then
+  if [[ "$wh_code" =~ ^(400|403|405)$ ]]; then
+    ok "Jenkins /github-webhook/ alcançável ($wh_code — Jenkins respondeu)"
+  else
+    bad "Jenkins /github-webhook/ HTTP $wh_code (esperado 400/403 — UFW ou ingress?)"
+  fi
+else
+  bad "Jenkins /github-webhook/ indisponível (502/timeout — verificar UFW github-webhook-ip-ranges.txt)"
+fi
+
 if [[ "$FAIL" -eq 0 ]]; then
   echo "PASS validate_ssdnodes_ci"
   exit 0

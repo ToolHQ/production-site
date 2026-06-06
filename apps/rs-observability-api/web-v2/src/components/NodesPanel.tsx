@@ -719,6 +719,123 @@ function HoneypotThreatsCard({ stats, period }: HoneypotThreatsCardProps) {
       ) : (
         <p class="honeypot-hero__error">{stats.error ?? 'Honeypot metrics unavailable'}</p>
       )}
+
+      {stats.recent_requests && stats.recent_requests.length > 0 && (
+        <div class="honeypot-hero__threat-table-wrapper" style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 179, 71, 0.15)', paddingTop: '1rem', marginLeft: '5rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <a href="#threats" style={{ fontSize: '0.75rem', color: '#ffb347', textDecoration: 'none', border: '1px solid rgba(255, 179, 71, 0.3)', padding: '0.4rem 1rem', borderRadius: '4px', background: 'rgba(255, 179, 71, 0.05)', fontWeight: 600, display: 'inline-block', transition: 'all 0.2s' }}>Ver Todas as Ameaças →</a>
+        </div>
+      )}
+    </article>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// Fail2BanCard — featured Fail2Ban stats for SSDNodes
+// ────────────────────────────────────────────────────────────
+
+function ShieldIcon() {
+  return (
+    <div class="honeypot-hero__radar" aria-hidden="true">
+      <svg viewBox="0 0 120 120" class="honeypot-hero__radar-svg">
+        <circle cx="60" cy="60" r="52" class="honeypot-hero__ring honeypot-hero__ring--3" />
+        <circle cx="60" cy="60" r="38" class="honeypot-hero__ring honeypot-hero__ring--2" />
+        <circle cx="60" cy="60" r="24" class="honeypot-hero__ring honeypot-hero__ring--1" />
+        <line x1="60" y1="8" x2="60" y2="112" class="honeypot-hero__cross" />
+        <line x1="8" y1="60" x2="112" y2="60" class="honeypot-hero__cross" />
+        <path
+          d="M60 20 L90 35 L90 65 C90 85 75 100 60 105 C45 100 30 85 30 65 L30 35 Z"
+          fill="rgba(255, 60, 60, 0.15)"
+          stroke="#ff3c3c"
+          stroke-width="2"
+        />
+        <text x="60" y="65" text-anchor="middle" font-size="28" fill="#ff3c3c">
+          🛡️
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function Fail2BanCard({ stats }: { stats: import('../types/api').Fail2BanStats }) {
+  const topIps = stats.banned_ip_details?.slice(0, 5) || [];
+  const sparkSeed = stats.total + stats.failed * 97;
+
+  return (
+    <article class="honeypot-hero">
+      <ShieldIcon />
+
+      <div class="honeypot-hero__body">
+        <div class="honeypot-hero__heading">
+          <h3 class="honeypot-hero__title">
+            Fail2Ban Shield
+            <span class="honeypot-hero__env-badge">SSD-NODES</span>
+          </h3>
+          <p class="honeypot-hero__desc">
+            Local protection against brute force attacks on exposed SSH ports.
+          </p>
+        </div>
+        <div class="honeypot-hero__host-row">
+          <code class="honeypot-hero__host">104.225.218.78</code>
+          <CopyHostButton value="104.225.218.78" />
+        </div>
+      </div>
+
+      <div class="honeypot-hero__metrics">
+        <div class="honeypot-hero__metric">
+          <span class="honeypot-hero__metric-label">Total Banned</span>
+          <span class="honeypot-hero__metric-value">{stats.total.toLocaleString()}</span>
+          <HoneypotBarSparkline seed={sparkSeed} color="#ff3c3c" />
+        </div>
+        <div class="honeypot-hero__metric">
+          <span class="honeypot-hero__metric-label">Currently Failed</span>
+          <span class="honeypot-hero__metric-value">{stats.failed.toLocaleString()}</span>
+          <HoneypotBarSparkline seed={sparkSeed + 17} color="#ff8888" />
+        </div>
+        <div class="honeypot-hero__metric honeypot-hero__metric--classified">
+          <span class="honeypot-hero__metric-label">Status</span>
+          <span class="honeypot-hero__classified-badge honeypot-hero__classified-badge--yes" style="background: rgba(255, 60, 60, 0.2); color: #ff8888; border-color: rgba(255, 60, 60, 0.3);">
+            Active
+          </span>
+          <span class="honeypot-hero__classified-sub">
+            Protecting port 22
+          </span>
+        </div>
+      </div>
+
+      {topIps.length > 0 && (
+        <div class="honeypot-hero__threat-table-wrapper" style={{ marginTop: '1rem', borderTop: '1px solid rgba(255, 60, 60, 0.15)', paddingTop: '1rem', marginLeft: '5rem' }}>
+          <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#ff8888', marginBottom: '0.75rem', letterSpacing: '0.05em', fontWeight: 600 }}>Recent Threat Actors</h4>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ color: 'rgba(255, 255, 255, 0.5)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>IP Address</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Hits</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Duration</th>
+                <th style={{ padding: '0.5rem 0', fontWeight: 500 }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topIps.map(ip => {
+                const durationMins = Math.round(((ip.last_seen || 0) - (ip.first_seen || 0)) / 60);
+                const isAggressive = (ip.hits || 0) > 10;
+                const isBanned = Array.isArray(ip.statuses) && (ip.statuses.includes('banned') || ip.statuses.includes('ban'));
+                return (
+                  <tr key={ip.ip} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                    <td style={{ padding: '0.5rem 0', fontFamily: 'var(--font-mono)', color: '#e2e8f0' }}>{ip.ip}</td>
+                    <td style={{ padding: '0.5rem 0', color: isAggressive ? '#ff3c3c' : '#ff8888', fontWeight: isAggressive ? 600 : 400 }}>{ip.hits}</td>
+                    <td style={{ padding: '0.5rem 0', color: '#94a3b8' }}>{durationMins > 0 ? `${durationMins}m` : '<1m'}</td>
+                    <td style={{ padding: '0.5rem 0' }}>
+                      <span class="honeypot-hero__tag" style={{ background: isBanned ? 'rgba(255, 60, 60, 0.15)' : 'rgba(255, 136, 136, 0.1)', borderColor: isBanned ? 'rgba(255, 60, 60, 0.3)' : 'rgba(255, 60, 60, 0.15)', color: isBanned ? '#ff8888' : '#e2e8f0' }}>
+                        {isBanned ? 'Banned' : 'Failed'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </article>
   );
 }
@@ -897,11 +1014,14 @@ export function NodesPanel({ live, history }: NodesPanelProps) {
         </div>
       )}
 
-      {honeypotNodes.length > 0 && (
+      {(honeypotNodes.length > 0 || live?.fail2ban) && (
         <div class="honeypot-hero-panel">
           {honeypotNodes.map((stats) => (
             <HoneypotThreatsCard key={stats.id} stats={stats} period={period} />
           ))}
+          {live?.fail2ban && (
+            <Fail2BanCard stats={live.fail2ban} />
+          )}
         </div>
       )}
 

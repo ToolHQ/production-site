@@ -1,6 +1,6 @@
 # T-309: OCI ingress LoadBalancer pending decisão arquitetural
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 4h

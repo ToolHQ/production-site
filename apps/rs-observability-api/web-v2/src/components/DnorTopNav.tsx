@@ -12,6 +12,7 @@ const NAV_ITEMS: { id: DnorView; label: string }[] = [
   { id: 'nodes', label: 'Nós' },
   { id: 'incidents', label: 'Incidentes' },
   { id: 'reports', label: 'Relatórios' },
+  { id: 'threats', label: 'Ameaças' },
   { id: 'intel', label: 'Intel' },
   { id: 'settings', label: 'Config' },
 ];

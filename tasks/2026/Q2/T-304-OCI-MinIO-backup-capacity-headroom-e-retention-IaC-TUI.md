@@ -1,6 +1,6 @@
 # T-304: OCI MinIO backup capacity headroom e retention IaC/TUI
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d

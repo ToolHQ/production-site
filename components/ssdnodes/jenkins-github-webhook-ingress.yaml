@@ -1,0 +1,35 @@
+---
+# Ingress dedicado ao webhook GitHub → Jenkins (T-345)
+# O path /github-webhook/ também funciona via jenkins-ingress.yaml;
+# este manifest documenta o endpoint e permite allowlist nginx (defense in depth).
+#
+# Bloqueio real de 502: UFW no host — ver github-webhook-ip-ranges.txt + ufw_manager.sh
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins-github-webhook
+  namespace: jenkins
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    # Allowlist GitHub hooks — CIDRs em github-webhook-ip-ranges.txt (atualizar manualmente se drift)
+    nginx.ingress.kubernetes.io/whitelist-source-range: "192.30.252.0/22,185.199.108.0/22,140.82.112.0/20,143.55.64.0/20"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - jenkins.ssdnodes.dnor.io
+      secretName: jenkins-tls
+  rules:
+    - host: jenkins.ssdnodes.dnor.io
+      http:
+        paths:
+          - path: /github-webhook/
+            pathType: Prefix
+            backend:
+              service:
+                name: jenkins
+                port:
+                  number: 8080

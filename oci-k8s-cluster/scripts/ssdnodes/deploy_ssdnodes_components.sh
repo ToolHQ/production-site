@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy_ssdnodes_components.sh
-# Deploy de componentes adicionais no ssdnodes-monstro via Helm.
+# Deploy de componentes adicionais no ssdnodes-6a12f10c9ef11 via Helm.
 # Chamado pela TUI (k8s_ops_menu.sh) — não executar manualmente.
 #
 # Uso: deploy_ssdnodes_components.sh [dashboard|kubecost|sonarqube|jenkins|ci-platform|ci-status|fleet-copilot|all|status]
