@@ -42,6 +42,8 @@ if [[ ! -f sonar-project.properties ]]; then
 fi
 
 sonar-scanner \
+	-Dsonar.scanner.skipJreProvisioning=true \
+	-Dsonar.scanner.javaExePath="${JAVA_BIN}" \
 	-Dsonar.projectKey="$SONAR_PROJECT_KEY" \
 	-Dsonar.host.url="$SONAR_HOST_URL" \
 	-Dsonar.token="$SONAR_TOKEN"
