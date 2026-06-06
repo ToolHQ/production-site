@@ -262,7 +262,7 @@ async fn honeypot_requests(
 ) -> Response {
     let response = state
         .prometheus_monitor
-        .fetch_honeypot_requests(query.limit, query.offset)
+        .fetch_honeypot_requests(&query)
         .await;
 
     Json(response).into_response()

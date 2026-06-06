@@ -10,11 +10,20 @@ export interface HoneypotRequest {
   remoteIp: string | null;
   country: string | null;
   classification: string | null;
+  timeElapsed: number | null;
+  userAgent: string | null;
 }
 
 export interface HoneypotRequestsResponse {
   total: number;
   rows: HoneypotRequest[];
+}
+
+export interface HoneypotFilters {
+  method?: string;
+  path?: string;
+  ip?: string;
+  classification?: string;
 }
 
 export interface UseHoneypotRequestsResult {
@@ -24,11 +33,14 @@ export interface UseHoneypotRequestsResult {
   refresh: () => void;
 }
 
-export function useHoneypotRequests(limit: number, offset: number): UseHoneypotRequestsResult {
+export function useHoneypotRequests(limit: number, offset: number, filters?: HoneypotFilters): UseHoneypotRequestsResult {
   const [data, setData] = useState<HoneypotRequestsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [tick, setTick] = useState(0);
+
+  // We need to stringify filters for the dependency array
+  const filtersKey = JSON.stringify(filters || {});
 
   useEffect(() => {
     let mounted = true;
@@ -36,7 +48,16 @@ export function useHoneypotRequests(limit: number, offset: number): UseHoneypotR
     async function fetchRequests() {
       setLoading(true);
       try {
-        const response = await fetch(`/api/live/honeypot-requests?limit=${limit}&offset=${offset}`, { cache: 'no-store' });
+        const params = new URLSearchParams({
+          limit: limit.toString(),
+          offset: offset.toString()
+        });
+        if (filters?.method) params.append('method', filters.method);
+        if (filters?.path) params.append('path', filters.path);
+        if (filters?.ip) params.append('ip', filters.ip);
+        if (filters?.classification) params.append('classification', filters.classification);
+
+        const response = await fetch(`/api/live/honeypot-requests?${params.toString()}`, { cache: 'no-store' });
         if (!response.ok) throw new Error(`API returned HTTP ${response.status}`);
         const json: HoneypotRequestsResponse = await response.json();
         if (mounted) {
@@ -56,7 +77,7 @@ export function useHoneypotRequests(limit: number, offset: number): UseHoneypotR
 
     fetchRequests();
     return () => { mounted = false; };
-  }, [limit, offset, tick]);
+  }, [limit, offset, filtersKey, tick]);
 
   return { data, error, loading, refresh: () => setTick(t => t + 1) };
 }

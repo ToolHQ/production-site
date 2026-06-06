@@ -1,13 +1,35 @@
 import { useState } from 'preact/hooks';
 import { useHoneypotRequests } from '../hooks/useHoneypotRequests';
-import { formatRelativeTime } from '../utils/format';
+import type { HoneypotFilters } from '../hooks/useHoneypotRequests';
 
 export function ThreatsPanel() {
   const [page, setPage] = useState(0);
+  const [filters, setFilters] = useState<HoneypotFilters>({});
+  
+  // Temporary state for the filter inputs before hitting "Apply"
+  const [tempFilters, setTempFilters] = useState<HoneypotFilters>({});
+
   const limit = 50;
   const offset = page * limit;
   
-  const { data, error, loading, refresh } = useHoneypotRequests(limit, offset);
+  const { data, error, loading, refresh } = useHoneypotRequests(limit, offset, filters);
+
+  const applyFilters = () => {
+    setPage(0); // reset pagination
+    setFilters(tempFilters);
+  };
+
+  const clearFilters = () => {
+    setPage(0);
+    setTempFilters({});
+    setFilters({});
+  };
+
+  const formatExactTime = (isoString: string) => {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toISOString().replace('T', ' ').replace('Z', '');
+  };
 
   return (
     <section class="panel">
@@ -21,6 +43,57 @@ export function ThreatsPanel() {
           <button class="dnor-shell__search" onClick={refresh} disabled={loading} aria-label="Atualizar">
             {loading ? 'Carregando...' : '↻ Atualizar'}
           </button>
+        </div>
+      </div>
+
+      <div style={{ background: 'var(--color-bg-subtle)', padding: 'var(--space-md)', borderRadius: '6px', marginBottom: 'var(--space-md)', display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--color-fg-muted)' }}>Método</label>
+          <input 
+            class="dnor-shell__search" 
+            style={{ width: '80px', padding: '4px 8px' }} 
+            placeholder="Ex: POST" 
+            value={tempFilters.method || ''} 
+            onInput={(e) => setTempFilters({...tempFilters, method: (e.target as HTMLInputElement).value})}
+          />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--color-fg-muted)' }}>Path</label>
+          <input 
+            class="dnor-shell__search" 
+            style={{ width: '150px', padding: '4px 8px' }} 
+            placeholder="Ex: /wp-admin" 
+            value={tempFilters.path || ''} 
+            onInput={(e) => setTempFilters({...tempFilters, path: (e.target as HTMLInputElement).value})}
+          />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--color-fg-muted)' }}>IP</label>
+          <input 
+            class="dnor-shell__search" 
+            style={{ width: '120px', padding: '4px 8px' }} 
+            placeholder="Ex: 192.168." 
+            value={tempFilters.ip || ''} 
+            onInput={(e) => setTempFilters({...tempFilters, ip: (e.target as HTMLInputElement).value})}
+          />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--color-fg-muted)' }}>Classificação</label>
+          <select 
+            class="dnor-shell__search" 
+            style={{ padding: '4px 8px', background: 'transparent' }} 
+            value={tempFilters.classification || ''} 
+            onChange={(e) => setTempFilters({...tempFilters, classification: (e.target as HTMLSelectElement).value})}
+          >
+            <option value="">Todas</option>
+            <option value="none">Nenhuma (unknown)</option>
+            <option value="internal-route">Internal Route</option>
+            <option value="malicious">Malicious</option>
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+          <button class="dnor-shell__search" style={{ padding: '4px 12px', background: 'var(--color-bg-overlay)' }} onClick={clearFilters}>Limpar</button>
+          <button class="dnor-shell__search" style={{ padding: '4px 12px', background: 'var(--color-fg-default)', color: 'var(--color-bg-default)' }} onClick={applyFilters}>Filtrar</button>
         </div>
       </div>
 
@@ -39,38 +112,48 @@ export function ThreatsPanel() {
                 <th>Path</th>
                 <th>Status</th>
                 <th>IP</th>
+                <th>User-Agent</th>
+                <th>Latência</th>
                 <th>Classificação</th>
               </tr>
             </thead>
             <tbody>
               {!data && loading && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--space-md)' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: 'var(--space-md)' }}>
                     Buscando registros...
                   </td>
                 </tr>
               )}
               {data && data.rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--space-md)', color: 'var(--color-fg-muted)' }}>
-                    Nenhum registro encontrado.
+                  <td colSpan={8} style={{ textAlign: 'center', padding: 'var(--space-md)', color: 'var(--color-fg-muted)' }}>
+                    Nenhum registro encontrado para os filtros atuais.
                   </td>
                 </tr>
               )}
               {data && data.rows.map((row) => (
                 <tr key={row.id}>
-                  <td title={row.timestamp}>{formatRelativeTime(row.timestamp)}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85em', whiteSpace: 'nowrap' }}>
+                    {formatExactTime(row.timestamp)}
+                  </td>
                   <td>
                     <span class={`dnor-badge ${row.method === 'GET' ? 'dnor-badge--green' : row.method === 'POST' ? 'dnor-badge--blue' : 'dnor-badge--gray'}`}>
                       {row.method}
                     </span>
                   </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9em', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.path}>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9em', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.path}>
                     {row.path}
                   </td>
                   <td>{row.statusCode}</td>
-                  <td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9em' }}>
                     {row.remoteIp || '-'} {row.country ? `(${row.country})` : ''}
+                  </td>
+                  <td style={{ fontSize: '0.85em', color: 'var(--color-fg-muted)', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.userAgent || ''}>
+                    {row.userAgent || '-'}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9em' }}>
+                    {row.timeElapsed != null ? `${row.timeElapsed.toFixed(2)}ms` : '-'}
                   </td>
                   <td>
                     {row.classification ? (
@@ -89,7 +172,7 @@ export function ThreatsPanel() {
           {data && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-md)' }}>
               <span style={{ fontSize: '0.9rem', color: 'var(--color-fg-muted)' }}>
-                Mostrando {offset + 1} - {Math.min(offset + limit, data.total)} de {data.total}
+                Mostrando {data.total > 0 ? offset + 1 : 0} - {Math.min(offset + limit, data.total)} de {data.total}
               </span>
               <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
                 <button 
