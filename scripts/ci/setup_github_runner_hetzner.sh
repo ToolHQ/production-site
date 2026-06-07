@@ -76,6 +76,19 @@ if ! id -u "$RUNNER_USER" >/dev/null 2>&1; then
   useradd --create-home --home-dir "$RUNNER_HOME" --shell /bin/bash "$RUNNER_USER"
 fi
 
+# Docker access (required for container-based CI jobs)
+if getent group docker >/dev/null 2>&1; then
+  usermod -aG docker "$RUNNER_USER"
+  echo "[info] usuario $RUNNER_USER adicionado ao grupo docker"
+fi
+
+# Passwordless sudo (required for apt-get install in workflows)
+if [[ ! -f "/etc/sudoers.d/$RUNNER_USER" ]]; then
+  echo "$RUNNER_USER ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$RUNNER_USER"
+  chmod 440 "/etc/sudoers.d/$RUNNER_USER"
+  echo "[info] sudoers NOPASSWD configurado para $RUNNER_USER"
+fi
+
 mkdir -p "$RUNNER_HOME"
 chown -R "$RUNNER_USER":"$RUNNER_USER" "$RUNNER_HOME"
 
