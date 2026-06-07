@@ -113,6 +113,54 @@ show_cursor_launch_instructions() {
     echo ""
 }
 
+install_wrapper() {
+    local bin_dir="$HOME/.local/bin"
+    mkdir -p "$bin_dir"
+    local wrapper="$bin_dir/cursor-metered"
+    ln -sf "$SCRIPT_DIR/cursor-metered" "$wrapper"
+    chmod +x "$SCRIPT_DIR/cursor-metered"
+    info "cursor-metered → $wrapper"
+    if ! echo "$PATH" | grep -q "$bin_dir"; then
+        warn "Adicione ~/.local/bin ao PATH:"
+        warn '  echo '"'"'export PATH="$HOME/.local/bin:$PATH"'"'"' >> ~/.bashrc'
+    fi
+}
+
+install_systemd_service() {
+    if ! command -v systemctl &>/dev/null; then
+        warn "systemd não disponível, pulando serviço automático"
+        return
+    fi
+
+    local service_dir="$HOME/.config/systemd/user"
+    local service_src="$SCRIPT_DIR/cursor-proxy.service"
+    mkdir -p "$service_dir"
+
+    # Resolve caminho real do mitmdump
+    local mitmdump_path
+    mitmdump_path=$(command -v mitmdump 2>/dev/null || echo "")
+    if [[ -z "$mitmdump_path" ]]; then
+        warn "mitmdump não encontrado — serviço systemd não instalado"
+        warn "Instale: pip install mitmproxy"
+        return
+    fi
+
+    # Adapta o service com o path real
+    sed "s|%h/.local/bin/mitmdump|$mitmdump_path|g; \
+         s|%h/production-site|$HOME/production-site|g" \
+        "$service_src" > "$service_dir/cursor-proxy.service"
+
+    systemctl --user daemon-reload
+    systemctl --user enable cursor-proxy.service
+    systemctl --user start cursor-proxy.service
+
+    if systemctl --user is-active --quiet cursor-proxy.service; then
+        info "Serviço cursor-proxy.service ativo (auto-start habilitado)"
+    else
+        warn "Serviço instalado mas não iniciou — verifique: journalctl --user -u cursor-proxy"
+    fi
+}
+
 setup() {
     step "First-time setup for Cursor interceptor..."
     setup_ca
@@ -123,8 +171,20 @@ setup() {
         install_ca_linux
     fi
 
-    show_cursor_launch_instructions
-    info "Setup complete! Run '$0' to start the proxy."
+    install_wrapper
+    install_systemd_service
+
+    echo ""
+    info "Setup completo!"
+    echo ""
+    echo "  Use agora:"
+    echo "    cursor-metered .          # abre Cursor com telemetria"
+    echo "    cursor-metered --status   # status do proxy"
+    echo "    cursor-metered --logs     # tail do log"
+    echo ""
+    echo "  Dashboard:"
+    echo "    https://agent-meter.dnor.io/conversations"
+    echo ""
 }
 
 # ─── Start ───────────────────────────────────────────────────────────────────

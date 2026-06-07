@@ -26,6 +26,7 @@ import os
 import re
 import time
 import threading
+from typing import Optional
 import httpx
 from mitmproxy import http, ctx
 
@@ -100,12 +101,33 @@ def is_llm_call(flow: http.HTTPFlow) -> bool:
     return any(p in path for p in LLM_PATHS)
 
 
-def extract_session_id(flow: http.HTTPFlow) -> str | None:
+# Real Cursor headers (observed from Cursor 0.43+):
+#   x-cursor-checksum     — per-model-request hash (not stable across turns)
+#   x-cursor-client-version — e.g. "0.43.5"
+#   x-cursor-timezone     — e.g. "America/Sao_Paulo"
+#   x-ghost-mode          — "true" / "false"
+# Session stability: Cursor does NOT send a persistent session header for
+# the conversation — we derive it from the auth token prefix (stable per login)
+# or fall back to grouping by idle-window.
+def extract_session_id(flow: http.HTTPFlow) -> Optional[str]:
     headers = flow.request.headers
-    for key in ("x-session-id", "x-cursor-session", "x-cursor-checksum",
-                "vscode-sessionid", "x-request-id", "anthropic-session-id"):
+    # Prefer explicit session headers (some Cursor builds send these)
+    for key in ("x-session-id", "x-cursor-session", "vscode-sessionid"):
         if key in headers:
             return headers[key]
+    # Use Bearer token prefix as stable session key (first 16 chars of token)
+    auth = headers.get("authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:]
+        # Strip JWT prefix if present — use first 16 chars of stable part
+        parts = token.split(".")
+        stable = parts[0][:16] if parts else token[:16]
+        if stable:
+            return f"cursor-{stable}"
+    # Last resort: x-request-id changes per call, but we use it scoped to
+    # the idle-window logic so grouping still works
+    if "x-request-id" in headers:
+        return headers["x-request-id"]
     return None
 
 

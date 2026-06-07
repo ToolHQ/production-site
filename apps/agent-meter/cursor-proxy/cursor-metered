@@ -1,0 +1,187 @@
+#!/bin/bash
+# cursor-metered — Abre o Cursor com telemetria via agent-meter
+#
+# Uso simples:
+#   cursor-metered           → abre Cursor no diretório atual
+#   cursor-metered /path     → abre Cursor no path especificado
+#   cursor-metered --status  → mostra status do proxy
+#   cursor-metered --stop    → para o proxy em background
+#
+# Setup único (primeira vez):
+#   cd ~/production-site/apps/agent-meter/cursor-proxy
+#   ./start_proxy.sh --setup
+#
+# Depois disso, só usar cursor-metered no lugar de cursor.
+
+set -euo pipefail
+
+PROXY_PORT="${CURSOR_PROXY_PORT:-8898}"
+MITMPROXY_CA="${HOME}/.mitmproxy/mitmproxy-ca-cert.pem"
+PROXY_URL="http://127.0.0.1:${PROXY_PORT}"
+PROXY_PID_FILE="${XDG_RUNTIME_DIR:-/tmp}/cursor-proxy.pid"
+PROXY_LOG_FILE="${HOME}/.local/share/cursor-proxy/proxy.log"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTERCEPTOR="$SCRIPT_DIR/cursor_interceptor.py"
+
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+info()  { echo -e "${GREEN}[✓]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
+error() { echo -e "${RED}[✗]${NC} $*" >&2; }
+
+# ─── Verifica se proxy está rodando ─────────────────────────────────────────
+
+proxy_running() {
+    if [[ -f "$PROXY_PID_FILE" ]]; then
+        local pid
+        pid=$(cat "$PROXY_PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            return 0
+        fi
+        rm -f "$PROXY_PID_FILE"
+    fi
+    # Também testa via socket
+    ss -tlnp 2>/dev/null | grep -q ":${PROXY_PORT}" && return 0
+    return 1
+}
+
+# ─── Inicia proxy em background se não estiver rodando ──────────────────────
+
+ensure_proxy() {
+    if proxy_running; then
+        return 0
+    fi
+
+    if [[ ! -f "$MITMPROXY_CA" ]]; then
+        error "CA cert não encontrado em $MITMPROXY_CA"
+        error "Execute: $SCRIPT_DIR/start_proxy.sh --setup"
+        exit 1
+    fi
+
+    if ! command -v mitmdump &>/dev/null; then
+        error "mitmdump não encontrado. Instale: pip install mitmproxy"
+        exit 1
+    fi
+
+    info "Iniciando cursor-proxy em background (porta $PROXY_PORT)..."
+    mkdir -p "$(dirname "$PROXY_LOG_FILE")"
+
+    nohup mitmdump \
+        --listen-host 127.0.0.1 \
+        --listen-port "$PROXY_PORT" \
+        --set confdir="${HOME}/.mitmproxy" \
+        --set ssl_insecure=true \
+        --set termlog_verbosity=warn \
+        -s "$INTERCEPTOR" \
+        >> "$PROXY_LOG_FILE" 2>&1 &
+
+    local pid=$!
+    echo "$pid" > "$PROXY_PID_FILE"
+
+    # Aguarda proxy subir (max 5s)
+    local i=0
+    while ! ss -tlnp 2>/dev/null | grep -q ":${PROXY_PORT}"; do
+        sleep 0.5
+        ((i++))
+        if ((i >= 10)); then
+            error "Proxy não subiu em 5s. Verifique: $PROXY_LOG_FILE"
+            exit 1
+        fi
+    done
+
+    info "cursor-proxy ativo (PID $pid) → $PROXY_URL"
+}
+
+# ─── Status ─────────────────────────────────────────────────────────────────
+
+cmd_status() {
+    echo ""
+    if proxy_running; then
+        local pid=""
+        [[ -f "$PROXY_PID_FILE" ]] && pid=" (PID $(cat "$PROXY_PID_FILE"))"
+        info "Proxy ATIVO${pid} em $PROXY_URL"
+    else
+        warn "Proxy NÃO está rodando"
+    fi
+    echo "  CA cert:   $MITMPROXY_CA"
+    echo "  Log:       $PROXY_LOG_FILE"
+    echo "  Interceptor: $INTERCEPTOR"
+    echo "  Dashboard: https://agent-meter.dnor.io/conversations"
+    echo ""
+
+    if [[ -f "$PROXY_LOG_FILE" ]]; then
+        echo "─── Últimas linhas do log ─────────────────────────────────"
+        tail -10 "$PROXY_LOG_FILE"
+        echo ""
+    fi
+}
+
+# ─── Stop ────────────────────────────────────────────────────────────────────
+
+cmd_stop() {
+    if [[ -f "$PROXY_PID_FILE" ]]; then
+        local pid
+        pid=$(cat "$PROXY_PID_FILE")
+        if kill "$pid" 2>/dev/null; then
+            info "Proxy parado (PID $pid)"
+        else
+            warn "PID $pid não encontrado"
+        fi
+        rm -f "$PROXY_PID_FILE"
+    else
+        # Mata por porta
+        local pid
+        pid=$(ss -tlnp 2>/dev/null | grep ":${PROXY_PORT}" | grep -oP 'pid=\K[0-9]+' | head -1 || true)
+        if [[ -n "$pid" ]]; then
+            kill "$pid" && info "Proxy parado (PID $pid)"
+        else
+            warn "Nenhum proxy encontrado na porta $PROXY_PORT"
+        fi
+    fi
+}
+
+# ─── Tail do log ────────────────────────────────────────────────────────────
+
+cmd_logs() {
+    if [[ ! -f "$PROXY_LOG_FILE" ]]; then
+        warn "Log não encontrado: $PROXY_LOG_FILE"
+        exit 0
+    fi
+    exec tail -f "$PROXY_LOG_FILE"
+}
+
+# ─── Main ───────────────────────────────────────────────────────────────────
+
+case "${1:-}" in
+    --status|-s)  cmd_status; exit 0 ;;
+    --stop)       cmd_stop;   exit 0 ;;
+    --logs|-l)    cmd_logs;   exit 0 ;;
+    --help|-h)
+        echo "Uso: cursor-metered [OPÇÃO | PATH]"
+        echo ""
+        echo "  cursor-metered            Abre Cursor no dir atual com telemetria"
+        echo "  cursor-metered /path      Abre Cursor no path especificado"
+        echo "  cursor-metered --status   Status do proxy"
+        echo "  cursor-metered --stop     Para o proxy"
+        echo "  cursor-metered --logs     Tail do log do proxy"
+        exit 0
+        ;;
+esac
+
+# Garantir proxy ativo
+ensure_proxy
+
+# Abrir Cursor com proxy configurado
+TARGET="${1:-.}"
+info "Abrindo Cursor em: $TARGET"
+info "Dashboard: https://agent-meter.dnor.io/conversations"
+
+exec env \
+    HTTPS_PROXY="$PROXY_URL" \
+    HTTP_PROXY="$PROXY_URL" \
+    NODE_EXTRA_CA_CERTS="$MITMPROXY_CA" \
+    cursor "$TARGET"
