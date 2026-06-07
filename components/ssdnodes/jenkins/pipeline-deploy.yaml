@@ -1,0 +1,15 @@
+# pipeline-deploy.yaml — deploy pontual via citools (T-348)
+# Parâmetros Jenkins: APP, TARGET, DRY_RUN
+
+version: 1
+name: deploy-apps
+
+stages:
+  - id: deploy-plan
+    stageName: Plan deploy
+    run: citools deploy plan --app "${APP}" --target "${TARGET}"
+
+  - id: deploy-run
+    stageName: Deploy
+    when: env:CITOOLS_DEPLOY_EXECUTE
+    run: citools deploy run --app "${APP}" --target "${TARGET}"

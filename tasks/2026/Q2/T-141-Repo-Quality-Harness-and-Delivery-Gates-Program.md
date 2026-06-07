@@ -45,7 +45,8 @@ Como o cluster e a operação seguem a filosofia `Stability First`, o programa p
 
 ## Não objetivos nesta fase
 
-- implantar SonarQube, Codecov ou plataforma analítica pesada
+- implantar SonarCloud/Codecov SaaS ou plataforma analítica **paga**
+- _(rescope T-341)_ SonarQube **CE self-hosted** no SSDNodes é permitido via [ADR-jenkins-sonarqube-colocation.md](../../components/ssdnodes/ADR-jenkins-sonarqube-colocation.md) — complementa o harness, não substitui gates leves
 - criar suíte browser E2E completa para todo o sistema
 - impor cobertura global do monorepo como gate inicial
 - executar deploy real em cluster em toda alteração trivial de código

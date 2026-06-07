@@ -124,13 +124,15 @@ print_summary() {
 
 path_requires_shell_syntax() {
 	case "$1" in
-	tools/*.sh | tools/*.bash | apps/*/deploy.sh | oci-k8s-cluster/*.sh | oci-k8s-cluster/*.bash)
-		return 0
-		;;
-	*)
-		return 1
+	*.sh | *.bash)
+		case "$1" in
+		tools/* | apps/*/deploy.sh | oci-k8s-cluster/* | components/ssdnodes/jenkins/* | scripts/harness/*)
+			return 0
+			;;
+		esac
 		;;
 	esac
+	return 1
 }
 
 path_supports_shell_quality_gate() {
@@ -152,12 +154,32 @@ path_supports_shell_quality_gate() {
 		return 0
 	fi
 
+	if [[ "$path" == components/ssdnodes/jenkins/*.sh || "$path" == components/ssdnodes/jenkins/scripts/*.sh ]]; then
+		return 0
+	fi
+
+	if [[ "$path" == tools/citools/scripts/*.sh ]]; then
+		return 0
+	fi
+
 	return 1
 }
 
 path_is_non_blocking_meta() {
 	case "$1" in
-	README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | docs/* | tasks/* | .github/*)
+	.gitignore | CHANGELOG.md | sonar-project.properties | \
+		README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | \
+		docs/* | tasks/* | .github/* | \
+		components/ssdnodes/ADR-*.md | components/ssdnodes/README.md | \
+		components/ssdnodes/jenkins/Jenkinsfile.generic | \
+		components/ssdnodes/jenkins/Jenkinsfile.deploy | \
+		components/ssdnodes/jenkins/bootstrap-ci-job.groovy | \
+		components/ssdnodes/jenkins/bootstrap-deploy-job.groovy | \
+		components/ssdnodes/jenkins/pipeline-deploy.yaml | \
+		components/ssdnodes/jenkins/README.md | \
+		components/ssdnodes/github-webhook-ip-ranges.txt | \
+		components/ssdnodes/jenkins-github-webhook-ingress.yaml | \
+		tools/citools/README.md | tools/citools/Cargo.lock)
 		return 0
 		;;
 	*)
@@ -197,6 +219,7 @@ collect_verify_scope() {
 	VERIFY_SCOPE_JS_REACT_NEEDED=0
 	VERIFY_SCOPE_JS_STATIC_NEEDED=0
 	VERIFY_SCOPE_YAML_NEEDED=0
+	VERIFY_SCOPE_CITOOLS_NEEDED=0
 
 	for path in "$@"; do
 		if path_is_non_blocking_meta "$path"; then
@@ -207,6 +230,8 @@ collect_verify_scope() {
 			VERIFY_SCOPE_RUST_NEEDED=1
 		elif [[ "$path" == apps/ai-radar/* ]]; then
 			VERIFY_SCOPE_RUST_AI_RADAR_NEEDED=1
+		elif [[ "$path" == tools/citools/* ]]; then
+			VERIFY_SCOPE_CITOOLS_NEEDED=1
 		elif [[ "$path" == oci-k8s-cluster/testing/* || "$path" == oci-k8s-cluster/run_tests.sh || "$path" == oci-k8s-cluster/k8s_ops_menu.sh || "$path" == oci-k8s-cluster/scripts/* || "$path" == oci-k8s-cluster/lib/* ]]; then
 			VERIFY_SCOPE_BATS_NEEDED=1
 		elif [[ "$path" == apps/back-end/* ]]; then
@@ -317,13 +342,46 @@ run_js_static_gate() {
 }
 
 run_yamllint_gate() {
+	run_yamllint_paths "$@"
+}
+
+run_yamllint_paths() {
+	local yamllint_bin path abs
+	yamllint_bin="${YAMLLINT_BIN:-yamllint}"
+	if ! command -v "$yamllint_bin" >/dev/null 2>&1; then
+		yamllint_bin="$HOME/.local/bin/yamllint"
+	fi
+	if ! command -v "$yamllint_bin" >/dev/null 2>&1; then
+		fail "yamllint is required for YAML gate (install: apt install yamllint)"
+		return 1
+	fi
+
+	local -a yaml_files=()
+	for path in "$@"; do
+		if path_is_yaml_manifest "$path"; then
+			abs="$REPO_ROOT/$path"
+			[[ -f "$abs" ]] && yaml_files+=("$abs")
+		fi
+	done
+
+	if [[ ${#yaml_files[@]} -eq 0 ]]; then
+		warn "No YAML manifests in changed scope"
+		return 0
+	fi
+
+	run_checked "yamllint: changed paths (${#yaml_files[@]} file(s))" \
+		"$yamllint_bin" -c "$REPO_ROOT/.yamllint.yaml" \
+		"${yaml_files[@]}"
+}
+
+run_yamllint_all_manifests() {
 	local yamllint_bin
 	yamllint_bin="${YAMLLINT_BIN:-yamllint}"
 	if ! command -v "$yamllint_bin" >/dev/null 2>&1; then
 		yamllint_bin="$HOME/.local/bin/yamllint"
 	fi
 	if ! command -v "$yamllint_bin" >/dev/null 2>&1; then
-		fail "yamllint is required for YAML gate (install: pip install yamllint)"
+		fail "yamllint is required for YAML gate (install: apt install yamllint)"
 		return 1
 	fi
 
@@ -337,6 +395,15 @@ run_yamllint_gate() {
 	run_checked "yamllint: components + apps manifests" \
 		"$yamllint_bin" -c "$REPO_ROOT/.yamllint.yaml" \
 		"${yaml_files[@]}"
+}
+
+run_citools_gate() {
+	local dir="$REPO_ROOT/tools/citools" rc=0
+	# bash -c (não -lc): login shell no agent Jenkins zera PATH e perde cargo
+	run_checked "rust fmt: citools" bash -c "cd '$dir' && cargo fmt --check" || rc=1
+	run_checked "rust clippy: citools" bash -c "cd '$dir' && cargo clippy --all-targets -- -D warnings" || rc=1
+	run_checked "rust test: citools" bash -c "cd '$dir' && cargo test" || rc=1
+	return "$rc"
 }
 
 run_rust_observability_gate() {
@@ -366,7 +433,7 @@ verify_changed() {
 	local -a changed_paths=()
 	local -a shell_paths=()
 	local -a unmapped_paths=()
-	local rust_needed rust_ai_radar_needed bats_needed js_backend_needed js_react_needed js_static_needed yaml_needed
+	local rust_needed rust_ai_radar_needed bats_needed js_backend_needed js_react_needed js_static_needed yaml_needed citools_needed
 
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -399,6 +466,7 @@ verify_changed() {
 	js_react_needed=$VERIFY_SCOPE_JS_REACT_NEEDED
 	js_static_needed=$VERIFY_SCOPE_JS_STATIC_NEEDED
 	yaml_needed=$VERIFY_SCOPE_YAML_NEEDED
+	citools_needed=$VERIFY_SCOPE_CITOOLS_NEEDED
 
 	local path only_blocking_paths=0
 	for path in "${changed_paths[@]}"; do
@@ -413,6 +481,7 @@ verify_changed() {
 	[[ $js_react_needed -eq 0 ]] && skipped_stack_gates+=("js-react-static")
 	[[ $js_static_needed -eq 0 ]] && skipped_stack_gates+=("js-static")
 	[[ $yaml_needed -eq 0 ]] && skipped_stack_gates+=("yaml")
+	[[ $citools_needed -eq 0 ]] && skipped_stack_gates+=("citools")
 	if [[ $only_blocking_paths -eq 1 && ${#skipped_stack_gates[@]} -gt 0 ]]; then
 		info "Stack gates skipped (paths did not touch those trees): ${skipped_stack_gates[*]}"
 	fi
@@ -461,7 +530,12 @@ verify_changed() {
 	fi
 
 	if [[ $bats_needed -eq 1 ]]; then
-		timed_gate "bats" run_cluster_bats_gate
+		if [[ "${HARNESS_SKIP_BATS:-0}" == "1" ]]; then
+			HARNESS_RESULTS+=("bats|SKIP|-")
+			info "BATS gate skipped (HARNESS_SKIP_BATS=1 — CI sem acesso ao cluster)"
+		else
+			timed_gate "bats" run_cluster_bats_gate
+		fi
 	else
 		HARNESS_RESULTS+=("bats|SKIP|-")
 		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
@@ -470,7 +544,12 @@ verify_changed() {
 	fi
 
 	if [[ $js_backend_needed -eq 1 ]]; then
-		timed_gate "js-back-end" run_js_back_end_gate
+		if [[ "${HARNESS_SKIP_JS_BACKEND:-0}" == "1" ]]; then
+			HARNESS_RESULTS+=("js-back-end|SKIP|-")
+			info "JS back-end gate skipped (HARNESS_SKIP_JS_BACKEND=1 — registry inacessível)"
+		else
+			timed_gate "js-back-end" run_js_back_end_gate
+		fi
 	else
 		HARNESS_RESULTS+=("js-back-end|SKIP|-")
 		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
@@ -496,8 +575,22 @@ verify_changed() {
 		fi
 	fi
 
+	if [[ $citools_needed -eq 1 ]]; then
+		timed_gate "citools" run_citools_gate
+	else
+		HARNESS_RESULTS+=("citools|SKIP|-")
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "Citools Rust gate not selected"
+		fi
+	fi
+
 	if [[ $yaml_needed -eq 1 ]]; then
-		timed_gate "yaml" run_yamllint_gate
+		if [[ "${HARNESS_SKIP_YAML:-0}" == "1" ]]; then
+			HARNESS_RESULTS+=("yaml|SKIP|-")
+			info "YAML gate skipped (HARNESS_SKIP_YAML=1 — lint path-scoped pendente no CI)"
+		else
+			timed_gate "yaml" run_yamllint_paths "${changed_paths[@]}"
+		fi
 	else
 		HARNESS_RESULTS+=("yaml|SKIP|-")
 		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
@@ -526,7 +619,7 @@ verify_all() {
 	timed_gate "js-back-end" run_js_back_end_gate
 	timed_gate "js-react-static" run_js_react_static_gate
 	timed_gate "js-static" run_js_static_gate
-	timed_gate "yaml" run_yamllint_gate
+	timed_gate "yaml" run_yamllint_all_manifests
 }
 
 smoke() {

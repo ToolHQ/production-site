@@ -11,6 +11,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+GITHUB_WEBHOOK_IPS_FILE="${GITHUB_WEBHOOK_IPS_FILE:-$REPO_ROOT/components/ssdnodes/github-webhook-ip-ranges.txt}"
 FZF_BIN="${FZF_BIN:-/tmp/k8s_ops_fzf}"
 [[ ! -x "$FZF_BIN" ]] && FZF_BIN="$(command -v fzf 2>/dev/null || echo fzf)"
 
@@ -79,6 +81,20 @@ _head() { echo -e "\n\033[1;34m══ $* \033[0m"; }
 
 # Extrai só o IP de uma linha do array (ignora comentário após #)
 _ip() { echo "$1" | awk '{print $1}'; }
+
+# CIDRs GitHub hooks (T-345) — arquivo versionado, sync via sync_github_webhook_ips.sh
+_load_github_webhook_cidrs() {
+    local cidrs=()
+    if [[ -f "$GITHUB_WEBHOOK_IPS_FILE" ]]; then
+        while IFS= read -r line; do
+            line="${line%%#*}"
+            line="${line// /}"
+            [[ -z "$line" ]] && continue
+            cidrs+=("$line")
+        done <"$GITHUB_WEBHOOK_IPS_FILE"
+    fi
+    printf '%s\n' "${cidrs[@]}"
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Gera o script UFW completo que será executado remotamente
@@ -156,6 +172,65 @@ ufw allow from ${ip} to any port 80  comment "ingress-http" >/dev/null
 ufw allow from ${ip} to any port 443 comment "ingress-https" >/dev/null
 echo "  ✔  ${ip}  # ${comment}"
 HEREDOC_INGRESS
+    done
+
+    # Tailscale overlay: ingress HTTPS from tailnet (T-320e)
+    echo ""
+    echo "echo \"\""
+    echo "echo \"━━ TAILSCALE (${TAILSCALE_CIDR}) ━━━━━━━━━━━━━━━━━━━\""
+    cat <<HEREDOC_TS
+ufw allow from ${TAILSCALE_CIDR} to any port 80  comment "tailscale-ingress-http" >/dev/null
+ufw allow from ${TAILSCALE_CIDR} to any port 443 comment "tailscale-ingress-https" >/dev/null
+ufw allow from ${TAILSCALE_CIDR} to any port 18443 comment "tailscale-fleet-ops-gateway" >/dev/null
+echo "  ✔  ${TAILSCALE_CIDR} → 80/443/18443"
+HEREDOC_TS
+
+    # GitHub webhooks → Jenkins :443 (T-345)
+    echo ""
+    echo "echo \"\""
+    echo "echo \"━━ GITHUB WEBHOOKS (:443) ━━━━━━━━━━━━━━━━━━━━━━━\""
+    while IFS= read -r cidr; do
+        [[ -z "$cidr" ]] && continue
+        cat <<HEREDOC_GH
+ufw allow from ${cidr} to any port 443 comment "github-webhook" >/dev/null
+echo "  ✔  ${cidr} → 443 (github-webhook)"
+HEREDOC_GH
+    done < <(_load_github_webhook_cidrs)
+
+    # node_exporter :9100 — só IPs OCI (T-320b)
+    echo ""
+    echo "echo \"\""
+    echo "echo \"━━ PROMETHEUS SCRAPE (:9100) ━━━━━━━━━━━━━━━━━━━━\""
+    for entry in "${METRICS_IPS[@]}"; do
+        local ip comment
+        ip="$(_ip "$entry")"
+        comment="${entry#*#}"
+        comment="${comment## }"
+        cat <<HEREDOC_METRICS
+ufw allow from ${ip} to any port 9100 proto tcp comment "oci-prometheus-scrape" >/dev/null
+echo "  ✔  ${ip}:9100  # ${comment}"
+HEREDOC_METRICS
+    done
+
+    # Fleet Copilot: Ollama must stay localhost-only (T-321b)
+    cat <<'HEREDOC_OLLAMA'
+ufw deny 11434/tcp comment "ollama-localhost-only" >/dev/null 2>&1 || true
+echo "✔  11434/tcp: deny (Ollama localhost only)"
+HEREDOC_OLLAMA
+
+    # Fleet-ops-gateway :8443 from OCI/Hetzner ingress IPs (fallback sem Tailscale)
+    echo ""
+    echo "echo \"\""
+    echo "echo \"━━ FLEET OPS GATEWAY (:18443) ━━━━━━━━━━━━━━━━━━\""
+    for entry in "${ADMIN_IPS[@]}" "${INGRESS_IPS[@]}"; do
+        local ip comment
+        ip="$(_ip "$entry")"
+        comment="${entry#*#}"
+        comment="${comment## }"
+        cat <<HEREDOC_FLEET
+ufw allow from ${ip} to any port 18443 proto tcp comment "fleet-ops-gateway" >/dev/null
+echo "  ✔  ${ip}:18443  # ${comment}"
+HEREDOC_FLEET
     done
 
     # NOTA: porta 80 NÃO é aberta permanentemente.

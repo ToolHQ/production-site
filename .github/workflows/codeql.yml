@@ -1,41 +1,18 @@
-name: "CodeQL Advanced Setup"
+# CI migrado para Jenkins SSDNodes — stage CodeQL em pipeline.yaml
+#
+# Análise JS/TS + Python via tools/citools/scripts/codeql-scan.sh
+
+name: CodeQL (retired → Jenkins)
 
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
-  schedule:
-    - cron: "15 13 * * 1"
-
-permissions:
-  contents: read
+  workflow_dispatch:
 
 jobs:
-  analyze:
-    name: Analyze (${{ matrix.language }})
-    runs-on: ["self-hosted", "Linux", "X64", "ssdnodes"]
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ["javascript-typescript", "python"]
-
+  migrated:
+    name: CodeQL no Jenkins SSDNodes
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.matrix.language || matrix.language }}
-          build-mode: none
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:${{matrix.language}}"
+      - run: |
+          echo "CodeQL migrado para Jenkins stage codeql (citools)."
+          echo "https://jenkins.ssdnodes.dnor.io/job/production-site/"
+          exit 0

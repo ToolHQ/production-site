@@ -1,0 +1,198 @@
+/**
+ * Jenkinsfile genérico — ZERO lógica de negócio.
+ *
+ * Contrato: citools next --json → JsonSlurper → stage(stageName) { citools run id }
+ * Stages vivem em pipeline.yaml (substitui GitHub Actions).
+ */
+
+@NonCPS
+Map citoolsParseNext(String raw) {
+  def json = new groovy.json.JsonSlurper().parseText(raw)
+  return [
+    done: json.done == true,
+    stageName: json.stageName?.toString() ?: '',
+    id: json.id?.toString() ?: '',
+  ]
+}
+
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: citools-agent
+spec:
+  containers:
+  - name: rust
+    image: rust:1.88-bookworm
+    command: ["sleep"]
+    args: ["infinity"]
+    tty: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+      limits:
+        cpu: "4"
+        memory: "8Gi"
+'''
+    }
+  }
+
+  environment {
+    CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline.yaml'
+    CITOOLS_REPO_ROOT = "${WORKSPACE}"
+    VERIFY_DIFF_BASE = 'origin/main'
+    SONAR_HOST_URL = 'https://sonar.ssdnodes.dnor.io'
+    SONAR_PROJECT_KEY = 'production-site'
+    SONAR_TOKEN = credentials('sonar-token')
+    GITHUB_REPOSITORY = 'ToolHQ/production-site'
+    GITHUB_SERVER_URL = 'https://github.com'
+  }
+
+  options {
+    skipDefaultCheckout(true)
+    timeout(time: 120, unit: 'MINUTES')
+    disableConcurrentBuilds(abortPrevious: true)
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+  }
+
+  stages {
+    stage('Prepare') {
+      steps {
+        container('rust') {
+          checkout scm
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+git config --global --add safe.directory "${WORKSPACE}"
+'''
+          withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            script {
+              env.CITOOLS_BRANCH = env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: 'unknown'
+              if (env.CHANGE_ID) {
+                env.CODEQL_REF = "refs/pull/${env.CHANGE_ID}/head"
+                env.CODEQL_SHA = sh(returnStdout: true, script: '''#!/usr/bin/env bash
+set -euo pipefail
+git config --global --add safe.directory "${WORKSPACE}"
+git fetch --no-tags "https://${GIT_USER}:${GIT_PASS}@github.com/ToolHQ/production-site.git" \
+  "pull/${CHANGE_ID}/head:refs/remotes/origin/pr-head-${CHANGE_ID}" 2>/dev/null || true
+git rev-parse "refs/remotes/origin/pr-head-${CHANGE_ID}" 2>/dev/null || git rev-parse HEAD
+''').trim()
+              } else if (env.BRANCH_NAME == 'main') {
+                env.CODEQL_REF = 'refs/heads/main'
+                env.CODEQL_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+              } else {
+                env.CODEQL_REF = "refs/heads/${env.BRANCH_NAME}"
+                env.CODEQL_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+              }
+            }
+            sh '''#!/usr/bin/env bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+command -v git >/dev/null || { apt-get update -qq && apt-get install -y -qq --no-install-recommends git ca-certificates; }
+bash components/ssdnodes/jenkins/jenkins-prepare.sh
+'''
+          }
+          script {
+            if (!env.CODEQL_SHA?.trim()) {
+              env.CODEQL_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+            }
+          }
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+bash components/ssdnodes/jenkins/agent-setup.sh
+'''
+        }
+      }
+    }
+
+    stage('Pipeline') {
+      steps {
+        script {
+          container('rust') {
+            withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+              sh """#!/usr/bin/env bash
+set -euo pipefail
+source "${WORKSPACE}/.citools-agent.env"
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+export CITOOLS_BRANCH="${env.CITOOLS_BRANCH}"
+export CODEQL_REF="${env.CODEQL_REF}"
+export CODEQL_SHA="${env.CODEQL_SHA}"
+export GITHUB_TOKEN="${env.GITHUB_TOKEN}"
+export BUILD_URL="${env.BUILD_URL}"
+bash tools/citools/scripts/github-status.sh pending 'citools pipeline running' '${env.BUILD_URL}' || true
+"""
+              def citools = "${WORKSPACE}/tools/citools/target/release/citools"
+              def pipelinePath = env.CITOOLS_PIPELINE
+              def after = ''
+
+              def planJson = sh(returnStdout: true, script: "${citools} export-json --pipeline '${pipelinePath}'").trim()
+              echo "citools plan: ${planJson}"
+
+              while (true) {
+                def nextCmd = after
+                  ? "${citools} next --json --after '${after}' --pipeline '${pipelinePath}'"
+                  : "${citools} next --json --pipeline '${pipelinePath}'"
+                def raw = sh(returnStdout: true, script: nextCmd).trim()
+                def next = citoolsParseNext(raw)
+
+                if (next.done) {
+                  echo 'citools next: pipeline concluído'
+                  break
+                }
+
+                stage(next.stageName) {
+                  container('rust') {
+                    sh """#!/usr/bin/env bash
+set -euo pipefail
+source "${WORKSPACE}/.citools-agent.env"
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+export CITOOLS_BRANCH="${env.CITOOLS_BRANCH}"
+export CODEQL_REF="${env.CODEQL_REF}"
+export CODEQL_SHA="${env.CODEQL_SHA}"
+export GITHUB_TOKEN="${env.GITHUB_TOKEN}"
+${citools} run '${next.id}' --pipeline '${pipelinePath}'
+"""
+                  }
+                }
+                after = next.id
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "✓ citools pipeline OK (${env.CITOOLS_PIPELINE})"
+    }
+    failure {
+      echo '✗ Falha — ver stage vermelho no Blue Ocean'
+    }
+    always {
+      script {
+        def sha = env.CODEQL_SHA ? env.CODEQL_SHA.take(8) : 'n/a'
+        echo "Branch: ${env.CITOOLS_BRANCH} | Commit: ${sha}"
+        def state = currentBuild.currentResult == 'SUCCESS' ? 'success' : 'failure'
+        def desc = "Build #${env.BUILD_NUMBER} ${currentBuild.currentResult}"
+        withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GITHUB_TOKEN')]) {
+          sh """#!/usr/bin/env bash
+set -euo pipefail
+source "${WORKSPACE}/.citools-agent.env" 2>/dev/null || true
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+export CODEQL_SHA="${env.CODEQL_SHA}"
+export BUILD_URL="${env.BUILD_URL}"
+export GITHUB_TOKEN="${env.GITHUB_TOKEN}"
+bash tools/citools/scripts/github-status.sh '${state}' '${desc}' '${env.BUILD_URL}' || true
+"""
+        }
+      }
+    }
+  }
+}

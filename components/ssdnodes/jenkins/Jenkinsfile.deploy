@@ -1,0 +1,126 @@
+/**
+ * Jenkinsfile.deploy — build/deploy pontual de apps (T-348)
+ * Parâmetros: APP, TARGET (oci|ssdnodes), DRY_RUN
+ */
+
+@NonCPS
+Map citoolsParseNext(String raw) {
+  def json = new groovy.json.JsonSlurper().parseText(raw)
+  return [
+    done: json.done == true,
+    stageName: json.stageName?.toString() ?: '',
+    id: json.id?.toString() ?: '',
+  ]
+}
+
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: citools-deploy
+spec:
+  containers:
+  - name: rust
+    image: rust:1.88-bookworm
+    command: ["sleep"]
+    args: ["infinity"]
+    tty: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+      limits:
+        cpu: "4"
+        memory: "8Gi"
+'''
+    }
+  }
+
+  parameters {
+    choice(name: 'APP', choices: ['py-back-end', 'back-end', 'rs-axum-back-end', 'rs-observability-api', 'agent-meter', 'ai-radar', 'gta-vi', 'tor'], description: 'App do deploy-catalog.yaml')
+    choice(name: 'TARGET', choices: ['oci', 'ssdnodes'], description: 'Cluster alvo')
+    booleanParam(name: 'DRY_RUN', defaultValue: true, description: 'Só plan (true) ou executa deploy.sh (false)')
+  }
+
+  environment {
+    CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline-deploy.yaml'
+    CITOOLS_DEPLOY_CATALOG = 'tools/citools/deploy-catalog.yaml'
+    CITOOLS_REPO_ROOT = "${WORKSPACE}"
+    APP = "${params.APP}"
+    TARGET = "${params.TARGET}"
+  }
+
+  options {
+    timeout(time: 180, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '15'))
+  }
+
+  stages {
+    stage('Prepare') {
+      steps {
+        container('rust') {
+          checkout scm
+          sh 'git config --global --add safe.directory "${WORKSPACE}"'
+          withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            sh '''#!/usr/bin/env bash
+set -euo pipefail
+bash components/ssdnodes/jenkins/jenkins-prepare.sh
+bash components/ssdnodes/jenkins/agent-setup.sh
+'''
+          }
+        }
+      }
+    }
+
+    stage('Deploy pipeline') {
+      steps {
+        script {
+          container('rust') {
+            if (params.DRY_RUN) {
+              env.CITOOLS_DEPLOY_EXECUTE = ''
+            } else {
+              env.CITOOLS_DEPLOY_EXECUTE = '1'
+            }
+            def citools = "${WORKSPACE}/tools/citools/target/release/citools"
+            def pipelinePath = env.CITOOLS_PIPELINE
+            def after = ''
+
+            while (true) {
+              def nextCmd = after
+                ? "${citools} next --json --after '${after}' --pipeline '${pipelinePath}'"
+                : "${citools} next --json --pipeline '${pipelinePath}'"
+              def raw = sh(returnStdout: true, script: nextCmd).trim()
+              def next = citoolsParseNext(raw)
+              if (next.done) break
+
+              stage(next.stageName) {
+                container('rust') {
+                  sh """#!/usr/bin/env bash
+set -euo pipefail
+source "${WORKSPACE}/.citools-agent.env"
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+export APP="${params.APP}"
+export TARGET="${params.TARGET}"
+export CITOOLS_DEPLOY_EXECUTE="${env.CITOOLS_DEPLOY_EXECUTE ?: ''}"
+${citools} run '${next.id}' --pipeline '${pipelinePath}'
+"""
+                }
+              }
+              after = next.id
+            }
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "deploy-apps APP=${params.APP} TARGET=${params.TARGET} DRY_RUN=${params.DRY_RUN}"
+    }
+  }
+}

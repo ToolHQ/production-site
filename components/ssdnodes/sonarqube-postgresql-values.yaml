@@ -1,0 +1,33 @@
+# PostgreSQL dedicado ao SonarQube CE (T-341) — Bitnami chart
+# Deploy: namespace sonarqube-db | storageClass local-path
+# Nota: imagens versionadas migraram para bitnamilegacy (Bitnami catalog 2025+)
+
+image:
+  registry: docker.io
+  repository: bitnamilegacy/postgresql
+  tag: 16.4.0-debian-12-r14
+
+auth:
+  username: sonar
+  database: sonar
+  # Senha via --set auth.password ou existingSecret (nunca commitar)
+  existingSecret: sonarqube-db-credentials
+  secretKeys:
+    adminPasswordKey: postgres-password
+    userPasswordKey: password
+
+primary:
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+metrics:
+  enabled: false

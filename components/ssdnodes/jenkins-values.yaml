@@ -1,0 +1,123 @@
+# Jenkins — SSDNodes CI (T-341 / T-342 / T-343)
+# Ingress externo: jenkins-ingress.yaml | TLS via cert-manager
+# Helm chart pin: 5.9.22 | imagem 2.567-slim-jdk25
+#
+# T-343: jenkinsUrl obrigatório quando ingress.enabled=false (reverse proxy test)
+
+controller:
+  componentName: jenkins-controller
+  numExecutors: 0
+  executorMode: "NORMAL"
+  image:
+    tag: "2.567-slim-jdk25"
+  jenkinsUrl: "https://jenkins.ssdnodes.dnor.io/"
+  jenkinsAdminEmail: "ci@dnor.io"
+  disableRememberMe: true
+  enableRawHtmlMarkupFormatter: false
+  markupFormatter: plainText
+  # CSP: usar nativo Jenkins 2.567 (Report-Only) — NÃO setar DirectoryBrowserSupport.CSP (banner admin)
+  admin:
+    createSecret: true
+    username: admin
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  serviceType: ClusterIP
+  agentListenerServiceType: ClusterIP
+  installPlugins:
+    - kubernetes
+    - git
+    - github
+    - github-branch-source
+    - workflow-aggregator
+    - configuration-as-code
+    - sonar
+    # T-349 — pipeline UX (Blue Ocean + stage columns + graph)
+    - blueocean
+    - pipeline-stage-view
+    - pipeline-graph-view
+  additionalExistingSecrets:
+    - name: jenkins-ci-credentials
+      keyName: sonar-token
+    - name: jenkins-ci-credentials
+      keyName: github-pat
+    - name: jenkins-ci-credentials
+      keyName: github-webhook-secret
+  JCasC:
+    defaultConfig: true
+    configScripts:
+      ci-platform: |
+        jenkins:
+          systemMessage: |
+            SSDNodes CI — Blue Ocean: /blue/ | Stage View na aba Pipeline de cada job.
+            Jobs: production-site (multibranch) | deploy-apps (parametrizado).
+        unclassified:
+          gitHubPluginConfig:
+            hookUrl: "https://jenkins.ssdnodes.dnor.io/github-webhook/"
+            hookSecretConfigs:
+              - credentialsId: github-webhook-secret
+                signatureAlgorithm: SHA256
+          sonarGlobalConfiguration:
+            buildWrapperEnabled: false
+            installations:
+              - name: SonarQube SSDNodes
+                serverUrl: https://sonar.ssdnodes.dnor.io
+                credentialsId: sonar-token
+        credentials:
+          system:
+            domainCredentials:
+              - credentials:
+                  - string:
+                      scope: GLOBAL
+                      id: sonar-token
+                      description: SonarQube CI (citools)
+                      secret: ${jenkins-ci-credentials-sonar-token}
+                  - usernamePassword:
+                      scope: GLOBAL
+                      id: github-pat
+                      description: GitHub PAT (repo read)
+                      username: git
+                      password: ${jenkins-ci-credentials-github-pat}
+                  - string:
+                      scope: GLOBAL
+                      id: github-webhook-secret
+                      description: GitHub webhook HMAC (T-345)
+                      secret: ${jenkins-ci-credentials-github-webhook-secret}
+    securityRealm: |-
+      local:
+        allowsSignup: false
+        users:
+        - id: "${chart-admin-username}"
+          name: "Jenkins Admin"
+          password: "${chart-admin-password}"
+    authorizationStrategy: |-
+      loggedInUsersCanDoAnything:
+        allowAnonymousRead: false
+  ingress:
+    enabled: false
+
+agent:
+  enabled: true
+  containerCap: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 20Gi
+
+rbac:
+  create: true
+
+networkPolicy:
+  enabled: false
