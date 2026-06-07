@@ -55,7 +55,6 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                                                                                                                                                                  |  Priority   | Epic               | Est. |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------------- | :--: |
-| [T-350](2026/Q2/T-350-agent-meter-remove-hardcoded-pricing.md) | **agent-meter — Remove hardcoded pricing from HTML** _(planos Free/Pro/Team hardcoded no HTML → API dinâmica; remover .preview-mock)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | [T-351](2026/Q2/T-351-agent-meter-budgets-backend.md) | **agent-meter — Implement budgets backend** _(tabela `budgets` existe mas zero código; CRUD + avaliação + UI)_ | 🔼 High | **Copilot/VSCode** | 4h |
 | [T-352](2026/Q2/T-352-agent-meter-notification-channels.md) | **agent-meter — Implement notification channels** _(tabela `notification_channels` existe mas zero código; webhook/slack dispatch + integrar em alerts)_ | 🔼 High | **Copilot/VSCode** | 4h |
 | [T-353](2026/Q2/T-353-agent-meter-global-search.md) | **agent-meter — Global search implementation** _(search bar disabled no topbar → implementar busca por prompt/tool/model/conversation)_ | 🔼 High | **Copilot/VSCode** | 3h |
@@ -98,6 +97,7 @@
 
 ## ✅ Done
 
+| T-350 | **agent-meter — Remove hardcoded pricing from HTML** _(planos hardcoded no HTML → `GET /api/billing/plans` (PlanDef: id/name/price/features/stripe_price_id); pricing.html renderiza tiers via fetch+JS; stub_page() → redirect `/pricing?mode=stub`; .preview-mock removida; testes api.rs + curl validado)_ | 🔼 High | **Copilot/VSCode** | 2h |
 | T-341 | **agent-meter — Eclipse proxy 100% coverage** _(request_bytes, response_bytes, max_tokens, temperature, llm_system, parent_span_id, cached_tokens, reasoning_tokens, finish_reason, response_text, tool_result cross-request correlation; doc: docs/agent-meter-telemetry-coverage.md)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | T-342 | **agent-meter — VS Code OTLP 100% coverage** _(captureContent=true habilitado; port-forward 4318 ativo; 24/27 campos preenchidos, 3 impossíveis sem env vars)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | T-343 | **agent-meter — Copilot CLI interceptor validado** _(mesmo copilot_interceptor.py via HTTPS_PROXY; gpt-5.4 interceptado; 5 tool calls + results capturados; copilot-cli-metered.sh wrapper criado)_ | 🚨 Critical | **Copilot/VSCode** | 2h |
