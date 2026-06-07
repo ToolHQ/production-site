@@ -7,19 +7,39 @@
 
 ## Context
 
-Billing tem 3 stubs que retornam URLs fake (`/billing/stub?price=...`) quando `STRIPE_SECRET_KEY`
-não está configurado. A página billing/stub é um HTML inline placeholder.
-O webhook handler (`/api/billing/webhook`) existe mas `STRIPE_WEBHOOK_SECRET` precisa ser configurado.
+A integração Stripe já está **bastante completa** no código:
+- `stripe_service.rs:L15-65`: `create_checkout()` — cria session Stripe (retorna stub se sem key)
+- `stripe_service.rs:L67-95`: `verify_webhook_signature()` — HMAC-SHA256 validação
+- `stripe_service.rs:L98-180`: `record_event()` — processa 3 tipos de webhook event
+- `stripe_service.rs:L183-225`: `create_portal()` — billing portal session
+- `billing.rs:L40-88`: checkout handler com fallback para `price_stub_{plan}`
+- `billing.rs:L135-164`: webhook handler com signature validation
 
-Stripe Keys precisam ser provisionadas e o fluxo testado end-to-end.
+**Schema pronto** (`migrations/20260603000009_auth_billing.sql`):
+- `organizations.stripe_customer_id`, `stripe_subscription_id`, `plan_status`, `plan_renews_at`
+- `billing_events` table para audit trail + idempotência
+
+**O que FALTA:** provisionar as keys no Stripe Dashboard e no cluster, e testar end-to-end.
+
+## Arquivos a modificar
+
+| Arquivo | Ação |
+|---------|------|
+| K8s Secret | **CRIAR** `stripe-keys` secret no namespace `default` |
+| `apps/agent-meter/k8s/agent-meter.yaml` | Adicionar env vars do Secret |
+| `stripe_service.rs` | Implementar `customer.subscription.updated` → fetch plan details |
+| `billing.rs` | Remover `stub_page()` (L26-32) — dead code em produção |
 
 ## Tasks
 
-- [ ] Criar Secret `stripe-keys` no K8s com `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET`
-- [ ] Montar env vars no deployment do agent-meter
-- [ ] Criar products/prices no Stripe Dashboard (Free, Pro $29, Team $99)
-- [ ] Mapear price IDs no config (env var ou tabela)
-- [ ] Testar checkout flow: pricing → Stripe → callback → org.plan atualizado
-- [ ] Testar portal flow: manage subscription → cancel/upgrade
-- [ ] Testar webhook: `customer.subscription.updated` → atualiza org
-- [ ] Remover billing/stub page e fallback URLs
+- [ ] Criar conta/products no Stripe Dashboard:
+  - Product: "agent-meter Pro" → Price: $29/mo recurring
+  - Product: "agent-meter Team" → Price: $99/mo recurring
+- [ ] Criar Secret no K8s: `kubectl create secret generic stripe-keys --from-literal=STRIPE_SECRET_KEY=sk_live_... --from-literal=STRIPE_WEBHOOK_SECRET=whsec_...`
+- [ ] Adicionar price IDs: `STRIPE_PRICE_PRO=price_...`, `STRIPE_PRICE_TEAM=price_...`
+- [ ] Montar env vars no deployment YAML do agent-meter
+- [ ] Testar checkout flow: `/pricing` → select Pro → Stripe Checkout → callback → org.plan='pro'
+- [ ] Testar portal: `/api/billing/portal` → Stripe Portal → cancel → org.plan='free'
+- [ ] Testar webhook: `stripe trigger customer.subscription.updated` → `billing_events` registrado
+- [ ] Remover `stub_page()` de `billing.rs:L26-32` e rota `/billing/stub` (L16)
+- [ ] Deploy + validar em produção
