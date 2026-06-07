@@ -214,6 +214,7 @@ collect_verify_scope() {
 
 	VERIFY_SCOPE_RUST_NEEDED=0
 	VERIFY_SCOPE_RUST_AI_RADAR_NEEDED=0
+	VERIFY_SCOPE_RUST_AGENT_METER_NEEDED=0
 	VERIFY_SCOPE_BATS_NEEDED=0
 	VERIFY_SCOPE_JS_BACKEND_NEEDED=0
 	VERIFY_SCOPE_JS_REACT_NEEDED=0
@@ -230,6 +231,8 @@ collect_verify_scope() {
 			VERIFY_SCOPE_RUST_NEEDED=1
 		elif [[ "$path" == apps/ai-radar/* ]]; then
 			VERIFY_SCOPE_RUST_AI_RADAR_NEEDED=1
+		elif [[ "$path" == apps/agent-meter/* ]]; then
+			VERIFY_SCOPE_RUST_AGENT_METER_NEEDED=1
 		elif [[ "$path" == tools/citools/* ]]; then
 			VERIFY_SCOPE_CITOOLS_NEEDED=1
 		elif [[ "$path" == oci-k8s-cluster/testing/* || "$path" == oci-k8s-cluster/run_tests.sh || "$path" == oci-k8s-cluster/k8s_ops_menu.sh || "$path" == oci-k8s-cluster/scripts/* || "$path" == oci-k8s-cluster/lib/* ]]; then
@@ -422,6 +425,23 @@ run_rust_ai_radar_gate() {
 	run_checked "rust test: ai-radar" bash -lc "cd '$app_dir' && cargo test --workspace"
 }
 
+run_rust_agent_meter_gate() {
+	local app_dir="$REPO_ROOT/apps/agent-meter"
+
+	# Compile-only gate (workspace + all targets). The agent-meter workspace
+	# still carries pre-existing fmt/clippy debt across crates, and its tests
+	# require a live PostgreSQL the CI agent does not provide — so a strict
+	# fmt/clippy/test gate would fail on unrelated code. `cargo check
+	# --all-targets` still compiles every crate and every test target
+	# (catching broken code and broken tests) without needing a database.
+	# Tighten to fmt/clippy/test once the workspace lint debt is cleared.
+	#
+	# bash -c (not -lc): a login shell on the Jenkins agent resets PATH and
+	# loses cargo (same gotcha as the citools gate); verify-branch-ci.sh has
+	# already exported the cargo PATH into our environment.
+	run_checked "rust check: agent-meter" bash -c "cd '$app_dir' && cargo check --workspace --all-targets"
+}
+
 run_cluster_bats_gate() {
 	local cluster_dir="$REPO_ROOT/oci-k8s-cluster"
 	run_checked "bats: oci-k8s-cluster" bash -lc "cd '$cluster_dir' && ./run_tests.sh"
@@ -433,7 +453,7 @@ verify_changed() {
 	local -a changed_paths=()
 	local -a shell_paths=()
 	local -a unmapped_paths=()
-	local rust_needed rust_ai_radar_needed bats_needed js_backend_needed js_react_needed js_static_needed yaml_needed citools_needed
+	local rust_needed rust_ai_radar_needed rust_agent_meter_needed bats_needed js_backend_needed js_react_needed js_static_needed yaml_needed citools_needed
 
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -461,6 +481,7 @@ verify_changed() {
 	collect_verify_scope shell_paths unmapped_paths "${changed_paths[@]}"
 	rust_needed=$VERIFY_SCOPE_RUST_NEEDED
 	rust_ai_radar_needed=$VERIFY_SCOPE_RUST_AI_RADAR_NEEDED
+	rust_agent_meter_needed=$VERIFY_SCOPE_RUST_AGENT_METER_NEEDED
 	bats_needed=$VERIFY_SCOPE_BATS_NEEDED
 	js_backend_needed=$VERIFY_SCOPE_JS_BACKEND_NEEDED
 	js_react_needed=$VERIFY_SCOPE_JS_REACT_NEEDED
@@ -476,6 +497,7 @@ verify_changed() {
 	local -a skipped_stack_gates=()
 	[[ $rust_needed -eq 0 ]] && skipped_stack_gates+=("rust")
 	[[ $rust_ai_radar_needed -eq 0 ]] && skipped_stack_gates+=("rust-ai-radar")
+	[[ $rust_agent_meter_needed -eq 0 ]] && skipped_stack_gates+=("rust-agent-meter")
 	[[ $bats_needed -eq 0 ]] && skipped_stack_gates+=("bats")
 	[[ $js_backend_needed -eq 0 ]] && skipped_stack_gates+=("js-back-end")
 	[[ $js_react_needed -eq 0 ]] && skipped_stack_gates+=("js-react-static")
@@ -526,6 +548,15 @@ verify_changed() {
 		HARNESS_RESULTS+=("rust-ai-radar|SKIP|-")
 		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
 			warn "Rust ai-radar gate not selected"
+		fi
+	fi
+
+	if [[ $rust_agent_meter_needed -eq 1 ]]; then
+		timed_gate "rust-agent-meter" run_rust_agent_meter_gate
+	else
+		HARNESS_RESULTS+=("rust-agent-meter|SKIP|-")
+		if [[ ${HARNESS_VERBOSE:-0} -eq 1 ]]; then
+			warn "Rust agent-meter gate not selected"
 		fi
 	fi
 

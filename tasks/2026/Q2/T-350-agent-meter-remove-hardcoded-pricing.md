@@ -1,6 +1,6 @@
 # T-350: agent-meter — Remove hardcoded pricing from HTML
 
-- **Status**: To Do
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Copilot/VSCode
 - **Estimate**: 2h
@@ -29,10 +29,23 @@ O `stub_page()` em `billing.rs:L26-32` é um HTML inline placeholder.
 
 ## Tasks
 
-- [ ] Criar struct `PlanDef { name, price_usd, features: Vec<String>, stripe_price_id }` no billing.rs
-- [ ] Criar handler `GET /api/billing/plans` → retorna `[{"name":"Free","price":0,...}, ...]`
-- [ ] No router de billing (L14-20): `.route("/api/billing/plans", get(plans))`
-- [ ] Refatorar `pricing.html`: remover `.tier-price` hardcoded → `fetch('/api/billing/plans')` + render JS
-- [ ] Remover `stub_page()` (L26-32) — substituir por redirect para `/pricing?mode=stub`
-- [ ] Verificar `.preview-mock` class no HTML → remover ou substituir por screenshot real
-- [ ] Testar: `curl /api/billing/plans` retorna JSON válido com 3 planos
+- [x] Criar struct `PlanDef { id, name, price, price_suffix, desc, featured, annual_discount, features, cta_*, stripe_price_id }` no billing.rs
+- [x] Criar handler `GET /api/billing/plans` → retorna `[{"id":"free","name":"Free","price":0,...}, ...]`
+- [x] No router de billing: `.route("/api/billing/plans", get(plans))`
+- [x] Refatorar `pricing.html`: remover `.tier-price` hardcoded → `fetch('/api/billing/plans')` + render JS
+- [x] Remover `stub_page()` — substituído por `stub_redirect()` → `Redirect::to("/pricing?mode=stub")` + banner de stub na pricing.html
+- [x] `.preview-mock` (regra CSS órfã, sem uso no HTML) → removida
+- [x] Testar: `curl /api/billing/plans` retorna JSON válido (4 tiers: Free/Pro/Team/Enterprise; `stripe_price_id` vem da config)
+
+## Notas de implementação
+
+- Preços reais no HTML eram **$0/$19/$99/Custom** (não $0/$29/$99 como no contexto original — o HTML é a fonte da verdade).
+- `PlanDef` ficou em `billing.rs` (não `config.rs`): o handler lê `state.config.stripe_price_pro/team`
+  para preencher `stripe_price_id`, mantendo os IDs Stripe configuráveis por env var.
+- `pricing.html`: tier cards renderizados via JS a partir de `/api/billing/plans`. Toggle mensal/anual
+  recalcula preços no cliente (−20% quando `annual_discount`). Checkout usa event delegation (cobre
+  hero + cards dinâmicos). ROI calculator usa o preço do Pro vindo da API.
+- Stub mode: `/billing/stub` (alvo das URLs stub do `stripe_service`) redireciona para `/pricing?mode=stub`,
+  que exibe um banner explicativo.
+- Testes: `test_billing_plans` + `test_billing_stub_redirects` em `tests/api.rs`. Verificado também
+  via `curl` em servidor local (plans 200 + JSON válido; stub 303 → `/pricing?mode=stub`).
