@@ -125,3 +125,32 @@ Uma task com impacto em UI/API só pode ser marcada `✅ Done` quando:
 | 4 | Zero fetches 404/500 | `list_network_requests` todos `2xx` |
 | 5 | UI renderiza dados reais | screenshot capturado |
 | 6 | Fluxo navegado end-to-end | não apenas homepage |
+
+---
+
+## ⚠️ Regra de Enforcement (obrigatório para todos os agentes)
+
+**Nenhuma entrega é considerada completa sem a execução integral deste harness.**
+
+O agente DEVE seguir esta sequência exata para **toda** task que altera código, UI, API ou documentação servida pelo cluster:
+
+1. **KANBAN**: Criar/atualizar task em `tasks/KANBAN.md` antes de iniciar
+2. **Branch**: `git checkout -b feat/T-XXX-... origin/main`
+3. **Implementar**: Editar código, criar arquivos
+4. **Build + Deploy**: `./deploy.sh` (ou build local + push)
+5. **Rollout**: `kubectl rollout status` — pod novo, Running, 0 restarts
+6. **API validation**: `curl` — HTTP 200, payload correto
+7. **Browser MCP validation** (OBRIGATÓRIO): Console zero errors, network all 2xx, screenshot
+8. **Commit**: Com evidência de validação no commit message
+9. **Push + PR**: `gh pr create` com validation evidence no body
+10. **CI**: `gh pr checks` — aguardar green (ou documentar falha de infra)
+11. **Merge**: `gh pr merge --squash` — NÃO deixar para o humano clicar
+12. **KANBAN**: Mover task para Done
+
+**O agente NÃO PODE:**
+- Entregar dizendo "aqui está o código, rode deploy.sh" → DEVE rodar ele mesmo
+- Pular a validação no browser → DEVE executar mcp_chromedevtool_*
+- Criar PR e deixar para o humano mergear → DEVE mergear após CI green
+- Fechar task sem evidência de validação → DEVE incluir no PR body
+
+**Se não for possível executar algum passo** (ex: sem SSH, sem buildx), o agente DEVE declarar o blocker concreto e NÃO marcar a task como Done.
