@@ -5,13 +5,13 @@ import type { HoneypotFilters } from '../hooks/useHoneypotRequests';
 export function ThreatsPanel() {
   const [page, setPage] = useState(0);
   const [filters, setFilters] = useState<HoneypotFilters>({ exclude_internal: true });
-  
+
   // Temporary state for the filter inputs before hitting "Apply"
   const [tempFilters, setTempFilters] = useState<HoneypotFilters>({ exclude_internal: true });
 
   const limit = 50;
   const offset = page * limit;
-  
+
   const { data, error, loading, refresh } = useHoneypotRequests(limit, offset, filters);
 
   const applyFilters = () => {
@@ -50,14 +50,14 @@ export function ThreatsPanel() {
             <p style={{ color: 'var(--color-fg-muted)' }}>Registro avançado de requisições anômalas e escaneamentos na borda (ClickHouse).</p>
           </div>
           <div class="section-tags">
-            <button 
-              class="dnor-shell__search" 
+            <button
+              class="dnor-shell__search"
               style={{ background: 'var(--color-bg-overlay)', borderRadius: '20px', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--color-border-subtle)', transition: 'all 0.2s ease', cursor: 'pointer' }}
-              onClick={refresh} 
-              disabled={loading} 
+              onClick={refresh}
+              disabled={loading}
               aria-label="Atualizar"
             >
-              <span style={{ fontSize: '1.2rem', animation: loading ? 'spin 1s linear infinite' : 'none' }}>↻</span> 
+              <span style={{ fontSize: '1.2rem', animation: loading ? 'spin 1s linear infinite' : 'none' }}>↻</span>
               <span style={{ fontWeight: 500 }}>{loading ? 'Sincronizando...' : 'Atualizar Dados'}</span>
             </button>
           </div>
@@ -66,40 +66,40 @@ export function ThreatsPanel() {
         <div style={{ background: 'linear-gradient(145deg, var(--color-bg-subtle), var(--color-bg-overlay))', padding: 'var(--space-md)', borderRadius: '8px', marginBottom: 'var(--space-lg)', display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap', alignItems: 'flex-end', border: '1px solid var(--color-border-muted)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-fg-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Método</label>
-            <input 
-              class="dnor-shell__search" 
-              style={{ width: '90px', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-default)' }} 
-              placeholder="GET, POST..." 
-              value={tempFilters.method || ''} 
+            <input
+              class="dnor-shell__search"
+              style={{ width: '90px', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-default)' }}
+              placeholder="GET, POST..."
+              value={tempFilters.method || ''}
               onInput={(e) => setTempFilters({...tempFilters, method: (e.target as HTMLInputElement).value})}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-fg-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Path</label>
-            <input 
-              class="dnor-shell__search" 
-              style={{ width: '180px', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-default)' }} 
-              placeholder="Ex: /wp-admin" 
-              value={tempFilters.path || ''} 
+            <input
+              class="dnor-shell__search"
+              style={{ width: '180px', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-default)' }}
+              placeholder="Ex: /wp-admin"
+              value={tempFilters.path || ''}
               onInput={(e) => setTempFilters({...tempFilters, path: (e.target as HTMLInputElement).value})}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-fg-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Endereço IP</label>
-            <input 
-              class="dnor-shell__search" 
-              style={{ width: '140px', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-default)' }} 
-              placeholder="Ex: 192.168." 
-              value={tempFilters.ip || ''} 
+            <input
+              class="dnor-shell__search"
+              style={{ width: '140px', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-default)' }}
+              placeholder="Ex: 192.168."
+              value={tempFilters.ip || ''}
               onInput={(e) => setTempFilters({...tempFilters, ip: (e.target as HTMLInputElement).value})}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-fg-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Classificação</label>
-            <select 
-              class="dnor-shell__search" 
-              style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-default)', cursor: 'pointer' }} 
-              value={tempFilters.classification || ''} 
+            <select
+              class="dnor-shell__search"
+              style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--color-border-subtle)', background: 'var(--color-bg-default)', cursor: 'pointer' }}
+              value={tempFilters.classification || ''}
               onChange={(e) => setTempFilters({...tempFilters, classification: (e.target as HTMLSelectElement).value})}
             >
               <option value="">Todas</option>
@@ -107,10 +107,10 @@ export function ThreatsPanel() {
               <option value="malicious">Malicious</option>
             </select>
           </div>
-          
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'var(--space-sm)', paddingBottom: '10px' }}>
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               id="exclude_internal"
               checked={tempFilters.exclude_internal || false}
               onChange={(e) => setTempFilters({...tempFilters, exclude_internal: (e.target as HTMLInputElement).checked})}
@@ -122,18 +122,18 @@ export function ThreatsPanel() {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', marginLeft: 'auto' }}>
-            <button 
-              class="dnor-shell__search" 
-              style={{ padding: '8px 20px', borderRadius: '6px', background: 'transparent', border: '1px solid var(--color-border-subtle)', color: 'var(--color-fg-default)', fontWeight: 500, cursor: 'pointer', transition: 'background 0.2s ease' }} 
+            <button
+              class="dnor-shell__search"
+              style={{ padding: '8px 20px', borderRadius: '6px', background: 'transparent', border: '1px solid var(--color-border-subtle)', color: 'var(--color-fg-default)', fontWeight: 500, cursor: 'pointer', transition: 'background 0.2s ease' }}
               onClick={clearFilters}
               onMouseOver={(e) => e.currentTarget.style.background = 'var(--color-bg-overlay)'}
               onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
             >
               Limpar
             </button>
-            <button 
-              class="dnor-shell__search" 
-              style={{ padding: '8px 24px', borderRadius: '6px', background: 'var(--color-accent-blue)', border: 'none', color: '#fff', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 112, 243, 0.3)', transition: 'transform 0.1s ease, box-shadow 0.2s ease' }} 
+            <button
+              class="dnor-shell__search"
+              style={{ padding: '8px 24px', borderRadius: '6px', background: 'var(--color-accent-blue)', border: 'none', color: '#fff', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0, 112, 243, 0.3)', transition: 'transform 0.1s ease, box-shadow 0.2s ease' }}
               onClick={applyFilters}
               onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 112, 243, 0.4)'; }}
               onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 112, 243, 0.3)'; }}
@@ -227,17 +227,17 @@ export function ThreatsPanel() {
                   Exibindo registros <strong style={{ color: 'var(--color-fg-default)' }}>{data.total > 0 ? offset + 1 : 0} - {Math.min(offset + limit, data.total)}</strong> de <strong style={{ color: 'var(--color-fg-default)' }}>{data.total}</strong>
                 </span>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
-                    class="dnor-shell__search" 
-                    disabled={page === 0 || loading} 
+                  <button
+                    class="dnor-shell__search"
+                    disabled={page === 0 || loading}
                     onClick={() => setPage(p => Math.max(0, p - 1))}
                     style={{ padding: '6px 16px', borderRadius: '6px', background: page === 0 ? 'var(--color-bg-overlay)' : 'var(--color-bg-default)', border: '1px solid var(--color-border-subtle)', cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.5 : 1 }}
                   >
                     &laquo; Anterior
                   </button>
-                  <button 
-                    class="dnor-shell__search" 
-                    disabled={offset + limit >= data.total || loading} 
+                  <button
+                    class="dnor-shell__search"
+                    disabled={offset + limit >= data.total || loading}
                     onClick={() => setPage(p => p + 1)}
                     style={{ padding: '6px 16px', borderRadius: '6px', background: offset + limit >= data.total ? 'var(--color-bg-overlay)' : 'var(--color-bg-default)', border: '1px solid var(--color-border-subtle)', cursor: offset + limit >= data.total ? 'not-allowed' : 'pointer', opacity: offset + limit >= data.total ? 0.5 : 1 }}
                   >
