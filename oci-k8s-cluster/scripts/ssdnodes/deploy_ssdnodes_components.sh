@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # deploy_ssdnodes_components.sh
-# Deploy de componentes adicionais no ssdnodes-6a12f10c9ef11 via Helm.
+# Deploy de componentes adicionais no ssdnodes-monstro via Helm.
 # Chamado pela TUI (k8s_ops_menu.sh) — não executar manualmente.
 #
 # Uso: deploy_ssdnodes_components.sh [dashboard|kubecost|sonarqube|jenkins|ci-platform|ci-status|fleet-copilot|all|status]
@@ -9,7 +9,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPONENTS_DIR="$SCRIPT_DIR/../components/ssdnodes"
-REMOTE_HOST="ssdnodes-6a12f10c9ef11"
+REMOTE_HOST="ssdnodes-monstro"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[ssdnodes]${NC} $*"; }
@@ -42,7 +42,7 @@ echo "Chart baixado: $(du -h /tmp/helm-charts/kubernetes-dashboard-7.14.0.tgz)"
 
 kubectl create namespace kubernetes-dashboard --dry-run=client -o yaml | kubectl apply -f -
 
-# Criar ServiceAccount admin-user para login com token (view-only — T-320d)
+# Criar ServiceAccount admin-user para login com token
 kubectl apply -f - <<SA
 apiVersion: v1
 kind: ServiceAccount
@@ -57,7 +57,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: view
+  name: cluster-admin
 subjects:
 - kind: ServiceAccount
   name: admin-user
@@ -253,15 +253,6 @@ deploy_ci_platform() {
   deploy_sonarqube
   deploy_jenkins
   open_port80_for_certs sonarqube/sonarqube-tls jenkins/jenkins-tls
-}
-
-deploy_fleet_copilot() {
-  log "=== Fleet Copilot (Ollama + gateway) ==="
-  bash "$COMPONENTS_DIR/install_ollama.sh" --host "$REMOTE_HOST"
-  bash "$COMPONENTS_DIR/fleet-copilot/install_fleet_ops_gateway.sh"
-  bash "$COMPONENTS_DIR/fleet-copilot/setup_fleet_gateway_kubeconfig.sh" --host "$REMOTE_HOST" --verify
-  bash "$SCRIPT_DIR/../scripts/hardening/ufw_manager.sh" --host "$REMOTE_HOST" --apply
-  log "Fleet Copilot stack atualizado ✓"
 }
 
 # ─── Status ───────────────────────────────────────────────────────────────────

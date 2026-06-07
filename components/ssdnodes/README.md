@@ -2,7 +2,6 @@
 
 Workloads para o cluster K8s do servidor SSDNodes (x86_64, 12 vCPU / 60 GB RAM / 1.1 TB disk).
 
-**Hostname canônico**: `ssdnodes-6a12f10c9ef11`  
 **Kubeconfig**: `~/.kube/ssdnodes.yaml`  
 **IP público**: `104.225.218.78`  
 **Hostname Canônico (SSH)**: `ssdnodes-6a12f10c9ef11` (alias configurado em `~/.ssh/config`)

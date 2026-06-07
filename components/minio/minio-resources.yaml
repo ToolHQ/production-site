@@ -16,7 +16,7 @@ metadata:
 type: Opaque
 data:
   MINIO_ROOT_USER: bWluaW8=
-  MINIO_ROOT_PASSWORD: Q0hBVkVfUkVNT1ZJREFfUE9SX1NFR1VSQU5DQQ== # Gerenciado externamente via TUI
+  MINIO_ROOT_PASSWORD: bWluaW80NTY=
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -184,7 +184,7 @@ metadata:
   name: minio-ingress
   namespace: minio
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-dns01
     nginx.ingress.kubernetes.io/proxy-body-size: 800m
 spec:
   ingressClassName: nginx

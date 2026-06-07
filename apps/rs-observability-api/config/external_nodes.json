@@ -10,7 +10,7 @@
     "ephemeral_storage_bytes": 85899345920
   },
   {
-    "id": "ssdnodes-6a12f10c9ef11",
+    "id": "ssdnodes-monstro",
     "instance_host": "104.225.218.78",
     "fallback_name": "ssdnodes-6a12f10c9ef11",
     "cluster": "SSD-NODES",

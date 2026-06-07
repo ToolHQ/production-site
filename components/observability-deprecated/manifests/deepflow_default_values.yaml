@@ -47,11 +47,8 @@ global:
 
     ## External ClickHouse storage policy name,The default value is 'default', query method: 'select policy_name from system.storage_policies;'
     storagePolicy: default
-    username: default    # External Clickhouse config
-    host: clickhouse
-    port: 9000
-    user: default
-    password: CHAVE_REMOVIDA_POR_SEGURANCA ## External ClickHouse Password
+    username: default ## External ClickHouse username
+    password: password ## External ClickHouse Password
 
     ## External ClickHouse IP address and port list, DeepFlow writes IP and port information to an svc endpoint, deepflow-server obtains ClickHouse's IP:Port through get&wath&list endpoint.
     ## deepflow-server needs to access the real IP address of ClickHouse, the port is connected using tcp-port, usually 9000, and query IP:Port through 'select host_address,port from system.clusters;'.

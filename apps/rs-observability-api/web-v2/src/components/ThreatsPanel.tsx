@@ -205,7 +205,7 @@ export function ThreatsPanel() {
                       {row.userAgent || '-'}
                     </td>
                     <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '0.85em', color: 'var(--color-fg-muted)' }}>
-                      {formatLatency(row.timeElapsed)}
+                      {formatLatency(row.timeElapsed ?? undefined)}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       {row.classification && row.classification !== 'unknown' ? (

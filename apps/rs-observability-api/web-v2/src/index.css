@@ -29,31 +29,29 @@
 
       /* Dark theme */
       :root.dark {
-        --ink: #e8edf4;
-        --muted: #9aa8b9;
-        --panel: rgba(22, 30, 46, 0.92);
-        --line: rgba(148, 163, 184, 0.18);
-        --accent: #5eead4;
-        --accent-soft: rgba(94, 234, 212, 0.14);
-        --warm: #fb923c;
-        --warm-soft: rgba(251, 146, 60, 0.14);
-        --critical: #f87171;
-        --critical-soft: rgba(248, 113, 113, 0.14);
-        --healthy: #34d399;
-        --healthy-soft: rgba(52, 211, 153, 0.14);
-        --shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-        --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.32);
-        --surface-2: #1a2332;
-        --surface-3: #243044;
-
+        --ink: #e2e8f0;
+        --muted: #94a3b8;
+        --panel: rgba(30, 41, 59, 0.85);
+        --line: rgba(255, 255, 255, 0.12);
+        --accent: #2dd4bf;
+        --accent-soft: rgba(45, 212, 191, 0.18);
+        --warm: #f97316;
+        --warm-soft: rgba(249, 115, 22, 0.15);
+        --critical: #ef4444;
+        --critical-soft: rgba(239, 68, 68, 0.15);
+        --healthy: #10b981;
+        --healthy-soft: rgba(16, 185, 129, 0.15);
+        --shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+        --shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.2);
+        
         /* Dark normalized */
-        --bg-primary: #0c1220;
-        --bg-secondary: #151d2e;
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
         --text-main: #f1f5f9;
-        --text-muted: #9aa8b9;
-        --border-subtle: rgba(148, 163, 184, 0.2);
-        --border-base: rgba(148, 163, 184, 0.18);
-        --bg-accent-soft: rgba(94, 234, 212, 0.1);
+        --text-muted: #94a3b8;
+        --border-subtle: rgba(255, 255, 255, 0.12);
+        --border-base: rgba(255, 255, 255, 0.12);
+        --bg-accent-soft: rgba(45, 212, 191, 0.15);
       }
 
       /* Smooth theme transition */
@@ -77,90 +75,30 @@
       }
 
       :root.dark body {
-        color: var(--text-main);
         background:
-          radial-gradient(circle at 12% 6%, rgba(94, 234, 212, 0.07), transparent 28%),
-          radial-gradient(circle at 88% 10%, rgba(251, 146, 60, 0.06), transparent 26%),
-          linear-gradient(180deg, #0a0f18 0%, #101827 42%, #0c121c 100%);
+          radial-gradient(circle at 14% 8%, rgba(32, 178, 170, 0.10), transparent 26%),
+          radial-gradient(circle at 88% 12%, rgba(249, 115, 22, 0.10), transparent 24%),
+          linear-gradient(180deg, #111827 0%, #1a2436 46%, #141e2b 100%);
       }
 
       /* ===== Dark mode component overrides ===== */
       /* All hardcoded rgba(255,255,255,…) backgrounds need dark equivalents */
 
       :root.dark .shell {
-        background: rgba(14, 20, 32, 0.94);
-        border-color: var(--border-subtle);
-        box-shadow: var(--shadow-soft);
+        background: rgba(18, 24, 38, 0.92);
+        border-color: rgba(255, 255, 255, 0.07);
       }
 
       :root.dark .pill,
       :root.dark .panel-tag {
-        background: var(--surface-3);
-        box-shadow: none;
-        color: var(--text-muted);
-        border-color: var(--border-subtle);
+        background: rgba(255, 255, 255, 0.07);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        color: var(--muted);
+        border-color: rgba(255, 255, 255, 0.10);
       }
 
       :root.dark .command-card {
-        background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
-        color: var(--text-main);
-      }
-
-      :root.dark .command-card .command-copy,
-      :root.dark .command-card .next-step {
-        color: var(--text-muted);
-      }
-
-      :root.dark .catalog-side {
-        background: var(--surface-2);
-        border-left-color: var(--border-subtle);
-      }
-
-      :root.dark .catalog-shell,
-      :root.dark .table-shell {
-        background: var(--panel);
-      }
-
-      :root.dark .panel:not(.shell > .panel),
-      :root.dark .priority-panel {
-        background: transparent;
-      }
-
-      :root.dark th {
-        color: var(--text-muted);
-      }
-
-      :root.dark td {
-        color: var(--text-main);
-      }
-
-      :root.dark tbody tr:hover td {
-        background: color-mix(in srgb, var(--accent) 6%, transparent);
-      }
-
-      :root.dark .section-title,
-      :root.dark .section-kicker {
-        color: var(--accent);
-      }
-
-      :root.dark .dnor-shell__nav-item:hover {
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--text-main);
-      }
-
-      :root.dark .dnor-shell__search {
-        background: var(--surface-3);
-        border-color: var(--border-subtle);
-        color: var(--text-muted);
-      }
-
-      :root.dark .dnor-overview-nav {
-        background: rgba(12, 18, 28, 0.94);
-      }
-
-      :root.dark .dnor-platform-fold {
-        background: var(--surface-2);
-        border-color: var(--border-subtle);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
       }
 
       :root.dark .command-card[data-tone="warning"] {
@@ -172,24 +110,29 @@
       }
 
       :root.dark .next-step {
-        background: var(--surface-3);
-        border-color: var(--border-subtle);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.08);
       }
 
       :root.dark .signal-mini,
       :root.dark .summary-card {
-        background: var(--surface-3);
-        border-color: var(--border-subtle);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.08);
       }
 
       :root.dark .rail-stack {
-        background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
-        border-color: var(--border-subtle);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+        border-color: rgba(255, 255, 255, 0.06);
       }
 
       :root.dark .telemetry-mini {
-        background: var(--surface-3);
-        border-color: var(--border-subtle);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.08);
+      }
+
+      :root.dark .catalog-side {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.06);
       }
 
       :root.dark body::before {
@@ -261,94 +204,6 @@
         gap: 24px;
         padding: 28px 30px;
         border-bottom: 1px solid var(--line);
-      }
-
-      .masthead--compact {
-        gap: 16px;
-        padding: 16px 22px 18px;
-      }
-
-      .masthead--compact h1 {
-        font-size: clamp(1.55rem, 2.8vw, 2.35rem);
-        line-height: 1.05;
-        max-width: 20ch;
-      }
-
-      .masthead--overview {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-        padding: 0;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .masthead--overview .masthead__hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
-        gap: 14px;
-        padding: 14px 22px 10px;
-      }
-
-      .masthead--overview .command-card {
-        padding: 14px 16px;
-        gap: 10px;
-        border-radius: 18px;
-      }
-
-      .masthead--overview .command-score {
-        font-size: clamp(1.35rem, 2.2vw, 1.85rem);
-      }
-
-      .masthead--overview .operator-grid--kpis {
-        padding: 8px 22px 10px;
-        border-bottom: 1px solid var(--line);
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-      }
-
-      .masthead--overview .signal-mini {
-        padding: 10px 12px;
-        border-radius: 14px;
-      }
-
-      .masthead--overview .signal-mini strong {
-        font-size: 1.1rem;
-      }
-
-      .masthead--overview .dnor-overview-nav {
-        padding: 6px 22px 10px;
-        border-bottom: none;
-      }
-
-      @media (max-width: 1400px) {
-        .masthead--overview .subhead--compact {
-          display: none;
-        }
-
-        .masthead--compact h1 {
-          font-size: clamp(1.35rem, 2.2vw, 1.85rem);
-        }
-      }
-
-      @media (max-width: 1160px) {
-        .masthead--overview .masthead__hero {
-          grid-template-columns: 1fr;
-        }
-
-        .masthead--overview .operator-grid--kpis {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-      }
-
-      @media (max-width: 640px) {
-        .masthead--overview .operator-grid--kpis {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-
-      .subhead--compact {
-        font-size: 0.95rem;
-        line-height: 1.45;
-        max-width: 52ch;
       }
 
       .brand {
@@ -1072,7 +927,7 @@
 
       .catalog-side {
         border-left: 1px solid var(--line);
-        background: color-mix(in srgb, var(--bg-secondary) 70%, var(--panel));
+        background: rgba(255, 255, 255, 0.46);
       }
 
       .table-shell {
@@ -1304,18 +1159,6 @@
       }
 
       @media (max-width: 840px) {
-        .dnor-shell__nav-item,
-        .dnor-shell__search,
-        .fleet-copilot-host-chip,
-        .fleet-copilot-starter {
-          min-height: 44px;
-        }
-
-        .fleet-copilot-composer input,
-        .fleet-copilot-composer button {
-          min-height: 44px;
-        }
-
         main {
           width: calc(100vw - 12px);
           margin: 12px auto 26px;
@@ -1959,37 +1802,6 @@
       :root.dark .storage-use--warn     { color: #fbbf24; }
       :root.dark .storage-use--critical { color: #f87171; }
 
-      .storage-row--pressure {
-        background: color-mix(in srgb, #dc2626 6%, transparent);
-      }
-
-      .storage-row--pressure .storage-use-bar {
-        background: #dc2626 !important;
-      }
-
-      :root.dark .storage-row--pressure {
-        background: color-mix(in srgb, #f87171 8%, transparent);
-      }
-
-      .storage-pressure-banner {
-        margin: 0 0 0.75rem;
-        padding: 0.55rem 0.85rem;
-        border-radius: 8px;
-        border: 1px solid color-mix(in srgb, #dc2626 35%, var(--line));
-        background: color-mix(in srgb, #dc2626 8%, var(--surface));
-        font-size: 0.82rem;
-        color: var(--text-main, var(--ink));
-      }
-
-      .storage-pressure-banner strong {
-        font-variant-numeric: tabular-nums;
-        color: #dc2626;
-      }
-
-      :root.dark .storage-pressure-banner strong {
-        color: #f87171;
-      }
-
       .storage-cell--replicas,
       .storage-cell--node {
         color: var(--muted);
@@ -2398,7 +2210,6 @@
         cursor: pointer;
         white-space: nowrap;
         border-bottom: 2px solid transparent;
-        flex-shrink: 0;
       }
 
       .dnor-shell__nav-item:hover {
@@ -2409,36 +2220,6 @@
       .dnor-shell__nav-item--active {
         color: rgb(255, 170, 60);
         border-bottom-color: rgb(255, 153, 0);
-      }
-
-      .dnor-shell__nav-item:focus-visible,
-      .dnor-shell__search:focus-visible,
-      .dnor-shell__period:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-      }
-
-      @media (max-width: 1280px) {
-        .dnor-shell__search-placeholder,
-        .dnor-shell__kbd {
-          display: none;
-        }
-
-        .dnor-shell__search {
-          min-width: 2.25rem;
-          padding: 0.4rem 0.5rem;
-        }
-      }
-
-      @media (max-width: 1080px) {
-        .dnor-shell__inner {
-          gap: 0.5rem;
-        }
-
-        .dnor-shell__nav-item {
-          font-size: 0.76rem;
-          padding: 0.4rem 0.45rem;
-        }
       }
 
       .dnor-shell__actions {
@@ -2491,253 +2272,15 @@
       }
 
       .dnor-shell__status {
-        position: relative;
-        flex-shrink: 0;
         width: 9px;
         height: 9px;
         border-radius: 999px;
         background: rgb(239, 68, 68);
       }
 
-      .dnor-shell__status-sr {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-
-      .dnor-shell__quota-pill {
-        font-size: 0.72rem;
-        font-weight: 600;
-        padding: 0.28rem 0.55rem;
-        border-radius: 999px;
-        border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
-        color: var(--accent);
-        white-space: nowrap;
-      }
-
-      .dnor-shell__nav-copilot-icon {
-        display: none;
-        font-size: 0.95rem;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__nav-copilot-label {
-        display: none;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__nav-copilot-icon {
-        display: inline;
-      }
-
-      .dnor-stale-banner {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
-        max-width: min(1820px, calc(100vw - 32px));
-        margin: 0 auto;
-        padding: 0.55rem 1rem;
-        background: color-mix(in srgb, var(--warm) 14%, var(--panel));
-        border: 1px solid color-mix(in srgb, var(--warm) 35%, var(--line));
-        border-radius: 10px;
-        font-size: 0.82rem;
-        color: var(--text-main, var(--ink));
-      }
-
-      .dnor-stale-banner p {
-        margin: 0;
-      }
-
-      .dnor-shell__status--connecting {
-        background: rgb(245, 158, 11);
-        box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
-        animation: dnor-pulse-status 1.2s ease-in-out infinite;
-      }
-
       .dnor-shell__status--live {
         background: rgb(34, 197, 94);
         box-shadow: 0 0 8px rgba(34, 197, 94, 0.45);
-      }
-
-      @keyframes dnor-pulse-status {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.45;
-        }
-      }
-
-      .dnor-alert-banner {
-        position: sticky;
-        top: 3.25rem;
-        z-index: 90;
-        display: flex;
-        align-items: flex-start;
-        gap: 0.65rem;
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 0.65rem 1.25rem;
-        background: rgba(192, 59, 43, 0.12);
-        border-bottom: 1px solid rgba(192, 59, 43, 0.35);
-        color: var(--critical, #c03b2b);
-        font-size: 0.88rem;
-        line-height: 1.4;
-      }
-
-      :root.dark .dnor-alert-banner {
-        background: rgba(239, 68, 68, 0.15);
-        border-bottom-color: rgba(239, 68, 68, 0.35);
-        color: #fca5a5;
-      }
-
-      .dnor-alert-banner__icon {
-        flex-shrink: 0;
-        font-size: 1rem;
-      }
-
-      .dnor-alert-banner__text {
-        margin: 0;
-      }
-
-      .dnor-overview-nav {
-        position: sticky;
-        top: 3.2rem;
-        z-index: 40;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        padding: 0.55rem 1.25rem;
-        margin: 0 -1px;
-        border-bottom: 1px solid var(--line);
-        background: rgba(255, 251, 246, 0.92);
-        backdrop-filter: blur(10px);
-      }
-
-      :root.dark .dnor-overview-nav {
-        background: rgba(18, 24, 38, 0.92);
-      }
-
-      .dnor-overview-nav__link {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.35rem 0.75rem;
-        border-radius: 999px;
-        border: 1px solid var(--line);
-        color: var(--muted);
-        font-size: 0.78rem;
-        font-weight: 500;
-        text-decoration: none;
-        transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-      }
-
-      .dnor-overview-nav__link:hover {
-        color: var(--accent);
-        border-color: var(--accent-soft);
-        background: var(--accent-soft);
-      }
-
-      .dnor-platform-fold {
-        margin: 0 0 1.5rem;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.35);
-        overflow: hidden;
-      }
-
-      :root.dark .dnor-platform-fold {
-        background: rgba(255, 255, 255, 0.03);
-      }
-
-      .dnor-platform-fold__summary {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.65rem 1rem;
-        padding: 0.85rem 1.1rem;
-        cursor: pointer;
-        list-style: none;
-        user-select: none;
-      }
-
-      .dnor-platform-fold__summary::-webkit-details-marker {
-        display: none;
-      }
-
-      .dnor-platform-fold__summary::before {
-        content: '▸';
-        color: var(--accent);
-        font-size: 0.85rem;
-        transition: transform 0.15s ease;
-      }
-
-      .dnor-platform-fold[open] .dnor-platform-fold__summary::before {
-        transform: rotate(90deg);
-      }
-
-      .dnor-platform-fold__title {
-        font-weight: 600;
-        font-size: 0.95rem;
-      }
-
-      .dnor-platform-fold__hint {
-        flex: 1;
-        min-width: 12rem;
-        color: var(--muted);
-        font-size: 0.82rem;
-      }
-
-      .dnor-platform-fold__tag {
-        margin-left: auto;
-      }
-
-      .dnor-platform-fold__body {
-        padding: 0 0.5rem 0.75rem;
-        border-top: 1px solid var(--line);
-      }
-
-      .dnor-signal-band {
-        margin-bottom: 0.5rem;
-      }
-
-      .dnor-signal-band__kicker {
-        margin: 0 0 0.35rem;
-        font-size: 0.72rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-
-      .dnor-catalog-cta {
-        display: inline-flex;
-        align-items: center;
-        margin-left: 0.5rem;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--accent);
-        text-decoration: none;
-        border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
-        transition: background 0.15s ease, border-color 0.15s ease;
-      }
-
-      .dnor-catalog-cta:hover {
-        background: color-mix(in srgb, var(--accent) 10%, transparent);
-      }
-
-      .tabular-nums,
-      .signal-mini strong,
-      .hotspot-value,
-      .command-card strong,
-      .storage-cell--pct {
-        font-variant-numeric: tabular-nums;
       }
 
       .dnor-shell__avatar {
@@ -2760,10 +2303,8 @@
 
       .dnor-page-head__title {
         margin: 0;
-        font-family: "Inter", "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
         font-size: 1.45rem;
         font-weight: 700;
-        letter-spacing: -0.02em;
       }
 
       .dnor-page-head__subtitle {
@@ -2861,848 +2402,4 @@
 
       .content-grid--intel {
         grid-template-columns: 1fr;
-      }
-
-      .fleet-copilot-section-band {
-        padding: 1rem 1.25rem 2rem;
-      }
-
-      /* T-325 v4: Copilot = app frame único (~72rem), sem pillarbox feio */
-      html.dnor-view-fleet-copilot,
-      body.dnor-view-fleet-copilot {
-        --dnor-copilot-column: min(72rem, calc(100% - 2.5rem));
-        overflow-x: clip;
-        max-width: 100%;
-      }
-
-      body.dnor-view-fleet-copilot main,
-      main.main--fleet-copilot {
-        width: 100% !important;
-        max-width: var(--dnor-copilot-column) !important;
-        margin: 0 auto !important;
-        padding: 0 !important;
-        box-sizing: border-box;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell {
-        background: transparent;
-        border-bottom: none;
-        overflow: hidden;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__inner {
-        width: 100%;
-        max-width: var(--dnor-copilot-column) !important;
-        margin: 0.75rem auto 0 !important;
-        padding: 0.65rem 1rem;
-        border: 1px solid var(--border-subtle);
-        border-bottom: none;
-        border-radius: 20px 20px 0 0;
-        background: rgba(15, 23, 42, 0.94);
-        backdrop-filter: blur(14px);
-        box-sizing: border-box;
-        min-width: 0;
-        overflow: hidden;
-      }
-
-      :root:not(.dark) body.dnor-view-fleet-copilot .dnor-shell__inner {
-        background: rgba(255, 255, 255, 0.94);
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__brand {
-        flex-shrink: 0;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__nav {
-        flex: 1 1 auto;
-        min-width: 0;
-        overflow-x: hidden;
-        overflow-y: hidden;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__nav-item {
-        padding: 0.4rem 0.55rem;
-        font-size: 0.78rem;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__actions {
-        flex-shrink: 0;
-        min-width: 0;
-        gap: 0.35rem;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__search--icon {
-        min-width: 0;
-        width: 2.1rem;
-        padding: 0.4rem;
-        justify-content: center;
-      }
-
-      body.dnor-view-fleet-copilot .dnor-shell__search--icon .dnor-shell__search-icon {
-        margin: 0;
-      }
-
-      main.main--fleet-copilot {
-        background: rgba(18, 24, 38, 0.94);
-        border: 1px solid var(--border-subtle);
-        border-top: none;
-        border-radius: 0 0 20px 20px;
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
-      }
-
-      :root:not(.dark) main.main--fleet-copilot {
-        background: rgba(255, 251, 246, 0.94);
-        box-shadow: 0 24px 80px rgba(22, 32, 43, 0.08);
-      }
-
-      .shell.shell--fleet-copilot {
-        width: 100%;
-        max-width: none;
-        margin: 0;
-        padding: 1.25rem 1.5rem 1.75rem;
-        border: none;
-        border-radius: 0;
-        background: transparent;
-        box-shadow: none;
-        backdrop-filter: none;
-        overflow: visible;
-      }
-
-      @media (min-width: 1680px) {
-        body.dnor-view-fleet-copilot main,
-        main.main--fleet-copilot,
-        body.dnor-view-fleet-copilot .dnor-shell__inner {
-          max-width: var(--dnor-copilot-column) !important;
-        }
-      }
-
-      @media (min-width: 1880px) {
-        html.dnor-view-fleet-copilot,
-        body.dnor-view-fleet-copilot {
-          --dnor-copilot-column: min(76rem, calc(100% - 3rem));
-        }
-      }
-
-      @media (min-width: 2200px) {
-        html.dnor-view-fleet-copilot,
-        body.dnor-view-fleet-copilot {
-          --dnor-copilot-column: min(80rem, calc(100% - 4rem));
-        }
-      }
-
-      .dnor-shell__nav-item--copilot {
-        margin-left: 0.25rem;
-        border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-        background: color-mix(in srgb, var(--accent) 8%, transparent);
-      }
-
-      .dnor-shell__nav-item--copilot.dnor-shell__nav-item--live {
-        box-shadow: 0 0 0 1px color-mix(in srgb, #34d399 40%, transparent);
-      }
-
-      /* T-325: legibilidade em monitores ultra-wide */
-      .fleet-copilot-page {
-        --fleet-copilot-prose-max: 38rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1.25rem;
-        width: 100%;
-        max-width: 100%;
-        margin-inline: auto;
-      }
-
-      .fleet-copilot-hero {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 0.75rem 1rem;
-        padding: 1rem 1.25rem;
-        border-radius: 12px;
-        border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-subtle));
-        background:
-          radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%),
-          var(--panel);
-      }
-
-      .fleet-copilot-hero__kicker {
-        margin: 0 0 0.35rem;
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
-
-      .fleet-copilot-hero__title {
-        margin: 0;
-        font-family: inherit;
-        font-size: clamp(1.35rem, 2.2vw, 1.75rem);
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        line-height: 1.15;
-        max-width: none;
-      }
-
-      .fleet-copilot-hero__subtitle {
-        margin: 0.5rem 0 0;
-        max-width: 52ch;
-        color: var(--text-muted);
-        line-height: 1.5;
-      }
-
-      .fleet-copilot-hero__meta {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      .fleet-copilot-pill {
-        font-size: 0.72rem;
-        padding: 0.25rem 0.65rem;
-        border-radius: 999px;
-        border: 1px solid var(--border-subtle);
-        background: var(--bg);
-        font-variant-numeric: tabular-nums;
-      }
-
-      .fleet-copilot-pill--amber {
-        border-color: color-mix(in srgb, #f59e0b 45%, transparent);
-        background: color-mix(in srgb, #f59e0b 12%, transparent);
-        color: color-mix(in srgb, #f59e0b 85%, var(--text));
-      }
-
-      .fleet-copilot-banner {
-        display: flex;
-        gap: 0.75rem;
-        align-items: flex-start;
-        padding: 0.85rem 1rem;
-        border-radius: 12px;
-        border: 1px solid color-mix(in srgb, #f59e0b 35%, transparent);
-        background: color-mix(in srgb, #f59e0b 10%, var(--panel));
-        font-size: 0.88rem;
-      }
-
-      .fleet-copilot-banner p {
-        margin: 0;
-      }
-
-      .fleet-copilot-banner__icon {
-        font-size: 1.1rem;
-        line-height: 1;
-      }
-
-      .fleet-copilot-locked-card {
-        padding: 2.5rem 2rem;
-        border-radius: 16px;
-        border: 1px dashed var(--border-subtle);
-        background: var(--panel);
-        text-align: center;
-        max-width: 36rem;
-        margin: 0 auto;
-      }
-
-      .fleet-copilot-locked-card__icon {
-        font-size: 2rem;
-        margin-bottom: 0.75rem;
-      }
-
-      .fleet-copilot-locked-card h2 {
-        margin: 0 0 0.5rem;
-      }
-
-      .fleet-copilot-locked-card p {
-        margin: 0 0 0.75rem;
-        color: var(--text-muted);
-      }
-
-      .fleet-copilot-locked-card__hint {
-        font-size: 0.82rem;
-      }
-
-      .fleet-copilot-layout {
-        display: grid;
-        grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-        gap: 1rem;
-        min-height: min(720px, calc(100vh - 17rem));
-      }
-
-      @media (max-width: 1180px) {
-        .dnor-shell__search-placeholder,
-        .dnor-shell__kbd {
-          display: none;
-        }
-
-        .dnor-shell__search {
-          min-width: 2.25rem;
-          padding: 0.4rem 0.5rem;
-        }
-      }
-
-      @media (max-width: 900px) {
-        .fleet-copilot-layout {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      .fleet-copilot-sidebar {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        padding: 1rem;
-        border-radius: 14px;
-        border: 1px solid var(--border-subtle);
-        background: var(--panel);
-      }
-
-      .fleet-copilot-sidebar__title {
-        margin: 0;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--text-muted);
-      }
-
-      .fleet-copilot-starters {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-
-      .fleet-copilot-starter {
-        display: flex;
-        gap: 0.65rem;
-        align-items: flex-start;
-        text-align: left;
-        padding: 0.75rem;
-        border-radius: 12px;
-        border: 1px solid var(--border-subtle);
-        background: var(--bg);
-        cursor: pointer;
-        transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-      }
-
-      .fleet-copilot-starter:hover:not(:disabled) {
-        border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-        transform: translateY(-1px);
-        box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 8%, transparent);
-      }
-
-      .fleet-copilot-starter--active {
-        border-color: var(--accent);
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
-      }
-
-      .fleet-copilot-starter:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-      }
-
-      .fleet-copilot-starter__icon {
-        font-size: 1.25rem;
-        line-height: 1;
-      }
-
-      .fleet-copilot-starter__body {
-        display: flex;
-        flex-direction: column;
-        gap: 0.15rem;
-        font-size: 0.78rem;
-        color: var(--text-muted);
-      }
-
-      .fleet-copilot-starter__body strong {
-        color: var(--text);
-        font-size: 0.88rem;
-      }
-
-      .fleet-copilot-sidebar__foot {
-        margin-top: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid var(--border-subtle);
-      }
-
-      .fleet-copilot-quota {
-        margin: 0;
-        font-size: 0.72rem;
-        color: var(--text-muted);
-        line-height: 1.35;
-      }
-
-      .fleet-copilot-host-select {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-        margin-top: 0.75rem;
-        font-size: 0.78rem;
-        color: var(--text-muted);
-      }
-
-      .fleet-copilot-host-select select {
-        width: 100%;
-        padding: 0.45rem 0.55rem;
-        border-radius: 8px;
-        border: 1px solid var(--border-subtle);
-        background: var(--panel-elevated, var(--panel));
-        color: var(--text);
-        font-size: 0.82rem;
-      }
-
-      .fleet-copilot-help summary {
-        cursor: pointer;
-        font-size: 0.78rem;
-        color: var(--accent);
-      }
-
-      .fleet-copilot-help p {
-        margin: 0.5rem 0 0;
-        font-size: 0.76rem;
-        color: var(--text-muted);
-        line-height: 1.45;
-      }
-
-      .fleet-copilot-chat {
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        flex: 1;
-        border-radius: 14px;
-        border: 1px solid var(--border-subtle);
-        background: var(--panel);
-        overflow: hidden;
-      }
-
-      .fleet-copilot-thread {
-        flex: 1;
-        overflow-y: auto;
-        padding: 1rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.85rem;
-        min-height: 280px;
-        max-height: none;
-      }
-
-      .fleet-copilot-empty {
-        margin: auto;
-        text-align: center;
-        max-width: 36ch;
-        color: var(--text-muted);
-        font-size: 0.9rem;
-      }
-
-      .fleet-copilot-empty__note {
-        margin-top: 0.5rem;
-        font-size: 0.78rem;
-        opacity: 0.85;
-      }
-
-      .fleet-copilot-bubble {
-        width: 100%;
-        max-width: min(100%, var(--fleet-copilot-prose-max, 42rem));
-        padding: 0.85rem 1rem;
-        border-radius: 14px;
-        animation: fleet-copilot-fade-in 0.25s ease;
-      }
-
-      @keyframes fleet-copilot-fade-in {
-        from {
-          opacity: 0;
-          transform: translateY(6px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .fleet-copilot-bubble--user {
-        align-self: flex-end;
-        max-width: min(100%, 36rem);
-        background: color-mix(in srgb, var(--accent) 16%, transparent);
-        border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-      }
-
-      .fleet-copilot-bubble--assistant {
-        align-self: flex-start;
-        background: var(--bg);
-        border: 1px solid var(--border-subtle);
-      }
-
-      .fleet-copilot-bubble--pending {
-        opacity: 0.95;
-      }
-
-      .fleet-copilot-bubble__head {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        align-items: center;
-        margin-bottom: 0.45rem;
-        font-size: 0.72rem;
-        color: var(--text-muted);
-      }
-
-      .fleet-copilot-bubble__latency {
-        font-variant-numeric: tabular-nums;
-      }
-
-      .fleet-copilot-bubble__model {
-        font-size: 0.65rem;
-        padding: 0.1rem 0.4rem;
-        border-radius: 4px;
-        background: color-mix(in srgb, var(--accent) 12%, transparent);
-        color: var(--accent);
-        text-transform: lowercase;
-      }
-
-      .fleet-copilot-bubble__text {
-        margin: 0;
-        white-space: pre-wrap;
-        line-height: 1.55;
-        font-size: 0.92rem;
-      }
-
-      .fleet-copilot-source-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        margin-top: 0.65rem;
-      }
-
-      .fleet-copilot-source-pill {
-        font-size: 0.68rem;
-        padding: 0.2rem 0.55rem;
-        border-radius: 999px;
-        border: 1px solid var(--border-subtle);
-        background: color-mix(in srgb, var(--accent) 6%, var(--bg));
-        font-family: ui-monospace, monospace;
-      }
-
-      .fleet-copilot-bubble--streaming {
-        border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
-      }
-
-      .fleet-copilot-bubble__text--stream {
-        min-height: 1.5em;
-      }
-
-      .fleet-copilot-caret {
-        display: inline-block;
-        width: 2px;
-        height: 1em;
-        margin-left: 2px;
-        vertical-align: text-bottom;
-        background: var(--accent);
-        animation: fleet-copilot-blink 1s step-end infinite;
-      }
-
-      @keyframes fleet-copilot-blink {
-        50% {
-          opacity: 0;
-        }
-      }
-
-      .fleet-copilot-typing {
-        margin: 0 0 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-      }
-
-      .fleet-copilot-progress {
-        height: 4px;
-        border-radius: 999px;
-        background: color-mix(in srgb, var(--accent) 10%, var(--border-subtle));
-        overflow: hidden;
-        margin-bottom: 0.5rem;
-      }
-
-      .fleet-copilot-progress__bar {
-        height: 100%;
-        width: 40%;
-        border-radius: inherit;
-        background: linear-gradient(
-          90deg,
-          transparent,
-          var(--accent),
-          transparent
-        );
-        animation: fleet-copilot-progress 1.4s ease-in-out infinite;
-      }
-
-      @keyframes fleet-copilot-progress {
-        0% {
-          transform: translateX(-100%);
-        }
-        100% {
-          transform: translateX(350%);
-        }
-      }
-
-      .fleet-copilot-host-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        padding: 0.35rem 0.75rem 0.65rem;
-        border-top: 1px solid var(--border-subtle);
-      }
-
-      .fleet-copilot-host-chip {
-        font-size: 0.68rem;
-        font-family: ui-monospace, monospace;
-        padding: 0.2rem 0.5rem;
-        border-radius: 999px;
-        border: 1px solid var(--border-subtle);
-        background: var(--panel);
-        color: var(--accent);
-        cursor: pointer;
-      }
-
-      .fleet-copilot-host-chip:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-
-      .fleet-copilot-host-chip:hover:not(:disabled) {
-        border-color: var(--accent);
-      }
-
-      .fleet-copilot-dots span {
-        display: inline-block;
-        width: 4px;
-        height: 4px;
-        margin-left: 2px;
-        border-radius: 50%;
-        background: var(--accent);
-        animation: fleet-copilot-dot 1.2s infinite ease-in-out;
-      }
-
-      .fleet-copilot-dots span:nth-child(2) {
-        animation-delay: 0.15s;
-      }
-
-      .fleet-copilot-dots span:nth-child(3) {
-        animation-delay: 0.3s;
-      }
-
-      @keyframes fleet-copilot-dot {
-        0%,
-        80%,
-        100% {
-          opacity: 0.25;
-          transform: translateY(0);
-        }
-        40% {
-          opacity: 1;
-          transform: translateY(-3px);
-        }
-      }
-
-      .fleet-copilot-composer {
-        display: flex;
-        gap: 0.5rem;
-        padding: 0.85rem;
-        border-top: 1px solid var(--border-subtle);
-        background: color-mix(in srgb, var(--bg) 70%, var(--panel));
-        max-width: 100%;
-      }
-
-      .fleet-copilot-composer input {
-        flex: 1;
-        min-width: 0;
-        padding: 0.65rem 0.85rem;
-        border-radius: 10px;
-        border: 1px solid var(--border-subtle);
-        background: var(--bg);
-        color: inherit;
-        font-size: 0.92rem;
-      }
-
-      .fleet-copilot-composer button {
-        padding: 0.65rem 1.1rem;
-        border-radius: 10px;
-        border: none;
-        background: var(--accent);
-        color: var(--bg, #fff);
-        font-weight: 600;
-        cursor: pointer;
-        transition: opacity 0.15s ease;
-      }
-
-      .fleet-copilot-composer button:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-
-      .fleet-copilot-link-btn,
-      .fleet-copilot-secondary-btn {
-        background: none;
-        border: none;
-        color: var(--accent);
-        font-size: 0.78rem;
-        cursor: pointer;
-        padding: 0;
-        text-align: left;
-      }
-
-      .fleet-copilot-secondary-btn {
-        margin-top: 0.5rem;
-        padding: 0.55rem 1rem;
-        border-radius: 10px;
-        border: 1px solid var(--border-subtle);
-        background: var(--bg);
-      }
-
-      .fleet-copilot-error {
-        margin: 0;
-        padding: 0 0.85rem 0.85rem;
-        color: #e57373;
-        font-size: 0.82rem;
-      }
-
-      .fleet-copilot-teaser {
-        position: relative;
-        margin-top: 1.5rem;
-        border-radius: 16px;
-        overflow: hidden;
-        border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border-subtle));
-      }
-
-      .fleet-copilot-teaser__glow {
-        position: absolute;
-        inset: 0;
-        background:
-          radial-gradient(80% 120% at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
-          radial-gradient(60% 80% at 100% 100%, color-mix(in srgb, #6366f1 12%, transparent), transparent 55%);
-        pointer-events: none;
-      }
-
-      .fleet-copilot-teaser__content {
-        position: relative;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        padding: 1.25rem 1.5rem;
-        background: color-mix(in srgb, var(--panel) 92%, transparent);
-      }
-
-      .fleet-copilot-teaser__kicker {
-        margin: 0 0 0.25rem;
-        font-size: 0.68rem;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
-
-      .fleet-copilot-teaser__title {
-        margin: 0 0 0.35rem;
-        font-size: 1.15rem;
-      }
-
-      .fleet-copilot-teaser__copy {
-        margin: 0;
-        max-width: 42ch;
-        font-size: 0.88rem;
-        color: var(--text-muted);
-      }
-
-      .fleet-copilot-teaser__cta {
-        padding: 0.65rem 1.15rem;
-        border-radius: 999px;
-        border: none;
-        background: var(--accent);
-        color: var(--bg, #fff);
-        font-weight: 600;
-        cursor: pointer;
-        white-space: nowrap;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-      }
-
-      .fleet-copilot-teaser__cta:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 22%, transparent);
-      }
-
-      .fleet-copilot-hero--stable {
-        margin-bottom: 0.5rem;
-      }
-
-      .fleet-copilot-layout--loading {
-        min-height: 280px;
-      }
-
-      .fleet-copilot-skeleton-sidebar {
-        min-height: 240px;
-        border-radius: 16px;
-        background: linear-gradient(
-          90deg,
-          rgba(255, 255, 255, 0.04) 0%,
-          rgba(255, 255, 255, 0.09) 50%,
-          rgba(255, 255, 255, 0.04) 100%
-        );
-        background-size: 200% 100%;
-        animation: fleet-copilot-shimmer 1.4s ease-in-out infinite;
-      }
-
-      .fleet-copilot-skeleton-thread {
-        flex: 1;
-        min-height: 200px;
-        border-radius: 16px;
-        background: linear-gradient(
-          90deg,
-          rgba(255, 255, 255, 0.03) 0%,
-          rgba(255, 255, 255, 0.08) 50%,
-          rgba(255, 255, 255, 0.03) 100%
-        );
-        background-size: 200% 100%;
-        animation: fleet-copilot-shimmer 1.4s ease-in-out infinite;
-      }
-
-      .fleet-copilot-locked-card__actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 0.75rem;
-      }
-
-      .fleet-copilot-page__skeleton {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-      }
-
-      .fleet-copilot-skeleton {
-        border-radius: 14px;
-        background: linear-gradient(
-          90deg,
-          color-mix(in srgb, var(--border-subtle) 60%, transparent),
-          color-mix(in srgb, var(--border-subtle) 25%, transparent),
-          color-mix(in srgb, var(--border-subtle) 60%, transparent)
-        );
-        background-size: 200% 100%;
-        animation: fleet-copilot-shimmer 1.2s infinite linear;
-      }
-
-      .fleet-copilot-skeleton--head {
-        height: 120px;
-      }
-
-      .fleet-copilot-skeleton--chat {
-        height: 420px;
-      }
-
-      @keyframes fleet-copilot-shimmer {
-        from {
-          background-position: 200% 0;
-        }
-        to {
-          background-position: -200% 0;
-        }
       }
