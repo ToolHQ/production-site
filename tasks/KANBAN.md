@@ -54,14 +54,14 @@
 
 |                                       ID                                        | Task Name                                                                                                                                                                                                                                                                                                  |  Priority   | Epic               | Est. |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------------- | :--: |
-| [T-350](2026/Q2/T-350-agent-meter-remove-hardcoded-pricing.md) | **agent-meter — Remove hardcoded pricing from HTML** _(planos Free/Pro/Team hardcoded no HTML → API dinâmica; remover .preview-mock)_ | 🔼 High | **Copilot/VSCode** | 2h |
+
 | [T-351](2026/Q2/T-351-agent-meter-budgets-backend.md) | **agent-meter — Implement budgets backend** _(tabela `budgets` existe mas zero código; CRUD + avaliação + UI)_ | 🔼 High | **Copilot/VSCode** | 4h |
 | [T-352](2026/Q2/T-352-agent-meter-notification-channels.md) | **agent-meter — Implement notification channels** _(tabela `notification_channels` existe mas zero código; webhook/slack dispatch + integrar em alerts)_ | 🔼 High | **Copilot/VSCode** | 4h |
-| [T-353](2026/Q2/T-353-agent-meter-global-search.md) | **agent-meter — Global search implementation** _(search bar disabled no topbar → implementar busca por prompt/tool/model/conversation)_ | 🔼 High | **Copilot/VSCode** | 3h |
-| [T-354](2026/Q2/T-354-agent-meter-api-key-auth.md) | **agent-meter — Enforce API key authentication** _(middleware Axum; SHA256 lookup; org_id filtering; REQUIRE_API_KEY flag)_ | 🔼 High | **Copilot/VSCode** | 3h |
-| [T-355](2026/Q2/T-355-agent-meter-cost-engine-perf.md) | **agent-meter — Cost engine: compute_event_usd performance** _(pré-calcular usd_cost na inserção ou materialized view; melhorar token estimation)_ | 🔼 High | **Copilot/VSCode** | 2h |
+
+
+
 | [T-356](2026/Q2/T-356-agent-meter-stripe-complete.md) | **agent-meter — Stripe billing: complete integration** _(provisionar keys; criar products; testar checkout/portal/webhook end-to-end; remover stubs)_ | 🔵 Medium | **Copilot/VSCode** | 4h |
-| [T-357](2026/Q2/T-357-agent-meter-ai-credits.md) | **agent-meter — Pricing model: add AI Credits concept** _(dual model: USD real vs AI Credits para Copilot/Cursor; separar no dashboard e cost page)_ | 🔼 High | **Copilot/VSCode** | 3h |
+
 | [T-358](2026/Q2/T-358-agent-meter-code-cleanup.md) | **agent-meter — Code quality: dead code removal + clippy** _(clippy warnings; duplicação otlp; imports; #[allow(dead_code)]; sync eclipse-proxy vs proxy Rust)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
 | [T-359](2026/Q2/T-359-agent-meter-response-preview.md) | **agent-meter — Conversation response_preview population** _(extrair preview da resposta LLM; popular na conversations list API)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
 | [T-360](2026/Q2/T-360-agent-meter-pricing-auto-update.md) | **agent-meter — Pricing auto-update from provider APIs** _(scrape preços Anthropic/OpenAI/Google; UPSERT automático; cron job)_ | 🟢 Low | **Copilot/VSCode** | 4h |
@@ -95,8 +95,40 @@
 | [T-272](2026/Q2/T-272-AI-Radar-YouTube-AI-Trends-Collector.md) | **AI Radar — YouTube AI Trends Collector** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-271](2026/Q2/T-271-AI-Radar-Google-Trends-Collector-Spike.md) | **AI Radar — Google Trends Collector Spike** | 🔼 High | Cursor / AI Radar | 4h |
 
+## 🏗️ Epic: agent-meter OSS Modernization (Q3 2026)
+
+> Próxima prioridade após bug fixes. Transformar em produto standalone open-source.
+
+| ID | Task Name | Priority | Owner | Est. |
+| :---: | :--- | :---: | :---: | :---: |
+| [T-361](2026/Q3/T-361-agent-meter-oss-modernization-epic.md) | **agent-meter — OSS Modernization Epic** _(master task — 5 fases, 19 sub-tasks)_ | 🚨 Critical | **Copilot/VSCode** | 10d |
+| T-362 | **Fase 1: Repository trait definition** _(trait EventRepo, CostRepo, OrgRepo, AlertRepo — async generic)_ | 🚨 Critical | **Copilot/VSCode** | 3h |
+| T-363 | **Fase 1: Postgres implementation** _(mover queries para impl PgRepo; zero mudança de comportamento)_ | 🚨 Critical | **Copilot/VSCode** | 4h |
+| T-364 | **Fase 1: SQLite implementation** _(impl SqliteRepo; adaptar SQL dialect; migrations separadas)_ | 🚨 Critical | **Copilot/VSCode** | 6h |
+| T-365 | **Fase 1: Runtime DB selection** _(DATABASE_URL prefix → backend; feature flags Cargo.toml)_ | 🚨 Critical | **Copilot/VSCode** | 2h |
+| T-366 | **Fase 2: Service trait extraction** _(DI via Arc<dyn Service> no AppState)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| T-367 | **Fase 2: Config modernization** _(agent-meter.toml + env + CLI flags; precedência)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| T-368 | **Fase 2: Error handling unification** _(thiserror hierárquico; remover anyhow do core)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| T-369 | **Fase 2: Module reorganization** _(domain/ + infra/ + application/ — clean architecture)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| T-370 | **Fase 3: Unified binary** _(subcommands: serve, migrate, cli, mcp-wrap — 1 binário)_ | 🔼 High | **Copilot/VSCode** | 6h |
+| T-371 | **Fase 3: Embedded migrations** _(auto-migrate on startup com --auto-migrate)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| T-372 | **Fase 3: Dockerfile multi-stage** _(cargo-chef + distroless; suporte sqlite mode)_ | 🔵 Medium | **Copilot/VSCode** | 3h |
+| T-373 | **Fase 3: Install script + release binaries** _(GitHub Releases multi-arch; curl installer)_ | 🔵 Medium | **Copilot/VSCode** | 4h |
+| T-374 | **Fase 4: docker-compose standalone** _(compose up = running; zero config dev)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
+| T-375 | **Fase 4: Helm chart** _(values.yaml; sqlite sidecar ou external Postgres)_ | 🔵 Medium | **Copilot/VSCode** | 4h |
+| T-376 | **Fase 4: README + docs OSS** _(quickstart 30s; arch diagram; API ref; contributing)_ | 🔵 Medium | **Copilot/VSCode** | 3h |
+| T-377 | **Fase 4: CI/CD pipeline** _(test matrix pg+sqlite; clippy; multi-arch; release auto)_ | 🔵 Medium | **Copilot/VSCode** | 3h |
+| T-378 | **Fase 5: Integration test suite** _(testcontainers-rs; fixtures; pg + sqlite)_ | 🔵 Medium | **Copilot/VSCode** | 6h |
+| T-379 | **Fase 5: Clippy strict + deny warnings** _(#![deny(clippy::all)]; cargo fmt CI)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
+| T-380 | **Fase 5: Benchmarks + profiling** _(criterion hot paths; memory profiling)_ | 🟢 Low | **Copilot/VSCode** | 3h |
+
 ## ✅ Done
 
+| [T-357](2026/Q2/T-357-agent-meter-ai-credits.md) | **agent-meter — AI Credits + billing model correction** _(PR #423 + #424; copilot_credit/cursor_usage/token; 19 novos modelos; $666.53 total real)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| [T-355](2026/Q2/T-355-agent-meter-cost-engine-perf.md) | **agent-meter — Cost engine perf** _(compute_event_usd na inserção; PR #420 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| [T-350](2026/Q2/T-350-agent-meter-remove-hardcoded-pricing.md) | **agent-meter — Dynamic pricing API** _(PR #420 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| [T-353](2026/Q2/T-353-agent-meter-global-search.md) | **agent-meter — Global search** _(PR #421 merged)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| [T-354](2026/Q2/T-354-agent-meter-api-key-auth.md) | **agent-meter — API key auth** _(PR #422 merged)_ | 🔼 High | **Copilot/VSCode** | 3h |
 | [T-342](2026/Q2/T-342-agent-meter-proxy-single-binary.md) | **agent-meter-proxy — Single binary HTTPS proxy** _(binário Rust cross-platform via hudsucker; intercepta IDE→LLM HTTPS; gera spans OTLP; PR #416 merged)_ | 🚨 Critical | **Copilot/VSCode** | 1d |
 | T-341 | **agent-meter — Eclipse proxy 100% coverage** _(request_bytes, response_bytes, max_tokens, temperature, llm_system, parent_span_id, cached_tokens, reasoning_tokens, finish_reason, response_text, tool_result cross-request correlation; doc: docs/agent-meter-telemetry-coverage.md)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | T-342 | **agent-meter — VS Code OTLP 100% coverage** _(captureContent=true habilitado; port-forward 4318 ativo; 24/27 campos preenchidos, 3 impossíveis sem env vars)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
