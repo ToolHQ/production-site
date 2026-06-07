@@ -37,14 +37,14 @@
 
 ## 🏎️ In Progress
 
-|                                         ID                                          | Task Name                                                                                                                                           |  Priority   |         Owner         | Est. |
-| :---------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :--: |
-|  [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md)   | **OCI MinIO backup capacity headroom e retention IaC/TUI**                                                                                          | 🚨 Critical |   Cursor / AI Radar   |  1d  |
-| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas**                                                                                       |   🔼 High   |   Cursor / AI Radar   |  6h  |
-|   [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md)   | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI**                                                                                           | 🚨 Critical |   Cursor / AI Radar   |  4h  |
-|           [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md)           | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_                                        |  🔵 Medium  | **Cursor / AI Radar** |  2d  |
-|                                        T-233                                        | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_                                  |   🔼 High   |     **OpenCode**      |  1h  |
-|              [T-342](2026/Q2/T-342-agent-meter-proxy-single-binary.md)              | **agent-meter-proxy — Single binary HTTPS proxy** _(substitui shell scripts por binário Rust cross-platform, instalável via curl, GitHub Releases)_ | 🚨 Critical |  **Copilot/VSCode**   |  1d  |
+|                                         ID                                          | Task Name                                                                                                          |  Priority   |         Owner         | Est. |
+| :---------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :--: |
+|  [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md)   | **OCI MinIO backup capacity headroom e retention IaC/TUI**                                                         | 🚨 Critical |   Cursor / AI Radar   |  1d  |
+| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas**                                                      |   🔼 High   |   Cursor / AI Radar   |  6h  |
+|   [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md)   | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI**                                                          | 🚨 Critical |   Cursor / AI Radar   |  4h  |
+|           [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md)           | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_       |  🔵 Medium  | **Cursor / AI Radar** |  2d  |
+|                                        T-233                                        | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ |   🔼 High   |     **OpenCode**      |  1h  |
+| [T-342](2026/Q2/T-342-agent-meter-proxy-single-binary.md)                           | **agent-meter-proxy — Single binary HTTPS proxy** _(substitui shell scripts por binário Rust cross-platform, instalável via curl, GitHub Releases)_ | 🚨 Critical | **Copilot/VSCode** | 1d |
 
 ## 🔥 Blocker (Deploy back-end travado)
 

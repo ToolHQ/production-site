@@ -3,7 +3,7 @@ name: Release agent-meter-proxy
 on:
   push:
     tags:
-      - "agent-meter-proxy-v*"
+      - 'agent-meter-proxy-v*'
 
 permissions:
   contents: write
