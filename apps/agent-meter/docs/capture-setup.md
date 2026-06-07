@@ -320,18 +320,112 @@ curl -X POST "$AGENT_METER_COLLECTOR_URL/events/tool-call" \
 
 ---
 
+## 5. CLI Tools (Copilot CLI, Claude Code, Codex CLI)
+
+A técnica de proxy mitmproxy é **agnóstica em relação ao transporte**. Qualquer ferramenta CLI que faz chamadas HTTPS para APIs de IA é capturada automaticamente — sem necessidade de plugin por ferramenta.
+
+### Por que funciona para qualquer CLI
+
+```
+CLI Tool (gh copilot, claude, codex, ...)
+    ↓ HTTPS — detecta HTTPS_PROXY env var
+mitmproxy :8898
+    │  interceptor.py (cursor ou eclipse)
+    ↓ OTLP JSON
+agent-meter /v1/traces
+    ↓
+PostgreSQL → Dashboard
+```
+
+Todas as CLIs usam bibliotecas HTTP padrão (Node.js `https`, Python `requests`, Go `net/http`) que respeitam `HTTPS_PROXY`. Basta configurar as variáveis de ambiente.
+
+### 5.1. GitHub Copilot CLI (`gh copilot`)
+
+```bash
+# Opção A: Wrapper dedicado (recomendado)
+cd ~/production-site/apps/agent-meter/eclipse-proxy
+./copilot-cli-metered.sh suggest "como listar pods no kubernetes"
+./copilot-cli-metered.sh explain "kubectl get pods -A"
+
+# Opção B: Variáveis manuais
+export HTTPS_PROXY="http://127.0.0.1:8899"
+export SSL_CERT_FILE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+gh copilot suggest "como listar pods"
+```
+
+**Detecção**: O collector identifica via user-agent pattern `copilot-cli` → badge `copilot-cli` no dashboard.
+
+### 5.2. Claude Code (Anthropic CLI)
+
+```bash
+# Usa o mesmo proxy do Cursor (porta 8898, intercepta api.anthropic.com)
+export HTTPS_PROXY="http://127.0.0.1:8898"
+export SSL_CERT_FILE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+export NODE_EXTRA_CA_CERTS="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+
+# Usar claude normalmente:
+claude "explain this code"
+claude code --task "refactor auth module"
+```
+
+**Detecção**: Via user-agent patterns `claude-code` / `claude_code` → badge `claude-code`.
+
+> **Nota**: Como Claude Code e Cursor usam o mesmo endpoint (`api.anthropic.com`), o `cursor_interceptor.py` captura ambos. A distinção é feita pelo user-agent no OTLP span.
+
+### 5.3. Codex CLI (OpenAI)
+
+```bash
+# Mesmas variáveis (porta 8898, intercepta api.openai.com)
+export HTTPS_PROXY="http://127.0.0.1:8898"
+export SSL_CERT_FILE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+
+codex "refactor this function to use async/await"
+```
+
+**Detecção**: Via user-agent pattern `codex` → badge `codex`.
+
+### 5.4. Configuração permanente no shell
+
+Para capturar **todas** as ferramentas CLI automaticamente, adicione ao `.bashrc` / `.zshrc`:
+
+```bash
+# agent-meter proxy (captura AI CLI tools)
+if ss -tlnp 2>/dev/null | grep -q ":8898"; then
+  export HTTPS_PROXY="http://127.0.0.1:8898"
+  export SSL_CERT_FILE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+  export NODE_EXTRA_CA_CERTS="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+  export REQUESTS_CA_BUNDLE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+fi
+```
+
+Isso configura o proxy **apenas quando ele está rodando** — zero impacto quando desligado.
+
+### Compatibilidade de CLIs
+
+| CLI Tool | Endpoint interceptado | Proxy port | Detecção (ide.rs) | Status |
+|----------|----------------------|:----------:|-------------------|:------:|
+| `gh copilot` | api.githubcopilot.com | 8899 | `copilot-cli` | ✅ Testado |
+| `claude` (Anthropic) | api.anthropic.com | 8898 | `claude-code` | ✅ Testado |
+| `codex` (OpenAI) | api.openai.com | 8898 | `codex` | ✅ Testado |
+| `aider` | api.openai.com / api.anthropic.com | 8898 | (user-agent) | ✅ Compatível |
+| `continue` (CLI) | api.openai.com | 8898 | (user-agent) | ✅ Compatível |
+| Qualquer HTTPS AI CLI | Qualquer AI API | 8898/8899 | Auto-detect | ✅ Agnóstico |
+
+---
+
 ## Referência Rápida — Ports e Endpoints
 
 | Porta | Protocolo | Função |
 |-------|-----------|--------|
-| `3000` | HTTP | REST API (`/events/tool-call`, `/api/*`) |
-| `4318` | HTTP | OTLP receiver (`/v1/traces`) — VS Code |
-| `8898` | HTTP | mitmproxy Cursor |
+| `3000` | HTTP | REST API (`/events/tool-call`, `/api/*`) + Web UI |
+| `4318` | HTTP | OTLP receiver (`/v1/traces`) — VS Code nativo |
+| `8898` | HTTP | mitmproxy Cursor / Claude Code / Codex CLI |
 | `8899` | HTTP | mitmproxy Eclipse / Copilot CLI |
 
 | URL | Descrição |
 |-----|-----------|
 | `https://agent-meter.dnor.io` | Produção (ingress público) |
+| `https://agent-meter.dnor.io/docs` | Documentação in-app |
 | `https://agent-meter.dnor.io/conversations` | Dashboard de conversas |
 | `https://agent-meter.dnor.io/api/conversations` | API JSON |
 | `http://localhost:3000` | Local (docker compose / dev) |
@@ -351,8 +445,11 @@ Para remover o CA do sistema:
 
 ```bash
 # Linux
-sudo rm /usr/local/share/ca-certificates/mitmproxy-cursor.crt
+sudo rm /usr/local/share/ca-certificates/mitmproxy-*.crt
 sudo update-ca-certificates
+
+# macOS
+security delete-certificate -c "mitmproxy" ~/Library/Keychains/login.keychain
 
 # Windows
 certmgr.msc → Autoridades Certificadoras Raiz Confiáveis → remover "mitmproxy"
