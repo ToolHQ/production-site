@@ -63,6 +63,7 @@ mcp_chromedevtool_take_screenshot()                         # evidência visual
 ```
 
 **Critérios de aceitação no browser:**
+
 - Nenhuma mensagem `[error]` no console (exceto erros pré-existentes documentados)
 - Todos os fetches/XHR retornam `2xx` — qualquer `404`/`500` é bloqueante
 - A UI renderiza os dados esperados (sem "—", "Loading...", "Error loading...")
@@ -80,12 +81,14 @@ curl -fsS https://reports.dnor.io/api/live/overview | python3 -m json.tool | hea
 ```
 
 **Browser:**
+
 - Abrir `https://reports.dnor.io`
 - Confirmar Node Fleet carregou com métricas reais (CPU%, RAM%, não alocatable)
 - Confirmar colunas `IP`, `Arch`, `OS` para nós externos (HETZNER/SSD-NODES)
 - Testar export CSV/JSON
 
 Atalho:
+
 ```bash
 scripts/harness/validate_rs_observability_live.sh --deploy
 ```
@@ -101,6 +104,7 @@ curl -fsS https://agent-meter.dnor.io/health
 ```
 
 **Browser — fluxo completo obrigatório:**
+
 1. Abrir `https://agent-meter.dnor.io` — confirmar KPI cards carregados (não "—")
 2. Verificar sparkline de calls-over-time renderizado
 3. Clicar na aba "Top Conversations" — confirmar lista com links clicáveis
@@ -117,14 +121,14 @@ curl -fsS https://agent-meter.dnor.io/health
 
 Uma task com impacto em UI/API só pode ser marcada `✅ Done` quando:
 
-| # | Critério | Evidência |
-|---|----------|-----------|
-| 1 | Rollout concluído | `successfully rolled out` no terminal |
-| 2 | API responde 200 | curl sem erro |
-| 3 | Zero erros JS no browser | `list_console_messages` sem `[error]` |
-| 4 | Zero fetches 404/500 | `list_network_requests` todos `2xx` |
-| 5 | UI renderiza dados reais | screenshot capturado |
-| 6 | Fluxo navegado end-to-end | não apenas homepage |
+| #   | Critério                  | Evidência                             |
+| --- | ------------------------- | ------------------------------------- |
+| 1   | Rollout concluído         | `successfully rolled out` no terminal |
+| 2   | API responde 200          | curl sem erro                         |
+| 3   | Zero erros JS no browser  | `list_console_messages` sem `[error]` |
+| 4   | Zero fetches 404/500      | `list_network_requests` todos `2xx`   |
+| 5   | UI renderiza dados reais  | screenshot capturado                  |
+| 6   | Fluxo navegado end-to-end | não apenas homepage                   |
 
 ---
 
@@ -148,8 +152,9 @@ O agente DEVE seguir esta sequência exata para **toda** task que altera código
 12. **KANBAN**: Mover task para Done
 
 **O agente NÃO PODE:**
+
 - Entregar dizendo "aqui está o código, rode deploy.sh" → DEVE rodar ele mesmo
-- Pular a validação no browser → DEVE executar mcp_chromedevtool_*
+- Pular a validação no browser → DEVE executar mcp*chromedevtool*\*
 - Criar PR e deixar para o humano mergear → DEVE mergear após CI green
 - Fechar task sem evidência de validação → DEVE incluir no PR body
 

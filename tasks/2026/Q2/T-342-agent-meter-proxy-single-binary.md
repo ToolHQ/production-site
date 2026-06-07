@@ -43,6 +43,7 @@ agent-meter-proxy
 ### Crate: `hudsucker`
 
 Rust MITM proxy library (baseada em `hyper` + `tokio` + `rcgen`):
+
 - Gera CA certs com `rcgen`
 - Intercepta HTTPS com on-the-fly certificate generation
 - Handlers `request_handler` / `response_handler` para captura
