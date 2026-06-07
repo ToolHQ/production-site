@@ -1,10 +1,21 @@
 # agent-meter
 
-Lightweight, open-source observability and FinOps collector for agentic development workflows.
+Observabilidade e FinOps para workflows de desenvolvimento com agentes de IA.
 
-Tracks MCP tool calls, estimated token usage, payload size, latency, errors and task-level cost across tools like Cursor, VS Code Copilot, Antigravity, Claude Code, OpenCode and custom agents.
+Captura tool calls, tokens estimados, custo, latência e erros de **VS Code Copilot, Eclipse Copilot, Cursor, OpenCode, Antigravity** e qualquer agente customizado.
 
-## Quick start
+## Configuração de captura por IDE
+
+→ **[docs/capture-setup.md](docs/capture-setup.md)** — guia completo com matriz de compatibilidade, procedimentos de instalação e troubleshooting para cada IDE.
+
+| IDE | Método | Comando |
+|-----|--------|---------|
+| VS Code | OTLP nativo | `settings.json` — 2 linhas |
+| Eclipse | mitmproxy proxy | `eclipse-proxy/start_proxy.sh --setup` |
+| Cursor | mitmproxy proxy | `cursor-proxy/start_proxy.sh --setup` → `cursor-metered .` |
+| OpenCode / outros | REST direto | env `AGENT_METER_COLLECTOR_URL` |
+
+## Quick start (desenvolvimento local)
 
 ```bash
 # Start PostgreSQL
