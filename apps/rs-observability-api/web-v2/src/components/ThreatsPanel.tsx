@@ -32,7 +32,7 @@ export function ThreatsPanel() {
     return d.toISOString().replace('T', ' ').replace('Z', '');
   };
 
-  const formatLatency = (val?: number) => {
+  const formatLatency = (val?: number | null) => {
     if (val == null) return '-';
     if (val > 10000) {
       return (val / 1000000).toFixed(2) + 'ms';

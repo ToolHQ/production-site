@@ -89,6 +89,437 @@ struct AppState {
     secondary_live_monitor: Option<Arc<LiveMonitor>>,
     prometheus_monitor: Arc<PrometheusMonitor>,
     coroot_client: Option<Arc<CorootClient>>,
+    clickhouse_client: Option<ClickHouseClient>,
+    fleet_copilot: Option<Arc<fleet_copilot::FleetCopilotState>>,
+}
+
+#[derive(Clone)]
+struct ClickHouseClient {
+    http: Client,
+    base_url: String,
+}
+
+#[derive(Deserialize, Default)]
+struct ChFail2BanStatRow {
+    total: String,
+    failed: String,
+    banned: String,
+}
+
+#[derive(Deserialize, Default, Clone)]
+struct ChHoneypotStatRow {
+    total: String,
+    last24h: String,
+    classified: String,
+    unclassified: String,
+}
+
+#[derive(Deserialize, Default, Clone)]
+struct ChHoneypotTagRow {
+    tag: String,
+    count: String,
+}
+
+#[derive(Deserialize, Clone)]
+struct ChBannedIpRow {
+    ip: String,
+    hits: serde_json::Value,
+    first_seen: serde_json::Value,
+    last_seen: serde_json::Value,
+    statuses: Vec<String>,
+}
+
+#[derive(Serialize, Clone, Default, Deserialize)]
+pub(crate) struct BannedIpDetail {
+    pub ip: String,
+    pub hits: u64,
+    pub first_seen: u64,
+    pub last_seen: u64,
+    pub statuses: Vec<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct ChResponse<T> {
+    data: Vec<T>,
+}
+
+impl ClickHouseClient {
+    fn new(base_url: String) -> Self {
+        let http = Client::builder()
+            .timeout(Duration::from_secs(8))
+            .build()
+            .expect("clickhouse http client");
+        ClickHouseClient { http, base_url }
+    }
+
+    async fn fetch_fail2ban_stats(&self) -> Option<Fail2BanStats> {
+        let query = "SELECT \
+            count() as total, \
+            countIf(status IN ('failed', 'found')) as failed, \
+            countIf(status IN ('banned', 'ban')) as banned \
+            FROM threat_intel_events \
+            WHERE service IN ('fail2ban', 'sshd') AND timestamp >= now() - INTERVAL 7 DAY FORMAT JSON";
+
+        let stats_resp = match self
+            .http
+            .get(&self.base_url)
+            .query(&[("query", query)])
+            .header("X-ClickHouse-User", "default")
+            .header("X-ClickHouse-Key", "i4FtSOCFXu")
+            .send()
+            .await
+        {
+            Ok(resp) => resp,
+            Err(e) => {
+                eprintln!("ClickHouse fetch_fail2ban_stats error: {}", e);
+                return None;
+            }
+        };
+
+        if !stats_resp.status().is_success() {
+            eprintln!(
+                "ClickHouse fetch_fail2ban_stats failed: HTTP {}",
+                stats_resp.status()
+            );
+            return None;
+        }
+
+        let stats_data = stats_resp
+            .json::<ChResponse<ChFail2BanStatRow>>()
+            .await
+            .ok()?;
+        let stat_row = stats_data.data.first()?;
+
+        let ips_query = "SELECT ip, count() as hits, toUnixTimestamp(min(timestamp)) as first_seen, toUnixTimestamp(max(timestamp)) as last_seen, groupArray(status) as statuses \
+            FROM threat_intel_events \
+            WHERE service IN ('fail2ban', 'sshd') AND status IN ('banned', 'ban') AND timestamp >= now() - INTERVAL 7 DAY \
+            GROUP BY ip ORDER BY hits DESC LIMIT 20 FORMAT JSON";
+
+        let ips_resp = self
+            .http
+            .get(&self.base_url)
+            .query(&[("query", ips_query)])
+            .header("X-ClickHouse-User", "default")
+            .header("X-ClickHouse-Key", "i4FtSOCFXu")
+            .send()
+            .await
+            .ok()?;
+        let ips_data = ips_resp.json::<ChResponse<ChBannedIpRow>>().await.ok()?;
+
+        Some(Fail2BanStats {
+            total: stat_row.total.parse().unwrap_or(0),
+            failed: stat_row.failed.parse().unwrap_or(0),
+            banned: stat_row.banned.parse().unwrap_or(0),
+            banned_ip_details: ips_data
+                .data
+                .into_iter()
+                .map(|r| BannedIpDetail {
+                    ip: r.ip,
+                    hits: r
+                        .hits
+                        .as_u64()
+                        .unwrap_or_else(|| r.hits.as_str().unwrap_or("0").parse().unwrap_or(0)),
+                    first_seen: r.first_seen.as_u64().unwrap_or_else(|| {
+                        r.first_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    last_seen: r.last_seen.as_u64().unwrap_or_else(|| {
+                        r.last_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    statuses: r.statuses,
+                })
+                .collect(),
+            timestamp: unix_epoch_seconds(),
+        })
+    }
+
+    pub(crate) async fn fetch_honeypot_overview(&self) -> HoneypotOverview {
+        let stats_query = "SELECT count() as total, countIf(timestamp >= now() - INTERVAL 1 DAY) as last24h, countIf(classification != 'unknown') as classified, countIf(classification == 'unknown') as unclassified FROM threat_intel_events WHERE service = 'honeypot' FORMAT JSON";
+        
+        let stats_resp = match self.http.get(&self.base_url).query(&[("query", stats_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await {
+            Ok(resp) => resp,
+            Err(_) => return HoneypotOverview::default(),
+        };
+        
+        let stats_data = stats_resp.json::<ChResponse<ChHoneypotStatRow>>().await.unwrap_or_default();
+        let stat_row = stats_data.data.first().cloned().unwrap_or_default();
+        
+        let top_tags_query = "SELECT classification as tag, count() as count FROM threat_intel_events WHERE service = 'honeypot' AND classification != 'unknown' GROUP BY tag ORDER BY count DESC LIMIT 10 FORMAT JSON";
+        let tags_resp = self.http.get(&self.base_url).query(&[("query", top_tags_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let top_tags = if let Some(resp) = tags_resp {
+            let tags_data = resp.json::<ChResponse<ChHoneypotTagRow>>().await.unwrap_or_default();
+            tags_data.data.into_iter().map(|r| HoneypotTagCount { tag: r.tag, count: r.count.parse().unwrap_or(0) }).collect()
+        } else {
+            vec![]
+        };
+
+        let recent_query = "SELECT timestamp, method, path, ip, user_agent as userAgent, classification as tag FROM threat_intel_events WHERE service = 'honeypot' ORDER BY timestamp DESC LIMIT 15 FORMAT JSON";
+        let recent_resp = self.http.get(&self.base_url).query(&[("query", recent_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let recent_requests = if let Some(resp) = recent_resp {
+            let recent_data = resp.json::<ChResponse<HoneypotRecentRequest>>().await.unwrap_or_default();
+            recent_data.data
+        } else {
+            vec![]
+        };
+
+        let mut node = HoneypotNodeStats::default();
+        node.id = "AWS-EC2".to_string();
+        node.cluster = "AWS-EC2".to_string();
+        node.instance_host = "ec2.dnor.io".to_string();
+        node.available = true;
+        node.total = stat_row.total.parse().unwrap_or(0);
+        node.last24h = stat_row.last24h.parse().unwrap_or(0);
+        node.classified = stat_row.classified.parse().unwrap_or(0);
+        node.unclassified = stat_row.unclassified.parse().unwrap_or(0);
+        node.top_tags = top_tags;
+        node.recent_requests = recent_requests;
+        node.refreshed_at_epoch = unix_epoch_seconds();
+
+        HoneypotOverview {
+            available: true,
+            nodes: vec![node],
+        }
+    }
+
+    pub(crate) async fn fetch_honeypot_requests(&self, query: &HoneypotRequestsQuery) -> HoneypotRequestsResponse {
+        let mut filters = vec!["service = 'honeypot'".to_string()];
+        
+        if let Some(m) = &query.method {
+            filters.push(format!("method = '{}'", m.replace('\'', "''")));
+        }
+        if let Some(p) = &query.path {
+            filters.push(format!("path ILIKE '%{}%'", p.replace('\'', "''")));
+        }
+        if let Some(ip) = &query.ip {
+            filters.push(format!("ip = '{}'", ip.replace('\'', "''")));
+        }
+        if let Some(c) = &query.classification {
+            filters.push(format!("classification = '{}'", c.replace('\'', "''")));
+        }
+        if query.exclude_internal.unwrap_or(false) {
+            filters.push("path NOT ILIKE '/internal/%'".to_string());
+        }
+        
+        let where_clause = filters.join(" AND ");
+        
+        let count_query = format!("SELECT count() as total FROM threat_intel_events WHERE {} FORMAT JSON", where_clause);
+        let count_resp = self.http.get(&self.base_url).query(&[("query", &count_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let total = if let Some(resp) = count_resp {
+            let data = resp.json::<ChResponse<ChFail2BanStatRow>>().await.unwrap_or_default();
+            data.data.first().map(|r| r.total.parse().unwrap_or(0)).unwrap_or(0)
+        } else {
+            0
+        };
+        
+        let limit = query.limit.unwrap_or(50).clamp(1, 100);
+        let offset = query.offset.unwrap_or(0);
+        
+        let rows_query = format!("SELECT toUnixTimestamp(timestamp) as id, timestamp, method, path, toUInt16OrZero(status) as statusCode, ip as remoteIp, ip as remoteHostname, country, classification, time_elapsed as timeElapsed, user_agent as userAgent FROM threat_intel_events WHERE {} ORDER BY timestamp DESC LIMIT {} OFFSET {} FORMAT JSON", where_clause, limit, offset);
+        
+        let rows_resp = self.http.get(&self.base_url).query(&[("query", &rows_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let rows = if let Some(resp) = rows_resp {
+            let data = resp.json::<ChResponse<HoneypotRequest>>().await.unwrap_or_default();
+            data.data
+        } else {
+            vec![]
+        };
+        
+        HoneypotRequestsResponse { total, rows }
+    }
+}
+
+async fn build_coroot_client() -> Option<CorootClient> {
+    let base_url = env::var("COROOT_BASE_URL")
+        .unwrap_or_else(|_| "http://coroot.coroot.svc.cluster.local:8080".to_string());
+    let project_id = env::var("COROOT_PROJECT_ID").unwrap_or_else(|_| "p3m78dle".to_string());
+    match (env::var("COROOT_EMAIL"), env::var("COROOT_PASSWORD")) {
+        (Ok(email), Ok(password)) => Some(CorootClient::new(base_url, email, password, project_id)),
+        _ => {
+            eprintln!("[warn] COROOT_EMAIL/COROOT_PASSWORD not set — coroot alerts disabled");
+            None
+        }
+    }
+}
+
+impl AppState {
+    /// T-332: inventário de hosts para o Fleet Copilot (OCI live + registry externo).
+    pub(crate) async fn build_fleet_manifest(&self) -> Value {
+        let mut hosts: Vec<Value> = Vec::new();
+
+        for spec in external_node_specs() {
+            let id = if spec.id.is_empty() {
+                spec.fallback_name.clone()
+            } else {
+                spec.id.clone()
+            };
+            hosts.push(json!({
+                "id": id,
+                "name": spec.fallback_name,
+                "cluster": spec.cluster,
+                "role": spec.role,
+                "ip": spec.instance_host,
+                "source": "external_registry",
+                "ops_via_gateway": spec.cluster == "SSD-NODES",
+            }));
+        }
+
+        let mut oci_live = json!(null);
+        if let Some(lm) = &self.live_monitor {
+            let live = lm.cached_or_refresh().await;
+            if live.available {
+                for node in &live.nodes {
+                    hosts.push(json!({
+                        "name": node.name,
+                        "cluster": node.cluster,
+                        "role": node.role,
+                        "ip": node.ip,
+                        "ready": node.ready,
+                        "source": "oci_kubernetes_live_overview",
+                    }));
+                }
+                oci_live = json!({
+                    "available": live.available,
+                    "stale": live.stale,
+                    "refreshed_at_epoch": live.refreshed_at_epoch,
+                    "node_count": live.nodes.len(),
+                });
+            }
+        }
+
+        json!({
+            "scope": {
+                "description_pt": "Assistente read-only: comandos ops (disco/memória/k8s) rodam no gateway em SSDNodes; visão live dos nós OCI-K8s vem do Cluster Pulse; hosts externos no registry.",
+                "gateway_host_id": "ssdnodes-6a12f10c9ef11",
+                "data_sources": [
+                    "fleet-ops-gateway (SSDNodes)",
+                    "api/live/overview (OCI-K8s)",
+                    "external_nodes.json"
+                ],
+            },
+            "hosts": hosts,
+            "oci_live": oci_live,
+        })
+    }
+
+    /// T-333: anexa métricas live de nós mencionados (OCI + externos, max 3).
+    pub(crate) async fn enrich_manifest_for_message(
+        &self,
+        mut manifest: Value,
+        message: &str,
+    ) -> Value {
+        let needle = message.to_lowercase();
+        let metrics = self.prometheus_monitor.fetch_node_metrics().await;
+
+        if is_fleet_wide_resources_message(message) {
+            let mut snapshot: Vec<Value> = Vec::new();
+            if let Some(lm) = &self.live_monitor {
+                let live = lm.cached_or_refresh().await;
+                if live.available {
+                    for node in &live.nodes {
+                        let m = metrics.get(&node.name).cloned().unwrap_or_default();
+                        snapshot.push(json!({
+                            "name": node.name,
+                            "cluster": node.cluster,
+                            "metrics": m,
+                        }));
+                    }
+                }
+            }
+            for spec in external_node_specs() {
+                let id = if spec.id.is_empty() {
+                    spec.fallback_name.clone()
+                } else {
+                    spec.id.clone()
+                };
+                let m = metrics
+                    .get(&spec.fallback_name)
+                    .or_else(|| metrics.get(&spec.instance_host))
+                    .or_else(|| spec.endpoint_ip.as_ref().and_then(|ip| metrics.get(ip)))
+                    .cloned()
+                    .unwrap_or_default();
+                snapshot.push(json!({
+                    "id": id,
+                    "name": spec.fallback_name,
+                    "cluster": spec.cluster,
+                    "metrics": m,
+                }));
+            }
+            if let Some(obj) = manifest.as_object_mut() {
+                obj.insert("fleet_metrics_snapshot".into(), json!(snapshot));
+            }
+        }
+
+        let compare = is_compare_message(message);
+        let matched_ids = match_manifest_host_ids(&needle, &manifest, compare);
+        if matched_ids.is_empty() {
+            return manifest;
+        }
+
+        let mut targeted_oci = Vec::new();
+        let mut targeted_external = Vec::new();
+
+        if let Some(lm) = &self.live_monitor {
+            let live = lm.cached_or_refresh().await;
+            if live.available {
+                for node in &live.nodes {
+                    if !matched_ids.iter().any(|id| id == &node.name) {
+                        continue;
+                    }
+                    let m = metrics.get(&node.name).cloned().unwrap_or_default();
+                    targeted_oci.push(json!({
+                        "name": node.name,
+                        "cluster": node.cluster,
+                        "role": node.role,
+                        "ip": node.ip,
+                        "ready": node.ready,
+                        "disk_pressure": node.disk_pressure,
+                        "memory_pressure": node.memory_pressure,
+                        "metrics": m,
+                    }));
+                }
+            }
+        }
+
+        for spec in external_node_specs() {
+            let id = if spec.id.is_empty() {
+                spec.fallback_name.clone()
+            } else {
+                spec.id.clone()
+            };
+            if !matched_ids
+                .iter()
+                .any(|m| m == &id || m == &spec.fallback_name)
+            {
+                continue;
+            }
+            let m = metrics
+                .get(&spec.fallback_name)
+                .or_else(|| metrics.get(&spec.instance_host))
+                .or_else(|| spec.endpoint_ip.as_ref().and_then(|ip| metrics.get(ip)))
+                .cloned()
+                .unwrap_or_default();
+            targeted_external.push(json!({
+                "id": id,
+                "name": spec.fallback_name,
+                "cluster": spec.cluster,
+                "role": spec.role,
+                "ip": spec.instance_host,
+                "metrics": m,
+            }));
+        }
+
+        if targeted_oci.is_empty() && targeted_external.is_empty() {
+            return manifest;
+        }
+        if let Some(obj) = manifest.as_object_mut() {
+            if !targeted_oci.is_empty() {
+                obj.insert("targeted_oci_nodes".into(), json!(targeted_oci));
+            }
+            if !targeted_external.is_empty() {
+                obj.insert("targeted_external_nodes".into(), json!(targeted_external));
+            }
+        }
+        manifest
+    }
 }
 
 #[derive(Clone)]
