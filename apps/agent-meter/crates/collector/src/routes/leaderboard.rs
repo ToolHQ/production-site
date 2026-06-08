@@ -63,11 +63,11 @@ async fn leaderboard_agents(
     let from = q.from.unwrap_or_else(|| "2000-01-01".into());
     let limit = q.limit.unwrap_or(20);
     let rows = sqlx::query_as::<_, AgentEntry>(
-        "SELECT COALESCE(agent_name, 'unknown') as agent, \
+        "SELECT COALESCE(agent, 'unknown') as agent, \
          COUNT(*)::int8 as events, \
          COALESCE(SUM(usd_cost), 0)::float8 as usd_cost \
-         FROM tool_calls WHERE created_at >= $1::timestamptz \
-         GROUP BY agent_name ORDER BY events DESC LIMIT $2",
+         FROM agent_tool_calls WHERE created_at >= $1::timestamptz \
+         GROUP BY agent ORDER BY events DESC LIMIT $2",
     )
     .bind(&from)
     .bind(limit)
@@ -86,7 +86,7 @@ async fn leaderboard_ides(
         "SELECT COALESCE(ide, 'unknown') as ide, \
          COUNT(*)::int8 as events, \
          COALESCE(SUM(usd_cost), 0)::float8 as usd_cost \
-         FROM tool_calls WHERE created_at >= $1::timestamptz \
+         FROM agent_tool_calls WHERE created_at >= $1::timestamptz \
          GROUP BY ide ORDER BY events DESC LIMIT $2",
     )
     .bind(&from)
@@ -106,7 +106,7 @@ async fn leaderboard_models(
         "SELECT COALESCE(model, 'unknown') as model, \
          COUNT(*)::int8 as events, \
          COALESCE(SUM(usd_cost), 0)::float8 as usd_cost \
-         FROM tool_calls WHERE created_at >= $1::timestamptz \
+         FROM agent_tool_calls WHERE created_at >= $1::timestamptz \
          GROUP BY model ORDER BY events DESC LIMIT $2",
     )
     .bind(&from)
