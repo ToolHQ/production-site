@@ -4,8 +4,20 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = ["postgres"]
+postgres = []
+sqlite = []
+
 [dependencies]
-sqlx.workspace = true
+sqlx = { version = "0.8", features = [
+  "postgres",
+  "sqlite",
+  "runtime-tokio",
+  "macros",
+  "chrono",
+  "uuid",
+] }
 uuid.workspace = true
 chrono.workspace = true
 serde.workspace = true

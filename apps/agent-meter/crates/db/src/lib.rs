@@ -1,17 +1,19 @@
 //! agent-meter-db — Database abstraction layer.
 //!
-//! Defines the `Database` trait and provides a Postgres implementation.
-//! Future backends (SQLite, DuckDB) implement the same trait.
+//! Defines the `Database` trait and provides Postgres + SQLite implementations.
+//! Future backends (DuckDB, etc.) implement the same trait.
 
 pub mod models;
 pub mod params;
 pub mod postgres;
+pub mod sqlite;
 
 use async_trait::async_trait;
 use models::*;
 use params::*;
 
 pub use postgres::PostgresDb;
+pub use sqlite::SqliteDb;
 
 /// Result type for database operations.
 pub type DbResult<T> = Result<T, DbError>;
