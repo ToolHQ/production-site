@@ -1,0 +1,43 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/toolhq/agent-meter
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+  otlpPort: 4318
+
+ingress:
+  enabled: false
+  className: nginx
+  host: agent-meter.example.com
+  tls: false
+
+database:
+  # "postgres" or "sqlite"
+  type: postgres
+  # For postgres:
+  url: "postgres://agent_meter:changeme@postgres:5432/agent_meter"
+  # For sqlite (data stored in PVC):
+  # url: "sqlite:///data/agent-meter.db"
+
+persistence:
+  # Only needed for sqlite mode
+  enabled: false
+  size: 1Gi
+  storageClass: ""
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+env: {}
+  # RUST_LOG: info
+  # REQUIRE_API_KEY: "true"
