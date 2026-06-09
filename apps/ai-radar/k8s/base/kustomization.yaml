@@ -19,3 +19,5 @@ resources:
   - cronjobs/cronjob-embed.yaml
   - cronjobs/cronjob-embed-catchup.yaml
   - cronjobs/cronjob-models-sync.yaml
+  - cronjobs/cronjob-trends-collect.yaml
+  - configmap-trends.yaml
