@@ -65,6 +65,30 @@ spec:
                   name: agent-meter-otel
                   key: otel_service_name
                   optional: true
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-keys
+                  key: secret-key
+                  optional: true
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-keys
+                  key: webhook-secret
+                  optional: true
+            - name: STRIPE_PRICE_PRO
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-keys
+                  key: price-pro
+                  optional: true
+            - name: STRIPE_PRICE_TEAM
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-keys
+                  key: price-team
+                  optional: true
           resources:
             limits:
               memory: 96Mi
