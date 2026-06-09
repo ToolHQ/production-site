@@ -82,6 +82,20 @@ Para usar os Ingresses, apontar subdomínios para `104.225.218.78`:
 - `cost.ssdnodes.dnor.io` → Kubecost
 - `sonar.ssdnodes.dnor.io` → SonarQube CE (T-341)
 - `jenkins.ssdnodes.dnor.io` → Jenkins LTS (T-341)
+- `n8n.ssdnodes.dnor.io` → n8n automation (T-361)
+
+## n8n (T-361)
+
+Ver [n8n/README.md](n8n/README.md) — deploy, upgrade, backup.
+
+```bash
+source .env.godaddy
+bash oci-k8s-cluster/scripts/ssdnodes/configure_ssdnodes_n8n_dns_godaddy.sh
+bash oci-k8s-cluster/scripts/ssdnodes/create_n8n_secret.sh \
+  | ssh ssdnodes-6a12f10c9ef11 kubectl apply -f - 2> ~/ssdnodes-n8n-credentials.txt
+bash oci-k8s-cluster/scripts/ssdnodes/deploy_ssdnodes_components.sh n8n
+bash scripts/harness/validate_ssdnodes_n8n.sh
+```
 
 ## CI Platform (T-341)
 

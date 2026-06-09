@@ -1,6 +1,6 @@
 # T-361: SSDNodes — n8n self-hosted Docker (latest, auth, TLS, domínio)
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: SSDNodes Automation / n8n
@@ -39,15 +39,15 @@ Padrão já estabelecido no SSDNodes (`jenkins.ssdnodes.dnor.io`, `minio.ssdnode
 
 ## Tasks
 
-- [ ] ADR curto: Docker Compose no host vs Pod K8s (recomendação com RAM/CPU do monstro)
-- [ ] DNS A record `n8n.ssdnodes.dnor.io` (GoDaddy ou provider atual)
-- [ ] IaC: `components/ssdnodes/n8n/` — compose ou manifests + ingress + PVC
-- [ ] Secret: `N8N_ENCRYPTION_KEY`, credenciais owner, basic auth
-- [ ] Ingress TLS (`cluster-issuer` letsencrypt-prod) espelhando `jenkins-ingress.yaml`
-- [ ] UFW: validar que só 80/443 entram; n8n não bind em `0.0.0.0` fora do ingress
-- [ ] Health/smoke: `curl -fsS https://n8n.ssdnodes.dnor.io/healthz` + login UI
-- [ ] Runbook: backup volume, upgrade image, rollback
-- [ ] README em `components/ssdnodes/n8n/README.md` + link no `components/ssdnodes/README.md`
+- [x] ADR curto: Docker Compose no host vs Pod K8s (recomendação com RAM/CPU do monstro)
+- [x] DNS A record `n8n.ssdnodes.dnor.io` (GoDaddy — 2026-06-09)
+- [x] IaC: `components/ssdnodes/n8n-k8s.yaml` + ingress + PVC
+- [x] Secret: `N8N_ENCRYPTION_KEY`, basic auth (`create_n8n_secret.sh`)
+- [x] Ingress TLS (`letsencrypt-prod`) — cert READY após retry UFW:80
+- [x] UFW: porta 80 temporária só para ACME; n8n ClusterIP (sem bind público)
+- [x] Health/smoke: `validate_ssdnodes_n8n.sh` PASS
+- [x] Runbook: `components/ssdnodes/n8n/README.md`
+- [x] README link em `components/ssdnodes/README.md`
 
 ## Acceptance
 

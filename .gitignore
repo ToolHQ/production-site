@@ -3,6 +3,7 @@ ai-radar.token
 pixie_deploy_key.txt
 .env.godaddy
 ssdnodes-ci-platform-credentials.txt
+ssdnodes-n8n-credentials.txt
 reports/
 # Generated QA artifacts
 .qa/reports/
@@ -15,6 +16,7 @@ artifacts/
 .ssdnodes.creds
 .env.godaddy
 ssdnodes-ci-platform-credentials.txt
+ssdnodes-n8n-credentials.txt
 
 # AWS EC2 fleet-01 — backup local completo (sqlite, nvm, node_modules, TLS keys)
 archive/aws-ec2-fleet-01/recovery-*/
