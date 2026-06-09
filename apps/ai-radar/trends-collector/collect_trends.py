@@ -73,7 +73,7 @@ def main() -> int:
         print("no queries configured", file=sys.stderr)
         return 2
 
-    pytrends = TrendReq(hl="en-US", tz=360, retries=max_retries, backoff_factor=0.5)
+    pytrends = TrendReq(hl="en-US", tz=360)
     inserted = 0
     errors = 0
     collected_at = datetime.now(timezone.utc)
