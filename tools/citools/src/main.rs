@@ -10,7 +10,7 @@ use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use deploy::{find_app, load_catalog, DeployCatalog};
+use deploy::{apps_for_changed_paths, find_app, git_changed_paths, load_catalog, DeployCatalog};
 use jenkins::{export_stage, next_done, next_stage, ExportManifest};
 use pipeline::{load_pipeline, Pipeline, Stage};
 
@@ -91,12 +91,17 @@ enum DeployCommands {
     },
     /// Run deploy.sh for app (wraps existing script)
     Run {
-        #[arg(long)]
-        app: String,
+        #[arg(long, conflicts_with = "changed")]
+        app: Option<String>,
         #[arg(long, default_value = "oci")]
         target: String,
         #[arg(long)]
         dry_run: bool,
+        /// Deploy apps whose whenPaths intersect git diff vs base branch
+        #[arg(long, conflicts_with = "app")]
+        changed: bool,
+        #[arg(long, default_value = "main")]
+        base: String,
     },
 }
 
@@ -115,7 +120,9 @@ fn main() -> Result<()> {
                 app,
                 target,
                 dry_run,
-            } => cmd_deploy_run(&catalog, &repo_root, &app, &target, dry_run),
+                changed,
+                base,
+            } => cmd_deploy_run(&catalog, &repo_root, app, &target, dry_run, changed, &base),
         };
     }
 
@@ -207,11 +214,51 @@ fn cmd_deploy_plan(catalog: &DeployCatalog, app_id: &str, target: &str) -> Resul
 fn cmd_deploy_run(
     catalog: &DeployCatalog,
     repo_root: &PathBuf,
-    app_id: &str,
+    app_id: Option<String>,
+    target: &str,
+    dry_run: bool,
+    changed: bool,
+    base: &str,
+) -> Result<()> {
+    if changed {
+        let paths = git_changed_paths(repo_root, base)?;
+        if paths.is_empty() {
+            eprintln!("deploy --changed: nenhum arquivo alterado vs origin/{base}");
+            return Ok(());
+        }
+        let apps = apps_for_changed_paths(catalog, &paths);
+        if apps.is_empty() {
+            eprintln!(
+                "deploy --changed: {} paths alterados, nenhum app no catálogo",
+                paths.len()
+            );
+            return Ok(());
+        }
+        eprintln!(
+            "deploy --changed: {} app(s) — {}",
+            apps.len(),
+            apps.iter()
+                .map(|a| a.id.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        for app in apps {
+            run_one_deploy(catalog, repo_root, app, target, dry_run)?;
+        }
+        return Ok(());
+    }
+    let app_id = app_id.context("--app obrigatório sem --changed")?;
+    let app = find_app(catalog, &app_id)?;
+    run_one_deploy(catalog, repo_root, app, target, dry_run)
+}
+
+fn run_one_deploy(
+    catalog: &DeployCatalog,
+    repo_root: &PathBuf,
+    app: &deploy::DeployApp,
     target: &str,
     dry_run: bool,
 ) -> Result<()> {
-    let app = find_app(catalog, app_id)?;
     let build = app.effective_build(&catalog.defaults);
     let deploy = app.effective_deploy(&catalog.defaults);
     if !deploy.targets.iter().any(|t| t == target) {

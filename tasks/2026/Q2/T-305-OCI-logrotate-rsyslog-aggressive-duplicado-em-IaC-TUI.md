@@ -29,7 +29,7 @@ Arquivos/caminhos candidatos:
 - [x] Decidir padrão: substituir `/etc/logrotate.d/rsyslog` e remover `rsyslog-aggressive` + `.bak` fora de `logrotate.d`.
 - [x] Implementar `scripts/hardening/repair_logrotate_rsyslog.sh` idempotente com `--dry-run`.
 - [x] Expor na TUI (Hardening → Validate/Repair logrotate rsyslog T-305).
-- [/] Aplicar nos 4 nós OCI — **master OK**; workers bloqueados por Tailscale SSH jump (auth pendente).
+- [x] Aplicar nos 4 nós OCI — master + workers OK (workers via IP público OCI 2026-06-09; `logrotate` inactive, sem duplicate).
 - [x] Rodar `logrotate -d` e `systemctl reset-failed logrotate.service` no master.
 - [x] Integrar em `configure_log_limits.sh` (chama repair script).
 
