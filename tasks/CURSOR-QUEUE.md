@@ -6,7 +6,7 @@
 
 | # | ID | Tarefa | Prioridade | Status |
 | -: | :- | :----- | :--------- | :----- |
-| 1 | **T-362** | n8n + Ollama — email classification (**research/specs only**) | 🚨 Critical | 🏎️ **próximo** |
+| 1 | **T-362a** | Postgres email-intelligence K8s + RLS | 🚨 Critical | 🏎️ **próximo** |
 | 2 | **T-347** | Deploy workers Hetzner / OCI / SSDNodes | 🔼 High | 📋 |
 | 3 | **T-348** | Jenkins deploy-apps job parametrizado | 🔼 High | 📋 |
 | 4 | **T-363** | AI Radar — Google Trends Collector (implementa T-271) | 🔼 High | 📋 |
@@ -20,7 +20,8 @@
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
 | 1 | **T-361** | n8n SSDNodes — live `n8n.ssdnodes.dnor.io` | ✅ |
-| 2 | **T-346** | citools deploy catalog + CLI | ✅ |
+| 2 | **T-362** | Email automation research/specs + subtasks T-362a…f | ✅ |
+| 3 | **T-346** | citools deploy catalog + CLI | ✅ |
 | 3 | **T-342** | Bump Sonar 26.6 + Jenkins 2.567 JDK25 | ✅ |
 | 3 | **T-343** | Jenkins reverse proxy + security hardening | ✅ |
 | 4 | **T-304** | MinIO backup headroom — 55% validado | ✅ |

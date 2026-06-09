@@ -1,6 +1,6 @@
 # T-362: n8n + Ollama — classificação de email (research, ADR, subtasks)
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🚨 Critical
 - **Owner**: Cursor / AI Radar
 - **Epic**: SSDNodes Automation / n8n
@@ -66,14 +66,14 @@ Documentar decisão no ADR.
 
 ## Tasks
 
-- [ ] Threat model: superfícies (n8n UI, webhooks, Postgres, Ollama, OAuth tokens)
-- [ ] ADR: Postgres no K8s SSDNodes vs host Docker; sizing RAM
-- [ ] Schema draft: `mailboxes`, `messages`, `classifications`, `audit_log` + RLS policies SQL
-- [ ] Spec criptografia: campos `BYTEA`, rotação de key, backup cifrado
-- [ ] Spike n8n + Ollama com payload **sintético** (sem conta real)
-- [ ] Class taxonomy v1: inbox, finance, alerts, newsletters, personal, spam-review
-- [ ] Subtasks file: `T-362-EPIC-email-automation.md` ou cards T-362a…f no KANBAN
-- [ ] Runbook operacional draft: incident response, revogação OAuth, purge
+- [x] Threat model: superfícies (n8n UI, webhooks, Postgres, Ollama, OAuth tokens)
+- [x] ADR: Postgres no K8s SSDNodes vs host Docker; sizing RAM; Gmail API
+- [x] Schema draft: `mailboxes`, `messages`, `classifications`, `audit_log` + RLS policies SQL
+- [x] Spec criptografia: campos `BYTEA`, rotação de key, backup cifrado
+- [x] Workflow n8n mock spec (payload sintético — spike live em T-362d)
+- [x] Class taxonomy v1: inbox, finance, alerts, newsletters, personal, spam-review
+- [x] Subtasks: [T-362-EPIC-email-automation-subtasks.md](T-362-EPIC-email-automation-subtasks.md)
+- [x] Runbook operacional draft: incident response, revogação OAuth, purge
 
 ## Out of scope (subtasks futuras)
 

@@ -40,7 +40,6 @@
 |                                         ID                                          | Task Name                                                                                                          |  Priority   |         Owner         | Est. |
 | :---------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :--: |
 | [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas**                                                      |   🔼 High   |   Cursor / AI Radar   |  6h  |
-| [T-362](2026/Q2/T-362-n8n-email-AI-classification-research-spec.md) | **n8n + Ollama — classificação de email (research, ADR, subtasks)** | 🚨 Critical | **Cursor / AI Radar** | 2d |
 |           [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md)           | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_       |  🔵 Medium  | **Cursor / AI Radar** |  2d  |
 |                                        T-233                                        | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ |   🔼 High   |     **OpenCode**      |  1h  |
 
@@ -62,7 +61,9 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-362](2026/Q2/T-362-n8n-email-AI-classification-research-spec.md) | **n8n + Ollama — classificação de email (research, ADR, subtasks)** _(depende T-361 ✅)_ | 🚨 Critical | **Cursor / AI Radar** | 2d |
+| [T-362a](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Postgres email-intelligence K8s + RLS** | 🚨 Critical | **Cursor / AI Radar** | 1d |
+| [T-362b](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Gmail OAuth + n8n credentials** | 🚨 Critical | **Cursor / AI Radar** | 1d |
+| [T-362c](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Ollama host bridge para n8n** | 🔼 High | **Cursor / AI Radar** | 4h |
 
 |                                       ID                                        | Task Name                                                                                                                                                                                                                                                                                                  |  Priority   | Epic               | Est. |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------------- | :--: |
@@ -114,7 +115,7 @@
 | T-341 | **agent-meter — Eclipse proxy 100% coverage** _(request_bytes, response_bytes, max_tokens, temperature, llm_system, parent_span_id, cached_tokens, reasoning_tokens, finish_reason, response_text, tool_result cross-request correlation; doc: docs/agent-meter-telemetry-coverage.md)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | T-342 | **agent-meter — VS Code OTLP 100% coverage** _(captureContent=true habilitado; port-forward 4318 ativo; 24/27 campos preenchidos, 3 impossíveis sem env vars)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** _(list/plan/run + --changed; harness PASS)_ | 🔼 High | **Cursor / AI Radar** | 1w |
-| [T-361](2026/Q2/T-361-SSDNodes-n8n-Docker-authenticated-TLS.md) | **SSDNodes — n8n self-hosted K8s (TLS, basic auth, `n8n.ssdnodes.dnor.io`)** | 🔼 High | **Cursor / AI Radar** | 1d |
+| [T-362](2026/Q2/T-362-n8n-email-AI-classification-research-spec.md) | **Email automation — research/specs (ADR, threat model, schema, subtasks)** | 🚨 Critical | **Cursor / AI Radar** | 2d |
 | [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** _(55% /data 2026-06-09)_ | 🚨 Critical | **Cursor / AI Radar** | 1d |
 | [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** _(4/4 nós OK)_ | 🚨 Critical | **Cursor / AI Radar** | 4h |
 | [T-342](2026/Q2/T-342-SSDNodes-CI-bump-Sonar-26-6-Jenkins-2-567-JDK25.md) | **SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25** | 🔼 High | **Cursor / AI Radar** | 4h |
