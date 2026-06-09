@@ -10,6 +10,15 @@ on:
   # Weekly scan (Sunday 03:00 UTC)
   schedule:
     - cron: '0 3 * * 0'
+  # Push to main (needed to close alerts when fixes land)
+  push:
+    branches: [main]
+    paths:
+      - "apps/agent-meter/crates/**/ui/**"
+      - "apps/qdbback/**/*.js"
+      - "apps/back-end/**"
+      - "apps/static/**/*.js"
+      - "tools/citools/**"
   # PRs touching sensitive paths
   pull_request:
     branches: [main]
