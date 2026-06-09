@@ -1,6 +1,8 @@
 # CodeQL analysis — self-hosted runners (zero GitHub Actions cost)
 # Replaces the broken "default setup" that looped every 5 minutes.
 # Runs: weekly schedule + on PRs touching security-sensitive code.
+# Note: Rust analysis is handled by clippy (Jenkins CI pipeline) — CodeQL Rust
+# support requires GitHub-hosted runners with the CodeQL bundle pre-installed.
 
 name: CodeQL Security Scan
 
@@ -12,9 +14,10 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "apps/agent-meter/crates/**/*.rs"
+      - "apps/agent-meter/crates/**/ui/**"
       - "apps/qdbback/**/*.js"
       - "apps/back-end/**"
+      - "apps/static/**/*.js"
       - "tools/citools/**"
   workflow_dispatch:
 
@@ -40,27 +43,3 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:javascript-typescript"
-
-  analyze-rust:
-    name: CodeQL (Rust — experimental)
-    runs-on: [self-hosted, Linux, ARM64, hetzner-ci]
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: rust
-
-      - name: Build agent-meter
-        working-directory: apps/agent-meter
-        run: cargo build --workspace
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:rust"
