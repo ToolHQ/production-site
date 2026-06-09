@@ -6,6 +6,11 @@ import { defaultPartRequests, defaultPartLogs, defaultOrderBysStr } from './urlS
 
 const orderBysObjToStr = (orderBys) => Object.entries(orderBys).map(([key, order]) => (order === 'descending' ? `desc(${key})` : `asc(${key})`)).join(',')
 
+const ALLOWED_SORT_COLUMNS = new Set([
+  'id', 'timestamp', 'method', 'path', 'timeElapsed',
+  'remoteHostname', 'statusCode', 'severity', 'event', 'log'
+])
+
 /**
  * @param {String} orderBys
  */
@@ -14,10 +19,12 @@ const orderBysStrToObj = (orderBys) => {
   return orderBys.split(',').reduce((ordersByObj, orderBy) => {
     if (orderBy.startsWith('desc(')) {
       const key = orderBy.slice(5, -1)
+      if (!ALLOWED_SORT_COLUMNS.has(key)) return ordersByObj
       // eslint-disable-next-line no-param-reassign
       ordersByObj[key] = 'descending'
     } else {
       const key = orderBy.slice(4, -1)
+      if (!ALLOWED_SORT_COLUMNS.has(key)) return ordersByObj
       // eslint-disable-next-line no-param-reassign
       ordersByObj[key] = 'acending'
     }

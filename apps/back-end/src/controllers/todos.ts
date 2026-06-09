@@ -32,7 +32,7 @@ export const getTodos: RequestHandler<
   const {
     query: { text },
   } = req;
-  console.log(text);
+  console.log(String(text ?? '').replace(/[\r\n]/g, ''));
   res.status(200).json({ todos: TODOS });
 };
 
