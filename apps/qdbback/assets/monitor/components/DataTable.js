@@ -350,7 +350,7 @@ export class DataTable {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err)
-      this.domTableContainerElement.innerText = 'Erro ao obter dados. Atualize a página'
+      this.domTableContainerElement.innerText = 'Error fetching data. Please refresh the page'
       this.afterFetchData(err)
     }
   }
