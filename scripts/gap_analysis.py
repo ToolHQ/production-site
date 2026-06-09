@@ -18,9 +18,7 @@ def check_coverage():
     print("\n## Resource Type Coverage")
     print("| Resource Type | Count (Live) | Status |")
     print("|---|---|---|")
-    
-    missing_types = []
-    
+
     for r in api_resources:
         if "metrics" in r or "events" in r: continue # Skip ephemeral
         
@@ -33,11 +31,8 @@ def check_coverage():
             
             if count > 0:
                 print(f"| {r} | {count} | ✅ Detected |")
-            else:
-                # print(f"| {r} | 0 | - |")
-                pass
 
-        except:
+        except Exception:  # noqa: BLE001 - skip resources that fail (RBAC, etc.)
             pass
 
 if __name__ == "__main__":

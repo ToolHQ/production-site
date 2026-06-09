@@ -360,7 +360,7 @@ export class DataTable {
     this.domTableBody.innerHTML = ''
   }
 
-  static async fetchData() {
+  async fetchData() {
     return {
       rows: [],
       total: 0,
@@ -374,7 +374,7 @@ export class DataTable {
     }
   }
 
-  static async handleFetchDataError(err) {
+  async handleFetchDataError(err) {
     // eslint-disable-next-line no-console
     console.error(err)
   }

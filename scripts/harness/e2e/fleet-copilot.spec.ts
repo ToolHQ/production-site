@@ -1,7 +1,5 @@
 import { test, expect } from '@playwright/test';
 
-const loginKey = process.env.FLEET_COPILOT_LOGIN_KEY;
-
 test.describe('Fleet Copilot smoke (T-328)', () => {
   test('nav Copilot + locked without session', async ({ page }) => {
     await page.route('**/api/fleet/copilot/session', async (route) => {

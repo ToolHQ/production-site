@@ -61,6 +61,7 @@ async def post_with_retries(url, headers, body, retries=3, backoff_factor=0.5):
         await asyncio.sleep(backoff_factor * (2 ** attempt))
       else:
         raise
+  return None
 
 async def get_with_retries(url, headers, retries=3, backoff_factor=0.5):
   timeout = httpx.Timeout(10.0)
@@ -74,6 +75,7 @@ async def get_with_retries(url, headers, retries=3, backoff_factor=0.5):
         await asyncio.sleep(backoff_factor * (2 ** attempt))
       else:
         raise
+  return None
 
 async def get_route_map():
   global route_map
