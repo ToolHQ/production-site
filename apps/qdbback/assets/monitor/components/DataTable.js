@@ -26,7 +26,7 @@ export class DataTable {
     columns = [],
     columnsHeaders = {},
     orderBys = {},
-    defaulOrderBysStr = '',
+    defaultOrderBysStr = '',
     columnTypes = {},
     columnsFormats = {},
     locale = 'pt-BR',
@@ -83,7 +83,7 @@ export class DataTable {
     })
     this.domPaginationElement = this.pagination.domElement
     this.fatherElement = fatherElement
-    this.defaulOrderBysStr = defaulOrderBysStr
+    this.defaultOrderBysStr = defaultOrderBysStr
     this.init()
   }
 
@@ -217,7 +217,7 @@ export class DataTable {
         const newOrderBysStr = orderBysObjToStr(this.orderBys)
         const currentOrderBysStr = url.searchParams.get('sort_by')
         if ((newOrderBysStr !== currentOrderBysStr) || !newOrderBysStr) {
-          if (!newOrderBysStr || (newOrderBysStr === this.defaulOrderBysStr)) {
+          if (!newOrderBysStr || (newOrderBysStr === this.defaultOrderBysStr)) {
             url.searchParams.delete('sort_by')
           } else {
             url.searchParams.set('sort_by', newOrderBysStr)

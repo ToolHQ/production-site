@@ -2,7 +2,7 @@
 /* eslint-disable max-classes-per-file */
 import { DataTable } from './components/DataTable.js'
 import { SimpleDataTable } from './components/SimpleDataTable.js'
-import { defaultPartRequests, defaultPartLogs, defaulOrderBysStr } from './urlState.js'
+import { defaultPartRequests, defaultPartLogs, defaultOrderBysStr } from './urlState.js'
 
 const orderBysObjToStr = (orderBys) => Object.entries(orderBys).map(([key, order]) => (order === 'descending' ? `desc(${key})` : `asc(${key})`)).join(',')
 
@@ -89,8 +89,8 @@ export const initRequestsTable = ({
     remoteHostname: 'Remote Hostname',
     statusCode: 'Status Code',
   },
-  orderBys: orderBysStrToObj((requestsTab && orderBysStr) || defaulOrderBysStr),
-  defaulOrderBysStr,
+  orderBys: orderBysStrToObj((requestsTab && orderBysStr) || defaultOrderBysStr),
+  defaultOrderBysStr,
   columnTypes: {
     statusCode: 'numeric',
   },
@@ -117,8 +117,8 @@ export const initLogsTable = ({
   columnsWidths: {
     log: '60%',
   },
-  orderBys: orderBysStrToObj((logsTab && orderBysStr) || defaulOrderBysStr),
-  defaulOrderBysStr,
+  orderBys: orderBysStrToObj((logsTab && orderBysStr) || defaultOrderBysStr),
+  defaultOrderBysStr,
   limit,
   offset,
   locale,
