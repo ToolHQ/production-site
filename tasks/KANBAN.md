@@ -61,9 +61,7 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-362a](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Postgres email-intelligence K8s + RLS** | 🚨 Critical | **Cursor / AI Radar** | 1d |
 | [T-362b](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Gmail OAuth + n8n credentials** | 🚨 Critical | **Cursor / AI Radar** | 1d |
-| [T-362c](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Ollama host bridge para n8n** | 🔼 High | **Cursor / AI Radar** | 4h |
 
 |                                       ID                                        | Task Name                                                                                                                                                                                                                                                                                                  |  Priority   | Epic               | Est. |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------------- | :--: |
@@ -114,6 +112,8 @@
 | [T-342](2026/Q2/T-342-agent-meter-proxy-single-binary.md) | **agent-meter-proxy — Single binary HTTPS proxy** _(binário Rust cross-platform via hudsucker; intercepta IDE→LLM HTTPS; gera spans OTLP; PR #416 merged)_ | 🚨 Critical | **Copilot/VSCode** | 1d |
 | T-341 | **agent-meter — Eclipse proxy 100% coverage** _(request_bytes, response_bytes, max_tokens, temperature, llm_system, parent_span_id, cached_tokens, reasoning_tokens, finish_reason, response_text, tool_result cross-request correlation; doc: docs/agent-meter-telemetry-coverage.md)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | T-342 | **agent-meter — VS Code OTLP 100% coverage** _(captureContent=true habilitado; port-forward 4318 ativo; 24/27 campos preenchidos, 3 impossíveis sem env vars)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
+| [T-362a](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Postgres email-intelligence K8s + RLS** _(ClusterIP, NetworkPolicy, schema RLS, pgcrypto; harness PASS)_ | 🚨 Critical | **Cursor / AI Radar** | 1d |
+| [T-362c](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Ollama host bridge para n8n** _(socat UFW pod-CIDR + nginx proxy ollama-host; harness PASS)_ | 🔼 High | **Cursor / AI Radar** | 4h |
 | [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** _(list/plan/run + --changed; harness PASS)_ | 🔼 High | **Cursor / AI Radar** | 1w |
 | [T-362](2026/Q2/T-362-n8n-email-AI-classification-research-spec.md) | **Email automation — research/specs (ADR, threat model, schema, subtasks)** | 🚨 Critical | **Cursor / AI Radar** | 2d |
 | [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** _(55% /data 2026-06-09)_ | 🚨 Critical | **Cursor / AI Radar** | 1d |

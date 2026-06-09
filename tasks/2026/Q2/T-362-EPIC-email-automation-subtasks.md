@@ -4,9 +4,9 @@ Parent: [T-362-n8n-email-AI-classification-research-spec.md](T-362-n8n-email-AI-
 
 | ID | Título | Prioridade | Est. | Depende |
 |----|--------|------------|------|---------|
-| **T-362a** | Postgres `email-intelligence` K8s + schema RLS | 🚨 Critical | 1d | T-361 ✅ |
-| **T-362b** | Gmail OAuth app + n8n credentials | 🚨 Critical | 1d | T-362a |
-| **T-362c** | Ollama host bridge (socat + Service/Endpoints) | 🔼 High | 4h | T-361 ✅ |
+| **T-362a** | Postgres `email-intelligence` K8s + schema RLS | 🚨 Critical | 1d | T-361 ✅ | ✅ harness PASS |
+| **T-362b** | Gmail OAuth app + n8n credentials | 🚨 Critical | 1d | T-362a | 📋 |
+| **T-362c** | Ollama host bridge (socat + nginx proxy) | 🔼 High | 4h | T-361 ✅ | ✅ harness PASS |
 | **T-362d** | Workflow classify — synthetic → staging | 🔼 High | 1d | T-362a,c |
 | **T-362e** | Gmail label apply + audit trail | 🔼 High | 1d | T-362b,d |
 | **T-362f** | Harness + retention CronJob | 🔼 High | 4h | T-362e |

@@ -3,7 +3,7 @@
 # Deploy de componentes adicionais no ssdnodes-monstro via Helm.
 # Chamado pela TUI (k8s_ops_menu.sh) — não executar manualmente.
 #
-# Uso: deploy_ssdnodes_components.sh [dashboard|kubecost|sonarqube|jenkins|ci-platform|ci-status|fleet-copilot|all|status]
+# Uso: deploy_ssdnodes_components.sh [dashboard|kubecost|sonarqube|jenkins|ci-platform|ci-status|n8n|email-intelligence|ollama-bridge|fleet-copilot|all|status]
 
 set -euo pipefail
 
@@ -25,8 +25,10 @@ JENKINS_HELM_CHART_VERSION="${JENKINS_HELM_CHART_VERSION:-5.9.22}"
 # ─── Copia manifests para o host remoto ──────────────────────────────────────
 upload_manifests() {
   log "Enviando manifests para $REMOTE_HOST:/tmp/ssdnodes-components/ ..."
-  ssh "$REMOTE_HOST" "mkdir -p /tmp/ssdnodes-components"
+  ssh "$REMOTE_HOST" "mkdir -p /tmp/ssdnodes-components/schema /tmp/ssdnodes-components/n8n"
   scp -q "$COMPONENTS_DIR"/*.yaml "$REMOTE_HOST:/tmp/ssdnodes-components/"
+  scp -q "$COMPONENTS_DIR"/n8n/*.yaml "$REMOTE_HOST:/tmp/ssdnodes-components/n8n/" 2>/dev/null || true
+  scp -q "$COMPONENTS_DIR"/n8n/schema/*.sql "$REMOTE_HOST:/tmp/ssdnodes-components/schema/"
 }
 
 # ─── Kubernetes Dashboard ─────────────────────────────────────────────────────
@@ -288,6 +290,57 @@ REMOTE
   log "n8n instalado ✓"
 }
 
+# ─── Email intelligence Postgres (T-362a) ────────────────────────────────────
+deploy_email_intelligence() {
+  log "=== Email intelligence Postgres + RLS (T-362a) ==="
+  ssh "$REMOTE_HOST" bash << 'REMOTE'
+set -euo pipefail
+if ! kubectl get secret email-intelligence-db-credentials -n email-intelligence >/dev/null 2>&1; then
+  echo "[email-intel] ❌ Secret email-intelligence-db-credentials ausente."
+  echo "      bash oci-k8s-cluster/scripts/ssdnodes/create_email_intel_secrets.sh | ssh ssdnodes-6a12f10c9ef11 kubectl apply -f -"
+  exit 1
+fi
+
+helm repo add bitnami https://charts.bitnami.com/bitnami 2>/dev/null || true
+helm repo update
+
+kubectl create namespace email-intelligence --dry-run=client -o yaml | kubectl apply -f -
+
+helm upgrade --install email-intelligence-postgresql bitnami/postgresql \
+  --namespace email-intelligence \
+  --version 15.5.38 \
+  --values /tmp/ssdnodes-components/email-intelligence-postgresql-values.yaml \
+  --wait --timeout 15m
+
+kubectl apply -f /tmp/ssdnodes-components/email-intelligence-network-policies.yaml
+
+kubectl create configmap email-intel-schema -n email-intelligence \
+  --from-file=001_init.sql=/tmp/ssdnodes-components/schema/001_init.sql \
+  --from-file=002_crypto_functions.sql=/tmp/ssdnodes-components/schema/002_crypto_functions.sql \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl delete job email-intel-schema-migrate -n email-intelligence --ignore-not-found
+kubectl apply -f /tmp/ssdnodes-components/n8n/email-intelligence-migrate-job.yaml
+kubectl wait --for=condition=complete job/email-intel-schema-migrate -n email-intelligence --timeout=5m
+
+echo "[email-intel] Postgres + schema OK."
+REMOTE
+  log "Email intelligence Postgres instalado ✓"
+}
+
+# ─── Ollama host bridge (T-362c) ─────────────────────────────────────────────
+deploy_ollama_bridge() {
+  log "=== Ollama K8s bridge (T-362c) ==="
+  bash "$(dirname "${BASH_SOURCE[0]}")/install_ollama_k8s_bridge.sh"
+  ssh "$REMOTE_HOST" bash << 'REMOTE'
+set -euo pipefail
+kubectl apply -f /tmp/ssdnodes-components/n8n/ollama-host-service.yaml
+kubectl apply -f /tmp/ssdnodes-components/email-intelligence-network-policies.yaml
+echo "[ollama-bridge] Service+Endpoints aplicados no namespace n8n."
+REMOTE
+  log "Ollama bridge instalado ✓"
+}
+
 # ─── Status ───────────────────────────────────────────────────────────────────
 show_status() {
   log "=== Status pós-deploy ==="
@@ -299,6 +352,7 @@ kubectl get pods -n sonarqube-db 2>/dev/null || echo "(sem namespace sonarqube-d
 kubectl get pods -n sonarqube 2>/dev/null || echo "(sem namespace sonarqube)"
 kubectl get pods -n jenkins 2>/dev/null || echo "(sem namespace jenkins)"
 kubectl get pods -n n8n 2>/dev/null || echo "(sem namespace n8n)"
+kubectl get pods -n email-intelligence 2>/dev/null || echo "(sem namespace email-intelligence)"
 echo "--- Ingresses ---"
 kubectl get ingress -A 2>/dev/null
 echo "--- Certificates ---"
@@ -328,6 +382,8 @@ case "$TARGET" in
   jenkins)   deploy_jenkins; open_port80_for_certs jenkins/jenkins-tls ;;
   ci-platform) deploy_ci_platform ;;
   n8n)       deploy_n8n ;;
+  email-intelligence) deploy_email_intelligence ;;
+  ollama-bridge) deploy_ollama_bridge ;;
   fleet-copilot) deploy_fleet_copilot ;;
   all)
     deploy_dashboard
@@ -335,7 +391,7 @@ case "$TARGET" in
     open_port80_for_certs
     ;;
   *)
-    err "Uso: $0 [dashboard|kubecost|sonarqube|jenkins|ci-platform|ci-status|n8n|fleet-copilot|all|status]"
+    err "Uso: $0 [dashboard|kubecost|sonarqube|jenkins|ci-platform|ci-status|n8n|email-intelligence|ollama-bridge|fleet-copilot|all|status]"
     exit 1
     ;;
 esac

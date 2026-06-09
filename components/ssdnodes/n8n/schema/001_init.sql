@@ -82,21 +82,28 @@ ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 -- Session var: SET app.mailbox_id = '<uuid>';
 
 CREATE POLICY mailboxes_isolation ON mailboxes
-    USING (id = current_setting('app.mailbox_id', true)::uuid);
+    USING (id = current_setting('app.mailbox_id', true)::uuid)
+    WITH CHECK (id = current_setting('app.mailbox_id', true)::uuid);
 
 CREATE POLICY oauth_isolation ON oauth_tokens
-    USING (mailbox_id = current_setting('app.mailbox_id', true)::uuid);
+    USING (mailbox_id = current_setting('app.mailbox_id', true)::uuid)
+    WITH CHECK (mailbox_id = current_setting('app.mailbox_id', true)::uuid);
 
 CREATE POLICY messages_isolation ON messages
-    USING (mailbox_id = current_setting('app.mailbox_id', true)::uuid);
+    USING (mailbox_id = current_setting('app.mailbox_id', true)::uuid)
+    WITH CHECK (mailbox_id = current_setting('app.mailbox_id', true)::uuid);
 
 CREATE POLICY classifications_isolation ON classifications
     USING (message_id IN (
         SELECT id FROM messages WHERE mailbox_id = current_setting('app.mailbox_id', true)::uuid
+    ))
+    WITH CHECK (message_id IN (
+        SELECT id FROM messages WHERE mailbox_id = current_setting('app.mailbox_id', true)::uuid
     ));
 
 CREATE POLICY audit_isolation ON audit_log
-    USING (mailbox_id = current_setting('app.mailbox_id', true)::uuid);
+    USING (mailbox_id = current_setting('app.mailbox_id', true)::uuid)
+    WITH CHECK (mailbox_id = current_setting('app.mailbox_id', true)::uuid);
 
 -- ─── Roles ─────────────────────────────────────────────────────────────────
 DO $$ BEGIN

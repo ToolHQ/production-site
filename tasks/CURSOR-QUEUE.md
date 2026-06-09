@@ -1,25 +1,26 @@
 # Cursor Queue — AI Radar & cluster ops
 
-> **Sincronizado**: 2026-06-09 · branch `feat/cursor-hygiene-queue-t350` · KANBAN = fonte de T-IDs
+> **Sincronizado**: 2026-06-09 · branch `feat/t-361-n8n-ssdnodes` · KANBAN = fonte de T-IDs
 
 ## Próximas 10 (ordem de execução)
 
 | # | ID | Tarefa | Prioridade | Status |
 | -: | :- | :----- | :--------- | :----- |
-| 1 | **T-362a** | Postgres email-intelligence K8s + RLS | 🚨 Critical | 🏎️ **próximo** |
-| 2 | **T-347** | Deploy workers Hetzner / OCI / SSDNodes | 🔼 High | 📋 |
-| 3 | **T-348** | Jenkins deploy-apps job parametrizado | 🔼 High | 📋 |
-| 4 | **T-363** | AI Radar — Google Trends Collector (implementa T-271) | 🔼 High | 📋 |
-| 5 | **T-306** | OCI health watchdog env permission + alertas | 🔼 High | 🏎️ |
-| 6 | **T-311** | Hetzner BuildKit disk growth guardrails | 🚨 Critical | 📋 |
-| 7 | **T-307** | OCI Longhorn disk headroom + política preventiva | 🔼 High | 📋 |
-| 8 | **T-302** | qdbback TLS/Prometheus/AL2023 | 🔵 Medium | 🏎️ |
+| 1 | **T-347** | Deploy workers Hetzner / OCI / SSDNodes | 🔼 High | 🏎️ **próximo** |
+| 2 | **T-348** | Jenkins deploy-apps job parametrizado | 🔼 High | 📋 |
+| 3 | **T-363** | AI Radar — Google Trends Collector (implementa T-271) | 🔼 High | 📋 |
+| 4 | **T-306** | OCI health watchdog env permission + alertas | 🔼 High | 🏎️ |
+| 5 | **T-311** | Hetzner BuildKit disk growth guardrails | 🚨 Critical | 📋 |
+| 6 | **T-307** | OCI Longhorn disk headroom + política preventiva | 🔼 High | 📋 |
+| 7 | **T-302** | qdbback TLS/Prometheus/AL2023 | 🔵 Medium | 🏎️ |
 
 ## Concluído neste sprint
 
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
-| 1 | **T-361** | n8n SSDNodes — live `n8n.ssdnodes.dnor.io` | ✅ |
+| 1 | **T-362a** | Postgres email-intelligence K8s + RLS — harness PASS | ✅ |
+| 2 | **T-362c** | Ollama bridge (socat + nginx proxy) — harness PASS | ✅ |
+| 3 | **T-361** | n8n SSDNodes — live `n8n.ssdnodes.dnor.io` | ✅ |
 | 2 | **T-362** | Email automation research/specs + subtasks T-362a…f | ✅ |
 | 3 | **T-346** | citools deploy catalog + CLI | ✅ |
 | 3 | **T-342** | Bump Sonar 26.6 + Jenkins 2.567 JDK25 | ✅ |
