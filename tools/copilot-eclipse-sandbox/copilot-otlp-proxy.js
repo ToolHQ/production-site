@@ -99,7 +99,7 @@ async function emitOtlpSpan(spanData) {
             });
         });
         req.on('error', (err) => {
-            console.error(`  [OTLP] Error: ${err.message}`);
+            console.error(`  [OTLP] Error: ${String(err.message).replace(/[\r\n]/g, '')}`);
             resolve(false);
         });
         req.write(body);
@@ -194,7 +194,7 @@ function handleRequest(req, res) {
     });
 
     proxyReq.on('error', (err) => {
-        console.error(`[PROXY ERROR] ${err.message}`);
+        console.error(`[PROXY ERROR] ${String(err.message).replace(/[\r\n]/g, '')}`);
         res.writeHead(502);
         res.end('Bad Gateway');
     });
