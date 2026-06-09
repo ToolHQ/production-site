@@ -20,4 +20,6 @@ ssdnodes-ci-platform-credentials.txt
 archive/aws-ec2-fleet-01/recovery-*/
 archive/aws-ec2-fleet-01/*.zip
 !archive/aws-ec2-fleet-01/MANIFEST.md
-!archive/aws-ec2-fleet-01/checksums.sha256tools/citools/target/
+!archive/aws-ec2-fleet-01/checksums.sha256
+tools/citools/target/
+tasks/audit-ui/
