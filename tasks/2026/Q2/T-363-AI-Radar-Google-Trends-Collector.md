@@ -35,7 +35,7 @@ Collector CronJob (ou job citools) que:
 - [x] Config: `config/trends-queries.yaml` — termos + geo + janela (ConfigMap)
 - [x] Job `ai-radar-trends-collect` — imagem slim Python
 - [x] Migration SQL: tabela `trend_signals` (term, score, window, collected_at)
-- [ ] Integração opcional: bump score em `ai-radar-score` CronJob
+- [ ] Integração opcional: bump score em `ai-radar-score` CronJob (backlog T-273)
 - [x] Harness: `validate_ai_radar_trends.sh`
 - [x] Doc: `docs/ai-radar-trends.md` — operação e limites
 

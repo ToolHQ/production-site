@@ -16,7 +16,8 @@
 
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
-| 1 | **T-362a** | Postgres email-intelligence K8s + RLS — harness PASS | ✅ |
+| 1 | **T-363** | Google Trends Collector — harness PASS live | ✅ |
+| 2 | **T-362a** | Postgres email-intelligence K8s + RLS — harness PASS | ✅ |
 | 2 | **T-362c** | Ollama bridge (socat + nginx proxy) — harness PASS | ✅ |
 | 3 | **T-361** | n8n SSDNodes — live `n8n.ssdnodes.dnor.io` | ✅ |
 | 2 | **T-362** | Email automation research/specs + subtasks T-362a…f | ✅ |
