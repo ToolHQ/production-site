@@ -18,7 +18,11 @@ on:
       - "apps/qdbback/**/*.js"
       - "apps/back-end/**"
       - "apps/static/**/*.js"
+      - "apps/py-back-end/**"
       - "tools/citools/**"
+      - "tools/copilot-eclipse-sandbox/**"
+      - "tools/wc2026-sticker-album/**"
+      - "scripts/**/*.py"
   # PRs touching sensitive paths
   pull_request:
     branches: [main]
@@ -27,7 +31,11 @@ on:
       - "apps/qdbback/**/*.js"
       - "apps/back-end/**"
       - "apps/static/**/*.js"
+      - "apps/py-back-end/**"
       - "tools/citools/**"
+      - "tools/copilot-eclipse-sandbox/**"
+      - "tools/wc2026-sticker-album/**"
+      - "scripts/**/*.py"
   workflow_dispatch:
 
 permissions:
@@ -52,3 +60,39 @@ jobs:
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:javascript-typescript"
+
+  analyze-python:
+    name: CodeQL (Python)
+    runs-on: [self-hosted, Linux, X64, ssdnodes]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
+
+  analyze-java:
+    name: CodeQL (Java/Kotlin)
+    runs-on: [self-hosted, Linux, X64, ssdnodes]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin"
