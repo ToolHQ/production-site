@@ -1,6 +1,6 @@
 # T-343: SSDNodes Jenkins — reverse proxy + security hardening
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: T-341 SSDNodes CI Platform
@@ -55,8 +55,8 @@
 - [x] IaC jenkins-values + ingress
 - [x] Harness estendido
 - [x] Deploy live + validação reverse proxy
-- [ ] Commit/push PR #394
-- [ ] done T-343
+- [x] Commit/push PR #394
+- [x] done T-343 (harness PASS 2026-06-09)
 
 ## Validação
 

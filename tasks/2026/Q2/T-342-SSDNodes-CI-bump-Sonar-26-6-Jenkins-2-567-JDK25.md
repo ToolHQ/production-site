@@ -1,6 +1,6 @@
 # T-342: SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: T-341 SSDNodes CI Platform
@@ -34,13 +34,13 @@ bash oci-k8s-cluster/scripts/ssdnodes/upgrade_sonar_stepwise.sh --stepwise
 ## Tasks
 
 - [x] Criar task T-342 + entrada KANBAN
-- [ ] Atualizar `sonarqube-values.yaml` (`community.buildNumber` + `image.tag`)
-- [ ] Atualizar `jenkins-values.yaml` (`2.567-slim-jdk25`)
-- [ ] Pin helm charts em `deploy_ssdnodes_components.sh` e `setup_jenkins_ci_jobs.sh`
-- [ ] Commit + push PR #394 (feat/t-341-ssdnodes-ci-platform)
-- [ ] Deploy live: `deploy_ssdnodes_components.sh ci-platform`
-- [ ] Smoke: `validate_ssdnodes_ci.sh` + Jenkins build multibranch
-- [ ] Marcar T-342 done
+- [x] Atualizar `sonarqube-values.yaml` (`community.buildNumber` + `image.tag`)
+- [x] Atualizar `jenkins-values.yaml` (`2.567-slim-jdk25`)
+- [x] Pin helm charts em `deploy_ssdnodes_components.sh` e `setup_jenkins_ci_jobs.sh`
+- [x] Commit + push PR #394 (feat/t-341-ssdnodes-ci-platform)
+- [x] Deploy live: `deploy_ssdnodes_components.sh ci-platform`
+- [x] Smoke: `validate_ssdnodes_ci.sh` + Jenkins build multibranch (2026-06-09 PASS)
+- [x] Marcar T-342 done
 
 ## Validação
 

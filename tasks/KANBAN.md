@@ -39,11 +39,7 @@
 
 |                                         ID                                          | Task Name                                                                                                          |  Priority   |         Owner         | Est. |
 | :---------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :--: |
-|  [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md)   | **OCI MinIO backup capacity headroom e retention IaC/TUI**                                                         | 🚨 Critical |   Cursor / AI Radar   |  1d  |
 | [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas**                                                      |   🔼 High   |   Cursor / AI Radar   |  6h  |
-|   [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md)   | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI**                                                          | 🚨 Critical |   Cursor / AI Radar   |  4h  |
-| [T-342](2026/Q2/T-342-SSDNodes-CI-bump-Sonar-26-6-Jenkins-2-567-JDK25.md) | **SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25** | 🔼 High | **Cursor / AI Radar** | 4h |
-| [T-343](2026/Q2/T-343-SSDNodes-Jenkins-reverse-proxy-security-hardening.md) | **SSDNodes Jenkins — reverse proxy + security hardening** | 🔼 High | **Cursor / AI Radar** | 1d |
 |           [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md)           | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_       |  🔵 Medium  | **Cursor / AI Radar** |  2d  |
 |                                        T-233                                        | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ |   🔼 High   |     **OpenCode**      |  1h  |
 
@@ -58,7 +54,6 @@
 
 | ID | Task Name | Priority | Owner | Est. |
 | :-: | :-------- | :------: | :---: | :--: |
-| [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** | 🔼 High | **Cursor / AI Radar** | 1w |
 | [T-347](2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) | **Deploy workers Hetzner / OCI / SSDNodes** | 🔼 High | **Cursor / AI Radar** | 1w |
 | [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy-apps job parametrizado** | 🔼 High | **Cursor / AI Radar** | 1w |
 
@@ -118,6 +113,11 @@
 | [T-342](2026/Q2/T-342-agent-meter-proxy-single-binary.md) | **agent-meter-proxy — Single binary HTTPS proxy** _(binário Rust cross-platform via hudsucker; intercepta IDE→LLM HTTPS; gera spans OTLP; PR #416 merged)_ | 🚨 Critical | **Copilot/VSCode** | 1d |
 | T-341 | **agent-meter — Eclipse proxy 100% coverage** _(request_bytes, response_bytes, max_tokens, temperature, llm_system, parent_span_id, cached_tokens, reasoning_tokens, finish_reason, response_text, tool_result cross-request correlation; doc: docs/agent-meter-telemetry-coverage.md)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | T-342 | **agent-meter — VS Code OTLP 100% coverage** _(captureContent=true habilitado; port-forward 4318 ativo; 24/27 campos preenchidos, 3 impossíveis sem env vars)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
+| [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** _(list/plan/run + --changed; harness PASS)_ | 🔼 High | **Cursor / AI Radar** | 1w |
+| [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** _(55% /data 2026-06-09)_ | 🚨 Critical | **Cursor / AI Radar** | 1d |
+| [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** _(4/4 nós OK)_ | 🚨 Critical | **Cursor / AI Radar** | 4h |
+| [T-342](2026/Q2/T-342-SSDNodes-CI-bump-Sonar-26-6-Jenkins-2-567-JDK25.md) | **SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25** | 🔼 High | **Cursor / AI Radar** | 4h |
+| [T-343](2026/Q2/T-343-SSDNodes-Jenkins-reverse-proxy-security-hardening.md) | **SSDNodes Jenkins — reverse proxy + security hardening** | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-341](2026/Q2/T-341-SSDNodes-Jenkins-SonarQube-Platform.md) | **SSDNodes — Jenkins + SonarQube CE (IaC/TUI/DNS)** _(PR #394 merged)_ | 🔼 High | **Cursor / AI Radar** | 3–5d |
 | [T-345](2026/Q2/T-345-GitHub-branch-protection-Jenkins-webhook.md) | **GitHub branch protection + Jenkins webhook** | 🔼 High | **Cursor / AI Radar** | 1d |
 | [T-349](2026/Q2/T-349-Jenkins-Blue-Ocean-pipeline-stage-view-UX.md) | **Jenkins Blue Ocean + pipeline stage view UX** | 🚨 Critical | **Cursor / AI Radar** | 2d |
