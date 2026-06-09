@@ -6,9 +6,8 @@
 
 | # | ID | Tarefa | Prioridade | Status |
 | -: | :- | :----- | :--------- | :----- |
-| 1 | **T-363** | Google Trends Collector (implementa T-271) | 🔼 High | 🏎️ **próximo** |
-| 2 | **T-348** | Jenkins deploy-apps job parametrizado | 🔼 High | 📋 |
-| 3 | **T-306** | OCI health watchdog env permission + alertas | 🔼 High | 🏎️ |
+| 1 | **T-348** | Jenkins deploy-apps job parametrizado | 🔼 High | 🏎️ **próximo** |
+| 2 | **T-306** | OCI health watchdog env permission + alertas | 🔼 High | 🏎️ |
 | 4 | **T-311** | Hetzner BuildKit disk growth guardrails | 🚨 Critical | 📋 |
 | 5 | **T-307** | OCI Longhorn disk headroom + política preventiva | 🔼 High | 📋 |
 | 6 | **T-302** | qdbback TLS/Prometheus/AL2023 | 🔵 Medium | 🏎️ |

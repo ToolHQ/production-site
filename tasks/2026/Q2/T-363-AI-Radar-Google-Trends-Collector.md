@@ -1,6 +1,6 @@
 # T-363: AI Radar — Google Trends Collector
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: AI Radar Fase 23 — Fontes & trends
