@@ -1,0 +1,64 @@
+---
+# ConfigMap email-intel-schema é criado no deploy a partir de schema/*.sql
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: email-intel-schema-migrate
+  namespace: email-intelligence
+  labels:
+    app: email-intel-migrate
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: email-intel-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: docker.io/bitnamilegacy/postgresql:16.4.0-debian-12-r14
+          env:
+            - name: PGHOST
+              value: email-intelligence-postgresql
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              value: postgres
+            - name: PGDATABASE
+              value: email_intel
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: email-intelligence-db-credentials
+                  key: postgres-password
+            - name: N8N_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: email-intelligence-db-credentials
+                  key: n8n-app-password
+            - name: PGCRYPTO_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: email-intelligence-db-credentials
+                  key: pgcrypto-key
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              psql -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS email_intel CASCADE;"
+              psql -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS n8n_app;"
+              psql -v ON_ERROR_STOP=1 -f /schema/001_init.sql
+              psql -v ON_ERROR_STOP=1 -f /schema/002_crypto_functions.sql
+              psql -v ON_ERROR_STOP=1 -c "ALTER ROLE n8n_app WITH LOGIN PASSWORD '${N8N_APP_PASSWORD}';"
+              psql -v ON_ERROR_STOP=1 -c "ALTER ROLE n8n_app SET search_path TO email_intel, public;"
+              echo "Schema migrate OK"
+          volumeMounts:
+            - name: schema
+              mountPath: /schema
+              readOnly: true
+      volumes:
+        - name: schema
+          configMap:
+            name: email-intel-schema

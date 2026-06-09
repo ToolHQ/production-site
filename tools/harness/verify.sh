@@ -171,6 +171,7 @@ path_is_non_blocking_meta() {
 		README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | \
 		docs/* | tasks/* | .github/* | \
 		components/ssdnodes/ADR-*.md | components/ssdnodes/README.md | \
+		components/ssdnodes/n8n/*.md | components/ssdnodes/n8n/schema/*.sql | \
 		components/ssdnodes/jenkins/Jenkinsfile.generic | \
 		components/ssdnodes/jenkins/Jenkinsfile.deploy | \
 		components/ssdnodes/jenkins/bootstrap-ci-job.groovy | \
