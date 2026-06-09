@@ -175,7 +175,7 @@ export class SimpleDataTable {
     this.domTableBody.innerHTML = ''
   }
 
-  static async fetchData() {
+  async fetchData() {
     return {
       rows: [],
       total: 0,
@@ -189,7 +189,7 @@ export class SimpleDataTable {
     }
   }
 
-  static async handleFetchDataError(err) {
+  async handleFetchDataError(err) {
     // eslint-disable-next-line no-console
     console.error(err)
   }

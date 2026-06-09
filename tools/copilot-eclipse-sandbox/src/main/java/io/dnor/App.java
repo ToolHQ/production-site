@@ -13,7 +13,6 @@ public class App {
       return;
     }
 
-    String cmd = args[0];
     int rc = run(args);
     if (rc != 0) {
       System.exit(rc);
