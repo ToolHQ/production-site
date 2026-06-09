@@ -170,7 +170,6 @@ path_is_non_blocking_meta() {
 	.gitignore | CHANGELOG.md | sonar-project.properties | \
 		README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | \
 		docs/* | tasks/* | .github/* | \
-		docs/ai-radar-trends.md | \
 		components/ssdnodes/ADR-*.md | components/ssdnodes/README.md | \
 		components/ssdnodes/n8n/*.md | components/ssdnodes/n8n/schema/*.sql | \
 		components/ssdnodes/jenkins/Jenkinsfile.generic | \
