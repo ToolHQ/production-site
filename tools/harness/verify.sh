@@ -413,17 +413,19 @@ run_citools_gate() {
 run_rust_observability_gate() {
 	local app_dir="$REPO_ROOT/apps/rs-observability-api"
 
-	run_checked "rust fmt: rs-observability-api" bash -lc "cd '$app_dir' && cargo fmt --check"
-	run_checked "rust clippy: rs-observability-api" bash -lc "cd '$app_dir' && cargo clippy --all-targets --all-features -- -D warnings"
-	run_checked "rust test: rs-observability-api" bash -lc "cd '$app_dir' && cargo test"
+	# bash -c (not -lc): login shell on Jenkins rust agent drops /usr/local/cargo/bin
+	run_checked "rust fmt: rs-observability-api" bash -c "cd '$app_dir' && cargo fmt --check"
+	run_checked "rust clippy: rs-observability-api" bash -c "cd '$app_dir' && cargo clippy --all-targets --all-features -- -D warnings"
+	run_checked "rust test: rs-observability-api" bash -c "cd '$app_dir' && cargo test"
 }
 
 run_rust_ai_radar_gate() {
 	local app_dir="$REPO_ROOT/apps/ai-radar"
 
-	run_checked "rust fmt: ai-radar" bash -lc "cd '$app_dir' && cargo fmt --check"
-	run_checked "rust clippy: ai-radar" bash -lc "cd '$app_dir' && cargo clippy --workspace --all-targets -- -D warnings"
-	run_checked "rust test: ai-radar" bash -lc "cd '$app_dir' && cargo test --workspace"
+	# bash -c (not -lc): login shell on Jenkins rust agent drops /usr/local/cargo/bin
+	run_checked "rust fmt: ai-radar" bash -c "cd '$app_dir' && cargo fmt --check"
+	run_checked "rust clippy: ai-radar" bash -c "cd '$app_dir' && cargo clippy --workspace --all-targets -- -D warnings"
+	run_checked "rust test: ai-radar" bash -c "cd '$app_dir' && cargo test --workspace"
 }
 
 run_rust_agent_meter_gate() {
