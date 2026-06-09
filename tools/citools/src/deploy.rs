@@ -126,11 +126,7 @@ pub fn app_matches_changed_paths(app: &DeployApp, changed: &[String]) -> bool {
 
 pub fn git_changed_paths(repo_root: &Path, base: &str) -> Result<Vec<String>> {
     let output = Command::new("git")
-        .args([
-            "diff",
-            "--name-only",
-            &format!("origin/{base}...HEAD"),
-        ])
+        .args(["diff", "--name-only", &format!("origin/{base}...HEAD")])
         .current_dir(repo_root)
         .output()
         .context("git diff for deploy --changed")?;
@@ -161,6 +157,7 @@ pub fn apps_for_changed_paths<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::paths::path_matches_pattern;
 
     #[test]
     fn parses_catalog() {
