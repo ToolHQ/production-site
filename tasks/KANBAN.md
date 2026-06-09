@@ -42,6 +42,8 @@
 |  [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md)   | **OCI MinIO backup capacity headroom e retention IaC/TUI**                                                         | 🚨 Critical |   Cursor / AI Radar   |  1d  |
 | [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas**                                                      |   🔼 High   |   Cursor / AI Radar   |  6h  |
 |   [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md)   | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI**                                                          | 🚨 Critical |   Cursor / AI Radar   |  4h  |
+| [T-342](2026/Q2/T-342-SSDNodes-CI-bump-Sonar-26-6-Jenkins-2-567-JDK25.md) | **SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25** | 🔼 High | **Cursor / AI Radar** | 4h |
+| [T-343](2026/Q2/T-343-SSDNodes-Jenkins-reverse-proxy-security-hardening.md) | **SSDNodes Jenkins — reverse proxy + security hardening** | 🔼 High | **Cursor / AI Radar** | 1d |
 |           [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md)           | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_       |  🔵 Medium  | **Cursor / AI Radar** |  2d  |
 |                                        T-233                                        | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ |   🔼 High   |     **OpenCode**      |  1h  |
 
@@ -52,8 +54,24 @@
 
 ## 📅 Backlog (To Do)
 
+### Epic: citools Deploy + CI Closure (T-344)
+
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
+| [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** | 🔼 High | **Cursor / AI Radar** | 1w |
+| [T-347](2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) | **Deploy workers Hetzner / OCI / SSDNodes** | 🔼 High | **Cursor / AI Radar** | 1w |
+| [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy-apps job parametrizado** | 🔼 High | **Cursor / AI Radar** | 1w |
+
+### Epic: SSDNodes n8n + Email Intelligence (T-361)
+
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
+| [T-361](2026/Q2/T-361-SSDNodes-n8n-Docker-authenticated-TLS.md) | **SSDNodes — n8n self-hosted Docker (latest, auth, TLS, domínio)** | 🔼 High | **Cursor / AI Radar** | 1d |
+| [T-362](2026/Q2/T-362-n8n-email-AI-classification-research-spec.md) | **n8n + Ollama — classificação de email (research, ADR, subtasks)** _(depende T-361; Postgres RLS + crypto)_ | 🚨 Critical | **Cursor / AI Radar** | 2d |
+
 |                                       ID                                        | Task Name                                                                                                                                                                                                                                                                                                  |  Priority   | Epic               | Est. |
 | :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------------- | :--: |
+| [T-363](2026/Q2/T-363-AI-Radar-Google-Trends-Collector.md) | **AI Radar — Google Trends Collector** _(implementa T-271; alimenta pipeline Cursor)_ | 🔼 High | **Cursor / AI Radar** | 4h |
 | [T-356](2026/Q2/T-356-agent-meter-stripe-complete.md) | **agent-meter — Stripe billing: complete integration** _(provisionar keys; criar products; testar checkout/portal/webhook end-to-end; remover stubs)_ | 🔵 Medium | **Copilot/VSCode** | 4h |
 |            [T-324](2026/Q2/T-324-agent-meter-ux-overhaul-backlog.md)            | **agent-meter — UX/UI Overhaul Backlog Mestre** _(43 achados auditados; 16 sub-tasks: design system, layout shell, brand, dashboard refactor, pricing comparison + ROI, alerts templates + channels, timeline polish, /tasks HTML, 404 styled, a11y/Lighthouse — Epic SaaS Revenue → Polish & Conversion)_ | 🚨 Critical | **Copilot/VSCode** | 13d  |
 |        [T-323](2026/Q2/T-323-agent-meter-quickstart-sdk-leaderboard.md)         | **agent-meter — Quickstart + SDK + Leaderboard** _(pip install agent-meter, npm @agent-meter/sdk, 60s time-to-first-event, página /vs e /leaderboard público — Epic SaaS Revenue)_                                                                                                                         |   🔼 High   | **Copilot/VSCode** | 14h  |
@@ -100,6 +118,9 @@
 | [T-342](2026/Q2/T-342-agent-meter-proxy-single-binary.md) | **agent-meter-proxy — Single binary HTTPS proxy** _(binário Rust cross-platform via hudsucker; intercepta IDE→LLM HTTPS; gera spans OTLP; PR #416 merged)_ | 🚨 Critical | **Copilot/VSCode** | 1d |
 | T-341 | **agent-meter — Eclipse proxy 100% coverage** _(request_bytes, response_bytes, max_tokens, temperature, llm_system, parent_span_id, cached_tokens, reasoning_tokens, finish_reason, response_text, tool_result cross-request correlation; doc: docs/agent-meter-telemetry-coverage.md)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
 | T-342 | **agent-meter — VS Code OTLP 100% coverage** _(captureContent=true habilitado; port-forward 4318 ativo; 24/27 campos preenchidos, 3 impossíveis sem env vars)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
+| [T-341](2026/Q2/T-341-SSDNodes-Jenkins-SonarQube-Platform.md) | **SSDNodes — Jenkins + SonarQube CE (IaC/TUI/DNS)** _(PR #394 merged)_ | 🔼 High | **Cursor / AI Radar** | 3–5d |
+| [T-345](2026/Q2/T-345-GitHub-branch-protection-Jenkins-webhook.md) | **GitHub branch protection + Jenkins webhook** | 🔼 High | **Cursor / AI Radar** | 1d |
+| [T-349](2026/Q2/T-349-Jenkins-Blue-Ocean-pipeline-stage-view-UX.md) | **Jenkins Blue Ocean + pipeline stage view UX** | 🚨 Critical | **Cursor / AI Radar** | 2d |
 | T-343 | **agent-meter — Copilot CLI interceptor validado** _(mesmo copilot_interceptor.py via HTTPS_PROXY; gpt-5.4 interceptado; 5 tool calls + results capturados; copilot-cli-metered.sh wrapper criado)_ | 🚨 Critical | **Copilot/VSCode** | 2h |
 | T-321 | **agent-meter — T-321 Landing + Pricing + Stripe Checkout** _(página `/pricing` 4 tiers Free/Pro \$19/Team \$99/Enterprise + FAQ; `/api/billing/checkout` (live ou stub), `/api/billing/portal`, `/api/billing/webhook` HMAC-SHA256, state machine de billing_events; ENV-driven (STRIPE_SECRET_KEY/WEBHOOK_SECRET/PRICE_PRO/TEAM); validado em prod: /pricing 200, checkout retorna stub URL)_ | 🚨 Critical | **Copilot/VSCode** | 13h |
 | T-319.1 | **agent-meter — T-319.1 GitHub OAuth + Sessions + Middleware** _(migration sessions/billing_events; auth_service: exchange_code, fetch_user, upsert (org slug=user-{login}, role=owner), HMAC state CSRF; routes /login, /auth/github, /auth/github/callback, /auth/logout, /api/me; cookie am_session HttpOnly Secure SameSite=Lax 30d; ui/login.html; validado em prod: /login 200, /api/me 401, /auth/github 503 (env unset))_ | 🚨 Critical | **Copilot/VSCode** | 6h |
