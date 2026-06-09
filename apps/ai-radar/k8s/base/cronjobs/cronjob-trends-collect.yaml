@@ -1,0 +1,72 @@
+# Google Trends collect — every 6h (rate-limit friendly, T-363)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-radar-trends-collect
+  labels:
+    app.kubernetes.io/name: ai-radar-trends-collect
+    app.kubernetes.io/component: trends-collector
+    app.kubernetes.io/part-of: ai-radar
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 900
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: ai-radar-trends-collect
+            app.kubernetes.io/component: trends-collector
+            app.kubernetes.io/part-of: ai-radar
+        spec:
+          serviceAccountName: ai-radar-api
+          restartPolicy: OnFailure
+          imagePullSecrets:
+            - name: regsecret
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: trends-collect
+              image: registry.local:31444/repository/docker-repo/my-site-ai-radar-trends:latest
+              imagePullPolicy: Always
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ai-radar-database
+                      key: DATABASE_URL
+                - name: TRENDS_CONFIG_PATH
+                  value: /config/trends-queries.yaml
+              volumeMounts:
+                - name: trends-config
+                  mountPath: /config
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 300m
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+          volumes:
+            - name: trends-config
+              configMap:
+                name: ai-radar-trends-config

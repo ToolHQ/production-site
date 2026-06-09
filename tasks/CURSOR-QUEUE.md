@@ -1,24 +1,23 @@
 # Cursor Queue — AI Radar & cluster ops
 
-> **Sincronizado**: 2026-06-09 · branch `feat/t-361-n8n-ssdnodes` · KANBAN = fonte de T-IDs
+> **Sincronizado**: 2026-06-09 · branch `feat/t-363-google-trends` · KANBAN = fonte de T-IDs
 
 ## Próximas 10 (ordem de execução)
 
 | # | ID | Tarefa | Prioridade | Status |
 | -: | :- | :----- | :--------- | :----- |
-| 1 | **T-347** | Deploy workers Hetzner / OCI / SSDNodes | 🔼 High | 🏎️ **próximo** |
-| 2 | **T-348** | Jenkins deploy-apps job parametrizado | 🔼 High | 📋 |
-| 3 | **T-363** | AI Radar — Google Trends Collector (implementa T-271) | 🔼 High | 📋 |
-| 4 | **T-306** | OCI health watchdog env permission + alertas | 🔼 High | 🏎️ |
-| 5 | **T-311** | Hetzner BuildKit disk growth guardrails | 🚨 Critical | 📋 |
-| 6 | **T-307** | OCI Longhorn disk headroom + política preventiva | 🔼 High | 📋 |
-| 7 | **T-302** | qdbback TLS/Prometheus/AL2023 | 🔵 Medium | 🏎️ |
+| 1 | **T-348** | Jenkins deploy-apps job parametrizado | 🔼 High | 🏎️ **próximo** |
+| 2 | **T-306** | OCI health watchdog env permission + alertas | 🔼 High | 🏎️ |
+| 4 | **T-311** | Hetzner BuildKit disk growth guardrails | 🚨 Critical | 📋 |
+| 5 | **T-307** | OCI Longhorn disk headroom + política preventiva | 🔼 High | 📋 |
+| 6 | **T-302** | qdbback TLS/Prometheus/AL2023 | 🔵 Medium | 🏎️ |
 
 ## Concluído neste sprint
 
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
-| 1 | **T-362a** | Postgres email-intelligence K8s + RLS — harness PASS | ✅ |
+| 1 | **T-363** | Google Trends Collector — harness PASS live | ✅ |
+| 2 | **T-362a** | Postgres email-intelligence K8s + RLS — harness PASS | ✅ |
 | 2 | **T-362c** | Ollama bridge (socat + nginx proxy) — harness PASS | ✅ |
 | 3 | **T-361** | n8n SSDNodes — live `n8n.ssdnodes.dnor.io` | ✅ |
 | 2 | **T-362** | Email automation research/specs + subtasks T-362a…f | ✅ |

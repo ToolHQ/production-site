@@ -1,6 +1,6 @@
 # T-363: AI Radar — Google Trends Collector
 
-- **Status**: Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: AI Radar Fase 23 — Fontes & trends
@@ -31,13 +31,13 @@ Collector CronJob (ou job citools) que:
 
 ## Tasks
 
-- [ ] Revisar T-271 e decidir lib (`pytrends` vs alternativa)
-- [ ] Config: `config/trends-queries.yaml` — termos + geo + janela
-- [ ] Job `ai-radar-trends-collect` — imagem slim Python ou estender collector existente
-- [ ] Migration SQL: tabela `trend_signals` (term, score, window, collected_at)
-- [ ] Integração opcional: bump score em `ai-radar-score` CronJob
-- [ ] Harness: job manual + assert rows in DB
-- [ ] Doc: `docs/ai-radar-trends.md` — operação e limites
+- [x] Revisar T-271 e decidir lib (`pytrends` vs alternativa) — ver [docs/ai-radar-trends.md](../../docs/ai-radar-trends.md)
+- [x] Config: `config/trends-queries.yaml` — termos + geo + janela (ConfigMap)
+- [x] Job `ai-radar-trends-collect` — imagem slim Python
+- [x] Migration SQL: tabela `trend_signals` (term, score, window, collected_at)
+- [ ] Integração opcional: bump score em `ai-radar-score` CronJob (backlog T-273)
+- [x] Harness: `validate_ai_radar_trends.sh`
+- [x] Doc: `docs/ai-radar-trends.md` — operação e limites
 
 ## Acceptance
 
