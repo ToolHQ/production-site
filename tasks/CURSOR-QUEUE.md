@@ -1,23 +1,21 @@
 # Cursor Queue — AI Radar & cluster ops
 
-> **Sincronizado**: 2026-06-10 · branch `feat/t-311-buildkit-guardrails` · KANBAN = fonte de T-IDs
+> **Sincronizado**: 2026-06-10 · branch `feat/t-307-longhorn-headroom`
 
 ## Próximas 10 (ordem de execução)
 
 | # | ID | Tarefa | Prioridade | Status |
 | -: | :- | :----- | :--------- | :----- |
-| 1 | **T-307** | OCI Longhorn disk headroom + política preventiva | 🔼 High | 🏎️ **próximo** |
-| 2 | **T-302** | qdbback TLS/Prometheus/AL2023 | 🔵 Medium | 🏎️ |
-| 3 | **T-306** | OCI health watchdog — doc runbook | 🔼 High | 📋 follow-up |
-| 4 | **T-347** | Deploy workers citools | 🔼 High | 📋 |
+| 1 | **T-302** | qdbback TLS/Prometheus/AL2023 | 🔵 Medium | 🏎️ **próximo** |
+| 2 | **T-347** | Deploy workers citools (E2E + secrets) | 🔼 High | 📋 |
+| 3 | **T-362b** | Gmail OAuth + n8n credentials | 🚨 Critical | 📋 |
 
 ## Concluído neste sprint
 
 | # | ID | Tarefa | Status |
 | -: | :- | :----- | :----- |
-| 1 | **T-363** | Google Trends Collector — PR #464 merged | ✅ |
-| 2 | **T-348** | Jenkins deploy-apps — build #7 SUCCESS DRY_RUN | ✅ |
-| 3 | **T-311** | Hetzner BuildKit guardrails — harness PASS | ✅ |
+| 1 | **T-311** | Hetzner BuildKit guardrails — PR #477 merged | ✅ |
+| 2 | **T-307** | Longhorn headroom diag — harness PASS | ✅ |
 | 2 | **T-362a** | Postgres email-intelligence K8s + RLS — harness PASS | ✅ |
 | 2 | **T-362c** | Ollama bridge (socat + nginx proxy) — harness PASS | ✅ |
 | 3 | **T-361** | n8n SSDNodes — live `n8n.ssdnodes.dnor.io` | ✅ |

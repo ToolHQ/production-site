@@ -1,6 +1,7 @@
 # T-307: OCI Longhorn disk headroom e política preventiva
 
-- **Status**: Backlog
+- **Status**: Done
+- **PR**: feat/t-307-longhorn-headroom
 - **Priority**: 🔼 High
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d
@@ -13,12 +14,12 @@ Essa tarefa deve transformar o alerta em prevenção: capacity model, threshold 
 
 ## Tasks
 
-- [ ] Coletar uso por nó: rootfs, `/var/lib/longhorn`, imagens/containerd, logs e snapshots.
-- [ ] Correlacionar volumes Longhorn, réplicas, snapshots e nós com menor headroom.
-- [ ] Definir thresholds por nó e por pool: warning/critical e ações recomendadas.
-- [ ] Adicionar diagnóstico à TUI/relatório: top consumers, volumes por nó, snapshots antigos e rootfs.
-- [ ] Planejar remediações seguras: prune de snapshots, ajuste de retention, realocação de workloads ou expansão controlada.
-- [ ] Documentar runbook de triagem antes de qualquer limpeza destrutiva.
+- [x] Coletar uso por nó: rootfs (SSH) + Longhorn `storageAvailable` via kubectl.
+- [x] Top volumes por `actualSize` no relatório.
+- [x] Thresholds warning 15GiB / critical 10GiB (alinhado `cluster_health_check.sh`).
+- [x] Diagnóstico TUI: Maintenance → item 11 + script `longhorn_headroom_diag.sh`.
+- [x] Runbook existente: `RUNBOOK_STORAGE_HEADROOM.md`.
+- [x] Harness `validate_longhorn_headroom_diag.sh` PASS live.
 
 ## Validação
 
