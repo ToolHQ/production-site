@@ -1,0 +1,10 @@
+[Unit]
+Description=BuildKit disk growth guardrails (Hetzner builder)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/buildkit_guardrails.sh
+StandardOutput=append:/var/log/buildkit-guardrails.log
+StandardError=append:/var/log/buildkit-guardrails.log

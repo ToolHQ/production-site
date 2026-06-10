@@ -97,6 +97,17 @@ fi
 # Libera o lock de exclusão mútua
 exec 9>&-
 
+# ─── 5b. BuildKit disk guardrails (T-311) ─────────────────────────────────────
+GUARD_INSTALL="$SCRIPT_DIR/hetzner/install_buildkit_guardrails.sh"
+if [[ -f "$GUARD_INSTALL" ]]; then
+    info "Garantindo timer buildkit-guardrails na VM..."
+    if bash "$GUARD_INSTALL" >/dev/null 2>&1; then
+        ok "buildkit-guardrails timer instalado"
+    else
+        warn "buildkit-guardrails install falhou (non-fatal — rode manualmente)"
+    fi
+fi
+
 # ─── 6. Status final ──────────────────────────────────────────────────────────
 if [ "$SILENT" = "false" ]; then
     echo ""

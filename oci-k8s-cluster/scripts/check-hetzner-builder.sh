@@ -35,6 +35,13 @@ fi
 
 ssh -o ConnectTimeout="$SSH_TIMEOUT" "$HETZNER_HOST" 'df -h / | tail -1; docker ps -a --filter name=buildx_buildkit --format "{{.Names}} {{.Status}}" 2>/dev/null | head -3' || true
 
+timer_state="$(ssh -o ConnectTimeout="$SSH_TIMEOUT" "$HETZNER_HOST" "systemctl is-enabled buildkit-guardrails.timer 2>/dev/null || echo disabled")"
+if [[ "$timer_state" == "enabled" ]]; then
+	ok "buildkit-guardrails.timer"
+else
+	warn "buildkit-guardrails.timer ausente ($timer_state) — rode: $REPO_ROOT/oci-k8s-cluster/scripts/hetzner/install_buildkit_guardrails.sh"
+fi
+
 if docker context inspect hetzner >/dev/null 2>&1; then
 	ok "Docker context local: hetzner"
 else
