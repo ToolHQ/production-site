@@ -312,39 +312,17 @@ for node in "${NODES[@]}"; do
 done
 echo ""
 
-# --- SECTION 1: ELASTICSEARCH ---
-print_section_header "ELASTICSEARCH (Logs)" "🔎"
-ES_POD=$(exec_capture "kubectl get pods -n elastic-system -l elasticsearch.k8s.elastic.co/cluster-name=oci-logs -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding ES Pod")
-
-if [ -z "$ES_POD" ]; then
-    echo -e "   ${RED}❌ Pod not found${NC}"
+# --- SECTION 1: ELASTICSEARCH (retired — Vector + MinIO planned) ---
+print_section_header "LOGS PIPELINE" "🔎"
+if kubectl get ns elastic-system >/dev/null 2>&1; then
+    ES_POD=$(exec_capture "kubectl get pods -n elastic-system -l elasticsearch.k8s.elastic.co/cluster-name=oci-logs -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true" "Finding ES Pod")
+    if [ -n "$ES_POD" ]; then
+        echo -e "   ${YELLOW}⚠️  Legacy Elastic Stack still present (run uninstall_elastic_stack.sh)${NC}"
+    else
+        echo -e "   ${GRAY}Elastic Stack removed. Planned: Vector → Parquet on MinIO.${NC}"
+    fi
 else
-    ES_PASS_B64=$(exec_capture "kubectl get secret -n elastic-system oci-logs-es-elastic-user -o jsonpath='{.data.elastic}' 2>/dev/null || true" "")
-    ES_PASS=$(echo "$ES_PASS_B64" | base64 -d 2>/dev/null)
-    # Fix: Add -c elasticsearch explicitly
-    DATA_RAW=$(exec_capture "kubectl exec -n elastic-system $ES_POD -c elasticsearch -- curl -s -k -u elastic:$ES_PASS 'https://localhost:9200/_cat/indices?v&s=store.size:desc&h=health,index,docs.count,store.size' | head -n 6" "Fetching Index Stats")
-    
-    echo -e "\n   ${BOLD}Top Indices:${NC}"
-    printf "   ${GRAY}%-10s %-45s %-10s %-10s${NC}\n" "HEALTH" "INDEX" "DOCS" "SIZE"
-    echo "   ─────────────────────────────────────────────────────────────────────────────"
-    echo "$DATA_RAW" | awk 'NR>1 {
-        health=$1; name=$2; docs=$3; size=$4;
-        color="'$NC'";
-        if(health=="green") color="'$GREEN'";
-        else if(health=="yellow") color="'$YELLOW'";
-        else if(health=="red") color="'$RED'";
-        if(length(name)>43) name=substr(name,1,40)"..."; 
-        printf "   %s%-10s'$NC' %-45s %-10s %-10s\n", color, health, name, docs, size
-    }'
-    
-    # Calculate Total Logical Size (Sum of all index sizes)
-    # Note: store.size is strictly physical storage, but good enough proxy for "App Data"
-    # We strip 'kb', 'mb', 'gb', 'b' and convert to bytes
-    TOTAL_ES_BYTES=$(exec_capture "kubectl exec -n elastic-system $ES_POD -- curl -s -k -u elastic:$ES_PASS 'https://localhost:9200/_cat/indices?v&s=store.size:desc&h=store.size&bytes=b' | awk '{sum+=\$1} END {print sum}'" "")
-    
-    # Use Standardized PV Stats
-    # Pass PVC Name, print_pv_stats resolves PV/Volume name internally
-    print_pv_stats "elastic-system" "elasticsearch-data-oci-logs-es-default-0" "$TOTAL_ES_BYTES"
+    echo -e "   ${GRAY}Elastic Stack not deployed. Planned: Vector → Parquet on MinIO.${NC}"
 fi
 echo ""
 
