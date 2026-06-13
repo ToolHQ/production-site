@@ -181,7 +181,8 @@ path_is_non_blocking_meta() {
 		components/ssdnodes/github-webhook-ip-ranges.txt | \
 		components/ssdnodes/jenkins-github-webhook-ingress.yaml | \
 		tools/citools/README.md | tools/citools/Cargo.lock | \
-		oci-k8s-cluster/systemd/*)
+		oci-k8s-cluster/systemd/* | \
+		components/_archived/* | components/_planned/*)
 		return 0
 		;;
 	*)
