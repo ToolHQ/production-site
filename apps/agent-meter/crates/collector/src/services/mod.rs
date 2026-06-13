@@ -8,6 +8,7 @@ pub mod ingest_buffer;
 pub mod notification_service;
 pub mod org_service;
 pub mod pricing_updater;
+pub mod report_service;
 pub mod rls;
 pub mod stripe_service;
 pub mod task_service;
