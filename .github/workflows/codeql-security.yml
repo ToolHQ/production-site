@@ -1,0 +1,115 @@
+# CodeQL analysis — self-hosted runners (zero GitHub Actions cost)
+# Replaces the broken "default setup" that looped every 5 minutes.
+# Runs: weekly schedule + on PRs touching security-sensitive code.
+# Note: Rust analysis is handled by clippy (Jenkins CI pipeline) — CodeQL Rust
+# support requires GitHub-hosted runners with the CodeQL bundle pre-installed.
+
+name: CodeQL Security Scan
+
+on:
+  # Weekly scan (Sunday 03:00 UTC)
+  schedule:
+    - cron: '0 3 * * 0'
+  # Push to main (needed to close alerts when fixes land)
+  push:
+    branches: [main]
+    paths:
+      - "apps/agent-meter/crates/**/ui/**"
+      - "apps/qdbback/**/*.js"
+      - "apps/back-end/**"
+      - "apps/static/**/*.js"
+      - "apps/py-back-end/**"
+      - "tools/citools/**"
+      - "tools/copilot-eclipse-sandbox/**"
+      - "tools/wc2026-sticker-album/**"
+      - "scripts/**/*.py"
+  # PRs touching sensitive paths
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/agent-meter/crates/**/ui/**"
+      - "apps/qdbback/**/*.js"
+      - "apps/back-end/**"
+      - "apps/static/**/*.js"
+      - "apps/py-back-end/**"
+      - "tools/citools/**"
+      - "tools/copilot-eclipse-sandbox/**"
+      - "tools/wc2026-sticker-album/**"
+      - "scripts/**/*.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+jobs:
+  analyze-js:
+    name: CodeQL (JavaScript/TypeScript)
+    runs-on: [self-hosted, Linux, X64, ssdnodes]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  analyze-python:
+    name: CodeQL (Python)
+    runs-on: [self-hosted, Linux, X64, ssdnodes]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
+
+  analyze-java:
+    name: CodeQL (Java/Kotlin)
+    runs-on: [self-hosted, Linux, X64, ssdnodes]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          queries: security-extended
+
+      - name: Install Maven
+        run: |
+          if ! command -v mvn &>/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq maven
+          fi
+
+      - name: Build Java sources
+        working-directory: tools/copilot-eclipse-sandbox
+        run: mvn compile -B -q
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin"

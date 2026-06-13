@@ -70,7 +70,7 @@ stages:
 - [ ] Jenkins credentials: `kubeconfig-oci`, `hetzner-ssh` (se spike OK)
 - [ ] RBAC: restringir job a admin ou grupo (JCasC)
 - [x] UI: link doc em job description → T-344
-- [ ] Smoke: deploy `py-back-end` → OCI via Jenkins UI (DRY_RUN OK live)
+- [x] Smoke: deploy `py-back-end` → OCI via Jenkins UI (DRY_RUN OK live) — build #7 SUCCESS
 - [x] Docs `components/ssdnodes/jenkins/README.md` seção Deploy jobs
 
 ## Validação

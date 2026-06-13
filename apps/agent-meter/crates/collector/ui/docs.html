@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <title>Documentation · agent-meter</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="API reference, SDK guides, and integration docs for agent-meter — the observability layer for AI agents.">
+<meta property="og:title" content="Documentation · agent-meter">
+<meta property="og:description" content="API reference, SDK guides, and integration docs for agent-meter.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://agent-meter.dnor.io/docs">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Documentation · agent-meter">
+<meta name="twitter:description" content="API reference, SDK guides, and integration docs for agent-meter.">
 <link rel="icon" type="image/svg+xml" href="/_static/favicon.svg">
 <link rel="stylesheet" href="/_static/tokens.css">
 <link rel="stylesheet" href="/_static/app.css">
@@ -129,8 +137,10 @@
         <a href="#codex-cli">Codex CLI</a>
         <div class="toc-section">Reference</div>
         <a href="#api">REST API</a>
+        <a href="#sdks">SDKs</a>
         <a href="#otlp">OTLP Protocol</a>
         <a href="#security">Security</a>
+        <a href="#badges">Badges</a>
         <a href="#faq">FAQ</a>
       </nav>
 
@@ -613,6 +623,58 @@ codex "refactor this function"</code></pre>
 }</code></pre>
         </section>
 
+        <!-- SDKs -->
+        <section id="sdks">
+          <h2>SDKs</h2>
+          <p>Official SDKs wrap the OTLP endpoint with ergonomic APIs. Both auto-flush in the background and work with any <code>AGENT_METER_ENDPOINT</code>.</p>
+
+          <h3>Python</h3>
+          <pre><code>pip install agent-meter</code></pre>
+          <pre><code>from agent_meter import AgentMeter
+
+am = AgentMeter(api_key="am_live_...")
+
+# Track a tool call
+span = am.track("web_search", model="gpt-4o")
+result = search(query)
+span.finish()
+
+# With tokens and cost
+span = am.track("code_review", model="claude-sonnet-4-20250514")
+span.estimated_input_tokens = 2000
+span.estimated_output_tokens = 500
+span.usd_cost = 0.012
+span.finish()</code></pre>
+
+          <h3>Node.js / TypeScript</h3>
+          <pre><code>npm install @agent-meter/sdk</code></pre>
+          <pre><code>import { AgentMeter } from "@agent-meter/sdk";
+
+const am = new AgentMeter({ apiKey: "am_live_..." });
+
+const span = am.track("web_search", { model: "gpt-4o" });
+const result = await search(query);
+am.finish(span);
+
+// With tokens and cost
+const span2 = am.track("code_review", { model: "claude-sonnet-4-20250514" });
+span2.estimatedInputTokens = 2000;
+span2.estimatedOutputTokens = 500;
+span2.usdCost = 0.012;
+am.finish(span2);</code></pre>
+
+          <h3>Configuration (both SDKs)</h3>
+          <table>
+            <thead><tr><th>Env Variable</th><th>Description</th><th>Default</th></tr></thead>
+            <tbody>
+              <tr><td><code>AGENT_METER_API_KEY</code></td><td>API key for auth</td><td>—</td></tr>
+              <tr><td><code>AGENT_METER_ENDPOINT</code></td><td>Collector URL</td><td><code>https://agent-meter.dnor.io</code></td></tr>
+              <tr><td><code>AGENT_METER_IDE</code></td><td>IDE identifier</td><td><code>python-sdk</code> / <code>node-sdk</code></td></tr>
+              <tr><td><code>AGENT_METER_AGENT</code></td><td>Agent name tag</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </section>
+
         <!-- OTLP PROTOCOL -->
         <section id="otlp">
           <h2>OTLP Protocol</h2>
@@ -678,6 +740,27 @@ security delete-certificate -c "mitmproxy" ~/Library/Keychains/login.keychain
 
 # Windows
 certmgr.msc → Trusted Root CAs → delete "mitmproxy"</code></pre>
+        </section>
+
+        <!-- BADGES -->
+        <section id="badges">
+          <h2>Badges</h2>
+          <p>Embed live cost and event badges in your README, docs, or dashboard. Badges auto-update every 5 minutes.</p>
+
+          <h3>Monthly Cost</h3>
+          <p>Shows total AI spend this month:</p>
+          <p><img src="/badge/cost.svg" alt="AI Cost" style="height:20px"></p>
+<pre><code>![AI Cost](https://agent-meter.dnor.io/badge/cost.svg)</code></pre>
+          <p>HTML embed:</p>
+<pre><code>&lt;img src="https://agent-meter.dnor.io/badge/cost.svg" alt="AI Cost"&gt;</code></pre>
+
+          <h3>Monthly Events</h3>
+          <p>Shows total LLM events tracked this month:</p>
+          <p><img src="/badge/events.svg" alt="Events" style="height:20px"></p>
+<pre><code>![Events](https://agent-meter.dnor.io/badge/events.svg)</code></pre>
+
+          <h3>Caching</h3>
+          <p>Badge responses include <code>Cache-Control: public, max-age=300</code> (5 min) with <code>stale-while-revalidate=3600</code>. GitHub and CDNs will cache them automatically — no rate limiting concerns.</p>
         </section>
 
         <!-- FAQ -->

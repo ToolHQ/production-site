@@ -142,4 +142,4 @@ group by
       mapped_result[user_data.get("userLogin")] = new_user_data
     else:
       mapped_result[user_data.get("userLogin")] = user_data
-    return mapped_result
+  return mapped_result

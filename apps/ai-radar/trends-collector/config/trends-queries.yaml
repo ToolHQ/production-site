@@ -1,0 +1,18 @@
+# Default query pack — override via ConfigMap `ai-radar-trends-config`
+geo: US
+time_window: now 7-d
+sleep_seconds: 3
+max_retries: 3
+queries:
+  - term: Cursor AI
+    topic: agents
+  - term: Claude Code
+    topic: agents
+  - term: GitHub Copilot
+    topic: agents
+  - term: local LLM
+    topic: models
+  - term: Ollama
+    topic: models
+  - term: n8n automation
+    topic: infra

@@ -1,5 +1,4 @@
 const { spawn } = require("child_process");
-const fs = require("fs");
 
 // Start timestamp
 const startTimestamp = new Date().toISOString();

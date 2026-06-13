@@ -13,7 +13,6 @@ public class App {
       return;
     }
 
-    String cmd = args[0];
     int rc = run(args);
     if (rc != 0) {
       System.exit(rc);
@@ -36,21 +35,21 @@ public class App {
         return 0;
       case "greet":
         String name = (args.length > 1) ? args[1] : "World";
-        LOGGER.info("Executando greet para: " + name);
+        LOGGER.info("Executing greet for: " + name);
         System.out.println("Hello, " + name + "!");
         return 0;
       default:
-        System.err.println("Comando desconhecido: " + cmd);
+        System.err.println("Unknown command: " + cmd);
         printUsage();
         return 1;
     }
   }
 
   private static void printUsage() {
-    System.out.println("Uso: java -cp target/classes io.dnor.App [comando]");
-    System.out.println("Comandos:");
-    System.out.println("  greet [nome]  — imprime uma saudacao (default: World)");
-    System.out.println("  -h, --help    — mostra esta ajuda");
-    System.out.println("  -v, --version — mostra a versao");
+    System.out.println("Usage: java -cp target/classes io.dnor.App [command]");
+    System.out.println("Commands:");
+    System.out.println("  greet [name]  — prints a greeting (default: World)");
+    System.out.println("  -h, --help    — shows this help");
+    System.out.println("  -v, --version — shows the version");
   }
 }

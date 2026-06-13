@@ -46,14 +46,6 @@ const generatedAt = document.getElementById("generated-at");
         errorBox.innerHTML = message ? `<div class="error">${escapeHtml(message)}</div>` : "";
       }
 
-      function formatTimestamp(raw) {
-        if (!raw) {
-          return "Timestamp unavailable";
-        }
-        const date = new Date(raw);
-        return Number.isNaN(date.getTime()) ? raw : date.toLocaleString();
-      }
-
       function formatEpoch(epochSeconds) {
         if (!epochSeconds) {
           return "Waiting for refresh...";

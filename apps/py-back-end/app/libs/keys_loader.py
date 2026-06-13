@@ -99,3 +99,5 @@ def load_credentials_environment():
     futures = [executor.submit(get_db_credentials, key) for key in keys]
     for future in as_completed(futures):
       results.append(future.result())
+
+  return results

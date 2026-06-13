@@ -4,6 +4,15 @@ c<!DOCTYPE html>
 <meta charset="utf-8">
 <title>Dashboard · agent-meter</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Real-time dashboard for AI agent tool calls, costs, and latency. Track LLM usage across all your agents.">
+<meta property="og:title" content="Dashboard · agent-meter">
+<meta property="og:description" content="Real-time dashboard for AI agent tool calls, costs, and latency. Track LLM usage across all your agents.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://agent-meter.dnor.io/">
+<meta property="og:image" content="https://agent-meter.dnor.io/badge/events.svg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="agent-meter — AI Agent Observability">
+<meta name="twitter:description" content="Real-time dashboard for AI agent tool calls, costs, and latency.">
 <link rel="icon" type="image/svg+xml" href="/_static/favicon.svg">
 <link rel="stylesheet" href="/_static/tokens.css">
 <link rel="stylesheet" href="/_static/app.css">
@@ -26,6 +35,8 @@ c<!DOCTYPE html>
   .am-search-dropdown .sr-prompt { font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .am-search-dropdown .sr-meta { font-size:11px; color:var(--am-text-muted); display:flex; gap:8px; }
   .am-search-dropdown .sr-empty { padding:14px; text-align:center; color:var(--am-text-muted); font-size:13px; }
+  .sortable { cursor:pointer; user-select:none; }
+  .sortable:hover { color: var(--am-accent); }
 </style>
 </head>
 <body>
@@ -40,7 +51,7 @@ c<!DOCTYPE html>
       </span>
       <span class="logo-text">agent-meter</span>
     </a>
-    <nav class="am-sidebar-nav">
+    <nav class="am-sidebar-nav" aria-label="Main navigation">
       <div class="am-nav-section">Observability</div>
       <a class="am-nav-link active" href="/"><svg class="am-icon"><use href="/_static/icons.svg#i-dashboard"/></svg><span>Dashboard</span></a>
       <a class="am-nav-link" href="/conversations"><svg class="am-icon"><use href="/_static/icons.svg#i-conversations"/></svg><span>Conversations</span></a>
@@ -70,7 +81,7 @@ c<!DOCTYPE html>
     </div>
     <div class="am-search" style="position:relative">
       <svg class="am-icon"><use href="/_static/icons.svg#i-search"/></svg>
-      <input id="globalSearch" placeholder="Search conversations, models, tools…" autocomplete="off">
+      <input id="globalSearch" placeholder="Search conversations, models, tools…" autocomplete="off" aria-label="Search conversations, models, and tools">
       <span class="kbd">⌘K</span>
       <div id="searchResults" class="am-search-dropdown" style="display:none"></div>
     </div>
@@ -80,19 +91,38 @@ c<!DOCTYPE html>
   </header>
 
   <!-- MAIN -->
-  <main class="am-main">
+  <main class="am-main" role="main" aria-label="Dashboard content">
     <div class="am-page-header" style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap">
       <div style="flex:1;min-width:200px">
         <h1 class="am-page-title">Dashboard</h1>
         <p class="am-page-subtitle">Live view of LLM calls, tool runs, and MCP activity across all your agents.</p>
       </div>
-      <div class="am-segment" id="periodSeg">
+      <div class="am-segment" id="periodSeg" role="group" aria-label="Time period selector">
         <button data-period="1h">1h</button>
         <button data-period="6h">6h</button>
         <button data-period="24h" class="active">24h</button>
         <button data-period="7d">7d</button>
         <button data-period="30d">30d</button>
       </div>
+      <div class="filter-chip">
+        <svg class="am-icon-sm"><use href="/_static/icons.svg#i-filter"/></svg>
+        <select id="modelFilter">
+          <option value="">All models</option>
+        </select>
+      </div>
+      <div class="am-btn-group" style="margin-left:auto">
+        <button class="am-btn am-btn-ghost am-btn-sm" id="btnExportEvents" title="Export events as CSV"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-external"/></svg>CSV</button>
+        <button class="am-btn am-btn-ghost am-btn-sm" id="btnExportCost" title="Export cost as CSV"><svg class="am-icon-sm"><use href="/_static/icons.svg#i-dollar"/></svg>Cost CSV</button>
+      </div>
+    </div>
+
+    <!-- SOCIAL PROOF BANNER (anonymous visitors) -->
+    <div id="socialProof" style="display:none;margin-bottom:20px;padding:12px 20px;background:var(--am-surface);border:1px solid var(--am-border);border-radius:var(--am-radius);align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;font-size:var(--am-fs-sm)">>
+      <span style="font-weight:600;color:var(--am-text)">📊 Live platform stats</span>
+      <span><strong id="spEvents">—</strong> <span class="am-muted">events tracked</span></span>
+      <span><strong id="spModels">—</strong> <span class="am-muted">AI models</span></span>
+      <span><strong id="spIDEs">—</strong> <span class="am-muted">IDEs connected</span></span>
+      <span><strong id="spCost">—</strong> <span class="am-muted">USD monitored</span></span>
     </div>
 
     <!-- KPIs -->
@@ -196,6 +226,7 @@ c<!DOCTYPE html>
 <script>
 const BASE = '';
 let CURRENT_PERIOD = '24h';
+let CURRENT_MODEL = '';
 
 function periodBucket(p) {
   return ({'1h':'minute','6h':'minute','24h':'hour','7d':'hour','30d':'day'})[p] || 'hour';
@@ -208,6 +239,7 @@ function periodSincePrev(p) {
   const ms = ({'1h':3600e3,'6h':6*3600e3,'24h':24*3600e3,'7d':7*24*3600e3,'30d':30*24*3600e3})[p];
   return [new Date(Date.now() - 2*ms).toISOString(), new Date(Date.now() - ms).toISOString()];
 }
+function modelParam() { return CURRENT_MODEL ? `&model=${encodeURIComponent(CURRENT_MODEL)}` : ''; }
 
 document.querySelectorAll('#periodSeg button').forEach(b => {
   b.addEventListener('click', () => {
@@ -239,10 +271,11 @@ async function loadHealth() {
 async function loadKPIs() {
   const since = periodSince(CURRENT_PERIOD);
   const [prevFrom, prevTo] = periodSincePrev(CURRENT_PERIOD);
+  const mp = modelParam();
   try {
     const [cur, prev] = await Promise.all([
-      fetchJSON(`/api/cost/summary?from=${since}`).catch(() => null),
-      fetchJSON(`/api/cost/summary?from=${prevFrom}&to=${prevTo}`).catch(() => null),
+      fetchJSON(`/api/cost/summary?from=${since}${mp}`).catch(() => null),
+      fetchJSON(`/api/cost/summary?from=${prevFrom}&to=${prevTo}${mp}`).catch(() => null),
     ]);
     if (cur && cur.kpis) {
       const k = cur.kpis;
@@ -277,7 +310,7 @@ async function loadChart() {
   const since = periodSince(CURRENT_PERIOD);
   const bucket = periodBucket(CURRENT_PERIOD);
   try {
-    const data = await fetchJSON(`/reports/calls-over-time?from=${since}&bucket=${bucket}`);
+    const data = await fetchJSON(`/reports/calls-over-time?from=${since}&bucket=${bucket}${modelParam()}`);
     renderChart(data);
     // also feed sparkline
     if (data.length) {
@@ -300,8 +333,24 @@ function renderChart(data) {
   const innerH = H - PAD.top - PAD.bottom;
   const max = Math.max(...data.map(d => d.calls), 1);
   const xStep = innerW / Math.max(data.length - 1, 1);
-  const pts = data.map((d,i) => `${PAD.left + i*xStep},${PAD.top + innerH - (d.calls/max)*innerH}`).join(' ');
-  const area = `M ${PAD.left},${PAD.top + innerH} L ${pts.replace(/,/g, ' ').replace(/  /g,' ')} L ${PAD.left + (data.length-1)*xStep},${PAD.top + innerH} Z`;
+
+  // Catmull-Rom to cubic bezier smooth path
+  function smoothPath(pts) {
+    if (pts.length < 3) return `M ${pts.map(p=>p.join(',')).join(' L ')}`;
+    let d = `M ${pts[0][0]},${pts[0][1]}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(i-1,0)], p1 = pts[i], p2 = pts[i+1], p3 = pts[Math.min(i+2,pts.length-1)];
+      const cp1x = p1[0] + (p2[0]-p0[0])/6, cp1y = p1[1] + (p2[1]-p0[1])/6;
+      const cp2x = p2[0] - (p3[0]-p1[0])/6, cp2y = p2[1] - (p3[1]-p1[1])/6;
+      d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2[0]},${p2[1]}`;
+    }
+    return d;
+  }
+
+  const points = data.map((d,i) => [PAD.left + i*xStep, PAD.top + innerH - (d.calls/max)*innerH]);
+  const linePath = smoothPath(points);
+  const areaPath = linePath + ` L ${points[points.length-1][0]},${PAD.top+innerH} L ${PAD.left},${PAD.top+innerH} Z`;
+
   // grid lines
   let grid = '';
   for (let i=0;i<=4;i++){
@@ -310,37 +359,93 @@ function renderChart(data) {
     grid += `<line x1="${PAD.left}" y1="${y}" x2="${PAD.left+innerW}" y2="${y}" stroke="var(--am-border)" stroke-dasharray="2 4"/>`;
     grid += `<text x="${PAD.left-8}" y="${y+4}" text-anchor="end" fill="var(--am-text-dim)" font-size="10">${v}</text>`;
   }
-  // x labels (first, mid, last)
+  // x labels (5 evenly spaced)
+  const labelCount = Math.min(5, data.length);
   const fmt = ts => {
     const d = new Date(ts);
     return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
   };
-  const xLabels = [0, Math.floor(data.length/2), data.length-1].map(i => `<text x="${PAD.left + i*xStep}" y="${H-12}" text-anchor="middle" fill="var(--am-text-dim)" font-size="10">${fmt(data[i].bucket)}</text>`).join('');
-  // points + invisible hover
-  const points = data.map((d,i) => {
-    const x = PAD.left + i*xStep;
-    const y = PAD.top + innerH - (d.calls/max)*innerH;
-    return `<g><title>${fmt(d.bucket)}: ${d.calls} calls</title><circle cx="${x}" cy="${y}" r="3" fill="var(--am-chart-1)" opacity="0"/><rect x="${x-xStep/2}" y="${PAD.top}" width="${xStep}" height="${innerH}" fill="transparent" onmouseover="this.previousElementSibling.setAttribute('opacity','1')" onmouseout="this.previousElementSibling.setAttribute('opacity','0')"/></g>`;
-  }).join('');
+  let xLabels = '';
+  for (let i=0; i<labelCount; i++) {
+    const idx = Math.round(i * (data.length-1) / (labelCount-1));
+    xLabels += `<text x="${PAD.left + idx*xStep}" y="${H-12}" text-anchor="middle" fill="var(--am-text-dim)" font-size="10">${fmt(data[idx].bucket)}</text>`;
+  }
 
-  c.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+  // Tooltip overlay (crosshair)
+  const crosshairId = 'ch-xhair-' + Date.now();
+
+  c.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="overflow:visible">
     <defs><linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0" stop-color="var(--am-chart-1)" stop-opacity="0.35"/>
       <stop offset="1" stop-color="var(--am-chart-1)" stop-opacity="0"/>
     </linearGradient></defs>
     ${grid}
-    <path d="${area}" fill="url(#grad)"/>
-    <polyline points="${pts}" fill="none" stroke="var(--am-chart-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    ${points}
+    <path d="${areaPath}" fill="url(#grad)"/>
+    <path d="${linePath}" fill="none" stroke="var(--am-chart-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     ${xLabels}
+    <g id="${crosshairId}" style="display:none">
+      <line class="xh-line" y1="${PAD.top}" y2="${PAD.top+innerH}" stroke="var(--am-text-dim)" stroke-width="1" opacity="0.4" stroke-dasharray="3 3"/>
+      <circle class="xh-dot" r="4.5" fill="var(--am-chart-1)" stroke="var(--am-bg)" stroke-width="2"/>
+      <rect class="xh-bg" rx="4" height="22" fill="var(--am-surface-2)" stroke="var(--am-border)"/>
+      <text class="xh-txt" font-size="11" fill="var(--am-text)" text-anchor="middle" dominant-baseline="middle"/>
+    </g>
+    <rect class="xh-sens" x="${PAD.left}" y="${PAD.top}" width="${innerW}" height="${innerH}" fill="transparent"/>
   </svg>`;
+
+  // Crosshair interaction
+  const svg = c.querySelector('svg');
+  const xh = svg.querySelector('#'+crosshairId);
+  const sens = svg.querySelector('.xh-sens');
+  sens.addEventListener('mousemove', e => {
+    const rect = svg.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / rect.width * W;
+    const idx = Math.round((mx - PAD.left) / xStep);
+    if (idx < 0 || idx >= data.length) { xh.style.display='none'; return; }
+    const px = points[idx][0], py = points[idx][1];
+    xh.style.display = '';
+    xh.querySelector('.xh-line').setAttribute('x1', px);
+    xh.querySelector('.xh-line').setAttribute('x2', px);
+    xh.querySelector('.xh-dot').setAttribute('cx', px);
+    xh.querySelector('.xh-dot').setAttribute('cy', py);
+    const label = `${fmt(data[idx].bucket)}  ${data[idx].calls} calls`;
+    const txt = xh.querySelector('.xh-txt');
+    txt.textContent = label;
+    const tw = label.length * 6.5 + 12;
+    const tx = Math.min(Math.max(px, PAD.left + tw/2), W - PAD.right - tw/2);
+    txt.setAttribute('x', tx);
+    txt.setAttribute('y', PAD.top - 14);
+    const bg = xh.querySelector('.xh-bg');
+    bg.setAttribute('x', tx - tw/2);
+    bg.setAttribute('y', PAD.top - 25);
+    bg.setAttribute('width', tw);
+  });
+  sens.addEventListener('mouseleave', () => { xh.style.display='none'; });
 }
 
-function renderBarTable(elId, rows, nameKey, countKey) {
+function renderBarTable(elId, rows, nameKey, countKey, opts) {
   const el = document.getElementById(elId);
   if (!rows || rows.length === 0) { el.innerHTML = `<div class="am-empty am-muted" style="padding:20px">No data</div>`; return; }
-  const max = Math.max(...rows.map(r => r[countKey] || 0), 1);
-  const html = rows.slice(0, 8).map(r => {
+  // Store data for sorting
+  el._sortData = { rows, nameKey, countKey, opts };
+  el._sortKey = el._sortKey || countKey;
+  el._sortDir = el._sortDir || 'desc';
+
+  const sorted = [...rows].sort((a, b) => {
+    const av = el._sortKey === nameKey ? (a[nameKey]||'').toLowerCase() : (a[el._sortKey]||0);
+    const bv = el._sortKey === nameKey ? (b[nameKey]||'').toLowerCase() : (b[el._sortKey]||0);
+    if (av < bv) return el._sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return el._sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const max = Math.max(...sorted.map(r => r[countKey] || 0), 1);
+  const arrow = (k) => el._sortKey === k ? (el._sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+  const hdr = `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--am-border);font-size:11px;color:var(--am-text-muted);cursor:pointer;user-select:none">
+    <div style="flex:1" data-sort="${nameKey}">Name${arrow(nameKey)}</div>
+    <div style="width:140px"></div>
+    <div style="width:60px;text-align:right" data-sort="${countKey}">Count${arrow(countKey)}</div>
+  </div>`;
+  const html = sorted.slice(0, 8).map(r => {
     const name = r[nameKey] || r.name || r.tool_name || '—';
     const c = r[countKey] || r.count || 0;
     const pct = (c/max)*100;
@@ -350,7 +455,17 @@ function renderBarTable(elId, rows, nameKey, countKey) {
       <div style="width:60px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:600">${amNum(c)}</div>
     </div>`;
   }).join('');
-  el.innerHTML = html;
+  el.innerHTML = hdr + html;
+
+  // Attach sort click listeners
+  el.querySelectorAll('[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (el._sortKey === key) { el._sortDir = el._sortDir === 'asc' ? 'desc' : 'asc'; }
+      else { el._sortKey = key; el._sortDir = key === nameKey ? 'asc' : 'desc'; }
+      renderBarTable(elId, rows, nameKey, countKey, opts);
+    });
+  });
 }
 
 function renderIdeBreakdown(elId, rows) {
@@ -382,7 +497,7 @@ function renderIdeBreakdown(elId, rows) {
 }
 
 async function loadTops() {
-  const q = `?from=${periodSince(CURRENT_PERIOD)}`;
+  const q = `?from=${periodSince(CURRENT_PERIOD)}${modelParam()}`;
   try {
     const [tools, mcp, tasks, ideBreakdown] = await Promise.all([
       fetchJSON('/reports/top-tools'+q),
@@ -411,20 +526,56 @@ async function loadTops() {
 
 async function loadEvents() {
   try {
-    const data = await fetchJSON(`/reports/events?from=${periodSince(CURRENT_PERIOD)}&limit=10`);
+    const data = await fetchJSON(`/reports/events?from=${periodSince(CURRENT_PERIOD)}&limit=10${modelParam()}`);
     const rows = data.events || data;
     if (!rows || !rows.length) { document.getElementById('eventsFeed').innerHTML = `<div class="am-empty am-muted" style="padding:20px">No recent events</div>`; return; }
-    const html = `<table class="am-table"><thead><tr><th>Time</th><th>Tool</th><th>Model</th><th class="num">ms</th><th>Conv</th></tr></thead><tbody>` +
-      rows.map(e => {
-        const t = new Date(e.started_at || e.created_at);
-        const tt = t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
-        const cid = e.conversation_id ? e.conversation_id.slice(0,8) : '';
-        return `<tr><td class="am-mono">${tt}</td><td>${e.tool_name || '—'}</td><td class="am-muted">${e.model || ''}</td><td class="num am-mono">${e.duration_ms || 0}</td><td>${cid ? `<a class="conv-link" href="/conversations/${e.conversation_id}/timeline">${cid}</a>` : ''}</td></tr>`;
-      }).join('') + `</tbody></table>`;
-    document.getElementById('eventsFeed').innerHTML = html;
+    renderEventsTable(rows);
   } catch(e) {
     document.getElementById('eventsFeed').innerHTML = `<div class="am-empty am-muted">Couldn't load events</div>`;
   }
+}
+
+function renderEventsTable(rows, sortKey, sortDir) {
+  const el = document.getElementById('eventsFeed');
+  el._evtRows = rows;
+  sortKey = sortKey || el._evtSortKey || 'started_at';
+  sortDir = sortDir || el._evtSortDir || 'desc';
+  el._evtSortKey = sortKey;
+  el._evtSortDir = sortDir;
+
+  const sorted = [...rows].sort((a, b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (sortKey === 'duration_ms') { av = av||0; bv = bv||0; }
+    else { av = (av||'').toString().toLowerCase(); bv = (bv||'').toString().toLowerCase(); }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const arrow = (k) => el._evtSortKey === k ? (el._evtSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+  const html = `<table class="am-table"><thead><tr>
+    <th class="sortable" data-evsort="started_at">Time${arrow('started_at')}</th>
+    <th class="sortable" data-evsort="tool_name">Tool${arrow('tool_name')}</th>
+    <th class="sortable" data-evsort="model">Model${arrow('model')}</th>
+    <th class="num sortable" data-evsort="duration_ms">ms${arrow('duration_ms')}</th>
+    <th>Conv</th></tr></thead><tbody>` +
+    sorted.map(e => {
+      const t = new Date(e.started_at || e.created_at);
+      const tt = t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0');
+      const cid = e.conversation_id ? e.conversation_id.slice(0,8) : '';
+      return `<tr><td class="am-mono">${tt}</td><td>${e.tool_name || '—'}</td><td class="am-muted">${e.model || ''}</td><td class="num am-mono">${e.duration_ms || 0}</td><td>${cid ? `<a class="conv-link" href="/conversations/${e.conversation_id}/timeline">${cid}</a>` : ''}</td></tr>`;
+    }).join('') + `</tbody></table>`;
+  el.innerHTML = html;
+
+  el.querySelectorAll('.sortable').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.style.userSelect = 'none';
+    th.addEventListener('click', () => {
+      const k = th.dataset.evsort;
+      const newDir = (el._evtSortKey === k && el._evtSortDir === 'desc') ? 'asc' : 'desc';
+      renderEventsTable(el._evtRows, k, newDir);
+    });
+  });
 }
 
 function refresh() {
@@ -434,6 +585,36 @@ function refresh() {
   loadEvents();
 }
 
+// Model filter
+const modelSelect = document.getElementById('modelFilter');
+modelSelect.addEventListener('change', () => {
+  CURRENT_MODEL = modelSelect.value;
+  refresh();
+});
+
+// CSV export buttons
+document.getElementById('btnExportEvents').addEventListener('click', () => {
+  const url = `/api/export/events.csv?from=${periodSince(CURRENT_PERIOD)}${modelParam()}`;
+  window.open(url, '_blank');
+});
+document.getElementById('btnExportCost').addEventListener('click', () => {
+  const url = `/api/export/cost.csv?from=${periodSince(CURRENT_PERIOD)}${modelParam()}`;
+  window.open(url, '_blank');
+});
+
+async function loadModels() {
+  try {
+    const models = await fetchJSON('/reports/models');
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      modelSelect.appendChild(opt);
+    });
+  } catch(e) { /* ignore */ }
+}
+
+loadModels();
 loadHealth();
 refresh();
 setInterval(() => { loadHealth(); refresh(); }, 30000);
@@ -484,6 +665,18 @@ setInterval(() => { loadHealth(); refresh(); }, 30000);
   }
 
   function esc(s) { return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+})();
+</script>
+<script>
+(function(){
+  fetch('/api/stats/public').then(r=>r.json()).then(d=>{
+    const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n);
+    document.getElementById('spEvents').textContent=fmt(d.total_events||0);
+    document.getElementById('spModels').textContent=String(d.distinct_models||0);
+    document.getElementById('spIDEs').textContent=String(d.distinct_ides||0);
+    document.getElementById('spCost').textContent='$'+Number(d.total_usd_tracked||0).toFixed(0);
+    document.getElementById('socialProof').style.display='flex';
+  }).catch(()=>{});
 })();
 </script>
 </body>

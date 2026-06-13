@@ -1,6 +1,6 @@
 # T-346: citools deploy catalog + CLI list plan run
 
-- **Status**: 📋 Backlog
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: [T-344](T-344-Program-citools-deploy-CI-closure-epic.md)
@@ -56,13 +56,13 @@ Reutilizar parser `whenPaths` de `paths.rs` (quality pipeline).
 
 ## Tasks
 
-- [ ] ADR [ADR-citools-deploy-workers.md](../../components/ssdnodes/ADR-citools-deploy-workers.md) review
-- [ ] Schema `deploy-catalog.yaml` + exemplo com 8 apps `apps/*/deploy.sh`
-- [ ] Rust: módulo `deploy/` (catalog, plan, run)
-- [ ] `citools deploy list|plan|run` + testes unitários catalog parse
-- [ ] `whenPaths` + `--changed` integrado ao diff base
-- [ ] Docs `tools/citools/README.md` seção Deploy
-- [ ] Harness `scripts/harness/validate_citools_deploy_plan.sh` (plan all apps dry)
+- [x] ADR [ADR-citools-deploy-workers.md](../../components/ssdnodes/ADR-citools-deploy-workers.md) review
+- [x] Schema `deploy-catalog.yaml` + exemplo com 8 apps `apps/*/deploy.sh`
+- [x] Rust: módulo `deploy/` (catalog, plan, run)
+- [x] `citools deploy list|plan|run` + testes unitários catalog parse
+- [x] `whenPaths` + `--changed` integrado ao diff vs `origin/main`
+- [x] Docs `tools/citools/README.md` seção Deploy
+- [x] Harness `scripts/harness/validate_citools_deploy_plan.sh` (PASS 2026-06-09)
 
 ## Validação
 

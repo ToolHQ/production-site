@@ -2,7 +2,7 @@ name: Agent Meter Validation Harness
 
 on:
   push:
-    branches: [main, feat/ingress-nginx-daemonset-t304]
+    branches: [main]
     paths:
       - "apps/agent-meter/**"
       - ".github/workflows/agent-meter-validation.yml"
@@ -29,14 +29,14 @@ jobs:
           POSTGRES_DB: agent_meter
           POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C.UTF-8"
         ports:
-          - 5433:5432
+          - 54321:5432
         options: >-
           --health-cmd "pg_isready -U agent_meter -d agent_meter"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
     env:
-      DATABASE_URL: postgres://agent_meter:agent_meter@localhost:5433/agent_meter
+      DATABASE_URL: postgres://agent_meter:agent_meter@localhost:54321/agent_meter
       RUST_BACKTRACE: 1
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +65,7 @@ jobs:
       - name: Wait for Postgres
         run: |
           for i in $(seq 1 30); do
-            if command -v pg_isready >/dev/null && pg_isready -h localhost -p 5433 -U agent_meter -d agent_meter; then
+            if command -v pg_isready >/dev/null && pg_isready -h localhost -p 54321 -U agent_meter -d agent_meter; then
               exit 0
             fi
             sleep 2

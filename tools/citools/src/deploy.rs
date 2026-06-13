@@ -1,7 +1,10 @@
 use std::path::Path;
+use std::process::Command;
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
+
+use crate::paths::any_path_matches;
 
 #[derive(Debug, Deserialize)]
 pub struct DeployCatalog {
@@ -29,7 +32,6 @@ pub struct DeployApp {
     #[serde(default)]
     pub deploy: Option<DeploySpec>,
     #[serde(default, rename = "whenPaths")]
-    #[allow(dead_code)]
     pub when_paths: Option<String>,
 }
 
@@ -100,9 +102,62 @@ pub fn find_app<'a>(catalog: &'a DeployCatalog, id: &str) -> Result<&'a DeployAp
         .with_context(|| format!("app not found in catalog: {id}"))
 }
 
+pub fn when_paths_patterns(app: &DeployApp) -> Vec<String> {
+    app.when_paths
+        .as_deref()
+        .map(|s| {
+            s.split(',')
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub fn app_matches_changed_paths(app: &DeployApp, changed: &[String]) -> bool {
+    let patterns = when_paths_patterns(app);
+    if patterns.is_empty() {
+        return false;
+    }
+    let pattern_refs: Vec<&str> = patterns.iter().map(String::as_str).collect();
+    any_path_matches(&pattern_refs, changed)
+}
+
+pub fn git_changed_paths(repo_root: &Path, base: &str) -> Result<Vec<String>> {
+    let output = Command::new("git")
+        .args(["diff", "--name-only", &format!("origin/{base}...HEAD")])
+        .current_dir(repo_root)
+        .output()
+        .context("git diff for deploy --changed")?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("git diff failed: {stderr}");
+    }
+    let paths: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(String::from)
+        .collect();
+    Ok(paths)
+}
+
+pub fn apps_for_changed_paths<'a>(
+    catalog: &'a DeployCatalog,
+    changed: &[String],
+) -> Vec<&'a DeployApp> {
+    catalog
+        .apps
+        .iter()
+        .filter(|app| app_matches_changed_paths(app, changed))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::paths::path_matches_pattern;
 
     #[test]
     fn parses_catalog() {
@@ -115,5 +170,28 @@ apps:
 "#;
         let c: DeployCatalog = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(c.apps[0].id, "demo");
+    }
+
+    #[test]
+    fn when_paths_match_changed() {
+        let app = DeployApp {
+            id: "ai-radar".into(),
+            path: "apps/ai-radar".into(),
+            script: "./apps/ai-radar/deploy.sh".into(),
+            build: None,
+            deploy: None,
+            when_paths: Some("apps/ai-radar/**".into()),
+        };
+        let changed = vec!["apps/ai-radar/api/src/main.rs".into()];
+        assert!(app_matches_changed_paths(&app, &changed));
+        assert!(!app_matches_changed_paths(
+            &app,
+            &["tools/citools/src/main.rs".into()]
+        ));
+    }
+
+    #[test]
+    fn path_pattern_exact() {
+        assert!(path_matches_pattern("apps/foo/x", "apps/foo/x"));
     }
 }

@@ -15,7 +15,7 @@ def get_cpu_millis(cpu_str):
         return int(cpu_str[:-1])
     try:
         return int(float(cpu_str) * 1000)
-    except:
+    except (ValueError, TypeError):
         return 0
 
 def main():
@@ -39,7 +39,7 @@ def main():
         pods_json_str = run_cmd(f"kubectl get pods -A --field-selector spec.nodeName={node} -o json")
         try:
             pods_data = json.loads(pods_json_str)
-        except:
+        except (json.JSONDecodeError, ValueError):
             print("  (Error parsing JSON)")
             continue
 

@@ -24,9 +24,9 @@ Arquivos/caminhos candidatos:
 - [x] Fontes: Longhorn `backup-daily` retain=3, `etcd-backup-prune`, `minio-capacity-watchdog`; réplica postgres tinha regressão T-223.
 - [x] Script `scripts/backup/prune_minio_backup_capacity.sh` (`--dry-run` / `--apply`, retain=3).
 - [x] TUI Backup → opção 11 (diagnose + apply).
-- [/] Aplicado: 10 backup CRs removidos + label recurring off na réplica postgres; uso ainda **92%** (órfãos S3 / nexus fixo).
-- [ ] Validar <75% após GC Longhorn ou follow-up (resize PVC / T-132 Nexus policy).
-- [ ] Atualizar `components/backup/README.md` com runbook do prune.
+- [x] Aplicado: 10 backup CRs removidos + label recurring off na réplica postgres; GC Longhorn liberou espaço.
+- [x] Validar <75% — **55%** em `/data` (6.4G/12G) verificado 2026-06-09 via `kubectl exec` MinIO pod.
+- [x] `components/backup/README.md` documenta prune T-304 (opção 11 TUI).
 
 ## Validação
 

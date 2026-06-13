@@ -1,6 +1,6 @@
 # T-341: SSDNodes — Plataforma CI (Jenkins + SonarQube CE)
 
-- **Status**: 🏎️ In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: DevExp / Tooling (infra SSD: Copilot ou Codex com handoff explícito)
 - **Epic**: Infra / ssdnodes-6a12f10c9ef11

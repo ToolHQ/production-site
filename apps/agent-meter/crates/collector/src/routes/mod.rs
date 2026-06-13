@@ -1,5 +1,6 @@
 pub mod alerts;
 pub mod auth;
+pub mod badge;
 pub mod billing;
 pub mod budgets;
 pub mod conversation_detail;
@@ -10,6 +11,8 @@ pub mod docs;
 pub mod events;
 pub mod export;
 pub mod health;
+pub mod hosted;
+pub mod leaderboard;
 pub mod notifications;
 pub mod orgs;
 pub mod otlp;

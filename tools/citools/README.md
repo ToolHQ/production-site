@@ -73,11 +73,20 @@ Ver [components/ssdnodes/jenkins/Jenkinsfile.generic](../../components/ssdnodes/
 - [x] `pipeline.yaml` + Jenkinsfile.generic
 - [x] Migração GHA quality/codeql/auto-docs
 
-### Deploy program (T-344 — backlog)
-- [ ] `deploy-catalog.yaml` + `citools deploy list|plan|run`
-- [ ] Workers: Hetzner buildx, target OCI, target SSDNodes
-- [ ] Jenkins job `deploy-apps` (param APP + TARGET)
-- [ ] Branch protection `jenkins/citools` + webhook
+### Deploy program (T-344)
+- [x] `deploy-catalog.yaml` + `citools deploy list|plan|run` (T-346)
+- [x] `citools deploy run --changed` (whenPaths ∩ git diff vs `origin/main`)
+- [ ] Workers: Hetzner buildx, target OCI, target SSDNodes (T-347)
+- [x] Jenkins job `deploy-apps` (param APP + TARGET) (T-348 live)
+- [x] Branch protection `jenkins/citools` + webhook (T-345)
+
+```bash
+citools deploy list
+citools deploy plan --app ai-radar | jq .
+citools deploy run --app py-back-end --dry-run
+citools deploy run --changed --dry-run
+bash scripts/harness/validate_citools_deploy_plan.sh
+```
 
 Ver [tasks/CITOOLS-DEPLOY-BACKLOG.md](../../tasks/CITOOLS-DEPLOY-BACKLOG.md) e [ADR deploy workers](../../components/ssdnodes/ADR-citools-deploy-workers.md).
 

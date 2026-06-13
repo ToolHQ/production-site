@@ -59,7 +59,10 @@ async fn main() -> anyhow::Result<()> {
     let db = Database::connect(&database_url)
         .await
         .context("failed to connect to Postgres")?;
-    tracing::info!("postgres pool ready");
+    db.migrate()
+        .await
+        .context("failed to run sqlx migrations")?;
+    tracing::info!("postgres pool ready (migrations applied)");
 
     let prometheus = PrometheusBuilder::new()
         .install_recorder()

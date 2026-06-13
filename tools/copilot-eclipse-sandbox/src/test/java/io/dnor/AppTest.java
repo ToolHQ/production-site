@@ -7,7 +7,6 @@ class AppTest {
 
   @Test
   void run_noArgs_returnsZero() {
-    App app = new App();
     int rc = App.run(new String[] {});
     assertEquals(0, rc);
   }

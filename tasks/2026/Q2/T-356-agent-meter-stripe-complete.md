@@ -30,6 +30,30 @@ A integração Stripe já está **bastante completa** no código:
 | `stripe_service.rs` | Implementar `customer.subscription.updated` → fetch plan details |
 | `billing.rs` | Remover `stub_page()` (L26-32) — dead code em produção |
 
+## Requisitos — Setup no Stripe Dashboard
+
+> Conta criada em 07/06/2026. Falta configurar products, webhook e copiar keys.
+
+| Env var necessária | Onde obter | Formato |
+|--------------------|-----------|---------|
+| `STRIPE_SECRET_KEY` | Dashboard → Developers → API Keys → Secret key | `sk_test_...` (teste) ou `sk_live_...` (prod) |
+| `STRIPE_WEBHOOK_SECRET` | Dashboard → Developers → Webhooks → criar endpoint → Signing secret | `whsec_...` |
+| `STRIPE_PRICE_PRO` | Dashboard → Product Catalog → criar "Pro" $29/mo recurring → Price ID | `price_...` |
+| `STRIPE_PRICE_TEAM` | Dashboard → Product Catalog → criar "Team" $99/mo recurring → Price ID | `price_...` |
+
+**Webhook endpoint URL**: `https://agent-meter.dnor.io/api/billing/webhook`
+
+**Eventos do webhook a selecionar**:
+- `checkout.session.completed`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.payment_succeeded`
+- `invoice.payment_failed`
+
+**Dica**: começar com test keys (`sk_test_...`) pra validar o fluxo antes de ir pro live.
+
+---
+
 ## Tasks
 
 - [ ] Criar conta/products no Stripe Dashboard:

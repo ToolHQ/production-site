@@ -49,7 +49,7 @@ pub async fn list_conversations(
             LEFT(MAX(tool_result) FILTER (
                 WHERE tool_result IS NOT NULL
                   AND LENGTH(tool_result) >= 10
-                  AND tool_name = 'llm_chat'
+                  AND mcp_server IS NULL
             ), 300)                                                                   AS response_preview,
             MIN(started_at)                                                           AS started_at,
             MAX(ended_at)                                                             AS ended_at,
@@ -136,7 +136,8 @@ pub async fn get_conversation_timeline(
     conversation_id: &str,
     limit: Option<i64>,
 ) -> Result<ConversationTimeline, AppError> {
-    let summary: Option<SummaryRow> = sqlx::query_as(
+    // Run summary and events queries in parallel
+    let summary_fut = sqlx::query_as::<_, SummaryRow>(
         r#"
         SELECT
             (SELECT user_prompt FROM agent_tool_calls
@@ -149,7 +150,7 @@ pub async fn get_conversation_timeline(
             SUM(duration_ms)::bigint AS total_duration_ms,
             SUM(estimated_input_tokens)::bigint AS total_tokens_in,
             SUM(estimated_output_tokens)::bigint AS total_tokens_out,
-            COALESCE(SUM(compute_event_usd(model, estimated_input_tokens, estimated_output_tokens, cached_tokens)), 0)::float8 AS total_usd_cost,
+            COALESCE(SUM(usd_cost), 0)::float8 AS total_usd_cost,
             COUNT(*)::bigint AS event_count,
             COUNT(*) FILTER (WHERE NOT ok)::bigint AS error_count
         FROM agent_tool_calls
@@ -157,29 +158,9 @@ pub async fn get_conversation_timeline(
         "#,
     )
     .bind(conversation_id)
-    .fetch_optional(pool)
-    .await?;
+    .fetch_optional(pool);
 
-    let summary = match summary {
-        Some(s) => s,
-        None => {
-            return Ok(ConversationTimeline {
-                conversation_id: conversation_id.to_string(),
-                title: format!("Conversation {}", conversation_id),
-                started_at: chrono::Utc::now(),
-                ended_at: chrono::Utc::now(),
-                total_duration_ms: 0,
-                total_tokens_in: 0,
-                total_tokens_out: 0,
-                total_usd_cost: 0.0,
-                event_count: 0,
-                error_count: 0,
-                events: vec![],
-            });
-        }
-    };
-
-    let events_raw: Vec<TimelineRow> = sqlx::query_as(
+    let events_fut = sqlx::query_as::<_, TimelineRow>(
         r#"
         SELECT
             ROW_NUMBER() OVER (ORDER BY started_at ASC)::integer AS "order",
@@ -189,7 +170,7 @@ pub async fn get_conversation_timeline(
             duration_ms,
             estimated_input_tokens,
             estimated_output_tokens,
-            compute_event_usd(model, estimated_input_tokens, estimated_output_tokens, cached_tokens)::float8 AS usd_cost,
+            usd_cost::float8 AS usd_cost,
             ok,
             started_at,
             ended_at,
@@ -214,8 +195,30 @@ pub async fn get_conversation_timeline(
     )
     .bind(conversation_id)
     .bind(limit.unwrap_or(2000))
-    .fetch_all(pool)
-    .await?;
+    .fetch_all(pool);
+
+    let (summary_res, events_res) = tokio::join!(summary_fut, events_fut);
+    let summary = summary_res?;
+    let events_raw = events_res?;
+
+    let summary = match summary {
+        Some(s) => s,
+        None => {
+            return Ok(ConversationTimeline {
+                conversation_id: conversation_id.to_string(),
+                title: format!("Conversation {}", conversation_id),
+                started_at: chrono::Utc::now(),
+                ended_at: chrono::Utc::now(),
+                total_duration_ms: 0,
+                total_tokens_in: 0,
+                total_tokens_out: 0,
+                total_usd_cost: 0.0,
+                event_count: 0,
+                error_count: 0,
+                events: vec![],
+            });
+        }
+    };
 
     let title = summary
         .user_prompt

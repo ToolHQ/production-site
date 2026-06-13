@@ -59,7 +59,7 @@ export const all = (db, sql, sqlParams = []) => new Promise((resolve, reject) =>
  * @param {String[]} sqlParams
  * @returns {Promise<import('sqlite3').RunResult>}
  */
-const run = (db, sql, sqlParams = []) => new Promise((resolve, reject) => db
+export const run = (db, sql, sqlParams = []) => new Promise((resolve, reject) => db
   .run(sql, sqlParams, function returnRunResult(err) { return err ? reject(err) : resolve(this) }))
 
 /**

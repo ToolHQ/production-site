@@ -1,6 +1,6 @@
 # T-345: GitHub branch protection + Jenkins webhook
 
-- **Status**: In Progress
+- **Status**: Done
 - **Priority**: 🔼 High
 - **Owner**: Cursor / AI Radar
 - **Epic**: [T-344](T-344-Program-citools-deploy-CI-closure-epic.md)

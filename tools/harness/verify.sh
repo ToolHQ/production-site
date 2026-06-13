@@ -171,6 +171,7 @@ path_is_non_blocking_meta() {
 		README.md | IMPLEMENTATION_SUMMARY.md | implementation_plan.md | \
 		docs/* | tasks/* | .github/* | \
 		components/ssdnodes/ADR-*.md | components/ssdnodes/README.md | \
+		components/ssdnodes/n8n/*.md | components/ssdnodes/n8n/schema/*.sql | \
 		components/ssdnodes/jenkins/Jenkinsfile.generic | \
 		components/ssdnodes/jenkins/Jenkinsfile.deploy | \
 		components/ssdnodes/jenkins/bootstrap-ci-job.groovy | \
@@ -179,7 +180,8 @@ path_is_non_blocking_meta() {
 		components/ssdnodes/jenkins/README.md | \
 		components/ssdnodes/github-webhook-ip-ranges.txt | \
 		components/ssdnodes/jenkins-github-webhook-ingress.yaml | \
-		tools/citools/README.md | tools/citools/Cargo.lock)
+		tools/citools/README.md | tools/citools/Cargo.lock | \
+		oci-k8s-cluster/systemd/*)
 		return 0
 		;;
 	*)
@@ -412,17 +414,19 @@ run_citools_gate() {
 run_rust_observability_gate() {
 	local app_dir="$REPO_ROOT/apps/rs-observability-api"
 
-	run_checked "rust fmt: rs-observability-api" bash -lc "cd '$app_dir' && cargo fmt --check"
-	run_checked "rust clippy: rs-observability-api" bash -lc "cd '$app_dir' && cargo clippy --all-targets --all-features -- -D warnings"
-	run_checked "rust test: rs-observability-api" bash -lc "cd '$app_dir' && cargo test"
+	# bash -c (not -lc): login shell on Jenkins rust agent drops /usr/local/cargo/bin
+	run_checked "rust fmt: rs-observability-api" bash -c "cd '$app_dir' && cargo fmt --check"
+	run_checked "rust clippy: rs-observability-api" bash -c "cd '$app_dir' && cargo clippy --all-targets --all-features -- -D warnings"
+	run_checked "rust test: rs-observability-api" bash -c "cd '$app_dir' && cargo test"
 }
 
 run_rust_ai_radar_gate() {
 	local app_dir="$REPO_ROOT/apps/ai-radar"
 
-	run_checked "rust fmt: ai-radar" bash -lc "cd '$app_dir' && cargo fmt --check"
-	run_checked "rust clippy: ai-radar" bash -lc "cd '$app_dir' && cargo clippy --workspace --all-targets -- -D warnings"
-	run_checked "rust test: ai-radar" bash -lc "cd '$app_dir' && cargo test --workspace"
+	# bash -c (not -lc): login shell on Jenkins rust agent drops /usr/local/cargo/bin
+	run_checked "rust fmt: ai-radar" bash -c "cd '$app_dir' && cargo fmt --check"
+	run_checked "rust clippy: ai-radar" bash -c "cd '$app_dir' && cargo clippy --workspace --all-targets -- -D warnings"
+	run_checked "rust test: ai-radar" bash -c "cd '$app_dir' && cargo test --workspace"
 }
 
 run_rust_agent_meter_gate() {

@@ -74,7 +74,9 @@ pub async fn cost_summary(
     pool: &PgPool,
     from: DateTime<Utc>,
     to: DateTime<Utc>,
+    model: Option<&str>,
 ) -> Result<CostSummary, AppError> {
+    // Run all 4 independent queries in parallel via tokio::join!
     #[derive(sqlx::FromRow)]
     struct KpiRow {
         total_usd: Option<f64>,
@@ -86,7 +88,31 @@ pub async fn cost_summary(
         error_rate: Option<f64>,
     }
 
-    let kpi: KpiRow = sqlx::query_as(
+    #[derive(sqlx::FromRow)]
+    struct ModelRow {
+        model: Option<String>,
+        events: i64,
+        tokens_in: Option<i64>,
+        tokens_out: Option<i64>,
+        usd_cost: Option<f64>,
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct DayRow {
+        day: DateTime<Utc>,
+        usd_cost: Option<f64>,
+        events: i64,
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct BillingRow {
+        billing_model: String,
+        events: i64,
+        usd_cost: Option<f64>,
+        credits: Option<f64>,
+    }
+
+    let kpi_fut = sqlx::query_as::<_, KpiRow>(
         r#"
         SELECT
             COALESCE(SUM(usd_cost), 0)::float8 AS total_usd,
@@ -98,27 +124,15 @@ pub async fn cost_summary(
             (COUNT(*) FILTER (WHERE NOT ok))::float8 / NULLIF(COUNT(*)::float8, 0) AS error_rate
         FROM agent_tool_calls
         WHERE started_at >= $1 AND started_at < $2
+          AND ($3::text IS NULL OR model = $3)
         "#,
     )
     .bind(from)
     .bind(to)
-    .fetch_one(pool)
-    .await?;
+    .bind(model)
+    .fetch_one(pool);
 
-    let total_usd = kpi.total_usd.unwrap_or(0.0);
-    let total_credits = kpi.total_credits.unwrap_or(0.0);
-    let total_events = kpi.total_events.unwrap_or(0);
-
-    #[derive(sqlx::FromRow)]
-    struct ModelRow {
-        model: Option<String>,
-        events: i64,
-        tokens_in: Option<i64>,
-        tokens_out: Option<i64>,
-        usd_cost: Option<f64>,
-    }
-
-    let by_model_raw: Vec<ModelRow> = sqlx::query_as(
+    let model_fut = sqlx::query_as::<_, ModelRow>(
         r#"
         SELECT
             model,
@@ -128,6 +142,7 @@ pub async fn cost_summary(
             COALESCE(SUM(usd_cost), 0)::float8 AS usd_cost
         FROM agent_tool_calls
         WHERE started_at >= $1 AND started_at < $2
+          AND ($3::text IS NULL OR model = $3)
         GROUP BY model
         ORDER BY usd_cost DESC NULLS LAST
         LIMIT 50
@@ -135,8 +150,57 @@ pub async fn cost_summary(
     )
     .bind(from)
     .bind(to)
-    .fetch_all(pool)
-    .await?;
+    .bind(model)
+    .fetch_all(pool);
+
+    let day_fut = sqlx::query_as::<_, DayRow>(
+        r#"
+        SELECT
+            date_trunc('day', started_at) AS day,
+            COALESCE(SUM(usd_cost), 0)::float8 AS usd_cost,
+            COUNT(*)::bigint AS events
+        FROM agent_tool_calls
+        WHERE started_at >= $1 AND started_at < $2
+          AND ($3::text IS NULL OR model = $3)
+        GROUP BY 1
+        ORDER BY 1 ASC
+        "#,
+    )
+    .bind(from)
+    .bind(to)
+    .bind(model)
+    .fetch_all(pool);
+
+    let billing_fut = sqlx::query_as::<_, BillingRow>(
+        r#"
+        SELECT
+            billing_model,
+            COUNT(*)::bigint AS events,
+            COALESCE(SUM(usd_cost), 0)::float8 AS usd_cost,
+            COALESCE(SUM(CASE WHEN billing_model = 'copilot_credit' THEN usd_cost * 100 ELSE 0 END), 0)::float8 AS credits
+        FROM agent_tool_calls
+        WHERE started_at >= $1 AND started_at < $2
+          AND ($3::text IS NULL OR model = $3)
+        GROUP BY billing_model
+        ORDER BY events DESC
+        "#,
+    )
+    .bind(from)
+    .bind(to)
+    .bind(model)
+    .fetch_all(pool);
+
+    let (kpi_res, model_res, day_res, billing_res) =
+        tokio::join!(kpi_fut, model_fut, day_fut, billing_fut);
+
+    let kpi = kpi_res?;
+    let by_model_raw = model_res?;
+    let by_day_raw = day_res?;
+    let by_billing_raw = billing_res?;
+
+    let total_usd = kpi.total_usd.unwrap_or(0.0);
+    let total_credits = kpi.total_credits.unwrap_or(0.0);
+    let total_events = kpi.total_events.unwrap_or(0);
 
     let by_model = by_model_raw
         .into_iter()
@@ -148,30 +212,6 @@ pub async fn cost_summary(
             usd_cost: r.usd_cost.unwrap_or(0.0),
         })
         .collect();
-
-    #[derive(sqlx::FromRow)]
-    struct DayRow {
-        day: DateTime<Utc>,
-        usd_cost: Option<f64>,
-        events: i64,
-    }
-
-    let by_day_raw: Vec<DayRow> = sqlx::query_as(
-        r#"
-        SELECT
-            date_trunc('day', started_at) AS day,
-            COALESCE(SUM(usd_cost), 0)::float8 AS usd_cost,
-            COUNT(*)::bigint AS events
-        FROM agent_tool_calls
-        WHERE started_at >= $1 AND started_at < $2
-        GROUP BY 1
-        ORDER BY 1 ASC
-        "#,
-    )
-    .bind(from)
-    .bind(to)
-    .fetch_all(pool)
-    .await?;
 
     let by_day = by_day_raw
         .into_iter()
@@ -185,32 +225,6 @@ pub async fn cost_summary(
     let hours = ((to - from).num_seconds() as f64 / 3600.0).max(1.0);
     let burn_rate = total_usd / hours;
     let avg = if total_events > 0 { total_usd / total_events as f64 } else { 0.0 };
-
-    #[derive(sqlx::FromRow)]
-    struct BillingRow {
-        billing_model: String,
-        events: i64,
-        usd_cost: Option<f64>,
-        credits: Option<f64>,
-    }
-
-    let by_billing_raw: Vec<BillingRow> = sqlx::query_as(
-        r#"
-        SELECT
-            billing_model,
-            COUNT(*)::bigint AS events,
-            COALESCE(SUM(usd_cost), 0)::float8 AS usd_cost,
-            COALESCE(SUM(CASE WHEN billing_model = 'copilot_credit' THEN usd_cost * 100 ELSE 0 END), 0)::float8 AS credits
-        FROM agent_tool_calls
-        WHERE started_at >= $1 AND started_at < $2
-        GROUP BY billing_model
-        ORDER BY events DESC
-        "#,
-    )
-    .bind(from)
-    .bind(to)
-    .fetch_all(pool)
-    .await?;
 
     let by_billing_model = by_billing_raw
         .into_iter()

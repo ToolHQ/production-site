@@ -4,13 +4,14 @@
 const preced = tokenType => {
   if (tokenType === 'OR') {
     return 1
-  } else if (tokenType === 'AND') {
-    return 2
-  } else if (tokenType === ':') {
-    return 3
-  } else {
-    return 0
   }
+  if (tokenType === 'AND') {
+    return 2
+  }
+  if (tokenType === ':') {
+    return 3
+  }
+  return 0
 }
 
 /**
@@ -68,7 +69,7 @@ const inToPost = infixTokens => {
  * @param {import('./lexical').Token[]} lexicalTokens
  */
 const syntacticStage1 = lexicalTokens => {
-  console.log(inToPost(lexicalTokens))
+  return inToPost(lexicalTokens)
 }
 
 export const getSyntacticTokens = (lexicalTokens) => {
