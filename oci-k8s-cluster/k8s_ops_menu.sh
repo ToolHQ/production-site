@@ -603,6 +603,7 @@ $(t "maint_network")
 8. Prune Disk Space (Images/Logs)
 9. Generate Storage Dossier (App-Level)
 10. Pre-Pull Internal Images on All Nodes
+11. Longhorn Headroom Diagnostic (T-307)
 $(t "prefs_back")"
 
     local selected_action
@@ -703,6 +704,11 @@ $(t "prefs_back")"
         done
         echo ""
         echo -e "${GREEN}Pre-pull complete. Images are now cached on all worker nodes.${NC}"
+        read -p "$(t "press_enter")"
+        ;;
+      11)
+        clear
+        bash "$SCRIPT_DIR/scripts/observability/longhorn_headroom_diag.sh"
         read -p "$(t "press_enter")"
         ;;
       *)
