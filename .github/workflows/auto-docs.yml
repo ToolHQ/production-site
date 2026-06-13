@@ -1,0 +1,140 @@
+name: Auto Documentation
+
+on:
+  push:
+    branches: [main]
+
+# Only one run at a time — a fast merge shouldn't race with a slow one
+concurrency:
+  group: auto-docs
+  cancel-in-progress: false   # finish the previous run; don't clobber CHANGELOG
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────
+  # Generate CHANGELOG.md from conventional commits via git-cliff
+  # and commit it back to main with [skip ci] so it doesn't loop.
+  # ───────────────────────────────────────────────────────────────────
+  changelog:
+    name: Update CHANGELOG
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","Linux","ARM64","hetzner-ci"]') }}
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # full history so git-cliff can walk tags
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate CHANGELOG with git-cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --verbose
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "CHANGELOG unchanged — nothing to commit"
+            exit 0
+          fi
+          git commit -m "docs(changelog): auto-update [skip ci]"
+          git push
+
+  # ───────────────────────────────────────────────────────────────────
+  # On each PR that touches shell scripts, post a comment listing every
+  # public function added or removed so reviewers see the API delta.
+  # ───────────────────────────────────────────────────────────────────
+  shell-api-delta:
+    name: Shell function delta
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","Linux","ARM64","hetzner-ci"]') }}
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute function delta
+        id: delta
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          extract_fns() {
+            git show "$1" -- '*.sh' 2>/dev/null \
+              | grep -E '^\+[[:space:]]*(function[[:space:]]+[a-zA-Z_][a-zA-Z0-9_]*|[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(\))' \
+              | sed 's/^+[[:space:]]*//' \
+              | sed 's/[[:space:]]*{[[:space:]]*$//' \
+              | sort -u
+          }
+
+          ADDED=$(git diff "$BASE" "$HEAD" -- '*.sh' \
+            | grep -E '^\+[[:space:]]*(function[[:space:]]+[a-zA-Z_]|[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(\))' \
+            | sed 's/^+[[:space:]]*//' | sed 's/[[:space:]]*{.*//' | sort -u)
+
+          REMOVED=$(git diff "$BASE" "$HEAD" -- '*.sh' \
+            | grep -E '^\-[[:space:]]*(function[[:space:]]+[a-zA-Z_]|[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(\))' \
+            | sed 's/^-[[:space:]]*//' | sed 's/[[:space:]]*{.*//' | sort -u)
+
+          {
+            echo "added<<EOF"
+            echo "$ADDED"
+            echo "EOF"
+            echo "removed<<EOF"
+            echo "$REMOVED"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post function delta comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const added   = `${{ steps.delta.outputs.added }}`.trim();
+            const removed = `${{ steps.delta.outputs.removed }}`.trim();
+
+            if (!added && !removed) {
+              console.log("No shell function changes detected.");
+              return;
+            }
+
+            const lines = ["### Shell function delta\n"];
+            if (added)   lines.push("**Added / changed**\n```\n" + added   + "\n```");
+            if (removed) lines.push("**Removed**\n```\n"          + removed + "\n```");
+
+            const body = lines.join("\n");
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c =>
+              c.user.login === "github-actions[bot]" &&
+              c.body.startsWith("### Shell function delta")
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner:       context.repo.owner,
+                repo:        context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
