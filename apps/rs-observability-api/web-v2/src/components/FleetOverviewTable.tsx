@@ -162,14 +162,35 @@ export function FleetOverviewTable({
                 </td>
                 <td class="fleet-actions-cell">
                   {row.monitorHref ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <a
+                        class="fleet-action-link"
+                        href={row.monitorHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open honeypot admin monitor (login key required)"
+                      >
+                        Monitor
+                      </a>
+                      {row.isHoneypot && (
+                        <a
+                          class="fleet-action-link"
+                          href="#threats"
+                          title="Ver todas as ameaças interceptadas"
+                          style={{ color: '#ffb347', borderColor: 'rgba(255, 179, 71, 0.4)' }}
+                        >
+                          Ameaças
+                        </a>
+                      )}
+                    </div>
+                  ) : row.isHoneypot ? (
                     <a
                       class="fleet-action-link"
-                      href={row.monitorHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Open honeypot admin monitor (login key required)"
+                      href="#threats"
+                      title="Ver todas as ameaças interceptadas"
+                      style={{ color: '#ffb347', borderColor: 'rgba(255, 179, 71, 0.4)' }}
                     >
-                      Monitor
+                      Ameaças
                     </a>
                   ) : (
                     <span class="fleet-metric-empty">—</span>
