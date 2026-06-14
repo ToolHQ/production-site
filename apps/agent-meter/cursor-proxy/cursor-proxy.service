@@ -1,0 +1,27 @@
+[Unit]
+Description=Cursor AI Proxy (agent-meter interceptor)
+Documentation=https://github.com/ToolHQ/production-site/tree/main/apps/agent-meter/cursor-proxy
+After=network.target
+
+[Service]
+Type=simple
+# Ajuste o path se necessário
+ExecStart=%h/.local/bin/mitmdump \
+    --listen-host 127.0.0.1 \
+    --listen-port 8898 \
+    --set confdir=%h/.mitmproxy \
+    --set ssl_insecure=true \
+    --set termlog_verbosity=warn \
+    -s %h/production-site/apps/agent-meter/cursor-proxy/cursor_interceptor.py
+
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:%h/.local/share/cursor-proxy/proxy.log
+StandardError=append:%h/.local/share/cursor-proxy/proxy.log
+
+# Criação automática do diretório de log
+RuntimeDirectory=cursor-proxy
+LogsDirectory=cursor-proxy
+
+[Install]
+WantedBy=default.target
