@@ -643,25 +643,55 @@ mark.search-highlight {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
+  color: var(--text-muted, var(--muted));
   font-weight: 600;
   padding: 0.55rem 0.65rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
 
 .fleet-table tbody td {
   padding: 0.65rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--line);
   vertical-align: middle;
+  color: var(--text-main, var(--ink));
 }
 
 .fleet-row {
   transition: background 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
   }
+}
+
+:root.dark .fleet-overview__title,
+:root.dark .fleet-overview__subtitle {
+  color: var(--text-muted);
+}
+
+:root.dark .fleet-overview__title {
+  color: var(--text-main);
+}
+
+:root.dark .fleet-cluster-header td {
+  background: color-mix(in srgb, var(--surface-2) 95%, transparent);
+}
+
+:root.dark .cluster-group-header td {
+  background: color-mix(in srgb, var(--surface-2) 95%, transparent);
+}
+
+:root.dark .nodes-search {
+  background: var(--surface-3);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+:root.dark .nodes-settings-btn {
+  background: var(--surface-3);
+  border-color: var(--border-subtle);
+  color: var(--text-main);
 }
 
 .fleet-row--honeypot {

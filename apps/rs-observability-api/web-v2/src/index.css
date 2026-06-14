@@ -29,29 +29,31 @@
 
       /* Dark theme */
       :root.dark {
-        --ink: #e2e8f0;
-        --muted: #94a3b8;
-        --panel: rgba(30, 41, 59, 0.85);
-        --line: rgba(255, 255, 255, 0.12);
-        --accent: #2dd4bf;
-        --accent-soft: rgba(45, 212, 191, 0.18);
-        --warm: #f97316;
-        --warm-soft: rgba(249, 115, 22, 0.15);
-        --critical: #ef4444;
-        --critical-soft: rgba(239, 68, 68, 0.15);
-        --healthy: #10b981;
-        --healthy-soft: rgba(16, 185, 129, 0.15);
-        --shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
-        --shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.2);
-        
+        --ink: #e8edf4;
+        --muted: #9aa8b9;
+        --panel: rgba(22, 30, 46, 0.92);
+        --line: rgba(148, 163, 184, 0.18);
+        --accent: #5eead4;
+        --accent-soft: rgba(94, 234, 212, 0.14);
+        --warm: #fb923c;
+        --warm-soft: rgba(251, 146, 60, 0.14);
+        --critical: #f87171;
+        --critical-soft: rgba(248, 113, 113, 0.14);
+        --healthy: #34d399;
+        --healthy-soft: rgba(52, 211, 153, 0.14);
+        --shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+        --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.32);
+        --surface-2: #1a2332;
+        --surface-3: #243044;
+
         /* Dark normalized */
-        --bg-primary: #0f172a;
-        --bg-secondary: #1e293b;
+        --bg-primary: #0c1220;
+        --bg-secondary: #151d2e;
         --text-main: #f1f5f9;
-        --text-muted: #94a3b8;
-        --border-subtle: rgba(255, 255, 255, 0.12);
-        --border-base: rgba(255, 255, 255, 0.12);
-        --bg-accent-soft: rgba(45, 212, 191, 0.15);
+        --text-muted: #9aa8b9;
+        --border-subtle: rgba(148, 163, 184, 0.2);
+        --border-base: rgba(148, 163, 184, 0.18);
+        --bg-accent-soft: rgba(94, 234, 212, 0.1);
       }
 
       /* Smooth theme transition */
@@ -75,30 +77,90 @@
       }
 
       :root.dark body {
+        color: var(--text-main);
         background:
-          radial-gradient(circle at 14% 8%, rgba(32, 178, 170, 0.10), transparent 26%),
-          radial-gradient(circle at 88% 12%, rgba(249, 115, 22, 0.10), transparent 24%),
-          linear-gradient(180deg, #111827 0%, #1a2436 46%, #141e2b 100%);
+          radial-gradient(circle at 12% 6%, rgba(94, 234, 212, 0.07), transparent 28%),
+          radial-gradient(circle at 88% 10%, rgba(251, 146, 60, 0.06), transparent 26%),
+          linear-gradient(180deg, #0a0f18 0%, #101827 42%, #0c121c 100%);
       }
 
       /* ===== Dark mode component overrides ===== */
       /* All hardcoded rgba(255,255,255,…) backgrounds need dark equivalents */
 
       :root.dark .shell {
-        background: rgba(18, 24, 38, 0.92);
-        border-color: rgba(255, 255, 255, 0.07);
+        background: rgba(14, 20, 32, 0.94);
+        border-color: var(--border-subtle);
+        box-shadow: var(--shadow-soft);
       }
 
       :root.dark .pill,
       :root.dark .panel-tag {
-        background: rgba(255, 255, 255, 0.07);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-        color: var(--muted);
-        border-color: rgba(255, 255, 255, 0.10);
+        background: var(--surface-3);
+        box-shadow: none;
+        color: var(--text-muted);
+        border-color: var(--border-subtle);
       }
 
       :root.dark .command-card {
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+        background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+        color: var(--text-main);
+      }
+
+      :root.dark .command-card .command-copy,
+      :root.dark .command-card .next-step {
+        color: var(--text-muted);
+      }
+
+      :root.dark .catalog-side {
+        background: var(--surface-2);
+        border-left-color: var(--border-subtle);
+      }
+
+      :root.dark .catalog-shell,
+      :root.dark .table-shell {
+        background: var(--panel);
+      }
+
+      :root.dark .panel:not(.shell > .panel),
+      :root.dark .priority-panel {
+        background: transparent;
+      }
+
+      :root.dark th {
+        color: var(--text-muted);
+      }
+
+      :root.dark td {
+        color: var(--text-main);
+      }
+
+      :root.dark tbody tr:hover td {
+        background: color-mix(in srgb, var(--accent) 6%, transparent);
+      }
+
+      :root.dark .section-title,
+      :root.dark .section-kicker {
+        color: var(--accent);
+      }
+
+      :root.dark .dnor-shell__nav-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-main);
+      }
+
+      :root.dark .dnor-shell__search {
+        background: var(--surface-3);
+        border-color: var(--border-subtle);
+        color: var(--text-muted);
+      }
+
+      :root.dark .dnor-overview-nav {
+        background: rgba(12, 18, 28, 0.94);
+      }
+
+      :root.dark .dnor-platform-fold {
+        background: var(--surface-2);
+        border-color: var(--border-subtle);
       }
 
       :root.dark .command-card[data-tone="warning"] {
@@ -110,29 +172,24 @@
       }
 
       :root.dark .next-step {
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.08);
+        background: var(--surface-3);
+        border-color: var(--border-subtle);
       }
 
       :root.dark .signal-mini,
       :root.dark .summary-card {
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.08);
+        background: var(--surface-3);
+        border-color: var(--border-subtle);
       }
 
       :root.dark .rail-stack {
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
-        border-color: rgba(255, 255, 255, 0.06);
+        background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+        border-color: var(--border-subtle);
       }
 
       :root.dark .telemetry-mini {
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.08);
-      }
-
-      :root.dark .catalog-side {
-        background: rgba(255, 255, 255, 0.03);
-        border-color: rgba(255, 255, 255, 0.06);
+        background: var(--surface-3);
+        border-color: var(--border-subtle);
       }
 
       :root.dark body::before {
@@ -927,7 +984,7 @@
 
       .catalog-side {
         border-left: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.46);
+        background: color-mix(in srgb, var(--bg-secondary) 70%, var(--panel));
       }
 
       .table-shell {
