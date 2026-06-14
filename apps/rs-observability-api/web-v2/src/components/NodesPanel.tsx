@@ -663,6 +663,7 @@ function HoneypotThreatsCard({ stats, period }: HoneypotThreatsCardProps) {
             Honeypot
             <span class="honeypot-hero__env-badge">{stats.cluster}</span>
           </h3>
+          <a href="#threats" style={{ fontSize: '0.75rem', color: '#ffb347', textDecoration: 'none', border: '1px solid rgba(255, 179, 71, 0.3)', padding: '0.25rem 0.75rem', borderRadius: '4px', background: 'rgba(255, 179, 71, 0.05)', fontWeight: 500 }}>Ver Todas as Ameaças →</a>
           <p class="honeypot-hero__desc">
             This node is a honeypot deployed to simulate exposed services and detect malicious activity.
           </p>

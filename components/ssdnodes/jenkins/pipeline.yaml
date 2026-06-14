@@ -25,6 +25,12 @@ stages:
     whenPaths: apps/**,components/**,tools/**,oci-k8s-cluster/**
     run: ./tools/citools/scripts/codeql-scan.sh
 
+  - id: archive-docs
+    stageName: Archive/Planned docs
+    description: No-op for archived/planned component references
+    whenPaths: components/_archived/**,components/_planned/**
+    run: echo "Archive/planned docs updated — no build needed"
+
   - id: sonar-scan
     stageName: Sonar scan
     description: SonarQube scanner

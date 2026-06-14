@@ -29,7 +29,7 @@ spec:
         resources:
           requests:
             storage: 5Gi
-        storageClassName: longhorn
+        storageClassName: longhorn-1
     config:
       node.store.allow_mmap: false
       indices.memory.index_buffer_size: 5%
@@ -53,7 +53,7 @@ spec:
               cpu: 600m
               ephemeral-storage: 8Gi
             requests:
-              memory: 1536Mi
+              memory: 2Gi
               cpu: 200m
 
           readinessProbe:

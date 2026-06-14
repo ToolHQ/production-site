@@ -181,7 +181,8 @@ path_is_non_blocking_meta() {
 		components/ssdnodes/github-webhook-ip-ranges.txt | \
 		components/ssdnodes/jenkins-github-webhook-ingress.yaml | \
 		tools/citools/README.md | tools/citools/Cargo.lock | \
-		oci-k8s-cluster/systemd/*)
+		oci-k8s-cluster/systemd/* | \
+		components/_archived/* | components/_planned/*)
 		return 0
 		;;
 	*)
@@ -427,6 +428,23 @@ run_rust_ai_radar_gate() {
 	run_checked "rust fmt: ai-radar" bash -c "cd '$app_dir' && cargo fmt --check"
 	run_checked "rust clippy: ai-radar" bash -c "cd '$app_dir' && cargo clippy --workspace --all-targets -- -D warnings"
 	run_checked "rust test: ai-radar" bash -c "cd '$app_dir' && cargo test --workspace"
+}
+
+run_rust_agent_meter_gate() {
+	local app_dir="$REPO_ROOT/apps/agent-meter"
+
+	# Compile-only gate (workspace + all targets). The agent-meter workspace
+	# still carries pre-existing fmt/clippy debt across crates, and its tests
+	# require a live PostgreSQL the CI agent does not provide — so a strict
+	# fmt/clippy/test gate would fail on unrelated code. `cargo check
+	# --all-targets` still compiles every crate and every test target
+	# (catching broken code and broken tests) without needing a database.
+	# Tighten to fmt/clippy/test once the workspace lint debt is cleared.
+	#
+	# bash -c (not -lc): a login shell on the Jenkins agent resets PATH and
+	# loses cargo (same gotcha as the citools gate); verify-branch-ci.sh has
+	# already exported the cargo PATH into our environment.
+	run_checked "rust check: agent-meter" bash -c "cd '$app_dir' && cargo check --workspace --all-targets"
 }
 
 run_rust_agent_meter_gate() {

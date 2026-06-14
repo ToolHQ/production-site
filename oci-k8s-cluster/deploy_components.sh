@@ -19,9 +19,11 @@ if [[ "${1:-}" == "--auto-tunnel" ]]; then
 fi
 
 # ────────────────────────────────────────────────
-# List all component directories
+# List deployable component directories (skip archived / internal prefixes)
 list_components() {
-  find "$COMPONENTS_DIR" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" | sort
+  find "$COMPONENTS_DIR" -mindepth 1 -maxdepth 1 -type d \
+    ! -name '_*' ! -name '.*' \
+    -printf "%f\n" | sort
 }
 
 # ────────────────────────────────────────────────
@@ -450,23 +452,7 @@ RMT
   #    - Ensure output is concise and clear.
 
   # --- Special Post-Deploy Actions ---
-  if [[ "$component" == "elastic-stack" ]]; then
-      echo "🔐 Syncing Elastic Stack credentials..."
-      local actual_ns="elastic-system"
-      local es_pass
-      # Use direct SSH to avoid 'run_remote' wrapper logs/prefixes polluting the output
-      es_pass=$(ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -i "$SSH_KEY" "ubuntu@$MASTER_PUBLIC_IP" "kubectl get secret oci-logs-es-elastic-user -n $actual_ns -o go-template='{{.data.elastic | base64decode}}'" 2>/dev/null || true)
-      
-      # Trim whitespace just in case
-      es_pass=$(echo "$es_pass" | tr -d '[:space:]')
-      
-      if [[ -n "$es_pass" ]]; then
-          credstore_add "elastic-admin" "elastic" "$es_pass" "Elasticsearch Superuser (Synced)"
-          echo "   ✅ Updated local TUI credential 'elastic-admin'"
-      else
-          echo "   ⚠️ Failed to retrieve Elastic password. Update credential manually."
-      fi
-  fi
+  # (elastic-stack retired — see components/_archived/elastic-stack/README.md)
 }
 
 # ────────────────────────────────────────────────
