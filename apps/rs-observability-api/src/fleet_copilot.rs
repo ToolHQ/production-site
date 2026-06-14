@@ -626,110 +626,6 @@ CREATE TABLE IF NOT EXISTS fleet_copilot.audit_events (
     }
 
     /// Perguntas vagas sobre recursos/status — fast-path estruturado (T-335).
-    fn is_vague_status_question(message: &str) -> bool {
-        let m = message.to_lowercase();
-        if Self::is_host_health_question(message)
-            || Self::is_k8s_status_question(message)
-            || Self::is_compare_message(message)
-        {
-            return false;
-        }
-        [
-            "como ta o servidor",
-            "como está o servidor",
-            "como ta a maquina",
-            "como ta a máquina",
-            "como está a maquina",
-            "como está a máquina",
-            "status do servidor",
-            "ta tudo bem",
-            "tá tudo bem",
-            "e ai",
-            "e aí",
-            "como vai",
-            "como ta ",
-            "como está ",
-            "situação do servidor",
-            "situacao do servidor",
-        ]
-        .iter()
-        .any(|n| m.contains(n))
-            || (m.len() <= 45
-                && (m.contains("servidor") || m.contains("maquina") || m.contains("máquina")))
-    }
-
-    fn is_greeting_only(message: &str) -> bool {
-        let m = message.trim().to_lowercase();
-        if m.len() > 40 {
-            return false;
-        }
-        matches!(
-            m.as_str(),
-            "oi" | "olá"
-                | "ola"
-                | "hey"
-                | "eai"
-                | "e ai"
-                | "e aí"
-                | "bom dia"
-                | "boa tarde"
-                | "boa noite"
-        ) || (m.starts_with("oi ") && m.len() < 28)
-    }
-
-    fn is_out_of_scope(message: &str) -> bool {
-        let m = message.to_lowercase();
-        [
-            "nginx",
-            "apache",
-            "httpd",
-            "traefik",
-            "caddy",
-            "mysql",
-            "mariadb",
-            "postgresql",
-            "postgres",
-            "redis",
-            "mongodb",
-            "rabbitmq",
-            "docker compose",
-            "docker logs",
-            "certificado ssl",
-            "letsencrypt",
-            "certbot",
-            "log da app",
-            "logs da app",
-            "application log",
-        ]
-        .iter()
-        .any(|n| m.contains(n))
-    }
-
-    fn greeting_reply() -> String {
-        "Oi! Sou o Fleet Copilot **read-only**.\n\n\
-Posso resumir **disco, memória e carga** no SSDNodes, **pods/ingress K8s** local, **SSH 24h** \
-e métricas Prometheus dos hosts no inventário.\n\n\
-Cite um host (`@k8s-node-1`) ou use uma **consulta rápida** na barra lateral."
-            .to_string()
-    }
-
-    fn scope_boundary_reply() -> String {
-        "Isso está **fora do escopo read-only** que eu coletou via gateway.\n\n\
-Cobro: disco/memória/carga no `ssdnodes-6a12f10c9ef11`, cluster K8s local, SSH 24h \
-e métricas dos hosts no inventário (OCI, Hetzner, AWS).\n\n\
-Reformule em termos de **host**, **disco/memória**, **pods** ou **SSH** — ou escolha uma consulta rápida."
-            .to_string()
-    }
-
-    fn try_scope_reply(message: &str) -> Option<String> {
-        if Self::is_out_of_scope(message) {
-            Some(Self::scope_boundary_reply())
-        } else {
-            None
-        }
-    }
-
-    /// Perguntas vagas sobre recursos/status — fast-path estruturado (T-335).
     fn is_fleet_resources_message(message: &str) -> bool {
         let m = message.to_lowercase();
         [
@@ -753,7 +649,6 @@ Reformule em termos de **host**, **disco/memória**, **pods** ou **SSH** — ou 
             || (m.contains("recursos")
                 && !m.contains("k8s-node")
                 && !m.contains("ssdnodes-6a12f10c"))
-            || Self::is_vague_status_question(message)
     }
 
     fn ops_stdout_excerpt(context: &Value, key: &str, max_lines: usize) -> Option<String> {
@@ -1019,12 +914,6 @@ Pergunte por um host específico para métricas ou compare dois hosts."
     }
 
     fn try_fast_reply(manifest: &Value, message: &str, preset: &str) -> Option<String> {
-        if Self::is_greeting_only(message) {
-            return Some(Self::greeting_reply());
-        }
-        if let Some(reply) = Self::try_scope_reply(message) {
-            return Some(reply);
-        }
         let intent = Self::resolve_intent(message, preset);
         if intent == ChatIntent::MetaCapabilities {
             return Some(Self::reply_from_manifest(manifest));
@@ -1214,35 +1103,11 @@ pub async fn copilot_chat(
     let routing = FleetCopilotState::routing_message(message, &history);
     let llm_message = FleetCopilotState::llm_message(message, &history);
 
-    if let Some(reply) = FleetCopilotState::try_scope_reply(routing.as_ref()) {
-        let latency_ms = started.elapsed().as_millis() as u64;
-        let sources = vec!["fleet_manifest".to_string()];
-        fc.audit_event(AuditEvent {
-            client_ip: client_ip.as_deref(),
-            message,
-            preset,
-            intent: "out_of_scope",
-            endpoints: &sources,
-            latency_ms,
-            model: "fleet-meta",
-            status: "ok",
-        })
-        .await;
-        return Ok(Json(ChatResponse {
-            reply,
-            model: "fleet-meta".into(),
-            sources,
-            latency_ms,
-        }));
-    }
-
     if let Some(reply) =
         FleetCopilotState::try_fast_reply(&fleet_manifest, routing.as_ref(), preset)
     {
         let intent = FleetCopilotState::resolve_intent(routing.as_ref(), preset);
-        let model = if FleetCopilotState::is_greeting_only(routing.as_ref()) {
-            "fleet-meta"
-        } else if intent == ChatIntent::MetaCapabilities {
+        let model = if intent == ChatIntent::MetaCapabilities {
             "fleet-manifest"
         } else {
             "fleet-metrics"
@@ -1445,47 +1310,11 @@ pub async fn copilot_chat_stream(
             return;
         }
 
-        if let Some(reply) = FleetCopilotState::try_scope_reply(routing.as_ref()) {
-            let sources = vec!["fleet_manifest".to_string()];
-            fc.audit_event(AuditEvent {
-                client_ip: client_ip.as_deref(),
-                message: &message,
-                preset: &preset,
-                intent: "out_of_scope",
-                endpoints: &sources,
-                latency_ms: started.elapsed().as_millis() as u64,
-                model: "fleet-meta",
-                status: "ok",
-            })
-            .await;
-            let _ = send(
-                Event::default()
-                    .event("phase")
-                    .data(json!({ "phase": "infer", "sources": sources }).to_string()),
-            )
-            .await;
-            let _ = send(
-                Event::default().event("done").data(
-                    json!({
-                        "reply": reply,
-                        "model": "fleet-meta",
-                        "sources": ["fleet_manifest"],
-                        "latency_ms": started.elapsed().as_millis() as u64,
-                    })
-                    .to_string(),
-                ),
-            )
-            .await;
-            return;
-        }
-
         if let Some(reply) =
             FleetCopilotState::try_fast_reply(&fleet_manifest, routing.as_ref(), &preset)
         {
             let intent = FleetCopilotState::resolve_intent(routing.as_ref(), &preset);
-            let model = if FleetCopilotState::is_greeting_only(routing.as_ref()) {
-                "fleet-meta"
-            } else if intent == ChatIntent::MetaCapabilities {
+            let model = if intent == ChatIntent::MetaCapabilities {
                 "fleet-manifest"
             } else {
                 "fleet-metrics"
@@ -1982,34 +1811,5 @@ mod tests {
         assert!(routing.contains("disco"));
         let llm = FleetCopilotState::llm_message("nao foi isso que perguntei", &history);
         assert!(llm.contains("Reavaliando"));
-    }
-
-    #[test]
-    fn vague_server_question_routes_to_fleet_resources() {
-        assert_eq!(
-            FleetCopilotState::resolve_intent("como ta o servidor?", "ssdnodes-health"),
-            super::ChatIntent::FleetResources
-        );
-        assert!(FleetCopilotState::should_structured_bypass(
-            super::ChatIntent::FleetResources,
-            "como ta o servidor?"
-        ));
-    }
-
-    #[test]
-    fn out_of_scope_returns_boundary_without_llm() {
-        assert!(FleetCopilotState::try_scope_reply("qual o uptime do nginx?").is_some());
-        assert!(FleetCopilotState::try_scope_reply("Como está o disco no SSDNodes?").is_none());
-    }
-
-    #[test]
-    fn greeting_is_instant_meta() {
-        assert!(FleetCopilotState::try_fast_reply(
-            &json!({ "hosts": [] }),
-            "oi",
-            "ssdnodes-health"
-        )
-        .unwrap()
-        .contains("Fleet Copilot"));
     }
 }
