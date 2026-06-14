@@ -216,6 +216,8 @@ scan_components() {
     for c_dir in "$comp_dir"/*/; do
         [ ! -d "$c_dir" ] && continue
         local name=$(basename "$c_dir")
+        # Skip archived / internal component trees
+        [[ "$name" == _* ]] && continue
 
         local category="" namespace="" deploy_method="raw-manifest" comp_version=""
         local has_commands=false has_readme=false deprecated=false
@@ -225,7 +227,7 @@ scan_components() {
         case "$name" in
             cilium|ingress-nginx|coredns)       category="networking" ;;
             longhorn|local-path-provisioner|storage|minio) category="storage" ;;
-            coroot|clickhouse|observability*|elastic-stack) category="observability" ;;
+            coroot|clickhouse|observability*) category="observability" ;;
             cert-manager|actions|kube-system)    category="security" ;;
             postgres)                            category="database" ;;
             nexus)                               category="registry" ;;

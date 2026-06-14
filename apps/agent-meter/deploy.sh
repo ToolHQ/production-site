@@ -24,11 +24,15 @@ if [ -f "$HETZNER_SETUP" ]; then
   fi
 fi
 
+# Hash do conteúdo de crates/ para invalidar cache BuildKit quando HTML/RS muda
+BUILD_HASH=$(find "$APP_DIR/crates" -type f | sort | xargs md5sum 2>/dev/null | md5sum | cut -c1-12)
+
 if [ "$USE_HETZNER" = "true" ]; then
-  echo "usando hetzner-builder (alta performance)"
+  echo "usando hetzner-builder (alta performance) [hash=$BUILD_HASH]"
   docker buildx build \
     --builder hetzner-builder \
     --platform linux/arm64 \
+    --build-arg BUILD_HASH="$BUILD_HASH" \
     --load \
     -t $IMAGE_TAG \
     -t $IMAGE_LATEST \
@@ -51,10 +55,11 @@ if [ "$USE_HETZNER" = "true" ]; then
   docker push "$LOCAL_LATEST"
   docker rmi "$LOCAL_TAG" "$LOCAL_LATEST" >/dev/null 2>&1 || true
 else
-  echo "builder Hetzner inativo, usando oci-builder padrão..."
+  echo "builder Hetzner inativo, usando oci-builder padrão... [hash=$BUILD_HASH]"
   docker buildx build \
     --builder oci-builder \
     --platform linux/arm64 \
+    --build-arg BUILD_HASH="$BUILD_HASH" \
     --push \
     -t $IMAGE_TAG \
     -t $IMAGE_LATEST \

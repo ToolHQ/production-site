@@ -1,0 +1,9 @@
+# GitHub webhook delivery IPs (hooks[] from https://api.github.com/meta)
+# Refresh: bash oci-k8s-cluster/scripts/ssdnodes/sync_github_webhook_ips.sh
+# Used by ufw_manager.sh — allow 443 from these CIDRs only (T-345)
+192.30.252.0/22
+185.199.108.0/22
+140.82.112.0/20
+143.55.64.0/20
+2a0a:a440::/29
+2606:50c0::/32

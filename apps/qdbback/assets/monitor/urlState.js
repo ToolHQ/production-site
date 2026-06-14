@@ -1,4 +1,4 @@
-export const defaulOrderBysStr = 'desc(id)'
+export const defaultOrderBysStr = 'desc(id)'
 export const defaultPartRequests = 'id,timestamp,method,path,timeElapsed,remoteHostname,statusCode'
 export const defaultPartLogs = 'id,timestamp,severity,event,log'
 
@@ -13,7 +13,7 @@ export const getUrlState = () => {
   const part = url.searchParams.get('part') || defaultPart
   const limit = (url.searchParams.get('limit') && Number(url.searchParams.get('limit'))) || defaultLimit
   const offset = (url.searchParams.get('offset') && Number(url.searchParams.get('offset'))) || defaultOffset
-  const orderBysStr = url.searchParams.get('sort_by') || defaulOrderBysStr
+  const orderBysStr = url.searchParams.get('sort_by') || defaultOrderBysStr
   if (part !== defaultPart) {
     url.searchParams.set('part', part)
   }
@@ -23,7 +23,7 @@ export const getUrlState = () => {
   if (offset !== defaultOffset) {
     url.searchParams.set('offset', offset)
   }
-  if (orderBysStr !== defaulOrderBysStr) {
+  if (orderBysStr !== defaultOrderBysStr) {
     url.searchParams.set('sort_by', orderBysStr)
   }
   const newUrl = url.toString()

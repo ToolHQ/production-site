@@ -1,5 +1,4 @@
 import { ThemeToggle } from './ThemeToggle';
-import { useFleetCopilot } from '../context/FleetCopilotContext';
 import { useDnorShell, type DnorView } from '../context/DnorShellContext';
 
 const NAV_ITEMS: { id: DnorView; label: string }[] = [
@@ -17,7 +16,6 @@ interface DnorTopNavProps {
 
 export function DnorTopNav({ liveAvailable = false }: DnorTopNavProps) {
   const { view, setView, period, setPeriod, setPaletteOpen } = useDnorShell();
-  const { session: copilotSession } = useFleetCopilot();
 
   return (
     <header class="dnor-shell">
@@ -37,19 +35,9 @@ export function DnorTopNav({ liveAvailable = false }: DnorTopNavProps) {
               {item.label}
             </button>
           ))}
-          {copilotSession.enabled && (
-            <button
-              type="button"
-              class={`dnor-shell__nav-item dnor-shell__nav-item--copilot${view === 'fleet-copilot' ? ' dnor-shell__nav-item--active' : ''}${copilotSession.authenticated ? ' dnor-shell__nav-item--live' : ''}`}
-              onClick={() => setView('fleet-copilot')}
-            >
-              Copilot
-            </button>
-          )}
         </nav>
 
         <div class="dnor-shell__actions">
-          {view !== 'fleet-copilot' && (
           <button
             type="button"
             class="dnor-shell__search"
@@ -60,19 +48,6 @@ export function DnorTopNav({ liveAvailable = false }: DnorTopNavProps) {
             <span class="dnor-shell__search-placeholder">Search nodes, IPs, ASNs…</span>
             <kbd class="dnor-shell__kbd">⌘K</kbd>
           </button>
-          )}
-
-          {view === 'fleet-copilot' && (
-          <button
-            type="button"
-            class="dnor-shell__search dnor-shell__search--icon"
-            onClick={() => setPaletteOpen(true)}
-            aria-label="Search"
-            title="Search (⌘K)"
-          >
-            <span class="dnor-shell__search-icon">⌕</span>
-          </button>
-          )}
 
           {view === 'nodes' && (
             <select

@@ -34,7 +34,7 @@ corootCE:
           - coroot.dnor.io
         secretName: coroot-tls
     annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+      cert-manager.io/cluster-issuer: letsencrypt-dns01
 
 corootClusterAgent:
   resources:

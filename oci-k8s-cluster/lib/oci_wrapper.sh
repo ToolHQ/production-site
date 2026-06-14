@@ -456,23 +456,23 @@ check_ssh_allowed_from_ip() {
     fi
 }
 
-# Add Ingress Rule for Current IP on a TCP port range.
-# Usage: whitelist_my_ip "instance_ocid" [port_min] [port_max]
+# Add Ingress Rule for Current IP (Port 22)
+# Usage: whitelist_my_ip "instance_ocid"
 whitelist_my_ip() {
     local instance_id="$1"
-    local port_min="${2:-22}"
-    local port_max="${3:-$port_min}"
     
-    # 1. Get IPv4 (OCI Security Lists use IPv4 CIDR blocks)
-    local my_ip
-    my_ip=$(curl -4 -s --connect-timeout 5 ifconfig.me 2>/dev/null || true)
-    if [[ -z "$my_ip" || "$my_ip" == *:* ]]; then
-        echo "Error: Could not detect public IPv4 address."
-        return 1
+    # 1. Get IP — prefer IPv4; ifconfig.me may return IPv6 on dual-stack hosts
+    local my_ip=$(curl -s --connect-timeout 2 -4 ifconfig.me 2>/dev/null)
+    if [[ -z "$my_ip" ]]; then
+        my_ip=$(curl -s --connect-timeout 2 ifconfig.me)
     fi
-    local cidr="${my_ip}/32"
+    if [[ -z "$my_ip" ]]; then echo "Error: No IP"; return 1; fi
+    # Add CIDR suffix — /128 for IPv6, /32 for IPv4
+    local cidr_prefix=32
+    if [[ "$my_ip" == *:* ]]; then cidr_prefix=128; fi
+    local cidr="${my_ip}/${cidr_prefix}"
     
-    echo "Whitelisting $cidr for TCP ${port_min}-${port_max}..."
+    echo "Whitelisting $cidr..."
     
     # 2. Get Security List ID (First one active on VNIC)
     local vnic_id=$(oci compute instance list-vnics --instance-id "$instance_id" --query "data[0].id" --raw-output 2>/dev/null)
@@ -487,37 +487,29 @@ whitelist_my_ip() {
     # 3. Get Current Rules (JSON)
     local current_rules_json=$(oci network security-list get --security-list-id "$sl_id" --query "data.\"ingress-security-rules\"" 2>/dev/null)
     
-    # 4. Skip if an identical rule already exists
-    local existing_count
-    existing_count=$(echo "$current_rules_json" | jq --arg src "$cidr" --argjson pmin "$port_min" --argjson pmax "$port_max" \
-        '[.[] | select(.source == $src and .protocol == "6" and ."tcp-options"."destination-port-range".min == $pmin and ."tcp-options"."destination-port-range".max == $pmax)] | length')
-    if [[ "${existing_count:-0}" -gt 0 ]]; then
-        echo "Rule already exists for $cidr TCP ${port_min}-${port_max}."
-        return 0
-    fi
-
-    # 5. Construct New Rule (JSON)
-    local new_rule_json
-    new_rule_json=$(jq -n \
-        --arg cidr "$cidr" \
-        --arg desc "Auto-Whitelisted by Rescue Tool $(date +%F) TCP ${port_min}-${port_max}" \
-        --argjson pmin "$port_min" \
-        --argjson pmax "$port_max" \
-        '{
-            description: $desc,
-            "is-stateless": false,
-            protocol: "6",
-            source: $cidr,
-            "source-type": "CIDR_BLOCK",
-            "tcp-options": {
-                "destination-port-range": { min: $pmin, max: $pmax },
-                "source-port-range": null
+    # 4. Construct New Rule (JSON)
+    # Note: "6" is TCP. "source" is the CIDR.
+    local new_rule_json=$(cat <<EOF
+    {
+        "description": "Auto-Whitelisted by Rescue Tool $(date +%F)",
+        "is-stateless": false,
+        "protocol": "6",
+        "source": "$cidr",
+        "source-type": "CIDR_BLOCK",
+        "tcp-options": {
+            "destination-port-range": {
+                "max": 22,
+                "min": 22
             },
-            "udp-options": null,
-            "icmp-options": null
-        }')
+            "source-port-range": null
+        },
+        "udp-options": null,
+        "icmp-options": null
+    }
+EOF
+)
 
-    # 6. Merge and Update
+    # 5. Merge and Update
     # Using jq to append.
     # We rely on jq being installed. OCI Cloud Shell usually has it. Ubuntu usually has it.
     if ! command -v jq &> /dev/null; then
@@ -534,22 +526,20 @@ whitelist_my_ip() {
         return 1
     fi
     
-    # 7. Apply Update
+    # 6. Apply Update
+    # We must write to a temp file because argument might be too long
     local tmp_json="/tmp/sec_list_update_$$.json"
     echo "$updated_rules_json" > "$tmp_json"
     
-    if ! oci network security-list update \
+    oci network security-list update \
         --security-list-id "$sl_id" \
         --ingress-security-rules "file://$tmp_json" \
-        --force >/dev/null; then
-        rm -f "$tmp_json"
-        echo "Error: OCI security-list update failed."
-        return 1
-    fi
+        --force >/dev/null
         
     rm -f "$tmp_json"
     
-    echo "Success. Added $cidr (TCP ${port_min}-${port_max}) to Security List."
+    
+    echo "Success. Added $cidr to Security List."
     return 0
 }
 

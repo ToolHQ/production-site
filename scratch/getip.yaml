@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: getip
+spec:
+  template:
+    spec:
+      containers:
+      - name: getip
+        image: curlimages/curl
+        command: ["curl", "-s", "https://api.ipify.org"]
+        resources:
+          requests:
+            cpu: 1m
+            memory: 16Mi
+          limits:
+            cpu: 40m
+            memory: 32Mi
+      restartPolicy: Never
+  backoffLimit: 0

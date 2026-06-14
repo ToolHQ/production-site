@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/part-of: ai-radar
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-dns01
     nginx.ingress.kubernetes.io/proxy-body-size: 2m
 spec:
   ingressClassName: nginx

@@ -1,0 +1,27 @@
+# Fragmento JCasC — montado via jenkins-values.yaml (T-341 / T-343)
+# Tokens: Secret jenkins-ci-credentials → ${jenkins-ci-credentials-<key>}
+# Nota: não declarar jenkins: aqui — conflita com defaultConfig do chart
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: sonar-token
+              description: SonarQube CI (citools)
+              secret: ${jenkins-ci-credentials-sonar-token}
+          - usernamePassword:
+              scope: GLOBAL
+              id: github-pat
+              description: GitHub PAT (repo read)
+              username: git
+              password: ${jenkins-ci-credentials-github-pat}
+
+unclassified:
+  sonarGlobalConfiguration:
+    buildWrapperEnabled: false
+    installations:
+      - name: SonarQube SSDNodes
+        serverUrl: https://sonar.ssdnodes.dnor.io
+        credentialsId: sonar-token

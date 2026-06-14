@@ -65,7 +65,7 @@ const inToPost = (infixTokens) => {
  * @param {import('./lexical').Token[]} lexicalTokens
  */
 const syntacticStage1 = (lexicalTokens) => {
-  process.stdout.write(inToPost(lexicalTokens))
+  return inToPost(lexicalTokens)
 }
 
 export const getSyntacticTokens = (lexicalTokens) => {

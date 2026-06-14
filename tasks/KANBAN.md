@@ -6,15 +6,42 @@
 > (CPU starvation). postgres, nexus, coroot-clickhouse stuck for 19 days. Fixed in commit `7f6b920`.
 > Volumes rebuilding replicas. See T-102/T-103/T-104 for follow-up hardening.
 
+---
+
+## 💰 Epic: agent-meter → SaaS Revenue (Q2/Q3 2026)
+
+> **Tese de produto**: Agent Observability + FinOps para times AI-native (Cursor/Copilot/Claude Code).
+> Diferencial: **zero-code OTLP** + **FinOps em USD** + **open core**.
+> Sweet spot entre Helicone (LLM only) e Datadog (genérico).
+>
+> **Pricing draft**: Free 100k events · **Pro $19/seat** · **Team $99/mo flat (5 seats)** · Enterprise custom.
+>
+> **Critical path** (ordem de execução):
+> `T-317` (waterfall) → `T-318` (cost) → `T-319` (multi-tenant) → `T-320` (alerts) → `T-321` (Stripe) → `T-322` (hosted infra) → `T-323` (SDK + leaderboard).
+>
+> **Meta MRR Q3**: $200/mo (10 clientes Pro) → revisar pricing após.
+
+|                                ID                                | Task                                                                                   |  Priority   | Est. | Bloqueia     |
+| :--------------------------------------------------------------: | :------------------------------------------------------------------------------------- | :---------: | :--: | :----------- |
+|   [T-317](2026/Q2/T-317-agent-meter-timeline-waterfall-apm.md)   | **Timeline Waterfall APM** _(Jaeger-style canvas, mini-mapa, drawer, zoom)_            | 🚨 Critical |  6h  | T-318, T-323 |
+|  [T-318](2026/Q2/T-318-agent-meter-cost-attribution-engine.md)   | **Cost Attribution Engine** _(USD/call, model_pricing table, /cost page, FinOps)_      | 🚨 Critical |  8h  | T-320, T-321 |
+|      [T-319](2026/Q2/T-319-agent-meter-multitenant-auth.md)      | **Multi-tenant + Auth** _(orgs/projects/api_keys, GitHub OAuth, RLS)_                  | 🚨 Critical | 15h  | T-321, T-322 |
+|       [T-320](2026/Q2/T-320-agent-meter-alerts-budgets.md)       | **Alerts & Budgets** _(cost spike, error rate, hard cap, slack/email)_                 |   🔼 High   | 10h  | Pro+ pricing |
+|   [T-321](2026/Q2/T-321-agent-meter-landing-pricing-stripe.md)   | **Landing + Pricing + Stripe** _(agent-meter.com, checkout, webhook, customer portal)_ | 🚨 Critical | 13h  | $$ inicial   |
+|     [T-322](2026/Q2/T-322-agent-meter-hosted-saas-infra.md)      | **Hosted SaaS Infra** _(isolation RLS, ingest async, backup B2, status page, ToS)_     |   🔼 High   | 14h  | Cliente ext. |
+| [T-323](2026/Q2/T-323-agent-meter-quickstart-sdk-leaderboard.md) | **Quickstart + SDK + Leaderboard** _(pip/npm SDK, 60s TTV, /vs page, /leaderboard)_    |   🔼 High   | 14h  | Aquisição    |
+
+**Total epic**: ~80h (~2 semanas full-time, ~1 mês a meio-tempo).
+
+---
+
 ## 🏎️ In Progress
 
-|  ID   | Task Name                                                                                                          | Priority |    Owner     | Est. |
-| :---: | :----------------------------------------------------------------------------------------------------------------- | :------: | :----------: | :--: |
-| [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 1d |
-| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas** | 🔼 High | Cursor / AI Radar | 6h |
-| [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** | 🚨 Critical | Cursor / AI Radar | 4h |
-| [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md) | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_ | 🔵 Medium | **Cursor / AI Radar** | 2d |
-| T-233 | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ | 🔼 High  | **OpenCode** |  1h  |
+|                                         ID                                          | Task Name                                                                                                          |  Priority   |         Owner         | Est. |
+| :---------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------: | :--: |
+| [T-306](2026/Q2/T-306-OCI-health-watchdog-env-permission-e-sem-ntica-de-alertas.md) | **OCI health watchdog env permission e semântica de alertas**                                                      |   🔼 High   |   Cursor / AI Radar   |  6h  |
+|           [T-302](2026/Q2/T-302-qdbback-TLS-Prometheus-AL2023-backlog.md)           | **qdbback — Prometheus `/internal/metrics`, Let's Encrypt, AL2023** _(follow-up T-296; Fase A em andamento)_       |  🔵 Medium  | **Cursor / AI Radar** |  2d  |
+|                                        T-233                                        | **agent-meter — VSCode OTLP native integration doc** _(docs/agent-meter-otel.md update, wsl-vscode.md OTLP setup)_ |   🔼 High   |     **OpenCode**      |  1h  |
 
 ## 🔥 Blocker (Deploy back-end travado)
 
@@ -23,18 +50,40 @@
 
 ## 📅 Backlog (To Do)
 
-### Epic: Fleet Copilot (T-315) — Fase 2 entregue 2026-05-31 (T-327–335)
+### Epic: citools Deploy + CI Closure (T-344)
 
-| ID | Task Name | Priority | Est. |
-| :-: | :-------- | :------: | :--: |
-| [T-331](2026/Q2/T-331-SSDNodes-SSH-Alias-Canonical-Hostname.md) | **SSDNodes — SSH alias canônico (~/.ssh/config)** | 🔵 Medium | 30min |
-| [T-324](2026/Q2/T-324-Hermes-Agent-Phase2-Optional.md) | **Fleet Copilot — Hermes Agent fase 2 (opcional)** | 🔵 Medium | 2d |
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
+| [T-347](2026/Q2/T-347-Deploy-workers-Hetzner-OCI-SSDNodes.md) | **Deploy workers Hetzner / OCI / SSDNodes** | 🔼 High | **Cursor / AI Radar** | 1w |
+| [T-348](2026/Q2/T-348-Jenkins-deploy-jobs-apps-pontuais.md) | **Jenkins deploy-apps job parametrizado** | 🔼 High | **Cursor / AI Radar** | 1w |
 
-| ID  | Task Name | Priority | Epic | Est. |
-| :-: | :-------- | :------: | :--- | :--: |
-| [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md) | **SSDNodes SSH bruteforce diagnóstico e monitoria** _(overlap T-320a)_ | 🔼 High | Cursor / AI Radar | 1d |
-| [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md) | **Windows C capacity audit human-in-the-loop** | 🔼 High | Cursor / AI Radar | 2h |
+### Epic: SSDNodes n8n + Email Intelligence (T-361)
+
+| ID | Task Name | Priority | Owner | Est. |
+| :-: | :-------- | :------: | :---: | :--: |
+| [T-362b](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Gmail OAuth + n8n credentials** | 🚨 Critical | **Cursor / AI Radar** | 1d |
+
+|                                       ID                                        | Task Name                                                                                                                                                                                                                                                                                                  |  Priority   | Epic               | Est. |
+| :-----------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------------- | :--: |
+| [T-363](2026/Q2/T-363-AI-Radar-Google-Trends-Collector.md) | **AI Radar — Google Trends Collector** _(implementa T-271; alimenta pipeline Cursor)_ | 🔼 High | **Cursor / AI Radar** | 4h |
+| [T-351](2026/Q2/T-351-agent-meter-budgets-backend.md) | **agent-meter — Implement budgets backend** _(tabela `budgets` existe mas zero código; CRUD + avaliação + UI)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| [T-352](2026/Q2/T-352-agent-meter-notification-channels.md) | **agent-meter — Implement notification channels** _(tabela `notification_channels` existe mas zero código; webhook/slack dispatch + integrar em alerts)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| [T-353](2026/Q2/T-353-agent-meter-global-search.md) | **agent-meter — Global search implementation** _(search bar disabled no topbar → implementar busca por prompt/tool/model/conversation)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| [T-354](2026/Q2/T-354-agent-meter-api-key-auth.md) | **agent-meter — Enforce API key authentication** _(middleware Axum; SHA256 lookup; org_id filtering; REQUIRE_API_KEY flag)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| [T-355](2026/Q2/T-355-agent-meter-cost-engine-perf.md) | **agent-meter — Cost engine: compute_event_usd performance** _(pré-calcular usd_cost na inserção ou materialized view; melhorar token estimation)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| [T-356](2026/Q2/T-356-agent-meter-stripe-complete.md) | **agent-meter — Stripe billing: complete integration** _(provisionar keys; criar products; testar checkout/portal/webhook end-to-end; remover stubs)_ | 🔵 Medium | **Copilot/VSCode** | 4h |
+| [T-357](2026/Q2/T-357-agent-meter-ai-credits.md) | **agent-meter — Pricing model: add AI Credits concept** _(dual model: USD real vs AI Credits para Copilot/Cursor; separar no dashboard e cost page)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| [T-358](2026/Q2/T-358-agent-meter-code-cleanup.md) | **agent-meter — Code quality: dead code removal + clippy** _(clippy warnings; duplicação otlp; imports; #[allow(dead_code)]; sync eclipse-proxy vs proxy Rust)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
+| [T-359](2026/Q2/T-359-agent-meter-response-preview.md) | **agent-meter — Conversation response_preview population** _(extrair preview da resposta LLM; popular na conversations list API)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
+| [T-360](2026/Q2/T-360-agent-meter-pricing-auto-update.md) | **agent-meter — Pricing auto-update from provider APIs** _(scrape preços Anthropic/OpenAI/Google; UPSERT automático; cron job)_ | 🟢 Low | **Copilot/VSCode** | 4h |
+|            [T-324](2026/Q2/T-324-agent-meter-ux-overhaul-backlog.md)            | **agent-meter — UX/UI Overhaul Backlog Mestre** _(43 achados auditados; 16 sub-tasks: design system, layout shell, brand, dashboard refactor, pricing comparison + ROI, alerts templates + channels, timeline polish, /tasks HTML, 404 styled, a11y/Lighthouse — Epic SaaS Revenue → Polish & Conversion)_ | 🚨 Critical | **Copilot/VSCode** | 13d  |
+|             [T-322](2026/Q2/T-322-agent-meter-hosted-saas-infra.md)             | **agent-meter — Hosted SaaS Infra** _(~~ingest async~~✅ ~~RLS~~✅ ~~status page~~✅ ~~ToS/Privacy~~✅ ~~runbook~~✅; remaining: backup off-cluster B2)_                                                                                                                                                         |   🔼 High   | **Copilot/VSCode** | 4h  |
+|      [T-312](2026/Q2/T-312-AWS-qdbback-purge-failure-e-reten-o-de-logs.md)      | **AWS qdbback purge failure e retenção de logs**                                                                                                                                                                                                                                                           |   🔼 High   | Cursor / AI Radar  |  4h  |
+|        [T-311](2026/Q2/T-311-Hetzner-BuildKit-disk-growth-guardrails.md)        | **Hetzner BuildKit disk growth guardrails**                                                                                                                                                                                                                                                                | 🚨 Critical | Cursor / AI Radar  |  1d  |
+|    [T-310](2026/Q2/T-310-SSDNodes-SSH-bruteforce-diagn-stico-e-monitoria.md)    | **SSDNodes SSH bruteforce diagnóstico e monitoria**                                                                                                                                                                                                                                                        |   🔼 High   | Cursor / AI Radar  |  1d  |
+| [T-309](2026/Q2/T-309-OCI-ingress-LoadBalancer-pending-decis-o-arquitetural.md) | **OCI ingress LoadBalancer pending decisão arquitetural**                                                                                                                                                                                                                                                  |   🔼 High   | Cursor / AI Radar  |  4h  |
+|      [T-308](2026/Q2/T-308-Windows-C-capacity-audit-human-in-the-loop.md)       | **Windows C capacity audit human-in-the-loop**                                                                                                                                                                                                                                                             |   🔼 High   | Cursor / AI Radar  |  2h  |
+|   [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md)    | **OCI Longhorn disk headroom e política preventiva**                                                                                                                                                                                                                                                       |   🔼 High   | Cursor / AI Radar  |  1d  |
 
 | [T-285](2026/Q2/T-285-Rust-3D-Game-Mes-1.md) | **Rust 3D Game — Mês 1: Setup da Engine, Mecânicas Core & Prototipagem 3D** | 🔵 Medium | Rust 3D Steam Game | 4w |
 | [T-286](2026/Q2/T-286-Rust-3D-Game-Mes-2.md) | **Rust 3D Game — Mês 2: Level Design, HUD/UI & Integração com Steamworks SDK** | 🔵 Medium | Rust 3D Steam Game | 4w |
@@ -45,30 +94,51 @@
 | [T-272](2026/Q2/T-272-AI-Radar-YouTube-AI-Trends-Collector.md) | **AI Radar — YouTube AI Trends Collector** | 🔼 High | Cursor / AI Radar | 6h |
 | [T-271](2026/Q2/T-271-AI-Radar-Google-Trends-Collector-Spike.md) | **AI Radar — Google Trends Collector Spike** | 🔼 High | Cursor / AI Radar | 4h |
 
-
 ## ✅ Done
 
+| T-322 | **agent-meter — Async Ingest Buffer** _(IngestBuffer mpsc worker; persist_event helper; 10x block_in_place eliminated; PR #471 merged)_ | 🔼 High | **Copilot/VSCode** | 14h |
+| T-353 | **agent-meter — Global search ⌘K** _(search modal; debounce 300ms; arrow nav; /api/search wired; PR #472 merged)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| T-323 | **agent-meter — Quickstart + SDK + Leaderboard** _(Python SDK PR #462; Node.js SDK PR #463; quickstart page PR #465; docs SDK section PR #466; leaderboard + /vs pages already live)_ | 🔼 High | **Copilot/VSCode** | 14h |
+| T-356 | **agent-meter — Stripe billing: K8s env vars** _(PR #461 — wired STRIPE_SECRET_KEY, WEBHOOK_SECRET, PRICE_PRO, PRICE_TEAM from stripe-keys Secret; code already complete, awaiting Stripe Dashboard provisioning)_ | 🔵 Medium | **Copilot/VSCode** | 4h |
+| T-314 | **agent-meter — Trace Export (OTEL)** _(GET /api/export/traces; OTLP JSON format; Jaeger-compatible; semantic attrs)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| T-315 | **agent-meter — Session Replay UI** _(timeline.html waterfall + drawer + live badge + keyboard nav; conversation_detail route)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| T-316 | **agent-meter — Conversation Search & Insights** _(top-agents, error-patterns, cost-over-time endpoints; search ILIKE 7 fields; PR #430)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| T-325 | **agent-meter — Span Payload Inspector** _(tool_arguments + tool_result drawer with copy; migration 20260604000010; GIN index)_ | 🚨 Critical | **Copilot/VSCode** | 6h |
+| T-326 | **agent-meter — Parent-Child Span Nesting** _(parent_span_id + computeDepths(); indented waterfall with depth opacity)_ | 🚨 Critical | **Copilot/VSCode** | 8h |
+| T-327 | **agent-meter — Gap Analysis + Critical Path** _(computeGaps 80ms threshold; DP critical path; toggles; stats bar percentage)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| T-328 | **agent-meter — Flame Graph View** _(renderFlame() toggle; category breakdown; % bars)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| T-329 | **agent-meter — Trace Statistics Panel** _(P50/P95/P99; drawer Stats tab; category breakdown)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| T-330 | **agent-meter — Trace UX Polish** _(j/k nav; Esc close; ?span= deep link; copy-as-JSON; live-tail 5s)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
+| T-350 | **agent-meter — Remove hardcoded pricing from HTML** _(pricing page now dynamic via /api/billing/plans; JS renders tiers; done in prior session)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| T-351 | **agent-meter — Implement budgets backend** _(CRUD + evaluation; routes/budgets.rs; budget_service.rs; /api/budgets + /api/budgets/status)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| T-352 | **agent-meter — Implement notification channels** _(CRUD + dispatch webhook/slack; routes/notifications.rs; POST /api/notifications/test)_ | 🔼 High | **Copilot/VSCode** | 4h |
+| T-354 | **agent-meter — API key auth middleware** _(middleware/api_key_auth.rs; SHA256 lookup; REQUIRE_API_KEY flag; exempt paths for health/webhook/traces)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| T-355 | **agent-meter — Cost engine perf** _(migrated conversation_service.rs to SUM(usd_cost) — all queries now use precomputed column; PR #429)_ | 🔼 High | **Copilot/VSCode** | 2h |
+| T-357 | **agent-meter — AI Credits concept** _(billing_model + credits_per_request columns; copilot_credit/cursor_usage types; cost_service dual breakdown)_ | 🔼 High | **Copilot/VSCode** | 3h |
+| T-359 | **agent-meter — response_preview fix** _(removed impossible tool_name='llm_chat' filter; use mcp_server IS NULL; PR #429)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
+| T-340 | **agent-meter — MCP wrapper: IDE identification via env/header** _(accepts `AGENT_METER_IDE` env and `X-Agent-IDE` header fallback; PR #426 merged, deployed)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
+| T-358 | **agent-meter — Code quality: clippy cleanup** _(zero warnings; elided lifetime; suppressed too_many_arguments on OTLP internals; PR #426 merged)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
+| T-339 | **agent-meter — MCP wrapper: multi-agent setup guides** _(4 docs: cursor-mcp-wrapper.md, opencode-mcp-wrapper.md, copilot-cli-mcp-wrapper.md, mcp-wrapper-generic.md; PR #428 merged)_ | 🔵 Medium | **Copilot/VSCode** | 3h |
+| T-360 | **agent-meter — Pricing auto-update service** _(background 24h loop; 30+ models across 7 providers; UPSERT on startup; CancellationToken graceful shutdown; PR #428 merged)_ | 🟢 Low | **Copilot/VSCode** | 4h |
+| [T-342](2026/Q2/T-342-agent-meter-proxy-single-binary.md) | **agent-meter-proxy — Single binary HTTPS proxy** _(binário Rust cross-platform via hudsucker; intercepta IDE→LLM HTTPS; gera spans OTLP; PR #416 merged)_ | 🚨 Critical | **Copilot/VSCode** | 1d |
+| T-341 | **agent-meter — Eclipse proxy 100% coverage** _(request_bytes, response_bytes, max_tokens, temperature, llm_system, parent_span_id, cached_tokens, reasoning_tokens, finish_reason, response_text, tool_result cross-request correlation; doc: docs/agent-meter-telemetry-coverage.md)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
+| T-342 | **agent-meter — VS Code OTLP 100% coverage** _(captureContent=true habilitado; port-forward 4318 ativo; 24/27 campos preenchidos, 3 impossíveis sem env vars)_ | 🚨 Critical | **Copilot/VSCode** | 1h |
+| [T-362a](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Postgres email-intelligence K8s + RLS** _(ClusterIP, NetworkPolicy, schema RLS, pgcrypto; harness PASS)_ | 🚨 Critical | **Cursor / AI Radar** | 1d |
+| [T-362c](2026/Q2/T-362-EPIC-email-automation-subtasks.md) | **Ollama host bridge para n8n** _(socat UFW pod-CIDR + nginx proxy ollama-host; harness PASS)_ | 🔼 High | **Cursor / AI Radar** | 4h |
+| [T-346](2026/Q2/T-346-citools-deploy-catalog-CLI-list-plan-run.md) | **citools deploy catalog + CLI** _(list/plan/run + --changed; harness PASS)_ | 🔼 High | **Cursor / AI Radar** | 1w |
+| [T-362](2026/Q2/T-362-n8n-email-AI-classification-research-spec.md) | **Email automation — research/specs (ADR, threat model, schema, subtasks)** | 🚨 Critical | **Cursor / AI Radar** | 2d |
+| [T-304](2026/Q2/T-304-OCI-MinIO-backup-capacity-headroom-e-retention-IaC-TUI.md) | **OCI MinIO backup capacity headroom e retention IaC/TUI** _(55% /data 2026-06-09)_ | 🚨 Critical | **Cursor / AI Radar** | 1d |
+| [T-305](2026/Q2/T-305-OCI-logrotate-rsyslog-aggressive-duplicado-em-IaC-TUI.md) | **OCI logrotate rsyslog-aggressive duplicado em IaC/TUI** _(4/4 nós OK)_ | 🚨 Critical | **Cursor / AI Radar** | 4h |
+| [T-342](2026/Q2/T-342-SSDNodes-CI-bump-Sonar-26-6-Jenkins-2-567-JDK25.md) | **SSDNodes CI — bump Sonar 26.6 + Jenkins 2.567 JDK25** | 🔼 High | **Cursor / AI Radar** | 4h |
+| [T-343](2026/Q2/T-343-SSDNodes-Jenkins-reverse-proxy-security-hardening.md) | **SSDNodes Jenkins — reverse proxy + security hardening** | 🔼 High | **Cursor / AI Radar** | 1d |
+| [T-341](2026/Q2/T-341-SSDNodes-Jenkins-SonarQube-Platform.md) | **SSDNodes — Jenkins + SonarQube CE (IaC/TUI/DNS)** _(PR #394 merged)_ | 🔼 High | **Cursor / AI Radar** | 3–5d |
+| [T-345](2026/Q2/T-345-GitHub-branch-protection-Jenkins-webhook.md) | **GitHub branch protection + Jenkins webhook** | 🔼 High | **Cursor / AI Radar** | 1d |
+| [T-349](2026/Q2/T-349-Jenkins-Blue-Ocean-pipeline-stage-view-UX.md) | **Jenkins Blue Ocean + pipeline stage view UX** | 🚨 Critical | **Cursor / AI Radar** | 2d |
+| T-343 | **agent-meter — Copilot CLI interceptor validado** _(mesmo copilot_interceptor.py via HTTPS_PROXY; gpt-5.4 interceptado; 5 tool calls + results capturados; copilot-cli-metered.sh wrapper criado)_ | 🚨 Critical | **Copilot/VSCode** | 2h |
+| T-321 | **agent-meter — T-321 Landing + Pricing + Stripe Checkout** _(página `/pricing` 4 tiers Free/Pro \$19/Team \$99/Enterprise + FAQ; `/api/billing/checkout` (live ou stub), `/api/billing/portal`, `/api/billing/webhook` HMAC-SHA256, state machine de billing_events; ENV-driven (STRIPE_SECRET_KEY/WEBHOOK_SECRET/PRICE_PRO/TEAM); validado em prod: /pricing 200, checkout retorna stub URL)_ | 🚨 Critical | **Copilot/VSCode** | 13h |
+| T-319.1 | **agent-meter — T-319.1 GitHub OAuth + Sessions + Middleware** _(migration sessions/billing_events; auth_service: exchange_code, fetch_user, upsert (org slug=user-{login}, role=owner), HMAC state CSRF; routes /login, /auth/github, /auth/github/callback, /auth/logout, /api/me; cookie am_session HttpOnly Secure SameSite=Lax 30d; ui/login.html; validado em prod: /login 200, /api/me 401, /auth/github 503 (env unset))_ | 🚨 Critical | **Copilot/VSCode** | 6h |
 | ID | Task Name | Priority | Owner | Est. |
-| :-: | :-------- | :------: | :---: | :--: |
-| [T-307](2026/Q2/T-307-OCI-Longhorn-disk-headroom-e-pol-tica-preventiva.md) | **OCI Longhorn disk headroom e política preventiva** _(Backend Rust + Dashboard v2 + Runbook; implantação pendente de aplicação de RBAC devido ao SSH/MFA)_ | 🔼 High | Antigravity | 1d |
-| [T-315](2026/Q2/T-315-Fleet-Copilot-Epic-Overview.md) | **Fleet Copilot — Epic MVP** _(T-320→323 live; chat SSE em reports.dnor.io/#fleet-copilot; PR #367)_ | 🔼 High | Cursor / AI Radar | 2–3w |
-| [T-320](2026/Q2/T-320-Fleet-Copilot-Security-Prerequisites.md) | **Fleet Copilot — Pré-requisitos segurança** _(SSH key-only, fail2ban, UFW, Dashboard view-only, Tailscale; gate 2026-05-30)_ | 🚨 Critical | Cursor / AI Radar | 3d |
-| [T-321](2026/Q2/T-321-Fleet-Ops-Gateway-Ollama-SSDNodes.md) | **Fleet Copilot — Ops Gateway + Ollama @ monstro** _(gemma3:4b localhost, gateway :18443, IaC scripts)_ | 🔼 High | Cursor / AI Radar | 3d |
-| [T-322](2026/Q2/T-322-Fleet-Copilot-Proxy-Reports-API.md) | **Fleet Copilot — Proxy rs-observability-api** _(auth cookie, rate limit, /api/fleet/chat + /stream; audit Postgres backlog)_ | 🔼 High | Cursor / AI Radar | 3d |
-| [T-323](2026/Q2/T-323-Fleet-Copilot-UI-Reports.md) | **Fleet Copilot — UI reports** _(view #fleet-copilot, presets, SSE tokens, source pills; PR #367)_ | 🔼 High | Cursor / AI Radar | 2d |
-| [T-330](2026/Q2/T-330-SSDNodes-Canonical-Hostname-Rename.md) | **SSDNodes — hostname canônico (UI Copilot + registry + harness)** _(PR #374; depreca apelido monstro na UI)_ | 🔼 High | Cursor / AI Radar | 2h |
-| [T-332](2026/Q2/T-332-Fleet-Copilot-Fleet-Context-Manifest.md) | **Fleet Copilot — manifesto fleet no LLM + fast-path meta** _(PR #375)_ | 🔼 High | Cursor / AI Radar | 4h |
-| [T-327](2026/Q2/T-327-Fleet-Copilot-Inference-Loading-UX.md) | **Fleet Copilot — loading UX + status endpoint** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-328](2026/Q2/T-328-Fleet-Copilot-E2E-Playwright.md) | **Fleet Copilot — Playwright smoke** | 🔵 Medium | Cursor / AI Radar | 6h |
-| [T-329](2026/Q2/T-329-Fleet-Copilot-Phase2-Backlog-Epic.md) | **Fleet Copilot — epic fase 2** _(T-327–335)_ | 🔵 Medium | Cursor / AI Radar | 1–2w |
-| [T-333](2026/Q2/T-333-Fleet-Copilot-Multi-Node-Scope.md) | **Fleet Copilot — multi-node OCI + external** | 🔼 High | Cursor / AI Radar | 1–2d |
-| [T-334](2026/Q2/T-334-Fleet-Copilot-Intent-Routing-And-Model.md) | **Fleet Copilot — intent routing + fallback** | 🔼 High | Cursor / AI Radar | 1d |
-| [T-335](2026/Q2/T-335-Fleet-Copilot-Gemma-Performance-Structured-Replies.md) | **Fleet Copilot — structured replies bypass Gemma** | 🔼 High | Cursor / AI Radar | 1d |
-
-|                                                ID                                                | Task Name                                                                                                                                                                                                                                                                     |  Priority   |               Owner               |  Est.  |
 | :----------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :-------------------------------: | :----: |
-| [T-312](2026/Q2/T-312-AWS-qdbback-purge-failure-e-reten-o-de-logs.md) | **AWS qdbback purge failure e retenção de logs** | 🔼 High | Cursor / AI Radar | 4h |
-| [T-311](2026/Q2/T-311-Hetzner-BuildKit-disk-growth-guardrails.md) | **Hetzner BuildKit disk growth guardrails** | 🚨 Critical | Cursor / AI Radar | 1d |
 | T-300 | **SSDNodes — DNS `s3.ssdnodes.dnor.io` + `minio.ssdnodes.dnor.io` → 104.225.218.78** _(registros A criados; Let's Encrypt READY para ambos os domínios; MinIO HTTPS funcional via Ingress)_ | 🔵 Medium | **Copilot/VSCode** | 30min |
 | T-303 | **SSDNodes — K8s Dashboard + Kubecost HTTPS** _(k8s.ssdnodes.dnor.io HTTP 200 TLS R12; cost.ssdnodes.dnor.io HTTP 200 TLS R13; chart tgz kubernetes-retired/dashboard v7.14.0; Kubecost 2.8.6 pinado; Prometheus+Grafana bundled; PR #352)_ | 🔵 Medium | **Copilot/VSCode** | 2h |
 | T-299 | **SSDNodes K8s — Workloads base deployados** _(local-path-provisioner SC padrão; nginx-ingress DaemonSet hostNetwork 80/443; MinIO standalone 500 GiB PVC Bound; Ingresses s3/minio.ssdnodes.dnor.io; manifests em components/ssdnodes/; PR #329 merged)_ | 🔼 High | **Copilot/VSCode** | 2h |
@@ -303,5 +373,23 @@
 | [T-010](2025/Q4/T-010-Self-Hosted-Pixie.md) | **Deploy Self-Hosted Pixie** | SaaS dependency, no ARM64 CLI, replaced by DeepFlow | 2025-12-07 |
 
 ---
+
+## ✅ Done (Recent)
+
+| ID    | Task Name                                                                                                                                                                                                                                                                                                        | Priority    | Owner              | Est. |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------ | ---- |
+| T-342 | **agent-meter — Live validation harness por ferramenta** _(✅ scripts `validate_copilot_eclipse.sh`, `validate_claude_code.sh`, `validate_codex_cli.sh`, `validate_mcp_semconv.sh`, `validate_all_agents.sh`; workflow `.github/workflows/agent-meter-validation.yml`; CI com Postgres service + migrações SQL)_ | 🔵 Medium   | **Copilot/VSCode** | 4h   |
+| T-336 | **agent-meter — Copilot for Eclipse: detecção UA + guia** _(✅ detecção por `eclipse/jdt` no `infer_ide`; fixture `eclipse_copilot_execute_tool.json`; teste `test_otlp_eclipse_copilot_execute_tool_and_chat`; guia `docs/setup/copilot-eclipse.md`)_                                                           | 🟢 Low      | **Copilot/VSCode** | 1h   |
+| T-338 | **agent-meter — `infer_ide` refactor + unit tests** _(✅ extraído para `otlp/ide.rs`; tabela de regras por prioridade `(ua_pattern, svc_pattern) → ide`; 15 testes unitários cobrindo copilot/cursor/antigravity/claude/codex/opencode/rust-rover/eclipse; regressão de prioridade `copilot-cli` validada)_      | 🔵 Medium   | **Copilot/VSCode** | 2h   |
+| T-337 | **agent-meter — Regression test harness + fixtures OTLP** _(✅ 6 fixtures JSON: vscode-copilot, cursor, claude-code, codex-cli, mcp-semconv; `tests/otlp_regression.rs` com 8 testes; cargo test passa; commit `5fe7047`)_                                                                                       | 🔼 High     | **Copilot/VSCode** | 5h   |
+| T-341 | **agent-meter — Dashboard: breakdown "By IDE/Agent"** _(✅ `IdeBreakdown` struct; `GET /reports/by-ide` SQL GROUP BY ide; card "By Agent / IDE" no dashboard com barra colorida + % LLM + tokens; commit `49debed`)_                                                                                             | 🔵 Medium   | **Copilot/VSCode** | 3h   |
+| T-335 | **agent-meter — MCP OTel semconv: parser `tools/call <tool>`** _(✅ branch `tools/call` no dispatcher JSON e Proto; reutiliza `map_tool_call_json`/`map_tool_call`; `mcp.session.id` como fallback `conversation_id`; `gen_ai.tool.call.result` como alias; commit `5fe7047`)_                                   | 🚨 Critical | **Copilot/VSCode** | 4h   |
+| T-334 | **agent-meter — Codex CLI: corrigir `infer_ide`** _(✅ bug crítico: `rust-rover` estava mapeado como `codex`; separados; adicionado `claude-code`, `copilot-cli`, `eclipse`; commit `5fe7047`)_                                                                                                                  | 🔼 High     | **Copilot/VSCode** | 2h   |
+| T-333 | **agent-meter — Claude Code: OTLP ingestion + detecção + fixture** _(✅ `infer_ide` detecta `service.name=claude/claude-code`; `gen_ai.tool.call.result` + `mcp.session.id`; fixture `claude_code_execute_tool.json`; commit `5fe7047`)_                                                                         | 🔼 High     | **Copilot/VSCode** | 3h   |
+| T-320 | **agent-meter — Alerts & Budgets** _(✅ MVP: alert_rules, evaluate engine, /alerts UI, history; cost_spike validado em prod $36 obs vs $5 thr)_                                                                                                                                                                  | 🔼 High     | **Copilot/VSCode** | 10h  |
+| T-319 | **agent-meter — Multi-tenant + Auth (MVP scaffolding)** _(✅ tabelas orgs/users/memberships/api_keys, /api/orgs, hash sha256; OAuth/RLS pendente em T-319.1)_                                                                                                                                                    | 🚨 Critical | **Copilot/VSCode** | 15h  |
+| T-318 | **agent-meter — Cost Attribution Engine** _(✅ model_pricing 20 models, compute_event_usd, /cost dashboard, /api/cost/summary; $38.60 last 7d em prod)_                                                                                                                                                          | 🚨 Critical | **Copilot/VSCode** | 8h   |
+| T-317 | **agent-meter — Timeline Waterfall APM** _(✅ SVG waterfall, minimap, group/filter/zoom, drawer, USD por evento; validado em conversa de 435 events)_                                                                                                                                                            | 🚨 Critical | **Copilot/VSCode** | 6h   |
+| T-313 | **agent-meter — Conversation Timeline View** _(✅ backend + frontend testados e consolidados; endpoints funcionais)_                                                                                                                                                                                             | 🔼 High     | **Copilot/VSCode** | 4h   |
 
 > **Legend**: 🚨 Critical, 🔼 High/Med, 🔽 Low

@@ -26,7 +26,7 @@ export class DataTable {
     columns = [],
     columnsHeaders = {},
     orderBys = {},
-    defaulOrderBysStr = '',
+    defaultOrderBysStr = '',
     columnTypes = {},
     columnsFormats = {},
     locale = 'pt-BR',
@@ -83,7 +83,7 @@ export class DataTable {
     })
     this.domPaginationElement = this.pagination.domElement
     this.fatherElement = fatherElement
-    this.defaulOrderBysStr = defaulOrderBysStr
+    this.defaultOrderBysStr = defaultOrderBysStr
     this.init()
   }
 
@@ -217,7 +217,7 @@ export class DataTable {
         const newOrderBysStr = orderBysObjToStr(this.orderBys)
         const currentOrderBysStr = url.searchParams.get('sort_by')
         if ((newOrderBysStr !== currentOrderBysStr) || !newOrderBysStr) {
-          if (!newOrderBysStr || (newOrderBysStr === this.defaulOrderBysStr)) {
+          if (!newOrderBysStr || (newOrderBysStr === this.defaultOrderBysStr)) {
             url.searchParams.delete('sort_by')
           } else {
             url.searchParams.set('sort_by', newOrderBysStr)
@@ -350,7 +350,7 @@ export class DataTable {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(err)
-      this.domTableContainerElement.innerText = 'Erro ao obter dados. Atualize a página'
+      this.domTableContainerElement.innerText = 'Error fetching data. Please refresh the page'
       this.afterFetchData(err)
     }
   }
@@ -360,7 +360,7 @@ export class DataTable {
     this.domTableBody.innerHTML = ''
   }
 
-  static async fetchData() {
+  async fetchData() {
     return {
       rows: [],
       total: 0,
@@ -374,7 +374,7 @@ export class DataTable {
     }
   }
 
-  static async handleFetchDataError(err) {
+  async handleFetchDataError(err) {
     // eslint-disable-next-line no-console
     console.error(err)
   }

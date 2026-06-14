@@ -80,3 +80,12 @@ Se um PVC foi alocado com tamanho excessivo (ex: 20GiB para uso real de 2GiB), u
 
 *   **Configuração de Retention**: Mantenha a política `Gold Standard` ativa no cluster (`Gold Standard Backup Timer`). Ela garante que backups diários sejam exportados para o MinIO externo e snapshots locais antigos sejam expurgados a cada 24 horas.
 *   **Thresholds no Kubernetes (Kubelet)**: O Kubelet de cada nó é configurado com `--eviction-hard=imagefs.available<10%,nodefs.available<10%`. Monitorar o headroom acima de 15 GiB garante que as ações sejam tomadas antes do despejo forçado de workloads.
+
+---
+
+## 5. Matriz de Severidade do Health Watchdog
+
+O script `cluster_health_check.sh` roda diariamente e avalia o cluster gerando alarmes do systemd (`k8s-health-check.service`). A semântica de saída (Exit Status) é definida como:
+
+*   **Exit `0` (Success / Warning)**: O cluster está operando de forma saudável. Alertas não-críticos (como headrooms de disco reduzidos mas não esgotados, ou correntes de backup com falhas parciais) são exibidos no stdout e processados como WARNING. O serviço systemd **não falhará**.
+*   **Exit `2` (Critical)**: Falha gravíssima detectada (CrashLoopBackOffs persistentes em namespaces críticos, OOMKills sistemáticos ou discos 100% cheios). O serviço systemd **falhará**, disparando os handlers de alarme configurados.

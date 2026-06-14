@@ -216,7 +216,7 @@ node_action_menu() {
         echo -e "2. ${MAGENTA}Deep Forensics (Previous Boot Logs)${NC} - Use after reboot"
         echo -e "3. ${CYAN}Live Forensics (Current Boot Logs)${NC} - If node is reachable"
         echo -e "4. ${YELLOW}Serial Console Logs (Boot History)${NC} - ${BOLD}Run this if stuck in Reboot Loop!${NC}"
-        echo -e "5. ${GREEN}Whitelist My IP (OCI Security List)${NC} - ${BOLD}SSH (22) and/or HTTPS (80/443)${NC}"
+        echo -e "5. ${GREEN}Whitelist My IP (Fix SSH Block)${NC} - ${BOLD}Add rule to OCI Security List${NC}"
         echo -e "6. ${MAGENTA}Resource Usage (Top Processes)${NC} - ${BOLD}Identify CPU/RAM Hogs${NC}"
         echo -e "7. ${CYAN}Auto-Fix Kubelet Typo${NC} - ${BOLD}Repair known 'override.conf' error${NC}"
         echo -e "8. ${YELLOW}Control Plane Health${NC} - ${BOLD}Inspect Kubelet, API & Etcd Logs${NC}"
@@ -468,41 +468,13 @@ node_action_menu() {
                 read -p "Press Enter to continue..."
                 ;;
             5)
-                echo -e "\n${CYAN}Whitelist your public IPv4 on the node Security List${NC}"
-                if getent ahosts reports.dnor.io 2>/dev/null | head -1 | grep -q '127.0.0.1'; then
-                    echo -e "${YELLOW}⚠  reports.dnor.io resolves to 127.0.0.1 (local /etc/hosts override).${NC}"
-                    echo -e "${YELLOW}   HTTPS will fail until overrides are removed or an SSH tunnel is running.${NC}"
-                    read -p "Remove local *.dnor.io hosts overrides now? (y/N): " clear_hosts
-                    if [[ "$clear_hosts" =~ ^[Yy]$ ]]; then
-                        bash "${CLOUD_DIR}/../maintenance/clear_local_dnor_hosts.sh"
-                    fi
-                fi
-                echo ""
-                echo "  1) SSH only (port 22)"
-                echo "  2) HTTPS/Web (ports 80-443)"
-                echo "  3) Both (default)"
-                read -p "Choice [3]: " wl_ports
-                wl_ports="${wl_ports:-3}"
-                local ocid
-                ocid=$(get_instance_ocid_by_name "$node_name")
-                local wl_ok=true
-                case "$wl_ports" in
-                    1)
-                        whitelist_my_ip "$ocid" 22 22 || wl_ok=false
-                        ;;
-                    2)
-                        whitelist_my_ip "$ocid" 80 443 || wl_ok=false
-                        ;;
-                    *)
-                        whitelist_my_ip "$ocid" 22 22 || wl_ok=false
-                        whitelist_my_ip "$ocid" 80 443 || wl_ok=false
-                        ;;
-                esac
-                if [[ "$wl_ok" == "true" ]]; then
-                    echo -e "${GREEN}Success! Security List updated for your current IPv4.${NC}"
+                echo -e "\n${CYAN}Attempting to whitelist your IP...${NC}"
+                local ocid=$(get_instance_ocid_by_name "$node_name")
+                if whitelist_my_ip "$ocid"; then
+                    echo -e "${GREEN}Success! You should now be able to SSH.${NC}"
                     alert_sound
                 else
-                    echo -e "${RED}Failed to whitelist IP (see errors above).${NC}"
+                    echo -e "${RED}Failed to whitelist IP.${NC}"
                     echo -e "\a"
                 fi
                 echo "Press Enter to continue..."

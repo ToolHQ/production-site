@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.eclipse.jdt.junit.launchconfig">
+    <booleanAttribute key="org.eclipse.debug.core.appendEnvironmentVariables" value="true"/>
+    <mapAttribute key="org.eclipse.debug.core.environmentVariables">
+        <mapEntry key="OTEL_EXPORTER_OTLP_ENDPOINT" value="https://agent-meter.dnor.io"/>
+        <mapEntry key="OTEL_EXPORTER_OTLP_PROTOCOL" value="http/protobuf"/>
+        <mapEntry key="OTEL_RESOURCE_ATTRIBUTES" value="deployment.environment=dev,service.namespace=ide,service.version=1.0.0"/>
+        <mapEntry key="OTEL_SERVICE_NAME" value="eclipse-copilot"/>
+        <mapEntry key="OTEL_TRACES_EXPORTER" value="otlp"/>
+    </mapAttribute>
+    <stringAttribute key="org.eclipse.jdt.junit.CONTAINER" value="=copilot-eclipse-sandbox"/>
+    <stringAttribute key="org.eclipse.jdt.junit.TEST_KIND" value="org.eclipse.jdt.junit.loader.junit5"/>
+    <stringAttribute key="org.eclipse.jdt.launching.CLASSPATH_PROVIDER" value="org.eclipse.m2e.launchconfig.classpathProvider"/>
+    <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="copilot-eclipse-sandbox"/>
+    <stringAttribute key="org.eclipse.jdt.launching.SOURCE_PATH_PROVIDER" value="org.eclipse.m2e.launchconfig.sourcepathProvider"/>
+    <stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-javaagent:${project_loc}/lib/opentelemetry-javaagent.jar"/>
+</launchConfiguration>

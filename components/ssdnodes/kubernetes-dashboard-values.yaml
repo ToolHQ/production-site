@@ -1,4 +1,4 @@
-# Kubernetes Dashboard — SSDNodes / ssdnodes-6a12f10c9ef11 (chart oficial v7.14.0)
+# Kubernetes Dashboard — ssdnodes-monstro (chart oficial v7.14.0)
 # Chart: kubernetes-dashboard-7.14.0.tgz (kubernetes-retired/dashboard)
 # TLS termination pelo nginx-ingress + cert-manager.
 # Kong proxy serve HTTPS internamente → backend-protocol: HTTPS no ingress.

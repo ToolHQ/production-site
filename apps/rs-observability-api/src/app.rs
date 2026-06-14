@@ -3,12 +3,12 @@ use axum::{
     extract::{Path as AxumPath, State},
     http::{header, HeaderValue, StatusCode},
     response::{Html, IntoResponse, Response},
-    routing::{get, post},
+    routing::get,
     Json, Router,
 };
 
 pub(super) fn build_app(state: AppState) -> Router {
-    let mut router = Router::new()
+    Router::new()
         .route("/", get(index))
         .route("/health", get(health))
         .route("/api/catalog", get(catalog))
@@ -24,95 +24,11 @@ pub(super) fn build_app(state: AppState) -> Router {
         .route("/api/namespaces", get(namespaces))
         .route("/api/reports", get(report_index))
         .route("/artifacts/*path", get(artifact))
+        // Assets estáticos do Vite — embutidos no binário via include_bytes!
         .route("/assets/app.js", get(asset_js))
         .route("/assets/app.css", get(asset_css))
-        .route("/favicon.svg", get(favicon));
-
-    if state.fleet_copilot.is_some() {
-        router = router
-            .route("/fleet-copilot", get(copilot_login_route))
-            .route("/api/fleet/copilot/session", get(copilot_session_route))
-            .route("/api/fleet/copilot/logout", post(copilot_logout_route))
-            .route("/api/fleet/chat", post(copilot_chat_route))
-            .route("/api/fleet/chat/stream", post(copilot_chat_stream_route))
-            .route("/api/fleet/copilot/hosts", get(copilot_hosts_route))
-            .route("/api/fleet/copilot/status", get(copilot_status_route));
-    }
-
-    router.with_state(state)
-}
-
-async fn copilot_login_route(
-    State(state): State<AppState>,
-    query: axum::extract::Query<fleet_copilot::LoginQuery>,
-) -> Response {
-    let Some(fc) = state.fleet_copilot.clone() else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    fleet_copilot::copilot_login(State(fc), query).await
-}
-
-async fn copilot_session_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<fleet_copilot::SessionResponse>, StatusCode> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    fleet_copilot::copilot_session(State(fc), headers).await
-}
-
-async fn copilot_logout_route() -> Response {
-    fleet_copilot::copilot_logout().await
-}
-
-async fn copilot_chat_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-    body: Json<fleet_copilot::ChatRequest>,
-) -> Result<Json<fleet_copilot::ChatResponse>, StatusCode> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    let manifest = state
-        .enrich_manifest_for_message(state.build_fleet_manifest().await, &body.message)
-        .await;
-    fleet_copilot::copilot_chat(State(fc), manifest, headers, body).await
-}
-
-async fn copilot_chat_stream_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-    body: Json<fleet_copilot::ChatRequest>,
-) -> Result<
-    axum::response::sse::Sse<
-        impl futures_util::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
-    >,
-    StatusCode,
-> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    let manifest = state
-        .enrich_manifest_for_message(state.build_fleet_manifest().await, &body.message)
-        .await;
-    fleet_copilot::copilot_chat_stream(State(fc), manifest, headers, body).await
-}
-
-async fn copilot_hosts_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<Value>, StatusCode> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    if !fc.check_auth(&headers) {
-        return Err(StatusCode::NOT_FOUND);
-    }
-    let manifest = state.build_fleet_manifest().await;
-    Ok(Json(
-        manifest.get("hosts").cloned().unwrap_or_else(|| json!([])),
-    ))
-}
-
-async fn copilot_status_route(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<fleet_copilot::StatusResponse>, StatusCode> {
-    let fc = state.fleet_copilot.clone().ok_or(StatusCode::NOT_FOUND)?;
-    fleet_copilot::copilot_status(State(fc), headers).await
+        .route("/favicon.svg", get(favicon))
+        .with_state(state)
 }
 
 async fn index() -> Html<&'static str> {
@@ -280,7 +196,6 @@ async fn longhorn_volumes(State(state): State<AppState>) -> Response {
         None => Json(crate::LonghornResponse {
             available: false,
             volumes: vec![],
-            nodes_capacity: vec![],
             total: 0,
             healthy: 0,
             degraded: 0,
@@ -606,7 +521,6 @@ mod tests {
             secondary_live_monitor: None,
             prometheus_monitor: Arc::new(PrometheusMonitor::new()),
             coroot_client: None,
-            fleet_copilot: None,
         }
     }
 

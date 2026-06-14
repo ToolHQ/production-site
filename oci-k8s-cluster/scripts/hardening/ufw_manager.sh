@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # oci-k8s-cluster/scripts/hardening/ufw_manager.sh
-# Gerenciador de firewall UFW para máquinas remotas (SSDNodes / fleet externa).
+# Gerenciador de firewall UFW para máquinas remotas (ssdnodes-monstro e afins).
 #
 # Uso:
 #   ufw_manager.sh [--host HOST] [--status|--apply|--disable]
@@ -11,6 +11,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+GITHUB_WEBHOOK_IPS_FILE="${GITHUB_WEBHOOK_IPS_FILE:-$REPO_ROOT/components/ssdnodes/github-webhook-ip-ranges.txt}"
 FZF_BIN="${FZF_BIN:-/tmp/k8s_ops_fzf}"
 [[ ! -x "$FZF_BIN" ]] && FZF_BIN="$(command -v fzf 2>/dev/null || echo fzf)"
 
@@ -19,8 +21,7 @@ FZF_BIN="${FZF_BIN:-/tmp/k8s_ops_fzf}"
 # Adicione/remova hosts aqui. Cada entrada é um alias SSH (de ~/.ssh/config).
 # ─────────────────────────────────────────────────────────────────────────────
 declare -A MANAGED_HOSTS=(
-    ["ssdnodes-6a12f10c9ef11"]="104.225.218.78 | x86_64 | 12vCPU/60GB | SSDNodes dedicado"
-    ["ssdnodes-monstro"]="104.225.218.78 | x86_64 | 12vCPU/60GB | alias SSH legado → ssdnodes-6a12f10c9ef11"
+    ["ssdnodes-monstro"]="104.225.218.78 | x86_64 | 12vCPU/60GB | Servidor dedicado SSDNodes"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -44,21 +45,10 @@ INGRESS_IPS=(
     "150.136.88.87   # OCI k8s-node-3"
 )
 
-# Prometheus node_exporter scrape (Coroot external fleet) — fonte: config/external-fleet/registry.yaml
-METRICS_IPS=(
-    "150.136.34.254  # OCI k8s-master"
-    "150.136.67.52   # OCI k8s-node-1"
-    "150.136.70.212  # OCI k8s-node-2"
-    "150.136.88.87   # OCI k8s-node-3"
-)
-
-# Tailscale CGNAT — ingress 80/443 + fleet-ops-gateway 8443 (T-320e)
-TAILSCALE_CIDR="100.64.0.0/10"
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Flags
 # ─────────────────────────────────────────────────────────────────────────────
-TARGET_HOST="ssdnodes-6a12f10c9ef11"
+TARGET_HOST="ssdnodes-monstro"
 ACTION=""
 
 _parse_args() {
@@ -83,10 +73,6 @@ _parse_args() {
 # ─────────────────────────────────────────────────────────────────────────────
 _SSH="ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no"
 
-_ssh() {
-    $_SSH "$TARGET_HOST" "$@"
-}
-
 _ok()   { echo -e "\033[0;32m✔\033[0m  $*"; }
 _warn() { echo -e "\033[1;33m⚠\033[0m  $*"; }
 _err()  { echo -e "\033[0;31m✘\033[0m  $*" >&2; }
@@ -95,6 +81,20 @@ _head() { echo -e "\n\033[1;34m══ $* \033[0m"; }
 
 # Extrai só o IP de uma linha do array (ignora comentário após #)
 _ip() { echo "$1" | awk '{print $1}'; }
+
+# CIDRs GitHub hooks (T-345) — arquivo versionado, sync via sync_github_webhook_ips.sh
+_load_github_webhook_cidrs() {
+    local cidrs=()
+    if [[ -f "$GITHUB_WEBHOOK_IPS_FILE" ]]; then
+        while IFS= read -r line; do
+            line="${line%%#*}"
+            line="${line// /}"
+            [[ -z "$line" ]] && continue
+            cidrs+=("$line")
+        done <"$GITHUB_WEBHOOK_IPS_FILE"
+    fi
+    printf '%s\n' "${cidrs[@]}"
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Gera o script UFW completo que será executado remotamente
@@ -185,6 +185,18 @@ ufw allow from ${TAILSCALE_CIDR} to any port 18443 comment "tailscale-fleet-ops-
 echo "  ✔  ${TAILSCALE_CIDR} → 80/443/18443"
 HEREDOC_TS
 
+    # GitHub webhooks → Jenkins :443 (T-345)
+    echo ""
+    echo "echo \"\""
+    echo "echo \"━━ GITHUB WEBHOOKS (:443) ━━━━━━━━━━━━━━━━━━━━━━━\""
+    while IFS= read -r cidr; do
+        [[ -z "$cidr" ]] && continue
+        cat <<HEREDOC_GH
+ufw allow from ${cidr} to any port 443 comment "github-webhook" >/dev/null
+echo "  ✔  ${cidr} → 443 (github-webhook)"
+HEREDOC_GH
+    done < <(_load_github_webhook_cidrs)
+
     # node_exporter :9100 — só IPs OCI (T-320b)
     echo ""
     echo "echo \"\""
@@ -245,7 +257,7 @@ HEREDOC_ENABLE
 # ─────────────────────────────────────────────────────────────────────────────
 action_status() {
     _head "Status UFW em $TARGET_HOST"
-    _ssh "
+    $_SSH "$TARGET_HOST" "
         if command -v ufw &>/dev/null; then
             echo '--- UFW status ---'
             ufw status verbose 2>/dev/null
@@ -272,7 +284,7 @@ action_apply() {
         return 0
     fi
 
-    echo "$ufw_script" | $_SSH "$(_ssh_alias_for "$TARGET_HOST")" "sudo bash" 2>/dev/null \
+    echo "$ufw_script" | $_SSH "$TARGET_HOST" "sudo bash" 2>/dev/null \
         && _ok "Regras aplicadas com sucesso em $TARGET_HOST" \
         || { _err "Falha ao aplicar regras em $TARGET_HOST"; exit 1; }
 }
@@ -287,7 +299,7 @@ action_disable() {
     _warn "Isso abrirá TODOS os ports ao mundo. Apenas para emergência."
     read -rp "Confirmar? (sim/N): " confirm
     [[ "$confirm" != "sim" ]] && { echo "Cancelado."; return 0; }
-    _ssh "sudo ufw disable" 2>/dev/null \
+    $_SSH "$TARGET_HOST" "sudo ufw disable" 2>/dev/null \
         && _ok "UFW desabilitado em $TARGET_HOST" \
         || _err "Falha ao desabilitar UFW"
 }
@@ -310,7 +322,7 @@ action_interactive() {
     selected=$(echo "$menu_items" | "$FZF_BIN" \
         --height=40% --layout=reverse --border \
         --prompt="UFW Manager ($TARGET_HOST) > " \
-        --header="Firewall — ssdnodes-6a12f10c9ef11 (22/tcp: SEMPRE ABERTO)") || true
+        --header="Firewall — ssdnodes-monstro (22/tcp: SEMPRE ABERTO)") || true
 
     [[ -z "$selected" ]] && return 0
 

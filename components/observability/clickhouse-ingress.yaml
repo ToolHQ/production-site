@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clickhouse-ingress
+  namespace: coroot
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "100.64.0.0/10, 189.62.149.233/32" # Tailscale IPs + user public IP
+    cert-manager.io/cluster-issuer: letsencrypt-dns01
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - clickhouse.dnor.io
+    secretName: clickhouse-tls
+  rules:
+  - host: clickhouse.dnor.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: coroot-clickhouse
+            port:
+              number: 8123

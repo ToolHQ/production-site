@@ -1,0 +1,57 @@
+# pipeline.yaml — fonte de verdade dos stages CI (citools)
+#
+# Jenkins SSDNodes substitui GitHub Actions (quality-gates, codeql, auto-docs).
+# Local: citools run-all --pipeline components/ssdnodes/jenkins/pipeline.yaml
+#
+# Campos:
+#   stageName  — rótulo no Blue Ocean
+#   when       — env:VAR | branch:main | never
+#   whenPaths  — globs (AND com when) vs .citools-changed-paths
+#   jenkins    — false = só run-all local
+
+version: 1
+name: production-site-default
+
+stages:
+  - id: verify-branch
+    stageName: Verify branch
+    description: Harness path-aware vs origin/main (shell, rust, bats, js, yaml, citools)
+    run: ./components/ssdnodes/jenkins/scripts/verify-branch-ci.sh
+
+  - id: codeql
+    stageName: CodeQL
+    description: Análise estática JS/TS + Python → GitHub Security
+    when: env:GITHUB_TOKEN
+    whenPaths: apps/**,components/**,tools/**,oci-k8s-cluster/**
+    run: ./tools/citools/scripts/codeql-scan.sh
+
+  - id: archive-docs
+    stageName: Archive/Planned docs
+    description: No-op for archived/planned component references
+    whenPaths: components/_archived/**,components/_planned/**
+    run: echo "Archive/planned docs updated — no build needed"
+
+  - id: sonar-scan
+    stageName: Sonar scan
+    description: SonarQube scanner
+    when: env:SONAR_TOKEN
+    whenPaths: tools/citools/**,components/ssdnodes/**,oci-k8s-cluster/scripts/ssdnodes/**,sonar-project.properties
+    run: ./tools/citools/scripts/sonar-scan.sh
+
+  - id: changelog
+    stageName: Update CHANGELOG
+    description: git-cliff + push main [skip ci]
+    when: branch:main
+    run: ./tools/citools/scripts/changelog-update.sh
+
+  - id: validate-ssdnodes-ci
+    stageName: Validate SSDNodes CI
+    description: Smoke TLS Sonar/Jenkins no SSDNodes
+    when: env:VALIDATE_SSDNODES_CI
+    run: ./scripts/harness/validate_ssdnodes_ci.sh
+
+  - id: plan
+    stageName: Plan (local)
+    description: Dry-run — imprime plano (só dev/local)
+    jenkins: false
+    run: citools plan --pipeline components/ssdnodes/jenkins/pipeline.yaml

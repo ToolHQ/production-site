@@ -70,7 +70,7 @@ metadata:
   name: gta-vi-ingress
   namespace: gta-vi
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "letsencrypt-dns01"
 spec:
   ingressClassName: nginx
   tls:

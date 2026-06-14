@@ -1,6 +1,7 @@
 # T-311: Hetzner BuildKit disk growth guardrails
 
 - **Status**: Done
+- **PR**: feat/t-311-buildkit-guardrails
 - **Priority**: 🚨 Critical
 - **Epic/Owner**: Cursor / AI Radar
 - **Estimation**: 1d
@@ -13,13 +14,13 @@ Como o Hetzner é builder CI/CD, o crescimento sem limite pode derrubar builds e
 
 ## Tasks
 
-- [ ] Inspecionar volume `buildx_buildkit_hetzner-builder0_state` e confirmar o que ocupa ~39.2G.
-- [ ] Mapear quais workflows/deploys escrevem no builder e se usam `--load`, cache local ou registros temporários.
-- [ ] Definir política de prune segura: idade, tamanho máximo e exceções para builds ativos.
-- [ ] Implementar timer/script idempotente para `docker buildx prune`/BuildKit GC com dry-run/log.
-- [ ] Integrar no setup do Hetzner builder e/ou TUI hardening para reaplicar em rebuild.
-- [ ] Documentar capacidade, thresholds e comandos de emergência.
-- [ ] Validar redução de disco sem quebrar `oci-builder`/fallback CI.
+- [x] Inspecionar volume `buildx_buildkit_hetzner-builder0_state` (~39G → ~18G após prune; buildkit data ~14GiB).
+- [x] Mapear workflows: `deploy-buildx.sh` + `deploy.sh --builder hetzner-builder --load` (ai-radar, agent-meter, etc.).
+- [x] Política: prune 16gb max; reset se rootfs ≥75% ou buildkit ≥16GiB.
+- [x] `buildkit_guardrails.sh` + systemd timer 6h + `install_buildkit_guardrails.sh`.
+- [x] Integrado em `setup-hetzner-builder.sh` + check em `check-hetzner-builder.sh`.
+- [x] Docs: `docs/hetzner-buildkit-guardrails.md`.
+- [x] Harness `validate_hetzner_buildkit_guardrails.sh`; disco 75%, builds OK.
 
 ## Validação
 

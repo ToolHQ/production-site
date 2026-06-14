@@ -19,7 +19,7 @@ rules:
     resources: ["ingresses"]
     verbs: ["get", "list"]
   - apiGroups: ["longhorn.io"]
-    resources: ["volumes", "nodes"]
+    resources: ["volumes"]
     verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims", "persistentvolumes"]
@@ -56,12 +56,9 @@ metadata:
   name: rs-observability-api-ingress
   namespace: default
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "240"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "240"
-    nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    nginx.ingress.kubernetes.io/proxy-body-size: "64k"
-    nginx.ingress.kubernetes.io/limit-rps: "10"
+    cert-manager.io/cluster-issuer: letsencrypt-dns01
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
 spec:
   ingressClassName: nginx
   tls:
@@ -87,8 +84,6 @@ metadata:
   namespace: default
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: rs-observability-api
@@ -142,37 +137,6 @@ spec:
               value: p3m78dle
             - name: SECONDARY_KUBECONFIG_PATH
               value: /etc/kubeconfigs/ssdnodes/kubeconfig
-            # Fleet Copilot (T-322) — Secret: fleet-copilot-creds
-            - name: FLEET_COPILOT_ENABLED
-              valueFrom:
-                secretKeyRef:
-                  name: fleet-copilot-creds
-                  key: FLEET_COPILOT_ENABLED
-                  optional: true
-            - name: FLEET_COPILOT_LOGIN_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: fleet-copilot-creds
-                  key: FLEET_COPILOT_LOGIN_KEY
-                  optional: true
-            - name: FLEET_COPILOT_SESSION_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: fleet-copilot-creds
-                  key: FLEET_COPILOT_SESSION_SECRET
-                  optional: true
-            - name: FLEET_COPILOT_GATEWAY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: fleet-copilot-creds
-                  key: FLEET_COPILOT_GATEWAY_URL
-                  optional: true
-            - name: FLEET_COPILOT_GATEWAY_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: fleet-copilot-creds
-                  key: FLEET_COPILOT_GATEWAY_TOKEN
-                  optional: true
           volumeMounts:
             - name: ssdnodes-kubeconfig
               mountPath: /etc/kubeconfigs/ssdnodes
@@ -182,8 +146,8 @@ spec:
               cpu: 25m
               memory: 64Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 200m
+              memory: 256Mi
           livenessProbe:
             httpGet:
               path: /health

@@ -80,7 +80,8 @@ function inlineFormat(text) {
 }
 
 async function apiJson(path) {
-  const res = await fetch(path, {
+  if (!path.startsWith("/")) throw new Error("Invalid API path");
+  const res = await fetch(new URL(path, window.location.origin), {
     headers: { Accept: "application/json" },
   });
   if (!res.ok) {
@@ -91,7 +92,8 @@ async function apiJson(path) {
 }
 
 async function apiPost(path, body) {
-  const res = await fetch(path, {
+  if (!path.startsWith("/")) throw new Error("Invalid API path");
+  const res = await fetch(new URL(path, window.location.origin), {
     method: "POST",
     headers: {
       Accept: "application/json",

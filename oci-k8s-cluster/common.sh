@@ -47,7 +47,7 @@ WORKER_NODES=("${NODES[@]:1}")
 # BEGIN EXTERNAL_FLEET_NODES
 EXTERNAL_NODES=(
   "hetzner-cax21-helsinki-4vcpu-8gb-ipv4"  # HETZNER @ 37.27.85.100
-  "ssdnodes-6a12f10c9ef11"  # SSD-NODES @ 104.225.218.78
+  "ssdnodes-monstro"  # SSD-NODES @ 104.225.218.78
   "aws-ec2-fleet-01"  # AWS-EC2 @ honeypot.dnor.io
 )
 # END EXTERNAL_FLEET_NODES

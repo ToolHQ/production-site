@@ -264,18 +264,9 @@ export interface LonghornVolume {
   node: string;
 }
 
-export interface LonghornNodeCapacity {
-  name: string;
-  schedulable: boolean;
-  storage_maximum: number;
-  storage_scheduled: number;
-  storage_available: number;
-}
-
 export interface LonghornData {
   available: boolean;
   volumes: LonghornVolume[];
-  nodes_capacity?: LonghornNodeCapacity[];
   total: number;
   healthy: number;
   degraded: number;

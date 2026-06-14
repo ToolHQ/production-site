@@ -15,7 +15,6 @@ import { useNamespaces } from './hooks/useNamespaces';
 import { DashboardHeader } from './components/DashboardHeader';
 import { SignalCard, SignalGrid } from './components/SignalCard';
 import { NodesPanel } from './components/NodesPanel';
-import { FleetCopilotPage } from './components/FleetCopilotPage';
 import { ClusterMetrics } from './components/ClusterMetrics';
 import { IncidentList, RestartHotspots } from './components/IncidentList';
 import { ServiceGrid } from './components/ServiceCard';
@@ -34,7 +33,6 @@ import { NamespacePanel } from './components/NamespacePanel';
 import { DnorTopNav } from './components/DnorTopNav';
 import { GlobalSearchPalette } from './components/GlobalSearchPalette';
 import { DnorShellProvider, useDnorShell } from './context/DnorShellContext';
-import { FleetCopilotProvider } from './context/FleetCopilotContext';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ExportMenu } from './components/ExportMenu';
 
@@ -70,9 +68,7 @@ function useWindowWidth() {
 export function App() {
   return (
     <DnorShellProvider>
-      <FleetCopilotProvider>
-        <AppContent />
-      </FleetCopilotProvider>
+      <AppContent />
     </DnorShellProvider>
   );
 }
@@ -84,16 +80,6 @@ function AppContent() {
 
   // Initialize theme (dark mode support)
   useTheme();
-
-  useEffect(() => {
-    const on = view === 'fleet-copilot';
-    document.body.classList.toggle('dnor-view-fleet-copilot', on);
-    document.documentElement.classList.toggle('dnor-view-fleet-copilot', on);
-    return () => {
-      document.body.classList.remove('dnor-view-fleet-copilot');
-      document.documentElement.classList.remove('dnor-view-fleet-copilot');
-    };
-  }, [view]);
 
   const { data: live, error: liveError } = useLiveOverview();
   const { summary, catalog, reports, error: snapshotError } = useSnapshot();
@@ -146,26 +132,28 @@ function AppContent() {
           const cpuArr = [...next[nodeName].cpu];
           const memArr = [...next[nodeName].mem];
           const diskArr = [...next[nodeName].disk];
+          let nodeModified = false;
 
           if (cpuArr.length === 0 || cpuArr[cpuArr.length - 1].timestamp !== ts) {
             cpuArr.push({ timestamp: ts, value: metrics.cpu_percent });
             memArr.push({ timestamp: ts, value: metrics.mem_percent });
             diskArr.push({ timestamp: ts, value: metrics.disk_percent });
-            modified = true;
+            nodeModified = true;
           }
 
           if (cpuArr.length > 20) {
             cpuArr.shift();
             memArr.shift();
             diskArr.shift();
-            modified = true;
+            nodeModified = true;
           }
 
-          if (modified) {
+          if (nodeModified) {
             next[nodeName] = { cpu: cpuArr, mem: memArr, disk: diskArr };
+            modified = true;
           }
         }
-        return next;
+        return modified ? next : prev;
       });
     }
   }, [live]);
@@ -204,20 +192,12 @@ function AppContent() {
 
   const errorMessage = [liveError, snapshotError].filter(Boolean).join(' | ');
   const showOverview = view === 'overview';
-  const isCopilotView = view === 'fleet-copilot';
 
   return (
     <>
       <DnorTopNav liveAvailable={Boolean(live?.available)} />
       <GlobalSearchPalette live={live} />
 
-      {isCopilotView ? (
-        <main class="main--fleet-copilot">
-          <section class="shell shell--fleet-copilot" id="dnor-fleet-copilot">
-            <FleetCopilotPage />
-          </section>
-        </main>
-      ) : (
       <main>
       <section class="shell">
         {/* ── Masthead (overview only) ── */}
@@ -485,7 +465,6 @@ function AppContent() {
         </div>
       )}
     </main>
-      )}
     </>
   );
 }

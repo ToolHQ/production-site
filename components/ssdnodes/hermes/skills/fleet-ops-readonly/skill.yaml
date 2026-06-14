@@ -1,0 +1,5 @@
+name: fleet-ops-readonly
+description: "Executes read-only operations on the production cluster via the Fleet Ops Gateway HTTP API."
+entrypoint: "python main.py"
+env:
+  - FLEET_OPS_GATEWAY_TOKEN

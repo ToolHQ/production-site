@@ -22,7 +22,6 @@ use serde_json::{json, Value};
 use tokio::sync::RwLock;
 
 mod app;
-mod fleet_copilot;
 
 const INDEX_HTML: &str = include_str!("../web-v2/dist/index.html");
 const ASSET_JS: &[u8] = include_bytes!("../web-v2/dist/assets/app.js");
@@ -39,7 +38,6 @@ const PROMETHEUS_BASE_URL_DEFAULT: &str =
     "http://coroot-prometheus-server.coroot.svc.cluster.local";
 
 const EXTERNAL_NODES_JSON: &str = include_str!("../config/external_nodes.json");
-const MAX_TARGETED_HOSTS: usize = 3;
 
 fn external_node_specs() -> &'static [ExternalNodeSpec] {
     static SPECS: OnceLock<Vec<ExternalNodeSpec>> = OnceLock::new();
@@ -49,106 +47,6 @@ fn external_node_specs() -> &'static [ExternalNodeSpec] {
                 .unwrap_or_else(|err| panic!("failed to parse external_nodes.json: {err}"))
         })
         .as_slice()
-}
-
-fn is_compare_message(message: &str) -> bool {
-    let m = message.to_lowercase();
-    ["compar", " vs ", " versus ", "entre ", " x ", "contra "]
-        .iter()
-        .any(|n| m.contains(n))
-}
-
-fn is_fleet_wide_resources_message(message: &str) -> bool {
-    let m = message.to_lowercase();
-    [
-        "como estão os recursos",
-        "como estao os recursos",
-        "status da fleet",
-        "situação da fleet",
-        "situacao da fleet",
-        "visão geral",
-        "visao geral",
-        "panorama",
-        "health geral",
-        "como está a infra",
-        "como esta a infra",
-    ]
-    .iter()
-    .any(|n| m.contains(n))
-        || (m.contains("recursos") && !m.contains("k8s-node") && !m.contains("ssdnodes-6a12f10c"))
-}
-
-fn match_manifest_host_ids(needle: &str, manifest: &Value, compare: bool) -> Vec<String> {
-    let Some(hosts) = manifest.get("hosts").and_then(|h| h.as_array()) else {
-        return Vec::new();
-    };
-    let mut ids: Vec<String> = Vec::new();
-    let mut push_id = |id: &str| {
-        if !ids.iter().any(|x| x == id) {
-            ids.push(id.to_string());
-        }
-    };
-
-    for h in hosts {
-        let id = h
-            .get("id")
-            .or_else(|| h.get("name"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let name = h.get("name").and_then(|v| v.as_str()).unwrap_or("");
-        let ip = h.get("ip").and_then(|v| v.as_str()).unwrap_or("");
-        let cluster = h.get("cluster").and_then(|v| v.as_str()).unwrap_or("");
-        for token in [id, name, ip] {
-            if !token.is_empty() && needle.contains(&token.to_lowercase()) {
-                push_id(if id.is_empty() { name } else { id });
-            }
-            // @mention chips (T-333)
-            let at_token = format!("@{token}");
-            if !token.is_empty() && needle.contains(&at_token.to_lowercase()) {
-                push_id(if id.is_empty() { name } else { id });
-            }
-        }
-        if compare {
-            let cluster_lc = cluster.to_lowercase();
-            if !cluster_lc.is_empty() && needle.contains(&cluster_lc) {
-                push_id(if id.is_empty() { name } else { id });
-            }
-        }
-    }
-
-    if compare {
-        for (alias, cluster) in [
-            ("hetzner", "HETZNER"),
-            ("ssdnodes", "SSD-NODES"),
-            ("6a12f10c", "SSD-NODES"),
-            ("oci", "OCI"),
-            ("k8s-node", "OCI"),
-            ("k8s-master", "OCI"),
-            ("aws", "AWS-EC2"),
-            ("honeypot", "AWS-EC2"),
-            ("172-31", "AWS-EC2"),
-        ] {
-            if !needle.contains(alias) {
-                continue;
-            }
-            for h in hosts {
-                if h.get("cluster").and_then(|v| v.as_str()) != Some(cluster) {
-                    continue;
-                }
-                let id = h
-                    .get("id")
-                    .or_else(|| h.get("name"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                if !id.is_empty() {
-                    push_id(id);
-                }
-            }
-        }
-    }
-
-    ids.truncate(MAX_TARGETED_HOSTS);
-    ids
 }
 
 const KNOWN_REPORTS: &[(&str, &str, &str, &str)] = &[
@@ -191,7 +89,255 @@ struct AppState {
     secondary_live_monitor: Option<Arc<LiveMonitor>>,
     prometheus_monitor: Arc<PrometheusMonitor>,
     coroot_client: Option<Arc<CorootClient>>,
+    clickhouse_client: Option<ClickHouseClient>,
     fleet_copilot: Option<Arc<fleet_copilot::FleetCopilotState>>,
+}
+
+#[derive(Clone)]
+struct ClickHouseClient {
+    http: Client,
+    base_url: String,
+}
+
+#[derive(Deserialize, Default)]
+struct ChFail2BanStatRow {
+    total: String,
+    failed: String,
+    banned: String,
+}
+
+#[derive(Deserialize, Default, Clone)]
+struct ChHoneypotStatRow {
+    total: String,
+    last24h: String,
+    classified: String,
+    unclassified: String,
+}
+
+#[derive(Deserialize, Default, Clone)]
+struct ChHoneypotTagRow {
+    tag: String,
+    count: String,
+}
+
+#[derive(Deserialize, Clone)]
+struct ChBannedIpRow {
+    ip: String,
+    hits: serde_json::Value,
+    first_seen: serde_json::Value,
+    last_seen: serde_json::Value,
+    statuses: Vec<String>,
+}
+
+#[derive(Serialize, Clone, Default, Deserialize)]
+pub(crate) struct BannedIpDetail {
+    pub ip: String,
+    pub hits: u64,
+    pub first_seen: u64,
+    pub last_seen: u64,
+    pub statuses: Vec<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct ChResponse<T> {
+    data: Vec<T>,
+}
+
+impl ClickHouseClient {
+    fn new(base_url: String) -> Self {
+        let http = Client::builder()
+            .timeout(Duration::from_secs(8))
+            .build()
+            .expect("clickhouse http client");
+        ClickHouseClient { http, base_url }
+    }
+
+    async fn fetch_fail2ban_stats(&self) -> Option<Fail2BanStats> {
+        let query = "SELECT \
+            count() as total, \
+            countIf(status IN ('failed', 'found')) as failed, \
+            countIf(status IN ('banned', 'ban')) as banned \
+            FROM threat_intel_events \
+            WHERE service IN ('fail2ban', 'sshd') AND timestamp >= now() - INTERVAL 7 DAY FORMAT JSON";
+
+        let stats_resp = match self
+            .http
+            .get(&self.base_url)
+            .query(&[("query", query)])
+            .header("X-ClickHouse-User", "default")
+            .header("X-ClickHouse-Key", "i4FtSOCFXu")
+            .send()
+            .await
+        {
+            Ok(resp) => resp,
+            Err(e) => {
+                eprintln!("ClickHouse fetch_fail2ban_stats error: {}", e);
+                return None;
+            }
+        };
+
+        if !stats_resp.status().is_success() {
+            eprintln!(
+                "ClickHouse fetch_fail2ban_stats failed: HTTP {}",
+                stats_resp.status()
+            );
+            return None;
+        }
+
+        let stats_data = stats_resp
+            .json::<ChResponse<ChFail2BanStatRow>>()
+            .await
+            .ok()?;
+        let stat_row = stats_data.data.first()?;
+
+        let ips_query = "SELECT ip, count() as hits, toUnixTimestamp(min(timestamp)) as first_seen, toUnixTimestamp(max(timestamp)) as last_seen, groupArray(status) as statuses \
+            FROM threat_intel_events \
+            WHERE service IN ('fail2ban', 'sshd') AND status IN ('banned', 'ban') AND timestamp >= now() - INTERVAL 7 DAY \
+            GROUP BY ip ORDER BY hits DESC LIMIT 20 FORMAT JSON";
+
+        let ips_resp = self
+            .http
+            .get(&self.base_url)
+            .query(&[("query", ips_query)])
+            .header("X-ClickHouse-User", "default")
+            .header("X-ClickHouse-Key", "i4FtSOCFXu")
+            .send()
+            .await
+            .ok()?;
+        let ips_data = ips_resp.json::<ChResponse<ChBannedIpRow>>().await.ok()?;
+
+        Some(Fail2BanStats {
+            total: stat_row.total.parse().unwrap_or(0),
+            failed: stat_row.failed.parse().unwrap_or(0),
+            banned: stat_row.banned.parse().unwrap_or(0),
+            banned_ip_details: ips_data
+                .data
+                .into_iter()
+                .map(|r| BannedIpDetail {
+                    ip: r.ip,
+                    hits: r
+                        .hits
+                        .as_u64()
+                        .unwrap_or_else(|| r.hits.as_str().unwrap_or("0").parse().unwrap_or(0)),
+                    first_seen: r.first_seen.as_u64().unwrap_or_else(|| {
+                        r.first_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    last_seen: r.last_seen.as_u64().unwrap_or_else(|| {
+                        r.last_seen.as_str().unwrap_or("0").parse().unwrap_or(0)
+                    }),
+                    statuses: r.statuses,
+                })
+                .collect(),
+            timestamp: unix_epoch_seconds(),
+        })
+    }
+
+    pub(crate) async fn fetch_honeypot_overview(&self) -> HoneypotOverview {
+        let stats_query = "SELECT count() as total, countIf(timestamp >= now() - INTERVAL 1 DAY) as last24h, countIf(classification != 'unknown') as classified, countIf(classification == 'unknown') as unclassified FROM threat_intel_events WHERE service = 'honeypot' FORMAT JSON";
+        
+        let stats_resp = match self.http.get(&self.base_url).query(&[("query", stats_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await {
+            Ok(resp) => resp,
+            Err(_) => return HoneypotOverview::default(),
+        };
+        
+        let stats_data = stats_resp.json::<ChResponse<ChHoneypotStatRow>>().await.unwrap_or_default();
+        let stat_row = stats_data.data.first().cloned().unwrap_or_default();
+        
+        let top_tags_query = "SELECT classification as tag, count() as count FROM threat_intel_events WHERE service = 'honeypot' AND classification != 'unknown' GROUP BY tag ORDER BY count DESC LIMIT 10 FORMAT JSON";
+        let tags_resp = self.http.get(&self.base_url).query(&[("query", top_tags_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let top_tags = if let Some(resp) = tags_resp {
+            let tags_data = resp.json::<ChResponse<ChHoneypotTagRow>>().await.unwrap_or_default();
+            tags_data.data.into_iter().map(|r| HoneypotTagCount { tag: r.tag, count: r.count.parse().unwrap_or(0) }).collect()
+        } else {
+            vec![]
+        };
+
+        let recent_query = "SELECT timestamp, method, path, ip, user_agent as userAgent, classification as tag FROM threat_intel_events WHERE service = 'honeypot' ORDER BY timestamp DESC LIMIT 15 FORMAT JSON";
+        let recent_resp = self.http.get(&self.base_url).query(&[("query", recent_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let recent_requests = if let Some(resp) = recent_resp {
+            let recent_data = resp.json::<ChResponse<HoneypotRecentRequest>>().await.unwrap_or_default();
+            recent_data.data
+        } else {
+            vec![]
+        };
+
+        let mut node = HoneypotNodeStats::default();
+        node.id = "AWS-EC2".to_string();
+        node.cluster = "AWS-EC2".to_string();
+        node.instance_host = "ec2.dnor.io".to_string();
+        node.available = true;
+        node.total = stat_row.total.parse().unwrap_or(0);
+        node.last24h = stat_row.last24h.parse().unwrap_or(0);
+        node.classified = stat_row.classified.parse().unwrap_or(0);
+        node.unclassified = stat_row.unclassified.parse().unwrap_or(0);
+        node.top_tags = top_tags;
+        node.recent_requests = recent_requests;
+        node.refreshed_at_epoch = unix_epoch_seconds();
+
+        HoneypotOverview {
+            available: true,
+            nodes: vec![node],
+        }
+    }
+
+    pub(crate) async fn fetch_honeypot_requests(&self, query: &HoneypotRequestsQuery) -> HoneypotRequestsResponse {
+        let mut filters = vec!["service = 'honeypot'".to_string()];
+        
+        if let Some(m) = &query.method {
+            filters.push(format!("method = '{}'", m.replace('\'', "''")));
+        }
+        if let Some(p) = &query.path {
+            filters.push(format!("path ILIKE '%{}%'", p.replace('\'', "''")));
+        }
+        if let Some(ip) = &query.ip {
+            filters.push(format!("ip = '{}'", ip.replace('\'', "''")));
+        }
+        if let Some(c) = &query.classification {
+            filters.push(format!("classification = '{}'", c.replace('\'', "''")));
+        }
+        if query.exclude_internal.unwrap_or(false) {
+            filters.push("path NOT ILIKE '/internal/%'".to_string());
+        }
+        
+        let where_clause = filters.join(" AND ");
+        
+        let count_query = format!("SELECT count() as total FROM threat_intel_events WHERE {} FORMAT JSON", where_clause);
+        let count_resp = self.http.get(&self.base_url).query(&[("query", &count_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let total = if let Some(resp) = count_resp {
+            let data = resp.json::<ChResponse<ChFail2BanStatRow>>().await.unwrap_or_default();
+            data.data.first().map(|r| r.total.parse().unwrap_or(0)).unwrap_or(0)
+        } else {
+            0
+        };
+        
+        let limit = query.limit.unwrap_or(50).clamp(1, 100);
+        let offset = query.offset.unwrap_or(0);
+        
+        let rows_query = format!("SELECT toUnixTimestamp(timestamp) as id, timestamp, method, path, toUInt16OrZero(status) as statusCode, ip as remoteIp, ip as remoteHostname, country, classification, time_elapsed as timeElapsed, user_agent as userAgent FROM threat_intel_events WHERE {} ORDER BY timestamp DESC LIMIT {} OFFSET {} FORMAT JSON", where_clause, limit, offset);
+        
+        let rows_resp = self.http.get(&self.base_url).query(&[("query", &rows_query)]).header("X-ClickHouse-User", "default").header("X-ClickHouse-Key", "i4FtSOCFXu").send().await.ok();
+        let rows = if let Some(resp) = rows_resp {
+            let data = resp.json::<ChResponse<HoneypotRequest>>().await.unwrap_or_default();
+            data.data
+        } else {
+            vec![]
+        };
+        
+        HoneypotRequestsResponse { total, rows }
+    }
+}
+
+async fn build_coroot_client() -> Option<CorootClient> {
+    let base_url = env::var("COROOT_BASE_URL")
+        .unwrap_or_else(|_| "http://coroot.coroot.svc.cluster.local:8080".to_string());
+    let project_id = env::var("COROOT_PROJECT_ID").unwrap_or_else(|_| "p3m78dle".to_string());
+    match (env::var("COROOT_EMAIL"), env::var("COROOT_PASSWORD")) {
+        (Ok(email), Ok(password)) => Some(CorootClient::new(base_url, email, password, project_id)),
+        _ => {
+            eprintln!("[warn] COROOT_EMAIL/COROOT_PASSWORD not set — coroot alerts disabled");
+            None
+        }
+    }
 }
 
 impl AppState {
@@ -509,65 +655,16 @@ pub(crate) struct LonghornVolume {
     node: String,
 }
 
-#[derive(Serialize, Clone, Debug)]
-pub(crate) struct LonghornNodeCapacity {
-    name: String,
-    schedulable: bool,
-    storage_maximum: u64,
-    storage_scheduled: u64,
-    storage_available: u64,
-}
-
 #[derive(Serialize)]
 pub(crate) struct LonghornResponse {
     available: bool,
     volumes: Vec<LonghornVolume>,
-    nodes_capacity: Vec<LonghornNodeCapacity>,
     total: usize,
     healthy: usize,
     degraded: usize,
     faulted: usize,
     queried_at_epoch: u64,
     error: Option<String>,
-}
-
-// Deserialization structs for node.longhorn.io
-#[derive(Deserialize, Clone, Default)]
-struct LonghornNodeResource {
-    #[serde(default)]
-    metadata: ObjectMeta,
-    spec: Option<LonghornNodeSpec>,
-    status: Option<LonghornNodeStatus>,
-}
-
-#[derive(Deserialize, Clone, Default)]
-struct LonghornNodeSpec {
-    #[serde(default, rename = "allowScheduling")]
-    allow_scheduling: Option<bool>,
-    #[serde(default)]
-    disks: BTreeMap<String, LonghornDiskSpec>,
-}
-
-#[derive(Deserialize, Clone, Default)]
-struct LonghornDiskSpec {
-    #[serde(default, rename = "allowScheduling")]
-    allow_scheduling: Option<bool>,
-}
-
-#[derive(Deserialize, Clone, Default)]
-struct LonghornNodeStatus {
-    #[serde(default, rename = "diskStatus")]
-    disk_status: BTreeMap<String, LonghornDiskStatus>,
-}
-
-#[derive(Deserialize, Clone, Default)]
-struct LonghornDiskStatus {
-    #[serde(default, rename = "storageAvailable")]
-    storage_available: u64,
-    #[serde(default, rename = "storageScheduled")]
-    storage_scheduled: u64,
-    #[serde(default, rename = "storageMaximum")]
-    storage_maximum: u64,
 }
 
 // K8s CRD deserialization helpers for Longhorn
@@ -1730,18 +1827,12 @@ async fn main() {
         }
     };
 
-    let fleet_copilot = fleet_copilot::FleetCopilotState::from_env();
-    if fleet_copilot.is_some() {
-        println!("fleet copilot enabled");
-    }
-
     let state = AppState {
         reports_root: Arc::new(reports_root),
         live_monitor,
         secondary_live_monitor,
         prometheus_monitor,
         coroot_client,
-        fleet_copilot,
     };
 
     let app = app::build_app(state);
@@ -2024,15 +2115,12 @@ impl LiveMonitor {
     pub(crate) async fn fetch_longhorn(&self) -> LonghornResponse {
         let now = unix_epoch_seconds();
 
-        // Fetch PVCs, Longhorn volumes, and Longhorn nodes in parallel for cross-mapping
-        let (vol_result, pvc_result, nodes_result) = tokio::join!(
+        // Fetch PVCs and Longhorn volumes in parallel for cross-mapping
+        let (vol_result, pvc_result) = tokio::join!(
             self.fetch_json::<KubeList<LonghornVolumeResource>>(
                 "/apis/longhorn.io/v1beta2/namespaces/longhorn-system/volumes"
             ),
-            self.fetch_json::<KubeList<PvcResource>>("/api/v1/persistentvolumeclaims"),
-            self.fetch_json::<KubeList<LonghornNodeResource>>(
-                "/apis/longhorn.io/v1beta2/namespaces/longhorn-system/nodes"
-            )
+            self.fetch_json::<KubeList<PvcResource>>("/api/v1/persistentvolumeclaims")
         );
 
         let list = match vol_result {
@@ -2041,7 +2129,6 @@ impl LiveMonitor {
                 return LonghornResponse {
                     available: false,
                     volumes: vec![],
-                    nodes_capacity: vec![],
                     total: 0,
                     healthy: 0,
                     degraded: 0,
@@ -2094,44 +2181,6 @@ impl LiveMonitor {
             })
             .collect();
 
-        let nodes_capacity: Vec<LonghornNodeCapacity> = match nodes_result {
-            Ok(nodes_list) => nodes_list
-                .items
-                .into_iter()
-                .map(|n| {
-                    let name = n.metadata.name.clone().unwrap_or_default();
-                    let spec = n.spec.unwrap_or_default();
-                    let status = n.status.unwrap_or_default();
-
-                    let mut storage_available = 0;
-                    let mut storage_scheduled = 0;
-                    let mut storage_maximum = 0;
-
-                    for disk in status.disk_status.values() {
-                        storage_available += disk.storage_available;
-                        storage_scheduled += disk.storage_scheduled;
-                        storage_maximum += disk.storage_maximum;
-                    }
-
-                    let schedulable = spec.allow_scheduling.unwrap_or(true)
-                        && (spec.disks.is_empty()
-                            || spec
-                                .disks
-                                .values()
-                                .any(|d| d.allow_scheduling.unwrap_or(true)));
-
-                    LonghornNodeCapacity {
-                        name,
-                        schedulable,
-                        storage_maximum,
-                        storage_scheduled,
-                        storage_available,
-                    }
-                })
-                .collect(),
-            Err(_) => vec![],
-        };
-
         let total = volumes.len();
         let healthy = volumes.iter().filter(|v| v.robustness == "healthy").count();
         let degraded = volumes
@@ -2142,7 +2191,6 @@ impl LiveMonitor {
         LonghornResponse {
             available: true,
             volumes,
-            nodes_capacity,
             total,
             healthy,
             degraded,

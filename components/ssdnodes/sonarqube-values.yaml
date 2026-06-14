@@ -1,0 +1,43 @@
+# SonarQube Community Build (T-341 / T-342) — chart SonarSource/sonarqube
+# JDBC → PostgreSQL em sonarqube-db.svc.cluster.local
+# Helm chart pin: 2026.3.1 (deploy_ssdnodes_components.sh)
+
+community:
+  enabled: true
+  buildNumber: "26.6.0.123539"
+
+# tag explícito alinhado ao buildNumber (override helm); vazio = resolve via community.*
+image:
+  tag: 26.6.0.123539-community
+
+postgresql:
+  enabled: false
+
+jdbcOverwrite:
+  enable: true
+  jdbcUrl: "jdbc:postgresql://sonarqube-db-postgresql.sonarqube-db.svc.cluster.local:5432/sonar"
+  jdbcUsername: sonar
+  jdbcSecretName: sonarqube-db-credentials
+  jdbcSecretPasswordKey: password
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 10Gi
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 2Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+sonarProperties:
+  sonar.forceAuthentication: "true"
+
+ingress:
+  enabled: false
+
+monitoringPasscodeSecretName: sonarqube-monitoring-passcode
+monitoringPasscodeSecretKey: SONAR_WEB_SYSTEMPASSCODE

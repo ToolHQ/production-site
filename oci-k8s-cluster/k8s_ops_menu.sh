@@ -603,6 +603,7 @@ $(t "maint_network")
 8. Prune Disk Space (Images/Logs)
 9. Generate Storage Dossier (App-Level)
 10. Pre-Pull Internal Images on All Nodes
+11. Longhorn Headroom Diagnostic (T-307)
 $(t "prefs_back")"
 
     local selected_action
@@ -703,6 +704,11 @@ $(t "prefs_back")"
         done
         echo ""
         echo -e "${GREEN}Pre-pull complete. Images are now cached on all worker nodes.${NC}"
+        read -p "$(t "press_enter")"
+        ;;
+      11)
+        clear
+        bash "$SCRIPT_DIR/scripts/observability/longhorn_headroom_diag.sh"
         read -p "$(t "press_enter")"
         ;;
       *)
@@ -1509,7 +1515,6 @@ ingress_menu() {
         echo "1. Start Ingress Tunnel (All Ports) 🚀"
         echo "2. Update /etc/hosts (Ingress + Postgres) 📝"
         echo "3. Mobile Access via Tailscale 📱"
-        echo "4. Remove local hosts overrides (restore public DNS) 🧹"
         echo "0. Back"
         echo ""
         read -p "$(t "choose_option") " choice
@@ -1679,10 +1684,6 @@ ingress_menu() {
                 
                 read -p "$(t "press_enter")"
                 ;;
-            4)
-                bash "${SCRIPT_DIR}/scripts/maintenance/clear_local_dnor_hosts.sh"
-                read -p "$(t "press_enter")"
-                ;;
             0)
                 return
                 ;;
@@ -1721,8 +1722,6 @@ update_hosts_file() {
     else
         echo -e "${YELLOW}This will add these hosts to your local /etc/hosts.${NC}"
     fi
-    echo -e "${YELLOW}Overrides point *.dnor.io to 127.0.0.1 — you MUST keep the SSH tunnel running (option 1).${NC}"
-    echo -e "${YELLOW}For direct HTTPS via public DNS (e.g. reports.dnor.io), use option 4 to remove overrides instead.${NC}"
     echo -e "${YELLOW}Root privileges (sudo/UAC) are required.${NC}"
     read -p "Do you want to proceed? (y/N) " confirm
     
@@ -4114,7 +4113,7 @@ node_maintenance_menu() {
 # --- HARDENING MENU ---
 show_hardening_menu() {
   while true; do
-    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 26 78 15 \
+    CHOICE=$(whiptail --title "Node Hardening Controls" --menu "Manage Protection:" 28 78 18 \
       "1" "Force Cleanup (All Nodes)" \
       "2" "Re-apply Log Limits (OCI: 200M cap)" \
       "2b" "Validate/Repair logrotate rsyslog (T-305)" \
@@ -4130,6 +4129,9 @@ show_hardening_menu() {
       "12" "📋 Status componentes SSDNodes" \
       "13" "🔐 SSDNodes SSH harden + fail2ban (T-320a)" \
       "14" "👁 Dashboard view-only RBAC (T-320d)" \
+      "15" "🔬 Deploy SonarQube CE — SSDNodes (T-341)" \
+      "16" "⚙️ Deploy Jenkins — SSDNodes (T-341)" \
+      "17" "🚀 Deploy CI Platform — Sonar+Jenkins (T-341)" \
       "0" "Back" 3>&1 1>&2 2>&3)
     
     if [ $? != 0 ]; then return; fi
@@ -4231,7 +4233,7 @@ show_hardening_menu() {
       8)
         # Firewall UFW — ssdnodes-monstro: Status
         clear
-        bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-6a12f10c9ef11 --status
+        bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-monstro --status
         read -p "Press Enter..."
         ;;
       9)
@@ -4240,10 +4242,10 @@ show_hardening_menu() {
         echo -e "${YELLOW}⚠️  Porta 22 permanece aberta (safety net).${NC}"
         echo -e "${YELLOW}    Todas as outras conexões da internet serão bloqueadas.${NC}"
         echo ""
-        if whiptail --title "Firewall UFW — ssdnodes-6a12f10c9ef11" \
-            --yesno "Aplicar regras UFW em ssdnodes-6a12f10c9ef11?\n\n- Porta 22: ABERTA para qualquer IP\n- Portas 80/443: só IPs autorizados\n- Porta 6443: só admin IP\n- Todo o resto: BLOQUEADO" \
+        if whiptail --title "Firewall UFW — ssdnodes-monstro" \
+            --yesno "Aplicar regras UFW em ssdnodes-monstro?\n\n- Porta 22: ABERTA para qualquer IP\n- Portas 80/443: só IPs autorizados\n- Porta 6443: só admin IP\n- Todo o resto: BLOQUEADO" \
             15 65; then
-            bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-6a12f10c9ef11 --apply
+            bash "$SCRIPT_DIR/scripts/hardening/ufw_manager.sh" --host ssdnodes-monstro --apply
         else
             echo "Cancelado."
         fi
@@ -4287,6 +4289,25 @@ show_hardening_menu() {
         echo -e "\n${YELLOW}T-320d: Dashboard view-only RBAC${NC}"
         bash "$SCRIPT_DIR/scripts/ssdnodes/patch_dashboard_view_rbac.sh" --apply
         bash "$SCRIPT_DIR/scripts/ssdnodes/patch_dashboard_view_rbac.sh" --verify
+        read -p "Press Enter..."
+        ;;
+      15)
+        clear
+        echo -e "${GREEN}🔬 Deploy SonarQube CE → sonar.ssdnodes.dnor.io (T-341)${NC}"
+        echo -e "${YELLOW}Pré-requisito: Secret sonarqube-db-credentials (create_sonar_ci_secrets.sh)${NC}"
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" sonarqube
+        read -p "Press Enter..."
+        ;;
+      16)
+        clear
+        echo -e "${GREEN}⚙️ Deploy Jenkins → jenkins.ssdnodes.dnor.io (T-341)${NC}"
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" jenkins
+        read -p "Press Enter..."
+        ;;
+      17)
+        clear
+        echo -e "${GREEN}🚀 Deploy CI Platform (Sonar + Jenkins) — T-341${NC}"
+        bash "$SCRIPT_DIR/scripts/ssdnodes/deploy_ssdnodes_components.sh" ci-platform
         read -p "Press Enter..."
         ;;
     esac

@@ -1,0 +1,73 @@
+# CronJob: Auto-prune old Nexus blobs when MinIO usage exceeds threshold
+# Prevents disk-full incidents by removing Docker layers older than 45 days.
+# Runs daily at 03:00 UTC. Only prunes when usage >= 80%.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minio-autopurge
+  namespace: minio
+  labels:
+    app: minio
+    component: autopurge
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          serviceAccountName: minio-watchdog
+          restartPolicy: Never
+          containers:
+            - name: autopurge
+              image: bitnami/kubectl:latest
+              imagePullPolicy: IfNotPresent
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+              command:
+                - /bin/sh
+                - -ceu
+                - |
+                  THRESHOLD=80
+                  DAYS_OLD=45
+
+                  POD=$(kubectl get pod -n minio -l app=minio --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+                  if [ -z "$POD" ]; then
+                    echo "[$(date -Iseconds)] ERROR: no running minio pod"
+                    exit 1
+                  fi
+
+                  USAGE=$(kubectl exec -n minio "$POD" -- sh -c "df -P /data | tail -1 | tr -s ' ' | cut -d ' ' -f5 | tr -d '%'")
+                  echo "[$(date -Iseconds)] MinIO usage: ${USAGE}%"
+
+                  if [ "$USAGE" -lt "$THRESHOLD" ]; then
+                    echo "[$(date -Iseconds)] OK — below ${THRESHOLD}% threshold, no purge needed"
+                    exit 0
+                  fi
+
+                  echo "[$(date -Iseconds)] WARN — usage ${USAGE}% >= ${THRESHOLD}%, starting autopurge of blobs older than ${DAYS_OLD} days"
+
+                  # Remove Nexus Docker blob content older than DAYS_OLD days
+                  # Nexus stores layers in /data/nexus-blobstore/content/
+                  DELETED=$(kubectl exec -n minio "$POD" -- sh -c "find /data/nexus-blobstore/content/ -type f -mtime +${DAYS_OLD} -name '*.bytes' | head -200 | xargs -r rm -f && find /data/nexus-blobstore/content/ -type f -mtime +${DAYS_OLD} -name '*.bytes' -delete 2>/dev/null; find /data/nexus-blobstore/content/ -type d -empty -delete 2>/dev/null; echo done" 2>&1)
+
+                  # Re-check usage
+                  USAGE_AFTER=$(kubectl exec -n minio "$POD" -- sh -c "df -P /data | tail -1 | tr -s ' ' | cut -d ' ' -f5 | tr -d '%'")
+                  echo "[$(date -Iseconds)] Purge complete. Usage: ${USAGE}% → ${USAGE_AFTER}%"
+
+                  # If still critical (>=95%), remove even more aggressively (30 days)
+                  if [ "$USAGE_AFTER" -ge 95 ]; then
+                    echo "[$(date -Iseconds)] CRITICAL — still ${USAGE_AFTER}%, aggressive purge (30 days)"
+                    kubectl exec -n minio "$POD" -- sh -c "find /data/nexus-blobstore/content/ -type f -mtime +30 -name '*.bytes' -delete 2>/dev/null; find /data/nexus-blobstore/content/ -type d -empty -delete 2>/dev/null"
+                    USAGE_FINAL=$(kubectl exec -n minio "$POD" -- sh -c "df -P /data | tail -1 | tr -s ' ' | cut -d ' ' -f5 | tr -d '%'")
+                    echo "[$(date -Iseconds)] Aggressive purge done. Final usage: ${USAGE_FINAL}%"
+                  fi

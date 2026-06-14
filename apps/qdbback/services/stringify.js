@@ -16,7 +16,7 @@ export const stringifyKeyPair = (key, strValue, isObjStr = false) => {
     return `"${key}":null`
   }
   if (typeof strValue === 'string' && !isObjStr) {
-    return `"${key}":"${strValue.replace(/"/g, '\\"')}"`
+    return `"${key}":"${strValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
   }
   return `"${key}":${strValue}`
 }

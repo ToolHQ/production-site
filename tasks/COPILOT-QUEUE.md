@@ -20,14 +20,14 @@ _Nada em andamento — aguardando próxima task._
 
 > Referenciar T-IDs do KANBAN.md (com `Owner: Copilot/VSCode`) ou micro-tasks.
 
-| ID / Ref                                                      | Tarefa                                                                                                                    | Prioridade  |
-| :------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------ | :---------- |
-| ~~[T-293](2026/Q2/T-293-Node3-IOWait-Saturation-Containment.md)~~ | ~~Conter saturação de I/O wait no k8s-node-3 (ClickHouse/Prometheus)~~ ✅ Done (merge_with_ttl_timeout=86400; wa: 80%→0%; 2026-05-25) | ~~🚨 Critical~~ |
-| ~~[T-303](2026/Q2/T-303-SSDNodes-Dashboard-Kubecost-HTTPS.md)~~  | ~~**SSDNodes — Kubernetes Dashboard + Kubecost HTTPS**~~ ✅ Done (HTTP 200 ambos; TLS R12/R13; PR #352; 2026-05-26) | ~~🔵 Medium~~   |
-| —                                                             | Finalizar cutover de CI para self-hosted Hetzner (runner + variable + smoke)                                              | 🔼 High     |
-| ~~—~~                                                         | ~~**CodeQL no ssdnodes-monstro**: instalar runner x86_64 + mover `codeql.yml` de `ubuntu-latest` → `[self-hosted, Linux, X64, ssdnodes]`. Diagnosticar falhas JS/Python no próprio hardware.~~ ✅ PR #351 merged (2026-05-25) | ~~🔵 Medium~~   |
-| Radar (futuro)                                                | Plataforma AppSec Open Source (roadmap faseado, separado das demandas principais) -> `docs/open-source-appsec-roadmap.md` | 🔽 Low      |
-| —                                                             | Monitorar estabilidade do cluster                                                                                         | 🔽 Low      |
+| ID / Ref                                                          | Tarefa                                                                                                                                                                                                                        | Prioridade      |
+| :---------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- |
+| ~~[T-293](2026/Q2/T-293-Node3-IOWait-Saturation-Containment.md)~~ | ~~Conter saturação de I/O wait no k8s-node-3 (ClickHouse/Prometheus)~~ ✅ Done (merge_with_ttl_timeout=86400; wa: 80%→0%; 2026-05-25)                                                                                         | ~~🚨 Critical~~ |
+| ~~[T-303](2026/Q2/T-303-SSDNodes-Dashboard-Kubecost-HTTPS.md)~~   | ~~**SSDNodes — Kubernetes Dashboard + Kubecost HTTPS**~~ ✅ Done (HTTP 200 ambos; TLS R12/R13; PR #352; 2026-05-26)                                                                                                           | ~~🔵 Medium~~   |
+| ~~—~~                                                             | ~~Finalizar cutover de CI para self-hosted Hetzner (runner + variable + smoke)~~ ✅ Done (PR #443 — port fix + migration fix + test fix; CI green; 2026-06-08) | ~~🔼 High~~     |
+| ~~—~~                                                             | ~~**CodeQL no ssdnodes-monstro**: instalar runner x86_64 + mover `codeql.yml` de `ubuntu-latest` → `[self-hosted, Linux, X64, ssdnodes]`. Diagnosticar falhas JS/Python no próprio hardware.~~ ✅ PR #351 merged (2026-05-25) | ~~🔵 Medium~~   |
+| Radar (futuro)                                                    | Plataforma AppSec Open Source (roadmap faseado, separado das demandas principais) -> `docs/open-source-appsec-roadmap.md`                                                                                                     | 🔽 Low          |
+| ~~—~~                                                             | ~~Monitorar estabilidade do cluster~~ ✅ Done (4 nós Ready, 86 pods Running, MinIO rollback stuck corrigido; 2026-06-08)                                                                                                       | ~~🔽 Low~~      |
 
 ## 🔬 Micro-Tasks (sem T-ID, sem PR)
 

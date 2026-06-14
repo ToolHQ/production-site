@@ -75,7 +75,7 @@ export const buildReq = (req) => {
  */
 const getRouteRegexStr = (route, method) => {
   // eslint-disable-next-line no-param-reassign
-  route = route.replace(/\./g, '\\.').replace(/\+/g, '\\+').replace(/\*/g, '.*')
+  route = route.replace(/\\/g, '\\\\').replace(/\./g, '\\.').replace(/\+/g, '\\+').replace(/\*/g, '.*')
   const paramsGroups = route.split(':')
   let regexStr = `^${paramsGroups[0]}`
   const afterParamsGroup = paramsGroups.slice(1)

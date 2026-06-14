@@ -1,0 +1,52 @@
+# ===================================================================
+# Copilot Eclipse Sandbox — Configuração OTEL para Eclipse IDE
+# ===================================================================
+#
+# OBJETIVO: Fazer o plugin GitHub Copilot do Eclipse enviar telemetria
+#           para o agent-meter automaticamente.
+#
+# COMO FUNCIONA:
+#   O plugin Copilot do Eclipse respeita variáveis OTEL quando definidas
+#   no ambiente do processo Eclipse. Para isso, você precisa definir
+#   as variáveis ANTES de abrir o Eclipse.
+#
+# ===================================================================
+# OPÇÃO 1: Criar atalho com variáveis (RECOMENDADO no Windows)
+# ===================================================================
+#
+# Crie um arquivo "start-eclipse-otel.bat" na sua área de trabalho:
+#
+#   @echo off
+#   set OTEL_EXPORTER_OTLP_ENDPOINT=https://agent-meter.dnor.io
+#   set OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+#   set OTEL_TRACES_EXPORTER=otlp
+#   set OTEL_SERVICE_NAME=eclipse-copilot
+#   set OTEL_RESOURCE_ATTRIBUTES=deployment.environment=dev,service.namespace=ide,service.version=1.0.0
+#   start "" "C:\Users\SEU_USUARIO\eclipse\jee-2024-12\eclipse\eclipse.exe"
+#
+# ===================================================================
+# OPÇÃO 2: Variáveis de ambiente do sistema (Windows)
+# ===================================================================
+#
+# 1. Tecla Windows > "Variáveis de Ambiente"
+# 2. Em "Variáveis do sistema", adicione:
+#    OTEL_EXPORTER_OTLP_ENDPOINT = https://agent-meter.dnor.io
+#    OTEL_EXPORTER_OTLP_PROTOCOL = http/protobuf
+#    OTEL_TRACES_EXPORTER        = otlp
+#    OTEL_SERVICE_NAME           = eclipse-copilot
+#    OTEL_RESOURCE_ATTRIBUTES    = deployment.environment=dev,service.namespace=ide,service.version=1.0.0
+# 3. Reinicie o Eclipse.
+#
+# ===================================================================
+# OPÇÃO 3: eclipse.ini (menos confiável para plugins)
+# ===================================================================
+#
+# Abra o arquivo eclipse.ini (na pasta do Eclipse) e adicione ANTES de -vmargs:
+#
+#   -Dotel.exporter.otlp.endpoint=https://agent-meter.dnor.io
+#   -Dotel.exporter.otlp.protocol=http/protobuf
+#   -Dotel.traces.exporter=otlp
+#   -Dotel.service.name=eclipse-copilot
+#   -Dotel.resource.attributes=deployment.environment=dev,service.namespace=ide,service.version=1.0.0
+#
+# ===================================================================

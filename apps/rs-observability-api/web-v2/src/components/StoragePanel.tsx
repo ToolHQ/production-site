@@ -1,4 +1,4 @@
-import type { LonghornData, LonghornVolume, LonghornNodeCapacity } from '../types/api';
+import type { LonghornData, LonghornVolume } from '../types/api';
 
 interface StoragePanelProps {
   data: LonghornData | null;
@@ -58,62 +58,6 @@ function VolumeRow({ vol }: { vol: LonghornVolume }) {
       <td class="storage-cell storage-cell--replicas">{vol.replicas_desired}×</td>
       <td class="storage-cell storage-cell--node" title={vol.node}>
         {vol.node ? vol.node.replace('k8s-', '') : '—'}
-      </td>
-    </tr>
-  );
-}
-
-function NodeCapacityRow({ node }: { node: LonghornNodeCapacity }) {
-  const schedulableClass = node.schedulable
-    ? 'storage-badge storage-badge--healthy'
-    : 'storage-badge storage-badge--faulted';
-  const schedulableLabel = node.schedulable ? 'Schedulable' : 'Disabled';
-
-  const usageBytes = node.storage_maximum - node.storage_available;
-  const usePct = node.storage_maximum > 0 ? Math.round((usageBytes / node.storage_maximum) * 100) : 0;
-  const usePctCapped = Math.min(usePct, 100);
-
-  // Alertas de Headroom (Espaço Disponível/Livre):
-  // Vermelho se < 10 GiB (10737418240 bytes)
-  // Amarelo se < 15 GiB (16106127360 bytes)
-  // Verde se >= 15 GiB
-  const GIB = 1024 * 1024 * 1024;
-  const headroomClass =
-    node.storage_available < 10 * GIB ? 'storage-use storage-use--critical'
-    : node.storage_available < 15 * GIB ? 'storage-use storage-use--warn'
-    : 'storage-use';
-
-  return (
-    <tr class="storage-row">
-      <td class="storage-cell storage-cell--name">
-        <span class="storage-pvc">{node.name.replace('k8s-', '')}</span>
-      </td>
-      <td class="storage-cell">
-        <span class={schedulableClass}>{schedulableLabel}</span>
-      </td>
-      <td class="storage-cell">
-        <span class="storage-size">{formatBytes(node.storage_maximum)}</span>
-      </td>
-      <td class="storage-cell">
-        <span class="storage-size">{formatBytes(node.storage_scheduled)}</span>
-        <div class="storage-use-bar-wrap" title={`${Math.round((node.storage_scheduled / node.storage_maximum) * 100)}% alocado`}>
-          <div class="storage-use-bar" style={{ width: `${Math.min(Math.round((node.storage_scheduled / node.storage_maximum) * 100), 100)}%`, backgroundColor: '#3498db' }} />
-        </div>
-      </td>
-      <td class="storage-cell">
-        <span class="storage-size" style={{ fontWeight: 'bold' }}>{formatBytes(node.storage_available)}</span>
-        <div class="storage-use-bar-wrap" title={`${usePct}% usado`}>
-          <div
-            class="storage-use-bar"
-            style={{
-              width: `${usePctCapped}%`,
-              backgroundColor: node.storage_available < 10 * GIB ? '#ef4444' : node.storage_available < 15 * GIB ? '#f59e0b' : '#10b981'
-            }}
-          />
-        </div>
-        <span class={headroomClass}>
-          {node.storage_available < 10 * GIB ? '🚨 Crítico (<10G)' : node.storage_available < 15 * GIB ? '⚠️ Baixo (<15G)' : '🟢 Saudável'}
-        </span>
       </td>
     </tr>
   );
@@ -197,32 +141,6 @@ export function StoragePanel({ data, error }: StoragePanelProps) {
           </tbody>
         </table>
       </div>
-
-      {data.nodes_capacity && data.nodes_capacity.length > 0 && (
-        <div class="storage-nodes-wrap" style={{ marginTop: '24px' }}>
-          <h3 class="storage-sub-title" style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            🖥️ Capacidade Física e Headroom dos Nós
-          </h3>
-          <div class="storage-table-wrap">
-            <table class="storage-table">
-              <thead>
-                <tr>
-                  <th class="storage-th">Nó</th>
-                  <th class="storage-th">Agendável</th>
-                  <th class="storage-th">Capacidade Total</th>
-                  <th class="storage-th">Alocado (Scheduled)</th>
-                  <th class="storage-th">Headroom Disponível (Livre)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.nodes_capacity.map((node) => (
-                  <NodeCapacityRow key={node.name} node={node} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

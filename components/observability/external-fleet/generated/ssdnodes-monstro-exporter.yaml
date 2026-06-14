@@ -1,0 +1,35 @@
+# Gerado por scripts/aws-fleet/generate_fleet_artifacts.py — não editar manualmente.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssdnodes-node-exporter
+  namespace: coroot
+  labels:
+    app: ssdnodes-node-exporter
+    app.kubernetes.io/part-of: coroot
+    app.kubernetes.io/component: node-exporter
+    external-fleet/provider: ssdnodes
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9100"
+spec:
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+      protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: ssdnodes-node-exporter
+  namespace: coroot
+  labels:
+    app: ssdnodes-node-exporter
+subsets:
+  - addresses:
+      - ip: 104.225.218.78
+    ports:
+      - name: metrics
+        port: 9100
+        protocol: TCP

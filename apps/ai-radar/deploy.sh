@@ -21,11 +21,14 @@ REGISTRY='registry.local:31444'
 REPO='repository/docker-repo'
 SERVICE_API='my-site-ai-radar-api'
 SERVICE_CLI='my-site-ai-radar-cli'
+SERVICE_TRENDS='my-site-ai-radar-trends'
 
 IMAGE_API_TAG="$REGISTRY/$REPO/$SERVICE_API:$TAG_VERSION"
 IMAGE_API_LATEST="$REGISTRY/$REPO/$SERVICE_API:latest"
 IMAGE_CLI_TAG="$REGISTRY/$REPO/$SERVICE_CLI:$TAG_VERSION"
 IMAGE_CLI_LATEST="$REGISTRY/$REPO/$SERVICE_CLI:latest"
+IMAGE_TRENDS_TAG="$REGISTRY/$REPO/$SERVICE_TRENDS:$TAG_VERSION"
+IMAGE_TRENDS_LATEST="$REGISTRY/$REPO/$SERVICE_TRENDS:latest"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/../.." && pwd)"
@@ -56,12 +59,13 @@ patch_manifest_images() {
 	local manifest="$1"
 	local api_img="$2"
 	local cli_img="$3"
-	python3 - "$manifest" "$api_img" "$cli_img" <<'PY'
+	local trends_img="$4"
+	python3 - "$manifest" "$api_img" "$cli_img" "$trends_img" <<'PY'
 import pathlib
 import re
 import sys
 
-path, api, cli = sys.argv[1:4]
+path, api, cli, trends = sys.argv[1:5]
 text = pathlib.Path(path).read_text()
 text = re.sub(
     r"registry\.local:31444/repository/docker-repo/my-site-ai-radar-api:[^\s\"']+",
@@ -71,6 +75,11 @@ text = re.sub(
 text = re.sub(
     r"registry\.local:31444/repository/docker-repo/my-site-ai-radar-cli:[^\s\"']+",
     cli,
+    text,
+)
+text = re.sub(
+    r"registry\.local:31444/repository/docker-repo/my-site-ai-radar-trends:[^\s\"']+",
+    trends,
     text,
 )
 pathlib.Path(path).write_text(text)
@@ -85,7 +94,7 @@ normalize_image_ref() {
 validate_image_ref() {
 	local ref="$1"
 	local label="$2"
-	if [[ ! "$ref" =~ ^registry\.local:31444/repository/docker-repo/my-site-ai-radar-(api|cli):[^[:space:]]+$ ]]; then
+	if [[ ! "$ref" =~ ^registry\.local:31444/repository/docker-repo/my-site-ai-radar-(api|cli|trends):[^[:space:]]+$ ]]; then
 		die "❌ $label inválida: [$ref]"
 	fi
 }
@@ -273,6 +282,63 @@ should_deploy_cli() {
 	esac
 }
 
+should_deploy_trends() {
+	case "${AI_RADAR_DEPLOY_TRENDS:-auto}" in
+	0 | false | no | skip) return 1 ;;
+	1 | true | yes) return 0 ;;
+	auto)
+		local base="${AI_RADAR_DIFF_BASE:-origin/main}"
+		if ! git -C "$REPO_ROOT" rev-parse --verify "${base}^{commit}" >/dev/null 2>&1; then
+			return 0
+		fi
+		if git -C "$REPO_ROOT" diff --name-only "${base}"...HEAD -- apps/ai-radar \
+			| grep -qE 'apps/ai-radar/trends-collector/|cronjob-trends|0009_trend|configmap-trends'; then
+			return 0
+		fi
+		return 1
+		;;
+	*)
+		die "AI_RADAR_DEPLOY_TRENDS inválido: ${AI_RADAR_DEPLOY_TRENDS:-} (use auto|0|1)"
+		;;
+	esac
+}
+
+build_trends_image() {
+	local image_tag="$1" image_latest="$2"
+	local ctx="$ROOT_DIR/trends-collector"
+	printf '%s\n' "🔨 buildx trends-collector (Python/pytrends)…" >&2
+	if [ "$USE_HETZNER" = "true" ]; then
+		docker buildx build \
+			--builder hetzner-builder \
+			--platform linux/arm64 \
+			--load \
+			-f "$ctx/Dockerfile" \
+			-t "$image_tag" \
+			-t "$image_latest" \
+			"$ctx"
+		if ! ss -tlnp 2>/dev/null | grep -q ':31444'; then
+			ssh -o StrictHostKeyChecking=no -L 31444:localhost:31444 oci-k8s-master -N -f
+			sleep 1
+		fi
+		local local_tag="${image_tag/registry.local:31444/localhost:31444}"
+		local local_latest="${image_latest/registry.local:31444/localhost:31444}"
+		docker tag "$image_tag" "$local_tag"
+		docker tag "$image_latest" "$local_latest"
+		docker push "$local_tag"
+		docker push "$local_latest"
+		docker rmi "$local_tag" "$local_latest" >/dev/null 2>&1 || true
+	else
+		docker buildx build \
+			--builder oci-builder \
+			--platform linux/arm64 \
+			--push \
+			-f "$ctx/Dockerfile" \
+			-t "$image_tag" \
+			-t "$image_latest" \
+			"$ctx"
+	fi
+}
+
 build_rust_image runtime-api ai-radar-api "$IMAGE_API_TAG" "$IMAGE_API_LATEST"
 
 if should_deploy_cli; then
@@ -292,9 +358,29 @@ else
 		IMAGE_CLI_FOR_MANIFEST="$IMAGE_CLI_TAG"
 	fi
 fi
+
+if should_deploy_trends; then
+	build_trends_image "$IMAGE_TRENDS_TAG" "$IMAGE_TRENDS_LATEST"
+	IMAGE_TRENDS_FOR_MANIFEST="$IMAGE_TRENDS_TAG"
+else
+	current="$(
+		kubectl get cronjob ai-radar-trends-collect -n ai-radar \
+			-o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}' 2>/dev/null || true
+	)"
+	if [[ -n "$current" ]]; then
+		printf '%s\n' "⏭️  trends inalterado — reutilizando $current" >&2
+		IMAGE_TRENDS_FOR_MANIFEST="$current"
+	else
+		printf '%s\n' '⚠️  CronJob trends ausente — build trends' >&2
+		build_trends_image "$IMAGE_TRENDS_TAG" "$IMAGE_TRENDS_LATEST"
+		IMAGE_TRENDS_FOR_MANIFEST="$IMAGE_TRENDS_TAG"
+	fi
+fi
 IMAGE_CLI_FOR_MANIFEST="$(normalize_image_ref "$IMAGE_CLI_FOR_MANIFEST")"
+IMAGE_TRENDS_FOR_MANIFEST="$(normalize_image_ref "$IMAGE_TRENDS_FOR_MANIFEST")"
 validate_image_ref "$IMAGE_API_TAG" "imagem API"
 validate_image_ref "$IMAGE_CLI_FOR_MANIFEST" "imagem CLI"
+validate_image_ref "$IMAGE_TRENDS_FOR_MANIFEST" "imagem trends"
 
 MANIFEST="$(mktemp)"
 cleanup() {
@@ -303,7 +389,7 @@ cleanup() {
 trap cleanup EXIT
 
 kubectl kustomize "$ROOT_DIR/k8s/overlays/production" >"$MANIFEST"
-patch_manifest_images "$MANIFEST" "$IMAGE_API_TAG" "$IMAGE_CLI_FOR_MANIFEST"
+patch_manifest_images "$MANIFEST" "$IMAGE_API_TAG" "$IMAGE_CLI_FOR_MANIFEST" "$IMAGE_TRENDS_FOR_MANIFEST"
 
 kubectl apply -f "$MANIFEST"
 kubectl rollout status deployment/ai-radar-api -n ai-radar --timeout=300s

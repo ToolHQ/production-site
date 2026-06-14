@@ -36,7 +36,7 @@ cp -RL "$REPO_ROOT/reports/latest-catalog" "$BUNDLE_DIR/latest-catalog"
 
 cd "$APP_DIR"
 docker buildx build \
-  --builder oci-builder \
+  --builder hetzner-builder \
   --platform linux/arm64 \
   -t "$IMAGE" \
   --output "type=docker,dest=${TAR}" \

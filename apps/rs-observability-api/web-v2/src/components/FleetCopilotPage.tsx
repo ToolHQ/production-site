@@ -7,7 +7,8 @@ import {
   type FleetPreset,
 } from '../hooks/useFleetChat';
 import { SSDNODES_HOSTNAME, FLEET_CHAT_HOSTS } from '../constants/fleetHosts';
-import type { CopilotStatus } from '../types/fleetCopilot';
+import { useCopilotStatus } from '../hooks/useCopilotStatus';
+import { fleetModelLabel } from '../utils/fleetModelLabel';
 
 const PRESETS: { id: FleetPreset; icon: string; title: string; hint: string }[] = [
   {
@@ -104,19 +105,9 @@ export function FleetCopilotPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [focusHost, setFocusHost] = useState('');
-  const [copilotStatus, setCopilotStatus] = useState<CopilotStatus | null>(null);
+  const copilotStatus = useCopilotStatus(session.authenticated, messages.length);
   const [copyHint, setCopyHint] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!session.authenticated) {
-      setCopilotStatus(null);
-      return;
-    }
-    void fetch('/api/fleet/copilot/status', { credentials: 'same-origin' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setCopilotStatus(data as CopilotStatus | null))
-      .catch(() => setCopilotStatus(null));
-  }, [session.authenticated, messages.length]);
+  const [loginCopyHint, setLoginCopyHint] = useState<string | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -124,10 +115,18 @@ export function FleetCopilotPage() {
 
   if (sessionLoading) {
     return (
-      <section class="fleet-copilot-page">
-        <div class="fleet-copilot-page__skeleton">
-          <div class="fleet-copilot-skeleton fleet-copilot-skeleton--head" />
-          <div class="fleet-copilot-skeleton fleet-copilot-skeleton--chat" />
+      <section class="fleet-copilot-page" aria-busy="true" aria-label="Fleet Copilot">
+        <header class="fleet-copilot-hero fleet-copilot-hero--stable">
+          <div class="fleet-copilot-hero__copy">
+            <p class="fleet-copilot-hero__kicker">Assistente de operações</p>
+            <h1 class="fleet-copilot-hero__title">Fleet Copilot</h1>
+          </div>
+        </header>
+        <div class="fleet-copilot-layout fleet-copilot-layout--loading">
+          <aside class="fleet-copilot-sidebar fleet-copilot-skeleton-sidebar" aria-hidden="true" />
+          <div class="fleet-copilot-chat">
+            <div class="fleet-copilot-thread fleet-copilot-skeleton-thread" aria-hidden="true" />
+          </div>
         </div>
       </section>
     );
@@ -154,7 +153,7 @@ export function FleetCopilotPage() {
     <section class="fleet-copilot-page" aria-label="Fleet Copilot">
       <header class="fleet-copilot-hero">
         <div class="fleet-copilot-hero__copy">
-          <p class="fleet-copilot-hero__kicker">Operations assistant</p>
+          <p class="fleet-copilot-hero__kicker">Assistente de operações</p>
           <h1 class="fleet-copilot-hero__title">Fleet Copilot</h1>
           <p class="fleet-copilot-hero__subtitle">
             Assistente read-only para sua fleet — respostas instantâneas em métricas conhecidas
@@ -199,12 +198,27 @@ export function FleetCopilotPage() {
           <p class="fleet-copilot-locked-card__hint">
             Depois do login você volta aqui em <code>#fleet-copilot</code> automaticamente.
           </p>
-          <button type="button" class="fleet-copilot-secondary-btn" onClick={() => void refresh()}>
-            Verificar sessão
-          </button>
-          <button type="button" class="fleet-copilot-secondary-btn" onClick={() => setView('nodes')}>
-            Ver Node Fleet
-          </button>
+          <div class="fleet-copilot-locked-card__actions">
+            <button
+              type="button"
+              class="fleet-copilot-secondary-btn"
+              onClick={() => {
+                const url = `${window.location.origin}/#fleet-copilot`;
+                void navigator.clipboard.writeText(url).then(() => {
+                  setLoginCopyHint('Link copiado');
+                  setTimeout(() => setLoginCopyHint(null), 2500);
+                });
+              }}
+            >
+              {loginCopyHint ?? 'Copiar link desta view'}
+            </button>
+            <button type="button" class="fleet-copilot-secondary-btn" onClick={() => void refresh()}>
+              Verificar sessão
+            </button>
+            <button type="button" class="fleet-copilot-secondary-btn" onClick={() => setView('nodes')}>
+              Ver Node Fleet
+            </button>
+          </div>
         </div>
       ) : (
         <div class="fleet-copilot-layout">
@@ -312,8 +326,8 @@ export function FleetCopilotPage() {
                       </span>
                     )}
                     {msg.model && msg.role === 'assistant' && (
-                      <span class="fleet-copilot-bubble__model" title="Motor de resposta">
-                        {msg.model === 'gemma3:4b' ? 'Gemma' : msg.model.replace('fleet-', '')}
+                      <span class="fleet-copilot-bubble__model" title={`Motor: ${msg.model}`}>
+                        {fleetModelLabel(msg.model)}
                       </span>
                     )}
                   </header>

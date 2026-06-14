@@ -1,0 +1,53 @@
+# deploy-catalog.yaml — apps build/deploy (T-346)
+# citools deploy list|plan|run — deploy.sh permanece implementação
+
+version: 1
+defaults:
+  build:
+    worker: hetzner
+    platform: linux/arm64
+  deploy:
+    target: oci
+    kubeconfig_env: KUBECONFIG
+    targets: [oci, ssdnodes]
+
+apps:
+  - id: py-back-end
+    path: apps/py-back-end
+    script: ./apps/py-back-end/deploy.sh
+    whenPaths: apps/py-back-end/**
+
+  - id: back-end
+    path: apps/back-end
+    script: ./apps/back-end/deploy.sh
+    whenPaths: apps/back-end/**
+
+  - id: rs-axum-back-end
+    path: apps/rs-axum-back-end
+    script: ./apps/rs-axum-back-end/deploy.sh
+    whenPaths: apps/rs-axum-back-end/**
+
+  - id: rs-observability-api
+    path: apps/rs-observability-api
+    script: ./apps/rs-observability-api/deploy.sh
+    whenPaths: apps/rs-observability-api/**
+
+  - id: agent-meter
+    path: apps/agent-meter
+    script: ./apps/agent-meter/deploy.sh
+    whenPaths: apps/agent-meter/**
+
+  - id: ai-radar
+    path: apps/ai-radar
+    script: ./apps/ai-radar/deploy.sh
+    whenPaths: apps/ai-radar/**
+
+  - id: gta-vi
+    path: apps/gta-vi
+    script: ./apps/gta-vi/deploy.sh
+    whenPaths: apps/gta-vi/**
+
+  - id: tor
+    path: apps/tor
+    script: ./apps/tor/deploy.sh
+    whenPaths: apps/tor/**

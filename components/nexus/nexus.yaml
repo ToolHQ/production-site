@@ -109,7 +109,7 @@ metadata:
   namespace: nexus
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: 800m
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-dns01
 spec:
   ingressClassName: nginx
   tls:

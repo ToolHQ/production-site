@@ -36,6 +36,23 @@ pub struct AgentToolCall {
     pub client_ip: Option<String>,
     pub user_agent: Option<String>,
     pub user_prompt: Option<String>,
+    // T-331: full agentic payload
+    pub tool_arguments: Option<serde_json::Value>,
+    pub tool_result: Option<String>,
+    // T-332: deep telemetry
+    pub reasoning_tokens: Option<i32>,
+    pub finish_reason: Option<String>,
+    pub request_max_tokens: Option<i32>,
+    pub request_temperature: Option<f64>,
+    pub llm_system: Option<String>,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
+    pub parent_span_id: Option<String>,
+    pub tool_call_id: Option<String>,
+    // T-355: pre-computed cost
+    pub usd_cost: Option<f64>,
+    // T-357: billing model (token/credit/subscription)
+    pub billing_model: String,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -70,6 +87,8 @@ pub struct EventFeedRow {
     pub conversation_id: Option<String>,
     pub client_ip: Option<String>,
     pub user_prompt: Option<String>,
+    pub tool_arguments: Option<serde_json::Value>,
+    pub tool_result: Option<String>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -89,4 +108,40 @@ pub struct TopMcpServer {
     pub total_estimated_tokens: Option<i64>,
     pub avg_response_bytes: Option<f64>,
     pub error_rate: Option<f64>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct IdeBreakdown {
+    pub ide: String,
+    pub calls: i64,
+    pub total_estimated_tokens: Option<i64>,
+    pub errors: i64,
+    pub llm_calls: i64,
+    pub tool_calls_count: i64,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct TopAgent {
+    pub agent: String,
+    pub calls: i64,
+    pub total_tokens: Option<i64>,
+    pub total_usd_cost: Option<f64>,
+    pub errors: i64,
+    pub conversations: i64,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ErrorPattern {
+    pub error: String,
+    pub occurrences: i64,
+    pub tool_name: Option<String>,
+    pub model: Option<String>,
+    pub last_seen: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct CostBucket {
+    pub bucket: DateTime<Utc>,
+    pub total_usd: Option<f64>,
+    pub calls: i64,
 }
