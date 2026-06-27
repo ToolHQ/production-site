@@ -1,0 +1,163 @@
+/**
+ * Jenkinsfile.deploy-ref — deploy dedicado por app com REF (branch/hash).
+ *
+ * Parâmetros:
+ *   APP      — app do deploy-catalog.yaml (default definido pelo job)
+ *   REF      — branch (main, feat/foo) ou commit hash (abc1234f)
+ *   TARGET   — cluster alvo (oci | ssdnodes)
+ *   DRY_RUN  — true = plan only, false = execute deploy
+ *
+ * Build description automática: REF + SHA + autor + mensagem
+ * Log rotation: 50 builds
+ */
+
+@NonCPS
+Map citoolsParseNext(String raw) {
+  def json = new groovy.json.JsonSlurper().parseText(raw)
+  return [
+    done: json.done == true,
+    stageName: json.stageName?.toString() ?: '',
+    id: json.id?.toString() ?: '',
+  ]
+}
+
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    jenkins: citools-deploy
+spec:
+  containers:
+  - name: rust
+    image: rust:1.88-bookworm
+    command: ["sleep"]
+    args: ["infinity"]
+    tty: true
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+      limits:
+        cpu: "4"
+        memory: "8Gi"
+'''
+    }
+  }
+
+  parameters {
+    string(name: 'APP', defaultValue: 'rs-observability-api', description: 'App do deploy-catalog.yaml')
+    string(name: 'REF', defaultValue: 'main', description: 'Branch (main, feat/foo) ou commit hash (abc1234f)')
+    choice(name: 'TARGET', choices: ['oci', 'ssdnodes'], description: 'Cluster alvo')
+    booleanParam(name: 'DRY_RUN', defaultValue: true, description: 'true = plan only, false = execute deploy')
+  }
+
+  environment {
+    CITOOLS_PIPELINE = 'components/ssdnodes/jenkins/pipeline-deploy.yaml'
+    CITOOLS_DEPLOY_CATALOG = 'tools/citools/deploy-catalog.yaml'
+    CITOOLS_REPO_ROOT = "${WORKSPACE}"
+  }
+
+  options {
+    timeout(time: 180, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '50'))
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        container('rust') {
+          script {
+            def isHash = env.REF.matches('^[0-9a-fA-F]{7,}$')
+            def branchSpec = isHash ? env.REF : "*/${env.REF}"
+
+            checkout([
+              $class: 'GitSCM',
+              branches: [[name: branchSpec]],
+              userRemoteConfigs: [[
+                url: 'https://github.com/ToolHQ/production-site.git',
+                credentialsId: 'github-pat',
+                refspec: '+refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*'
+              ]],
+              extensions: [
+                [$class: 'CloneOption', noTags: false, shallow: false, depth: 0, honorRefspec: false]
+              ]
+            ])
+
+            sh 'git config --global --add safe.directory "${WORKSPACE}"'
+
+            def sha = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+            def shortSha = sha.take(8)
+            def author = sh(returnStdout: true, script: 'git log -1 --format="%an"').trim()
+            def message = sh(returnStdout: true, script: 'git log -1 --format="%s"').trim()
+            currentBuild.description = "REF=${env.REF} | SHA=${shortSha} | ${author}: ${message}"
+          }
+        }
+      }
+    }
+
+    stage('Prepare') {
+      steps {
+        container('rust') {
+          withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            sh '''#!/usr/bin/env bash
+set -euo pipefail
+bash components/ssdnodes/jenkins/jenkins-prepare.sh
+bash components/ssdnodes/jenkins/agent-setup.sh
+'''
+          }
+        }
+      }
+    }
+
+    stage('Deploy pipeline') {
+      steps {
+        script {
+          container('rust') {
+            if (params.DRY_RUN) {
+              env.CITOOLS_DEPLOY_EXECUTE = ''
+            } else {
+              env.CITOOLS_DEPLOY_EXECUTE = '1'
+            }
+            def citools = "${WORKSPACE}/tools/citools/target/release/citools"
+            def pipelinePath = env.CITOOLS_PIPELINE
+            def after = ''
+
+            while (true) {
+              def nextCmd = after
+                ? "${citools} next --json --after '${after}' --pipeline '${pipelinePath}'"
+                : "${citools} next --json --pipeline '${pipelinePath}'"
+              def raw = sh(returnStdout: true, script: nextCmd).trim()
+              def next = citoolsParseNext(raw)
+              if (next.done) break
+
+              stage(next.stageName) {
+                container('rust') {
+                  sh """#!/usr/bin/env bash
+set -euo pipefail
+source "${WORKSPACE}/.citools-agent.env"
+export CITOOLS_REPO_ROOT="${WORKSPACE}"
+export APP="${params.APP}"
+export TARGET="${params.TARGET}"
+export CITOOLS_DEPLOY_EXECUTE="${env.CITOOLS_DEPLOY_EXECUTE ?: ''}"
+${citools} run '${next.id}' --pipeline '${pipelinePath}'
+"""
+                }
+              }
+              after = next.id
+            }
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "deploy-${params.APP} REF=${params.REF} TARGET=${params.TARGET} DRY_RUN=${params.DRY_RUN}"
+    }
+  }
+}

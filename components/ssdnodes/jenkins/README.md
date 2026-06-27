@@ -158,3 +158,44 @@ bash scripts/harness/validate_ssdnodes_ci.sh   # inclui smoke /blue/ + plugins
 - [ADR citools](../ADR-citools-harness-evolution.md)
 - [tools/citools/README.md](../../../tools/citools/README.md)
 - [T-341](../../../tasks/2026/Q2/T-341-SSDNodes-Jenkins-SonarQube-Platform.md)
+
+## Deploy dedicado por app (REF branch/hash)
+
+Jobs dedicados — 1 por app, com seleção de branch/hash e log rotation isolado (50 builds).
+
+| Job | App | URL |
+|-----|-----|-----|
+| `deploy-rs-observability-api` | rs-observability-api | /job/deploy-rs-observability-api/ |
+| `deploy-agent-meter` | agent-meter | /job/deploy-agent-meter/ |
+| `deploy-ai-radar` | ai-radar | /job/deploy-ai-radar/ |
+| `deploy-gta-vi` | gta-vi | /job/deploy-gta-vi/ |
+| `deploy-tor` | tor | /job/deploy-tor/ |
+| `deploy-py-back-end` | py-back-end | /job/deploy-py-back-end/ |
+| `deploy-back-end` | back-end | /job/deploy-back-end/ |
+| `deploy-rs-axum-back-end` | rs-axum-back-end | /job/deploy-rs-axum-back-end/ |
+
+### Parâmetros por job
+
+| Param | Tipo | Default | Descrição |
+|-------|------|---------|-----------|
+| `APP` | string | (definido pelo job) | App do deploy-catalog.yaml |
+| `REF` | string | `main` | Branch (`main`, `feat/foo`) ou commit hash (`abc1234f`) |
+| `TARGET` | choice | `oci` | `oci` ou `ssdnodes` |
+| `DRY_RUN` | boolean | `true` | `true` = plan only, `false` = executa deploy |
+
+### Build description
+
+Cada build mostra automaticamente: `REF=main | SHA=abc1234f | Author: Name "commit message"`
+
+### Setup
+
+```bash
+bash oci-k8s-cluster/scripts/ssdnodes/seed_jenkins_deploy_ref_jobs.sh
+```
+
+### Fluxo
+
+1. Jenkins carrega `Jenkinsfile.deploy-ref` da branch `main`
+2. Pipeline faz checkout do `REF` especificado (branch ou hash)
+3. Set build description com REF + SHA + autor + mensagem
+4. Executa `citools deploy plan` → (se DRY_RUN=false) `citools deploy run`

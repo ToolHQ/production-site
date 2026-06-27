@@ -102,9 +102,19 @@ deploy_ensure_registry_tunnel() {
 
 # deploy_buildx_push_images SERVICE IMAGE_TAG IMAGE_LATEST CONTEXT [-- extra docker buildx args]
 # Requer deploy_select_buildx_builder antes (define USE_HETZNER).
+# Pré-voo automático salvo DEPLOY_SKIP_PREFLIGHT=1.
 deploy_buildx_push_images() {
 	local service="$1" image_tag="$2" image_latest="$3" context="$4"
 	shift 4
+
+	if [[ "${DEPLOY_SKIP_PREFLIGHT:-0}" != "1" ]] && [[ -f "$REPO_ROOT/oci-k8s-cluster/scripts/lib/deploy-preflight.sh" ]]; then
+		# shellcheck source=/dev/null
+		source "$REPO_ROOT/oci-k8s-cluster/scripts/lib/deploy-preflight.sh"
+		local pf_args=(--namespace "${DEPLOY_NAMESPACE:-default}")
+		[[ -n "${DEPLOY_NPMRC:-}" && -f "${DEPLOY_NPMRC}" ]] && pf_args+=(--npmrc "$DEPLOY_NPMRC")
+		[[ "${DEPLOY_CLEANUP_EVICTED:-0}" == "1" ]] && pf_args+=(--cleanup-evicted)
+		deploy_preflight_all "${pf_args[@]}"
+	fi
 
 	if [[ "$USE_HETZNER" == "true" ]]; then
 		echo "🚀 Usando builder Hetzner remoto de alta performance..." >&2

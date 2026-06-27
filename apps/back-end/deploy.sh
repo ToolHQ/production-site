@@ -1,70 +1,54 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # OCI Deploy — my-site-back-end
+#
 # Pré-requisitos:
-#   oci-builder: ~/production-site/oci-k8s-cluster/scripts/setup-dev-deploy.sh
-#   kubectl:     export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+#   source oci-k8s-cluster/scripts/setup-dev-deploy.sh
+#   export KUBECONFIG=oci-k8s-cluster/kubeconfig_tunnel.yaml
+#   apps/back-end/.npmrc (gitignored — Nexus auth)
+#
+# Pré-voo automático via deploy-preflight (DEPLOY_SKIP_PREFLIGHT=1 para pular).
 
-set -e
+set -euo pipefail
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-TAG_VERSION=$(date +%s)
-REGISTRY=registry.local:31444
-REPO=repository/docker-repo
-SERVICE=my-site-back-end
+TAG_VERSION="$(date +%s)"
+REGISTRY='registry.local:31444'
+REPO='repository/docker-repo'
+SERVICE='my-site-back-end'
 
-IMAGE_TAG=$REGISTRY/$REPO/$SERVICE:$TAG_VERSION
-IMAGE_LATEST=$REGISTRY/$REPO/$SERVICE:latest
+IMAGE_TAG="$REGISTRY/$REPO/$SERVICE:$TAG_VERSION"
+IMAGE_LATEST="$REGISTRY/$REPO/$SERVICE:latest"
 
-# Inicializa ou verifica o builder remoto Hetzner automaticamente (padrão de alta performance)
-USE_HETZNER=false
-HETZNER_SETUP="$REPO_ROOT/oci-k8s-cluster/scripts/setup-hetzner-builder.sh"
-if [ -f "$HETZNER_SETUP" ]; then
-  if "$HETZNER_SETUP" --silent; then
-    USE_HETZNER=true
-  fi
+export KUBECONFIG="${KUBECONFIG:-$REPO_ROOT/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
+export REPO_ROOT
+export DEPLOY_NAMESPACE=default
+export DEPLOY_NPMRC="$SCRIPT_DIR/.npmrc"
+export DEPLOY_CLEANUP_EVICTED=1
+
+die() {
+	printf '%s\n' "$*" >&2
+	exit 1
+}
+
+[[ -f "$DEPLOY_NPMRC" ]] || die "❌ $DEPLOY_NPMRC ausente. Crie com auth Nexus (ver apps/back-end/.npmrc.example ou credstore)."
+
+# shellcheck source=/dev/null
+source "$REPO_ROOT/oci-k8s-cluster/scripts/lib/deploy-buildx.sh"
+
+deploy_select_buildx_builder
+
+build_args=(
+	--secret "id=npmrc,src=$DEPLOY_NPMRC"
+)
+if [[ "$USE_HETZNER" != "true" ]]; then
+	build_args+=(--add-host=nexus.dnor.io:10.0.1.100)
 fi
 
-if [ "$USE_HETZNER" = "true" ]; then
-  echo "🚀 Usando builder Hetzner remoto de alta performance..."
-  docker buildx build \
-    --builder hetzner-builder \
-    --platform linux/arm64 \
-    --add-host=nexus.dnor.io:10.0.1.100 \
-    --load \
-    -t $IMAGE_TAG \
-    -t $IMAGE_LATEST \
-    .
-  
-  echo "🔌 Garantindo túnel SSH para o registro local (porta 31444)..."
-  if ! ss -tlnp 2>/dev/null | grep -q ':31444'; then
-    ssh -o StrictHostKeyChecking=no -L 31444:localhost:31444 oci-k8s-master -N -f
-    sleep 1
-  fi
-
-  LOCAL_TAG="localhost:31444/repository/docker-repo/${SERVICE}:${TAG_VERSION}"
-  LOCAL_LATEST="localhost:31444/repository/docker-repo/${SERVICE}:latest"
-  docker tag "$IMAGE_TAG" "$LOCAL_TAG"
-  docker tag "$IMAGE_LATEST" "$LOCAL_LATEST"
-
-  echo "⬆️ Enviando imagem leve ao registro local..."
-  docker push "$LOCAL_TAG"
-  docker push "$LOCAL_LATEST"
-  docker rmi "$LOCAL_TAG" "$LOCAL_LATEST" >/dev/null 2>&1 || true
-else
-  echo "⚠️ Builder Hetzner inativo. Usando o oci-builder padrão..."
-  docker buildx build \
-    --builder oci-builder \
-    --platform linux/arm64 \
-    --add-host=nexus.dnor.io:10.0.1.100 \
-    --push \
-    -t $IMAGE_TAG \
-    -t $IMAGE_LATEST \
-    .
-fi
+cd "$SCRIPT_DIR"
+deploy_buildx_push_images "$SERVICE" "$IMAGE_TAG" "$IMAGE_LATEST" . "${build_args[@]}"
 
 sed -i "s|image: .*|image: $IMAGE_TAG|" ./k8s/my-site-back-end.yaml
-
-export KUBECONFIG="${KUBECONFIG:-$HOME/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml}"
 kubectl apply -f ./k8s/my-site-back-end.yaml
+kubectl rollout status deploy/my-site-back-end-deployment -n default --timeout=180s
