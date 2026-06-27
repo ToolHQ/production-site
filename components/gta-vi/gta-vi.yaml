@@ -24,7 +24,7 @@ spec:
         - name: regsecret
       containers:
         - name: gta-vi
-          image: registry.local:31444/repository/docker-repo/gta-vi:latest
+          image: registry.local:31444/repository/docker-repo/gta-vi:1782273416
           imagePullPolicy: Always
           ports:
             - containerPort: 80

@@ -18,6 +18,18 @@ Qualquer task com impacto em UI ou API **deve** encerrar com validação no brow
 
 ## Passo a Passo Canônico (genérico)
 
+### 0 — Pré-voo deploy (obrigatório em recovery / pós-incidente)
+
+```bash
+bash scripts/harness/validate_deploy_readiness.sh \
+  --namespace <namespace> \
+  --cleanup-evicted \
+  --hetzner
+# Apps Node (@dnorio): acrescente --npmrc apps/back-end/.npmrc
+```
+
+Falha aqui = **não** rodar `./deploy.sh` até corrigir (Nexus PVC, quota, npm, DiskPressure).
+
 ### 1 — Preparar ambiente
 
 ```bash
@@ -89,6 +101,18 @@ Atalho:
 ```bash
 scripts/harness/validate_rs_observability_live.sh --deploy
 ```
+
+---
+
+### dnor.io stack (nginx + back-end)
+
+```bash
+bash scripts/harness/validate_site_stack.sh
+# ou deploy + validate:
+bash scripts/harness/validate_site_stack.sh --deploy-back-end
+```
+
+**Critérios:** rollout nginx + back-end, `/api/health` 200, zero `ImagePullBackOff` cluster-wide.
 
 ---
 

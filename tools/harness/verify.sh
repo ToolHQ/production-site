@@ -46,7 +46,7 @@ Notes:
   - verify-changed uses unstaged, staged and untracked paths by default.
   - Pass --no-untracked for git-diff-only semantics (omit untracked files).
   - verify-changed fails on unmapped code paths unless --allow-unmapped is provided.
-  - smoke is reserved for later rollout and intentionally not implemented in T-142.
+  - smoke is implemented via scripts/harness/validate_deploy_readiness.sh (--hetzner).
   - One-line skip summary is printed unless HARNESS_VERBOSE=1 is set (per-gate skip messages).
 
 Environment:
@@ -447,23 +447,6 @@ run_rust_agent_meter_gate() {
 	run_checked "rust check: agent-meter" bash -c "cd '$app_dir' && cargo check --workspace --all-targets"
 }
 
-run_rust_agent_meter_gate() {
-	local app_dir="$REPO_ROOT/apps/agent-meter"
-
-	# Compile-only gate (workspace + all targets). The agent-meter workspace
-	# still carries pre-existing fmt/clippy debt across crates, and its tests
-	# require a live PostgreSQL the CI agent does not provide — so a strict
-	# fmt/clippy/test gate would fail on unrelated code. `cargo check
-	# --all-targets` still compiles every crate and every test target
-	# (catching broken code and broken tests) without needing a database.
-	# Tighten to fmt/clippy/test once the workspace lint debt is cleared.
-	#
-	# bash -c (not -lc): a login shell on the Jenkins agent resets PATH and
-	# loses cargo (same gotcha as the citools gate); verify-branch-ci.sh has
-	# already exported the cargo PATH into our environment.
-	run_checked "rust check: agent-meter" bash -c "cd '$app_dir' && cargo check --workspace --all-targets"
-}
-
 run_cluster_bats_gate() {
 	local cluster_dir="$REPO_ROOT/oci-k8s-cluster"
 	run_checked "bats: oci-k8s-cluster" bash -lc "cd '$cluster_dir' && ./run_tests.sh"
@@ -676,8 +659,16 @@ verify_all() {
 }
 
 smoke() {
-	fail "smoke is reserved but not implemented in T-142; deploy-aware probes land in subsequent tasks"
-	return 2
+	local script="$REPO_ROOT/scripts/harness/validate_deploy_readiness.sh"
+	if [[ ! -x "$script" ]]; then
+		script="$REPO_ROOT/scripts/harness/validate_deploy_readiness.sh"
+	fi
+	if [[ ! -f "$script" ]]; then
+		fail "smoke: validate_deploy_readiness.sh não encontrado"
+		return 2
+	fi
+	section "smoke: deploy readiness"
+	run_checked "deploy-readiness" bash "$script" --hetzner
 }
 
 main() {

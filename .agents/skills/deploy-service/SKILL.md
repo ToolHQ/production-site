@@ -11,9 +11,36 @@ Todo serviço em `apps/<service>` possui um `deploy.sh` (nginx usa `publish.sh`)
 
 ```bash
 # Executar UMA VEZ por sessão (configura oci-builder + tunnels + auth)
-cd ~/production-site
+cd ~/production-site-cursor
 source oci-k8s-cluster/scripts/setup-dev-deploy.sh
-export KUBECONFIG=~/production-site/oci-k8s-cluster/kubeconfig_tunnel.yaml
+export KUBECONFIG=~/production-site-cursor/oci-k8s-cluster/kubeconfig_tunnel.yaml
+```
+
+## Pré-voo obrigatório (antes de build/push)
+
+**Sempre** rodar antes de deploy em recovery ou entrega crítica:
+
+```bash
+bash scripts/harness/validate_deploy_readiness.sh --namespace default --cleanup-evicted
+# Node com @dnorio:
+bash scripts/harness/validate_deploy_readiness.sh --npmrc apps/back-end/.npmrc --hetzner
+```
+
+Biblioteca compartilhada (chamada automaticamente por `deploy-buildx.sh` salvo `DEPLOY_SKIP_PREFLIGHT=1`):
+
+| Check | O que evita |
+| ----- | ----------- |
+| Nexus API + PVC % | 500/503 npm, `No space left on device` |
+| Quota namespace | rollout bloqueado (`FailedCreate`) |
+| DiskPressure | evictions em cascata |
+| ImagePullBackOff | imagens ausentes no registry |
+| npm ping + `NODE_OPTIONS=--use-openssl-ca` | `Exit handler never called` / E401 no Hetzner |
+| `.npmrc` presente | build Node sem auth |
+
+Pós-deploy stack dnor.io:
+
+```bash
+bash scripts/harness/validate_site_stack.sh
 ```
 
 ## Pré-voo (antes de build/push — evitar falha após 20+ min)
@@ -56,10 +83,24 @@ dev local ──(SSH socket fwd)──► buildkitd ARM64 (oci-k8s-master)
 | `docker login` local          | `localhost:31444`      | Via tunnel SSH `-L 31444:localhost:31444 oci-k8s-master`                      |
 | Pull secret                   | `regsecret`            | **`create_registry_secret.sh <namespace> \| kubectl apply -f -`** imprime só YAML; aplique assim no namespace (**deve existir**): `~/production-site/components/nexus/create_registry_secret.sh`. |
 
+> **Hetzner builder (padrão)**: `oci-k8s-cluster/scripts/lib/deploy-buildx.sh` — `--load` na Hetzner + `docker push localhost:31444`. **Nunca** `--add-host=nexus.dnor.io:10.0.1.100` no path Hetzner (IP interno OCI inacessível).
+>
+> **Node/npm no Docker**: `ENV NODE_OPTIONS=--use-openssl-ca`; montar `.npmrc` via `--secret id=npmrc`; remover `cafile=` do npmrc no Dockerfile. Master-only: `--add-host=nexus.dnor.io:10.0.1.100`.
+
 > **IMPORTANTE**: `oci-builder` é um buildx remote driver apontando para o buildkitd do master.  
 > Não é binfmt local — é execução nativa ARM64 no nó.
 
-## Padrão Canônico
+## Padrão Canônico (preferir lib compartilhada)
+
+```bash
+# apps/<service>/deploy.sh (bash)
+source "$REPO_ROOT/oci-k8s-cluster/scripts/lib/deploy-buildx.sh"
+deploy_select_buildx_builder
+deploy_buildx_push_images "$SERVICE" "$IMAGE_TAG" "$IMAGE_LATEST" "$CONTEXT_DIR" -- [buildx extras]
+kubectl apply -f ./k8s/<service>.yaml
+```
+
+Legado mínimo (evitar em apps novos):
 
 ```sh
 #!/bin/sh

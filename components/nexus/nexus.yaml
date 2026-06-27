@@ -30,10 +30,10 @@ spec:
             httpGet:
               path: /service/rest/v1/status
               port: 8081
-            initialDelaySeconds: 15
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 60
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 90
             successThreshold: 1
           readinessProbe:
             httpGet:
@@ -46,14 +46,14 @@ spec:
             successThreshold: 1
           env:
             - name: INSTALL4J_ADD_VM_PARAMS
-              value: "-Xms768m -Xmx1280m -XX:MaxDirectMemorySize=256m -XX:MaxMetaspaceSize=192m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
+              value: "-Xms768m -Xmx1536m -XX:MaxDirectMemorySize=256m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
           resources:
             requests:
-              cpu: 50m # was 80m, reduced to fit k8s-node-3 requests
-              memory: 768Mi
+              cpu: 50m
+              memory: 1536Mi
             limits:
               cpu: 600m
-              memory: 2Gi
+              memory: 3072Mi
               ephemeral-storage: 8Gi
           volumeMounts:
             - mountPath: /nexus-data
@@ -70,7 +70,7 @@ spec:
           persistentVolumeClaim:
             claimName: nexus-pvc
       nodeSelector:
-        kubernetes.io/hostname: k8s-node-2
+        kubernetes.io/hostname: k8s-node-1
       tolerations:
         - key: "node.kubernetes.io/disk-pressure"
           operator: "Exists"

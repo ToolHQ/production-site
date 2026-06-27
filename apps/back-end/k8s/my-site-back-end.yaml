@@ -17,7 +17,7 @@ spec:
         - name: regsecret
       containers:
         - name: my-site-back-end
-          image: registry.local:31444/repository/docker-repo/my-site-back-end:1776082432
+          image: registry.local:31444/repository/docker-repo/my-site-back-end:1782599585
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

@@ -4,3 +4,5 @@ node_modules
 .env
 Dockerfile
 deploy.sh
+# .npmrc is gitignored but required for npm ci (Nexus auth)
+!.npmrc
