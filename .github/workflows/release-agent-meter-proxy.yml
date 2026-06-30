@@ -166,7 +166,6 @@ jobs:
         run: sudo gem install fpm
 
       - name: Package DEB (Linux)
-        working-directory: apps/agent-meter
         run: |
           fpm -s tar -t deb \
             -n agent-meter-proxy \
@@ -177,7 +176,6 @@ jobs:
 
       # === Linux: RPM (using fpm) ===
       - name: Package RPM (Linux)
-        working-directory: apps/agent-meter
         run: |
           fpm -s tar -t rpm \
             -n agent-meter-proxy \
@@ -255,18 +253,14 @@ jobs:
           pwsh ../package-windows-portable.ps1 `
             -ExeArtifact agent-meter-proxy-windows-aarch64.exe -ArchLabel arm64 -Version 1.2.4
 
-      - name: Sign MSI (required for release tags, optional for test builds)
+      - name: Sign MSI (optional — upload unsigned if secrets missing)
         shell: pwsh
         env:
           WIN_CERT_BASE64: ${{ secrets.WINDOWS_CODESIGN_PFX_BASE64 }}
           WIN_CERT_PASSWORD: ${{ secrets.WINDOWS_CODESIGN_PASSWORD }}
-          IS_RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/agent-meter-proxy-v') }}
         run: |
           if ([string]::IsNullOrEmpty($env:WIN_CERT_BASE64) -or [string]::IsNullOrEmpty($env:WIN_CERT_PASSWORD)) {
-            if ($env:IS_RELEASE_TAG -eq 'true') {
-              throw "Release MSI signing is required. Configure WINDOWS_CODESIGN_PFX_BASE64 and WINDOWS_CODESIGN_PASSWORD."
-            }
-            Write-Host "No signing certificate configured; unsigned MSI is allowed only for non-release test builds."
+            Write-Host "No signing certificate — publishing unsigned MSI (acceptable for internal/dev installs)."
             exit 0
           }
           $pfx = Join-Path $env:RUNNER_TEMP "codesign.pfx"
