@@ -127,6 +127,7 @@ jobs:
             agent-meter-proxy_*.tgz
             agent-meter-proxy-*.dmg
             agent-meter-proxy-*.msi
+            agent-meter-proxy-*-windows-*.zip
           generate_release_notes: true
 
   # ============================================================
@@ -169,7 +170,7 @@ jobs:
           # Create DEB for x86_64
           fpm -s tar -t deb \
             -n agent-meter-proxy \
-            -v 1.2.3 \
+            -v 1.2.4 \
             -a amd64 \
             --prefix /usr/bin \
             --before-install scripts/release/package-linux.sh \
@@ -181,7 +182,7 @@ jobs:
           # Create RPM for x86_64
           fpm -s tar -t rpm \
             -n agent-meter-proxy \
-            -v 1.2.3 \
+            -v 1.2.4 \
             -a x86_64 \
             --prefix /usr/bin \
             --before-install scripts/release/package-linux.sh \
@@ -216,6 +217,13 @@ jobs:
           merge-multiple: true
           path: apps/agent-meter/scripts/release/wix
 
+      - name: Generate WiX branding assets
+        shell: pwsh
+        working-directory: apps/agent-meter/scripts/release/wix
+        run: |
+          pip install pillow
+          python gen_assets.py
+
       - name: Install WiX toolset + extensions
         shell: pwsh
         run: |
@@ -223,21 +231,35 @@ jobs:
           wix extension add -g WixToolset.UI.wixext/5.0.0
           wix extension add -g WixToolset.Util.wixext/5.0.0
 
-      - name: Build MSI x64 (wizard)
+      - name: Build MSI x64 (wizard + EULA)
         shell: pwsh
         run: |
           wix build ProductUI.wxs `
             -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext `
-            -arch x64 -d "ProxyExe=agent-meter-proxy-windows-x86_64.exe" `
-            -o agent-meter-proxy-1.2.3-x64.msi
+            -arch x64 `
+            -d "ProxyExe=agent-meter-proxy-windows-x86_64.exe" `
+            -d "UtilCA=Wix4UtilCA_X64" `
+            -d "UtilQuietExec=WixQuietExec64" `
+            -o agent-meter-proxy-1.2.4-x64.msi
 
-      - name: Build MSI ARM64 (wizard)
+      - name: Build MSI ARM64 (wizard + EULA)
         shell: pwsh
         run: |
           wix build ProductUI.wxs `
             -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext `
-            -arch arm64 -d "ProxyExe=agent-meter-proxy-windows-aarch64.exe" `
-            -o agent-meter-proxy-1.2.3-arm64.msi
+            -arch arm64 `
+            -d "ProxyExe=agent-meter-proxy-windows-aarch64.exe" `
+            -d "UtilCA=Wix4UtilCA_Arm64" `
+            -d "UtilQuietExec=WixQuietExec" `
+            -o agent-meter-proxy-1.2.4-arm64.msi
+
+      - name: Package portable ZIP (x64 + ARM64)
+        shell: pwsh
+        run: |
+          pwsh ../package-windows-portable.ps1 `
+            -ExeArtifact agent-meter-proxy-windows-x86_64.exe -ArchLabel x64 -Version 1.2.4
+          pwsh ../package-windows-portable.ps1 `
+            -ExeArtifact agent-meter-proxy-windows-aarch64.exe -ArchLabel arm64 -Version 1.2.4
 
       - name: Sign MSI (required for release tags, optional for test builds)
         shell: pwsh
@@ -258,7 +280,7 @@ jobs:
           $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" |
             Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $signtool) { throw "signtool.exe not found on runner" }
-          foreach ($msi in Get-ChildItem -Filter "agent-meter-proxy-1.2.3-*.msi") {
+          foreach ($msi in Get-ChildItem -Filter "agent-meter-proxy-1.2.4-*.msi") {
             & $signtool.FullName sign /f $pfx /p $env:WIN_CERT_PASSWORD `
               /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $msi.FullName
             & $signtool.FullName verify /pa /v $msi.FullName
@@ -269,5 +291,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-msi
-          path: apps/agent-meter/scripts/release/wix/agent-meter-proxy-1.2.3-*.msi
+          path: |
+            apps/agent-meter/scripts/release/wix/agent-meter-proxy-1.2.4-*.msi
+            apps/agent-meter/scripts/release/wix/agent-meter-proxy-1.2.4-windows-*.zip
           retention-days: 5
