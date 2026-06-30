@@ -27,3 +27,10 @@ archive/aws-ec2-fleet-01/*.zip
 !archive/aws-ec2-fleet-01/checksums.sha256
 tools/citools/target/
 tasks/audit-ui/
+
+# Agent Meter SDK
+apps/agent-meter/sdk/node/dist/
+apps/agent-meter/sdk/node/node_modules/
+
+# Temp files
+tmp/*.png

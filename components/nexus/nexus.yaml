@@ -18,7 +18,7 @@ spec:
       containers:
         - name: nexus
           image: "sonatype/nexus3:3.91.1-alpine"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8081
               protocol: TCP
@@ -28,33 +28,37 @@ spec:
               protocol: TCP
           startupProbe:
             httpGet:
-              path: /service/rest/v1/status
+              path: /
               port: 8081
-            initialDelaySeconds: 15
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 60
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 40
             successThreshold: 1
           readinessProbe:
             httpGet:
-              path: /service/rest/v1/status
+              path: /
               port: 8081
-            initialDelaySeconds: 5
+            initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
             successThreshold: 1
           env:
             - name: INSTALL4J_ADD_VM_PARAMS
-              value: "-Xms768m -Xmx1280m -XX:MaxDirectMemorySize=256m -XX:MaxMetaspaceSize=192m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
+              value: "-Xms512m -Xmx1024m -XX:MaxMetaspaceSize=256m -Xss256k -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.net.preferIPv4Stack=true"
+            - name: NEXUS_SECURITY_RANDOMPASSWORD
+              value: "false"
+            - name: NEXUS_EULA_AGREED
+              value: "3.91.1"
           resources:
             requests:
-              cpu: 50m # was 80m, reduced to fit k8s-node-3 requests
-              memory: 768Mi
+              cpu: 100m
+              memory: 1Gi
             limits:
-              cpu: 600m
+              cpu: 500m
               memory: 2Gi
-              ephemeral-storage: 8Gi
+              ephemeral-storage: 4Gi
           volumeMounts:
             - mountPath: /nexus-data
               name: nexusdata
@@ -70,11 +74,17 @@ spec:
           persistentVolumeClaim:
             claimName: nexus-pvc
       nodeSelector:
-        kubernetes.io/hostname: k8s-node-2
+        kubernetes.io/hostname: k8s-node-1
       tolerations:
         - key: "node.kubernetes.io/disk-pressure"
           operator: "Exists"
           effect: "NoSchedule"
+        - key: "node.kubernetes.io/not-ready"
+          operator: "Exists"
+          effect: "NoExecute"
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
 ---
 apiVersion: v1
 kind: Service
@@ -93,13 +103,18 @@ spec:
       protocol: TCP
     - name: docker-tcp-port
       port: 18444
-      targetPort: 18444
+      targetPort: 8081
       nodePort: 31444 # Explicit NodePort for Docker HTTP
       protocol: TCP
     - name: docker-tcp-port-https
       port: 18445
-      targetPort: 18445
+      targetPort: 8081
       nodePort: 31445 # Explicit NodePort for Docker HTTPS
+      protocol: TCP
+    - name: docker-http
+      port: 18082
+      targetPort: 8082
+      nodePort: 32082
       protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
