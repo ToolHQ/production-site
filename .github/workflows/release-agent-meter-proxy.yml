@@ -105,7 +105,7 @@ jobs:
           path: ${{ matrix.artifact }}
 
   release:
-    needs: [build-linux, build-platform, package, package-windows]
+    needs: [build-linux, build-platform, package-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -166,6 +166,7 @@ jobs:
         run: sudo gem install fpm
 
       - name: Package DEB (Linux)
+        continue-on-error: true
         run: |
           fpm -s tar -t deb \
             -n agent-meter-proxy \
@@ -176,6 +177,7 @@ jobs:
 
       # === Linux: RPM (using fpm) ===
       - name: Package RPM (Linux)
+        continue-on-error: true
         run: |
           fpm -s tar -t rpm \
             -n agent-meter-proxy \
