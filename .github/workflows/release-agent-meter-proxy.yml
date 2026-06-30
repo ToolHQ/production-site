@@ -166,26 +166,24 @@ jobs:
         run: sudo gem install fpm
 
       - name: Package DEB (Linux)
+        working-directory: apps/agent-meter
         run: |
-          # Create DEB for x86_64
           fpm -s tar -t deb \
             -n agent-meter-proxy \
             -v 1.2.4 \
             -a amd64 \
             --prefix /usr/bin \
-            --before-install scripts/release/package-linux.sh \
             agent-meter-proxy-linux-x86_64=agent-meter-proxy
 
       # === Linux: RPM (using fpm) ===
       - name: Package RPM (Linux)
+        working-directory: apps/agent-meter
         run: |
-          # Create RPM for x86_64
           fpm -s tar -t rpm \
             -n agent-meter-proxy \
             -v 1.2.4 \
             -a x86_64 \
             --prefix /usr/bin \
-            --before-install scripts/release/package-linux.sh \
             agent-meter-proxy-linux-x86_64=agent-meter-proxy
 
       # === Upload Linux packages ===
@@ -238,8 +236,6 @@ jobs:
             -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext `
             -arch x64 `
             -d "ProxyExe=agent-meter-proxy-windows-x86_64.exe" `
-            -d "UtilCA=Wix4UtilCA_X64" `
-            -d "UtilQuietExec=WixQuietExec64" `
             -o agent-meter-proxy-1.2.4-x64.msi
 
       - name: Build MSI ARM64 (wizard + EULA)
@@ -249,8 +245,6 @@ jobs:
             -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext `
             -arch arm64 `
             -d "ProxyExe=agent-meter-proxy-windows-aarch64.exe" `
-            -d "UtilCA=Wix4UtilCA_Arm64" `
-            -d "UtilQuietExec=WixQuietExec" `
             -o agent-meter-proxy-1.2.4-arm64.msi
 
       - name: Package portable ZIP (x64 + ARM64)
