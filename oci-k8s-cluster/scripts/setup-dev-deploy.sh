@@ -227,7 +227,22 @@ else
     warn "Nao foi possivel preparar bundle CA local; checks HTTPS internos podem exigir --cacert manual"
 fi
 
-# ─── 8. Status final ──────────────────────────────────────────────────────────
+# ─── 8. agent-meter-proxy (captura Cursor/Codex — sem HTTP_PROXY global) ───────
+info "Garantindo agent-meter-proxy em :8898..."
+HTTPS_PROXY_SCRIPT="$REPO_ROOT/apps/agent-meter/scripts/setup-https-proxy.sh"
+if [[ -f "$HTTPS_PROXY_SCRIPT" ]]; then
+  # Não exportar HTTP_PROXY global — quebra docker build/pull
+  unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy 2>/dev/null || true
+  AGENT_METER_BASE_URL="${AGENT_METER_BASE_URL:-https://agent-meter.dnor.io}" \
+  AGENT_METER_COLLECTOR_URL="${AGENT_METER_COLLECTOR_URL:-https://agent-meter.dnor.io}" \
+    bash "$HTTPS_PROXY_SCRIPT" --ensure-only 2>/dev/null && \
+    ok "agent-meter-proxy :8898 ativo" || \
+    warn "agent-meter-proxy não iniciado (rode: bash $HTTPS_PROXY_SCRIPT)"
+else
+  warn "setup-https-proxy.sh não encontrado"
+fi
+
+# ─── 9. Status final ──────────────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
 echo "║         OCI Deploy Environment — Status          ║"
@@ -251,6 +266,9 @@ printf "║  %-20s  %-25s ║\n" "registry auth" "$REGISTRY $AUTH_STATUS"
 # CA bundle
 CA_STATUS="$( [ -f "$COMBINED_CA_BUNDLE" ] && echo 'READY' || echo 'MISSING' )"
 printf "║  %-20s  %-25s ║\n" "local CA bundle" "$CA_STATUS"
+
+PROXY_STATUS="$(ss -tlnp 2>/dev/null | grep -c ':8898' | tr -d ' ')"
+printf "║  %-20s  %-25s ║\n" "agent-meter-proxy" "$([ "$PROXY_STATUS" -gt 0 ] && echo ':8898 ATIVO' || echo ':8898 INATIVO')"
 
 echo "╠══════════════════════════════════════════════════╣"
 echo "║  Para deployar:                                  ║"
