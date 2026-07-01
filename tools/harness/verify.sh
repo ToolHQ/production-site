@@ -175,6 +175,7 @@ path_is_non_blocking_meta() {
 		components/ssdnodes/jenkins/Jenkinsfile.generic | \
 		components/ssdnodes/jenkins/Jenkinsfile.deploy | \
 		components/ssdnodes/jenkins/bootstrap-ci-job.groovy | \
+		components/ssdnodes/jenkins/bootstrap-agent-meter-oss-job.groovy | \
 		components/ssdnodes/jenkins/bootstrap-deploy-job.groovy | \
 		components/ssdnodes/jenkins/pipeline-deploy.yaml | \
 		components/ssdnodes/jenkins/README.md | \
