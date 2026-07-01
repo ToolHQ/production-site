@@ -69,6 +69,13 @@ bash scripts/harness/validate_ssdnodes_ci.sh
    - Jenkinsfile: `components/ssdnodes/jenkins/Jenkinsfile.generic`
    - Descobre branches via `BranchDiscoveryTrait`
 
+5. **Multibranch job** `agent-meter-oss` (T-365)
+   - Fonte: Git `dnorio/agent-meter`
+   - Jenkinsfile: `Jenkinsfile` (raiz do repo OSS)
+   - Status GitHub: `jenkins/agent-meter`
+   - Seed: `bash oci-k8s-cluster/scripts/ssdnodes/seed_jenkins_agent_meter_oss_job.sh`
+   - URL: https://jenkins.ssdnodes.dnor.io/job/agent-meter-oss/
+
 ## Variáveis no Jenkinsfile
 
 | Env | Origem | Uso |

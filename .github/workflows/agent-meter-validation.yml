@@ -1,86 +1,16 @@
-name: Agent Meter Validation Harness
+# Aposentado (T-365): validação OTLP no Jenkins (pipeline.yaml → agent-meter-validate)
+# Emergência manual apenas.
+
+name: Agent Meter Validation (retired — use Jenkins)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/agent-meter/**"
-      - ".github/workflows/agent-meter-validation.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "apps/agent-meter/**"
-      - ".github/workflows/agent-meter-validation.yml"
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-  validate-agent-meter:
-    name: Validate OTLP regressions by agent
-    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","Linux","ARM64","hetzner-ci"]') }}
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: agent_meter
-          POSTGRES_PASSWORD: agent_meter
-          POSTGRES_DB: agent_meter
-          POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C.UTF-8"
-        ports:
-          - 54321:5432
-        options: >-
-          --health-cmd "pg_isready -U agent_meter -d agent_meter"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-    env:
-      DATABASE_URL: postgres://agent_meter:agent_meter@localhost:54321/agent_meter
-      RUST_BACKTRACE: 1
+  retired:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            apps/agent-meter/target
-          key: agent-meter-cargo-${{ hashFiles('apps/agent-meter/Cargo.lock') }}
-          restore-keys: |
-            agent-meter-cargo-
-
-      - name: Install PostgreSQL client
-        run: |
-          if ! command -v psql >/dev/null || ! command -v pg_isready >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y postgresql-client
-          fi
-
-      - name: Wait for Postgres
-        run: |
-          for i in $(seq 1 30); do
-            if command -v pg_isready >/dev/null && pg_isready -h localhost -p 54321 -U agent_meter -d agent_meter; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Postgres service not ready"
+      - run: |
+          echo "::error::Use Jenkins production-site multibranch — stage Agent Meter OTLP."
+          echo "https://jenkins.ssdnodes.dnor.io/job/production-site/"
           exit 1
-
-      - name: Apply SQL migrations
-        run: |
-          for f in apps/agent-meter/migrations/*.sql; do
-            echo "Applying migration: $f"
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
-          done
-
-      - name: Run validation harness
-        run: |
-          chmod +x apps/agent-meter/scripts/validate_*.sh
-          bash apps/agent-meter/scripts/validate_all_agents.sh
