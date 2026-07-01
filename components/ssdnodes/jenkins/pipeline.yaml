@@ -18,6 +18,12 @@ stages:
     description: Harness path-aware vs origin/main (shell, rust, bats, js, yaml, citools)
     run: ./components/ssdnodes/jenkins/scripts/verify-branch-ci.sh
 
+  - id: agent-meter-validate
+    stageName: Agent Meter OTLP
+    description: OTLP regression + validate_* scripts (substitui agent-meter-validation.yml)
+    whenPaths: apps/agent-meter/**
+    run: ./components/ssdnodes/jenkins/scripts/agent-meter-validate-ci.sh
+
   - id: codeql
     stageName: CodeQL
     description: Análise estática JS/TS + Python → GitHub Security

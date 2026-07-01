@@ -57,6 +57,28 @@ Ver [CITOOLS-DEPLOY-BACKLOG.md](CITOOLS-DEPLOY-BACKLOG.md)
 | T-324…T-329 | agent-meter UX/traces | Copilot |
 | T-233 | VSCode OTLP doc | OpenCode |
 
+## Epic agent-meter OSS (frente open-source rápida — novo 2026-06-30)
+
+> **T-365** CI $0: Jenkins SSDNodes + webhook (`jenkins/agent-meter`). GHA aposentado.
+> Plano: [AGENT-METER-OSS-PLAN.md](AGENT-METER-OSS-PLAN.md) · Destino: `dnorio/agent-meter`
+
+| Fase | IDs | Tarefa | Status |
+| :--- | :-- | :----- | :----- |
+| A | AMOSS-1…5 | Extração de história (`filter-repo`) + scrub segredos/dnor.io + push | ✅ |
+| B | AMOSS-6…11 | Binário standalone SQLite (sem SaaS), UI enxuta, "sobe e abre localhost" | ✅ |
+| C | AMOSS-13/14/15 | CI + README/LICENSE OSS + `demo` seed nativo | ✅ |
+| C | **AMOSS-12** | Release multiplataforma (binários) | ⏳ bloqueado (coordenar c/ frente Windows-proxy) |
+| — | Polish 06-30 (PM) | README c/ screenshots reais + fix nav hardcoded, `calls_over_time`/`top_tasks` SQLite, `usd_cost` estimado no ingest, timeline tokens/custo | ✅ |
+
+### Backlog OSS restante (Cursor / AI Radar)
+| ID | Tarefa | Prioridade |
+| :- | :----- | :--------- |
+| AMOSS-12 | Release: tag `v0.1.0` + **T-365 Fase 3** Jenkins release job (sem GHA macos) | 🔼 High |
+| AMOSS-16 | ✅ `install.sh`/`install.ps1` OSS — commit `e3ee14f` | 🔼 High |
+| AMOSS-17 | ✅ Admin: DELETE conversation + POST reset | 🔵 Medium |
+| AMOSS-18 | ✅ Burn-rate SQLite + Cost page sem refs SaaS | 🔵 Medium |
+| AMOSS-19 | ✅ Clippy closures SQLite | 🟢 Low |
+
 ## Fase 23 — Fontes & trends (AI Radar)
 
 | # | ID | Tarefa | Status |

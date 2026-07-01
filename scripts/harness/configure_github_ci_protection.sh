@@ -18,8 +18,22 @@ DRY_RUN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --dry-run) DRY_RUN=true; shift ;;
+  --repo)
+    REPO="${2:?--repo requires owner/name}"
+    shift 2
+    ;;
+  --context)
+    STATUS_CONTEXT="${2:?--context requires name}"
+    shift 2
+    ;;
   -h | --help)
-    echo "Uso: $0 [--dry-run]"
+    cat <<EOF
+Uso: $0 [--dry-run] [--repo owner/name] [--context jenkins/...]
+
+Exemplos:
+  $0 --repo ToolHQ/production-site --context jenkins/citools
+  $0 --repo dnorio/agent-meter --context jenkins/agent-meter
+EOF
     exit 0
     ;;
   *) echo "argumento desconhecido: $1" >&2; exit 2 ;;

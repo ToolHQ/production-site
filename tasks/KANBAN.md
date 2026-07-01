@@ -35,6 +35,22 @@
 
 ---
 
+## ⚡ Epic: Zero GitHub Actions — Jenkins SSDNodes only (T-365)
+
+> **Meta**: **$0** em minutos GitHub Actions. Todo CI/release vira **webhook → Jenkins** na SSDNodes
+> com commit status (`jenkins/citools`, `jenkins/agent-meter`) para branch protection.
+> Plano: [T-365](2026/Q2/T-365-EPIC-zero-github-actions-jenkins-webhooks.md) · Runbook: [docs/ci-zero-github-actions.md](../docs/ci-zero-github-actions.md)
+
+| ID | Task | Priority | Owner | Est. |
+| :- | :--- | :------: | :---- | :--: |
+| [T-365](2026/Q2/T-365-EPIC-zero-github-actions-jenkins-webhooks.md) | **Épico CI $0** _(aposentar GHA push/PR/tag; Jenkins multibranch + webhooks; release na SSDNodes)_ | 🚨 Critical | **Cursor / AI Radar** | 2–3d |
+
+**Fase 1 (código)**: GHA → `workflow_dispatch` only; `Jenkinsfile` OSS; seed `agent-meter-oss`; stage OTLP no `pipeline.yaml`.
+
+**Fase 2 (ops)**: `seed_jenkins_agent_meter_oss_job.sh` + `configure_github_ci_protection.sh --repo dnorio/agent-meter`.
+
+---
+
 ## 🏎️ In Progress
 
 |                                         ID                                          | Task Name                                                                                                          | Priority  |         Owner         | Est. |
